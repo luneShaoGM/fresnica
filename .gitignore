@@ -1,0 +1,12 @@
+node_modules/
+Pods/
+DerivedData/
+.gradle/
+.env
+.env.*
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+.DS_Store
+coverage/
