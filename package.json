@@ -1,0 +1,35 @@
+{
+  "name": "fresnica",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "start": "react-native start",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "jest"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^14.5.0",
+    "react": "19.2.0",
+    "react-native": "0.87.0"
+  },
+  "devDependencies": {
+    "@react-native-community/cli": "latest",
+    "@react-native/babel-preset": "0.87.0",
+    "@react-native/eslint-config": "0.87.0",
+    "@react-native/metro-config": "0.87.0",
+    "@react-native/typescript-config": "0.87.0",
+    "@types/jest": "^30.0.0",
+    "@types/react": "^19.2.0",
+    "eslint": "^9.0.0",
+    "jest": "^30.0.0",
+    "prettier": "^3.6.0",
+    "typescript": "^5.9.0"
+  }
+}
