@@ -15,7 +15,7 @@
     "node": ">=22.13.0"
   },
   "dependencies": {
-    "@stellar/stellar-sdk": "^14.5.0",
+    "@stellar/stellar-sdk": "^17.0.0",
     "react": "19.2.0",
     "react-native": "0.87.0"
   },
