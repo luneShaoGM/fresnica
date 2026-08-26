@@ -3,7 +3,7 @@ export const FRESNICA_ADAPTER_REQUIREMENTS = Object.freeze({
   framework: 'react-native',
   frameworkVersion: '0.87.0',
   adapterSourceVersion: '0.2.0',
-  fresnicaNativeSdkVersion: '0.2.0',
+  fresnicaNativeSdkVersion: '0.2.1',
   nativeBindingApiVersion: 2,
   jsModuleName: 'FresnicaCore',
 } as const);
