@@ -1,7 +1,7 @@
 const { readFileSync } = require('fs');
 
 function readAndroidRootBuildGradle(): string {
-  return readFileSync(`${process.cwd()}/android/build.gradle`, 'utf8');
+  return readFileSync('android/build.gradle', 'utf8');
 }
 
 describe('Android native compatibility', () => {
