@@ -9,7 +9,7 @@ describe('Fresnica adapter compatibility', () => {
     framework: 'react-native',
     frameworkVersion: '0.87.0',
     adapterSourceVersion: '0.2.0',
-    fresnicaNativeSdkVersion: '0.2.0',
+    fresnicaNativeSdkVersion: '0.2.1',
     nativeBindingApiVersion: 2,
     jsModuleName: 'FresnicaCore',
   } as const;
@@ -26,7 +26,7 @@ describe('Fresnica adapter compatibility', () => {
   it.each([
     ['frameworkVersion', '0.88.0'],
     ['adapterSourceVersion', '0.2.1'],
-    ['fresnicaNativeSdkVersion', '0.2.1'],
+    ['fresnicaNativeSdkVersion', '0.2.0'],
     ['nativeBindingApiVersion', 3],
     ['jsModuleName', 'OtherModule'],
   ] as const)('rejects a %s mismatch', (field, value) => {
