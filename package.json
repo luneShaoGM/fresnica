@@ -12,6 +12,9 @@
     "react-native": "0.87.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.3",
+    "@babel/runtime": "^7.25.0",
     "@react-native/babel-preset": "0.87.0",
     "@react-native/jest-preset": "0.87.0",
     "@react-native/typescript-config": "0.87.0",
