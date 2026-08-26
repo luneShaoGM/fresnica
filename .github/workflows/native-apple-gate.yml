@@ -1,0 +1,126 @@
+name: Native Apple Gate
+
+on:
+  push:
+    branches:
+      - work/rn087-native-shell
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apple:
+    runs-on: macos-15
+    steps:
+      - name: Checkout Fresnica Mobile
+        uses: actions/checkout@v4
+
+      - name: Checkout Fresnica SDK source
+        uses: actions/checkout@v4
+        with:
+          repository: manran/fresnica
+          ref: native-sdk-v0.2.1
+          path: .fresnica-upstream
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Install JavaScript dependencies
+        run: npm install
+
+      - name: Verify TypeScript and unit tests
+        run: npm run check
+
+      - name: Download and verify Fresnica Native SDK 0.2.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p vendor/fresnica/native vendor/fresnica/adapter/react-native
+          curl --fail --location --retry 3 \
+            --output "$RUNNER_TEMP/FresnicaSDK-0.2.1-apple.zip" \
+            https://github.com/manran/fresnica/releases/download/native-sdk-v0.2.1/FresnicaSDK-0.2.1-apple.zip
+          curl --fail --location --retry 3 \
+            --output "$RUNNER_TEMP/SHA256SUMS" \
+            https://github.com/manran/fresnica/releases/download/native-sdk-v0.2.1/SHA256SUMS
+          expected="$(grep 'FresnicaSDK-0.2.1-apple.zip' "$RUNNER_TEMP/SHA256SUMS" | awk '{print $1}')"
+          test "$expected" = "dccb756ca034a42df760114031ea2abf7b0e95cabebda6fe536c29f1dcd5a3d2"
+          actual="$(shasum -a 256 "$RUNNER_TEMP/FresnicaSDK-0.2.1-apple.zip" | awk '{print $1}')"
+          test "$actual" = "$expected"
+
+          extract_dir="$RUNNER_TEMP/fresnica-apple-sdk"
+          rm -rf "$extract_dir"
+          mkdir -p "$extract_dir"
+          unzip -q "$RUNNER_TEMP/FresnicaSDK-0.2.1-apple.zip" -d "$extract_dir"
+          sdk="$(find "$extract_dir" -type d -name FresnicaSDK.xcframework -print -quit)"
+          ffi="$(find "$extract_dir" -type d -name FresnicaSDKFFI.xcframework -print -quit)"
+          test -n "$sdk"
+          test -n "$ffi"
+          rm -rf vendor/fresnica/native/FresnicaSDK.xcframework vendor/fresnica/native/FresnicaSDKFFI.xcframework
+          cp -R "$sdk" vendor/fresnica/native/FresnicaSDK.xcframework
+          cp -R "$ffi" vendor/fresnica/native/FresnicaSDKFFI.xcframework
+
+      - name: Bootstrap React Native CocoaPods
+        working-directory: ios
+        env:
+          FRESNICA_ADAPTER_BOOTSTRAP: '1'
+        run: bundle exec pod install
+
+      - name: Build canonical React Native Apple adapter
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .fresnica-upstream/adapters/react-native/tooling/fresnica-adapter.mjs \
+            build react-native \
+            --platform apple \
+            --project "$GITHUB_WORKSPACE" \
+            --native-apple-sdk-xcframework "$GITHUB_WORKSPACE/vendor/fresnica/native/FresnicaSDK.xcframework" \
+            --native-apple-ffi-xcframework "$GITHUB_WORKSPACE/vendor/fresnica/native/FresnicaSDKFFI.xcframework" \
+            --out "$GITHUB_WORKSPACE/vendor/fresnica/adapter/react-native"
+
+      - name: Validate adapter manifest and slices
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .fresnica-upstream/adapters/react-native/tooling/adapter-manifest.mjs check \
+            --project "$GITHUB_WORKSPACE" \
+            --manifest "$GITHUB_WORKSPACE/vendor/fresnica/adapter/react-native/adapter-manifest.json"
+          bash .fresnica-upstream/adapters/react-native/apple/validate-consumer.sh \
+            "$GITHUB_WORKSPACE" \
+            "$GITHUB_WORKSPACE/vendor/fresnica/native"
+
+      - name: Link Fresnica native pod
+        working-directory: ios
+        run: bundle exec pod install
+
+      - name: Build iOS simulator app
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace ios/Fresnica.xcworkspace \
+            -scheme Fresnica \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Upload generated Apple native artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: fresnica-apple-native-integration
+          if-no-files-found: error
+          path: |
+            vendor/fresnica/native/FresnicaSDK.xcframework
+            vendor/fresnica/native/FresnicaSDKFFI.xcframework
+            vendor/fresnica/adapter/react-native/FresnicaRNAdapter.xcframework
+            vendor/fresnica/adapter/react-native/adapter-manifest.json
