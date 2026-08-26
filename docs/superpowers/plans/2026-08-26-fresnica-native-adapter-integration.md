@@ -2,18 +2,20 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Integrate the canonical Fresnica Native SDK v0.2.0 React Native adapter contract into `fresnica-mobile` without exposing secret/unlock-key internals to JavaScript.
+**Goal:** Integrate the canonical Fresnica Native SDK v0.2.1 React Native adapter contract into `fresnica-mobile` without exposing secret/unlock-key internals to JavaScript.
 
 **Architecture:** Keep the app-facing `FresnicaCore` interface in TypeScript, backed by a narrow React Native `NativeModules.FresnicaCore` wrapper. Pin the framework/native/adapter versions in one compatibility descriptor and validate generated adapter metadata before native builds. Binary AAR/XCFramework generation remains a one-time consumer-environment build step and is not emulated in JavaScript.
 
-**Tech Stack:** React Native 0.87.0, React 19.2.3, TypeScript, Fresnica Native SDK 0.2.0, Native Binding API 2, React Native canonical adapter source 0.2.0.
+**Tech Stack:** React Native 0.87.0, React 19.2.3, TypeScript, Fresnica Native SDK 0.2.1, Native Binding API 2, React Native canonical adapter source 0.2.0.
+
+**Upstream integration authority:** `manran/fresnica/docs/mobile-sdk-usage.md`
 
 **Spec:** `docs/superpowers/specs/2026-08-26-fresnica-mobile-v1-design.md`
 
 ## Global Constraints
 
 - React Native is pinned to `0.87.0`.
-- Fresnica Native SDK is pinned to `0.2.0`.
+- Fresnica Native SDK is pinned to `0.2.1`.
 - Canonical RN adapter source is pinned to `0.2.0`.
 - Native Binding API is `2`.
 - React Native module name is `FresnicaCore`.
@@ -35,10 +37,10 @@
 - Produces `FRESNICA_ADAPTER_REQUIREMENTS`.
 - Produces `validateAdapterManifest(manifest)` returning a typed success/failure result.
 
-- [ ] Write tests that accept exactly RN 0.87.0 + adapter 0.2.0 + Native SDK 0.2.0 + Native Binding API 2.
-- [ ] Write tests rejecting framework/native/binding mismatches with `adapter-rebuild-required`.
-- [ ] Implement the immutable descriptor and validator.
-- [ ] Document the expected generated binary locations without committing fake binaries.
+- [x] Write tests that accept exactly RN 0.87.0 + adapter 0.2.0 + Native SDK 0.2.1 + Native Binding API 2.
+- [x] Write tests rejecting framework/native/binding mismatches with `adapter-rebuild-required`.
+- [x] Implement the immutable descriptor and validator.
+- [x] Document the expected generated binary locations without committing fake binaries.
 
 ### Task 2: Define raw native module contract
 
@@ -47,10 +49,10 @@
 - Test: `src/core/fresnica/native/__tests__/NativeFresnicaCoreModule.contract.test.ts`
 
 **Interfaces:**
-- Produces `NativeFresnicaCoreModule`, matching the canonical v0.2.0 bridge names and positional arguments.
+- Produces `NativeFresnicaCoreModule`, matching the canonical v0.2.x bridge names and positional arguments.
 
-- [ ] Define the exact bridge operations: account parsing, software-signer lifecycle, external Ed25519 signing, system-auth domain/signer enrollment, system-auth signing and passcode signing.
-- [ ] Assert forbidden APIs (`deriveUnlockKey`, `validateUnlockKey`, generic raw `signTransactionXdr`) are not part of the TypeScript contract.
+- [x] Define the exact bridge operations: account parsing, software-signer lifecycle, external Ed25519 signing, system-auth domain/signer enrollment, system-auth signing and passcode signing.
+- [x] Assert forbidden APIs (`deriveUnlockKey`, `validateUnlockKey`, generic raw `signTransactionXdr`) are not part of the TypeScript contract.
 
 ### Task 3: Implement app-facing React Native wrapper
 
@@ -63,9 +65,9 @@
 - Implements the existing object-input `FresnicaCore` application port.
 - Consumes a `NativeFresnicaCoreModule` dependency so mapping is unit-testable without a native runtime.
 
-- [ ] Write tests proving object inputs map to the canonical positional native calls.
-- [ ] Write tests proving system-auth and passcode signing are separate methods.
-- [ ] Implement only argument/result mapping; no cryptography or fallback signing.
+- [x] Write tests proving object inputs map to the canonical positional native calls.
+- [x] Write tests proving system-auth and passcode signing are separate methods.
+- [x] Implement only argument/result mapping; no cryptography or fallback signing.
 
 ### Task 4: Wire generated adapter artifacts into native projects
 
@@ -74,7 +76,7 @@
 - Generate: `vendor/fresnica/adapter/react-native/fresnica-rn-adapter.aar`.
 - Generate: `vendor/fresnica/adapter/react-native/FresnicaRNAdapter.xcframework`.
 - Generate: `vendor/fresnica/adapter/react-native/adapter-manifest.json`.
-- Vendor/pin Native SDK v0.2.0 Android/Apple release binaries in the native project according to release policy.
+- Vendor/pin Native SDK v0.2.1 Android/Apple release binaries in the native project according to release policy.
 
 **Interfaces:**
 - Android host provides React Android, AndroidX biometric/core/annotation and JNA dependencies declared by the adapter contract.
