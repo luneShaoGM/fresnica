@@ -1,3 +1,4 @@
+import { FresnicaNativeError } from '../FresnicaNativeError';
 import { ReactNativeFresnicaCore } from '../ReactNativeFresnicaCore';
 import type { NativeFresnicaCoreModule } from '../NativeFresnicaCoreModule';
 
@@ -107,5 +108,28 @@ describe('ReactNativeFresnicaCore', () => {
       'GSIGNER',
     );
     expect(result).toEqual({ kind: 'secret', secret: 'SSECRET' });
+  });
+
+  it('normalizes native promise rejections before they reach product code', async () => {
+    const native = createNativeModule();
+    native.signWithSystemAuth.mockRejectedValue({
+      code: 'user-cancel',
+      message: 'Canceled',
+    });
+    const core = new ReactNativeFresnicaCore(native);
+
+    await expect(
+      core.signWithSystemAuth({
+        envelopeJson: '{"v":1}',
+        expectedSignerPublicKey: 'GSIGNER',
+        transactionXdrBase64: 'AAAA',
+        networkPassphrase: 'Test SDF Network ; September 2015',
+        reason: 'Confirm transaction',
+      }),
+    ).rejects.toMatchObject<FresnicaNativeError>({
+      name: 'FresnicaNativeError',
+      code: 'user-cancel',
+      message: 'Canceled',
+    });
   });
 });
