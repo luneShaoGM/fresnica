@@ -1,8 +1,3 @@
-declare const require: (id: string) => {
-  readFileSync(path: string, encoding: string): string;
-};
-declare const process: { cwd(): string };
-
 const { readFileSync } = require('fs');
 
 function readAndroidRootBuildGradle(): string {
