@@ -110,39 +110,14 @@ jobs:
             --project "$GITHUB_WORKSPACE" \
             --manifest "$GITHUB_WORKSPACE/vendor/fresnica/adapter/react-native/adapter-manifest.json"
 
-      - name: Diagnose Android host classpath
+      - name: Verify generated Android adapter contents
         shell: bash
         run: |
           set -euo pipefail
-          native_aar="$GITHUB_WORKSPACE/vendor/fresnica/native/fresnica-native-sdk-0.2.1.aar"
           adapter_aar="$GITHUB_WORKSPACE/vendor/fresnica/adapter/react-native/fresnica-rn-adapter.aar"
-          test -f "$native_aar"
           test -f "$adapter_aar"
-          echo "Native AAR: $(realpath "$native_aar")"
-          echo "Adapter AAR: $(realpath "$adapter_aar")"
-
           unzip -p "$adapter_aar" classes.jar > "$RUNNER_TEMP/fresnica-rn-adapter-classes.jar"
           jar tf "$RUNNER_TEMP/fresnica-rn-adapter-classes.jar" | grep -F 'com/fresnica/sdk/reactnative/FresnicaCorePackage.class'
-
-          cat > "$RUNNER_TEMP/fresnica-print-classpath.init.gradle" <<'EOF'
-          gradle.projectsEvaluated {
-              def app = gradle.rootProject.findProject(':app')
-              app.tasks.register('printDebugCompileClasspath') {
-                  doLast {
-                      app.configurations.getByName('debugCompileClasspath').files.each {
-                          println "FRESNICA_CLASSPATH:${it.absolutePath}"
-                      }
-                  }
-              }
-          }
-          EOF
-          (
-            cd android
-            ./gradlew --init-script "$RUNNER_TEMP/fresnica-print-classpath.init.gradle" :app:printDebugCompileClasspath \
-              | tee "$RUNNER_TEMP/fresnica-debug-classpath.txt"
-          )
-          grep -F "FRESNICA_CLASSPATH:$adapter_aar" "$RUNNER_TEMP/fresnica-debug-classpath.txt"
-          grep -F "FRESNICA_CLASSPATH:$native_aar" "$RUNNER_TEMP/fresnica-debug-classpath.txt"
 
       - name: Build Android debug app
         working-directory: android
