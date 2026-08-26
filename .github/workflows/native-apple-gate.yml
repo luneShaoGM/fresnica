@@ -111,8 +111,49 @@ jobs:
             -configuration Debug \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/fresnica-derived" \
             CODE_SIGNING_ALLOWED=NO \
             build
+
+      - name: Run Apple FresnicaCore parseAccount smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          app="$RUNNER_TEMP/fresnica-derived/Build/Products/Debug-iphonesimulator/Fresnica.app"
+          test -d "$app"
+          udid="$(xcrun simctl list devices available | grep -E 'iPhone .*\([0-9A-Fa-f-]{36}\)' | head -1 | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/')"
+          test -n "$udid"
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
+
+          cp scripts/native-runtime-smoke-entry.js index.js
+          FRESNICA_SMOKE_RESULT="$RUNNER_TEMP/apple-native-runtime-smoke.json" node scripts/native-runtime-smoke-server.mjs > "$RUNNER_TEMP/apple-smoke-server.log" 2>&1 &
+          smoke_server_pid=$!
+          npx react-native start --port 8081 > "$RUNNER_TEMP/apple-metro.log" 2>&1 &
+          metro_pid=$!
+          trap 'kill "$metro_pid" "$smoke_server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:8081/status | grep -q 'packager-status:running'; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail http://127.0.0.1:8081/status | grep -q 'packager-status:running'
+          xcrun simctl install "$udid" "$app"
+          xcrun simctl terminate "$udid" com.fresnica.mobile || true
+          xcrun simctl launch "$udid" com.fresnica.mobile
+          set +e
+          wait "$smoke_server_pid"
+          smoke_status=$?
+          set -e
+          cat "$RUNNER_TEMP/apple-native-runtime-smoke.json" || true
+          if [ "$smoke_status" -ne 0 ]; then
+            cat "$RUNNER_TEMP/apple-smoke-server.log" || true
+            cat "$RUNNER_TEMP/apple-metro.log" || true
+            xcrun simctl spawn "$udid" log show --last 5m --style compact --predicate 'process == "Fresnica"' || true
+            exit "$smoke_status"
+          fi
+          grep -F 'FRESNICA_PARSE_ACCOUNT_SMOKE_OK' "$RUNNER_TEMP/apple-native-runtime-smoke.json"
 
       - name: Upload generated Apple native artifacts
         uses: actions/upload-artifact@v4
@@ -124,3 +165,4 @@ jobs:
             vendor/fresnica/native/FresnicaSDKFFI.xcframework
             vendor/fresnica/adapter/react-native/FresnicaRNAdapter.xcframework
             vendor/fresnica/adapter/react-native/adapter-manifest.json
+            ${{ runner.temp }}/apple-native-runtime-smoke.json
