@@ -2,13 +2,13 @@ import type { FresnicaCore } from '../FresnicaCore';
 import type {
   ApplyEd25519SignatureInput,
   DeriveMnemonicSignerInput,
-  ExportedSigningMaterial,
   GenerateMnemonicInput,
   PrepareEd25519SigningInput,
   ProtectMnemonicInput,
   ProtectSecretInput,
   RegisterSignerSystemAuthInput,
   ReprotectInput,
+  RevealedSigningMaterial,
   RevealInput,
   SignWithPasscodeInput,
   SignWithSystemAuthInput,
@@ -69,7 +69,7 @@ export class ReactNativeFresnicaCore implements FresnicaCore {
     );
   }
 
-  reveal(input: RevealInput): Promise<ExportedSigningMaterial> {
+  reveal(input: RevealInput): Promise<RevealedSigningMaterial> {
     return this.native.reveal(
       input.envelopeJson,
       input.freshAppPasscode,
