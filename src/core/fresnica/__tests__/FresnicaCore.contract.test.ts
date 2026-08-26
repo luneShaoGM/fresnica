@@ -1,20 +1,32 @@
 import type { FresnicaCore } from '../FresnicaCore';
 
 describe('FresnicaCore contract', () => {
-  it('exposes only product-safe operations to TypeScript', () => {
+  it('mirrors the canonical native adapter surface without exposing unlock keys', () => {
     const allowed: Array<keyof FresnicaCore> = [
-      'getCompatibility',
       'parseAccount',
-      'generateMnemonic',
-      'protectMnemonic',
       'protectSecret',
-      'signProtectedTransaction',
+      'protectMnemonic',
+      'generateMnemonic',
+      'deriveMnemonicSigner',
       'reprotect',
-      'exportSigningMaterial',
+      'reveal',
+      'prepareEd25519Signing',
+      'applyEd25519Signature',
+      'canUseSystemAuth',
+      'hasSystemAuthDomain',
+      'initializeSystemAuth',
+      'registerSignerSystemAuth',
+      'hasSignerSystemAuth',
+      'removeSignerSystemAuth',
+      'removeSystemAuthDomain',
+      'signWithSystemAuth',
+      'signWithPasscode',
     ];
 
-    expect(allowed).not.toContain('decryptSecret' as keyof FresnicaCore);
-    expect(allowed).not.toContain('getPrivateKey' as keyof FresnicaCore);
+    expect(allowed).not.toContain('deriveUnlockKey' as keyof FresnicaCore);
+    expect(allowed).not.toContain('validateUnlockKey' as keyof FresnicaCore);
+    expect(allowed).not.toContain('signTransactionXdr' as keyof FresnicaCore);
     expect(allowed).not.toContain('getWalletUnlockKey' as keyof FresnicaCore);
+    expect(allowed).not.toContain('decryptSecret' as keyof FresnicaCore);
   });
 });
