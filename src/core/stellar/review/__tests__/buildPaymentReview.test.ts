@@ -14,8 +14,14 @@ const sourceAddress = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(11))
 const destinationAddress = StrKey.encodeEd25519PublicKey(
   new Uint8Array(32).fill(12),
 );
+const issuerAddress = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(14));
 
-function paymentXdr(options?: { secondOperation?: boolean; operationSource?: string }) {
+function paymentXdr(options?: {
+  secondOperation?: boolean;
+  operationSource?: string;
+  asset?: Asset;
+  memo?: Memo;
+}) {
   let builder = new TransactionBuilder(new Account(sourceAddress, '50'), {
     fee: '100',
     networkPassphrase: Networks.TESTNET,
@@ -23,12 +29,12 @@ function paymentXdr(options?: { secondOperation?: boolean; operationSource?: str
     .addOperation(
       Operation.payment({
         destination: destinationAddress,
-        asset: Asset.native(),
+        asset: options?.asset ?? Asset.native(),
         amount: '2.5000000',
         source: options?.operationSource,
       }),
     )
-    .addMemo(Memo.text('review-me'));
+    .addMemo(options?.memo ?? Memo.text('review-me'));
 
   if (options?.secondOperation) {
     builder = builder.addOperation(
@@ -66,6 +72,17 @@ describe('buildPaymentReview', () => {
     expect(Object.isFrozen(review.asset)).toBe(true);
   });
 
+  it('derives credit asset code and issuer from the exact XDR', () => {
+    const xdr = paymentXdr({ asset: new Asset('USDC', issuerAddress) });
+
+    expect(
+      buildPaymentReview({
+        transactionXdrBase64: xdr,
+        networkId: 'stellar-testnet',
+      }).asset,
+    ).toEqual({ kind: 'credit', code: 'USDC', issuer: issuerAddress });
+  });
+
   it('rejects a caller network that is not the configured Testnet network', () => {
     expect(() =>
       buildPaymentReview({
@@ -93,5 +110,14 @@ describe('buildPaymentReview', () => {
         networkId: 'stellar-testnet',
       }),
     ).toThrow('Payment review does not support an operation source override');
+  });
+
+  it('rejects memo types the v1 review cannot display completely', () => {
+    expect(() =>
+      buildPaymentReview({
+        transactionXdrBase64: paymentXdr({ memo: Memo.id('7') }),
+        networkId: 'stellar-testnet',
+      }),
+    ).toThrow('Payment review supports only none or text memo');
   });
 });
