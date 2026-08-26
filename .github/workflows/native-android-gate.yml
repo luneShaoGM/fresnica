@@ -1,0 +1,91 @@
+name: Native Android Gate
+
+on:
+  push:
+    branches:
+      - work/rn087-native-shell
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Fresnica Mobile
+        uses: actions/checkout@v4
+
+      - name: Checkout Fresnica SDK source
+        uses: actions/checkout@v4
+        with:
+          repository: manran/fresnica
+          ref: native-sdk-v0.2.1
+          path: .fresnica-upstream
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install JavaScript dependencies
+        run: npm install
+
+      - name: Verify TypeScript and unit tests
+        run: npm run check
+
+      - name: Download and verify Fresnica Native SDK 0.2.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p vendor/fresnica/native vendor/fresnica/adapter/react-native
+          curl --fail --location --retry 3 \
+            --output vendor/fresnica/native/fresnica-native-sdk-0.2.1.aar \
+            https://github.com/manran/fresnica/releases/download/native-sdk-v0.2.1/fresnica-native-sdk-0.2.1.aar
+          curl --fail --location --retry 3 \
+            --output "$RUNNER_TEMP/SHA256SUMS" \
+            https://github.com/manran/fresnica/releases/download/native-sdk-v0.2.1/SHA256SUMS
+          expected="$(grep 'fresnica-native-sdk-0.2.1.aar' "$RUNNER_TEMP/SHA256SUMS" | awk '{print $1}')"
+          test "$expected" = "6a7a05861970608e42a50546abeb19881e5bc47b3b4b6f6e3116a04d6a41529f"
+          actual="$(sha256sum vendor/fresnica/native/fresnica-native-sdk-0.2.1.aar | awk '{print $1}')"
+          test "$actual" = "$expected"
+
+      - name: Build canonical React Native Android adapter
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .fresnica-upstream/adapters/react-native/tooling/fresnica-adapter.mjs \
+            build react-native \
+            --platform android \
+            --project "$GITHUB_WORKSPACE" \
+            --native-android-aar "$GITHUB_WORKSPACE/vendor/fresnica/native/fresnica-native-sdk-0.2.1.aar" \
+            --out "$GITHUB_WORKSPACE/vendor/fresnica/adapter/react-native"
+
+      - name: Validate adapter manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .fresnica-upstream/adapters/react-native/tooling/adapter-manifest.mjs check \
+            --project "$GITHUB_WORKSPACE" \
+            --manifest "$GITHUB_WORKSPACE/vendor/fresnica/adapter/react-native/adapter-manifest.json"
+
+      - name: Build Android debug app
+        working-directory: android
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Upload generated native artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: fresnica-android-native-integration
+          if-no-files-found: error
+          path: |
+            vendor/fresnica/native/fresnica-native-sdk-0.2.1.aar
+            vendor/fresnica/adapter/react-native/fresnica-rn-adapter.aar
+            vendor/fresnica/adapter/react-native/adapter-manifest.json
+            android/app/build/outputs/apk/debug/app-debug.apk
