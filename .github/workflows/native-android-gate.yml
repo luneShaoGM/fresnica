@@ -34,6 +34,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Set up adapter Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '7.5'
+
       - name: Install JavaScript dependencies
         run: npm install
 
@@ -60,12 +65,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node .fresnica-upstream/adapters/react-native/tooling/fresnica-adapter.mjs \
-            build react-native \
-            --platform android \
-            --project "$GITHUB_WORKSPACE" \
-            --native-android-aar "$GITHUB_WORKSPACE/vendor/fresnica/native/fresnica-native-sdk-0.2.1.aar" \
-            --out "$GITHUB_WORKSPACE/vendor/fresnica/adapter/react-native"
+          adapter_gradle="$(command -v gradle)"
+          test -x "$adapter_gradle"
+          FRESNICA_ADAPTER_GRADLE="$adapter_gradle" \
+            node .fresnica-upstream/adapters/react-native/tooling/fresnica-adapter.mjs \
+              build react-native \
+              --platform android \
+              --project "$GITHUB_WORKSPACE" \
+              --native-android-aar "$GITHUB_WORKSPACE/vendor/fresnica/native/fresnica-native-sdk-0.2.1.aar" \
+              --out "$GITHUB_WORKSPACE/vendor/fresnica/adapter/react-native"
 
       - name: Validate adapter manifest
         shell: bash
