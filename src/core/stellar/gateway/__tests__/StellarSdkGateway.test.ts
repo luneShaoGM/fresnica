@@ -81,6 +81,6 @@ describe('StellarSdkGateway', () => {
     expect(operation.amount).toBe('1.2500000');
     expect(operation.asset.isNative()).toBe(true);
     expect(transaction.memo.type).toBe('text');
-    expect(transaction.memo.value).toBe('hello');
+    expect(String.fromCharCode(...transaction.memo.value)).toBe('hello');
   });
 });
