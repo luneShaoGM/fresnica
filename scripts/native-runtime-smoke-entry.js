@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {AppRegistry, NativeModules, Text, View} from 'react-native';
-import {name as appName} from '../app.json';
+import {name as appName} from './app.json';
 
 const VALID_CLASSIC_ACCOUNT =
   'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
