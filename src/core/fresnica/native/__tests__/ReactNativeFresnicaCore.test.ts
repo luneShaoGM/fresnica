@@ -1,4 +1,3 @@
-import { FresnicaNativeError } from '../FresnicaNativeError';
 import { ReactNativeFresnicaCore } from '../ReactNativeFresnicaCore';
 import type { NativeFresnicaCoreModule } from '../NativeFresnicaCoreModule';
 
@@ -126,7 +125,7 @@ describe('ReactNativeFresnicaCore', () => {
         networkPassphrase: 'Test SDF Network ; September 2015',
         reason: 'Confirm transaction',
       }),
-    ).rejects.toMatchObject<FresnicaNativeError>({
+    ).rejects.toMatchObject({
       name: 'FresnicaNativeError',
       code: 'user-cancel',
       message: 'Canceled',
