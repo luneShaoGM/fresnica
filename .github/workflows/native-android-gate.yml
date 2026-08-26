@@ -37,7 +37,7 @@ jobs:
       - name: Set up adapter Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '7.5'
+          gradle-version: '8.11.1'
 
       - name: Install JavaScript dependencies
         run: npm install
@@ -61,13 +61,40 @@ jobs:
           actual="$(sha256sum vendor/fresnica/native/fresnica-native-sdk-0.2.1.aar | awk '{print $1}')"
           test "$actual" = "$expected"
 
+      - name: Prepare RN 0.87 adapter toolchain compatibility shim
+        shell: bash
+        run: |
+          set -euo pipefail
+          adapter_build="$GITHUB_WORKSPACE/.fresnica-upstream/adapters/react-native/android/build.gradle"
+          grep -F "id 'com.android.library' version '7.4.0'" "$adapter_build"
+          grep -F "id 'org.jetbrains.kotlin.android' version '1.9.24'" "$adapter_build"
+
+          cat > "$RUNNER_TEMP/fresnica-adapter.init.gradle" <<'EOF'
+          settingsEvaluated { settings ->
+              settings.pluginManagement.resolutionStrategy.eachPlugin {
+                  if (requested.id.id == 'com.android.library') {
+                      useVersion('8.10.0')
+                  }
+                  if (requested.id.id == 'org.jetbrains.kotlin.android') {
+                      useVersion('2.2.0')
+                  }
+              }
+          }
+          EOF
+
+          adapter_gradle="$(command -v gradle)"
+          test -x "$adapter_gradle"
+          cat > "$RUNNER_TEMP/fresnica-adapter-gradle" <<EOF
+          #!/usr/bin/env bash
+          exec "$adapter_gradle" --init-script "$RUNNER_TEMP/fresnica-adapter.init.gradle" "\$@"
+          EOF
+          chmod +x "$RUNNER_TEMP/fresnica-adapter-gradle"
+
       - name: Build canonical React Native Android adapter
         shell: bash
         run: |
           set -euo pipefail
-          adapter_gradle="$(command -v gradle)"
-          test -x "$adapter_gradle"
-          FRESNICA_ADAPTER_GRADLE="$adapter_gradle" \
+          FRESNICA_ADAPTER_GRADLE="$RUNNER_TEMP/fresnica-adapter-gradle" \
             node .fresnica-upstream/adapters/react-native/tooling/fresnica-adapter.mjs \
               build react-native \
               --platform android \
