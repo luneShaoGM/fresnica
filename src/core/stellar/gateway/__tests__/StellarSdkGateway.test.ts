@@ -81,9 +81,7 @@ describe('StellarSdkGateway', () => {
     expect(operation.amount).toBe('1.2500000');
     expect(operation.asset.isNative()).toBe(true);
     expect(transaction.memo.type).toBe('text');
-    if (transaction.memo.type !== 'text') {
-      throw new Error('Expected text memo');
-    }
-    expect(String.fromCharCode(...transaction.memo.value)).toBe('hello');
+    const memoBytes = transaction.memo.value as unknown as Uint8Array;
+    expect(String.fromCharCode(...memoBytes)).toBe('hello');
   });
 });
