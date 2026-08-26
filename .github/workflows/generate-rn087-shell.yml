@@ -1,0 +1,63 @@
+name: Generate RN 0.87 native shell
+
+on:
+  push:
+    branches:
+      - work/rn087-native-shell
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work/rn087-native-shell
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+
+      - name: Generate official React Native 0.87 project
+        shell: bash
+        run: |
+          set -euo pipefail
+          shell_dir="$RUNNER_TEMP/fresnica-mobile-shell"
+          rm -rf "$shell_dir"
+          npx --yes @react-native-community/cli@20.2.0 init Fresnica \
+            --version 0.87.0 \
+            --directory "$shell_dir" \
+            --title Fresnica \
+            --package-name com.fresnica.mobile \
+            --skip-install \
+            --install-pods false \
+            --pm npm \
+            --skip-git-init true
+
+          rm -rf android ios
+          cp -R "$shell_dir/android" android
+          cp -R "$shell_dir/ios" ios
+          cp "$shell_dir/app.json" app.json
+          cp "$shell_dir/metro.config.js" metro.config.js
+          cp "$shell_dir/Gemfile" Gemfile
+          if [ -f "$shell_dir/.watchmanconfig" ]; then
+            cp "$shell_dir/.watchmanconfig" .watchmanconfig
+          fi
+
+      - name: Commit generated shell
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add android ios app.json metro.config.js Gemfile .watchmanconfig 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No generated shell changes"
+            exit 0
+          fi
+          git commit -m "chore: generate RN 0.87 native shell"
+          git push origin HEAD:work/rn087-native-shell
