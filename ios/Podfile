@@ -19,16 +19,18 @@ target 'Fresnica' do
 
   use_react_native!(
     :path => config[:reactNativePath],
-    # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
+
+  unless ENV['FRESNICA_ADAPTER_BOOTSTRAP'] == '1'
+    pod 'FresnicaNative', :path => '../vendor/fresnica'
+  end
 
   post_install do |installer|
     react_native_post_install(
       installer,
       config[:reactNativePath],
       :mac_catalyst_enabled => false,
-      # :ccache_enabled => true
     )
   end
 end
