@@ -23,6 +23,12 @@ function errorMessage(error) {
   return String(error);
 }
 
+function fresnicaNativeModuleKeys() {
+  return Object.keys(NativeModules)
+    .filter(key => key.toLowerCase().includes('fresnica'))
+    .sort();
+}
+
 function SmokeApp() {
   const [status, setStatus] = useState('FRESNICA_PARSE_ACCOUNT_SMOKE_RUNNING');
 
@@ -32,10 +38,18 @@ function SmokeApp() {
     async function run() {
       const core = NativeModules.FresnicaCore;
       if (core === null || typeof core !== 'object') {
-        throw new Error('FresnicaCore native module is not linked');
+        throw new Error(
+          `FresnicaCore native module is not linked; Fresnica NativeModules keys: ${JSON.stringify(
+            fresnicaNativeModuleKeys(),
+          )}`,
+        );
       }
       if (typeof core.parseAccount !== 'function') {
-        throw new Error('FresnicaCore.parseAccount is not linked');
+        throw new Error(
+          `FresnicaCore.parseAccount is not linked; Fresnica NativeModules keys: ${JSON.stringify(
+            fresnicaNativeModuleKeys(),
+          )}`,
+        );
       }
 
       const identity = await core.parseAccount(VALID_CLASSIC_ACCOUNT);
