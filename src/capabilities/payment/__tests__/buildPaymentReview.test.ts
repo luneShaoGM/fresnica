@@ -5,6 +5,7 @@ import {
   Networks,
   Operation,
   StrKey,
+  Transaction,
   TransactionBuilder,
 } from '@stellar/stellar-sdk';
 
@@ -50,8 +51,10 @@ function paymentXdr(options?: {
 }
 
 describe('buildPaymentReview', () => {
-  it('derives every displayed field from the exact unsigned XDR', () => {
+  it('derives every displayed field and expiry from the exact unsigned XDR', () => {
     const xdr = paymentXdr();
+    const transaction = new Transaction(xdr, Networks.TESTNET);
+    const expectedExpiry = Number(transaction.timeBounds?.maxTime);
 
     const review = buildPaymentReview({
       transactionXdrBase64: xdr,
@@ -67,7 +70,9 @@ describe('buildPaymentReview', () => {
       asset: { kind: 'native' },
       memo: 'review-me',
       fee: '100',
+      expiresAtUnixSeconds: expectedExpiry,
     });
+    expect(review.transactionXdrBase64).toBe(xdr);
     expect(Object.isFrozen(review)).toBe(true);
     expect(Object.isFrozen(review.asset)).toBe(true);
   });

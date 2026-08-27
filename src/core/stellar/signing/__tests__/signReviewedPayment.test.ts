@@ -1,7 +1,7 @@
 import type { FresnicaSdk } from '../../../../platform/fresnica/FresnicaSdk';
 import type { SignerRecord } from '../../../../capabilities/signer/types';
 import { APP_CONFIG } from '../../../../app/config/appConfig';
-import type { PaymentReview } from '../../review/buildPaymentReview';
+import type { PaymentReview } from '../../../../capabilities/payment/buildPaymentReview';
 import { signReviewedPayment } from '../signReviewedPayment';
 
 const signer: SignerRecord = {

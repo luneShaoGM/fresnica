@@ -1,7 +1,7 @@
 import type { FresnicaSdk } from '../../../../platform/fresnica/FresnicaSdk';
 import type { SignerRecord } from '../../../../capabilities/signer/types';
 import type { StellarGateway } from '../../../../platform/stellar/StellarGateway';
-import type { PaymentReview } from '../../review/buildPaymentReview';
+import type { PaymentReview } from '../../../../capabilities/payment/buildPaymentReview';
 import { submitReviewedPayment } from '../submitReviewedPayment';
 
 const signer: SignerRecord = {

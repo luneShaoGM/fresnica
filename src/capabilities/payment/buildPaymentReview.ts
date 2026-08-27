@@ -1,21 +1,19 @@
 import { Transaction } from '@stellar/stellar-sdk';
 
-import { APP_CONFIG } from '../../../app/config/appConfig';
+import { APP_CONFIG } from '../../app/config/appConfig';
+import type { ReviewedTransaction } from '../transaction/ReviewedTransaction';
 
 export type PaymentReviewAsset =
   | { kind: 'native' }
   | { kind: 'credit'; code: string; issuer: string };
 
-export type PaymentReview = Readonly<{
-  transactionXdrBase64: string;
-  networkId: string;
-  source: string;
-  destination: string;
-  amount: string;
-  asset: Readonly<PaymentReviewAsset>;
-  memo?: string;
-  fee: string;
-}>;
+export type PaymentReview = ReviewedTransaction &
+  Readonly<{
+    destination: string;
+    amount: string;
+    asset: Readonly<PaymentReviewAsset>;
+    memo?: string;
+  }>;
 
 export function buildPaymentReview(input: {
   transactionXdrBase64: string;
@@ -58,6 +56,10 @@ export function buildPaymentReview(input: {
     throw new Error('Payment review supports only none or text memo');
   }
 
+  const maxTime = transaction.timeBounds?.maxTime;
+  const expiresAtUnixSeconds =
+    maxTime !== undefined && maxTime !== '0' ? Number(maxTime) : undefined;
+
   return Object.freeze({
     transactionXdrBase64: input.transactionXdrBase64,
     networkId: input.networkId,
@@ -67,5 +69,6 @@ export function buildPaymentReview(input: {
     asset: Object.freeze(asset),
     ...(memoText === undefined ? {} : { memo: memoText }),
     fee: transaction.fee,
+    ...(expiresAtUnixSeconds === undefined ? {} : { expiresAtUnixSeconds }),
   });
 }
