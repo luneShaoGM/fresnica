@@ -4,7 +4,7 @@ Stellar-native React Native wallet consuming Fresnica Native SDK as its security
 
 ## Current development baseline
 
-The active rebaseline branch is `refactor/mobile-capabilities`. It replaces the earlier `feat/*` and accumulated `work/*` development line with one architecture aligned to upstream Application Capabilities.
+The active rebaseline branch is `refactor/mobile-capabilities`. It replaces the earlier `feat/*` and accumulated `work/*` development line with one architecture aligned to upstream Application Capabilities. After this rebaseline is merged, `main` is the single long-lived baseline; follow-up work should use short-lived task branches rather than persistent checkpoint branches.
 
 Current verified foundation includes:
 
@@ -24,6 +24,13 @@ Current verified foundation includes:
 ## Architecture
 
 ```text
+Mobile Feature
+  -> Application Flow
+  -> Application Capability
+  -> platform / Fresnica SDK mechanisms
+```
+
+```text
 src/app
   composition, configuration, navigation/application bootstrap
 
@@ -39,7 +46,7 @@ src/platform
   fresnica / stellar / persistence
 ```
 
-The repository intentionally has no Mobile-local `src/core` architecture layer. `Core` refers to Fresnica SDK/Rust Core security authority, not a TypeScript application layer.
+The repository intentionally has no Mobile-local `src/core` architecture layer. `Core` refers to Fresnica SDK/Rust Core security authority, not a TypeScript application layer. `NativeModules.FresnicaCore` is the upstream React Native runtime module name and must not be interpreted as a Mobile architecture layer.
 
 A typical transaction path is:
 
