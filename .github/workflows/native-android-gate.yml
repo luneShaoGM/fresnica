@@ -175,6 +175,7 @@ jobs:
             grep -F 'FRESNICA_PARSE_ACCOUNT_SMOKE_OK' "$RUNNER_TEMP/android-native-runtime-smoke.json"
 
       - name: Upload generated native artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: fresnica-android-native-integration
