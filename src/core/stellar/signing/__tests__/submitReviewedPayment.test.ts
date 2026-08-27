@@ -1,4 +1,4 @@
-import type { FresnicaCore } from '../../../fresnica/FresnicaCore';
+import type { FresnicaSdk } from '../../../../platform/fresnica/FresnicaSdk';
 import type { SignerRecord } from '../../../storage/domain/types';
 import type { StellarGateway } from '../../gateway/StellarGateway';
 import type { PaymentReview } from '../../review/buildPaymentReview';
@@ -34,21 +34,21 @@ function gatewayWith(weight: number, threshold = 1) {
   } as unknown as jest.Mocked<StellarGateway>;
 }
 
-function coreWith(systemAuth: boolean) {
+function sdkWith(systemAuth: boolean) {
   return {
     hasSignerSystemAuth: jest.fn().mockResolvedValue(systemAuth),
     signWithSystemAuth: jest.fn().mockResolvedValue('AAAA-system-signed'),
     signWithPasscode: jest.fn().mockResolvedValue('AAAA-passcode-signed'),
-  } as unknown as jest.Mocked<FresnicaCore>;
+  } as unknown as jest.Mocked<FresnicaSdk>;
 }
 
 describe('submitReviewedPayment', () => {
   it('revalidates ledger authorization, signs the exact reviewed XDR, then submits', async () => {
     const gateway = gatewayWith(1);
-    const core = coreWith(true);
+    const sdk = sdkWith(true);
 
     await expect(
-      submitReviewedPayment({ gateway, core, review, signer }),
+      submitReviewedPayment({ gateway, sdk, review, signer }),
     ).resolves.toEqual({
       status: 'submitted',
       authorization: 'system-auth',
@@ -57,7 +57,7 @@ describe('submitReviewedPayment', () => {
     });
 
     expect(gateway.loadAccountAuthorization).toHaveBeenCalledWith(review.source);
-    expect(core.signWithSystemAuth).toHaveBeenCalledWith(
+    expect(sdk.signWithSystemAuth).toHaveBeenCalledWith(
       expect.objectContaining({ transactionXdrBase64: review.transactionXdrBase64 }),
     );
     expect(gateway.submitTransaction).toHaveBeenCalledWith('AAAA-system-signed');
@@ -65,10 +65,10 @@ describe('submitReviewedPayment', () => {
 
   it('blocks before authentication when the ledger signer weight is no longer sufficient', async () => {
     const gateway = gatewayWith(1, 2);
-    const core = coreWith(true);
+    const sdk = sdkWith(true);
 
     await expect(
-      submitReviewedPayment({ gateway, core, review, signer }),
+      submitReviewedPayment({ gateway, sdk, review, signer }),
     ).resolves.toEqual({
       status: 'authorization-blocked',
       reason: 'insufficient-weight',
@@ -76,17 +76,17 @@ describe('submitReviewedPayment', () => {
       availableWeight: 1,
     });
 
-    expect(core.hasSignerSystemAuth).not.toHaveBeenCalled();
-    expect(core.signWithSystemAuth).not.toHaveBeenCalled();
+    expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
+    expect(sdk.signWithSystemAuth).not.toHaveBeenCalled();
     expect(gateway.submitTransaction).not.toHaveBeenCalled();
   });
 
   it('returns passcode-required without submitting when System Auth is not registered', async () => {
     const gateway = gatewayWith(1);
-    const core = coreWith(false);
+    const sdk = sdkWith(false);
 
     await expect(
-      submitReviewedPayment({ gateway, core, review, signer }),
+      submitReviewedPayment({ gateway, sdk, review, signer }),
     ).resolves.toEqual({ status: 'passcode-required' });
 
     expect(gateway.submitTransaction).not.toHaveBeenCalled();
