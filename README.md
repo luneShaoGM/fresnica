@@ -1,37 +1,89 @@
-# Fresnica
+# Fresnica Mobile
 
-Stellar-native mobile wallet.
+Stellar-native React Native wallet consuming Fresnica Native SDK as its security authority.
 
-This repository is the new Fresnica application. It is being rebuilt from a clean architecture rather than continuing the previous `Stellar` codebase.
+## Current development baseline
 
-## Current development branch
+The active rebaseline branch is `refactor/mobile-capabilities`. It replaces the earlier `feat/*` and accumulated `work/*` development line with one architecture aligned to upstream Application Capabilities.
 
-`feat/fresnica-mobile-v1`
+Current verified foundation includes:
 
-The first milestone is Testnet-first and Fresnica-SDK-first. Current verified foundation includes:
+- React Native 0.87.0;
+- Stellar Testnet configuration;
+- Account and Signer semantics separated from persistence mechanisms;
+- watch-only derived from applicable signer relationships rather than persisted as a parallel truth;
+- Fresnica Native SDK 0.2.1 behind the Mobile-facing `FresnicaSdk` platform adapter;
+- Native Binding API 2, Universal SDK API 3 and Core Client API 3 recorded independently;
+- canonical React Native adapter source 0.2.0;
+- typed Ledger Authorization that distinguishes Ed25519, preauth-tx, Hash-X and signed-payload conditions;
+- Stellar/Horizon mechanics isolated under `src/platform/stellar`;
+- exact-XDR Payment review with transaction freshness checks;
+- reusable Signing Coordination shared independently of Payment;
+- submission normalization that distinguishes accepted, rejected and uncertain outcomes.
 
-- React Native 0.87 project metadata;
-- immutable Stellar Testnet configuration;
-- separate Account / Signer domain records with derived watch-only semantics;
-- shared-signer-safe account lifecycle rules;
-- Fresnica Native SDK 0.2.1 compatibility pin with React Native adapter source 0.2.0;
-- a narrow React Native bridge that exposes only Fresnica SDK high-level wallet/security operations;
-- Stellar SDK 17.0.1 Testnet gateway for public chain state, unsigned payment construction and submission;
-- on-chain signer/threshold resolution before signing;
-- exact-XDR payment review derived from the transaction that will actually be signed;
-- one shared transaction signing coordinator that automatically uses Native SDK System Auth when registered and otherwise requires the Fresnica app passcode;
-- reviewed-payment execution that revalidates ledger authorization, signs through Fresnica Native SDK, then submits the resulting signed XDR.
+## Architecture
+
+```text
+src/app
+  composition, configuration, navigation/application bootstrap
+
+src/features
+  product features and Application Flows when screens are implemented
+
+src/capabilities
+  Mobile implementations of Application Capability semantics
+  account / signer / payment / transaction / ledger-authorization / signing
+
+src/platform
+  external implementation mechanisms
+  fresnica / stellar / persistence
+```
+
+The repository intentionally has no Mobile-local `src/core` architecture layer. `Core` refers to Fresnica SDK/Rust Core security authority, not a TypeScript application layer.
+
+A typical transaction path is:
+
+```text
+Feature intent
+ -> Payment/other transaction-building Capability
+ -> exact reviewed transaction
+ -> user confirmation
+ -> Ledger Authorization refresh
+ -> Signing Coordination
+ -> FresnicaSdk -> Native SDK/Core signing
+ -> Stellar platform submission
+ -> refresh/invalidation
+```
 
 ## Security boundary
 
 Fresnica Mobile does not implement wallet cryptography.
 
-Fresnica Core / SDK owns secret and mnemonic validation, derivation, protected-envelope semantics, identity checks and transaction signing. Mobile owns React Native UI, Realm persistence, Horizon/network orchestration and product policy.
+Fresnica SDK/Core owns secret and mnemonic validation and derivation, protected-envelope semantics, signer identity checks, transaction signing and native signer authorization helpers. Mobile owns UI/navigation, persistence, Horizon/network state and product orchestration.
 
-`WalletUnlockKey`, biometric cipher state, raw private keys and low-level signing APIs must not enter normal JavaScript application code. Routine software signing uses the Native SDK high-level `signWithSystemAuth` or `signWithPasscode` operations.
+`WalletUnlockKey`, raw private keys, native biometric cipher state and low-level signing APIs must not enter normal JavaScript application code. Routine local software signing uses Native SDK high-level `signWithSystemAuth` or `signWithPasscode` operations through `FresnicaSdk`.
 
-The upstream integration contract is `manran/fresnica/docs/mobile-sdk-usage.md`. Local project rules are summarized in `docs/fresnica-mobile-handoff.md`.
+## Current SDK compatibility
 
-## Next integration gate
+```text
+Fresnica Native SDK       0.2.1
+Native Binding API        2
+Universal SDK API         3
+Core Client API           3
+RN adapter source         0.2.0
+React Native              0.87.0
+React Native module       FresnicaCore
+```
 
-The next native milestone is to generate the full RN 0.87 Android/iOS consumer projects, link Native SDK 0.2.1, build the canonical RN adapter once in the real consumer toolchain, and prove `FresnicaCore.parseAccount` on both platforms before deeper Realm/onboarding UI integration.
+These are separately-versioned contracts. A Core version/state referred to as `2.1` elsewhere does not imply Native SDK version `2.1`.
+
+Upstream sources of truth:
+
+- `manran/fresnica/docs/platform-implementation.md`
+- `manran/fresnica/docs/platforms/mobile/sdk-usage.md`
+
+Local capability/conformance state is tracked in `docs/mobile-capability-status.md`; continuation rules are in `docs/fresnica-mobile-handoff.md`.
+
+## Native integration gate
+
+The RN 0.87 Android/iOS consumer shell and pinned adapter/native artifacts remain the platform integration baseline. Normal application changes must not rebuild the adapter implicitly; rebuild only when its compatibility contract requires it.
