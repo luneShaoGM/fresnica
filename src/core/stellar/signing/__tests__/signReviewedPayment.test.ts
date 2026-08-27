@@ -1,5 +1,5 @@
 import type { FresnicaSdk } from '../../../../platform/fresnica/FresnicaSdk';
-import type { SignerRecord } from '../../../storage/domain/types';
+import type { SignerRecord } from '../../../../capabilities/signer/types';
 import { APP_CONFIG } from '../../../../app/config/appConfig';
 import type { PaymentReview } from '../../review/buildPaymentReview';
 import { signReviewedPayment } from '../signReviewedPayment';
@@ -64,9 +64,9 @@ describe('signReviewedPayment', () => {
   it('requires a passcode instead of inventing a fallback when System Auth is not registered', async () => {
     const sdk = sdkWith();
 
-    await expect(
-      signReviewedPayment({ sdk, review, signer }),
-    ).resolves.toEqual({ status: 'passcode-required' });
+    await expect(signReviewedPayment({ sdk, review, signer })).resolves.toEqual({
+      status: 'passcode-required',
+    });
 
     expect(sdk.signWithSystemAuth).not.toHaveBeenCalled();
     expect(sdk.signWithPasscode).not.toHaveBeenCalled();
@@ -76,12 +76,7 @@ describe('signReviewedPayment', () => {
     const sdk = sdkWith();
 
     await expect(
-      signReviewedPayment({
-        sdk,
-        review,
-        signer,
-        appPasscode: '123456',
-      }),
+      signReviewedPayment({ sdk, review, signer, appPasscode: '123456' }),
     ).resolves.toEqual({
       status: 'signed',
       authorization: 'passcode',

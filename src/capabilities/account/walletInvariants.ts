@@ -1,7 +1,5 @@
-import type {
-  AccountSignerReference,
-  SignerRecord,
-} from './types';
+import type { SignerRecord } from '../signer/types';
+import type { AccountSignerReference } from './types';
 
 export function isWatchOnly(
   accountId: string,

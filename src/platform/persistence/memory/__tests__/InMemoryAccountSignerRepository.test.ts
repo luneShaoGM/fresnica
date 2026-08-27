@@ -43,9 +43,11 @@ describe('InMemoryAccountSignerRepository', () => {
 
     repository.detachSigner(accountRecord.id, signerRecord.id);
     expect(repository.isWatchOnly(accountRecord.id)).toBe(true);
+    expect(repository.getAccount(accountRecord.id)).toBeDefined();
+    expect(repository.getSigner(signerRecord.id)).toBeUndefined();
   });
 
-  it('preserves a shared signer while another account still references it', () => {
+  it('preserves a shared signer when one account is deleted', () => {
     const repository = new InMemoryAccountSignerRepository();
     repository.createAccount(account('account-a'));
     repository.createAccount(account('account-b'));
@@ -55,7 +57,29 @@ describe('InMemoryAccountSignerRepository', () => {
 
     repository.deleteAccount('account-a');
 
+    expect(repository.getAccount('account-a')).toBeUndefined();
+    expect(repository.getAccount('account-b')).toBeDefined();
     expect(repository.getSigner('shared')).toBeDefined();
     expect(repository.isWatchOnly('account-b')).toBe(false);
+  });
+
+  it('deletes an orphan signer when its last account is deleted', () => {
+    const repository = new InMemoryAccountSignerRepository();
+    repository.createAccount(account('account-a'));
+    repository.createSigner(signer('signer-a'));
+    repository.attachSigner('account-a', 'signer-a', now);
+
+    repository.deleteAccount('account-a');
+
+    expect(repository.getSigner('signer-a')).toBeUndefined();
+  });
+
+  it('rejects duplicate account identity on the same network', () => {
+    const repository = new InMemoryAccountSignerRepository();
+    repository.createAccount(account('account-a', 'GABC'));
+
+    expect(() => repository.createAccount(account('account-b', 'GABC'))).toThrow(
+      'duplicate-account-identity',
+    );
   });
 });

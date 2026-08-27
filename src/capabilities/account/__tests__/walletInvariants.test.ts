@@ -1,11 +1,6 @@
-import {
-  findOrphanSignerIds,
-  isWatchOnly,
-} from '../walletInvariants';
-import type {
-  AccountSignerReference,
-  SignerRecord,
-} from '../types';
+import type { SignerRecord } from '../../signer/types';
+import type { AccountSignerReference } from '../types';
+import { findOrphanSignerIds, isWatchOnly } from '../walletInvariants';
 
 const now = new Date('2026-08-26T00:00:00.000Z');
 
@@ -31,7 +26,7 @@ const reference = (
   createdAt: now,
 });
 
-describe('wallet invariants', () => {
+describe('account signer invariants', () => {
   it('derives watch-only from the absence of local signer references', () => {
     const references = [reference('account-a', 'signer-a')];
 

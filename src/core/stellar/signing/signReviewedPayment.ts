@@ -1,6 +1,6 @@
 import { APP_CONFIG } from '../../../app/config/appConfig';
 import type { FresnicaSdk } from '../../../platform/fresnica/FresnicaSdk';
-import type { SignerRecord } from '../../storage/domain/types';
+import type { SignerRecord } from '../../../capabilities/signer/types';
 import type { PaymentReview } from '../review/buildPaymentReview';
 
 export type ReviewedPaymentSigningResult =

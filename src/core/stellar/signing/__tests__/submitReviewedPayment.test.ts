@@ -1,5 +1,5 @@
 import type { FresnicaSdk } from '../../../../platform/fresnica/FresnicaSdk';
-import type { SignerRecord } from '../../../storage/domain/types';
+import type { SignerRecord } from '../../../../capabilities/signer/types';
 import type { StellarGateway } from '../../gateway/StellarGateway';
 import type { PaymentReview } from '../../review/buildPaymentReview';
 import { submitReviewedPayment } from '../submitReviewedPayment';

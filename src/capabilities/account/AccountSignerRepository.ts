@@ -1,9 +1,7 @@
-import type {
-  AccountRecord,
-  SignerRecord,
-} from './domain/types';
+import type { SignerRecord } from '../signer/types';
+import type { AccountRecord } from './types';
 
-export interface WalletRepository {
+export interface AccountSignerRepository {
   createAccount(account: AccountRecord): void;
   createSigner(signer: SignerRecord): void;
   attachSigner(accountId: string, signerId: string, createdAt: Date): void;
