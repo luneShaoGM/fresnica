@@ -17,11 +17,11 @@ jobs:
       - name: Checkout Fresnica Mobile
         uses: actions/checkout@v4
 
-      - name: Checkout Fresnica SDK source
+      - name: Checkout Fresnica adapter source
         uses: actions/checkout@v4
         with:
           repository: manran/fresnica
-          ref: native-sdk-v0.2.1
+          ref: 4ba1cbe8f189c74cf20e2ccbfdcf3939afa930a8
           path: .fresnica-upstream
 
       - name: Set up Node
