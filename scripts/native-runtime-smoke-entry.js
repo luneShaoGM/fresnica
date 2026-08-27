@@ -29,6 +29,17 @@ function fresnicaNativeModuleKeys() {
     .sort();
 }
 
+function fresnicaNativeModuleDiagnostic() {
+  const alternate = NativeModules.FresnicaCoreModule;
+  return {
+    enumerableKeys: fresnicaNativeModuleKeys(),
+    hasFresnicaCoreModule:
+      alternate !== null &&
+      typeof alternate === 'object' &&
+      typeof alternate.parseAccount === 'function',
+  };
+}
+
 function SmokeApp() {
   const [status, setStatus] = useState('FRESNICA_PARSE_ACCOUNT_SMOKE_RUNNING');
 
@@ -39,15 +50,15 @@ function SmokeApp() {
       const core = NativeModules.FresnicaCore;
       if (core === null || typeof core !== 'object') {
         throw new Error(
-          `FresnicaCore native module is not linked; Fresnica NativeModules keys: ${JSON.stringify(
-            fresnicaNativeModuleKeys(),
+          `FresnicaCore native module is not linked; diagnostic: ${JSON.stringify(
+            fresnicaNativeModuleDiagnostic(),
           )}`,
         );
       }
       if (typeof core.parseAccount !== 'function') {
         throw new Error(
-          `FresnicaCore.parseAccount is not linked; Fresnica NativeModules keys: ${JSON.stringify(
-            fresnicaNativeModuleKeys(),
+          `FresnicaCore.parseAccount is not linked; diagnostic: ${JSON.stringify(
+            fresnicaNativeModuleDiagnostic(),
           )}`,
         );
       }
