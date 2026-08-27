@@ -1,0 +1,13 @@
+import type { SignerRecord } from '../signer/types';
+import type { AccountRecord } from './types';
+
+export interface AccountSignerRepository {
+  createAccount(account: AccountRecord): void;
+  createSigner(signer: SignerRecord): void;
+  attachSigner(accountId: string, signerId: string, createdAt: Date): void;
+  detachSigner(accountId: string, signerId: string): void;
+  deleteAccount(accountId: string): void;
+  getAccount(accountId: string): AccountRecord | undefined;
+  getSigner(signerId: string): SignerRecord | undefined;
+  isWatchOnly(accountId: string): boolean;
+}

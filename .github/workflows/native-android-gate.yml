@@ -1,0 +1,185 @@
+name: Native Android Gate
+
+on:
+  push:
+    branches:
+      - work/rn087-native-shell
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Fresnica Mobile
+        uses: actions/checkout@v4
+
+      - name: Checkout Fresnica SDK source
+        uses: actions/checkout@v4
+        with:
+          repository: manran/fresnica
+          ref: native-sdk-v0.2.1
+          path: .fresnica-upstream
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up adapter Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Install JavaScript dependencies
+        run: npm install
+
+      - name: Verify TypeScript and unit tests
+        run: npm run check
+
+      - name: Download and verify Fresnica Native SDK 0.2.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p vendor/fresnica/native vendor/fresnica/adapter/react-native
+          curl --fail --location --retry 3 \
+            --output vendor/fresnica/native/fresnica-native-sdk-0.2.1.aar \
+            https://github.com/manran/fresnica/releases/download/native-sdk-v0.2.1/fresnica-native-sdk-0.2.1.aar
+          curl --fail --location --retry 3 \
+            --output "$RUNNER_TEMP/SHA256SUMS" \
+            https://github.com/manran/fresnica/releases/download/native-sdk-v0.2.1/SHA256SUMS
+          expected="$(grep 'fresnica-native-sdk-0.2.1.aar' "$RUNNER_TEMP/SHA256SUMS" | awk '{print $1}')"
+          test "$expected" = "6a7a05861970608e42a50546abeb19881e5bc47b3b4b6f6e3116a04d6a41529f"
+          actual="$(sha256sum vendor/fresnica/native/fresnica-native-sdk-0.2.1.aar | awk '{print $1}')"
+          test "$actual" = "$expected"
+
+      - name: Prepare RN 0.87 adapter toolchain compatibility shim
+        shell: bash
+        run: |
+          set -euo pipefail
+          adapter_build="$GITHUB_WORKSPACE/.fresnica-upstream/adapters/react-native/android/build.gradle"
+          grep -F "id 'com.android.library' version '7.4.0'" "$adapter_build"
+          grep -F "id 'org.jetbrains.kotlin.android' version '1.9.24'" "$adapter_build"
+
+          cat > "$RUNNER_TEMP/fresnica-adapter.init.gradle" <<'EOF'
+          settingsEvaluated { settings ->
+              settings.pluginManagement.resolutionStrategy.eachPlugin {
+                  if (requested.id.id == 'com.android.library') {
+                      useVersion('8.10.0')
+                  }
+                  if (requested.id.id == 'org.jetbrains.kotlin.android') {
+                      useVersion('2.2.0')
+                  }
+              }
+          }
+          EOF
+
+          adapter_gradle="$(command -v gradle)"
+          test -x "$adapter_gradle"
+          cat > "$RUNNER_TEMP/fresnica-adapter-gradle" <<EOF
+          #!/usr/bin/env bash
+          exec "$adapter_gradle" --init-script "$RUNNER_TEMP/fresnica-adapter.init.gradle" "\$@"
+          EOF
+          chmod +x "$RUNNER_TEMP/fresnica-adapter-gradle"
+
+      - name: Build canonical React Native Android adapter
+        shell: bash
+        run: |
+          set -euo pipefail
+          FRESNICA_ADAPTER_GRADLE="$RUNNER_TEMP/fresnica-adapter-gradle" \
+            node .fresnica-upstream/adapters/react-native/tooling/fresnica-adapter.mjs \
+              build react-native \
+              --platform android \
+              --project "$GITHUB_WORKSPACE" \
+              --native-android-aar "$GITHUB_WORKSPACE/vendor/fresnica/native/fresnica-native-sdk-0.2.1.aar" \
+              --out "$GITHUB_WORKSPACE/vendor/fresnica/adapter/react-native"
+
+      - name: Validate adapter manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .fresnica-upstream/adapters/react-native/tooling/adapter-manifest.mjs check \
+            --project "$GITHUB_WORKSPACE" \
+            --manifest "$GITHUB_WORKSPACE/vendor/fresnica/adapter/react-native/adapter-manifest.json"
+
+      - name: Verify generated Android adapter contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          adapter_aar="$GITHUB_WORKSPACE/vendor/fresnica/adapter/react-native/fresnica-rn-adapter.aar"
+          test -f "$adapter_aar"
+          unzip -p "$adapter_aar" classes.jar > "$RUNNER_TEMP/fresnica-rn-adapter-classes.jar"
+          jar tf "$RUNNER_TEMP/fresnica-rn-adapter-classes.jar" | grep -F 'com/fresnica/sdk/reactnative/FresnicaCorePackage.class'
+
+      - name: Build Android debug app
+        working-directory: android
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run Android FresnicaCore parseAccount smoke
+        uses: reactivecircus/android-emulator-runner@v2.38.0
+        with:
+          api-level: 35
+          target: default
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            cp scripts/native-runtime-smoke-entry.js index.js
+            FRESNICA_SMOKE_RESULT="$RUNNER_TEMP/android-native-runtime-smoke.json" node scripts/native-runtime-smoke-server.mjs > "$RUNNER_TEMP/android-smoke-server.log" 2>&1 &
+            smoke_server_pid=$!
+            npx react-native start --port 8081 > "$RUNNER_TEMP/android-metro.log" 2>&1 &
+            metro_pid=$!
+            trap 'kill "$metro_pid" "$smoke_server_pid" 2>/dev/null || true' EXIT
+            for attempt in $(seq 1 60); do
+              if curl --silent --fail http://127.0.0.1:8081/status | grep -q 'packager-status:running'; then
+                break
+              fi
+              sleep 1
+            done
+            curl --fail http://127.0.0.1:8081/status | grep -q 'packager-status:running'
+            adb reverse tcp:8081 tcp:8081
+            adb reverse tcp:8765 tcp:8765
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb logcat -c
+            adb shell am force-stop com.fresnica.mobile
+            adb shell monkey -p com.fresnica.mobile -c android.intent.category.LAUNCHER 1
+            set +e
+            wait "$smoke_server_pid"
+            smoke_status=$?
+            set -e
+            cat "$RUNNER_TEMP/android-native-runtime-smoke.json" || true
+            if [ "$smoke_status" -ne 0 ]; then
+              cat "$RUNNER_TEMP/android-smoke-server.log" || true
+              cat "$RUNNER_TEMP/android-metro.log" || true
+              adb logcat -d -t 400 || true
+              exit "$smoke_status"
+            fi
+            grep -F 'FRESNICA_PARSE_ACCOUNT_SMOKE_OK' "$RUNNER_TEMP/android-native-runtime-smoke.json"
+
+      - name: Upload generated native artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: fresnica-android-native-integration
+          if-no-files-found: error
+          path: |
+            vendor/fresnica/native/fresnica-native-sdk-0.2.1.aar
+            vendor/fresnica/adapter/react-native/fresnica-rn-adapter.aar
+            vendor/fresnica/adapter/react-native/adapter-manifest.json
+            android/app/build/outputs/apk/debug/app-debug.apk
+            ${{ runner.temp }}/android-native-runtime-smoke.json
