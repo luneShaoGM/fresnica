@@ -76,6 +76,17 @@ jobs:
           FRESNICA_ADAPTER_BOOTSTRAP: '1'
         run: bundle exec pod install
 
+      - name: Prepare RN 0.87 Apple module-name compatibility shim
+        shell: bash
+        run: |
+          set -euo pipefail
+          export_file="$GITHUB_WORKSPACE/.fresnica-upstream/adapters/react-native/apple/FresnicaCoreModule.m"
+          original='@interface RCT_EXTERN_MODULE(FresnicaCoreModule, NSObject)'
+          remapped='@interface RCT_EXTERN_REMAP_MODULE(FresnicaCore, FresnicaCoreModule, NSObject)'
+          grep -F "$original" "$export_file"
+          perl -0pi -e 's/\@interface RCT_EXTERN_MODULE\(FresnicaCoreModule, NSObject\)/\@interface RCT_EXTERN_REMAP_MODULE(FresnicaCore, FresnicaCoreModule, NSObject)/' "$export_file"
+          grep -F "$remapped" "$export_file"
+
       - name: Build canonical React Native Apple adapter
         shell: bash
         run: |
