@@ -1,7 +1,7 @@
 import type {
-  StellarAccountAuthorization,
+  ClassicLedgerAuthorization,
   StellarThresholdLevel,
-} from '../accounts/types';
+} from './types';
 
 export type SignerResolution =
   | {
@@ -28,14 +28,17 @@ export type SignerResolution =
     };
 
 export function resolveLocalSigner(
-  account: StellarAccountAuthorization,
+  authorization: ClassicLedgerAuthorization,
   localSignerPublicKeys: readonly string[],
   thresholdLevel: StellarThresholdLevel,
 ): SignerResolution {
-  const requiredWeight = account.thresholds[thresholdLevel];
+  const requiredWeight = authorization.thresholds[thresholdLevel];
   const localSignerSet = new Set(localSignerPublicKeys);
-  const authorizedLocalSigners = account.signers.filter(
-    signer => signer.weight > 0 && localSignerSet.has(signer.publicKey),
+  const authorizedLocalSigners = authorization.signers.filter(
+    signer =>
+      signer.kind === 'ed25519' &&
+      signer.weight > 0 &&
+      localSignerSet.has(signer.publicKey),
   );
 
   if (authorizedLocalSigners.length === 0) {
@@ -54,7 +57,8 @@ export function resolveLocalSigner(
     .filter(signer => signer.weight >= requiredWeight)
     .sort(
       (left, right) =>
-        right.weight - left.weight || left.publicKey.localeCompare(right.publicKey),
+        right.weight - left.weight ||
+        left.publicKey.localeCompare(right.publicKey),
     );
 
   if (independentlySufficient.length > 0) {

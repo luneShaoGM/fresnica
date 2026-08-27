@@ -1,6 +1,6 @@
 import type { FresnicaSdk } from '../../../../platform/fresnica/FresnicaSdk';
 import type { SignerRecord } from '../../../../capabilities/signer/types';
-import type { StellarGateway } from '../../gateway/StellarGateway';
+import type { StellarGateway } from '../../../../platform/stellar/StellarGateway';
 import type { PaymentReview } from '../../review/buildPaymentReview';
 import { submitReviewedPayment } from '../submitReviewedPayment';
 
@@ -28,7 +28,7 @@ function gatewayWith(weight: number, threshold = 1) {
     loadAccountAuthorization: jest.fn().mockResolvedValue({
       address: review.source,
       thresholds: { low: 1, medium: threshold, high: 2 },
-      signers: [{ publicKey: signer.publicKey, weight }],
+      signers: [{ kind: 'ed25519', publicKey: signer.publicKey, weight }],
     }),
     submitTransaction: jest.fn().mockResolvedValue({ hash: 'tx-hash', ledger: 77 }),
   } as unknown as jest.Mocked<StellarGateway>;

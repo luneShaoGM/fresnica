@@ -1,8 +1,8 @@
 import type { FresnicaSdk } from '../../../platform/fresnica/FresnicaSdk';
 import type { SignerRecord } from '../../../capabilities/signer/types';
-import type { StellarGateway } from '../gateway/StellarGateway';
+import type { StellarGateway } from '../../../platform/stellar/StellarGateway';
 import type { PaymentReview } from '../review/buildPaymentReview';
-import { resolveLocalSigner } from './resolveLocalSigner';
+import { resolveLocalSigner } from '../../../capabilities/ledger-authorization/resolveLocalSigner';
 import { signReviewedPayment } from './signReviewedPayment';
 
 export type SubmitReviewedPaymentResult =

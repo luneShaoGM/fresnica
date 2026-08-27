@@ -7,8 +7,8 @@ import {
   TransactionBuilder,
 } from '@stellar/stellar-sdk';
 
-import { APP_CONFIG } from '../../../app/config/appConfig';
-import type { StellarAccountAuthorization } from '../accounts/types';
+import { APP_CONFIG } from '../../app/config/appConfig';
+import type { LedgerSignerCondition } from '../../capabilities/ledger-authorization/types';
 import type { StellarGateway } from './StellarGateway';
 import type {
   BuildPaymentInput,
@@ -32,12 +32,29 @@ function createDefaultServer(): HorizonServerLike {
   };
 }
 
+function mapLedgerSigner(input: {
+  key: string;
+  weight: number;
+  type: string;
+}): LedgerSignerCondition {
+  switch (input.type) {
+    case 'ed25519_public_key':
+      return { kind: 'ed25519', publicKey: input.key, weight: input.weight };
+    case 'preauth_tx':
+      return { kind: 'preauth-tx', key: input.key, weight: input.weight };
+    case 'sha256_hash':
+      return { kind: 'hash-x', key: input.key, weight: input.weight };
+    case 'ed25519_signed_payload':
+      return { kind: 'signed-payload', key: input.key, weight: input.weight };
+    default:
+      throw new Error(`unsupported-ledger-signer-type:${input.type}`);
+  }
+}
+
 export class StellarSdkGateway implements StellarGateway {
   constructor(private readonly server: HorizonServerLike = createDefaultServer()) {}
 
-  async loadAccountAuthorization(
-    address: string,
-  ): Promise<StellarAccountAuthorization> {
+  async loadAccountAuthorization(address: string) {
     const account = await this.server.loadAccount(address);
 
     return {
@@ -47,10 +64,7 @@ export class StellarSdkGateway implements StellarGateway {
         medium: account.thresholds.med_threshold,
         high: account.thresholds.high_threshold,
       },
-      signers: account.signers.map(signer => ({
-        publicKey: signer.key,
-        weight: signer.weight,
-      })),
+      signers: account.signers.map(mapLedgerSigner),
     };
   }
 
