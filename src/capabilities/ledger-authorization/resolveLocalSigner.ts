@@ -1,7 +1,13 @@
 import type {
   ClassicLedgerAuthorization,
+  LedgerSignerCondition,
   StellarThresholdLevel,
 } from './types';
+
+type Ed25519LedgerSigner = Extract<
+  LedgerSignerCondition,
+  { kind: 'ed25519' }
+>;
 
 export type SignerResolution =
   | {
@@ -35,7 +41,7 @@ export function resolveLocalSigner(
   const requiredWeight = authorization.thresholds[thresholdLevel];
   const localSignerSet = new Set(localSignerPublicKeys);
   const authorizedLocalSigners = authorization.signers.filter(
-    signer =>
+    (signer): signer is Ed25519LedgerSigner =>
       signer.kind === 'ed25519' &&
       signer.weight > 0 &&
       localSignerSet.has(signer.publicKey),
