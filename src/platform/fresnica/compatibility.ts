@@ -1,10 +1,19 @@
+export const FRESNICA_SDK_COMPATIBILITY = Object.freeze({
+  nativeSdkVersion: '0.2.1',
+  nativeBindingApiVersion: 2,
+  universalSdkApiVersion: 3,
+  coreClientApiVersion: 3,
+  adapterSourceVersion: '0.2.0',
+  reactNativeVersion: '0.87.0',
+} as const);
+
 export const FRESNICA_ADAPTER_REQUIREMENTS = Object.freeze({
   schemaVersion: 1,
   framework: 'react-native',
-  frameworkVersion: '0.87.0',
-  adapterSourceVersion: '0.2.0',
-  fresnicaNativeSdkVersion: '0.2.1',
-  nativeBindingApiVersion: 2,
+  frameworkVersion: FRESNICA_SDK_COMPATIBILITY.reactNativeVersion,
+  adapterSourceVersion: FRESNICA_SDK_COMPATIBILITY.adapterSourceVersion,
+  fresnicaNativeSdkVersion: FRESNICA_SDK_COMPATIBILITY.nativeSdkVersion,
+  nativeBindingApiVersion: FRESNICA_SDK_COMPATIBILITY.nativeBindingApiVersion,
   jsModuleName: 'FresnicaCore',
 } as const);
 
