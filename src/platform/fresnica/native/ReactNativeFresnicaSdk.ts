@@ -1,4 +1,4 @@
-import type { FresnicaCore } from '../FresnicaCore';
+import type { FresnicaSdk } from '../FresnicaSdk';
 import type {
   ApplyEd25519SignatureInput,
   DeriveMnemonicSignerInput,
@@ -14,10 +14,10 @@ import type {
   SignWithSystemAuthInput,
 } from '../types';
 import { normalizeFresnicaNativeError } from './FresnicaNativeError';
-import type { NativeFresnicaCoreModule } from './NativeFresnicaCoreModule';
+import type { NativeFresnicaModule } from './NativeFresnicaModule';
 
-export class ReactNativeFresnicaCore implements FresnicaCore {
-  constructor(private readonly native: NativeFresnicaCoreModule) {}
+export class ReactNativeFresnicaSdk implements FresnicaSdk {
+  constructor(private readonly native: NativeFresnicaModule) {}
 
   parseAccount(address: string) {
     return this.invoke(() => this.native.parseAccount(address));

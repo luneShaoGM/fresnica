@@ -1,4 +1,4 @@
-import type { NativeFresnicaCoreModule } from './NativeFresnicaCoreModule';
+import type { NativeFresnicaModule } from './NativeFresnicaModule';
 
 const REQUIRED_METHODS = [
   'parseAccount',
@@ -19,13 +19,13 @@ const REQUIRED_METHODS = [
   'removeSystemAuthDomain',
   'signWithSystemAuth',
   'signWithPasscode',
-] as const satisfies ReadonlyArray<keyof NativeFresnicaCoreModule>;
+] as const satisfies ReadonlyArray<keyof NativeFresnicaModule>;
 
 type NativeModulesLike = Record<string, unknown>;
 
-export function loadNativeFresnicaCoreModule(
+export function loadNativeFresnicaModule(
   nativeModules: NativeModulesLike,
-): NativeFresnicaCoreModule {
+): NativeFresnicaModule {
   const candidate = nativeModules.FresnicaCore;
 
   if (candidate === null || typeof candidate !== 'object') {
@@ -42,5 +42,5 @@ export function loadNativeFresnicaCoreModule(
     }
   }
 
-  return candidate as NativeFresnicaCoreModule;
+  return candidate as NativeFresnicaModule;
 }

@@ -1,8 +1,8 @@
-import type { NativeFresnicaCoreModule } from '../NativeFresnicaCoreModule';
+import type { NativeFresnicaModule } from '../NativeFresnicaModule';
 
-describe('NativeFresnicaCoreModule contract', () => {
+describe('NativeFresnicaModule contract', () => {
   it('contains the canonical v0.2.0 bridge operations and no unlock-key APIs', () => {
-    const methods: Array<keyof NativeFresnicaCoreModule> = [
+    const methods: Array<keyof NativeFresnicaModule> = [
       'parseAccount',
       'protectSecret',
       'protectMnemonic',
@@ -23,8 +23,8 @@ describe('NativeFresnicaCoreModule contract', () => {
       'signWithPasscode',
     ];
 
-    expect(methods).not.toContain('deriveUnlockKey' as keyof NativeFresnicaCoreModule);
-    expect(methods).not.toContain('validateUnlockKey' as keyof NativeFresnicaCoreModule);
-    expect(methods).not.toContain('signTransactionXdr' as keyof NativeFresnicaCoreModule);
+    expect(methods).not.toContain('deriveUnlockKey' as keyof NativeFresnicaModule);
+    expect(methods).not.toContain('validateUnlockKey' as keyof NativeFresnicaModule);
+    expect(methods).not.toContain('signTransactionXdr' as keyof NativeFresnicaModule);
   });
 });

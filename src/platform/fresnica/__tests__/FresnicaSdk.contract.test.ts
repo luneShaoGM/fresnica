@@ -1,8 +1,8 @@
-import type { FresnicaCore } from '../FresnicaCore';
+import type { FresnicaSdk } from '../FresnicaSdk';
 
-describe('FresnicaCore contract', () => {
+describe('FresnicaSdk contract', () => {
   it('mirrors the canonical native adapter surface without exposing unlock keys', () => {
-    const allowed: Array<keyof FresnicaCore> = [
+    const allowed: Array<keyof FresnicaSdk> = [
       'parseAccount',
       'protectSecret',
       'protectMnemonic',
@@ -23,10 +23,10 @@ describe('FresnicaCore contract', () => {
       'signWithPasscode',
     ];
 
-    expect(allowed).not.toContain('deriveUnlockKey' as keyof FresnicaCore);
-    expect(allowed).not.toContain('validateUnlockKey' as keyof FresnicaCore);
-    expect(allowed).not.toContain('signTransactionXdr' as keyof FresnicaCore);
-    expect(allowed).not.toContain('getWalletUnlockKey' as keyof FresnicaCore);
-    expect(allowed).not.toContain('decryptSecret' as keyof FresnicaCore);
+    expect(allowed).not.toContain('deriveUnlockKey' as keyof FresnicaSdk);
+    expect(allowed).not.toContain('validateUnlockKey' as keyof FresnicaSdk);
+    expect(allowed).not.toContain('signTransactionXdr' as keyof FresnicaSdk);
+    expect(allowed).not.toContain('getWalletUnlockKey' as keyof FresnicaSdk);
+    expect(allowed).not.toContain('decryptSecret' as keyof FresnicaSdk);
   });
 });

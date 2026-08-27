@@ -1,5 +1,5 @@
 import { APP_CONFIG } from '../../../app/config/appConfig';
-import type { FresnicaCore } from '../../fresnica/FresnicaCore';
+import type { FresnicaSdk } from '../../../platform/fresnica/FresnicaSdk';
 import type { SignerRecord } from '../../storage/domain/types';
 import type { PaymentReview } from '../review/buildPaymentReview';
 
@@ -13,21 +13,21 @@ export type ReviewedPaymentSigningResult =
   | { status: 'unsupported-signer' };
 
 export async function signReviewedPayment(input: {
-  core: FresnicaCore;
+  sdk: FresnicaSdk;
   review: PaymentReview;
   signer: SignerRecord;
   appPasscode?: string;
   systemAuthReason?: string;
 }): Promise<ReviewedPaymentSigningResult> {
-  const { core, review, signer } = input;
+  const { sdk, review, signer } = input;
 
   if (signer.kind !== 'protected-software' || !signer.envelopeJson) {
     return { status: 'unsupported-signer' };
   }
 
-  const hasSystemAuth = await core.hasSignerSystemAuth(signer.publicKey);
+  const hasSystemAuth = await sdk.hasSignerSystemAuth(signer.publicKey);
   if (hasSystemAuth) {
-    const signedTransactionXdrBase64 = await core.signWithSystemAuth({
+    const signedTransactionXdrBase64 = await sdk.signWithSystemAuth({
       envelopeJson: signer.envelopeJson,
       expectedSignerPublicKey: signer.publicKey,
       transactionXdrBase64: review.transactionXdrBase64,
@@ -46,7 +46,7 @@ export async function signReviewedPayment(input: {
     return { status: 'passcode-required' };
   }
 
-  const signedTransactionXdrBase64 = await core.signWithPasscode({
+  const signedTransactionXdrBase64 = await sdk.signWithPasscode({
     envelopeJson: signer.envelopeJson,
     appPasscode: input.appPasscode,
     expectedSignerPublicKey: signer.publicKey,

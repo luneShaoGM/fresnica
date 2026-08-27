@@ -1,4 +1,4 @@
-import type { FresnicaCore } from '../../fresnica/FresnicaCore';
+import type { FresnicaSdk } from '../../../platform/fresnica/FresnicaSdk';
 import type { SignerRecord } from '../../storage/domain/types';
 import type { StellarGateway } from '../gateway/StellarGateway';
 import type { PaymentReview } from '../review/buildPaymentReview';
@@ -23,7 +23,7 @@ export type SubmitReviewedPaymentResult =
 
 export async function submitReviewedPayment(input: {
   gateway: StellarGateway;
-  core: FresnicaCore;
+  sdk: FresnicaSdk;
   review: PaymentReview;
   signer: SignerRecord;
   appPasscode?: string;
@@ -48,7 +48,7 @@ export async function submitReviewedPayment(input: {
   }
 
   const signing = await signReviewedPayment({
-    core: input.core,
+    sdk: input.sdk,
     review: input.review,
     signer: input.signer,
     ...(input.appPasscode === undefined

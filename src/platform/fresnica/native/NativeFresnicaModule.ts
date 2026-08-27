@@ -6,7 +6,7 @@ import type {
   RevealedSigningMaterial,
 } from '../types';
 
-export interface NativeFresnicaCoreModule {
+export interface NativeFresnicaModule {
   parseAccount(address: string): Promise<AccountIdentity>;
   protectSecret(
     secret: string,

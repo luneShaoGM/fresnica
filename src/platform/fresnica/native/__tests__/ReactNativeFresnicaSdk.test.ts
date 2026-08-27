@@ -1,7 +1,7 @@
-import { ReactNativeFresnicaCore } from '../ReactNativeFresnicaCore';
-import type { NativeFresnicaCoreModule } from '../NativeFresnicaCoreModule';
+import { ReactNativeFresnicaSdk } from '../ReactNativeFresnicaSdk';
+import type { NativeFresnicaModule } from '../NativeFresnicaModule';
 
-function createNativeModule(): jest.Mocked<NativeFresnicaCoreModule> {
+function createNativeModule(): jest.Mocked<NativeFresnicaModule> {
   return {
     parseAccount: jest.fn(),
     protectSecret: jest.fn(),
@@ -24,16 +24,16 @@ function createNativeModule(): jest.Mocked<NativeFresnicaCoreModule> {
   };
 }
 
-describe('ReactNativeFresnicaCore', () => {
+describe('ReactNativeFresnicaSdk', () => {
   it('maps mnemonic protection to the canonical positional bridge call', async () => {
     const native = createNativeModule();
     native.protectMnemonic.mockResolvedValue({
       signerPublicKey: 'GSIGNER',
       envelopeJson: '{"v":1}',
     });
-    const core = new ReactNativeFresnicaCore(native);
+    const sdk = new ReactNativeFresnicaSdk(native);
 
-    await core.protectMnemonic({
+    await sdk.protectMnemonic({
       mnemonic: 'words',
       mnemonicPassphrase: 'optional passphrase',
       index: 7,
@@ -56,9 +56,9 @@ describe('ReactNativeFresnicaCore', () => {
     const native = createNativeModule();
     native.signWithSystemAuth.mockResolvedValue('signed-system-auth');
     native.signWithPasscode.mockResolvedValue('signed-passcode');
-    const core = new ReactNativeFresnicaCore(native);
+    const sdk = new ReactNativeFresnicaSdk(native);
 
-    await core.signWithSystemAuth({
+    await sdk.signWithSystemAuth({
       envelopeJson: '{"v":1}',
       expectedSignerPublicKey: 'GSIGNER',
       transactionXdrBase64: 'AAAA',
@@ -66,7 +66,7 @@ describe('ReactNativeFresnicaCore', () => {
       reason: 'Confirm transaction',
     });
 
-    await core.signWithPasscode({
+    await sdk.signWithPasscode({
       envelopeJson: '{"v":1}',
       appPasscode: '123456',
       expectedSignerPublicKey: 'GSIGNER',
@@ -93,9 +93,9 @@ describe('ReactNativeFresnicaCore', () => {
   it('uses reveal only for explicit fresh-passcode export', async () => {
     const native = createNativeModule();
     native.reveal.mockResolvedValue({ kind: 'secret', secret: 'SSECRET' });
-    const core = new ReactNativeFresnicaCore(native);
+    const sdk = new ReactNativeFresnicaSdk(native);
 
-    const result = await core.reveal({
+    const result = await sdk.reveal({
       envelopeJson: '{"v":1}',
       freshAppPasscode: '654321',
       expectedSignerPublicKey: 'GSIGNER',
@@ -115,10 +115,10 @@ describe('ReactNativeFresnicaCore', () => {
       code: 'user-cancel',
       message: 'Canceled',
     });
-    const core = new ReactNativeFresnicaCore(native);
+    const sdk = new ReactNativeFresnicaSdk(native);
 
     await expect(
-      core.signWithSystemAuth({
+      sdk.signWithSystemAuth({
         envelopeJson: '{"v":1}',
         expectedSignerPublicKey: 'GSIGNER',
         transactionXdrBase64: 'AAAA',

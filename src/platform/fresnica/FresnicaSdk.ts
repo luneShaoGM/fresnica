@@ -17,7 +17,7 @@ import type {
   SignWithSystemAuthInput,
 } from './types';
 
-export interface FresnicaCore {
+export interface FresnicaSdk {
   parseAccount(address: string): Promise<AccountIdentity>;
   protectSecret(input: ProtectSecretInput): Promise<ProtectedSigner>;
   protectMnemonic(input: ProtectMnemonicInput): Promise<ProtectedSigner>;
