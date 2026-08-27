@@ -22,6 +22,7 @@ describe('Fresnica adapter compatibility', () => {
       universalSdkApiVersion: 3,
       coreClientApiVersion: 3,
       adapterSourceVersion: '0.2.0',
+      adapterSourceRevision: '4ba1cbe8f189c74cf20e2ccbfdcf3939afa930a8',
       reactNativeVersion: '0.87.0',
     });
     expect(Object.isFrozen(FRESNICA_SDK_COMPATIBILITY)).toBe(true);
