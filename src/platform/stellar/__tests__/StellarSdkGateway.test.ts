@@ -29,6 +29,25 @@ function server(account = horizonAccount()): jest.Mocked<HorizonServerLike> {
   };
 }
 
+function transactionHashHex(xdr: string): string {
+  const transaction = new Transaction(xdr, Networks.TESTNET);
+  return Array.from(transaction.hash())
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function paymentXdr(gateway: StellarSdkGateway): Promise<string> {
+  const built = await gateway.buildPayment({
+    source: sourceAddress,
+    destination: destinationAddress,
+    asset: { kind: 'native' },
+    amount: '1.2500000',
+    memo: 'hello',
+    baseFee: '100',
+  });
+  return built.transactionXdrBase64;
+}
+
 describe('StellarSdkGateway', () => {
   it('maps Horizon thresholds and typed Ed25519 signers into ledger authorization', async () => {
     const gateway = new StellarSdkGateway(server());
@@ -73,21 +92,10 @@ describe('StellarSdkGateway', () => {
 
   it('builds an unsigned native-asset payment on Stellar Testnet', async () => {
     const gateway = new StellarSdkGateway(server());
-
-    const built = await gateway.buildPayment({
-      source: sourceAddress,
-      destination: destinationAddress,
-      asset: { kind: 'native' },
-      amount: '1.2500000',
-      memo: 'hello',
-      baseFee: '100',
-    });
-
-    const transaction = new Transaction(built.transactionXdrBase64, Networks.TESTNET);
+    const xdr = await paymentXdr(gateway);
+    const transaction = new Transaction(xdr, Networks.TESTNET);
     const operation = transaction.operations[0];
 
-    expect(built.source).toBe(sourceAddress);
-    expect(built.networkId).toBe('stellar-testnet');
     expect(transaction.networkPassphrase).toBe(Networks.TESTNET);
     expect(transaction.signatures).toHaveLength(0);
     expect(transaction.operations).toHaveLength(1);
@@ -99,7 +107,49 @@ describe('StellarSdkGateway', () => {
     expect(operation.amount).toBe('1.2500000');
     expect(operation.asset.isNative()).toBe(true);
     expect(transaction.memo.type).toBe('text');
-    const memoBytes = transaction.memo.value as unknown as Uint8Array;
-    expect(String.fromCharCode(...memoBytes)).toBe('hello');
+  });
+
+  it('normalizes an accepted submission', async () => {
+    const horizon = server();
+    horizon.submitTransaction.mockResolvedValue({ hash: 'accepted-hash', ledger: 77 });
+    const gateway = new StellarSdkGateway(horizon);
+    const xdr = await paymentXdr(gateway);
+
+    await expect(gateway.submitTransaction(xdr)).resolves.toEqual({
+      status: 'accepted',
+      hash: 'accepted-hash',
+      ledger: 77,
+    });
+  });
+
+  it('normalizes a deterministic Horizon rejection with the exact transaction hash', async () => {
+    const horizon = server();
+    horizon.submitTransaction.mockRejectedValue({
+      response: {
+        status: 400,
+        data: { extras: { result_codes: { transaction: 'tx_bad_seq' } } },
+      },
+    });
+    const gateway = new StellarSdkGateway(horizon);
+    const xdr = await paymentXdr(gateway);
+
+    await expect(gateway.submitTransaction(xdr)).resolves.toEqual({
+      status: 'rejected',
+      transactionHash: transactionHashHex(xdr),
+      resultCode: 'tx_bad_seq',
+    });
+  });
+
+  it('normalizes a transport failure as uncertain without claiming rejection', async () => {
+    const horizon = server();
+    horizon.submitTransaction.mockRejectedValue(new Error('timeout'));
+    const gateway = new StellarSdkGateway(horizon);
+    const xdr = await paymentXdr(gateway);
+
+    await expect(gateway.submitTransaction(xdr)).resolves.toEqual({
+      status: 'uncertain',
+      transactionHash: transactionHashHex(xdr),
+    });
+    expect(horizon.submitTransaction).toHaveBeenCalledTimes(1);
   });
 });

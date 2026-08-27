@@ -9,12 +9,12 @@ import {
 
 import { APP_CONFIG } from '../../app/config/appConfig';
 import type { LedgerSignerCondition } from '../../capabilities/ledger-authorization/types';
+import type { TransactionSubmissionResult } from '../../capabilities/transaction/submission';
 import type { StellarGateway } from './StellarGateway';
 import type {
   BuildPaymentInput,
   BuiltTransaction,
   HorizonServerLike,
-  SubmittedTransaction,
 } from './types';
 
 function createDefaultServer(): HorizonServerLike {
@@ -49,6 +49,50 @@ function mapLedgerSigner(input: {
     default:
       throw new Error(`unsupported-ledger-signer-type:${input.type}`);
   }
+}
+
+function transactionHashHex(transaction: Transaction): string {
+  return Array.from(transaction.hash())
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function deterministicSubmissionRejection(error: unknown):
+  | { rejected: false }
+  | { rejected: true; resultCode?: string } {
+  if (error === null || typeof error !== 'object') {
+    return { rejected: false };
+  }
+
+  const response = (error as { response?: unknown }).response;
+  if (response === null || typeof response !== 'object') {
+    return { rejected: false };
+  }
+
+  const status = (response as { status?: unknown }).status;
+  if (status !== 400) {
+    return { rejected: false };
+  }
+
+  const data = (response as { data?: unknown }).data;
+  if (data === null || typeof data !== 'object') {
+    return { rejected: true };
+  }
+
+  const extras = (data as { extras?: unknown }).extras;
+  if (extras === null || typeof extras !== 'object') {
+    return { rejected: true };
+  }
+
+  const resultCodes = (extras as { result_codes?: unknown }).result_codes;
+  if (resultCodes === null || typeof resultCodes !== 'object') {
+    return { rejected: true };
+  }
+
+  const transactionCode = (resultCodes as { transaction?: unknown }).transaction;
+  return typeof transactionCode === 'string'
+    ? { rejected: true, resultCode: transactionCode }
+    : { rejected: true };
 }
 
 export class StellarSdkGateway implements StellarGateway {
@@ -101,16 +145,33 @@ export class StellarSdkGateway implements StellarGateway {
 
   async submitTransaction(
     signedXdrBase64: string,
-  ): Promise<SubmittedTransaction> {
+  ): Promise<TransactionSubmissionResult> {
     const transaction = new Transaction(
       signedXdrBase64,
       APP_CONFIG.network.networkPassphrase,
     );
-    const result = await this.server.submitTransaction(transaction);
+    const transactionHash = transactionHashHex(transaction);
 
-    return {
-      hash: result.hash,
-      ...(result.ledger === undefined ? {} : { ledger: result.ledger }),
-    };
+    try {
+      const result = await this.server.submitTransaction(transaction);
+      return {
+        status: 'accepted',
+        hash: result.hash,
+        ...(result.ledger === undefined ? {} : { ledger: result.ledger }),
+      };
+    } catch (error) {
+      const rejection = deterministicSubmissionRejection(error);
+      if (rejection.rejected) {
+        return {
+          status: 'rejected',
+          transactionHash,
+          ...(rejection.resultCode === undefined
+            ? {}
+            : { resultCode: rejection.resultCode }),
+        };
+      }
+
+      return { status: 'uncertain', transactionHash };
+    }
   }
 }

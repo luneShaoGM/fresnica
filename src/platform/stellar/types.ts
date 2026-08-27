@@ -40,8 +40,3 @@ export type BuiltTransaction = {
   networkId: 'stellar-testnet';
   transactionXdrBase64: string;
 };
-
-export type SubmittedTransaction = {
-  hash: string;
-  ledger?: number;
-};

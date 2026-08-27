@@ -1,9 +1,9 @@
-import { APP_CONFIG } from '../../../app/config/appConfig';
-import type { FresnicaSdk } from '../../../platform/fresnica/FresnicaSdk';
-import type { SignerRecord } from '../../../capabilities/signer/types';
-import type { PaymentReview } from '../../../capabilities/payment/buildPaymentReview';
+import { APP_CONFIG } from '../../app/config/appConfig';
+import type { FresnicaSdk } from '../../platform/fresnica/FresnicaSdk';
+import type { SignerRecord } from '../signer/types';
+import type { ReviewedTransaction } from '../transaction/ReviewedTransaction';
 
-export type ReviewedPaymentSigningResult =
+export type ReviewedTransactionSigningResult =
   | {
       status: 'signed';
       authorization: 'system-auth' | 'passcode';
@@ -12,13 +12,13 @@ export type ReviewedPaymentSigningResult =
   | { status: 'passcode-required' }
   | { status: 'unsupported-signer' };
 
-export async function signReviewedPayment(input: {
+export async function signReviewedTransaction(input: {
   sdk: FresnicaSdk;
-  review: PaymentReview;
+  review: ReviewedTransaction;
   signer: SignerRecord;
   appPasscode?: string;
   systemAuthReason?: string;
-}): Promise<ReviewedPaymentSigningResult> {
+}): Promise<ReviewedTransactionSigningResult> {
   const { sdk, review, signer } = input;
 
   if (signer.kind !== 'protected-software' || !signer.envelopeJson) {
@@ -32,7 +32,7 @@ export async function signReviewedPayment(input: {
       expectedSignerPublicKey: signer.publicKey,
       transactionXdrBase64: review.transactionXdrBase64,
       networkPassphrase: APP_CONFIG.network.networkPassphrase,
-      reason: input.systemAuthReason ?? 'Confirm Fresnica payment',
+      reason: input.systemAuthReason ?? 'Confirm Fresnica transaction',
     });
 
     return {

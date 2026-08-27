@@ -1,9 +1,10 @@
-import type { FresnicaSdk } from '../../../platform/fresnica/FresnicaSdk';
-import type { SignerRecord } from '../../../capabilities/signer/types';
-import type { StellarGateway } from '../../../platform/stellar/StellarGateway';
-import type { PaymentReview } from '../../../capabilities/payment/buildPaymentReview';
-import { resolveLocalSigner } from '../../../capabilities/ledger-authorization/resolveLocalSigner';
-import { signReviewedPayment } from './signReviewedPayment';
+import type { FresnicaSdk } from '../../platform/fresnica/FresnicaSdk';
+import type { StellarGateway } from '../../platform/stellar/StellarGateway';
+import { resolveLocalSigner } from '../ledger-authorization/resolveLocalSigner';
+import type { SignerRecord } from '../signer/types';
+import { signReviewedTransaction } from '../signing/signReviewedTransaction';
+import { assertReviewedTransactionFresh } from '../transaction/assertReviewedTransactionFresh';
+import type { PaymentReview } from './buildPaymentReview';
 
 export type SubmitReviewedPaymentResult =
   | {
@@ -19,7 +20,9 @@ export type SubmitReviewedPaymentResult =
       reason: 'watch-only' | 'insufficient-weight' | 'unsupported-multisig';
       requiredWeight: number;
       availableWeight: number;
-    };
+    }
+  | { status: 'rejected'; transactionHash: string; resultCode?: string }
+  | { status: 'uncertain'; transactionHash: string };
 
 export async function submitReviewedPayment(input: {
   gateway: StellarGateway;
@@ -29,6 +32,11 @@ export async function submitReviewedPayment(input: {
   appPasscode?: string;
   systemAuthReason?: string;
 }): Promise<SubmitReviewedPaymentResult> {
+  assertReviewedTransactionFresh(
+    input.review,
+    Math.floor(Date.now() / 1000),
+  );
+
   const authorization = await input.gateway.loadAccountAuthorization(
     input.review.source,
   );
@@ -47,7 +55,7 @@ export async function submitReviewedPayment(input: {
     };
   }
 
-  const signing = await signReviewedPayment({
+  const signing = await signReviewedTransaction({
     sdk: input.sdk,
     review: input.review,
     signer: input.signer,
@@ -63,14 +71,18 @@ export async function submitReviewedPayment(input: {
     return signing;
   }
 
-  const submitted = await input.gateway.submitTransaction(
+  const submission = await input.gateway.submitTransaction(
     signing.signedTransactionXdrBase64,
   );
 
-  return {
-    status: 'submitted',
-    authorization: signing.authorization,
-    hash: submitted.hash,
-    ...(submitted.ledger === undefined ? {} : { ledger: submitted.ledger }),
-  };
+  if (submission.status === 'accepted') {
+    return {
+      status: 'submitted',
+      authorization: signing.authorization,
+      hash: submission.hash,
+      ...(submission.ledger === undefined ? {} : { ledger: submission.ledger }),
+    };
+  }
+
+  return submission;
 }
