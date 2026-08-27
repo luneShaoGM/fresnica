@@ -1,5 +1,6 @@
 import {
   FRESNICA_ADAPTER_REQUIREMENTS,
+  FRESNICA_SDK_COMPATIBILITY,
   validateAdapterManifest,
 } from '../compatibility';
 
@@ -14,7 +15,19 @@ describe('Fresnica adapter compatibility', () => {
     jsModuleName: 'FresnicaCore',
   } as const;
 
-  it('pins the exact first-integration versions', () => {
+  it('records every separately versioned Mobile consumer contract', () => {
+    expect(FRESNICA_SDK_COMPATIBILITY).toEqual({
+      nativeSdkVersion: '0.2.1',
+      nativeBindingApiVersion: 2,
+      universalSdkApiVersion: 3,
+      coreClientApiVersion: 3,
+      adapterSourceVersion: '0.2.0',
+      reactNativeVersion: '0.87.0',
+    });
+    expect(Object.isFrozen(FRESNICA_SDK_COMPATIBILITY)).toBe(true);
+  });
+
+  it('pins the exact first-integration adapter manifest contract', () => {
     expect(FRESNICA_ADAPTER_REQUIREMENTS).toEqual(validManifest);
     expect(Object.isFrozen(FRESNICA_ADAPTER_REQUIREMENTS)).toBe(true);
   });
