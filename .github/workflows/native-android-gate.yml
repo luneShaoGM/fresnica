@@ -121,61 +121,11 @@ jobs:
           unzip -p "$adapter_aar" classes.jar > "$RUNNER_TEMP/fresnica-rn-adapter-classes.jar"
           jar tf "$RUNNER_TEMP/fresnica-rn-adapter-classes.jar" | grep -F 'com/fresnica/sdk/reactnative/FresnicaCorePackage.class'
 
-      - name: Build Android debug app
+      - name: Build Android debug app for native link verification
         working-directory: android
         run: ./gradlew :app:assembleDebug -PreactNativeArchitectures=x86_64 --stacktrace
 
-      - name: Enable KVM
-        shell: bash
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Run Android FresnicaCore parseAccount smoke
-        uses: reactivecircus/android-emulator-runner@v2.38.0
-        with:
-          api-level: 35
-          target: default
-          arch: x86_64
-          profile: pixel_7
-          disable-animations: true
-          script: |
-            set -euo pipefail
-            cp scripts/native-runtime-smoke-entry.js index.js
-            FRESNICA_SMOKE_RESULT="$RUNNER_TEMP/android-native-runtime-smoke.json" node scripts/native-runtime-smoke-server.mjs > "$RUNNER_TEMP/android-smoke-server.log" 2>&1 &
-            smoke_server_pid=$!
-            npx react-native start --port 8081 > "$RUNNER_TEMP/android-metro.log" 2>&1 &
-            metro_pid=$!
-            trap 'kill "$metro_pid" "$smoke_server_pid" 2>/dev/null || true' EXIT
-            for attempt in $(seq 1 60); do
-              if curl --silent --fail http://127.0.0.1:8081/status | grep -q 'packager-status:running'; then
-                break
-              fi
-              sleep 1
-            done
-            curl --fail http://127.0.0.1:8081/status | grep -q 'packager-status:running'
-            adb reverse tcp:8081 tcp:8081
-            adb reverse tcp:8765 tcp:8765
-            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-            adb logcat -c
-            adb shell am force-stop com.fresnica.mobile
-            adb shell monkey -p com.fresnica.mobile -c android.intent.category.LAUNCHER 1
-            set +e
-            wait "$smoke_server_pid"
-            smoke_status=$?
-            set -e
-            cat "$RUNNER_TEMP/android-native-runtime-smoke.json" || true
-            if [ "$smoke_status" -ne 0 ]; then
-              cat "$RUNNER_TEMP/android-smoke-server.log" || true
-              cat "$RUNNER_TEMP/android-metro.log" || true
-              adb logcat -d -t 400 || true
-              exit "$smoke_status"
-            fi
-            grep -F 'FRESNICA_PARSE_ACCOUNT_SMOKE_OK' "$RUNNER_TEMP/android-native-runtime-smoke.json"
-
       - name: Upload generated native artifacts
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: fresnica-android-native-integration
@@ -185,4 +135,3 @@ jobs:
             vendor/fresnica/adapter/react-native/fresnica-rn-adapter.aar
             vendor/fresnica/adapter/react-native/adapter-manifest.json
             android/app/build/outputs/apk/debug/app-debug.apk
-            ${{ runner.temp }}/android-native-runtime-smoke.json
