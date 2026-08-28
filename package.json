@@ -7,7 +7,7 @@
     "ios": "react-native run-ios",
     "start": "react-native start",
     "test": "jest --runInBand",
-    "test:realm": "jest --runInBand --runTestsByPath src/platform/persistence/realm/integration/RealmAccountSignerRepository.integration.ts",
+    "test:realm": "jest --runInBand --config jest.realm.config.js",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm test"
   },
