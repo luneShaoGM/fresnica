@@ -1,5 +1,8 @@
 import type Realm from 'realm';
-import type {AccountSignerRepository} from '../../../capabilities/account/AccountSignerRepository';
+import type {
+  AccountSignerRegistration,
+  AccountSignerRepository,
+} from '../../../capabilities/account/AccountSignerRepository';
 import type {AccountRecord} from '../../../capabilities/account/types';
 import type {SignerRecord} from '../../../capabilities/signer/types';
 import {
@@ -18,35 +21,31 @@ export class RealmAccountSignerRepository implements AccountSignerRepository {
 
   createAccount(account: AccountRecord): void {
     this.realm.write(() => {
-      const duplicate = this.realm
-        .objects(ACCOUNT_ENTITY)
-        .filtered(
-          'networkId == $0 AND address == $1',
-          account.networkId,
-          account.address,
-        ).length;
-
-      if (duplicate > 0) {
-        throw new Error('duplicate-account-identity');
-      }
-
+      this.assertAccountIdentityAvailable(account);
       this.realm.create(ACCOUNT_ENTITY, account);
     });
   }
 
   createSigner(signer: SignerRecord): void {
-    const persisted = {
-      ...signer,
-      envelopeJson: signer.envelopeJson ?? null,
-      envelopeRevision: signer.envelopeRevision ?? null,
-      recoveryKind: signer.recoveryKind ?? null,
-      backupState: signer.backupState ?? null,
-      providerId: signer.providerId ?? null,
-      providerMetadataJson: signer.providerMetadataJson ?? null,
-    };
+    this.realm.write(() => {
+      this.realm.create(SIGNER_ENTITY, this.toPersistedSigner(signer));
+    });
+  }
+
+  createAccountWithSigner(registration: AccountSignerRegistration): void {
+    const {account, signer, attachedAt} = registration;
+    const referenceId = this.referenceId(account.id, signer.id);
 
     this.realm.write(() => {
-      this.realm.create(SIGNER_ENTITY, persisted);
+      this.assertAccountIdentityAvailable(account);
+      this.realm.create(ACCOUNT_ENTITY, account);
+      this.realm.create(SIGNER_ENTITY, this.toPersistedSigner(signer));
+      this.realm.create(ACCOUNT_SIGNER_REFERENCE_ENTITY, {
+        id: referenceId,
+        accountId: account.id,
+        signerId: signer.id,
+        createdAt: attachedAt,
+      });
     });
   }
 
@@ -119,6 +118,32 @@ export class RealmAccountSignerRepository implements AccountSignerRepository {
         .objects(ACCOUNT_SIGNER_REFERENCE_ENTITY)
         .filtered('accountId == $0', accountId).length === 0
     );
+  }
+
+  private assertAccountIdentityAvailable(account: AccountRecord): void {
+    const duplicate = this.realm
+      .objects(ACCOUNT_ENTITY)
+      .filtered(
+        'networkId == $0 AND address == $1',
+        account.networkId,
+        account.address,
+      ).length;
+
+    if (duplicate > 0) {
+      throw new Error('duplicate-account-identity');
+    }
+  }
+
+  private toPersistedSigner(signer: SignerRecord) {
+    return {
+      ...signer,
+      envelopeJson: signer.envelopeJson ?? null,
+      envelopeRevision: signer.envelopeRevision ?? null,
+      recoveryKind: signer.recoveryKind ?? null,
+      backupState: signer.backupState ?? null,
+      providerId: signer.providerId ?? null,
+      providerMetadataJson: signer.providerMetadataJson ?? null,
+    };
   }
 
   private deleteOrphanSigners(): void {
