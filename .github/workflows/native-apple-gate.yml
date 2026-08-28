@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: manran/fresnica
-          ref: 4ba1cbe8f189c74cf20e2ccbfdcf3939afa930a8
+          ref: 084742d1f023bec3ec22689f819dbe8b5f888269
           path: .fresnica-upstream
 
       - name: Set up Node
@@ -47,25 +47,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p vendor/fresnica/native vendor/fresnica/adapter/react-native
-          curl --fail --location --retry 3 \
-            --output "$RUNNER_TEMP/FresnicaSDK-0.2.1-apple.zip" \
-            https://github.com/manran/fresnica/releases/download/native-sdk-v0.2.1/FresnicaSDK-0.2.1-apple.zip
-          curl --fail --location --retry 3 \
-            --output "$RUNNER_TEMP/SHA256SUMS" \
-            https://github.com/manran/fresnica/releases/download/native-sdk-v0.2.1/SHA256SUMS
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/FresnicaSDK-0.2.1-apple.zip" https://github.com/manran/fresnica/releases/download/native-sdk-v0.2.1/FresnicaSDK-0.2.1-apple.zip
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/SHA256SUMS" https://github.com/manran/fresnica/releases/download/native-sdk-v0.2.1/SHA256SUMS
           expected="$(grep 'FresnicaSDK-0.2.1-apple.zip' "$RUNNER_TEMP/SHA256SUMS" | awk '{print $1}')"
           test "$expected" = "dccb756ca034a42df760114031ea2abf7b0e95cabebda6fe536c29f1dcd5a3d2"
           actual="$(shasum -a 256 "$RUNNER_TEMP/FresnicaSDK-0.2.1-apple.zip" | awk '{print $1}')"
           test "$actual" = "$expected"
-
           extract_dir="$RUNNER_TEMP/fresnica-apple-sdk"
-          rm -rf "$extract_dir"
-          mkdir -p "$extract_dir"
+          rm -rf "$extract_dir" && mkdir -p "$extract_dir"
           unzip -q "$RUNNER_TEMP/FresnicaSDK-0.2.1-apple.zip" -d "$extract_dir"
           sdk="$(find "$extract_dir" -type d -name FresnicaSDK.xcframework -print -quit)"
           ffi="$(find "$extract_dir" -type d -name FresnicaSDKFFI.xcframework -print -quit)"
-          test -n "$sdk"
-          test -n "$ffi"
+          test -n "$sdk" && test -n "$ffi"
           rm -rf vendor/fresnica/native/FresnicaSDK.xcframework vendor/fresnica/native/FresnicaSDKFFI.xcframework
           cp -R "$sdk" vendor/fresnica/native/FresnicaSDK.xcframework
           cp -R "$ffi" vendor/fresnica/native/FresnicaSDKFFI.xcframework
@@ -76,7 +69,7 @@ jobs:
           FRESNICA_ADAPTER_BOOTSTRAP: '1'
         run: bundle exec pod install
 
-      - name: Prepare RN 0.87 Apple module-name compatibility shim
+      - name: Prepare Apple module-name compatibility shim
         shell: bash
         run: |
           set -euo pipefail
@@ -91,6 +84,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test "$(node -p "require('./.fresnica-upstream/adapters/react-native/package.json').version")" = "0.2.1"
           node .fresnica-upstream/adapters/react-native/tooling/fresnica-adapter.mjs \
             build react-native \
             --platform apple \
@@ -103,12 +97,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node .fresnica-upstream/adapters/react-native/tooling/adapter-manifest.mjs check \
-            --project "$GITHUB_WORKSPACE" \
-            --manifest "$GITHUB_WORKSPACE/vendor/fresnica/adapter/react-native/adapter-manifest.json"
-          bash .fresnica-upstream/adapters/react-native/apple/validate-consumer.sh \
-            "$GITHUB_WORKSPACE" \
-            "$GITHUB_WORKSPACE/vendor/fresnica/native"
+          node .fresnica-upstream/adapters/react-native/tooling/adapter-manifest.mjs check --project "$GITHUB_WORKSPACE" --manifest "$GITHUB_WORKSPACE/vendor/fresnica/adapter/react-native/adapter-manifest.json"
+          bash .fresnica-upstream/adapters/react-native/apple/validate-consumer.sh "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/vendor/fresnica/native"
 
       - name: Link Fresnica native pod
         working-directory: ios
@@ -118,15 +108,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          xcodebuild \
-            -workspace ios/Fresnica.xcworkspace \
-            -scheme Fresnica \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath "$RUNNER_TEMP/fresnica-derived" \
-            CODE_SIGNING_ALLOWED=NO \
-            build
+          xcodebuild -workspace ios/Fresnica.xcworkspace -scheme Fresnica -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/fresnica-derived" CODE_SIGNING_ALLOWED=NO build
 
       - name: Run Apple FresnicaCore parseAccount smoke
         shell: bash
@@ -138,7 +120,6 @@ jobs:
           test -n "$udid"
           xcrun simctl boot "$udid" || true
           xcrun simctl bootstatus "$udid" -b
-
           cp scripts/native-runtime-smoke-entry.js index.js
           FRESNICA_SMOKE_RESULT="$RUNNER_TEMP/apple-native-runtime-smoke.json" node scripts/native-runtime-smoke-server.mjs > "$RUNNER_TEMP/apple-smoke-server.log" 2>&1 &
           smoke_server_pid=$!
@@ -146,9 +127,7 @@ jobs:
           metro_pid=$!
           trap 'kill "$metro_pid" "$smoke_server_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 60); do
-            if curl --silent --fail http://127.0.0.1:8081/status | grep -q 'packager-status:running'; then
-              break
-            fi
+            if curl --silent --fail http://127.0.0.1:8081/status | grep -q 'packager-status:running'; then break; fi
             sleep 1
           done
           curl --fail http://127.0.0.1:8081/status | grep -q 'packager-status:running'

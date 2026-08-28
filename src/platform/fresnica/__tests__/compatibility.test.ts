@@ -9,7 +9,7 @@ describe('Fresnica adapter compatibility', () => {
     schemaVersion: 1,
     framework: 'react-native',
     frameworkVersion: '0.87.0',
-    adapterSourceVersion: '0.2.0',
+    adapterSourceVersion: '0.2.1',
     fresnicaNativeSdkVersion: '0.2.1',
     nativeBindingApiVersion: 2,
     jsModuleName: 'FresnicaCore',
@@ -21,8 +21,8 @@ describe('Fresnica adapter compatibility', () => {
       nativeBindingApiVersion: 2,
       universalSdkApiVersion: 3,
       coreClientApiVersion: 3,
-      adapterSourceVersion: '0.2.0',
-      adapterSourceRevision: '4ba1cbe8f189c74cf20e2ccbfdcf3939afa930a8',
+      adapterSourceVersion: '0.2.1',
+      adapterSourceRevision: '084742d1f023bec3ec22689f819dbe8b5f888269',
       reactNativeVersion: '0.87.0',
     });
     expect(Object.isFrozen(FRESNICA_SDK_COMPATIBILITY)).toBe(true);
@@ -39,7 +39,7 @@ describe('Fresnica adapter compatibility', () => {
 
   it.each([
     ['frameworkVersion', '0.88.0'],
-    ['adapterSourceVersion', '0.2.1'],
+    ['adapterSourceVersion', '0.2.0'],
     ['fresnicaNativeSdkVersion', '0.2.0'],
     ['nativeBindingApiVersion', 3],
     ['jsModuleName', 'OtherModule'],
