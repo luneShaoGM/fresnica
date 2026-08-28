@@ -1,0 +1,90 @@
+import {
+  ACCOUNT_ENTITY,
+  ACCOUNT_SCHEMA,
+  ACCOUNT_SIGNER_REFERENCE_ENTITY,
+  ACCOUNT_SIGNER_REFERENCE_SCHEMA,
+  SIGNER_ENTITY,
+  SIGNER_SCHEMA,
+  WALLET_REALM_SCHEMAS,
+  WALLET_REALM_SCHEMA_VERSION,
+} from '../schemas';
+
+describe('Realm wallet schema v1', () => {
+  it('pins the first durable schema version and entity names', () => {
+    expect(WALLET_REALM_SCHEMA_VERSION).toBe(1);
+    expect(WALLET_REALM_SCHEMAS).toEqual([
+      ACCOUNT_SCHEMA,
+      SIGNER_SCHEMA,
+      ACCOUNT_SIGNER_REFERENCE_SCHEMA,
+    ]);
+    expect(ACCOUNT_SCHEMA.name).toBe(ACCOUNT_ENTITY);
+    expect(SIGNER_SCHEMA.name).toBe(SIGNER_ENTITY);
+    expect(ACCOUNT_SIGNER_REFERENCE_SCHEMA.name).toBe(
+      ACCOUNT_SIGNER_REFERENCE_ENTITY,
+    );
+  });
+
+  it('stores Account fields one-to-one without persisting derived watch-only state', () => {
+    expect(ACCOUNT_SCHEMA).toEqual({
+      name: 'AccountEntity',
+      primaryKey: 'id',
+      properties: {
+        id: 'string',
+        address: 'string',
+        identityKind: 'string',
+        networkId: 'string',
+        label: 'string',
+        sortOrder: 'int',
+        hidden: 'bool',
+        createdAt: 'date',
+        updatedAt: 'date',
+      },
+    });
+    expect(ACCOUNT_SCHEMA.properties).not.toHaveProperty('watchOnly');
+  });
+
+  it('stores only the approved Signer persistence surface', () => {
+    expect(SIGNER_SCHEMA).toEqual({
+      name: 'SignerEntity',
+      primaryKey: 'id',
+      properties: {
+        id: 'string',
+        publicKey: 'string',
+        kind: 'string',
+        envelopeJson: 'string?',
+        envelopeRevision: 'string?',
+        recoveryKind: 'string?',
+        backupState: 'string?',
+        providerId: 'string?',
+        providerMetadataJson: 'string?',
+        createdAt: 'date',
+        updatedAt: 'date',
+      },
+    });
+
+    for (const forbidden of [
+      'passphrase',
+      'appPasscode',
+      'mnemonic',
+      'secret',
+      'walletUnlockKey',
+      'decryptedSignerMaterial',
+      'biometricCipher',
+    ]) {
+      expect(SIGNER_SCHEMA.properties).not.toHaveProperty(forbidden);
+    }
+  });
+
+  it('stores account-signer relationships by stable ids instead of Realm object links', () => {
+    expect(ACCOUNT_SIGNER_REFERENCE_SCHEMA).toEqual({
+      name: 'AccountSignerReferenceEntity',
+      primaryKey: 'id',
+      properties: {
+        id: 'string',
+        accountId: 'string',
+        signerId: 'string',
+        createdAt: 'date',
+      },
+    });
+  });
+});
