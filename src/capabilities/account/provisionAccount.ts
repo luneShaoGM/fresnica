@@ -1,7 +1,7 @@
 import type {FresnicaSdk} from '../../platform/fresnica/FresnicaSdk';
 import type {AccountSignerRepository} from './AccountSignerRepository';
 import type {AccountRecord} from './types';
-import type {SignerRecord} from '../signer/types';
+import type {BackupState, RecoveryKind, SignerRecord} from '../signer/types';
 
 export type ProvisionRecordIdFactory = (kind: 'account' | 'signer') => string;
 
@@ -89,7 +89,6 @@ export async function importSecretAccount(
     networkId: input.networkId,
     label: input.label,
     recoveryKind: 'secret',
-    backupState: 'not-required',
   });
 }
 
@@ -109,7 +108,6 @@ export async function importMnemonicAccount(
     networkId: input.networkId,
     label: input.label,
     recoveryKind: 'mnemonic',
-    backupState: 'confirmed',
   });
 }
 
@@ -143,8 +141,8 @@ export async function generateMnemonicAccount(
 type PersistProtectedSignerOptions = {
   networkId: string;
   label?: string;
-  recoveryKind: 'mnemonic' | 'secret';
-  backupState: 'pending' | 'confirmed' | 'not-required';
+  recoveryKind: RecoveryKind;
+  backupState?: BackupState;
 };
 
 async function persistProtectedSigner(
@@ -177,7 +175,9 @@ async function persistProtectedSigner(
     kind: 'protected-software',
     envelopeJson: protectedSigner.envelopeJson,
     recoveryKind: options.recoveryKind,
-    backupState: options.backupState,
+    ...(options.backupState === undefined
+      ? {}
+      : {backupState: options.backupState}),
     createdAt: now,
     updatedAt: now,
   };
