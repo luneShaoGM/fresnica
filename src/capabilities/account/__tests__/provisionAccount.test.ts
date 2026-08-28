@@ -1,4 +1,8 @@
 import type {FresnicaSdk} from '../../../platform/fresnica/FresnicaSdk';
+import type {
+  AccountIdentity,
+  GenerateMnemonicInput,
+} from '../../../platform/fresnica/types';
 import {InMemoryAccountSignerRepository} from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
 import {
   generateMnemonicAccount,
@@ -13,11 +17,13 @@ const now = new Date('2026-08-28T00:00:00.000Z');
 function createDependencies() {
   const repository = new InMemoryAccountSignerRepository();
   const sdk = {
-    parseAccount: jest.fn(async (address: string) => ({
-      kind: 'classic' as const,
-      address,
-      publicKey: address,
-    })),
+    parseAccount: jest.fn(
+      async (address: string): Promise<AccountIdentity> => ({
+        kind: 'classic',
+        address,
+        publicKey: address,
+      }),
+    ),
     protectSecret: jest.fn(async () => ({
       signerPublicKey: 'GSECRET',
       envelopeJson: '{secret-envelope}',
@@ -26,7 +32,7 @@ function createDependencies() {
       signerPublicKey: 'GMNEMONIC',
       envelopeJson: '{mnemonic-envelope}',
     })),
-    generateMnemonic: jest.fn(async input => ({
+    generateMnemonic: jest.fn(async (input: GenerateMnemonicInput) => ({
       signer: {
         signerPublicKey: 'GGENERATED',
         envelopeJson: '{generated-envelope}',
@@ -145,7 +151,6 @@ describe('account provisioning', () => {
     sdk.parseAccount.mockResolvedValueOnce({
       kind: 'contract',
       address: 'CCONTRACT',
-      publicKey: undefined,
     });
 
     await expect(
