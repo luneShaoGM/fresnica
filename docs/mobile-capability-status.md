@@ -1,6 +1,6 @@
 # Fresnica Mobile Capability Status
 
-This file records the current Mobile implementation evidence against the shared Fresnica Application Capability vocabulary. Maturity labels come from upstream `manran/fresnica/docs/application-capabilities.md`; they describe the shared specification, not Mobile implementation quality.
+This file records current Mobile implementation evidence against the shared Fresnica Application Capability vocabulary. Upstream maturity labels describe the shared specification, not Mobile implementation quality.
 
 ## Compatibility baseline
 
@@ -9,8 +9,10 @@ Fresnica Native SDK       0.2.1
 Native Binding API        2
 Universal SDK API         3
 Core Client API           3
-RN adapter source         0.2.0
+RN adapter source         0.2.1
+Adapter source revision   47383bd94b1f88882dd0759f7275bd8b5452dcdb
 React Native              0.87.0
+Realm                     20.2.0
 Network                   Stellar Testnet
 ```
 
@@ -18,38 +20,55 @@ Network                   Stellar Testnet
 
 | Application Capability | Upstream maturity | Mobile status | Current evidence / scope |
 | --- | --- | --- | --- |
-| Account | Normative | Foundation implemented | `src/capabilities/account`: account records, account-signer relation invariants, watch-only derived from signer applicability. |
+| Account | Normative | Foundation implemented | `src/capabilities/account`: account records, account-signer invariants and derived watch-only state. |
 | Signer | Normative | Foundation implemented | `src/capabilities/signer`: signer identity/kind/lifecycle types. Protected-envelope cryptography remains SDK/Core-owned. |
-| Payment | Normative | Foundation implemented | `src/capabilities/payment`: exact-XDR single-payment review and reviewed-payment orchestration on Testnet. UI Flow is not implemented yet. |
-| Transaction | Normative | Foundation implemented | `src/capabilities/transaction`: reviewed-transaction identity, freshness guard and normalized submission semantics. |
-| Ledger Authorization | Defined | Classic foundation implemented | `src/capabilities/ledger-authorization`: typed Classic signer conditions and threshold resolution for locally available Ed25519 signers. Hash-X, signed-payload invocation, external-provider authorization and full multisig coordination are not implemented. |
-| Signing Coordination | Normative | Foundation implemented | `src/capabilities/signing`: shared routine signing policy using Native SDK System Auth when registered, otherwise explicit app-passcode path. Exact reviewed XDR is preserved. |
-| Application Security | Defined | Partial platform integration | Native SDK/System Auth operations are available through `src/platform/fresnica`; broader application lock/session/passcode-change product flows are not yet implemented. |
-| Network / Gateway | Defined | Platform mechanism implemented | `src/platform/stellar`: Horizon account authorization loading, payment construction and transaction submission. This is platform mechanism, not a replacement for Capability semantics. |
+| Payment | Normative | Foundation implemented | `src/capabilities/payment`: exact-XDR single-payment review and orchestration on Testnet. UI Flow not yet implemented. |
+| Transaction | Normative | Foundation implemented | Reviewed-transaction identity, freshness guard and normalized submission semantics. |
+| Ledger Authorization | Defined | Classic foundation implemented | Typed Classic signer conditions and threshold resolution for applicable local Ed25519 signers. Full multisig/provider coordination remains future work. |
+| Signing Coordination | Normative | Foundation implemented | Shared routine signing policy prefers Native SDK System Auth. The Binding API 2 fallback is still named `signWithPasscode`, but Mobile supplies a strong app passphrase and treats passcode as compatibility terminology only. |
+| Application Security | Defined | Partial platform/policy foundation | Passphrase/System Auth hierarchy documented; native System Auth primitives available. App lock/session, high-risk policy implementation, passphrase rotation UI and recovery flows remain future work. |
+| Network / Gateway | Defined | Platform mechanism implemented | `src/platform/stellar`: Horizon authorization loading, payment construction and submission. |
+| Persistence | Mobile platform mechanism | Realm v1 implemented on feature branch | Memory and Realm implementations share the same `AccountSignerRepository` semantics. Realm schema v1 stores Account, Signer and references only; watch-only remains derived. Production app composition is not wired yet. |
 
-Other upstream capabilities are not claimed as implemented by this rebaseline.
+## Persistence evidence
 
-## Conformance / regression evidence
+Realm implementation under `src/platform/persistence/realm` includes:
 
-The current TypeScript/Jest suite verifies, among other cases:
+- schema version 1 with Account/Signer/reference entities;
+- strict plain-object mappers and fail-closed persisted enum handling;
+- atomic write transactions;
+- duplicate `(networkId,address)` enforcement;
+- orphan signer cleanup with shared-signer preservation;
+- shared repository contract reused by Memory and Realm integration tests;
+- close/reopen persistence integration test;
+- no persisted passphrase, mnemonic, raw secret, WalletUnlockKey or biometric auth state.
 
-- Account and Signer remain separate concepts;
-- watch-only changes with applicable local signer relationships;
-- shared signer lifecycle does not delete a signer still used by another account;
-- non-Ed25519 ledger signer conditions are not treated as invokable local software signers;
-- exact Payment review is derived from the exact unsigned XDR;
-- unsupported/incomplete Payment reviews fail closed;
-- explicit transaction max-time is checked immediately before execution;
-- Signing Coordination preserves the exact reviewed XDR and centralizes System Auth/passcode policy;
-- ledger authorization is refreshed before signing;
-- expired reviewed transactions are blocked before authorization/signing work;
-- submission distinguishes accepted, deterministic rejected and uncertain outcomes;
-- Mobile-facing Fresnica adapter does not expose low-level unlock-key/raw-signing operations;
+Android and Apple actual RN runtimes have both been manually verified with:
+
+```text
+FRESNICA_PARSE_ACCOUNT_SMOKE_OK realm=ok
+```
+
+This verifies Realm native runtime and `NativeModules.FresnicaCore` coexist on both platforms. The macOS Realm integration workflow is present, but the latest GitHub Actions attempts failed before any step because no runner was allocated (`runner_id=0`); therefore automated restart-test success is not yet claimed.
+
+## Conformance / regression scope
+
+The TypeScript/Jest tests are designed to verify, among other cases:
+
+- Account and Signer remain separate;
+- watch-only changes only with account-signer references;
+- shared signers survive until their final reference is removed;
+- duplicate account identity is network-scoped;
+- Realm mappers do not leak live Realm objects or mutable Date references;
+- invalid persisted enum values fail closed;
+- non-Ed25519 ledger conditions are not treated as invokable local software signers;
+- Payment review and signing preserve exact XDR;
+- expired reviewed transactions are blocked before signing;
+- Signing Coordination centralizes System Auth/passphrase product policy;
+- submission distinguishes accepted, rejected and uncertain outcomes;
 - the Native runtime module key remains `FresnicaCore`.
 
 ## Platform mechanisms
-
-These are intentionally local implementation choices rather than cross-project Capability contracts:
 
 ```text
 src/platform/fresnica
@@ -59,26 +78,29 @@ src/platform/stellar
   @stellar/stellar-sdk / Horizon mechanisms
 
 src/platform/persistence
-  repository implementations; currently in-memory foundation only
+  memory/ deterministic test/foundation adapter
+  realm/  durable Realm v1 adapter
 ```
 
-Future Realm persistence belongs under the persistence platform boundary. It must preserve Account/Signer Capability invariants rather than redefining them.
+Realm remains a platform implementation choice and must not redefine Account/Signer Capability semantics.
 
-## Not yet implemented by this rebaseline
+## Not yet implemented
 
+- production application composition using Realm repository;
 - product screens/navigation/Application Flows;
-- Realm production persistence/migrations;
-- onboarding and signer provisioning screens;
-- Portfolio/Balance product implementation;
+- onboarding and signer provisioning UI;
+- Portfolio/Balance;
 - Trustline Flow;
 - Swap/SDEX Flow;
 - History/Activity UI;
 - Reveal/Export UI;
-- global app-passcode rotation orchestration;
+- app lock/session and complete passphrase rotation/recovery flows;
+- Realm database encryption-key lifecycle;
+- retryable System Auth/external-provider secure cleanup orchestration;
 - full multisig coordination;
 - hardware/external signer provider integration;
 - Mainnet enablement.
 
 ## Contribution rule
 
-When Mobile behavior provides useful evidence for a `Defined` upstream Capability, contribute that evidence back to the shared capability documentation without promoting Mobile-specific directory structure, framework choices or platform mechanics into the shared contract.
+When Mobile behavior exposes a Fresnica SDK/adapter/documentation inconsistency, classify it explicitly and contribute a concrete reproduction/fix upstream rather than hiding a permanent compatibility patch in Mobile.

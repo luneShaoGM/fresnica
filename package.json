@@ -7,13 +7,15 @@
     "ios": "react-native run-ios",
     "start": "react-native start",
     "test": "jest --runInBand",
+    "test:realm": "jest --runInBand --config jest.realm.config.js",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm test"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "17.0.1",
     "react": "19.2.3",
-    "react-native": "0.87.0"
+    "react-native": "0.87.0",
+    "realm": "20.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
