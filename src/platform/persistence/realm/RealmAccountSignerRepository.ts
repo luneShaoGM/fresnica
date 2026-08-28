@@ -124,7 +124,7 @@ export class RealmAccountSignerRepository implements AccountSignerRepository {
     const signers = Array.from(this.realm.objects(SIGNER_ENTITY));
 
     for (const signer of signers) {
-      const signerId = String(signer.signerId ?? signer.id);
+      const signerId = String((signer as unknown as {id: string}).id);
       const references = this.realm
         .objects(ACCOUNT_SIGNER_REFERENCE_ENTITY)
         .filtered('signerId == $0', signerId);
