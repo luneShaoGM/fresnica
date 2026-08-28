@@ -11,11 +11,13 @@ Native Binding API        2
 Universal SDK API         3
 Core Client API           3
 RN adapter source         0.2.1
-RN adapter source commit  084742d1f023bec3ec22689f819dbe8b5f888269
+RN adapter source commit  47383bd94b1f88882dd0759f7275bd8b5452dcdb
 React Native module       FresnicaCore
 ```
 
 The Native SDK and adapter are separate products. The Native SDK remains the published `native-sdk-v0.2.1` binary release. Adapter source 0.2.1 is built once inside this application's React Native/native toolchain and the generated binary is then linked by normal app builds.
+
+The pinned adapter revision includes upstream PR #121, which exports the Apple adapter as the shared `FresnicaCore` JavaScript module through `RCT_EXTERN_REMAP_MODULE`. Mobile must not patch the Apple module name locally.
 
 ## File layout
 
