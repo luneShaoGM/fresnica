@@ -1,4 +1,4 @@
-import {runAccountSignerRepositoryContract} from '../../repositoryContract';
+import {runAccountSignerRepositoryContract} from '../../__tests__/repositoryContract';
 import {InMemoryAccountSignerRepository} from '../InMemoryAccountSignerRepository';
 
 describe('InMemoryAccountSignerRepository', () => {
