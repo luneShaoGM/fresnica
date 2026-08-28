@@ -86,7 +86,7 @@ describe('account provisioning', () => {
     expect(result.account.address).toBe('GSECRET');
     expect(result.signer.envelopeJson).toBe('{secret-envelope}');
     expect(result.signer.recoveryKind).toBe('secret');
-    expect(result.signer.backupState).toBe('not-required');
+    expect(result.signer.backupState).toBeUndefined();
     expect(repository.isWatchOnly(result.account.id)).toBe(false);
     expect(JSON.stringify(result)).not.toContain('SPLAINTEXT');
   });
@@ -112,7 +112,7 @@ describe('account provisioning', () => {
     });
     expect(result.account.address).toBe('GMNEMONIC');
     expect(result.signer.recoveryKind).toBe('mnemonic');
-    expect(result.signer.backupState).toBe('confirmed');
+    expect(result.signer.backupState).toBeUndefined();
     expect(repository.isWatchOnly(result.account.id)).toBe(false);
     expect(JSON.stringify(result)).not.toContain('one two three');
   });
