@@ -6,6 +6,7 @@ import type {AccountRecord} from '../../../../capabilities/account/types';
 import type {SignerRecord} from '../../../../capabilities/signer/types';
 import {runAccountSignerRepositoryContract} from '../../__tests__/repositoryContract';
 import {RealmAccountSignerRepository} from '../RealmAccountSignerRepository';
+import {createRealmRecordId} from '../createRealmRecordId';
 import {openWalletRealm} from '../openWalletRealm';
 
 const now = new Date('2026-08-28T00:00:00.000Z');
@@ -41,6 +42,17 @@ function signer(id: string): SignerRecord {
     updatedAt: now,
   };
 }
+
+describe('Realm record id generation', () => {
+  it('generates unique ObjectId strings', () => {
+    const first = createRealmRecordId();
+    const second = createRealmRecordId();
+
+    expect(first).toMatch(/^[0-9a-f]{24}$/);
+    expect(second).toMatch(/^[0-9a-f]{24}$/);
+    expect(second).not.toBe(first);
+  });
+});
 
 describe('RealmAccountSignerRepository contract', () => {
   let directory: string;
