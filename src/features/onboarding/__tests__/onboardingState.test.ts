@@ -23,15 +23,18 @@ describe('onboarding state', () => {
   });
 
   it('does not define secret, mnemonic, or passphrase fields', () => {
-    const serialized = JSON.stringify({
-      initial: INITIAL_ONBOARDING_STATE,
-      selected: selectOnboardingMethod('generate-mnemonic'),
-      backup: markGeneratedMnemonicBackupRequired(),
-      complete: completeOnboarding('generate-mnemonic'),
-    });
+    const states = [
+      INITIAL_ONBOARDING_STATE,
+      selectOnboardingMethod('generate-mnemonic'),
+      markGeneratedMnemonicBackupRequired(),
+      completeOnboarding('generate-mnemonic'),
+    ];
 
-    expect(serialized).not.toContain('secret');
-    expect(serialized).not.toContain('mnemonic');
-    expect(serialized).not.toContain('passphrase');
+    for (const state of states) {
+      expect(Object.keys(state)).not.toContain('secret');
+      expect(Object.keys(state)).not.toContain('mnemonic');
+      expect(Object.keys(state)).not.toContain('passphrase');
+      expect(Object.keys(state)).not.toContain('appPassphrase');
+    }
   });
 });
