@@ -12,6 +12,12 @@ export type ProvisionAccountDependencies = {
   now: () => Date;
 };
 
+export type WatchOnlyAccountInput = {
+  address: string;
+  networkId: string;
+  label?: string;
+};
+
 export type ProvisionAccountBaseInput = {
   appPassphrase: string;
   networkId: string;
@@ -46,6 +52,29 @@ export type GeneratedProvisionedAccount = ProvisionedAccount & {
   language: string;
   index: number;
 };
+
+export async function registerWatchOnlyAccount(
+  dependencies: ProvisionAccountDependencies,
+  input: WatchOnlyAccountInput,
+): Promise<AccountRecord> {
+  const networkId = requireNonEmpty(input.networkId, 'networkId');
+  const identity = await dependencies.sdk.parseAccount(input.address);
+  const now = dependencies.now();
+  const account: AccountRecord = {
+    id: requireRecordId(dependencies.createId('account'), 'account'),
+    address: identity.address,
+    identityKind: identity.kind,
+    networkId,
+    label: input.label?.trim() ?? '',
+    sortOrder: 0,
+    hidden: false,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  dependencies.repository.createAccount(account);
+  return account;
+}
 
 export async function importSecretAccount(
   dependencies: ProvisionAccountDependencies,
