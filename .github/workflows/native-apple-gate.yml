@@ -106,7 +106,7 @@ jobs:
           set -euo pipefail
           xcodebuild -workspace ios/Fresnica.xcworkspace -scheme Fresnica -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/fresnica-derived" CODE_SIGNING_ALLOWED=NO build
 
-      - name: Run Apple FresnicaCore parseAccount smoke
+      - name: Run Apple FresnicaCore and Realm runtime smoke
         shell: bash
         run: |
           set -euo pipefail
@@ -142,6 +142,7 @@ jobs:
             exit "$smoke_status"
           fi
           grep -F 'FRESNICA_PARSE_ACCOUNT_SMOKE_OK' "$RUNNER_TEMP/apple-native-runtime-smoke.json"
+          grep -F '"realm":"ok"' "$RUNNER_TEMP/apple-native-runtime-smoke.json"
 
       - name: Upload generated Apple native artifacts
         if: always()
