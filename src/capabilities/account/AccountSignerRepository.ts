@@ -1,9 +1,16 @@
 import type { SignerRecord } from '../signer/types';
 import type { AccountRecord } from './types';
 
+export type AccountSignerRegistration = {
+  account: AccountRecord;
+  signer: SignerRecord;
+  attachedAt: Date;
+};
+
 export interface AccountSignerRepository {
   createAccount(account: AccountRecord): void;
   createSigner(signer: SignerRecord): void;
+  createAccountWithSigner(registration: AccountSignerRegistration): void;
   attachSigner(accountId: string, signerId: string, createdAt: Date): void;
   detachSigner(accountId: string, signerId: string): void;
   deleteAccount(accountId: string): void;
