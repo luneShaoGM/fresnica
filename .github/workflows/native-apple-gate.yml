@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: manran/fresnica
-          ref: 084742d1f023bec3ec22689f819dbe8b5f888269
+          ref: 47383bd94b1f88882dd0759f7275bd8b5452dcdb
           path: .fresnica-upstream
 
       - name: Set up Node
@@ -69,22 +69,18 @@ jobs:
           FRESNICA_ADAPTER_BOOTSTRAP: '1'
         run: bundle exec pod install
 
-      - name: Prepare Apple module-name compatibility shim
+      - name: Verify Apple module contract alignment
         shell: bash
         run: |
           set -euo pipefail
-          export_file="$GITHUB_WORKSPACE/.fresnica-upstream/adapters/react-native/apple/FresnicaCoreModule.m"
-          original='@interface RCT_EXTERN_MODULE(FresnicaCoreModule, NSObject)'
-          remapped='@interface RCT_EXTERN_REMAP_MODULE(FresnicaCore, FresnicaCoreModule, NSObject)'
-          grep -F "$original" "$export_file"
-          perl -0pi -e 's/\@interface RCT_EXTERN_MODULE\(FresnicaCoreModule, NSObject\)/\@interface RCT_EXTERN_REMAP_MODULE(FresnicaCore, FresnicaCoreModule, NSObject)/' "$export_file"
-          grep -F "$remapped" "$export_file"
+          test "$(node -p "require('./.fresnica-upstream/adapters/react-native/package.json').version")" = "0.2.1"
+          grep -F '@interface RCT_EXTERN_REMAP_MODULE(FresnicaCore, FresnicaCoreModule, NSObject)' \
+            .fresnica-upstream/adapters/react-native/apple/FresnicaCoreModule.m
 
       - name: Build canonical React Native Apple adapter
         shell: bash
         run: |
           set -euo pipefail
-          test "$(node -p "require('./.fresnica-upstream/adapters/react-native/package.json').version")" = "0.2.1"
           node .fresnica-upstream/adapters/react-native/tooling/fresnica-adapter.mjs \
             build react-native \
             --platform apple \
