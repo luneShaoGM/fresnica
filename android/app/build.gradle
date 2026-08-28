@@ -47,6 +47,7 @@ dependencies {
 
     implementation files("../../vendor/fresnica/native/fresnica-native-sdk-0.2.1.aar")
     implementation files("../../vendor/fresnica/adapter/react-native/fresnica-rn-adapter.aar")
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.24"
     implementation "net.java.dev.jna:jna:5.12.1@aar"
     implementation "androidx.annotation:annotation:1.8.2"
     implementation "androidx.biometric:biometric:1.1.0"
