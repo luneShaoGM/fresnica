@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: manran/fresnica
-          ref: 084742d1f023bec3ec22689f819dbe8b5f888269
+          ref: 47383bd94b1f88882dd0759f7275bd8b5452dcdb
           path: .fresnica-upstream
 
       - name: Set up Node
