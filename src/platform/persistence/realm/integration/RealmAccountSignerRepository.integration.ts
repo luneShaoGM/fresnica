@@ -1,6 +1,7 @@
 import {mkdtempSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import Realm from 'realm';
 import type {AccountRecord} from '../../../../capabilities/account/types';
 import type {SignerRecord} from '../../../../capabilities/signer/types';
 import {runAccountSignerRepositoryContract} from '../../__tests__/repositoryContract';
@@ -8,6 +9,10 @@ import {RealmAccountSignerRepository} from '../RealmAccountSignerRepository';
 import {openWalletRealm} from '../openWalletRealm';
 
 const now = new Date('2026-08-28T00:00:00.000Z');
+
+afterAll(() => {
+  Realm.shutdown();
+});
 
 function account(id: string): AccountRecord {
   return {
