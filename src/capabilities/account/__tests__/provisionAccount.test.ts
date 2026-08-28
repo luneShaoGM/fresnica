@@ -12,40 +12,40 @@ const now = new Date('2026-08-28T00:00:00.000Z');
 
 function createDependencies() {
   const repository = new InMemoryAccountSignerRepository();
-  const calls: Array<{method: string; input: unknown}> = [];
   const sdk = {
-    parseAccount: jest.fn(async (address: string) => {
-      calls.push({method: 'parseAccount', input: address});
-      return {kind: 'classic' as const, address, publicKey: address};
-    }),
-    protectSecret: jest.fn(async input => {
-      calls.push({method: 'protectSecret', input});
-      return {signerPublicKey: 'GSECRET', envelopeJson: '{secret-envelope}'};
-    }),
-    protectMnemonic: jest.fn(async input => {
-      calls.push({method: 'protectMnemonic', input});
-      return {signerPublicKey: 'GMNEMONIC', envelopeJson: '{mnemonic-envelope}'};
-    }),
-    generateMnemonic: jest.fn(async input => {
-      calls.push({method: 'generateMnemonic', input});
-      return {
-        signer: {signerPublicKey: 'GGENERATED', envelopeJson: '{generated-envelope}'},
-        mnemonic: 'alpha beta gamma',
-        language: input.language,
-        index: input.index,
-      };
-    }),
-  } as Pick<FresnicaSdk, 'parseAccount' | 'protectSecret' | 'protectMnemonic' | 'generateMnemonic'>;
+    parseAccount: jest.fn(async (address: string) => ({
+      kind: 'classic' as const,
+      address,
+      publicKey: address,
+    })),
+    protectSecret: jest.fn(async () => ({
+      signerPublicKey: 'GSECRET',
+      envelopeJson: '{secret-envelope}',
+    })),
+    protectMnemonic: jest.fn(async () => ({
+      signerPublicKey: 'GMNEMONIC',
+      envelopeJson: '{mnemonic-envelope}',
+    })),
+    generateMnemonic: jest.fn(async input => ({
+      signer: {
+        signerPublicKey: 'GGENERATED',
+        envelopeJson: '{generated-envelope}',
+      },
+      mnemonic: 'alpha beta gamma',
+      language: input.language,
+      index: input.index,
+    })),
+  };
 
   let nextId = 0;
   const dependencies: ProvisionAccountDependencies = {
-    sdk: sdk as FresnicaSdk,
+    sdk: sdk as unknown as FresnicaSdk,
     repository,
     createId: kind => `${kind}-${++nextId}`,
     now: () => now,
   };
 
-  return {dependencies, repository, sdk, calls};
+  return {dependencies, repository, sdk};
 }
 
 describe('account provisioning', () => {
@@ -132,8 +132,12 @@ describe('account provisioning', () => {
     });
     expect(result.mnemonic).toBe('alpha beta gamma');
     expect(result.signer.backupState).toBe('pending');
-    expect(repository.getSigner(result.signer.id)?.envelopeJson).toBe('{generated-envelope}');
-    expect(JSON.stringify(repository.getSigner(result.signer.id))).not.toContain('alpha beta gamma');
+    expect(repository.getSigner(result.signer.id)?.envelopeJson).toBe(
+      '{generated-envelope}',
+    );
+    expect(JSON.stringify(repository.getSigner(result.signer.id))).not.toContain(
+      'alpha beta gamma',
+    );
   });
 
   it('rejects a non-classic identity before persistence for software signer provisioning', async () => {
@@ -141,6 +145,7 @@ describe('account provisioning', () => {
     sdk.parseAccount.mockResolvedValueOnce({
       kind: 'contract',
       address: 'CCONTRACT',
+      publicKey: undefined,
     });
 
     await expect(
