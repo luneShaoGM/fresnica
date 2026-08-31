@@ -1,13 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
 
 import {
   disableSystemAuth,
@@ -16,6 +8,11 @@ import {
   type ApplicationSecurityDependencies,
   type SystemAuthStatus,
 } from '../../capabilities/application-security/systemAuth';
+import {Button} from '../../ui/Button';
+import {Card} from '../../ui/Card';
+import {Field} from '../../ui/Field';
+import {Screen} from '../../ui/Screen';
+import {palette, spacing, typography} from '../../ui/theme';
 
 type Props = Readonly<{
   dependencies: ApplicationSecurityDependencies;
@@ -56,7 +53,7 @@ export function SecuritySettingsScreen({dependencies, onClose}: Props) {
       setAppPassphrase('');
       if (result.failedSignerPublicKeys.length > 0) {
         setNotice(
-          `${result.failedSignerPublicKeys.length} signer(s) could not be registered. Check that this is the same app passphrase used when the wallet was created or imported, then retry.`,
+          `${result.failedSignerPublicKeys.length} signer(s) could not be registered. Verify that this is the same app passphrase used when the wallet was created or imported, then retry.`,
         );
       } else {
         setNotice('System Auth is ready for routine signing.');
@@ -85,82 +82,65 @@ export function SecuritySettingsScreen({dependencies, onClose}: Props) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
-      <Pressable accessibilityRole="button" onPress={onClose}>
-        <Text style={styles.back}>Back</Text>
-      </Pressable>
-      <Text style={styles.eyebrow}>Application Security</Text>
-      <Text style={styles.title}>System Auth</Text>
-      <Text style={styles.body}>
-        Face ID, Touch ID, or strong Android biometrics can authorize routine
-        signing. Your app passphrase remains the higher-privilege recovery and
-        security credential.
-      </Text>
-
+    <Screen
+      eyebrow="Application Security"
+      title="System Auth"
+      description="Use Face ID, Touch ID, or strong Android biometrics for routine signing while keeping your app passphrase as the higher-privilege recovery credential."
+      keyboardShouldPersistTaps="handled"
+      leading={<Button label="Back" variant="ghost" onPress={onClose} />}>
       {!status ? (
         <ActivityIndicator />
       ) : (
-        <View style={styles.card}>
+        <Card title="Device authorization">
           <StatusRow label="Available on this device" value={status.available ? 'Yes' : 'No'} />
           <StatusRow label="Protection domain" value={status.domainInitialized ? 'Ready' : 'Not set up'} />
           <StatusRow
             label="Registered software signers"
             value={`${status.enrolledSignerCount} / ${status.protectedSignerCount}`}
           />
-        </View>
+        </Card>
       )}
 
       {status?.protectedSignerCount ? (
-        <>
-          <Text style={styles.label}>Current app passphrase</Text>
-          <TextInput
+        <Card
+          title={status.domainInitialized ? 'Signer authorization' : 'Enable System Auth'}
+          description="Your current app passphrase is verified only at the Fresnica native boundary and is never persisted.">
+          <Field
+            label="Current app passphrase"
+            hint="Use the same passphrase you set when this protected wallet was created or imported. This does not create a new passphrase."
             autoCapitalize="none"
             secureTextEntry
-            placeholder="Same passphrase used to create or import this wallet"
+            placeholder="Enter current app passphrase"
             value={appPassphrase}
             onChangeText={setAppPassphrase}
-            style={styles.input}
           />
-          <Text style={styles.hint}>
-            This does not create a new passphrase. Enter the existing passphrase
-            that was set when this protected wallet was created or imported.
-            Fresnica sends it only to the native boundary to verify and register
-            the protected signer; it is not persisted.
-          </Text>
-          <PrimaryButton
+          <Button
             label={status.domainInitialized ? 'Register / repair signers' : 'Enable System Auth'}
             disabled={busy || !status.available || appPassphrase.length === 0}
             onPress={() => void enable()}
           />
           {status.domainInitialized ? (
-            <SecondaryButton
+            <Button
               label="Disable System Auth"
+              variant="secondary"
               disabled={busy}
               onPress={() => void disable()}
             />
           ) : null}
-        </>
+        </Card>
       ) : (
-        <Text style={styles.hint}>
-          System Auth registration applies to protected software signers. A
-          watch-only wallet has no local signer to register.
-        </Text>
+        <Card description="System Auth applies to protected software signers. A watch-only wallet has no local signer to register." />
       )}
 
       {busy ? <ActivityIndicator /> : null}
       {notice ? <Text style={styles.notice}>{notice}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>App session lock</Text>
-        <Text style={styles.hint}>
-          Session lock is intentionally not enabled yet. The current Fresnica RN
-          adapter has no safe passphrase-verification-only API or generic System
-          Auth challenge for app-session unlock. Fresnica Mobile will not use
-          Reveal, dummy signing, or a second JavaScript KDF as a workaround.
-        </Text>
-      </View>
-    </ScrollView>
+      <Card
+        title="App session lock"
+        description="Not enabled yet. The current Fresnica RN adapter has no safe passphrase-verification-only API or generic System Auth challenge for app-session unlock. Fresnica Mobile will not use Reveal, dummy signing, or a second JavaScript KDF as a workaround."
+      />
+    </Screen>
   );
 }
 
@@ -173,53 +153,32 @@ function StatusRow({label, value}: {label: string; value: string}) {
   );
 }
 
-function PrimaryButton(props: {label: string; disabled?: boolean; onPress: () => void}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      disabled={props.disabled}
-      onPress={props.onPress}
-      style={[styles.primaryButton, props.disabled ? styles.disabled : undefined]}>
-      <Text style={styles.primaryButtonText}>{props.label}</Text>
-    </Pressable>
-  );
-}
-
-function SecondaryButton(props: {label: string; disabled?: boolean; onPress: () => void}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      disabled={props.disabled}
-      onPress={props.onPress}
-      style={[styles.secondaryButton, props.disabled ? styles.disabled : undefined]}>
-      <Text style={styles.secondaryButtonText}>{props.label}</Text>
-    </Pressable>
-  );
-}
-
 function readableError(error: unknown): string {
   return error instanceof Error ? error.message : 'Unable to update security settings.';
 }
 
 const styles = StyleSheet.create({
-  screen: {flexGrow: 1, padding: 24, paddingTop: 64, gap: 16},
-  back: {fontSize: 16, fontWeight: '600'},
-  eyebrow: {fontSize: 13, fontWeight: '600', textTransform: 'uppercase'},
-  title: {fontSize: 30, fontWeight: '700'},
-  body: {fontSize: 16, lineHeight: 24},
-  card: {borderWidth: 1, borderRadius: 16, padding: 16, gap: 12},
-  cardTitle: {fontSize: 17, fontWeight: '700'},
-  statusRow: {flexDirection: 'row', justifyContent: 'space-between', gap: 16},
-  statusLabel: {fontSize: 14, flex: 1},
-  statusValue: {fontSize: 14, fontWeight: '700'},
-  label: {fontSize: 14, fontWeight: '600'},
-  input: {borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16},
-  hint: {fontSize: 13, lineHeight: 19},
-  primaryButton: {borderWidth: 1, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18, alignItems: 'center'},
-  primaryButtonText: {fontSize: 16, fontWeight: '700'},
-  secondaryButton: {borderWidth: 1, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18, alignItems: 'center'},
-  secondaryButtonText: {fontSize: 16, fontWeight: '600'},
-  disabled: {opacity: 0.5},
-  notice: {fontSize: 14, lineHeight: 20},
-  error: {fontSize: 14, fontWeight: '600'},
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  statusLabel: {
+    ...typography.caption,
+    color: palette.textMuted,
+    flex: 1,
+  },
+  statusValue: {
+    ...typography.label,
+    color: palette.text,
+  },
+  notice: {
+    ...typography.caption,
+    color: palette.success,
+  },
+  error: {
+    ...typography.caption,
+    color: palette.danger,
+    fontWeight: '600',
+  },
 });
