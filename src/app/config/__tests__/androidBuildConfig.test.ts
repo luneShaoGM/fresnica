@@ -15,10 +15,14 @@ describe('Android native compatibility', () => {
 
   it('never signs release builds with the repository debug keystore', () => {
     const buildGradle = readAndroidAppBuildGradle();
-    const releaseBlock = buildGradle.match(/release\s*\{([\s\S]*?)\n\s*\}/)?.[1];
+    const debugSigningReferences = buildGradle.match(
+      /signingConfig\s+signingConfigs\.debug\b/g,
+    );
 
-    expect(releaseBlock).toBeDefined();
-    expect(releaseBlock).not.toMatch(/signingConfig\s+signingConfigs\.debug\b/);
+    expect(debugSigningReferences).toHaveLength(1);
+    expect(buildGradle).toMatch(
+      /debug\s*\{\s*signingConfig\s+signingConfigs\.debug\b/,
+    );
   });
 
   it('requires external production signing material for release builds', () => {
