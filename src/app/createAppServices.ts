@@ -1,6 +1,7 @@
 import {NativeModules} from 'react-native';
 
 import type {ProvisionAccountDependencies} from '../capabilities/account/provisionAccount';
+import type {ApplicationSecurityDependencies} from '../capabilities/application-security/systemAuth';
 import {
   ReactNativeFresnicaSdk,
   loadNativeFresnicaModule,
@@ -13,6 +14,7 @@ import {
 
 export type AppServices = Readonly<{
   onboarding: ProvisionAccountDependencies;
+  security: ApplicationSecurityDependencies;
   close: () => void;
 }>;
 
@@ -30,6 +32,10 @@ export async function createAppServices(): Promise<AppServices> {
         repository,
         createId: () => createRealmRecordId(),
         now: () => new Date(),
+      },
+      security: {
+        sdk,
+        repository,
       },
       close: () => realm.close(),
     };
