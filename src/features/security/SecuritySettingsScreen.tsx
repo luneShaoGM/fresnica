@@ -56,7 +56,7 @@ export function SecuritySettingsScreen({dependencies, onClose}: Props) {
       setAppPassphrase('');
       if (result.failedSignerPublicKeys.length > 0) {
         setNotice(
-          `${result.failedSignerPublicKeys.length} signer(s) could not be registered. Check that the passphrase matches the wallet and retry.`,
+          `${result.failedSignerPublicKeys.length} signer(s) could not be registered. Check that this is the same app passphrase used when the wallet was created or imported, then retry.`,
         );
       } else {
         setNotice('System Auth is ready for routine signing.');
@@ -112,18 +112,20 @@ export function SecuritySettingsScreen({dependencies, onClose}: Props) {
 
       {status?.protectedSignerCount ? (
         <>
-          <Text style={styles.label}>App passphrase</Text>
+          <Text style={styles.label}>Current app passphrase</Text>
           <TextInput
             autoCapitalize="none"
             secureTextEntry
-            placeholder="Enter your current app passphrase"
+            placeholder="Same passphrase used to create or import this wallet"
             value={appPassphrase}
             onChangeText={setAppPassphrase}
             style={styles.input}
           />
           <Text style={styles.hint}>
-            The passphrase is sent only to the Fresnica native boundary to
-            verify and register each protected signer. It is not persisted.
+            This does not create a new passphrase. Enter the existing passphrase
+            that was set when this protected wallet was created or imported.
+            Fresnica sends it only to the native boundary to verify and register
+            the protected signer; it is not persisted.
           </Text>
           <PrimaryButton
             label={status.domainInitialized ? 'Register / repair signers' : 'Enable System Auth'}
