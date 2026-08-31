@@ -18,16 +18,23 @@ export type AppServices = Readonly<{
 
 export async function createAppServices(): Promise<AppServices> {
   const realm = await openWalletRealm();
-  const sdk = new ReactNativeFresnicaSdk(loadNativeFresnicaModule(NativeModules));
-  const repository = new RealmAccountSignerRepository(realm);
 
-  return {
-    onboarding: {
-      sdk,
-      repository,
-      createId: () => createRealmRecordId(),
-      now: () => new Date(),
-    },
-    close: () => realm.close(),
-  };
+  try {
+    const nativeModule = loadNativeFresnicaModule(NativeModules);
+    const sdk = new ReactNativeFresnicaSdk(nativeModule);
+    const repository = new RealmAccountSignerRepository(realm);
+
+    return {
+      onboarding: {
+        sdk,
+        repository,
+        createId: () => createRealmRecordId(),
+        now: () => new Date(),
+      },
+      close: () => realm.close(),
+    };
+  } catch (error) {
+    realm.close();
+    throw error;
+  }
 }
