@@ -40,7 +40,6 @@ export function SecuritySettingsScreen({dependencies, onClose}: Props) {
       });
     return () => {
       mounted = false;
-      setAppPassphrase('');
     };
   }, [dependencies]);
 
