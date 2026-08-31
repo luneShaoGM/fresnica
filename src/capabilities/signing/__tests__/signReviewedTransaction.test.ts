@@ -1,8 +1,8 @@
-import { APP_CONFIG } from '../../../app/config/appConfig';
-import type { FresnicaSdk } from '../../../platform/fresnica/FresnicaSdk';
-import type { SignerRecord } from '../../signer/types';
-import type { ReviewedTransaction } from '../../transaction/ReviewedTransaction';
-import { signReviewedTransaction } from '../signReviewedTransaction';
+import {APP_CONFIG} from '../../../app/config/appConfig';
+import type {FresnicaSdk} from '../../../platform/fresnica/FresnicaSdk';
+import type {SignerRecord} from '../../signer/types';
+import type {ReviewedTransaction} from '../../transaction/ReviewedTransaction';
+import {signReviewedTransaction} from '../signReviewedTransaction';
 
 const signer: SignerRecord = {
   id: 'signer-1',
@@ -31,10 +31,10 @@ function sdkWith(overrides?: Partial<FresnicaSdk>) {
 
 describe('signReviewedTransaction', () => {
   it('uses System Auth for the exact reviewed XDR when registered', async () => {
-    const sdk = sdkWith({ hasSignerSystemAuth: jest.fn().mockResolvedValue(true) });
+    const sdk = sdkWith({hasSignerSystemAuth: jest.fn().mockResolvedValue(true)});
 
     await expect(
-      signReviewedTransaction({ sdk, review, signer, systemAuthReason: 'Confirm transaction' }),
+      signReviewedTransaction({sdk, review, signer, systemAuthReason: 'Confirm transaction'}),
     ).resolves.toEqual({
       status: 'signed',
       authorization: 'system-auth',
@@ -52,7 +52,7 @@ describe('signReviewedTransaction', () => {
 
   it('requires passcode without inventing a feature-local fallback', async () => {
     const sdk = sdkWith();
-    await expect(signReviewedTransaction({ sdk, review, signer })).resolves.toEqual({
+    await expect(signReviewedTransaction({sdk, review, signer})).resolves.toEqual({
       status: 'passcode-required',
     });
   });
@@ -60,15 +60,57 @@ describe('signReviewedTransaction', () => {
   it('uses passcode signing for the same exact reviewed XDR', async () => {
     const sdk = sdkWith();
     await expect(
-      signReviewedTransaction({ sdk, review, signer, appPasscode: '123456' }),
+      signReviewedTransaction({
+        sdk,
+        review,
+        signer,
+        appPasscode: 'a strong app passphrase',
+      }),
     ).resolves.toEqual({
       status: 'signed',
       authorization: 'passcode',
       signedTransactionXdrBase64: 'AAAA-passcode-signed',
     });
     expect(sdk.signWithPasscode).toHaveBeenCalledWith(
-      expect.objectContaining({ transactionXdrBase64: review.transactionXdrBase64 }),
+      expect.objectContaining({transactionXdrBase64: review.transactionXdrBase64}),
     );
+  });
+
+  it('never invokes System Auth when policy requires a fresh passphrase', async () => {
+    const sdk = sdkWith({hasSignerSystemAuth: jest.fn().mockResolvedValue(true)});
+
+    await expect(
+      signReviewedTransaction({
+        sdk,
+        review,
+        signer,
+        authorizationPolicy: 'passphrase-required',
+      }),
+    ).resolves.toEqual({status: 'passcode-required'});
+
+    expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
+    expect(sdk.signWithSystemAuth).not.toHaveBeenCalled();
+  });
+
+  it('uses only passcode signing for passphrase-required actions', async () => {
+    const sdk = sdkWith({hasSignerSystemAuth: jest.fn().mockResolvedValue(true)});
+
+    await expect(
+      signReviewedTransaction({
+        sdk,
+        review,
+        signer,
+        appPasscode: 'a strong app passphrase',
+        authorizationPolicy: 'passphrase-required',
+      }),
+    ).resolves.toEqual({
+      status: 'signed',
+      authorization: 'passcode',
+      signedTransactionXdrBase64: 'AAAA-passcode-signed',
+    });
+
+    expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
+    expect(sdk.signWithSystemAuth).not.toHaveBeenCalled();
   });
 
   it('rejects unsupported signer records before invoking the SDK', async () => {
@@ -77,9 +119,9 @@ describe('signReviewedTransaction', () => {
       signReviewedTransaction({
         sdk,
         review,
-        signer: { ...signer, kind: 'external', envelopeJson: undefined },
+        signer: {...signer, kind: 'external', envelopeJson: undefined},
       }),
-    ).resolves.toEqual({ status: 'unsupported-signer' });
+    ).resolves.toEqual({status: 'unsupported-signer'});
     expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
   });
 });
