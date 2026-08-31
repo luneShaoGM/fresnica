@@ -7,7 +7,7 @@ import {Card} from '../../ui/Card';
 import {Field} from '../../ui/Field';
 import {Screen} from '../../ui/Screen';
 import {palette, spacing, typography} from '../../ui/theme';
-import {sendAssetKey} from './sendDraft';
+import {sendAssetKey} from './sendProductFlow';
 
 type Props = Readonly<{
   accountLabel: string;
@@ -76,7 +76,7 @@ export function SendFormScreen({
       <Card title="Payment details">
         <Field
           label="Recipient"
-          hint="Fresnica v1 Send currently accepts a Classic Stellar G... account."
+          hint="Classic Stellar G... and muxed M... destinations are supported."
           value={destination}
           onChangeText={onChangeDestination}
           autoCapitalize="characters"
