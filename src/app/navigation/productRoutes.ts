@@ -37,6 +37,24 @@ export type OnboardingRoute =
   | 'confirm-backup'
   | 'resume-pending-backup';
 
+export type ProductRouteParams = Readonly<{
+  'wallet-home': undefined;
+  'account-details': Readonly<{accountId: string}>;
+  'add-account': undefined;
+  'asset-details': Readonly<{accountId: string; assetKey: string}>;
+  'send-form': Readonly<{accountId: string}>;
+  'send-review': undefined;
+  'send-result': undefined;
+  'manage-assets': Readonly<{accountId: string}>;
+  history: undefined;
+  'operation-details': Readonly<{accountId: string; operationId: string}>;
+  'settings-home': undefined;
+  'accounts-settings': undefined;
+  'security-settings': undefined;
+  'network-settings': undefined;
+  about: undefined;
+}>;
+
 export const MAIN_TABS: readonly MainTab[] = [
   'wallet',
   'activity',
