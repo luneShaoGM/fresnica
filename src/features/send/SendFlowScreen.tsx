@@ -17,10 +17,11 @@ import type {StellarGateway} from '../../platform/stellar/StellarGateway';
 import {Button} from '../../ui/Button';
 import {Card} from '../../ui/Card';
 import {Screen} from '../../ui/Screen';
+import {resolveSendSigner} from './resolveSendSigner';
 import {SendFormScreen} from './SendFormScreen';
 import {SendResultScreen, type SendTerminalResult} from './SendResultScreen';
 import {SendReviewScreen} from './SendReviewScreen';
-import {sendAssetKey, validateSendDraft} from './sendDraft';
+import {validateSendDraft} from './sendDraft';
 
 const TESTNET_BASE_FEE_STROOPS = '100';
 
@@ -158,13 +159,11 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
       return;
     }
 
-    const signers = dependencies.repository.listSignersForAccount(account.id);
-    if (signers.length === 0) {
-      setError('This account is watch-only and has no attached local signer.');
-      return;
-    }
-    if (signers.length > 1) {
-      setError('Multiple attached signers require the future multisig coordination milestone.');
+    let signer;
+    try {
+      signer = resolveSendSigner(dependencies.repository, account.id);
+    } catch (caught) {
+      setError(sendSignerError(caught));
       return;
     }
 
@@ -180,7 +179,7 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
         gateway: dependencies.gateway,
         sdk: dependencies.sdk,
         review: flow.review,
-        signer: signers[0],
+        signer,
         ...(passphrase === undefined ? {} : {appPasscode: passphrase}),
         systemAuthReason: `Send ${flow.review.amount} ${assetCode(flow.review)}`,
       });
@@ -267,6 +266,16 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
 
 function assetCode(review: PaymentReview): string {
   return review.asset.kind === 'native' ? 'XLM' : review.asset.code;
+}
+
+function sendSignerError(error: unknown): string {
+  if (error instanceof Error && error.message === 'send-watch-only-account') {
+    return 'This account is watch-only and has no attached local signer.';
+  }
+  if (error instanceof Error && error.message === 'send-multisig-not-supported') {
+    return 'Multiple attached signers require the future multisig coordination milestone.';
+  }
+  return readableError(error);
 }
 
 function readableError(error: unknown): string {
