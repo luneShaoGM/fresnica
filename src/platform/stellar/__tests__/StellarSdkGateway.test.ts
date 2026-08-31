@@ -19,6 +19,7 @@ function horizonAccount(): HorizonAccountLike {
       { key: sourceAddress, weight: 1, type: 'ed25519_public_key' },
       { key: signerAddress, weight: 2, type: 'ed25519_public_key' },
     ],
+    balances: [],
   });
 }
 
@@ -88,6 +89,64 @@ describe('StellarSdkGateway', () => {
     await expect(gateway.loadAccountAuthorization(sourceAddress)).rejects.toThrow(
       'unsupported-ledger-signer-type:future_signer_type',
     );
+  });
+
+  it('maps native, issued and liquidity-pool balances without numeric conversion', async () => {
+    const account = horizonAccount();
+    account.balances = [
+      {asset_type: 'native', balance: '12.3456789'},
+      {
+        asset_type: 'credit_alphanum4',
+        balance: '7.0000001',
+        asset_code: 'USD',
+        asset_issuer: signerAddress,
+      },
+      {
+        asset_type: 'liquidity_pool_shares',
+        balance: '0.1250000',
+        liquidity_pool_id: 'pool-id',
+      },
+    ];
+    const gateway = new StellarSdkGateway(server(account));
+
+    await expect(gateway.loadAccountBalances(sourceAddress)).resolves.toEqual({
+      status: 'active',
+      address: sourceAddress,
+      balances: [
+        {kind: 'native', balance: '12.3456789'},
+        {kind: 'credit', balance: '7.0000001', code: 'USD', issuer: signerAddress},
+        {
+          kind: 'liquidity-pool-share',
+          balance: '0.1250000',
+          liquidityPoolId: 'pool-id',
+        },
+      ],
+    });
+  });
+
+  it('returns inactive when Horizon reports the account does not exist', async () => {
+    const horizon = server();
+    horizon.loadAccount.mockRejectedValue({response: {status: 404}});
+    const gateway = new StellarSdkGateway(horizon);
+
+    await expect(gateway.loadAccountBalances(sourceAddress)).resolves.toEqual({
+      status: 'inactive',
+      address: sourceAddress,
+    });
+  });
+
+  it('fails closed on malformed or unknown balance types', async () => {
+    const malformed = horizonAccount();
+    malformed.balances = [{asset_type: 'credit_alphanum4', balance: '1.0000000'}];
+    await expect(
+      new StellarSdkGateway(server(malformed)).loadAccountBalances(sourceAddress),
+    ).rejects.toThrow('invalid-horizon-credit-balance:credit_alphanum4');
+
+    const unknown = horizonAccount();
+    unknown.balances = [{asset_type: 'future_asset', balance: '1.0000000'}];
+    await expect(
+      new StellarSdkGateway(server(unknown)).loadAccountBalances(sourceAddress),
+    ).rejects.toThrow('unsupported-horizon-balance-type:future_asset');
   });
 
   it('builds an unsigned native-asset payment on Stellar Testnet', async () => {
