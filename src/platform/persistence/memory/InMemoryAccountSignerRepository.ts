@@ -54,7 +54,7 @@ export class InMemoryAccountSignerRepository implements AccountSignerRepository 
     }
 
     const id = this.referenceId(accountId, signerId);
-    this.references.set(id, { id, accountId, signerId, createdAt });
+    this.references.set(id, {id, accountId, signerId, createdAt});
   }
 
   detachSigner(accountId: string, signerId: string): void {
@@ -88,6 +88,17 @@ export class InMemoryAccountSignerRepository implements AccountSignerRepository 
 
   listSigners(): SignerRecord[] {
     return [...this.signers.values()];
+  }
+
+  listSignersForAccount(accountId: string): SignerRecord[] {
+    const signerIds = [...this.references.values()]
+      .filter(reference => reference.accountId === accountId)
+      .map(reference => reference.signerId);
+
+    return signerIds.flatMap(signerId => {
+      const signer = this.signers.get(signerId);
+      return signer ? [signer] : [];
+    });
   }
 
   setSignerBackupState(
