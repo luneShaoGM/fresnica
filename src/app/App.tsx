@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
 
+import {AddWatchOnlyAccountScreen} from '../features/accounts/AddWatchOnlyAccountScreen';
 import {WalletReadyScreen} from '../features/accounts/WalletReadyScreen';
 import {OnboardingScreen} from '../features/onboarding/OnboardingScreen';
 import {PendingMnemonicBackupScreen} from '../features/onboarding/PendingMnemonicBackupScreen';
@@ -8,6 +9,7 @@ import {
   resolveOnboardingBootstrap,
   type OnboardingBootstrapState,
 } from '../features/onboarding/onboardingBootstrap';
+import {SecuritySettingsScreen} from '../features/security/SecuritySettingsScreen';
 import {createAppServices, type AppServices} from './createAppServices';
 
 type RuntimeState =
@@ -17,7 +19,7 @@ type RuntimeState =
       kind: 'ready';
       services: AppServices;
       bootstrap: OnboardingBootstrapState;
-      addingAccount: boolean;
+      overlay: 'none' | 'add-account' | 'security';
     }>;
 
 export function App() {
@@ -39,7 +41,7 @@ export function App() {
           kind: 'ready',
           services: created,
           bootstrap: resolveOnboardingBootstrap(created.onboarding),
-          addingAccount: false,
+          overlay: 'none',
         });
       })
       .catch(error => {
@@ -63,20 +65,20 @@ export function App() {
       return {
         ...current,
         bootstrap: resolveOnboardingBootstrap(current.services.onboarding),
-        addingAccount: false,
+        overlay: 'none',
       };
     });
   }, []);
 
-  const startAddAccount = useCallback(() => {
+  const showOverlay = useCallback((overlay: 'add-account' | 'security') => {
     setRuntime(current =>
-      current.kind === 'ready' ? {...current, addingAccount: true} : current,
+      current.kind === 'ready' ? {...current, overlay} : current,
     );
   }, []);
 
-  const cancelAddAccount = useCallback(() => {
+  const closeOverlay = useCallback(() => {
     setRuntime(current =>
-      current.kind === 'ready' ? {...current, addingAccount: false} : current,
+      current.kind === 'ready' ? {...current, overlay: 'none'} : current,
     );
   }, []);
 
@@ -98,12 +100,21 @@ export function App() {
     );
   }
 
-  if (runtime.addingAccount) {
+  if (runtime.overlay === 'add-account') {
     return (
-      <OnboardingScreen
+      <AddWatchOnlyAccountScreen
         dependencies={runtime.services.onboarding}
         onComplete={refreshBootstrap}
-        onCancel={cancelAddAccount}
+        onCancel={closeOverlay}
+      />
+    );
+  }
+
+  if (runtime.overlay === 'security') {
+    return (
+      <SecuritySettingsScreen
+        dependencies={runtime.services.security}
+        onClose={closeOverlay}
       />
     );
   }
@@ -130,7 +141,8 @@ export function App() {
   return (
     <WalletReadyScreen
       accounts={runtime.bootstrap.accounts}
-      onAddAccount={startAddAccount}
+      onAddAccount={() => showOverlay('add-account')}
+      onOpenSecurity={() => showOverlay('security')}
     />
   );
 }
