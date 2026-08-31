@@ -2,6 +2,7 @@ import {NativeModules} from 'react-native';
 
 import type {ProvisionAccountDependencies} from '../capabilities/account/provisionAccount';
 import type {ApplicationSecurityDependencies} from '../capabilities/application-security/systemAuth';
+import type {BalanceDependencies} from '../capabilities/balance/loadBalanceSnapshot';
 import {
   ReactNativeFresnicaSdk,
   loadNativeFresnicaModule,
@@ -11,10 +12,12 @@ import {
   createRealmRecordId,
   openWalletRealm,
 } from '../platform/persistence/realm';
+import {StellarSdkGateway} from '../platform/stellar/StellarSdkGateway';
 
 export type AppServices = Readonly<{
   onboarding: ProvisionAccountDependencies;
   security: ApplicationSecurityDependencies;
+  balance: BalanceDependencies;
   close: () => void;
 }>;
 
@@ -25,6 +28,7 @@ export async function createAppServices(): Promise<AppServices> {
     const nativeModule = loadNativeFresnicaModule(NativeModules);
     const sdk = new ReactNativeFresnicaSdk(nativeModule);
     const repository = new RealmAccountSignerRepository(realm);
+    const stellarGateway = new StellarSdkGateway();
 
     return {
       onboarding: {
@@ -36,6 +40,9 @@ export async function createAppServices(): Promise<AppServices> {
       security: {
         sdk,
         repository,
+      },
+      balance: {
+        gateway: stellarGateway,
       },
       close: () => realm.close(),
     };
