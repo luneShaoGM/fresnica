@@ -103,11 +103,7 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
       content = (
         <SendFlowScreen
           account={account}
-          dependencies={{
-            gateway: services.balance.gateway,
-            sdk: services.onboarding.sdk,
-            repository: services.onboarding.repository,
-          }}
+          dependencies={services.send}
           onDone={() => dispatch({type: 'select-tab', tab: 'wallet'})}
         />
       );
