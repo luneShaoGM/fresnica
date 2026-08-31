@@ -1,7 +1,17 @@
-import {StrKey} from '@stellar/stellar-sdk';
+import {
+  Account,
+  Asset,
+  Networks,
+  Operation,
+  StrKey,
+  TransactionBuilder,
+} from '@stellar/stellar-sdk';
 
 import type {AccountRecord} from '../../../capabilities/account/types';
-import type {PaymentReview} from '../../../capabilities/payment/buildPaymentReview';
+import {
+  buildPaymentReview,
+  type PaymentReview,
+} from '../../../capabilities/payment/buildPaymentReview';
 import type {FresnicaSdk} from '../../../platform/fresnica/FresnicaSdk';
 import {InMemoryAccountSignerRepository} from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
 import type {StellarGateway} from '../../../platform/stellar/StellarGateway';
@@ -9,11 +19,13 @@ import {
   submitSendReview,
   validateDestination,
   validateStellarAmount,
+  validateTextMemo,
   type SendProductDependencies,
 } from '../sendProductFlow';
 
 const accountAddress = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(1));
 const destinationAddress = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(2));
+const otherSourceAddress = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(6));
 
 function account(): AccountRecord {
   const now = new Date('2026-08-31T00:00:00.000Z');
@@ -30,17 +42,26 @@ function account(): AccountRecord {
   };
 }
 
-function review(): PaymentReview {
-  return {
-    transactionXdrBase64: 'not-used-before-signer-gate',
-    networkId: 'stellar-testnet',
-    source: accountAddress,
-    destination: destinationAddress,
-    amount: '1.0000000',
-    asset: {kind: 'native'},
+function review(source = accountAddress): PaymentReview {
+  const xdr = new TransactionBuilder(new Account(source, '10'), {
     fee: '100',
-    expiresAtUnixSeconds: 2_000_000_000,
-  };
+    networkPassphrase: Networks.TESTNET,
+  })
+    .addOperation(
+      Operation.payment({
+        destination: destinationAddress,
+        asset: Asset.native(),
+        amount: '1.0000000',
+      }),
+    )
+    .setTimeout(180)
+    .build()
+    .toXdr();
+
+  return buildPaymentReview({
+    transactionXdrBase64: xdr,
+    networkId: 'stellar-testnet',
+  });
 }
 
 function dependencies(repository: InMemoryAccountSignerRepository): SendProductDependencies {
@@ -78,6 +99,13 @@ describe('sendProductFlow', () => {
     );
   });
 
+  it('validates text memo size in UTF-8 bytes', () => {
+    expect(validateTextMemo('测试测试测试')).toBe('测试测试测试');
+    expect(() => validateTextMemo('测试测试测试测试测试')).toThrow(
+      'payment-memo-too-long',
+    );
+  });
+
   it('fails closed before signing for a watch-only account', async () => {
     const repository = new InMemoryAccountSignerRepository();
     repository.createAccount(account());
@@ -112,16 +140,29 @@ describe('sendProductFlow', () => {
     ).resolves.toEqual({status: 'unsupported-account-signers'});
   });
 
-  it('rejects a review that belongs to another source account', async () => {
+  it('re-derives review semantics from exact XDR instead of trusting mutable fields', async () => {
+    const repository = new InMemoryAccountSignerRepository();
+    const source = account();
+    repository.createAccount(source);
+    const exactReview = review();
+
+    await expect(
+      submitSendReview(dependencies(repository), source, {
+        ...exactReview,
+        source: otherSourceAddress,
+        destination: otherSourceAddress,
+        amount: '999.0000000',
+      }),
+    ).resolves.toEqual({status: 'watch-only'});
+  });
+
+  it('rejects exact XDR whose source belongs to another account', async () => {
     const repository = new InMemoryAccountSignerRepository();
     const source = account();
     repository.createAccount(source);
 
     await expect(
-      submitSendReview(dependencies(repository), source, {
-        ...review(),
-        source: destinationAddress,
-      }),
+      submitSendReview(dependencies(repository), source, review(otherSourceAddress)),
     ).rejects.toThrow('send-review-account-mismatch');
   });
 });
