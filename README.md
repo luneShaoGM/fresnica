@@ -4,7 +4,7 @@ Stellar-native React Native wallet consuming Fresnica Native SDK as its security
 
 ## Current development baseline
 
-`main` is the single long-lived baseline. Feature work uses short-lived `feat/*`, `fix/*`, `refactor/*`, or `docs/*` branches; the current Realm persistence work is on `feat/realm-persistence`.
+`main` is the single long-lived baseline. Feature work uses short-lived `feat/*`, `fix/*`, `refactor/*`, or `docs/*` branches; current onboarding work is on `feat/onboarding-flow`.
 
 Current foundation includes:
 
@@ -67,6 +67,40 @@ React Native module       FresnicaCore
 ```
 
 The adapter revision includes upstream PR #121, so Apple exports `FresnicaCore` natively; Mobile carries no module-name patch.
+
+## Fresh-clone native bootstrap
+
+The current source repository does not contain the Fresnica Native SDK or generated React Native adapter binaries. A fresh clone must prepare these pinned native artifacts before the first Android or Apple native build.
+
+Native SDK release:
+
+```text
+https://github.com/manran/fresnica/releases/tag/native-sdk-v0.2.1
+```
+
+Expected Native SDK layout after bootstrap:
+
+```text
+vendor/fresnica/native/
+  fresnica-native-sdk-0.2.1.aar
+  FresnicaSDK.xcframework/
+  FresnicaSDKFFI.xcframework/
+```
+
+For Apple, download `FresnicaSDK-0.2.1-apple.zip` from the pinned release and extract both XCFrameworks into `vendor/fresnica/native/`. For Android, place `fresnica-native-sdk-0.2.1.aar` in the same directory. Verify release artifacts against the upstream `SHA256SUMS` before use.
+
+Normal React Native builds also require the one-time generated adapter artifacts:
+
+```text
+vendor/fresnica/adapter/react-native/
+  fresnica-rn-adapter.aar
+  FresnicaRNAdapter.xcframework/
+  adapter-manifest.json
+```
+
+The adapter is built once from the pinned canonical adapter source in this project's own React Native/native toolchain. Normal app builds must not rebuild Rust/Core, UniFFI, or the adapter automatically.
+
+See `vendor/fresnica/README.md` for exact bootstrap/build commands and `docs/mobile-native-integration.md` for integration details.
 
 ## Persistence status
 

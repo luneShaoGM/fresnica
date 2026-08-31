@@ -1,4 +1,7 @@
-import type { AccountSignerRepository } from '../../../capabilities/account/AccountSignerRepository';
+import type {
+  AccountSignerRegistration,
+  AccountSignerRepository,
+} from '../../../capabilities/account/AccountSignerRepository';
 import {
   findOrphanSignerIds,
   isWatchOnly as deriveWatchOnly,
@@ -7,7 +10,10 @@ import type {
   AccountRecord,
   AccountSignerReference,
 } from '../../../capabilities/account/types';
-import type { SignerRecord } from '../../../capabilities/signer/types';
+import type {
+  BackupState,
+  SignerRecord,
+} from '../../../capabilities/signer/types';
 
 export class InMemoryAccountSignerRepository implements AccountSignerRepository {
   private readonly accounts = new Map<string, AccountRecord>();
@@ -15,21 +21,27 @@ export class InMemoryAccountSignerRepository implements AccountSignerRepository 
   private readonly references = new Map<string, AccountSignerReference>();
 
   createAccount(account: AccountRecord): void {
-    const duplicate = [...this.accounts.values()].some(
-      existing =>
-        existing.networkId === account.networkId &&
-        existing.address === account.address,
-    );
-
-    if (duplicate) {
-      throw new Error('duplicate-account-identity');
-    }
-
+    this.assertAccountIdentityAvailable(account);
     this.accounts.set(account.id, account);
   }
 
   createSigner(signer: SignerRecord): void {
     this.signers.set(signer.id, signer);
+  }
+
+  createAccountWithSigner(registration: AccountSignerRegistration): void {
+    const {account, signer, attachedAt} = registration;
+    this.assertAccountIdentityAvailable(account);
+
+    const referenceId = this.referenceId(account.id, signer.id);
+    this.accounts.set(account.id, account);
+    this.signers.set(signer.id, signer);
+    this.references.set(referenceId, {
+      id: referenceId,
+      accountId: account.id,
+      signerId: signer.id,
+      createdAt: attachedAt,
+    });
   }
 
   attachSigner(accountId: string, signerId: string, createdAt: Date): void {
@@ -70,8 +82,41 @@ export class InMemoryAccountSignerRepository implements AccountSignerRepository 
     return this.signers.get(signerId);
   }
 
+  listAccounts(): AccountRecord[] {
+    return [...this.accounts.values()];
+  }
+
+  listSigners(): SignerRecord[] {
+    return [...this.signers.values()];
+  }
+
+  setSignerBackupState(
+    signerId: string,
+    backupState: BackupState,
+    updatedAt: Date,
+  ): void {
+    const signer = this.signers.get(signerId);
+    if (!signer) {
+      throw new Error('signer-not-found');
+    }
+
+    this.signers.set(signerId, {...signer, backupState, updatedAt});
+  }
+
   isWatchOnly(accountId: string): boolean {
     return deriveWatchOnly(accountId, [...this.references.values()]);
+  }
+
+  private assertAccountIdentityAvailable(account: AccountRecord): void {
+    const duplicate = [...this.accounts.values()].some(
+      existing =>
+        existing.networkId === account.networkId &&
+        existing.address === account.address,
+    );
+
+    if (duplicate) {
+      throw new Error('duplicate-account-identity');
+    }
   }
 
   private deleteOrphanSigners(): void {

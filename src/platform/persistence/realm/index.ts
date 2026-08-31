@@ -1,4 +1,5 @@
 export {RealmAccountSignerRepository} from './RealmAccountSignerRepository';
+export {createRealmRecordId} from './createRealmRecordId';
 export {
   openWalletRealm,
   walletRealmConfiguration,
