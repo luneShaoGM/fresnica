@@ -196,7 +196,7 @@ export class StellarSdkGateway implements StellarGateway {
     try {
       const page = await this.server.loadAccountOperations(input);
       const records = [...page.records];
-      const lastRecord = records.at(-1);
+      const lastRecord = records[records.length - 1];
       return {
         status: 'active' as const,
         address: input.address,
