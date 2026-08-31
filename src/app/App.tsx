@@ -1,16 +1,14 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
 
-import {AddWatchOnlyAccountScreen} from '../features/accounts/AddWatchOnlyAccountScreen';
-import {WalletReadyScreen} from '../features/accounts/WalletReadyScreen';
 import {OnboardingScreen} from '../features/onboarding/OnboardingScreen';
 import {PendingMnemonicBackupScreen} from '../features/onboarding/PendingMnemonicBackupScreen';
 import {
   resolveOnboardingBootstrap,
   type OnboardingBootstrapState,
 } from '../features/onboarding/onboardingBootstrap';
-import {SecuritySettingsScreen} from '../features/security/SecuritySettingsScreen';
 import {createAppServices, type AppServices} from './createAppServices';
+import {ProductRuntime} from './navigation/ProductRuntime';
 
 type RuntimeState =
   | Readonly<{kind: 'loading'}>
@@ -19,7 +17,6 @@ type RuntimeState =
       kind: 'ready';
       services: AppServices;
       bootstrap: OnboardingBootstrapState;
-      overlay: 'none' | 'add-account' | 'security';
     }>;
 
 export function App() {
@@ -41,7 +38,6 @@ export function App() {
           kind: 'ready',
           services: created,
           bootstrap: resolveOnboardingBootstrap(created.onboarding),
-          overlay: 'none',
         });
       })
       .catch(error => {
@@ -65,21 +61,8 @@ export function App() {
       return {
         ...current,
         bootstrap: resolveOnboardingBootstrap(current.services.onboarding),
-        overlay: 'none',
       };
     });
-  }, []);
-
-  const showOverlay = useCallback((overlay: 'add-account' | 'security') => {
-    setRuntime(current =>
-      current.kind === 'ready' ? {...current, overlay} : current,
-    );
-  }, []);
-
-  const closeOverlay = useCallback(() => {
-    setRuntime(current =>
-      current.kind === 'ready' ? {...current, overlay: 'none'} : current,
-    );
   }, []);
 
   if (runtime.kind === 'loading') {
@@ -97,25 +80,6 @@ export function App() {
         <Text style={styles.errorTitle}>Fresnica could not start</Text>
         <Text>{runtime.message}</Text>
       </View>
-    );
-  }
-
-  if (runtime.overlay === 'add-account') {
-    return (
-      <AddWatchOnlyAccountScreen
-        dependencies={runtime.services.onboarding}
-        onComplete={refreshBootstrap}
-        onCancel={closeOverlay}
-      />
-    );
-  }
-
-  if (runtime.overlay === 'security') {
-    return (
-      <SecuritySettingsScreen
-        dependencies={runtime.services.security}
-        onClose={closeOverlay}
-      />
     );
   }
 
@@ -139,10 +103,10 @@ export function App() {
   }
 
   return (
-    <WalletReadyScreen
+    <ProductRuntime
       accounts={runtime.bootstrap.accounts}
-      onAddAccount={() => showOverlay('add-account')}
-      onOpenSecurity={() => showOverlay('security')}
+      services={runtime.services}
+      onAccountsChanged={refreshBootstrap}
     />
   );
 }

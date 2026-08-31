@@ -13,16 +13,16 @@ export type ProductRouteStatus = Readonly<{
 
 export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteStatus>> = {
   'wallet-home': {
-    readiness: 'structure-only',
-    note: 'Product surface exists; Portfolio/Horizon read state is not connected yet.',
+    readiness: 'implemented',
+    note: 'Runtime Wallet Home is connected to the Balance Capability with loading, inactive, active, error and refresh states.',
   },
   'account-details': {
     readiness: 'structure-only',
-    note: 'Public account surface exists; signer/access presenter is not connected yet.',
+    note: 'Public account surface is routed through the runtime shell; signer/access presenter is not connected yet.',
   },
   'add-account': {
     readiness: 'implemented',
-    note: 'Existing-wallet Add Account currently supports watch-only only.',
+    note: 'Existing-wallet Add Account is routed through the runtime shell and currently supports watch-only only.',
   },
   'asset-details': {
     readiness: 'blocked',
@@ -30,7 +30,7 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'send-form': {
     readiness: 'capability-ready',
-    note: 'Payment/transaction foundations exist; product form orchestration is not wired yet.',
+    note: 'Destination is reachable from the runtime shell; Payment/transaction foundations exist, but product form orchestration is not wired yet.',
   },
   'send-review': {
     readiness: 'capability-ready',
@@ -42,34 +42,34 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'manage-assets': {
     readiness: 'structure-only',
-    note: 'Product destination exists; trustline transaction capability is not connected yet.',
+    note: 'Destination is reachable from the runtime shell; trustline transaction capability is not connected yet.',
   },
   history: {
     readiness: 'structure-only',
-    note: 'Activity surface exists; Horizon operation history read path is not connected yet.',
+    note: 'Activity tab is live in the runtime shell; Horizon operation history read path is not connected yet.',
   },
   'operation-details': {
     readiness: 'structure-only',
     note: 'Detail destination exists; Horizon operation presenter is not connected yet.',
   },
   'settings-home': {
-    readiness: 'structure-only',
-    note: 'Settings information architecture is defined.',
+    readiness: 'implemented',
+    note: 'Settings is a live runtime tab routing Accounts, Security, Network and About destinations.',
   },
   'accounts-settings': {
     readiness: 'structure-only',
-    note: 'Account list/details shell uses durable Account records only.',
+    note: 'Account list/details shell is live and uses durable Account records only.',
   },
   'security-settings': {
     readiness: 'implemented',
-    note: 'System Auth status/enable/repair/disable is implemented; app session lock remains upstream-blocked.',
+    note: 'System Auth status/enable/repair/disable is routed through the runtime shell; app session lock remains upstream-blocked.',
   },
   'network-settings': {
     readiness: 'structure-only',
-    note: 'Testnet configuration is display-only; Mainnet switching is intentionally unavailable.',
+    note: 'Runtime destination is reachable; Testnet configuration is display-only and Mainnet switching is intentionally unavailable.',
   },
   about: {
     readiness: 'structure-only',
-    note: 'Application information surface exists.',
+    note: 'Runtime destination is reachable and displays application information.',
   },
 };

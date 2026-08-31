@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
 
 import type {AccountRecord} from '../../capabilities/account/types';
@@ -39,32 +39,35 @@ export function WalletHomeScreen({
   onManageAssets,
 }: Props) {
   const [balanceState, setBalanceState] = useState<BalanceState>({kind: 'loading'});
+  const requestVersion = useRef(0);
 
   const refreshBalances = useCallback(() => {
-    let active = true;
+    const version = requestVersion.current + 1;
+    requestVersion.current = version;
     setBalanceState({kind: 'loading'});
 
     void loadBalanceSnapshot(balanceDependencies, account)
       .then(snapshot => {
-        if (active) {
+        if (requestVersion.current === version) {
           setBalanceState({kind: 'ready', snapshot});
         }
       })
       .catch(error => {
-        if (active) {
+        if (requestVersion.current === version) {
           setBalanceState({
             kind: 'error',
             message: error instanceof Error ? error.message : 'Unable to load balances.',
           });
         }
       });
-
-    return () => {
-      active = false;
-    };
   }, [account, balanceDependencies]);
 
-  useEffect(() => refreshBalances(), [refreshBalances]);
+  useEffect(() => {
+    refreshBalances();
+    return () => {
+      requestVersion.current += 1;
+    };
+  }, [refreshBalances]);
 
   return (
     <Screen eyebrow="Stellar Testnet" title="Wallet">
@@ -107,7 +110,7 @@ export function WalletHomeScreen({
 
 function renderPortfolio(
   state: BalanceState,
-  onRefresh: () => unknown,
+  onRefresh: () => void,
 ): React.ReactNode {
   if (state.kind === 'loading') {
     return (
@@ -133,8 +136,7 @@ function renderPortfolio(
     return (
       <Card
         title="Account not activated"
-        description="This account does not exist on the selected Stellar network yet. Fund it before balances can appear."
-      >
+        description="This account does not exist on the selected Stellar network yet. Fund it before balances can appear.">
         <Button label="Refresh" variant="secondary" onPress={onRefresh} />
       </Card>
     );
