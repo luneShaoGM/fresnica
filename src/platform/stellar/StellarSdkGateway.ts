@@ -14,7 +14,9 @@ import type { StellarGateway } from './StellarGateway';
 import type {
   BuildPaymentInput,
   BuiltTransaction,
+  HorizonBalanceLike,
   HorizonServerLike,
+  StellarBalanceLine,
 } from './types';
 
 function createDefaultServer(): HorizonServerLike {
@@ -49,6 +51,47 @@ function mapLedgerSigner(input: {
     default:
       throw new Error(`unsupported-ledger-signer-type:${input.type}`);
   }
+}
+
+function mapBalance(input: HorizonBalanceLike): StellarBalanceLine {
+  switch (input.asset_type) {
+    case 'native':
+      return {kind: 'native', balance: input.balance};
+    case 'credit_alphanum4':
+    case 'credit_alphanum12':
+      if (!input.asset_code || !input.asset_issuer) {
+        throw new Error(`invalid-horizon-credit-balance:${input.asset_type}`);
+      }
+      return {
+        kind: 'credit',
+        balance: input.balance,
+        code: input.asset_code,
+        issuer: input.asset_issuer,
+      };
+    case 'liquidity_pool_shares':
+      if (!input.liquidity_pool_id) {
+        throw new Error('invalid-horizon-liquidity-pool-balance');
+      }
+      return {
+        kind: 'liquidity-pool-share',
+        balance: input.balance,
+        liquidityPoolId: input.liquidity_pool_id,
+      };
+    default:
+      throw new Error(`unsupported-horizon-balance-type:${input.asset_type}`);
+  }
+}
+
+function isHorizonNotFound(error: unknown): boolean {
+  if (error === null || typeof error !== 'object') {
+    return false;
+  }
+  const response = (error as {response?: unknown}).response;
+  return (
+    response !== null &&
+    typeof response === 'object' &&
+    (response as {status?: unknown}).status === 404
+  );
 }
 
 function transactionHashHex(transaction: Transaction): string {
@@ -110,6 +153,22 @@ export class StellarSdkGateway implements StellarGateway {
       },
       signers: account.signers.map(mapLedgerSigner),
     };
+  }
+
+  async loadAccountBalances(address: string) {
+    try {
+      const account = await this.server.loadAccount(address);
+      return {
+        status: 'active' as const,
+        address: account.account_id,
+        balances: account.balances.map(mapBalance),
+      };
+    } catch (error) {
+      if (isHorizonNotFound(error)) {
+        return {status: 'inactive' as const, address};
+      }
+      throw error;
+    }
   }
 
   async buildPayment(input: BuildPaymentInput): Promise<BuiltTransaction> {
