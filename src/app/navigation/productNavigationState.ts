@@ -4,9 +4,13 @@ import type {MainTab} from './productRoutes';
 export type ProductDestination =
   | Readonly<{tab: 'wallet'; route: 'wallet-home'}>
   | Readonly<{tab: 'wallet'; route: 'account-details'; accountId: string}>
+  | Readonly<{tab: 'wallet'; route: 'add-account'}>
+  | Readonly<{tab: 'wallet'; route: 'send-form'; accountId: string}>
+  | Readonly<{tab: 'wallet'; route: 'manage-assets'; accountId: string}>
   | Readonly<{tab: 'activity'; route: 'history'}>
   | Readonly<{tab: 'settings'; route: 'settings-home'}>
   | Readonly<{tab: 'settings'; route: 'accounts-settings'}>
+  | Readonly<{tab: 'settings'; route: 'security-settings'}>
   | Readonly<{tab: 'settings'; route: 'network-settings'}>
   | Readonly<{tab: 'settings'; route: 'about'}>;
 
@@ -19,7 +23,13 @@ export type ProductNavigationAction =
   | Readonly<{type: 'select-tab'; tab: MainTab}>
   | Readonly<{type: 'select-account'; accountId: string}>
   | Readonly<{type: 'open-account'; accountId: string}>
-  | Readonly<{type: 'open-settings-route'; route: 'accounts-settings' | 'network-settings' | 'about'}>
+  | Readonly<{type: 'open-add-account'}>
+  | Readonly<{type: 'open-send'; accountId: string}>
+  | Readonly<{type: 'open-manage-assets'; accountId: string}>
+  | Readonly<{
+      type: 'open-settings-route';
+      route: 'accounts-settings' | 'security-settings' | 'network-settings' | 'about';
+    }>
   | Readonly<{type: 'back-to-root'}>;
 
 export function createInitialProductNavigation(
@@ -79,6 +89,24 @@ export function reduceProductNavigation(
           accountId: action.accountId,
         },
       };
+    case 'open-add-account':
+      return {...state, destination: {tab: 'wallet', route: 'add-account'}};
+    case 'open-send':
+      assertSelectableAccount(accounts, action.accountId);
+      return {
+        ...state,
+        destination: {tab: 'wallet', route: 'send-form', accountId: action.accountId},
+      };
+    case 'open-manage-assets':
+      assertSelectableAccount(accounts, action.accountId);
+      return {
+        ...state,
+        destination: {
+          tab: 'wallet',
+          route: 'manage-assets',
+          accountId: action.accountId,
+        },
+      };
     case 'open-settings-route':
       return {
         ...state,
@@ -103,6 +131,17 @@ export function resolveSelectedAccount(
   );
   if (!account) {
     throw new Error('selected-account-unavailable');
+  }
+  return account;
+}
+
+export function resolveAccountById(
+  accounts: readonly AccountRecord[],
+  accountId: string,
+): AccountRecord {
+  const account = accounts.find(candidate => candidate.id === accountId && !candidate.hidden);
+  if (!account) {
+    throw new Error('account-not-selectable');
   }
   return account;
 }
