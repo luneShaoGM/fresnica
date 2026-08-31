@@ -3,6 +3,7 @@ import {NativeModules} from 'react-native';
 import type {ProvisionAccountDependencies} from '../capabilities/account/provisionAccount';
 import type {ApplicationSecurityDependencies} from '../capabilities/application-security/systemAuth';
 import type {BalanceDependencies} from '../capabilities/balance/loadBalanceSnapshot';
+import type {SendProductDependencies} from '../features/send/sendProductFlow';
 import {
   ReactNativeFresnicaSdk,
   loadNativeFresnicaModule,
@@ -18,6 +19,7 @@ export type AppServices = Readonly<{
   onboarding: ProvisionAccountDependencies;
   security: ApplicationSecurityDependencies;
   balance: BalanceDependencies;
+  send: SendProductDependencies;
   close: () => void;
 }>;
 
@@ -43,6 +45,11 @@ export async function createAppServices(): Promise<AppServices> {
       },
       balance: {
         gateway: stellarGateway,
+      },
+      send: {
+        gateway: stellarGateway,
+        sdk,
+        repository,
       },
       close: () => realm.close(),
     };
