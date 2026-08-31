@@ -41,8 +41,12 @@ export type ProductRouteParams = Readonly<{
   'wallet-home': undefined;
   'account-details': Readonly<{accountId: string}>;
   'add-account': undefined;
-  'asset-details': Readonly<{accountId: string; assetKey: string}>;
+  // Asset identity is intentionally unresolved until the Portfolio/Trustline
+  // read model defines a stable public asset key.
+  'asset-details': undefined;
   'send-form': Readonly<{accountId: string}>;
+  // Review/result state stays in the Send flow. Exact XDR and reviewed
+  // transaction data must not be transported as navigation parameters.
   'send-review': undefined;
   'send-result': undefined;
   'manage-assets': Readonly<{accountId: string}>;
