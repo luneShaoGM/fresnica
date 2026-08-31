@@ -21,7 +21,7 @@ export function ProductShell({children, activeTab, onSelectTab}: Props) {
   return (
     <View style={styles.root}>
       <View style={styles.content}>{children}</View>
-      <View accessibilityRole="tablist" style={styles.tabBar}>
+      <View style={styles.tabBar}>
         {(Object.keys(TAB_LABELS) as MainTab[]).map(tab => {
           const selected = tab === activeTab;
           return (
