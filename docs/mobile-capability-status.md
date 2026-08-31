@@ -22,13 +22,14 @@ Network                   Stellar Testnet
 | --- | --- | --- | --- |
 | Account | Normative | Onboarding provisioning implemented | Account records, account-signer invariants, derived watch-only state, atomic account+signer registration and first-run create/import/watch-only flows. |
 | Signer | Normative | Protected-software onboarding implemented | Secret/mnemonic protection remains SDK/Core-owned. Mobile persists only public signer identity plus opaque envelope and backup metadata. |
-| Payment | Normative | Foundation implemented | `src/capabilities/payment`: exact-XDR single-payment review and orchestration on Testnet. Product UI Flow not yet implemented. |
-| Transaction | Normative | Foundation implemented | Reviewed-transaction identity, freshness guard and normalized submission semantics. |
-| Ledger Authorization | Defined | Classic foundation implemented | Typed Classic signer conditions and threshold resolution for applicable local Ed25519 signers. Full multisig/provider coordination remains future work. |
-| Signing Coordination | Normative | Foundation implemented | Shared `routine` policy prefers Native SDK System Auth. `passphrase-required` skips System Auth entirely and requires a fresh app passphrase before signing. |
+| Balance / Availability | Normative | Read-only Portfolio slice implemented | Classic Horizon native/credit balances are normalized behind a Balance Capability. Exact decimal strings are preserved; inactive and contract-account states remain explicit; LP shares are not projected as ordinary tokens. |
+| Payment | Normative | Product Flow implemented on Testnet | Runtime Send selects a visible balance asset, validates destination/amount/text memo, builds an unsigned payment, derives review from exact XDR, authorizes through shared Signing Coordination and renders normalized submission outcomes. |
+| Transaction | Normative | Foundation implemented and used by Send | Reviewed-transaction identity, freshness guard and normalized submission semantics are exercised by the runtime Send Flow. |
+| Ledger Authorization | Defined | Classic foundation implemented and used by Send | Typed Classic signer conditions and threshold resolution are reloaded before Send signing for applicable local Ed25519 signers. Full multisig/provider coordination remains future work. |
+| Signing Coordination | Normative | Foundation implemented and used by Send | Shared `routine` policy prefers Native SDK System Auth. `passphrase-required` skips System Auth entirely and requires a fresh app passphrase before signing. Send uses `routine`. |
 | Application Security | Defined | System Auth foundation implemented | Strong app-passphrase policy, System Auth status/enable/repair/disable, protected-signer registration and high-assurance signing policy are implemented. App lock/session and product-wide passphrase rotation remain blocked on explicit upstream framework-safe authorization APIs. |
-| Network / Gateway | Defined | Platform mechanism implemented | `src/platform/stellar`: Horizon authorization loading, payment construction and submission. |
-| Persistence | Mobile platform mechanism | Realm v1 wired into production bootstrap | Memory and Realm implementations share `AccountSignerRepository`. Production `createAppServices()` opens Realm, loads `FresnicaCore`, creates repositories/services and closes Realm on teardown/bootstrap failure. |
+| Network / Gateway | Defined | Platform mechanism implemented | `src/platform/stellar`: Horizon balance/authorization loading, payment construction and transaction submission. |
+| Persistence | Mobile platform mechanism | Realm v1 wired into production bootstrap | Memory and Realm implementations share `AccountSignerRepository`, including account-to-signer lookup used by Send. Production `createAppServices()` opens Realm, loads `FresnicaCore`, composes shared services and closes Realm on teardown/bootstrap failure. |
 
 ## Onboarding v1 evidence
 
@@ -44,13 +45,51 @@ Network                   Stellar Testnet
 - mark newly generated mnemonic backup as `pending` until explicit confirmation;
 - on application restart, detect `pending` mnemonic backup and require a fresh app passphrase to recover it through SDK `reveal` rather than storing plaintext recovery material;
 - mark backup `confirmed` only after the user explicitly completes the backup step;
-- route completed onboarding into the current wallet landing screen.
+- route completed onboarding into the runtime product shell.
 
 Existing-wallet protected-signer creation/import is intentionally disabled for now. The product contract is one app passphrase across ordinary protected software signers, while Native Binding API 2 / the current React Native adapter does not expose a framework-safe verification-only operation for proving that an entered passphrase matches the existing wallet without returning `WalletUnlockKey` material. Existing-wallet Add Account therefore currently supports watch-only only and fails closed rather than allowing mixed app-passphrase state.
 
+## Runtime Product Shell / Portfolio evidence
+
+`src/app/navigation` and `src/features/portfolio` now provide the first real product runtime:
+
+- completed onboarding enters one `ProductRuntime` instead of the legacy terminal wallet-ready placeholder;
+- Wallet / Activity / Settings are explicit typed roots;
+- navigation state contains public account IDs and product destinations only, never app passphrase, mnemonic, signer material or transaction XDR;
+- switching the selected account drives Wallet Home and a fresh Balance read;
+- Wallet Home distinguishes loading, inactive account, active balances and network/read errors;
+- native and issued assets preserve exact decimal strings from Horizon rather than converting balances to JavaScript numbers;
+- issued asset identity keeps both code and issuer;
+- liquidity-pool shares are deliberately not shown as ordinary token balances in this first slice;
+- contract accounts do not inherit Classic Horizon balance semantics.
+
+## Send v1 evidence
+
+`src/features/send` implements the first complete runtime transaction Feature over the existing Fresnica transaction foundations:
+
+- donor Send behavior was inspected for the product step rhythm and asset/destination/memo coverage, while donor Vault/signing semantics were not copied;
+- the flow is local Feature state: form -> exact-XDR review -> authorization/submission -> result;
+- visible native and issued Balance assets can be selected for Payment;
+- `G...` Classic and `M...` muxed destinations are validated before build;
+- payment amounts remain exact decimal strings, allow at most seven decimal places and are bounded by Stellar signed-int64 stroop semantics without JavaScript floating-point conversion;
+- text memo is limited to 28 UTF-8 bytes;
+- Unicode memo bytes read back from Stellar SDK 17 XDR are explicitly decoded as UTF-8 for review;
+- unsigned construction uses `StellarGateway.buildPayment` and configured Testnet context;
+- every review field is derived from the exact unsigned transaction XDR;
+- the submission boundary re-derives `PaymentReview` from that exact XDR rather than trusting mutable/plain JavaScript semantic fields supplied by the caller;
+- current ledger authorization and transaction freshness are checked immediately before signing through the existing Payment orchestration;
+- account-to-signer lookup is explicit in `AccountSignerRepository` and shared by Memory/Realm implementations;
+- zero attached signers return a watch-only outcome; multiple attached signers fail closed pending the multisig milestone rather than selecting one silently;
+- routine signing uses System Auth first when the signer is enrolled, otherwise the shared signing layer returns `passcode-required` and the UI asks for the existing app passphrase;
+- app passphrase exists only in local Review state and is cleared before passphrase-backed submit awaits;
+- result UI keeps submitted, deterministic rejected, uncertain, authorization-blocked, unsupported-signer, watch-only and unsupported-multisig outcomes distinct;
+- returning from Send goes back to Wallet Home, which reloads current ledger balances.
+
+Send v1 intentionally does not implement path payment, swap, multi-operation review, multisig coordination, external signer providers or Agent/AI authorization.
+
 ## Application Security v1 evidence
 
-`src/capabilities/application-security` and `src/features/security` now implement the supported System Auth slice:
+`src/capabilities/application-security` and `src/features/security` implement the supported System Auth slice:
 
 - query system-auth availability;
 - query whether the device System Auth Protection Domain exists;
@@ -94,16 +133,16 @@ Realm implementation under `src/platform/persistence/realm` includes:
 - orphan signer cleanup with shared-signer preservation;
 - shared repository contract reused by Memory and Realm integration tests;
 - close/reopen persistence integration test;
-- bootstrap list queries and explicit signer backup-state updates;
+- bootstrap list queries, account-to-signer lookup and explicit signer backup-state updates;
 - no persisted passphrase, mnemonic, raw secret, WalletUnlockKey or biometric auth state.
 
-Android and Apple actual RN runtimes have both been manually verified with:
+Android and Apple actual RN runtimes have both previously been manually verified with:
 
 ```text
 FRESNICA_PARSE_ACCOUNT_SMOKE_OK realm=ok
 ```
 
-The current Onboarding + Application Security milestone has also been manually exercised through create/import/watch-only, interrupted mnemonic-backup recovery, Add Account, System Auth enable/repair/disable and restart persistence paths. Local TypeScript/Jest/Realm validation is part of milestone acceptance; GitHub Actions runner allocation remains infrastructure-dependent.
+The Onboarding + Application Security milestone was manually exercised through create/import/watch-only, interrupted mnemonic-backup recovery, Add Account, System Auth enable/repair/disable and restart persistence paths. New Product Shell/Balance/Send changes still require their own executable validation; GitHub Actions runner allocation has repeatedly failed before workflow steps begin and must not be treated as green.
 
 ## Conformance / regression scope
 
@@ -111,6 +150,7 @@ The TypeScript/Jest tests are designed to verify, among other cases:
 
 - Account and Signer remain separate;
 - watch-only changes only with account-signer references;
+- account-to-signer lookup returns only attached detached signer records;
 - shared signers survive until their final reference is removed;
 - duplicate account identity is network-scoped;
 - account+signer provisioning is atomic;
@@ -121,6 +161,10 @@ The TypeScript/Jest tests are designed to verify, among other cases:
 - resuming backup uses fresh-passphrase SDK `reveal` and confirmation updates only backup metadata;
 - non-Ed25519 ledger conditions are not treated as invokable local software signers;
 - Payment review and signing preserve exact XDR;
+- Unicode text memo is decoded from XDR as UTF-8;
+- Send validates G/M destinations, seven-decimal amount semantics and UTF-8 memo byte length;
+- Send submission re-derives semantic review data from exact XDR;
+- watch-only and unsupported multisig Send paths fail closed before signing;
 - expired reviewed transactions are blocked before signing;
 - routine Signing Coordination prefers System Auth;
 - passphrase-required Signing Coordination bypasses System Auth entirely;
@@ -147,24 +191,24 @@ Realm remains a platform implementation choice and must not redefine Account/Sig
 
 ## Next product milestone
 
-The current screens were intentionally minimal while the persistence/onboarding/security boundaries were being proven. The next milestone is productization rather than more temporary flow UI:
+The next staged milestone is Activity / History read flow:
 
-- introduce the formal multi-feature navigation shell;
-- add the small reusable UI foundation needed by actual screens;
-- migrate Onboarding, Wallet Home and Security Settings onto the formal shell without changing their capability semantics;
-- use Xaman as a UX/information-architecture donor only, while Fresnica capabilities and SDK/Core remain behavior/security authority;
-- follow with Send as the first complete product Feature over the existing Payment/Transaction/Ledger Authorization/Signing/Gateway foundations.
+- inspect donor Activity/transaction-history behavior for product information architecture;
+- define a normalized read model independent of Horizon raw JSON;
+- load current-account operation history with refresh and pagination semantics;
+- preserve unsupported operation types as explicit entries instead of silently dropping them;
+- keep operation details addressed by stable public identifiers only;
+- do not introduce transaction-signing or secret state into History.
+
+The execution sequence and acceptance gates are maintained in `docs/fresnica-mobile-stage-plan.md`.
 
 Persisted wallet truth remains in Realm. Application/global UI state must not become a second wallet database.
 
 ## Not yet implemented
 
-- formal multi-feature navigation/product shell;
-- Portfolio/Balance product flow;
-- Send product UI over the existing Payment foundation;
 - Trustline Flow;
 - Swap/SDEX Flow;
-- History/Activity UI;
+- History/Activity network read UI;
 - Reveal/Export product UI outside interrupted-backup recovery;
 - app lock/session pending the upstream authorization API described above;
 - existing-wallet protected-signer provisioning pending framework-safe current-passphrase verification;
@@ -173,6 +217,7 @@ Persisted wallet truth remains in Realm. Application/global UI state must not be
 - retryable System Auth/external-provider secure cleanup orchestration;
 - full multisig coordination;
 - hardware/external signer provider integration;
+- Agent/AI standing authorization pending transaction-specific Core authority constraints;
 - Mainnet enablement.
 
 ## Contribution rule
