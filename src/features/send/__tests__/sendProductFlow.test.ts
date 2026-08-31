@@ -53,10 +53,7 @@ function dependencies(repository: InMemoryAccountSignerRepository): SendProductD
 
 describe('sendProductFlow', () => {
   it('accepts valid G and M destinations and trims whitespace', () => {
-    const muxed = StrKey.encodeMed25519PublicKey(
-      new Uint8Array(32).fill(3),
-      7n,
-    );
+    const muxed = StrKey.encodeMed25519PublicKey(new Uint8Array(40).fill(3));
 
     expect(validateDestination(` ${destinationAddress} `)).toBe(destinationAddress);
     expect(validateDestination(muxed)).toBe(muxed);
