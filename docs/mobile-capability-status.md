@@ -20,15 +20,32 @@ Network                   Stellar Testnet
 
 | Application Capability | Upstream maturity | Mobile status | Current evidence / scope |
 | --- | --- | --- | --- |
-| Account | Normative | Foundation implemented | `src/capabilities/account`: account records, account-signer invariants and derived watch-only state. |
-| Signer | Normative | Foundation implemented | `src/capabilities/signer`: signer identity/kind/lifecycle types. Protected-envelope cryptography remains SDK/Core-owned. |
+| Account | Normative | Onboarding provisioning implemented | Account records, account-signer invariants, derived watch-only state, atomic account+signer registration and first-run create/import/watch-only flows. |
+| Signer | Normative | Protected-software onboarding implemented | Secret/mnemonic protection remains SDK/Core-owned. Mobile persists only public signer identity plus opaque envelope and backup metadata. |
 | Payment | Normative | Foundation implemented | `src/capabilities/payment`: exact-XDR single-payment review and orchestration on Testnet. UI Flow not yet implemented. |
 | Transaction | Normative | Foundation implemented | Reviewed-transaction identity, freshness guard and normalized submission semantics. |
 | Ledger Authorization | Defined | Classic foundation implemented | Typed Classic signer conditions and threshold resolution for applicable local Ed25519 signers. Full multisig/provider coordination remains future work. |
 | Signing Coordination | Normative | Foundation implemented | Shared routine signing policy prefers Native SDK System Auth. The Binding API 2 fallback is still named `signWithPasscode`, but Mobile supplies a strong app passphrase and treats passcode as compatibility terminology only. |
-| Application Security | Defined | Partial platform/policy foundation | Passphrase/System Auth hierarchy documented; native System Auth primitives available. App lock/session, high-risk policy implementation, passphrase rotation UI and recovery flows remain future work. |
+| Application Security | Defined | Partial policy/onboarding foundation | Strong passphrase policy is enforced for protected-software onboarding. Fresh-passphrase `reveal` resumes interrupted generated-mnemonic backup. App lock/session, System Auth onboarding, high-risk policy implementation and passphrase rotation remain future work. |
 | Network / Gateway | Defined | Platform mechanism implemented | `src/platform/stellar`: Horizon authorization loading, payment construction and submission. |
-| Persistence | Mobile platform mechanism | Realm v1 implemented on feature branch | Memory and Realm implementations share the same `AccountSignerRepository` semantics. Realm schema v1 stores Account, Signer and references only; watch-only remains derived. Production app composition is not wired yet. |
+| Persistence | Mobile platform mechanism | Realm v1 wired into production bootstrap | Memory and Realm implementations share `AccountSignerRepository`. Production `createAppServices()` opens Realm, loads `FresnicaCore`, creates the repository and closes Realm on teardown/bootstrap failure. |
+
+## Onboarding v1 evidence
+
+`src/features/onboarding` now implements the first usable Testnet onboarding slice:
+
+- create a new mnemonic-backed protected software signer through Fresnica SDK/Core;
+- import an existing mnemonic through `protectMnemonic`;
+- import an existing Stellar `S...` secret through `protectSecret`;
+- add a watch-only `G...` or `C...` identity through `parseAccount`;
+- atomically persist Account + Signer + Account-Signer reference for protected software wallets;
+- never persist plaintext mnemonic, secret or app passphrase;
+- mark newly generated mnemonic backup as `pending` until explicit confirmation;
+- on application restart, detect `pending` mnemonic backup and require a fresh app passphrase to recover it through SDK `reveal` rather than storing plaintext recovery material;
+- mark backup `confirmed` only after the user explicitly completes the backup step;
+- route completed onboarding into a minimal account landing screen.
+
+The current UI intentionally remains a small in-feature flow without adding a new navigation/state dependency in this milestone. React Navigation 7 / Zustand 5 remain the approved broader v1 application baseline and should be introduced when multi-feature application navigation/state composition begins; persisted wallet truth remains in Realm.
 
 ## Persistence evidence
 
@@ -41,6 +58,7 @@ Realm implementation under `src/platform/persistence/realm` includes:
 - orphan signer cleanup with shared-signer preservation;
 - shared repository contract reused by Memory and Realm integration tests;
 - close/reopen persistence integration test;
+- bootstrap list queries and explicit signer backup-state updates;
 - no persisted passphrase, mnemonic, raw secret, WalletUnlockKey or biometric auth state.
 
 Android and Apple actual RN runtimes have both been manually verified with:
@@ -49,7 +67,7 @@ Android and Apple actual RN runtimes have both been manually verified with:
 FRESNICA_PARSE_ACCOUNT_SMOKE_OK realm=ok
 ```
 
-This verifies Realm native runtime and `NativeModules.FresnicaCore` coexist on both platforms. The macOS Realm integration workflow is present, but the latest GitHub Actions attempts failed before any step because no runner was allocated (`runner_id=0`); therefore automated restart-test success is not yet claimed.
+This verifies Realm native runtime and `NativeModules.FresnicaCore` coexist on both platforms. Local TypeScript/Jest/Realm integration validation is required again for the onboarding branch before the milestone is considered verified.
 
 ## Conformance / regression scope
 
@@ -59,8 +77,12 @@ The TypeScript/Jest tests are designed to verify, among other cases:
 - watch-only changes only with account-signer references;
 - shared signers survive until their final reference is removed;
 - duplicate account identity is network-scoped;
+- account+signer provisioning is atomic;
 - Realm mappers do not leak live Realm objects or mutable Date references;
 - invalid persisted enum values fail closed;
+- generated mnemonic plaintext is not written to repository records;
+- interrupted generated-mnemonic backup resolves to a resumable startup state;
+- resuming backup uses fresh-passphrase SDK `reveal` and confirmation updates only backup metadata;
 - non-Ed25519 ledger conditions are not treated as invokable local software signers;
 - Payment review and signing preserve exact XDR;
 - expired reviewed transactions are blocked before signing;
@@ -86,15 +108,14 @@ Realm remains a platform implementation choice and must not redefine Account/Sig
 
 ## Not yet implemented
 
-- production application composition using Realm repository;
-- product screens/navigation/Application Flows;
-- onboarding and signer provisioning UI;
+- React Navigation / multi-feature application shell;
+- System Auth enablement during onboarding and app lock/session behavior;
 - Portfolio/Balance;
 - Trustline Flow;
 - Swap/SDEX Flow;
 - History/Activity UI;
-- Reveal/Export UI;
-- app lock/session and complete passphrase rotation/recovery flows;
+- Reveal/Export product UI outside the interrupted-backup recovery path;
+- complete passphrase rotation/recovery flows;
 - Realm database encryption-key lifecycle;
 - retryable System Auth/external-provider secure cleanup orchestration;
 - full multisig coordination;
