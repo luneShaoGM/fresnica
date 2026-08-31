@@ -3,6 +3,7 @@ import {StrKey} from '@stellar/stellar-sdk';
 import {APP_CONFIG} from '../../app/config/appConfig';
 import type {AccountSignerRepository} from '../../capabilities/account/AccountSignerRepository';
 import type {AccountRecord} from '../../capabilities/account/types';
+import type {BalanceAsset} from '../../capabilities/balance/types';
 import {
   buildPaymentReview,
   type PaymentReview,
@@ -18,6 +19,7 @@ import type {StellarGateway} from '../../platform/stellar/StellarGateway';
 
 const DEFAULT_BASE_FEE_STROOPS = '100';
 const MAX_STELLAR_AMOUNT_STROOPS = 9_223_372_036_854_775_807n;
+const MAX_TEXT_MEMO_BYTES = 28;
 
 export type SendProductDependencies = Readonly<{
   gateway: StellarGateway;
@@ -46,14 +48,14 @@ export async function buildSendReview(
   const destination = validateDestination(draft.destination);
   const amount = validateStellarAmount(draft.amount);
   const asset = validateAsset(draft.asset);
-  const memo = draft.memo?.trim();
+  const memo = validateTextMemo(draft.memo ?? '');
 
   const built = await dependencies.gateway.buildPayment({
     source: account.address,
     destination,
     asset,
     amount,
-    ...(memo ? {memo} : {}),
+    ...(memo === undefined ? {} : {memo}),
     baseFee: DEFAULT_BASE_FEE_STROOPS,
   });
 
@@ -61,10 +63,14 @@ export async function buildSendReview(
     throw new Error('send-built-transaction-context-mismatch');
   }
 
-  return buildPaymentReview({
+  const review = buildPaymentReview({
     transactionXdrBase64: built.transactionXdrBase64,
     networkId: built.networkId,
   });
+  if (review.source !== account.address) {
+    throw new Error('send-review-account-mismatch');
+  }
+  return review;
 }
 
 export async function submitSendReview(
@@ -74,7 +80,17 @@ export async function submitSendReview(
   appPasscode?: string,
 ): Promise<SendSubmissionResult> {
   assertSendSource(account);
-  if (review.source !== account.address || review.networkId !== account.networkId) {
+
+  // Re-derive semantics from the exact XDR at the submission boundary rather
+  // than trusting mutable/plain JS review fields supplied by the caller.
+  const exactReview = buildPaymentReview({
+    transactionXdrBase64: review.transactionXdrBase64,
+    networkId: review.networkId,
+  });
+  if (
+    exactReview.source !== account.address ||
+    exactReview.networkId !== account.networkId
+  ) {
     throw new Error('send-review-account-mismatch');
   }
 
@@ -89,10 +105,10 @@ export async function submitSendReview(
   return submitReviewedPayment({
     gateway: dependencies.gateway,
     sdk: dependencies.sdk,
-    review,
+    review: exactReview,
     signer: signerResolution.signer,
     ...(appPasscode ? {appPasscode} : {}),
-    systemAuthReason: 'Confirm Fresnica payment',
+    systemAuthReason: `Send ${exactReview.amount} ${assetCode(exactReview.asset)}`,
   });
 }
 
@@ -122,6 +138,21 @@ export function validateStellarAmount(value: string): string {
   }
 
   return amount;
+}
+
+export function sendAssetKey(asset: BalanceAsset | PaymentReviewAsset): string {
+  return asset.kind === 'native' ? 'XLM' : `${asset.code}:${asset.issuer}`;
+}
+
+export function validateTextMemo(value: string): string | undefined {
+  const memo = value.trim();
+  if (memo.length === 0) {
+    return undefined;
+  }
+  if (utf8ByteLength(memo) > MAX_TEXT_MEMO_BYTES) {
+    throw new Error('payment-memo-too-long');
+  }
+  return memo;
 }
 
 function assertSendSource(account: AccountRecord): void {
@@ -159,4 +190,25 @@ function resolveSingleAccountSigner(
     return {status: 'unsupported-account-signers'};
   }
   return {status: 'ready', signer: signers[0]};
+}
+
+function assetCode(asset: PaymentReviewAsset): string {
+  return asset.kind === 'native' ? 'XLM' : asset.code;
+}
+
+function utf8ByteLength(value: string): number {
+  let bytes = 0;
+  for (const character of value) {
+    const codePoint = character.codePointAt(0)!;
+    if (codePoint <= 0x7f) {
+      bytes += 1;
+    } else if (codePoint <= 0x7ff) {
+      bytes += 2;
+    } else if (codePoint <= 0xffff) {
+      bytes += 3;
+    } else {
+      bytes += 4;
+    }
+  }
+  return bytes;
 }
