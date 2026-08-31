@@ -24,13 +24,14 @@ main
        -> feat/onboarding-flow          PR #13
             -> feat/product-shell       PR #15
                  -> feat/product-shell-navigation  PR #16
-                      -> feat/send-product-flow    current Stage 2
+                      -> feat/send-product-flow    PR #17
+                           -> current execution stages
 
 parallel security fix:
 main -> fix/android-release-signing     PR #14
 ```
 
-Current Product Shell/Balance work establishes route vocabulary, reusable UI primitives, the runtime product shell and read-only Balance Capability. Stage 2 turns the existing Payment/Transaction/Signing foundations into the first complete business Feature.
+Product Shell/Balance and Send now have source-complete stacked PRs. Required GitHub Actions remain externally blocked before workflow steps execute, so they stay unmerged while the next independent rewrite stage proceeds.
 
 ---
 
@@ -46,7 +47,7 @@ Current Product Shell/Balance work establishes route vocabulary, reusable UI pri
 - Add Account and Security Settings are routed through the same product runtime;
 - navigation reducer tests cover tab roots, visible-account cycling, reconciliation and fail-closed unknown actions/accounts;
 - Wallet balance loads ignore stale asynchronous responses after account/request changes;
-- GitHub Actions CI run #216 failed with `steps: []` before checkout. PR #16 is intentionally unmerged and marked `blocked: required CI execution unavailable`.
+- GitHub Actions CI run #216 failed before checkout with no executed job steps. PR #16 is intentionally unmerged and marked `blocked: required CI execution unavailable`.
 
 **Goal**
 
@@ -89,22 +90,25 @@ Make the formal product structure the actual post-onboarding runtime instead of 
 
 ## Stage 2 — Send Product Flow
 
-**Status:** SOURCE COMPLETE — VALIDATION/PR PENDING
+**Status:** SOURCE COMPLETE — PR #17 — CI EXTERNALLY BLOCKED
 
 **Evidence**
 
-- donor Send step structure was inspected; Fresnica keeps a smaller local flow: form -> exact-XDR review -> authorization/submission -> result;
-- Send draft validation preserves decimal amounts as strings, enforces at most 7 decimal places, validates v1 Classic `G...` destinations and enforces the 28-byte UTF-8 text memo limit;
-- account signer lookup is now an explicit repository operation shared by Memory and Realm implementations, with repository contract coverage;
+- donor Send step structure was inspected; Fresnica keeps the product rhythm as form -> exact-XDR review -> authorization/submission -> result without copying donor Vault/signing semantics;
+- Send validation preserves decimal amounts as strings, enforces at most seven decimal places and signed-int64 stroop bounds, supports Stellar `G...` and muxed `M...` destinations, and enforces the 28-byte UTF-8 text memo limit;
+- visible native and issued Balance assets are selectable;
+- account signer lookup is an explicit repository operation shared by Memory and Realm implementations, with repository contract coverage;
 - Send fails closed for watch-only accounts and for multiple attached signers instead of silently choosing a signer;
-- unsigned payment construction goes through `StellarGateway.buildPayment`;
-- review is built immediately from the exact unsigned XDR and held as local flow state rather than navigation parameters;
-- Unicode text memo review now decodes exact XDR bytes as UTF-8 instead of byte-to-code-unit corruption;
+- unsigned payment construction goes through the shared `StellarGateway.buildPayment`;
+- review is built immediately from the exact unsigned XDR and held as local Feature state rather than navigation parameters;
+- Unicode text memo review decodes exact SDK 17 XDR bytes as UTF-8 instead of byte-to-code-unit corruption;
+- the submission boundary re-derives `PaymentReview` from exact XDR before checking the account and signing, so mutable JavaScript review fields cannot redirect authorization semantics;
 - confirmation reuses existing `submitReviewedPayment`: freshness -> current ledger authorization -> signer resolution -> shared Signing Coordination -> exact signed XDR submission;
 - routine signing keeps System Auth first, then asks for the app passphrase only when the shared signing layer returns `passcode-required`;
-- app passphrase exists only in local Review component state and is cleared before the passphrase-backed submit await;
-- result UI preserves submitted / deterministic rejected / uncertain / authorization-blocked / unsupported-signer distinctions;
-- leaving the result returns to Wallet, remounting Wallet Home and therefore refreshing ledger balance state.
+- app passphrase exists only in local Review state and is cleared before the passphrase-backed submit await;
+- result UI preserves submitted / deterministic rejected / uncertain / authorization-blocked / unsupported-signer / watch-only / unsupported-multisig distinctions;
+- leaving the result returns to Wallet, remounting Wallet Home and refreshing ledger balance state;
+- CI run #217 failed with no executed steps (`steps: null`), so PR #17 remains unmerged and marked `blocked: required CI execution unavailable`.
 
 **Goal**
 
@@ -125,6 +129,7 @@ Deliver the first complete business Feature over the existing Payment / Transact
 **Acceptance criteria**
 
 - UI cannot alter semantic payment fields after review without rebuilding/re-reviewing XDR;
+- submission re-derives semantics from exact XDR instead of trusting caller-supplied review fields;
 - normal protected software signer uses System Auth first when enrolled and passphrase fallback otherwise;
 - expired reviews never sign;
 - deterministic rejection and uncertain transport outcomes remain distinct;
@@ -141,7 +146,7 @@ Deliver the first complete business Feature over the existing Payment / Transact
 
 ## Stage 3 — Activity / History Read Flow
 
-**Status:** PLANNED
+**Status:** NEXT
 
 **Goal**
 
@@ -290,7 +295,7 @@ When revisited, it must reuse shared Ledger Authorization / Signing Coordination
 
 ```text
 1. Runtime Product Shell + Wallet Home        SOURCE COMPLETE / CI BLOCKED
-2. Send                                      SOURCE COMPLETE / VALIDATION PENDING
+2. Send                                      SOURCE COMPLETE / CI BLOCKED
 3. Activity / History                        NEXT
 4. Trustline / Manage Assets
 5. Swap / SDEX
