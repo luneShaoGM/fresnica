@@ -25,13 +25,14 @@ main
             -> feat/product-shell       PR #15
                  -> feat/product-shell-navigation  PR #16
                       -> feat/send-product-flow    PR #17
-                           -> feat/history-read-flow  current Stage 3
+                           -> feat/history-read-flow  PR #18
+                                -> current execution stages
 
 parallel security fix:
 main -> fix/android-release-signing     PR #14
 ```
 
-Product Shell/Balance and Send have source-complete stacked PRs. History now has a source-complete branch awaiting its own PR/CI gate. Required GitHub Actions on the earlier stacked PRs remain externally blocked before workflow steps execute, so no blocked PR is merged while independent rewrite stages continue.
+Product Shell/Balance, Send and History now have source-complete stacked PRs. Required GitHub Actions remain externally blocked before workflow steps execute, so no blocked PR is merged while independent rewrite stages continue.
 
 ---
 
@@ -146,7 +147,7 @@ Deliver the first complete business Feature over the existing Payment / Transact
 
 ## Stage 3 — Activity / History Read Flow
 
-**Status:** SOURCE COMPLETE — VALIDATION/PR PENDING
+**Status:** SOURCE COMPLETE — PR #18 — CI EXTERNALLY BLOCKED
 
 **Evidence**
 
@@ -162,7 +163,8 @@ Deliver the first complete business Feature over the existing Payment / Transact
 - Activity owns loading / inactive / unsupported-account / error / empty / ready / refreshing / load-more states;
 - account/request changes invalidate stale asynchronous History responses;
 - pagination appends through `mergeHistoryEntries`, deduplicating operation IDs while preserving order;
-- raw operation records, cursors and History entries are not placed in product navigation; operation-details remains reserved for stable `accountId + operationId` addressing.
+- raw operation records, cursors and History entries are not placed in product navigation; operation-details remains reserved for stable `accountId + operationId` addressing;
+- CI run #219 failed with no executed steps (`steps: null`), so PR #18 remains unmerged and marked `blocked: required CI execution unavailable`.
 
 **Goal**
 
@@ -319,7 +321,7 @@ When revisited, it must reuse shared Ledger Authorization / Signing Coordination
 ```text
 1. Runtime Product Shell + Wallet Home        SOURCE COMPLETE / CI BLOCKED
 2. Send                                      SOURCE COMPLETE / CI BLOCKED
-3. Activity / History                        SOURCE COMPLETE / VALIDATION PENDING
+3. Activity / History                        SOURCE COMPLETE / CI BLOCKED
 4. Trustline / Manage Assets                 NEXT
 5. Swap / SDEX
 6. Security & account lifecycle completion (unblocked subset first)
