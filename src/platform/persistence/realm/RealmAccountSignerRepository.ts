@@ -4,7 +4,10 @@ import type {
   AccountSignerRepository,
 } from '../../../capabilities/account/AccountSignerRepository';
 import type {AccountRecord} from '../../../capabilities/account/types';
-import type {SignerRecord} from '../../../capabilities/signer/types';
+import type {
+  BackupState,
+  SignerRecord,
+} from '../../../capabilities/signer/types';
 import {
   mapAccountFromRealm,
   mapSignerFromRealm,
@@ -110,6 +113,34 @@ export class RealmAccountSignerRepository implements AccountSignerRepository {
     return record
       ? mapSignerFromRealm(record as unknown as PersistedSigner)
       : undefined;
+  }
+
+  listAccounts(): AccountRecord[] {
+    return Array.from(this.realm.objects(ACCOUNT_ENTITY)).map(record =>
+      mapAccountFromRealm(record as unknown as PersistedAccount),
+    );
+  }
+
+  listSigners(): SignerRecord[] {
+    return Array.from(this.realm.objects(SIGNER_ENTITY)).map(record =>
+      mapSignerFromRealm(record as unknown as PersistedSigner),
+    );
+  }
+
+  setSignerBackupState(
+    signerId: string,
+    backupState: BackupState,
+    updatedAt: Date,
+  ): void {
+    this.realm.write(() => {
+      const signer = this.realm.objectForPrimaryKey(SIGNER_ENTITY, signerId);
+      if (!signer) {
+        throw new Error('signer-not-found');
+      }
+
+      (signer as unknown as PersistedSigner).backupState = backupState;
+      (signer as unknown as PersistedSigner).updatedAt = updatedAt;
+    });
   }
 
   isWatchOnly(accountId: string): boolean {
