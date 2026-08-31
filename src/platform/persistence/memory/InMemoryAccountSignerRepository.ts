@@ -10,7 +10,10 @@ import type {
   AccountRecord,
   AccountSignerReference,
 } from '../../../capabilities/account/types';
-import type { SignerRecord } from '../../../capabilities/signer/types';
+import type {
+  BackupState,
+  SignerRecord,
+} from '../../../capabilities/signer/types';
 
 export class InMemoryAccountSignerRepository implements AccountSignerRepository {
   private readonly accounts = new Map<string, AccountRecord>();
@@ -77,6 +80,27 @@ export class InMemoryAccountSignerRepository implements AccountSignerRepository 
 
   getSigner(signerId: string): SignerRecord | undefined {
     return this.signers.get(signerId);
+  }
+
+  listAccounts(): AccountRecord[] {
+    return [...this.accounts.values()];
+  }
+
+  listSigners(): SignerRecord[] {
+    return [...this.signers.values()];
+  }
+
+  setSignerBackupState(
+    signerId: string,
+    backupState: BackupState,
+    updatedAt: Date,
+  ): void {
+    const signer = this.signers.get(signerId);
+    if (!signer) {
+      throw new Error('signer-not-found');
+    }
+
+    this.signers.set(signerId, {...signer, backupState, updatedAt});
   }
 
   isWatchOnly(accountId: string): boolean {
