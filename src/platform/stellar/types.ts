@@ -1,5 +1,13 @@
 import type { Transaction, TransactionSource } from '@stellar/stellar-sdk';
 
+export type HorizonBalanceLike = {
+  asset_type: string;
+  balance: string;
+  asset_code?: string;
+  asset_issuer?: string;
+  liquidity_pool_id?: string;
+};
+
 export type HorizonAccountLike = TransactionSource & {
   account_id: string;
   thresholds: {
@@ -12,6 +20,7 @@ export type HorizonAccountLike = TransactionSource & {
     weight: number;
     type: string;
   }>;
+  balances: HorizonBalanceLike[];
 };
 
 export type HorizonServerLike = {
@@ -21,6 +30,34 @@ export type HorizonServerLike = {
     ledger?: number;
   }>;
 };
+
+export type StellarBalanceLine =
+  | Readonly<{
+      kind: 'native';
+      balance: string;
+    }>
+  | Readonly<{
+      kind: 'credit';
+      balance: string;
+      code: string;
+      issuer: string;
+    }>
+  | Readonly<{
+      kind: 'liquidity-pool-share';
+      balance: string;
+      liquidityPoolId: string;
+    }>;
+
+export type StellarAccountBalanceResult =
+  | Readonly<{
+      status: 'active';
+      address: string;
+      balances: readonly StellarBalanceLine[];
+    }>
+  | Readonly<{
+      status: 'inactive';
+      address: string;
+    }>;
 
 export type StellarPaymentAsset =
   | { kind: 'native' }
