@@ -1,14 +1,14 @@
 import React from 'react';
 import {StyleSheet, Text} from 'react-native';
 
-import type {SubmitReviewedPaymentResult} from '../../capabilities/payment/submitReviewedPayment';
 import {Button} from '../../ui/Button';
 import {Card} from '../../ui/Card';
 import {Screen} from '../../ui/Screen';
 import {palette, typography} from '../../ui/theme';
+import type {SendSubmissionResult} from './sendProductFlow';
 
 export type SendTerminalResult = Exclude<
-  SubmitReviewedPaymentResult,
+  SendSubmissionResult,
   {status: 'passcode-required'}
 >;
 
@@ -78,6 +78,17 @@ function describeResult(result: SendTerminalResult): {
         title: 'Signer unsupported',
         description:
           'The signer attached to this account cannot be invoked by the current Mobile signing provider.',
+      };
+    case 'watch-only':
+      return {
+        title: 'Watch-only account',
+        description: 'This account has no attached signer and cannot send a payment.',
+      };
+    case 'unsupported-account-signers':
+      return {
+        title: 'Multiple signers not yet supported',
+        description:
+          'This account requires the future multisig coordination milestone before Mobile can submit this payment.',
       };
   }
 }
