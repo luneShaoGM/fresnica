@@ -1,5 +1,5 @@
-import type { SignerRecord } from '../signer/types';
-import type { AccountRecord } from './types';
+import type {BackupState, SignerRecord} from '../signer/types';
+import type {AccountRecord} from './types';
 
 export type AccountSignerRegistration = {
   account: AccountRecord;
@@ -16,5 +16,12 @@ export interface AccountSignerRepository {
   deleteAccount(accountId: string): void;
   getAccount(accountId: string): AccountRecord | undefined;
   getSigner(signerId: string): SignerRecord | undefined;
+  listAccounts(): AccountRecord[];
+  listSigners(): SignerRecord[];
+  setSignerBackupState(
+    signerId: string,
+    backupState: BackupState,
+    updatedAt: Date,
+  ): void;
   isWatchOnly(accountId: string): boolean;
 }
