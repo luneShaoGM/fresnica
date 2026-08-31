@@ -1,7 +1,11 @@
 import { Account, Networks, StrKey, Transaction } from '@stellar/stellar-sdk';
 
 import { StellarSdkGateway } from '../StellarSdkGateway';
-import type { HorizonAccountLike, HorizonServerLike } from '../types';
+import type {
+  HorizonAccountLike,
+  HorizonOperationLike,
+  HorizonServerLike,
+} from '../types';
 
 const sourceAddress = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(1));
 const destinationAddress = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(2));
@@ -23,9 +27,27 @@ function horizonAccount(): HorizonAccountLike {
   });
 }
 
+function operation(id: string): HorizonOperationLike {
+  return {
+    id,
+    paging_token: id,
+    type: 'payment',
+    type_i: 1,
+    created_at: '2026-08-31T00:00:00Z',
+    transaction_hash: `tx-${id}`,
+    transaction_successful: true,
+    source_account: sourceAddress,
+    from: sourceAddress,
+    to: destinationAddress,
+    amount: '1.0000000',
+    asset_type: 'native',
+  };
+}
+
 function server(account = horizonAccount()): jest.Mocked<HorizonServerLike> {
   return {
     loadAccount: jest.fn().mockResolvedValue(account),
+    loadAccountOperations: jest.fn().mockResolvedValue({records: []}),
     submitTransaction: jest.fn(),
   };
 }
@@ -147,6 +169,73 @@ describe('StellarSdkGateway', () => {
     await expect(
       new StellarSdkGateway(server(unknown)).loadAccountBalances(sourceAddress),
     ).rejects.toThrow('unsupported-horizon-balance-type:future_asset');
+  });
+
+  it('loads account operations in descending cursor pages', async () => {
+    const horizon = server();
+    horizon.loadAccountOperations.mockResolvedValue({
+      records: [operation('300'), operation('200')],
+    });
+    const gateway = new StellarSdkGateway(horizon);
+
+    await expect(
+      gateway.loadAccountOperations({
+        address: sourceAddress,
+        cursor: '400',
+        limit: 2,
+      }),
+    ).resolves.toEqual({
+      status: 'active',
+      address: sourceAddress,
+      records: [operation('300'), operation('200')],
+      nextCursor: '200',
+    });
+    expect(horizon.loadAccountOperations).toHaveBeenCalledWith({
+      address: sourceAddress,
+      cursor: '400',
+      limit: 2,
+    });
+  });
+
+  it('omits a history cursor for a short final page', async () => {
+    const horizon = server();
+    horizon.loadAccountOperations.mockResolvedValue({records: [operation('100')]});
+
+    await expect(
+      new StellarSdkGateway(horizon).loadAccountOperations({
+        address: sourceAddress,
+        limit: 2,
+      }),
+    ).resolves.toEqual({
+      status: 'active',
+      address: sourceAddress,
+      records: [operation('100')],
+    });
+  });
+
+  it('returns inactive for a missing operation-history account', async () => {
+    const horizon = server();
+    horizon.loadAccountOperations.mockRejectedValue({response: {status: 404}});
+
+    await expect(
+      new StellarSdkGateway(horizon).loadAccountOperations({
+        address: sourceAddress,
+        limit: 20,
+      }),
+    ).resolves.toEqual({status: 'inactive', address: sourceAddress});
+  });
+
+  it('rejects invalid Horizon operation page sizes before network access', async () => {
+    const horizon = server();
+    const gateway = new StellarSdkGateway(horizon);
+
+    await expect(
+      gateway.loadAccountOperations({address: sourceAddress, limit: 0}),
+    ).rejects.toThrow('invalid-horizon-operation-page-limit');
+    await expect(
+      gateway.loadAccountOperations({address: sourceAddress, limit: 201}),
+    ).rejects.toThrow('invalid-horizon-operation-page-limit');
+    expect(horizon.loadAccountOperations).not.toHaveBeenCalled();
   });
 
   it('builds an unsigned native-asset payment on Stellar Testnet', async () => {
