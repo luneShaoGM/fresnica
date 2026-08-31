@@ -29,16 +29,16 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
     note: 'Keep the destination in product structure, but do not finalize route params until the Portfolio/Asset identity read model exists.',
   },
   'send-form': {
-    readiness: 'capability-ready',
-    note: 'Destination is reachable from the runtime shell; Payment/transaction foundations exist, but product form orchestration is not wired yet.',
+    readiness: 'implemented',
+    note: 'Runtime Send validates Stellar G/M destination, exact decimal amount, selected balance asset and 28-byte UTF-8 text memo before building an unsigned payment.',
   },
   'send-review': {
-    readiness: 'capability-ready',
-    note: 'Must render from immutable PaymentReview derived from exact XDR.',
+    readiness: 'implemented',
+    note: 'Send review is local flow state rendered from PaymentReview derived from exact unsigned XDR; submission re-derives semantics from that XDR and no XDR is placed in navigation params.',
   },
   'send-result': {
-    readiness: 'capability-ready',
-    note: 'Must render normalized accepted/rejected/uncertain submission outcome.',
+    readiness: 'implemented',
+    note: 'Send renders submitted, deterministic rejected, uncertain, authorization-blocked, unsupported signer, watch-only and unsupported-multisig outcomes without collapsing them.',
   },
   'manage-assets': {
     readiness: 'structure-only',

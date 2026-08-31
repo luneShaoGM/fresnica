@@ -102,6 +102,24 @@ export function runAccountSignerRepositoryContract(
     expect(repository.isWatchOnly(accountRecord.id)).toBe(false);
   });
 
+  it('lists only signers attached to the requested account', () => {
+    const repository = createRepository();
+    const accountA = account('account-a');
+    const accountB = account('account-b');
+    const signerA = signer('signer-a');
+    const signerB = signer('signer-b');
+    repository.createAccount(accountA);
+    repository.createAccount(accountB);
+    repository.createSigner(signerA);
+    repository.createSigner(signerB);
+    repository.attachSigner(accountA.id, signerA.id, now);
+    repository.attachSigner(accountB.id, signerB.id, now);
+
+    expect(repository.listSignersForAccount(accountA.id)).toEqual([signerA]);
+    expect(repository.listSignersForAccount(accountB.id)).toEqual([signerB]);
+    expect(repository.listSignersForAccount('missing')).toEqual([]);
+  });
+
   it('does not persist a signer when atomic registration rejects the account', () => {
     const repository = createRepository();
     repository.createAccount(account('existing', 'GABC'));

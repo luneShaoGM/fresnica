@@ -18,6 +18,7 @@ export interface AccountSignerRepository {
   getSigner(signerId: string): SignerRecord | undefined;
   listAccounts(): AccountRecord[];
   listSigners(): SignerRecord[];
+  listSignersForAccount(accountId: string): SignerRecord[];
   setSignerBackupState(
     signerId: string,
     backupState: BackupState,

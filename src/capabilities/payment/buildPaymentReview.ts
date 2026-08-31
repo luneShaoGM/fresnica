@@ -1,11 +1,11 @@
-import { Transaction } from '@stellar/stellar-sdk';
+import {Transaction} from '@stellar/stellar-sdk';
 
-import { APP_CONFIG } from '../../app/config/appConfig';
-import type { ReviewedTransaction } from '../transaction/ReviewedTransaction';
+import {APP_CONFIG} from '../../app/config/appConfig';
+import type {ReviewedTransaction} from '../transaction/ReviewedTransaction';
 
 export type PaymentReviewAsset =
-  | { kind: 'native' }
-  | { kind: 'credit'; code: string; issuer: string };
+  | {kind: 'native'}
+  | {kind: 'credit'; code: string; issuer: string};
 
 export type PaymentReview = ReviewedTransaction &
   Readonly<{
@@ -41,7 +41,7 @@ export function buildPaymentReview(input: {
   }
 
   const asset: PaymentReviewAsset = operation.asset.isNative()
-    ? { kind: 'native' }
+    ? {kind: 'native'}
     : {
         kind: 'credit',
         code: operation.asset.code,
@@ -51,7 +51,7 @@ export function buildPaymentReview(input: {
   const memo = transaction.memo;
   let memoText: string | undefined;
   if (memo.type === 'text') {
-    memoText = String.fromCharCode(...(memo.value as Uint8Array));
+    memoText = decodeUtf8(memo.value as Uint8Array);
   } else if (memo.type !== 'none') {
     throw new Error('Payment review supports only none or text memo');
   }
@@ -67,8 +67,20 @@ export function buildPaymentReview(input: {
     destination: operation.destination,
     amount: operation.amount,
     asset: Object.freeze(asset),
-    ...(memoText === undefined ? {} : { memo: memoText }),
+    ...(memoText === undefined ? {} : {memo: memoText}),
     fee: transaction.fee,
-    ...(expiresAtUnixSeconds === undefined ? {} : { expiresAtUnixSeconds }),
+    ...(expiresAtUnixSeconds === undefined ? {} : {expiresAtUnixSeconds}),
   });
+}
+
+function decodeUtf8(bytes: Uint8Array): string {
+  const encoded = Array.from(bytes)
+    .map(byte => `%${byte.toString(16).padStart(2, '0')}`)
+    .join('');
+
+  try {
+    return decodeURIComponent(encoded);
+  } catch {
+    throw new Error('Payment review contains invalid UTF-8 text memo');
+  }
 }

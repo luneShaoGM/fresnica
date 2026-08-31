@@ -127,6 +127,22 @@ export class RealmAccountSignerRepository implements AccountSignerRepository {
     );
   }
 
+  listSignersForAccount(accountId: string): SignerRecord[] {
+    const references = Array.from(
+      this.realm
+        .objects(ACCOUNT_SIGNER_REFERENCE_ENTITY)
+        .filtered('accountId == $0', accountId),
+    );
+
+    return references.flatMap(reference => {
+      const signerId = String((reference as unknown as {signerId: string}).signerId);
+      const signer = this.realm.objectForPrimaryKey(SIGNER_ENTITY, signerId);
+      return signer
+        ? [mapSignerFromRealm(signer as unknown as PersistedSigner)]
+        : [];
+    });
+  }
+
   setSignerBackupState(
     signerId: string,
     backupState: BackupState,

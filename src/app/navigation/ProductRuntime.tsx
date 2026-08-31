@@ -7,7 +7,7 @@ import {AddWatchOnlyAccountScreen} from '../../features/accounts/AddWatchOnlyAcc
 import {ActivityHomeScreen} from '../../features/history/ActivityHomeScreen';
 import {WalletHomeScreen} from '../../features/portfolio/WalletHomeScreen';
 import {SecuritySettingsScreen} from '../../features/security/SecuritySettingsScreen';
-import {SendFormScreen} from '../../features/send/SendFormScreen';
+import {SendFlowScreen} from '../../features/send/SendFlowScreen';
 import {AboutScreen} from '../../features/settings/AboutScreen';
 import {NetworkSettingsScreen} from '../../features/settings/NetworkSettingsScreen';
 import {SettingsHomeScreen} from '../../features/settings/SettingsHomeScreen';
@@ -100,7 +100,13 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
       break;
     case 'send-form': {
       const account = resolveAccountById(accounts, destination.accountId);
-      content = <SendFormScreen accountLabel={account.label || account.address} />;
+      content = (
+        <SendFlowScreen
+          account={account}
+          dependencies={services.send}
+          onDone={() => dispatch({type: 'select-tab', tab: 'wallet'})}
+        />
+      );
       break;
     }
     case 'manage-assets': {
