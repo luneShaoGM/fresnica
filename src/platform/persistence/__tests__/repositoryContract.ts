@@ -53,6 +53,39 @@ export function runAccountSignerRepositoryContract(
     expect(repository.getSigner(signerRecord.id)).toEqual(signerRecord);
   });
 
+  it('lists detached accounts and signers for application bootstrap', () => {
+    const repository = createRepository();
+    const accountRecord = account('account-a');
+    const signerRecord = signer('signer-a');
+    repository.createAccount(accountRecord);
+    repository.createSigner(signerRecord);
+
+    expect(repository.listAccounts()).toEqual([accountRecord]);
+    expect(repository.listSigners()).toEqual([signerRecord]);
+  });
+
+  it('updates signer backup state without changing protected material', () => {
+    const repository = createRepository();
+    const signerRecord = {...signer('signer-a'), backupState: 'pending' as const};
+    const updatedAt = new Date('2026-08-29T00:00:00.000Z');
+    repository.createSigner(signerRecord);
+
+    repository.setSignerBackupState('signer-a', 'confirmed', updatedAt);
+
+    expect(repository.getSigner('signer-a')).toEqual({
+      ...signerRecord,
+      backupState: 'confirmed',
+      updatedAt,
+    });
+  });
+
+  it('rejects backup-state updates for a missing signer', () => {
+    const repository = createRepository();
+    expect(() =>
+      repository.setSignerBackupState('missing', 'confirmed', now),
+    ).toThrow('signer-not-found');
+  });
+
   it('registers an account and signer as one attached wallet state', () => {
     const repository = createRepository();
     const accountRecord = account('account-a');
