@@ -17,6 +17,7 @@ type RuntimeState =
       kind: 'ready';
       services: AppServices;
       bootstrap: OnboardingBootstrapState;
+      addingAccount: boolean;
     }>;
 
 export function App() {
@@ -38,6 +39,7 @@ export function App() {
           kind: 'ready',
           services: created,
           bootstrap: resolveOnboardingBootstrap(created.onboarding),
+          addingAccount: false,
         });
       })
       .catch(error => {
@@ -61,8 +63,21 @@ export function App() {
       return {
         ...current,
         bootstrap: resolveOnboardingBootstrap(current.services.onboarding),
+        addingAccount: false,
       };
     });
+  }, []);
+
+  const startAddAccount = useCallback(() => {
+    setRuntime(current =>
+      current.kind === 'ready' ? {...current, addingAccount: true} : current,
+    );
+  }, []);
+
+  const cancelAddAccount = useCallback(() => {
+    setRuntime(current =>
+      current.kind === 'ready' ? {...current, addingAccount: false} : current,
+    );
   }, []);
 
   if (runtime.kind === 'loading') {
@@ -80,6 +95,16 @@ export function App() {
         <Text style={styles.errorTitle}>Fresnica could not start</Text>
         <Text>{runtime.message}</Text>
       </View>
+    );
+  }
+
+  if (runtime.addingAccount) {
+    return (
+      <OnboardingScreen
+        dependencies={runtime.services.onboarding}
+        onComplete={refreshBootstrap}
+        onCancel={cancelAddAccount}
+      />
     );
   }
 
@@ -102,7 +127,12 @@ export function App() {
     );
   }
 
-  return <WalletReadyScreen accounts={runtime.bootstrap.accounts} />;
+  return (
+    <WalletReadyScreen
+      accounts={runtime.bootstrap.accounts}
+      onAddAccount={startAddAccount}
+    />
+  );
 }
 
 function readableError(error: unknown): string {
