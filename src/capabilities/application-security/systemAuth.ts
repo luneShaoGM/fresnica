@@ -72,6 +72,8 @@ export async function enableSystemAuth(
   }
 
   const failedSignerPublicKeys: string[] = [];
+  let firstRegistrationError: unknown;
+
   for (const signer of protectedSigners) {
     try {
       await dependencies.sdk.registerSignerSystemAuth({
@@ -79,16 +81,19 @@ export async function enableSystemAuth(
         appPasscode: input.appPassphrase,
         expectedSignerPublicKey: signer.publicKey,
       });
-    } catch {
+    } catch (error) {
       failedSignerPublicKeys.push(signer.publicKey);
+      if (firstRegistrationError === undefined) {
+        firstRegistrationError = error;
+      }
     }
   }
 
-  if (
-    !domainAlreadyInitialized &&
-    failedSignerPublicKeys.length === protectedSigners.length
-  ) {
-    await dependencies.sdk.removeSystemAuthDomain();
+  if (failedSignerPublicKeys.length === protectedSigners.length) {
+    if (!domainAlreadyInitialized) {
+      await dependencies.sdk.removeSystemAuthDomain();
+    }
+    throw firstRegistrationError ?? new Error('system-auth-registration-failed');
   }
 
   return {
