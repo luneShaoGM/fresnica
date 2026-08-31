@@ -47,6 +47,11 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
     [accounts],
   );
 
+  const completeAccountChange = useCallback(() => {
+    onAccountsChanged();
+    dispatch({type: 'select-tab', tab: 'wallet'});
+  }, [dispatch, onAccountsChanged]);
+
   const selectedAccount = resolveSelectedAccount(navigation, accounts);
   const destination = navigation.destination;
 
@@ -88,7 +93,7 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
       content = (
         <AddWatchOnlyAccountScreen
           dependencies={services.onboarding}
-          onComplete={onAccountsChanged}
+          onComplete={completeAccountChange}
           onCancel={() => dispatch({type: 'back-to-root'})}
         />
       );
