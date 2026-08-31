@@ -6,9 +6,10 @@ import type {AccountRecord} from '../../capabilities/account/types';
 type Props = Readonly<{
   accounts: readonly AccountRecord[];
   onAddAccount: () => void;
+  onOpenSecurity: () => void;
 }>;
 
-export function WalletReadyScreen({accounts, onAddAccount}: Props) {
+export function WalletReadyScreen({accounts, onAddAccount, onOpenSecurity}: Props) {
   return (
     <ScrollView contentContainerStyle={styles.screen}>
       <Text style={styles.eyebrow}>Stellar Testnet</Text>
@@ -17,12 +18,20 @@ export function WalletReadyScreen({accounts, onAddAccount}: Props) {
         Onboarding is complete. Portfolio and account actions are the next
         product milestone.
       </Text>
-      <Pressable
-        accessibilityRole="button"
-        onPress={onAddAccount}
-        style={styles.addAccountButton}>
-        <Text style={styles.addAccountButtonText}>Add account</Text>
-      </Pressable>
+      <View style={styles.actions}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onAddAccount}
+          style={styles.actionButton}>
+          <Text style={styles.actionButtonText}>Add account</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onOpenSecurity}
+          style={styles.actionButton}>
+          <Text style={styles.actionButtonText}>Security</Text>
+        </Pressable>
+      </View>
       {accounts.map(account => (
         <View key={account.id} style={styles.accountCard}>
           <Text style={styles.accountLabel}>
@@ -57,14 +66,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
-  addAccountButton: {
+  actions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
     borderWidth: 1,
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 18,
     alignItems: 'center',
   },
-  addAccountButtonText: {
+  actionButtonText: {
     fontSize: 16,
     fontWeight: '700',
   },
