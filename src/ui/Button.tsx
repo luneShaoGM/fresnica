@@ -3,11 +3,13 @@ import {Pressable, StyleSheet, Text} from 'react-native';
 
 import {palette, radius, spacing, typography} from './theme';
 
+type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+
 type Props = Readonly<{
   label: string;
   onPress: () => void;
   disabled?: boolean;
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: ButtonVariant;
 }>;
 
 export function Button({label, onPress, disabled, variant = 'primary'}: Props) {
@@ -18,13 +20,35 @@ export function Button({label, onPress, disabled, variant = 'primary'}: Props) {
       onPress={onPress}
       style={({pressed}) => [
         styles.base,
-        styles[variant],
+        buttonStyle(variant),
         pressed && !disabled ? styles.pressed : undefined,
         disabled ? styles.disabled : undefined,
       ]}>
-      <Text style={[styles.text, styles[`${variant}Text`]]}>{label}</Text>
+      <Text style={[styles.text, buttonTextStyle(variant)]}>{label}</Text>
     </Pressable>
   );
+}
+
+function buttonStyle(variant: ButtonVariant) {
+  switch (variant) {
+    case 'primary':
+      return styles.primary;
+    case 'secondary':
+      return styles.secondary;
+    case 'ghost':
+      return styles.ghost;
+  }
+}
+
+function buttonTextStyle(variant: ButtonVariant) {
+  switch (variant) {
+    case 'primary':
+      return styles.primaryText;
+    case 'secondary':
+      return styles.secondaryText;
+    case 'ghost':
+      return styles.ghostText;
+  }
 }
 
 const styles = StyleSheet.create({
