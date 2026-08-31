@@ -30,15 +30,15 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'send-form': {
     readiness: 'implemented',
-    note: 'Runtime Send validates Classic destination, exact decimal amount, selected balance asset and text memo before building an unsigned payment.',
+    note: 'Runtime Send validates Stellar G/M destination, exact decimal amount, selected balance asset and 28-byte UTF-8 text memo before building an unsigned payment.',
   },
   'send-review': {
     readiness: 'implemented',
-    note: 'Send review is local flow state rendered only from the immutable PaymentReview derived from the exact unsigned XDR; XDR is not placed in navigation params.',
+    note: 'Send review is local flow state rendered from PaymentReview derived from exact unsigned XDR; submission re-derives semantics from that XDR and no XDR is placed in navigation params.',
   },
   'send-result': {
     readiness: 'implemented',
-    note: 'Send renders submitted, deterministic rejected, uncertain and authorization-blocked outcomes from the normalized submission result.',
+    note: 'Send renders submitted, deterministic rejected, uncertain, authorization-blocked, unsupported signer, watch-only and unsupported-multisig outcomes without collapsing them.',
   },
   'manage-assets': {
     readiness: 'structure-only',
