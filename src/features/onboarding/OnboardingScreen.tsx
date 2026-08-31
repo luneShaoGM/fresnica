@@ -25,13 +25,14 @@ import {
 type Props = Readonly<{
   dependencies: ProvisionAccountDependencies;
   onComplete: () => void;
+  onCancel?: () => void;
 }>;
 
 type GeneratedBackupState = RecoveredMnemonicBackup & {
   signerId: string;
 };
 
-export function OnboardingScreen({dependencies, onComplete}: Props) {
+export function OnboardingScreen({dependencies, onComplete, onCancel}: Props) {
   const [method, setMethod] = useState<OnboardingMethod>();
   const [label, setLabel] = useState('');
   const [address, setAddress] = useState('');
@@ -175,6 +176,11 @@ export function OnboardingScreen({dependencies, onComplete}: Props) {
   if (!method) {
     return (
       <Screen>
+        {onCancel ? (
+          <Pressable accessibilityRole="button" onPress={onCancel}>
+            <Text style={styles.back}>Cancel</Text>
+          </Pressable>
+        ) : null}
         <Text style={styles.eyebrow}>Stellar Testnet</Text>
         <Text style={styles.title}>Set up Fresnica</Text>
         <Text style={styles.body}>
