@@ -23,8 +23,40 @@ export type HorizonAccountLike = TransactionSource & {
   balances: HorizonBalanceLike[];
 };
 
+export type HorizonOperationLike = {
+  id: string;
+  paging_token: string;
+  type: string;
+  type_i: number;
+  created_at: string;
+  transaction_hash: string;
+  transaction_successful: boolean;
+  source_account: string;
+  from?: string;
+  to?: string;
+  to_muxed?: string;
+  amount?: string;
+  asset_type?: string;
+  asset_code?: string;
+  asset_issuer?: string;
+  funder?: string;
+  account?: string;
+  starting_balance?: string;
+};
+
+export type HorizonOperationPageLike = Readonly<{
+  records: readonly HorizonOperationLike[];
+}>;
+
+export type LoadAccountOperationsInput = Readonly<{
+  address: string;
+  cursor?: string;
+  limit: number;
+}>;
+
 export type HorizonServerLike = {
   loadAccount(address: string): Promise<HorizonAccountLike>;
+  loadAccountOperations(input: LoadAccountOperationsInput): Promise<HorizonOperationPageLike>;
   submitTransaction(transaction: Transaction): Promise<{
     hash: string;
     ledger?: number;
@@ -53,6 +85,18 @@ export type StellarAccountBalanceResult =
       status: 'active';
       address: string;
       balances: readonly StellarBalanceLine[];
+    }>
+  | Readonly<{
+      status: 'inactive';
+      address: string;
+    }>;
+
+export type StellarAccountOperationResult =
+  | Readonly<{
+      status: 'active';
+      address: string;
+      records: readonly HorizonOperationLike[];
+      nextCursor?: string;
     }>
   | Readonly<{
       status: 'inactive';
