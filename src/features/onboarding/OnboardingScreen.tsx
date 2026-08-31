@@ -51,6 +51,13 @@ export function OnboardingScreen({dependencies, onComplete}: Props) {
     setMethod(nextMethod);
   }
 
+  function returnToMethodSelection() {
+    clearSensitiveInputs();
+    setAddress('');
+    setError(undefined);
+    setMethod(undefined);
+  }
+
   function clearSensitiveInputs() {
     setSecret('');
     setMnemonic('');
@@ -200,9 +207,7 @@ export function OnboardingScreen({dependencies, onComplete}: Props) {
 
   return (
     <Screen>
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => chooseMethod(undefined as never)}>
+      <Pressable accessibilityRole="button" onPress={returnToMethodSelection}>
         <Text style={styles.back}>Back</Text>
       </Pressable>
       <Text style={styles.title}>{methodTitle(method)}</Text>
