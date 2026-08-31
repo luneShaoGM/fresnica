@@ -20,4 +20,15 @@ describe('Android native compatibility', () => {
     expect(releaseBlock).toBeDefined();
     expect(releaseBlock).not.toMatch(/signingConfig\s+signingConfigs\.debug\b/);
   });
+
+  it('requires external production signing material for release builds', () => {
+    const buildGradle = readAndroidAppBuildGradle();
+
+    expect(buildGradle).toContain("file('release/fresnica-release.keystore')");
+    expect(buildGradle).toContain('FRESNICA_RELEASE_STORE_PASSWORD');
+    expect(buildGradle).toContain('FRESNICA_RELEASE_KEY_ALIAS');
+    expect(buildGradle).toContain('FRESNICA_RELEASE_KEY_PASSWORD');
+    expect(buildGradle).toContain('if (releaseRequested && !hasReleaseSigning)');
+    expect(buildGradle).toContain('signingConfig signingConfigs.release');
+  });
 });
