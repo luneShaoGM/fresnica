@@ -20,22 +20,33 @@
 
 ```text
 main
-  -> feat/realm-persistence          PR #12
-       -> feat/onboarding-flow       PR #13
-            -> feat/product-shell    PR #15
-                 -> current execution stages
+  -> feat/realm-persistence             PR #12
+       -> feat/onboarding-flow          PR #13
+            -> feat/product-shell       PR #15
+                 -> feat/product-shell-navigation  PR #16
+                      -> feat/send-product-flow    current Stage 2
 
 parallel security fix:
-main -> fix/android-release-signing  PR #14
+main -> fix/android-release-signing     PR #14
 ```
 
-Current Product Shell/Balance branch establishes route vocabulary, reusable UI primitives, structural feature screens and a read-only Balance Capability. The next stages make those structures real product flows.
+Current Product Shell/Balance work establishes route vocabulary, reusable UI primitives, the runtime product shell and read-only Balance Capability. Stage 2 turns the existing Payment/Transaction/Signing foundations into the first complete business Feature.
 
 ---
 
 ## Stage 1 — Runtime Product Shell and Wallet Home
 
-**Status:** IN PROGRESS
+**Status:** SOURCE COMPLETE — PR #16 — CI EXTERNALLY BLOCKED
+
+**Evidence**
+
+- `App.tsx` hands ready wallets to one `ProductRuntime` instead of the legacy terminal `WalletReadyScreen`.
+- typed product navigation owns Wallet / Activity / Settings and public account IDs only;
+- current-account switching drives Wallet Home and a fresh Balance read;
+- Add Account and Security Settings are routed through the same product runtime;
+- navigation reducer tests cover tab roots, visible-account cycling, reconciliation and fail-closed unknown actions/accounts;
+- Wallet balance loads ignore stale asynchronous responses after account/request changes;
+- GitHub Actions CI run #216 failed with `steps: []` before checkout. PR #16 is intentionally unmerged and marked `blocked: required CI execution unavailable`.
 
 **Goal**
 
@@ -78,7 +89,22 @@ Make the formal product structure the actual post-onboarding runtime instead of 
 
 ## Stage 2 — Send Product Flow
 
-**Status:** PLANNED
+**Status:** SOURCE COMPLETE — VALIDATION/PR PENDING
+
+**Evidence**
+
+- donor Send step structure was inspected; Fresnica keeps a smaller local flow: form -> exact-XDR review -> authorization/submission -> result;
+- Send draft validation preserves decimal amounts as strings, enforces at most 7 decimal places, validates v1 Classic `G...` destinations and enforces the 28-byte UTF-8 text memo limit;
+- account signer lookup is now an explicit repository operation shared by Memory and Realm implementations, with repository contract coverage;
+- Send fails closed for watch-only accounts and for multiple attached signers instead of silently choosing a signer;
+- unsigned payment construction goes through `StellarGateway.buildPayment`;
+- review is built immediately from the exact unsigned XDR and held as local flow state rather than navigation parameters;
+- Unicode text memo review now decodes exact XDR bytes as UTF-8 instead of byte-to-code-unit corruption;
+- confirmation reuses existing `submitReviewedPayment`: freshness -> current ledger authorization -> signer resolution -> shared Signing Coordination -> exact signed XDR submission;
+- routine signing keeps System Auth first, then asks for the app passphrase only when the shared signing layer returns `passcode-required`;
+- app passphrase exists only in local Review component state and is cleared before the passphrase-backed submit await;
+- result UI preserves submitted / deterministic rejected / uncertain / authorization-blocked / unsupported-signer distinctions;
+- leaving the result returns to Wallet, remounting Wallet Home and therefore refreshing ledger balance state.
 
 **Goal**
 
@@ -93,7 +119,7 @@ Deliver the first complete business Feature over the existing Payment / Transact
 - render destination, asset, amount, memo, fee and expiry from `PaymentReview`;
 - user confirmation -> freshness check -> reload ledger authorization -> resolve signer -> Signing Coordination -> submit exact signed XDR;
 - result screen for accepted / deterministic rejected / uncertain;
-- refresh Wallet balance after accepted submission;
+- refresh Wallet balance after returning from submission;
 - keep high-risk authorization policy centralized rather than inside Send UI.
 
 **Acceptance criteria**
@@ -102,7 +128,8 @@ Deliver the first complete business Feature over the existing Payment / Transact
 - normal protected software signer uses System Auth first when enrolled and passphrase fallback otherwise;
 - expired reviews never sign;
 - deterministic rejection and uncertain transport outcomes remain distinct;
-- regression tests prove exact-XDR preservation from review through submission.
+- regression tests prove exact-XDR preservation from review through submission;
+- watch-only and unsupported multisig cases fail closed before signing.
 
 **Non-goals**
 
@@ -262,9 +289,9 @@ When revisited, it must reuse shared Ledger Authorization / Signing Coordination
 ## Execution order
 
 ```text
-1. Runtime Product Shell + Wallet Home
-2. Send
-3. Activity / History
+1. Runtime Product Shell + Wallet Home        SOURCE COMPLETE / CI BLOCKED
+2. Send                                      SOURCE COMPLETE / VALIDATION PENDING
+3. Activity / History                        NEXT
 4. Trustline / Manage Assets
 5. Swap / SDEX
 6. Security & account lifecycle completion (unblocked subset first)
