@@ -89,21 +89,20 @@ describe('application System Auth', () => {
     expect(result.status.enrolledSignerCount).toBe(2);
   });
 
-  it('removes a newly initialized empty domain when every registration fails', async () => {
+  it('removes a newly initialized empty domain and surfaces the registration error', async () => {
     const {repository, sdk, dependencies} = createDependencies({
       registrationFailures: ['Gsigner-a', 'Gsigner-b'],
     });
     repository.createSigner(protectedSigner('signer-a'));
     repository.createSigner(protectedSigner('signer-b'));
 
-    const result = await enableSystemAuth(dependencies, {
-      appPassphrase: 'wrong app passphrase',
-      reason: 'Enable Fresnica System Auth',
-    });
+    await expect(
+      enableSystemAuth(dependencies, {
+        appPassphrase: 'wrong app passphrase',
+        reason: 'Enable Fresnica System Auth',
+      }),
+    ).rejects.toThrow('invalid-passcode');
 
-    expect(result.failedSignerPublicKeys).toEqual(['Gsigner-a', 'Gsigner-b']);
-    expect(result.status.domainInitialized).toBe(false);
-    expect(result.status.enrolledSignerCount).toBe(0);
     expect(sdk.removeSystemAuthDomain).toHaveBeenCalledTimes(1);
   });
 
