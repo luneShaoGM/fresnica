@@ -45,12 +45,12 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
     note: 'Destination is reachable from the runtime shell; trustline transaction capability is not connected yet.',
   },
   history: {
-    readiness: 'structure-only',
-    note: 'Activity tab is live in the runtime shell; Horizon operation history read path is not connected yet.',
+    readiness: 'implemented',
+    note: 'Activity loads normalized Horizon account-operation pages with loading, inactive, empty, error, refresh and deduplicated load-more states; unknown operations remain explicit unsupported entries.',
   },
   'operation-details': {
     readiness: 'structure-only',
-    note: 'Detail destination exists; Horizon operation presenter is not connected yet.',
+    note: 'Detail route remains reserved for stable accountId + operationId navigation; first History slice does not pass raw operation objects through navigation.',
   },
   'settings-home': {
     readiness: 'implemented',
