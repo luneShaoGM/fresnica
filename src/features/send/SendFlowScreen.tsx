@@ -1,35 +1,20 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 
-import type {AccountSignerRepository} from '../../capabilities/account/AccountSignerRepository';
 import type {AccountRecord} from '../../capabilities/account/types';
 import {loadBalanceSnapshot} from '../../capabilities/balance/loadBalanceSnapshot';
 import type {BalanceAsset, BalanceLine} from '../../capabilities/balance/types';
-import {
-  buildPaymentReview,
-  type PaymentReview,
-} from '../../capabilities/payment/buildPaymentReview';
-import {
-  submitReviewedPayment,
-  type SubmitReviewedPaymentResult,
-} from '../../capabilities/payment/submitReviewedPayment';
-import type {FresnicaSdk} from '../../platform/fresnica/FresnicaSdk';
-import type {StellarGateway} from '../../platform/stellar/StellarGateway';
+import type {PaymentReview} from '../../capabilities/payment/buildPaymentReview';
 import {Button} from '../../ui/Button';
 import {Card} from '../../ui/Card';
 import {Screen} from '../../ui/Screen';
-import {resolveSendSigner} from './resolveSendSigner';
 import {SendFormScreen} from './SendFormScreen';
 import {SendResultScreen, type SendTerminalResult} from './SendResultScreen';
 import {SendReviewScreen} from './SendReviewScreen';
-import {validateSendDraft} from './sendDraft';
-
-const TESTNET_BASE_FEE_STROOPS = '100';
-
-export type SendFlowDependencies = Readonly<{
-  gateway: StellarGateway;
-  sdk: FresnicaSdk;
-  repository: AccountSignerRepository;
-}>;
+import {
+  buildSendReview,
+  submitSendReview,
+  type SendProductDependencies,
+} from './sendProductFlow';
 
 type LoadState =
   | Readonly<{kind: 'loading'}>
@@ -43,7 +28,7 @@ type FlowState =
 
 type Props = Readonly<{
   account: AccountRecord;
-  dependencies: SendFlowDependencies;
+  dependencies: SendProductDependencies;
   onDone: () => void;
 }>;
 
@@ -67,6 +52,11 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
     setLoadState({kind: 'loading'});
     setFlow({kind: 'form'});
     setSelectedAsset(undefined);
+    setDestination('');
+    setAmount('');
+    setMemo('');
+    setAppPassphrase('');
+    setPassphraseRequired(false);
     setError(undefined);
 
     void loadBalanceSnapshot({gateway: dependencies.gateway}, account)
@@ -125,24 +115,12 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
     setBuilding(true);
     setError(undefined);
     try {
-      const draft = validateSendDraft({
+      const review = await buildSendReview(dependencies, account, {
         destination,
         amount,
-        memo,
         asset: selectedAsset,
+        memo,
       });
-      const built = await dependencies.gateway.buildPayment({
-        source: account.address,
-        destination: draft.destination,
-        asset: draft.asset,
-        amount: draft.amount,
-        ...(draft.memo === undefined ? {} : {memo: draft.memo}),
-        baseFee: TESTNET_BASE_FEE_STROOPS,
-      });
-      const review = buildPaymentReview(built);
-      if (review.source !== account.address) {
-        throw new Error('payment-review-source-mismatch');
-      }
 
       setPassphraseRequired(false);
       setAppPassphrase('');
@@ -152,18 +130,10 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
     } finally {
       setBuilding(false);
     }
-  }, [account.address, amount, dependencies.gateway, destination, loadState, memo, selectedAsset]);
+  }, [account, amount, dependencies, destination, loadState.kind, memo, selectedAsset]);
 
   const submitReview = useCallback(async () => {
     if (flow.kind !== 'review') {
-      return;
-    }
-
-    let signer;
-    try {
-      signer = resolveSendSigner(dependencies.repository, account.id);
-    } catch (caught) {
-      setError(sendSignerError(caught));
       return;
     }
 
@@ -175,14 +145,12 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
     setSubmitting(true);
     setError(undefined);
     try {
-      const result: SubmitReviewedPaymentResult = await submitReviewedPayment({
-        gateway: dependencies.gateway,
-        sdk: dependencies.sdk,
-        review: flow.review,
-        signer,
-        ...(passphrase === undefined ? {} : {appPasscode: passphrase}),
-        systemAuthReason: `Send ${flow.review.amount} ${assetCode(flow.review)}`,
-      });
+      const result = await submitSendReview(
+        dependencies,
+        account,
+        flow.review,
+        passphrase,
+      );
 
       if (result.status === 'passcode-required') {
         setPassphraseRequired(true);
@@ -195,7 +163,7 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
     } finally {
       setSubmitting(false);
     }
-  }, [account.id, appPassphrase, dependencies, flow, passphraseRequired]);
+  }, [account, appPassphrase, dependencies, flow, passphraseRequired]);
 
   if (loadState.kind === 'loading') {
     return (
@@ -262,20 +230,6 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
       onCancel={onDone}
     />
   );
-}
-
-function assetCode(review: PaymentReview): string {
-  return review.asset.kind === 'native' ? 'XLM' : review.asset.code;
-}
-
-function sendSignerError(error: unknown): string {
-  if (error instanceof Error && error.message === 'send-watch-only-account') {
-    return 'This account is watch-only and has no attached local signer.';
-  }
-  if (error instanceof Error && error.message === 'send-multisig-not-supported') {
-    return 'Multiple attached signers require the future multisig coordination milestone.';
-  }
-  return readableError(error);
 }
 
 function readableError(error: unknown): string {
