@@ -25,10 +25,11 @@ Network                   Stellar Testnet
 | Balance / Availability | Normative | Read-only Portfolio slice implemented | Classic Horizon native/credit balances are normalized behind a Balance Capability. Exact decimal strings are preserved; inactive and contract-account states remain explicit; LP shares are not projected as ordinary tokens. |
 | Payment | Normative | Product Flow implemented on Testnet | Runtime Send selects a visible balance asset, validates destination/amount/text memo, builds an unsigned payment, derives review from exact XDR, authorizes through shared Signing Coordination and renders normalized submission outcomes. |
 | Transaction | Normative | Foundation implemented and used by Send | Reviewed-transaction identity, freshness guard and normalized submission semantics are exercised by the runtime Send Flow. |
+| History / Activity | Mobile read capability | Read-only product slice implemented | Classic Horizon account operations are paged behind `StellarGateway`, normalized into stable History entries, and rendered with loading/refresh/empty/error/load-more states. Payment/create-account are specialized; unknown operations remain explicit rather than being dropped. |
 | Ledger Authorization | Defined | Classic foundation implemented and used by Send | Typed Classic signer conditions and threshold resolution are reloaded before Send signing for applicable local Ed25519 signers. Full multisig/provider coordination remains future work. |
 | Signing Coordination | Normative | Foundation implemented and used by Send | Shared `routine` policy prefers Native SDK System Auth. `passphrase-required` skips System Auth entirely and requires a fresh app passphrase before signing. Send uses `routine`. |
 | Application Security | Defined | System Auth foundation implemented | Strong app-passphrase policy, System Auth status/enable/repair/disable, protected-signer registration and high-assurance signing policy are implemented. App lock/session and product-wide passphrase rotation remain blocked on explicit upstream framework-safe authorization APIs. |
-| Network / Gateway | Defined | Platform mechanism implemented | `src/platform/stellar`: Horizon balance/authorization loading, payment construction and transaction submission. |
+| Network / Gateway | Defined | Platform mechanism implemented | `src/platform/stellar`: Horizon balance/authorization/history loading, payment construction and transaction submission. |
 | Persistence | Mobile platform mechanism | Realm v1 wired into production bootstrap | Memory and Realm implementations share `AccountSignerRepository`, including account-to-signer lookup used by Send. Production `createAppServices()` opens Realm, loads `FresnicaCore`, composes shared services and closes Realm on teardown/bootstrap failure. |
 
 ## Onboarding v1 evidence
@@ -87,6 +88,27 @@ Existing-wallet protected-signer creation/import is intentionally disabled for n
 
 Send v1 intentionally does not implement path payment, swap, multi-operation review, multisig coordination, external signer providers or Agent/AI authorization.
 
+## History / Activity v1 evidence
+
+`src/capabilities/history` and `src/features/history` implement the first read-only Activity slice:
+
+- donor Events behavior was inspected for account reset, loading/refresh/load-more states and its separation between raw ledger records and presentation models;
+- Mobile intentionally does not copy the donor's large persistent cache/gap-recovery machinery into the first History slice;
+- `StellarGateway.loadAccountOperations` owns Horizon descending pagination, validates page size and exposes only typed record pages/cursors to the Capability layer;
+- account 404 is preserved as an inactive state and contract accounts do not inherit Classic operation-history semantics;
+- History normalizes stable operation id, paging token, timestamp, transaction hash and source account without exposing raw Horizon records to UI;
+- v1 specializes `payment` and `create_account` operations;
+- unknown operation types become explicit `unsupported` entries instead of being filtered from history;
+- malformed specialized operation shapes become explicit unsupported-shape entries while invalid common identity/time fields fail closed;
+- payment direction preserves incoming/outgoing/self/neutral semantics, including muxed-recipient direction based on the base account identity;
+- native and issued amounts remain exact strings and issued asset identity retains code + issuer;
+- Activity distinguishes initial loading, inactive, unsupported account, read error, empty list and populated list states;
+- explicit refresh replaces the current page, while load-more appends older entries and deduplicates by stable operation id;
+- stale asynchronous results are ignored after the selected account or request generation changes;
+- product navigation does not carry raw operations, paging cursors or whole History entries; operation-details remains reserved for stable `accountId + operationId` addressing.
+
+History v1 intentionally does not implement persistent operation caching/gap backfill, search/filtering or transaction actions from history.
+
 ## Application Security v1 evidence
 
 `src/capabilities/application-security` and `src/features/security` implement the supported System Auth slice:
@@ -142,7 +164,7 @@ Android and Apple actual RN runtimes have both previously been manually verified
 FRESNICA_PARSE_ACCOUNT_SMOKE_OK realm=ok
 ```
 
-The Onboarding + Application Security milestone was manually exercised through create/import/watch-only, interrupted mnemonic-backup recovery, Add Account, System Auth enable/repair/disable and restart persistence paths. New Product Shell/Balance/Send changes still require their own executable validation; GitHub Actions runner allocation has repeatedly failed before workflow steps begin and must not be treated as green.
+The Onboarding + Application Security milestone was manually exercised through create/import/watch-only, interrupted mnemonic-backup recovery, Add Account, System Auth enable/repair/disable and restart persistence paths. New Product Shell/Balance/Send/History changes still require their own executable validation; GitHub Actions runner allocation has repeatedly failed before workflow steps begin and must not be treated as green.
 
 ## Conformance / regression scope
 
@@ -150,7 +172,7 @@ The TypeScript/Jest tests are designed to verify, among other cases:
 
 - Account and Signer remain separate;
 - watch-only changes only with account-signer references;
-- account-to-signer lookup returns only attached detached signer records;
+- account-to-signer lookup returns only signers attached to the requested account;
 - shared signers survive until their final reference is removed;
 - duplicate account identity is network-scoped;
 - account+signer provisioning is atomic;
@@ -166,6 +188,10 @@ The TypeScript/Jest tests are designed to verify, among other cases:
 - Send submission re-derives semantic review data from exact XDR;
 - watch-only and unsupported multisig Send paths fail closed before signing;
 - expired reviewed transactions are blocked before signing;
+- History payment/create-account mapping preserves direction, exact amounts and asset identity;
+- unknown/malformed History operation types remain explicit rather than disappearing;
+- History cursor paging preserves next-page identity and deduplicates operation IDs;
+- History rejects network mismatch and keeps inactive/contract-account states explicit;
 - routine Signing Coordination prefers System Auth;
 - passphrase-required Signing Coordination bypasses System Auth entirely;
 - System Auth enrollment status is signer-scoped and device-domain state remains separate;
@@ -180,7 +206,7 @@ src/platform/fresnica
   React Native -> Fresnica Native SDK integration
 
 src/platform/stellar
-  @stellar/stellar-sdk / Horizon mechanisms
+  @stellar/stellar-sdk / Horizon mechanisms for balances, authorization, history and transactions
 
 src/platform/persistence
   memory/ deterministic test/foundation adapter
@@ -191,14 +217,14 @@ Realm remains a platform implementation choice and must not redefine Account/Sig
 
 ## Next product milestone
 
-The next staged milestone is Activity / History read flow:
+The next staged milestone is Trustline / Manage Assets:
 
-- inspect donor Activity/transaction-history behavior for product information architecture;
-- define a normalized read model independent of Horizon raw JSON;
-- load current-account operation history with refresh and pagination semantics;
-- preserve unsupported operation types as explicit entries instead of silently dropping them;
-- keep operation details addressed by stable public identifiers only;
-- do not introduce transaction-signing or secret state into History.
+- inspect donor asset-management behavior for product information architecture;
+- use stable issued-asset identity `CODE:GISSUER`;
+- add a dedicated Change Trust transaction capability boundary;
+- derive review from exact XDR and reuse the same freshness / authorization / Signing Coordination / submission architecture proven by Send;
+- refresh Portfolio after an accepted trustline change;
+- keep unsupported account/asset shapes fail closed.
 
 The execution sequence and acceptance gates are maintained in `docs/fresnica-mobile-stage-plan.md`.
 
@@ -208,7 +234,8 @@ Persisted wallet truth remains in Realm. Application/global UI state must not be
 
 - Trustline Flow;
 - Swap/SDEX Flow;
-- History/Activity network read UI;
+- specialized operation-details product flow;
+- persistent History cache/search/filter layer;
 - Reveal/Export product UI outside interrupted-backup recovery;
 - app lock/session pending the upstream authorization API described above;
 - existing-wallet protected-signer provisioning pending framework-safe current-passphrase verification;
