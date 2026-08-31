@@ -1,13 +1,14 @@
 import React from 'react';
-import {ScrollView, StyleSheet, Text, View} from 'react-native';
+import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 
 import type {AccountRecord} from '../../capabilities/account/types';
 
 type Props = Readonly<{
   accounts: readonly AccountRecord[];
+  onAddAccount: () => void;
 }>;
 
-export function WalletReadyScreen({accounts}: Props) {
+export function WalletReadyScreen({accounts, onAddAccount}: Props) {
   return (
     <ScrollView contentContainerStyle={styles.screen}>
       <Text style={styles.eyebrow}>Stellar Testnet</Text>
@@ -16,6 +17,12 @@ export function WalletReadyScreen({accounts}: Props) {
         Onboarding is complete. Portfolio and account actions are the next
         product milestone.
       </Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onAddAccount}
+        style={styles.addAccountButton}>
+        <Text style={styles.addAccountButtonText}>Add account</Text>
+      </Pressable>
       {accounts.map(account => (
         <View key={account.id} style={styles.accountCard}>
           <Text style={styles.accountLabel}>
@@ -49,6 +56,17 @@ const styles = StyleSheet.create({
   body: {
     fontSize: 16,
     lineHeight: 24,
+  },
+  addAccountButton: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+  },
+  addAccountButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
   },
   accountCard: {
     borderWidth: 1,
