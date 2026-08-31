@@ -22,7 +22,9 @@ export type EnableSystemAuthResult = Readonly<{
 export async function getSystemAuthStatus(
   dependencies: ApplicationSecurityDependencies,
 ): Promise<SystemAuthStatus> {
-  const protectedSigners = protectedSoftwareSigners(dependencies.repository.listSigners());
+  const protectedSigners = protectedSoftwareSigners(
+    dependencies.repository.listSigners(),
+  );
   const available = await dependencies.sdk.canUseSystemAuth();
   const domainInitialized = await dependencies.sdk.hasSystemAuthDomain();
 
@@ -53,7 +55,9 @@ export async function enableSystemAuth(
   dependencies: ApplicationSecurityDependencies,
   input: Readonly<{appPassphrase: string; reason: string}>,
 ): Promise<EnableSystemAuthResult> {
-  const protectedSigners = protectedSoftwareSigners(dependencies.repository.listSigners());
+  const protectedSigners = protectedSoftwareSigners(
+    dependencies.repository.listSigners(),
+  );
   if (protectedSigners.length === 0) {
     throw new Error('protected-signer-required');
   }
@@ -62,7 +66,8 @@ export async function enableSystemAuth(
     throw new Error('system-auth-unavailable');
   }
 
-  if (!(await dependencies.sdk.hasSystemAuthDomain())) {
+  const domainAlreadyInitialized = await dependencies.sdk.hasSystemAuthDomain();
+  if (!domainAlreadyInitialized) {
     await dependencies.sdk.initializeSystemAuth(input.reason);
   }
 
@@ -77,6 +82,13 @@ export async function enableSystemAuth(
     } catch {
       failedSignerPublicKeys.push(signer.publicKey);
     }
+  }
+
+  if (
+    !domainAlreadyInitialized &&
+    failedSignerPublicKeys.length === protectedSigners.length
+  ) {
+    await dependencies.sdk.removeSystemAuthDomain();
   }
 
   return {
@@ -94,7 +106,9 @@ export async function disableSystemAuth(
   return getSystemAuthStatus(dependencies);
 }
 
-function protectedSoftwareSigners(signers: readonly SignerRecord[]): SignerRecord[] {
+function protectedSoftwareSigners(
+  signers: readonly SignerRecord[],
+): SignerRecord[] {
   return signers.filter(
     signer => signer.kind === 'protected-software' && Boolean(signer.envelopeJson),
   );
