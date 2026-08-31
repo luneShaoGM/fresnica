@@ -116,7 +116,10 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
     }
     case 'history':
       content = (
-        <ActivityHomeScreen accountLabel={selectedAccount.label || selectedAccount.address} />
+        <ActivityHomeScreen
+          account={selectedAccount}
+          dependencies={services.history}
+        />
       );
       break;
     case 'settings-home':

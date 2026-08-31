@@ -15,6 +15,7 @@ import type {
   BuildPaymentInput,
   BuiltTransaction,
   HorizonBalanceLike,
+  HorizonOperationLike,
   HorizonServerLike,
   StellarBalanceLine,
 } from './types';
@@ -24,6 +25,18 @@ function createDefaultServer(): HorizonServerLike {
 
   return {
     loadAccount: address => server.loadAccount(address),
+    loadAccountOperations: async input => {
+      let request = server
+        .operations()
+        .forAccount(input.address)
+        .order('desc')
+        .limit(input.limit);
+      if (input.cursor !== undefined) {
+        request = request.cursor(input.cursor);
+      }
+      const page = await request.call();
+      return {records: page.records as unknown as HorizonOperationLike[]};
+    },
     submitTransaction: async transaction => {
       const result = await server.submitTransaction(transaction);
       return {
@@ -166,6 +179,35 @@ export class StellarSdkGateway implements StellarGateway {
     } catch (error) {
       if (isHorizonNotFound(error)) {
         return {status: 'inactive' as const, address};
+      }
+      throw error;
+    }
+  }
+
+  async loadAccountOperations(input: {
+    address: string;
+    cursor?: string;
+    limit: number;
+  }) {
+    if (!Number.isInteger(input.limit) || input.limit < 1 || input.limit > 200) {
+      throw new Error('invalid-horizon-operation-page-limit');
+    }
+
+    try {
+      const page = await this.server.loadAccountOperations(input);
+      const records = [...page.records];
+      const lastRecord = records[records.length - 1];
+      return {
+        status: 'active' as const,
+        address: input.address,
+        records,
+        ...(records.length === input.limit && lastRecord
+          ? {nextCursor: lastRecord.paging_token}
+          : {}),
+      };
+    } catch (error) {
+      if (isHorizonNotFound(error)) {
+        return {status: 'inactive' as const, address: input.address};
       }
       throw error;
     }

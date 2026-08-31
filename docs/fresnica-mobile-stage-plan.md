@@ -25,13 +25,14 @@ main
             -> feat/product-shell       PR #15
                  -> feat/product-shell-navigation  PR #16
                       -> feat/send-product-flow    PR #17
-                           -> current execution stages
+                           -> feat/history-read-flow  PR #18
+                                -> current execution stages
 
 parallel security fix:
 main -> fix/android-release-signing     PR #14
 ```
 
-Product Shell/Balance and Send now have source-complete stacked PRs. Required GitHub Actions remain externally blocked before workflow steps execute, so they stay unmerged while the next independent rewrite stage proceeds.
+Product Shell/Balance, Send and History now have source-complete stacked PRs. Required GitHub Actions remain externally blocked before workflow steps execute, so no blocked PR is merged while independent rewrite stages continue.
 
 ---
 
@@ -146,7 +147,24 @@ Deliver the first complete business Feature over the existing Payment / Transact
 
 ## Stage 3 — Activity / History Read Flow
 
-**Status:** NEXT
+**Status:** SOURCE COMPLETE — PR #18 — CI EXTERNALLY BLOCKED
+
+**Evidence**
+
+- donor Events/Activity implementation was inspected for account-change reset, loading/refresh/load-more behavior and its presenter boundary; donor cache-gap/backfill complexity is intentionally not copied into v1;
+- `StellarGateway` exposes paged account operations instead of leaking Horizon collection objects to Features;
+- Horizon reads are fixed to descending order with validated page sizes and paging-token cursors; account 404 remains an explicit inactive state;
+- `History` Capability owns a normalized read model independent of Horizon raw JSON;
+- v1 specializes `payment` and `create_account` while every other operation type remains an explicit `unsupported` entry instead of being silently dropped;
+- malformed specialized operation shapes degrade to `unsupported` entries while invalid common identity/time fields fail closed;
+- native and issued payment amounts remain exact strings and issued asset identity keeps code + issuer;
+- payment direction distinguishes incoming/outgoing/self/neutral and uses base destination identity while preserving muxed display identity where relevant;
+- contract accounts do not inherit Classic Horizon operation-history semantics;
+- Activity owns loading / inactive / unsupported-account / error / empty / ready / refreshing / load-more states;
+- account/request changes invalidate stale asynchronous History responses;
+- pagination appends through `mergeHistoryEntries`, deduplicating operation IDs while preserving order;
+- raw operation records, cursors and History entries are not placed in product navigation; operation-details remains reserved for stable `accountId + operationId` addressing;
+- CI run #219 failed with no executed steps (`steps: null`), so PR #18 remains unmerged and marked `blocked: required CI execution unavailable`.
 
 **Goal**
 
@@ -167,11 +185,18 @@ Replace Activity placeholders with a read-only Horizon-backed operation history 
 - Horizon objects do not escape into feature UI;
 - pagination does not duplicate entries.
 
+**Non-goals**
+
+- no persistent History cache/gap recovery in this first slice;
+- no search/filter layer yet;
+- no transaction signing from History;
+- no Agent authorization.
+
 ---
 
 ## Stage 4 — Trustline / Manage Assets Flow
 
-**Status:** PLANNED
+**Status:** NEXT
 
 **Goal**
 
@@ -296,8 +321,8 @@ When revisited, it must reuse shared Ledger Authorization / Signing Coordination
 ```text
 1. Runtime Product Shell + Wallet Home        SOURCE COMPLETE / CI BLOCKED
 2. Send                                      SOURCE COMPLETE / CI BLOCKED
-3. Activity / History                        NEXT
-4. Trustline / Manage Assets
+3. Activity / History                        SOURCE COMPLETE / CI BLOCKED
+4. Trustline / Manage Assets                 NEXT
 5. Swap / SDEX
 6. Security & account lifecycle completion (unblocked subset first)
 7. Multisig / external providers
