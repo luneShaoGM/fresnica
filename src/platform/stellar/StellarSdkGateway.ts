@@ -12,11 +12,14 @@ import type { LedgerSignerCondition } from '../../capabilities/ledger-authorizat
 import type { TransactionSubmissionResult } from '../../capabilities/transaction/submission';
 import type { StellarGateway } from './StellarGateway';
 import type {
+  BuildChangeTrustInput,
   BuildPaymentInput,
   BuiltTransaction,
+  HorizonAccountLike,
   HorizonBalanceLike,
   HorizonOperationLike,
   HorizonServerLike,
+  StellarAccountState,
   StellarBalanceLine,
 } from './types';
 
@@ -36,6 +39,24 @@ function createDefaultServer(): HorizonServerLike {
       }
       const page = await request.call();
       return {records: page.records as unknown as HorizonOperationLike[]};
+    },
+    loadLedgerParameters: async () => {
+      const page = await server.ledgers().order('desc').limit(1).call();
+      const ledger = page.records[0];
+      if (!ledger) {
+        throw new Error('horizon-returned-no-ledger');
+      }
+      return {
+        base_fee_in_stroops: ledger.base_fee_in_stroops,
+        base_reserve_in_stroops: ledger.base_reserve_in_stroops,
+      };
+    },
+    loadLiquidityPool: async id => {
+      const pool = await server.liquidityPools().liquidityPoolId(id).call();
+      return {
+        id: pool.id,
+        reserves: pool.reserves.map(reserve => ({asset: reserve.asset})),
+      };
     },
     submitTransaction: async transaction => {
       const result = await server.submitTransaction(transaction);
@@ -93,6 +114,73 @@ function mapBalance(input: HorizonBalanceLike): StellarBalanceLine {
     default:
       throw new Error(`unsupported-horizon-balance-type:${input.asset_type}`);
   }
+}
+
+function mapAccountState(account: HorizonAccountLike): StellarAccountState {
+  if (
+    !Number.isInteger(account.subentry_count) ||
+    !Number.isInteger(account.num_sponsoring) ||
+    !Number.isInteger(account.num_sponsored) ||
+    account.flags?.auth_required === undefined ||
+    account.flags.auth_clawback_enabled === undefined
+  ) {
+    throw new Error('invalid-horizon-account-state');
+  }
+
+  return {
+    address: account.account_id,
+    subentryCount: account.subentry_count!,
+    numSponsoring: account.num_sponsoring!,
+    numSponsored: account.num_sponsored!,
+    flags: {
+      authRequired: account.flags.auth_required,
+      authClawbackEnabled: account.flags.auth_clawback_enabled,
+    },
+    balances: account.balances.map(balance => {
+      switch (balance.asset_type) {
+        case 'native':
+          return {
+            kind: 'native' as const,
+            balance: balance.balance,
+            sellingLiabilities: balance.selling_liabilities ?? '0',
+          };
+        case 'credit_alphanum4':
+        case 'credit_alphanum12':
+          if (
+            !balance.asset_code ||
+            !balance.asset_issuer ||
+            balance.is_authorized === undefined ||
+            balance.is_authorized_to_maintain_liabilities === undefined ||
+            balance.is_clawback_enabled === undefined
+          ) {
+            throw new Error(`invalid-horizon-trustline-balance:${balance.asset_type}`);
+          }
+          return {
+            kind: 'credit' as const,
+            balance: balance.balance,
+            buyingLiabilities: balance.buying_liabilities ?? '0',
+            sellingLiabilities: balance.selling_liabilities ?? '0',
+            code: balance.asset_code,
+            issuer: balance.asset_issuer,
+            isAuthorized: balance.is_authorized,
+            isAuthorizedToMaintainLiabilities:
+              balance.is_authorized_to_maintain_liabilities,
+            isClawbackEnabled: balance.is_clawback_enabled,
+          };
+        case 'liquidity_pool_shares':
+          if (!balance.liquidity_pool_id) {
+            throw new Error('invalid-horizon-liquidity-pool-balance');
+          }
+          return {
+            kind: 'liquidity-pool-share' as const,
+            balance: balance.balance,
+            liquidityPoolId: balance.liquidity_pool_id,
+          };
+        default:
+          throw new Error(`unsupported-horizon-balance-type:${balance.asset_type}`);
+      }
+    }),
+  };
 }
 
 function isHorizonNotFound(error: unknown): boolean {
@@ -184,6 +272,18 @@ export class StellarSdkGateway implements StellarGateway {
     }
   }
 
+  async loadAccountState(address: string) {
+    try {
+      const account = await this.server.loadAccount(address);
+      return {status: 'active' as const, account: mapAccountState(account)};
+    } catch (error) {
+      if (isHorizonNotFound(error)) {
+        return {status: 'inactive' as const, address};
+      }
+      throw error;
+    }
+  }
+
   async loadAccountOperations(input: {
     address: string;
     cursor?: string;
@@ -213,6 +313,22 @@ export class StellarSdkGateway implements StellarGateway {
     }
   }
 
+  async loadLedgerParameters() {
+    const parameters = await this.server.loadLedgerParameters();
+    return {
+      baseFeeStroops: parameters.base_fee_in_stroops,
+      baseReserveStroops: parameters.base_reserve_in_stroops,
+    };
+  }
+
+  async loadLiquidityPool(id: string) {
+    const pool = await this.server.loadLiquidityPool(id);
+    return {
+      id: pool.id,
+      reserveAssets: pool.reserves.map(reserve => reserve.asset),
+    };
+  }
+
   async buildPayment(input: BuildPaymentInput): Promise<BuiltTransaction> {
     const sourceAccount = await this.server.loadAccount(input.source);
     const asset =
@@ -236,6 +352,28 @@ export class StellarSdkGateway implements StellarGateway {
     }
 
     const transaction = builder.setTimeout(180).build();
+
+    return {
+      source: input.source,
+      networkId: APP_CONFIG.network.id,
+      transactionXdrBase64: transaction.toXdr(),
+    };
+  }
+
+  async buildChangeTrust(input: BuildChangeTrustInput): Promise<BuiltTransaction> {
+    const sourceAccount = await this.server.loadAccount(input.source);
+    const transaction = new TransactionBuilder(sourceAccount, {
+      fee: input.baseFee,
+      networkPassphrase: APP_CONFIG.network.networkPassphrase,
+    })
+      .addOperation(
+        Operation.changeTrust({
+          asset: new Asset(input.code, input.issuer),
+          limit: input.limit,
+        }),
+      )
+      .setTimeout(180)
+      .build();
 
     return {
       source: input.source,

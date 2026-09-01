@@ -5,22 +5,27 @@ import {
   submitReviewedTransaction,
   type SubmitReviewedTransactionResult,
 } from '../transaction/submitReviewedTransaction';
-import type {PaymentReview} from './buildPaymentReview';
+import {buildTrustlineReview, type TrustlineReview} from './buildTrustlineReview';
 
-export type SubmitReviewedPaymentResult = SubmitReviewedTransactionResult;
+export type SubmitReviewedTrustlineResult = SubmitReviewedTransactionResult;
 
-export async function submitReviewedPayment(input: {
+export async function submitReviewedTrustline(input: {
   gateway: StellarGateway;
   sdk: FresnicaSdk;
-  review: PaymentReview;
+  review: TrustlineReview;
   signer: SignerRecord;
   appPasscode?: string;
   systemAuthReason?: string;
-}): Promise<SubmitReviewedPaymentResult> {
+}): Promise<SubmitReviewedTrustlineResult> {
+  const exactReview = buildTrustlineReview({
+    transactionXdrBase64: input.review.transactionXdrBase64,
+    networkId: input.review.networkId,
+  });
+
   return submitReviewedTransaction({
     gateway: input.gateway,
     sdk: input.sdk,
-    review: input.review,
+    review: exactReview,
     signer: input.signer,
     thresholdLevel: 'medium',
     ...(input.appPasscode === undefined ? {} : {appPasscode: input.appPasscode}),

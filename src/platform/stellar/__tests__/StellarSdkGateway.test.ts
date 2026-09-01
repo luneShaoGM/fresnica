@@ -1,4 +1,4 @@
-import { Account, Networks, StrKey, Transaction } from '@stellar/stellar-sdk';
+import { Account, Asset, Networks, StrKey, Transaction } from '@stellar/stellar-sdk';
 
 import { StellarSdkGateway } from '../StellarSdkGateway';
 import type {
@@ -14,6 +14,13 @@ const signerAddress = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(3));
 function horizonAccount(): HorizonAccountLike {
   return Object.assign(new Account(sourceAddress, '100'), {
     account_id: sourceAddress,
+    subentry_count: 0,
+    num_sponsoring: 0,
+    num_sponsored: 0,
+    flags: {
+      auth_required: false,
+      auth_clawback_enabled: false,
+    },
     thresholds: {
       low_threshold: 1,
       med_threshold: 2,
@@ -48,6 +55,11 @@ function server(account = horizonAccount()): jest.Mocked<HorizonServerLike> {
   return {
     loadAccount: jest.fn().mockResolvedValue(account),
     loadAccountOperations: jest.fn().mockResolvedValue({records: []}),
+    loadLedgerParameters: jest.fn().mockResolvedValue({
+      base_fee_in_stroops: 100,
+      base_reserve_in_stroops: 5_000_000,
+    }),
+    loadLiquidityPool: jest.fn().mockResolvedValue({id: 'pool-id', reserves: []}),
     submitTransaction: jest.fn(),
   };
 }
@@ -146,12 +158,69 @@ describe('StellarSdkGateway', () => {
     });
   });
 
+  it('maps the account facts required by Trustline preflight', async () => {
+    const account = horizonAccount();
+    account.subentry_count = 4;
+    account.num_sponsoring = 2;
+    account.num_sponsored = 1;
+    account.flags = {auth_required: true, auth_clawback_enabled: true};
+    account.balances = [
+      {
+        asset_type: 'native',
+        balance: '20.0000000',
+        selling_liabilities: '1.0000000',
+      },
+      {
+        asset_type: 'credit_alphanum4',
+        balance: '3.0000000',
+        buying_liabilities: '0.5000000',
+        selling_liabilities: '0.2500000',
+        asset_code: 'USD',
+        asset_issuer: signerAddress,
+        is_authorized: false,
+        is_authorized_to_maintain_liabilities: true,
+        is_clawback_enabled: true,
+      },
+    ];
+
+    await expect(
+      new StellarSdkGateway(server(account)).loadAccountState(sourceAddress),
+    ).resolves.toEqual({
+      status: 'active',
+      account: {
+        address: sourceAddress,
+        subentryCount: 4,
+        numSponsoring: 2,
+        numSponsored: 1,
+        flags: {authRequired: true, authClawbackEnabled: true},
+        balances: [
+          {kind: 'native', balance: '20.0000000', sellingLiabilities: '1.0000000'},
+          {
+            kind: 'credit',
+            balance: '3.0000000',
+            buyingLiabilities: '0.5000000',
+            sellingLiabilities: '0.2500000',
+            code: 'USD',
+            issuer: signerAddress,
+            isAuthorized: false,
+            isAuthorizedToMaintainLiabilities: true,
+            isClawbackEnabled: true,
+          },
+        ],
+      },
+    });
+  });
+
   it('returns inactive when Horizon reports the account does not exist', async () => {
     const horizon = server();
     horizon.loadAccount.mockRejectedValue({response: {status: 404}});
     const gateway = new StellarSdkGateway(horizon);
 
     await expect(gateway.loadAccountBalances(sourceAddress)).resolves.toEqual({
+      status: 'inactive',
+      address: sourceAddress,
+    });
+    await expect(gateway.loadAccountState(sourceAddress)).resolves.toEqual({
       status: 'inactive',
       address: sourceAddress,
     });
@@ -238,6 +307,28 @@ describe('StellarSdkGateway', () => {
     expect(horizon.loadAccountOperations).not.toHaveBeenCalled();
   });
 
+  it('normalizes ledger parameters and liquidity-pool reserve identities', async () => {
+    const horizon = server();
+    horizon.loadLedgerParameters.mockResolvedValue({
+      base_fee_in_stroops: 120,
+      base_reserve_in_stroops: 5_000_000,
+    });
+    horizon.loadLiquidityPool.mockResolvedValue({
+      id: 'pool-id',
+      reserves: [{asset: 'native'}, {asset: `USD:${signerAddress}`}],
+    });
+    const gateway = new StellarSdkGateway(horizon);
+
+    await expect(gateway.loadLedgerParameters()).resolves.toEqual({
+      baseFeeStroops: 120,
+      baseReserveStroops: 5_000_000,
+    });
+    await expect(gateway.loadLiquidityPool('pool-id')).resolves.toEqual({
+      id: 'pool-id',
+      reserveAssets: ['native', `USD:${signerAddress}`],
+    });
+  });
+
   it('builds an unsigned native-asset payment on Stellar Testnet', async () => {
     const gateway = new StellarSdkGateway(server());
     const xdr = await paymentXdr(gateway);
@@ -255,6 +346,27 @@ describe('StellarSdkGateway', () => {
     expect(operation.amount).toBe('1.2500000');
     expect(operation.asset.isNative()).toBe(true);
     expect(transaction.memo.type).toBe('text');
+  });
+
+  it('builds an unsigned ordinary ChangeTrust transaction with the requested limit', async () => {
+    const gateway = new StellarSdkGateway(server());
+    const built = await gateway.buildChangeTrust({
+      source: sourceAddress,
+      code: 'USD',
+      issuer: signerAddress,
+      limit: '708269837873.6765',
+      baseFee: '100',
+    });
+    const transaction = new Transaction(built.transactionXdrBase64, Networks.TESTNET);
+    const changeTrust = transaction.operations[0];
+
+    expect(transaction.signatures).toHaveLength(0);
+    expect(changeTrust.type).toBe('changeTrust');
+    if (changeTrust.type !== 'changeTrust') {
+      throw new Error('Expected ChangeTrust operation');
+    }
+    expect(changeTrust.line).toBeInstanceOf(Asset);
+    expect(changeTrust.limit).toBe('708269837873.6765000');
   });
 
   it('normalizes an accepted submission', async () => {

@@ -5,6 +5,7 @@ import type {ApplicationSecurityDependencies} from '../capabilities/application-
 import type {BalanceDependencies} from '../capabilities/balance/loadBalanceSnapshot';
 import type {HistoryDependencies} from '../capabilities/history/loadHistoryPage';
 import type {SendProductDependencies} from '../features/send/sendProductFlow';
+import type {TrustlineProductDependencies} from '../features/trustlines/trustlineProductFlow';
 import {
   ReactNativeFresnicaSdk,
   loadNativeFresnicaModule,
@@ -22,6 +23,7 @@ export type AppServices = Readonly<{
   balance: BalanceDependencies;
   send: SendProductDependencies;
   history: HistoryDependencies;
+  trustline: TrustlineProductDependencies;
   close: () => void;
 }>;
 
@@ -55,6 +57,11 @@ export async function createAppServices(): Promise<AppServices> {
       },
       history: {
         gateway: stellarGateway,
+      },
+      trustline: {
+        gateway: stellarGateway,
+        sdk,
+        repository,
       },
       close: () => realm.close(),
     };
