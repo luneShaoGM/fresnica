@@ -11,6 +11,7 @@ type Props = React.PropsWithChildren<
     actionAvailability: Readonly<Record<ProductAction, boolean>>;
     onSelectTab: (tab: MainTab) => void;
     onSelectAction: (action: ProductAction) => void;
+    showTabBar?: boolean;
   }>
 >;
 
@@ -58,6 +59,7 @@ export function ProductShell({
   actionAvailability,
   onSelectTab,
   onSelectAction,
+  showTabBar = true,
 }: Props) {
   const styles = useThemedStyles(createStyles);
   const [isActionsOpen, setActionsOpen] = useState(false);
@@ -95,32 +97,34 @@ export function ProductShell({
   return (
     <View style={styles.root}>
       <View style={styles.content}>{children}</View>
-      <View style={styles.tabBar}>
-        {renderTab('home')}
-        {renderTab('events')}
-        <View style={styles.actionsSlot}>
-          <Pressable
-            accessibilityLabel="Actions"
-            accessibilityRole="button"
-            accessibilityState={{expanded: isActionsOpen}}
-            onPress={() => setActionsOpen(true)}
-            style={({pressed}) => [
-              styles.actionsButton,
-              pressed ? styles.actionsButtonPressed : undefined,
-            ]}>
-            <View style={styles.plusHorizontal} />
-            <View style={styles.plusVertical} />
-          </Pressable>
+      {showTabBar ? (
+        <View style={styles.tabBar}>
+          {renderTab('home')}
+          {renderTab('events')}
+          <View style={styles.actionsSlot}>
+            <Pressable
+              accessibilityLabel="Actions"
+              accessibilityRole="button"
+              accessibilityState={{expanded: isActionsOpen}}
+              onPress={() => setActionsOpen(true)}
+              style={({pressed}) => [
+                styles.actionsButton,
+                pressed ? styles.actionsButtonPressed : undefined,
+              ]}>
+              <View style={styles.plusHorizontal} />
+              <View style={styles.plusVertical} />
+            </Pressable>
+          </View>
+          {renderTab('xapps')}
+          {renderTab('settings')}
         </View>
-        {renderTab('xapps')}
-        {renderTab('settings')}
-      </View>
+      ) : null}
 
       <Modal
         animationType="fade"
         onRequestClose={() => setActionsOpen(false)}
         transparent
-        visible={isActionsOpen}>
+        visible={showTabBar && isActionsOpen}>
         <Pressable style={styles.overlay} onPress={() => setActionsOpen(false)}>
           <Pressable
             onPress={event => event.stopPropagation()}

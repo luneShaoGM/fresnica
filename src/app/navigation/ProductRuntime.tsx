@@ -62,6 +62,11 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
 
   const selectedAccount = resolveSelectedAccount(navigation, accounts);
   const destination = navigation.destination;
+  const showTabBar =
+    destination.route === 'home' ||
+    destination.route === 'events' ||
+    destination.route === 'xapps' ||
+    destination.route === 'settings-home';
 
   const handleSelectAction = useCallback(
     (action: ProductAction) => {
@@ -100,6 +105,7 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
       content = (
         <AccountDetailsScreen
           account={account}
+          onBack={() => dispatch({type: 'back-to-root'})}
           onSend={() => dispatch({type: 'open-send', accountId: account.id})}
           onManageAssets={() => dispatch({type: 'open-manage-assets', accountId: account.id})}
         />
@@ -169,6 +175,7 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
       content = (
         <AccountsScreen
           accounts={accounts}
+          onBack={() => dispatch({type: 'back-to-root'})}
           onOpenAccount={accountId => dispatch({type: 'open-account', accountId})}
           onAddAccount={() => dispatch({type: 'open-add-account'})}
         />
@@ -183,10 +190,10 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
       );
       break;
     case 'network-settings':
-      content = <NetworkSettingsScreen />;
+      content = <NetworkSettingsScreen onBack={() => dispatch({type: 'back-to-root'})} />;
       break;
     case 'about':
-      content = <AboutScreen />;
+      content = <AboutScreen onBack={() => dispatch({type: 'back-to-root'})} />;
       break;
   }
 
@@ -195,7 +202,8 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
       activeTab={destination.tab}
       actionAvailability={PRODUCT_ACTION_AVAILABILITY}
       onSelectAction={handleSelectAction}
-      onSelectTab={tab => dispatch({type: 'select-tab', tab})}>
+      onSelectTab={tab => dispatch({type: 'select-tab', tab})}
+      showTabBar={showTabBar}>
       {content}
     </ProductShell>
   );
