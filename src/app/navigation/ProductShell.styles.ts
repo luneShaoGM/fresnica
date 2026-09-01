@@ -58,7 +58,6 @@ export function createStyles(theme: AppTheme) {
       borderRadius: 31,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: theme.colors.actionPrimary,
       transform: [{translateY: -12}],
       shadowColor: '#000000',
       shadowOpacity: 0.14,
@@ -67,21 +66,11 @@ export function createStyles(theme: AppTheme) {
       elevation: 5,
     },
     actionsButtonPressed: {
-      backgroundColor: theme.colors.actionPrimaryPressed,
+      opacity: 0.7,
     },
-    plusHorizontal: {
-      position: 'absolute',
-      width: 24,
-      height: 3,
-      borderRadius: 2,
-      backgroundColor: theme.colors.onActionPrimary,
-    },
-    plusVertical: {
-      position: 'absolute',
-      width: 3,
-      height: 24,
-      borderRadius: 2,
-      backgroundColor: theme.colors.onActionPrimary,
+    actionsImage: {
+      width: 62,
+      height: 62,
     },
     overlay: {
       flex: 1,

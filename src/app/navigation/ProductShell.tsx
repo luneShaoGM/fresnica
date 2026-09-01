@@ -53,6 +53,8 @@ const ACTION_ICONS = {
   request: require('../../ui/assets/stellar/icon_request.png'),
 } as const;
 
+const tabActionsIcon = require('../../ui/assets/stellar/icon_tabbar_actions.png');
+
 export function ProductShell({
   children,
   activeTab,
@@ -111,8 +113,7 @@ export function ProductShell({
                 styles.actionsButton,
                 pressed ? styles.actionsButtonPressed : undefined,
               ]}>
-              <View style={styles.plusHorizontal} />
-              <View style={styles.plusVertical} />
+              <Image resizeMode="contain" source={tabActionsIcon} style={styles.actionsImage} />
             </Pressable>
           </View>
           {renderTab('xapps')}

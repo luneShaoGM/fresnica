@@ -1,5 +1,5 @@
 import React from 'react';
-import {Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View} from 'react-native';
 
 type Props = Readonly<{
   accountCount: number;
@@ -8,6 +8,19 @@ type Props = Readonly<{
   onOpenNetwork: () => void;
   onOpenAbout: () => void;
 }>;
+
+const icons = {
+  account: require('../../ui/assets/stellar/icon_account.png'),
+  book: require('../../ui/assets/stellar/icon_book.png'),
+  sliders: require('../../ui/assets/stellar/icon_sliders.png'),
+  activity: require('../../ui/assets/stellar/icon_activity.png'),
+  shield: require('../../ui/assets/stellar/icon_shield.png'),
+  help: require('../../ui/assets/stellar/icon_help_circle.png'),
+  info: require('../../ui/assets/stellar/icon_info.png'),
+  chevron: require('../../ui/assets/stellar/icon_chevron_right.png'),
+} as const;
+
+type SettingIcon = Exclude<keyof typeof icons, 'chevron'>;
 
 export function SettingsHomeScreen({
   accountCount,
@@ -23,27 +36,27 @@ export function SettingsHomeScreen({
 
         <SettingsGroup>
           <SettingRow
-            glyph="◎"
+            icon="account"
             label="Accounts"
             detail={`${accountCount} ${accountCount === 1 ? 'account' : 'accounts'}`}
             onPress={onOpenAccounts}
           />
-          <SettingRow glyph="◇" label="Address book" />
+          <SettingRow icon="book" label="Address book" />
         </SettingsGroup>
 
         <SettingsGroup>
-          <SettingRow glyph="☰" label="General" detail="Network" onPress={onOpenNetwork} />
-          <SettingRow glyph="⌘" label="Advanced" />
+          <SettingRow icon="sliders" label="General" detail="Network" onPress={onOpenNetwork} />
+          <SettingRow icon="activity" label="Advanced" />
         </SettingsGroup>
 
         <SettingsGroup>
-          <SettingRow glyph="⬡" label="Security" onPress={onOpenSecurity} />
+          <SettingRow icon="shield" label="Security" onPress={onOpenSecurity} />
         </SettingsGroup>
 
         <SettingsGroup>
-          <SettingRow glyph="?" label="Questions & Support" />
-          <SettingRow glyph="≡" label="Terms & Conditions" />
-          <SettingRow glyph="i" label="About" onPress={onOpenAbout} />
+          <SettingRow icon="help" label="Questions & Support" />
+          <SettingRow icon="info" label="Terms & Conditions" />
+          <SettingRow icon="info" label="About" onPress={onOpenAbout} />
         </SettingsGroup>
 
         <Text style={styles.footer}>Fresnica · Stellar Testnet</Text>
@@ -57,12 +70,12 @@ function SettingsGroup({children}: Readonly<{children?: React.ReactNode}>) {
 }
 
 function SettingRow({
-  glyph,
+  icon,
   label,
   detail,
   onPress,
 }: Readonly<{
-  glyph: string;
+  icon: SettingIcon;
   label: string;
   detail?: string;
   onPress?: () => void;
@@ -76,12 +89,16 @@ function SettingRow({
       onPress={onPress}
       style={({pressed}) => [styles.row, pressed ? styles.pressed : undefined]}>
       <View style={styles.iconSlot}>
-        <Text style={styles.iconGlyph}>{glyph}</Text>
+        <Image resizeMode="contain" source={icons[icon]} style={styles.rowIcon} />
       </View>
       <Text style={[styles.label, !enabled ? styles.labelDisabled : undefined]}>{label}</Text>
       <View style={styles.rowTail}>
         {detail ? <Text style={styles.detail}>{detail}</Text> : null}
-        {enabled ? <Text style={styles.chevron}>›</Text> : <Text style={styles.soon}>Soon</Text>}
+        {enabled ? (
+          <Image resizeMode="contain" source={icons.chevron} style={styles.chevronIcon} />
+        ) : (
+          <Text style={styles.soon}>Soon</Text>
+        )}
       </View>
     </Pressable>
   );
@@ -91,26 +108,15 @@ const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
   content: {paddingHorizontal: 18, paddingTop: 8, paddingBottom: 36},
   title: {fontSize: 28, lineHeight: 34, fontWeight: '800', color: '#000000', letterSpacing: -0.6, marginBottom: 18},
-  group: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E7EAF0',
-    marginBottom: 18,
-  },
-  row: {
-    minHeight: 58,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E7EAF0',
-    gap: 12,
-  },
-  iconSlot: {width: 29, height: 29, alignItems: 'center', justifyContent: 'center'},
-  iconGlyph: {fontSize: 19, lineHeight: 22, color: '#181D41', fontWeight: '600'},
+  group: {marginBottom: 18},
+  row: {minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12},
+  iconSlot: {width: 30, height: 30, alignItems: 'center', justifyContent: 'center'},
+  rowIcon: {width: 25, height: 25, tintColor: '#00CA8A'},
   label: {flex: 1, fontSize: 15, lineHeight: 19, color: '#000000', fontWeight: '600'},
   labelDisabled: {color: '#606885'},
   rowTail: {flexDirection: 'row', alignItems: 'center', gap: 9},
   detail: {fontSize: 11, lineHeight: 14, color: '#ACB1C1'},
-  chevron: {fontSize: 26, lineHeight: 28, color: '#ACB1C1', fontWeight: '300'},
+  chevronIcon: {width: 22, height: 22, tintColor: '#00CA8A'},
   soon: {fontSize: 10, lineHeight: 13, color: '#ACB1C1'},
   footer: {fontSize: 10, lineHeight: 14, color: '#ACB1C1', textAlign: 'center', marginTop: 4},
   pressed: {opacity: 0.62},
