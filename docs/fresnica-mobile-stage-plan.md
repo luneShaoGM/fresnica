@@ -25,11 +25,8 @@ main
                       -> feat/send-product-flow    PR #17
                            -> feat/history-read-flow  PR #18
                                 -> feat/trustline-flow  PR #19
-
-native compatibility stack:
-feat/trustline-flow
-  -> fix/android-adapter-included-build-gate  PR #20
-       -> fix/apple-native-runtime-smoke       PR #22
+                                     + native gate recovery PR #22
+                                       (includes Android compatibility commits from PR #20)
 
 payment conformance rebaseline:
 feat/trustline-flow
@@ -39,15 +36,17 @@ parallel security fix:
 main -> fix/android-release-signing             PR #14
 ```
 
-Stages 1-4 are source-complete. The latest #22 head executed and passed the full current CI stack: normal CI, Realm Integration, Native Android Gate and Native Apple Gate. That validates the Stage 1-4 product tree plus the Android compatibility workaround on real runners; #20/#22 still need to be integrated back into the Trustline base before #19 is considered final.
+Stages 1-4 are source-complete. PR #22's exact combined native-recovery head executed and passed normal CI, Realm Integration, Native Android Gate and Native Apple Gate, then was merged into `feat/trustline-flow` as merge commit `8741beb4...`. PR #20's Android commits are preserved in that history and GitHub marked #20 merged when they entered the base through #22.
 
-Payment was re-audited against the newer upstream Normative contract in PR #21. Its normal CI and Realm Integration are green; native revalidation remains pending until the shared #20/#22 native baseline is integrated.
+PR #19's first post-integration runs, and an immediate retry of its core CI, failed before any workflow step executed (`steps:null`), so Stage 4 remains externally blocked on runner allocation rather than being relabeled green without a real current-head run.
+
+Payment was re-audited against the newer upstream Normative contract in PR #21. Its Payment implementation, normal CI and Realm Integration have already passed on the pre-native-integration head. This documentation correction intentionally creates a new PR #21 head so GitHub can validate the current Payment changes against the updated Trustline/native base.
 
 ---
 
 ## Stage 1 — Runtime Product Shell and Wallet Home
 
-**Status:** SOURCE COMPLETE — PR #16 — VALIDATED IN LATEST NATIVE STACK
+**Status:** SOURCE COMPLETE — PR #16 — VALIDATED IN COMBINED NATIVE STACK
 
 **Delivered**
 
@@ -94,9 +93,9 @@ PR #17 established the first Send product flow. PR #21 supersedes its older Paym
 
 **Validation**
 
-- PR #21 normal CI: green;
-- PR #21 Realm Integration: green;
-- native rerun: pending shared #20/#22 integration into its base.
+- PR #21 normal CI: green on the pre-native-integration head;
+- PR #21 Realm Integration: green on the pre-native-integration head;
+- current-base full revalidation: triggered by the latest documentation/head update; runner execution remains authoritative.
 
 **Non-goals**
 
@@ -108,7 +107,7 @@ PR #17 established the first Send product flow. PR #21 supersedes its older Paym
 
 ## Stage 3 — Activity / History Read Flow
 
-**Status:** SOURCE COMPLETE — PR #18 — VALIDATED IN LATEST NATIVE STACK
+**Status:** SOURCE COMPLETE — PR #18 — VALIDATED IN COMBINED NATIVE STACK
 
 **Delivered**
 
@@ -132,7 +131,7 @@ PR #17 established the first Send product flow. PR #21 supersedes its older Paym
 
 ## Stage 4 — Trustline / Manage Assets Flow
 
-**Status:** SOURCE COMPLETE — PR #19 — FULL TREE VALIDATED THROUGH #22; BASE INTEGRATION PENDING
+**Status:** SOURCE COMPLETE — PR #19 — NATIVE RECOVERY INTEGRATED; CURRENT-HEAD CI EXTERNALLY BLOCKED
 
 **Normative source**
 
@@ -160,9 +159,10 @@ Upstream Fresnica Trustline is Normative. Mobile follows the shared semantic con
 
 **Native validation**
 
-- #20 proves the checkout-only Android adapter compatibility path through canonical adapter build, manifest/AAR validation and Android app link;
-- #22 proves the same Stage 1-4 product tree can pass CI, Realm Integration, Native Android and Native Apple runtime gates together without weakening the runtime smoke assertions;
-- merge/integration back into `feat/trustline-flow` remains required before PR #19 is final.
+- the Android adapter compatibility work tracks upstream #128/#129 and remains checkout-only/fail-closed;
+- the Apple runtime-smoke sequencing fix preserves the existing timeout and real Realm + `FresnicaCore.parseAccount` assertions;
+- PR #22 exact head passed CI, Realm Integration, Native Android and Native Apple together before merge into `feat/trustline-flow`;
+- PR #19 current head is `8741beb4...`; its post-integration workflows currently fail before steps because a runner is not allocated, so the PR remains open until a real current-head run executes.
 
 **Non-goals**
 
@@ -285,10 +285,10 @@ When revisited, it must reuse shared Ledger Authorization / Signing Coordination
 ## Execution order
 
 ```text
-1. Runtime Product Shell + Wallet Home        SOURCE COMPLETE / VALIDATED IN LATEST STACK
-2. Send / Payment conformance                 PR #21 CORE CI + REALM GREEN; NATIVE REVALIDATION PENDING
-3. Activity / History                         SOURCE COMPLETE / VALIDATED IN LATEST STACK
-4. Trustline / Manage Assets                  SOURCE COMPLETE / #20+#22 INTEGRATION PENDING
+1. Runtime Product Shell + Wallet Home        SOURCE COMPLETE / VALIDATED IN COMBINED STACK
+2. Send / Payment conformance                 PR #21 CURRENT-BASE REVALIDATION TRIGGERED
+3. Activity / History                         SOURCE COMPLETE / VALIDATED IN COMBINED STACK
+4. Trustline / Manage Assets                  SOURCE COMPLETE / CURRENT-HEAD RUNNER BLOCKED
 5A. Path Payment Swap                         BLOCKED ON UPSTREAM CAPABILITY #134
 5B. SDEX Offer Management                     SEPARATE / NORMATIVE READY
 6. Security & account lifecycle completion    PARTIALLY CORE-BLOCKED; UNBLOCKED SLICES MAY PROCEED
