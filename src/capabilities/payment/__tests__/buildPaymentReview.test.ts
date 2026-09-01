@@ -50,8 +50,24 @@ function paymentXdr(options?: {
   return builder.setTimeout(180).build().toXdr();
 }
 
+function createAccountXdr() {
+  return new TransactionBuilder(new Account(sourceAddress, '50'), {
+    fee: '120',
+    networkPassphrase: Networks.TESTNET,
+  })
+    .addOperation(
+      Operation.createAccount({
+        destination: destinationAddress,
+        startingBalance: '1.5000000',
+      }),
+    )
+    .setTimeout(180)
+    .build()
+    .toXdr();
+}
+
 describe('buildPaymentReview', () => {
-  it('derives every displayed field and expiry from the exact unsigned XDR', () => {
+  it('derives every displayed Payment field and expiry from exact unsigned XDR', () => {
     const xdr = paymentXdr();
     const transaction = new Transaction(xdr, Networks.TESTNET);
     const expectedExpiry = Number(transaction.timeBounds?.maxTime);
@@ -65,6 +81,7 @@ describe('buildPaymentReview', () => {
       transactionXdrBase64: xdr,
       networkId: 'stellar-testnet',
       source: sourceAddress,
+      operation: 'payment',
       destination: destinationAddress,
       amount: '2.5000000',
       asset: {kind: 'native'},
@@ -72,12 +89,26 @@ describe('buildPaymentReview', () => {
       fee: '100',
       expiresAtUnixSeconds: expectedExpiry,
     });
-    expect(review.transactionXdrBase64).toBe(xdr);
     expect(Object.isFrozen(review)).toBe(true);
     expect(Object.isFrozen(review.asset)).toBe(true);
   });
 
-  it('decodes a Unicode text memo from the exact XDR as UTF-8', () => {
+  it('derives CreateAccount operation, native asset and starting balance from exact XDR', () => {
+    const xdr = createAccountXdr();
+
+    expect(
+      buildPaymentReview({transactionXdrBase64: xdr, networkId: 'stellar-testnet'}),
+    ).toMatchObject({
+      operation: 'create-account',
+      source: sourceAddress,
+      destination: destinationAddress,
+      amount: '1.5000000',
+      asset: {kind: 'native'},
+      fee: '120',
+    });
+  });
+
+  it('decodes a Unicode text memo from exact XDR as UTF-8', () => {
     const xdr = paymentXdr({memo: Memo.text('测试 memo')});
 
     expect(
@@ -88,15 +119,15 @@ describe('buildPaymentReview', () => {
     ).toBe('测试 memo');
   });
 
-  it('derives credit asset code and issuer from the exact XDR', () => {
-    const xdr = paymentXdr({asset: new Asset('USDC', issuerAddress)});
+  it('derives credit asset code and issuer from exact XDR without case normalization', () => {
+    const xdr = paymentXdr({asset: new Asset('usd', issuerAddress)});
 
     expect(
       buildPaymentReview({
         transactionXdrBase64: xdr,
         networkId: 'stellar-testnet',
       }).asset,
-    ).toEqual({kind: 'credit', code: 'USDC', issuer: issuerAddress});
+    ).toEqual({kind: 'credit', code: 'usd', issuer: issuerAddress});
   });
 
   it('rejects a caller network that is not the configured Testnet network', () => {
@@ -128,7 +159,7 @@ describe('buildPaymentReview', () => {
     ).toThrow('Payment review does not support an operation source override');
   });
 
-  it('rejects memo types the v1 review cannot display completely', () => {
+  it('rejects memo types the v1 product review cannot display completely', () => {
     expect(() =>
       buildPaymentReview({
         transactionXdrBase64: paymentXdr({memo: Memo.id('7')}),
