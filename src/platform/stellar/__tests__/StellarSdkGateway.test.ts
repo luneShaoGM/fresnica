@@ -73,6 +73,7 @@ function transactionHashHex(xdr: string): string {
 
 async function paymentXdr(gateway: StellarSdkGateway): Promise<string> {
   const built = await gateway.buildPayment({
+    operation: 'payment',
     source: sourceAddress,
     destination: destinationAddress,
     asset: { kind: 'native' },
