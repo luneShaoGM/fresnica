@@ -32,6 +32,18 @@ Core product families to preserve from the Stellar reference include:
 - Settings, Security, Network and Advanced screens;
 - Review/Submit/Picker/Modal/Overlay interaction patterns.
 
+## Theme scope decision
+
+Theme customization is intentionally deferred. The rewrite establishes a semantic `AppTheme` contract and one canonical `defaultTheme`, but it does not add user-selectable themes, theme persistence, a theme settings UI or arbitrary custom-theme input yet.
+
+The design must nevertheless preserve the future extension seam:
+
+```text
+feature/screen -> semantic theme contract -> active AppTheme
+```
+
+Feature code must not depend on raw colors or on a specific future theme source. A later theme-selection/customization stage should be able to change how the active `AppTheme` is resolved without rewriting product features.
+
 ## P0 — Architecture, style and parity baseline
 
 **Goal:** stop product drift before more UI is added.
@@ -42,13 +54,16 @@ Deliverables:
 - screen/feature parity matrix: Stellar screen -> Fresnica feature -> required Capability -> status;
 - typed route inventory for Home / Events / Actions / XApps / Settings and modal/overlay routes;
 - identify reusable Stellar/Xaman visual primitives without importing old business/security implementation;
-- add the tooling foundation for format/lint/import-boundary enforcement;
-- establish migration rule: touched/new files follow the new standard; unrelated legacy files are not mass-reformatted.
+- incremental zero-dependency architecture/style guard wired into `npm run check`;
+- add ESLint/Prettier/import-alias enforcement in a follow-up tooling commit only when npm can generate the lockfile normally; do not hand-author dependency lock data;
+- establish migration rule: touched/new files follow the new standard; unrelated legacy files are not mass-reformatted;
+- record current boundary debt explicitly instead of pretending target architecture is already globally true.
 
 Acceptance:
 
 - every next product PR can identify its reference screen, feature boundary and Capability dependencies before code is changed;
-- new code cannot silently import `platform` from a feature or SDK/Realm/native code from a Screen.
+- new/reworked product scopes cannot silently import `platform` from a feature or SDK/Realm/native code from a Screen;
+- existing validated Capability code is not destabilized solely to satisfy a new directory rule; boundary debt is reduced deliberately when the owning capability is touched.
 
 ## P1 — Design system and Product Shell
 
@@ -56,18 +71,29 @@ Acceptance:
 
 Deliverables:
 
-- split semantic theme (`colors`, `spacing`, `typography`, `radii`, `shadows`);
+- semantic theme contract (`AppTheme`) and canonical `defaultTheme`;
+- split theme implementation as real product needs appear (`colors`, `spacing`, `typography`, `radii`, later `shadows` when needed);
+- compatibility facade for existing `palette / spacing / radius / typography` consumers while new/reworked UI moves to semantic theme fields;
 - reusable Screen/Header/Button/ListRow/Modal/Overlay/BottomTab primitives as actually needed;
 - five-entry bottom product navigation: Home / Events / Actions / XApps / Settings;
 - central Actions interaction surface;
 - typed navigation state that carries public/product-safe values only;
-- light/dark theme infrastructure without a mutable global StyleService.
+- preserve an explicit theme-resolution seam so alternate themes can be added later without coupling product features to theme storage/configuration.
+
+Deferred from P1:
+
+- user-selectable themes;
+- theme customization settings;
+- theme persistence/synchronization;
+- arbitrary user-authored theme definitions;
+- light/dark switching unless it becomes a separate explicitly prioritized product requirement.
 
 Acceptance:
 
 - first launch after onboarding presents the expected Stellar-like product shell;
 - navigation state contains no mnemonic, passphrase, decrypted key material or transaction secret state;
-- visual primitives use theme tokens instead of raw colors/duplicated dimensions.
+- visual primitives use semantic theme tokens instead of raw colors/duplicated dimensions;
+- product features do not need code changes when the active `AppTheme` source is extended later.
 
 ## P2 — Home and account/assets presentation
 
