@@ -1,4 +1,4 @@
-import type { Transaction, TransactionSource } from '@stellar/stellar-sdk';
+import type { Asset, Transaction, TransactionSource } from '@stellar/stellar-sdk';
 
 export type HorizonBalanceLike = {
   asset_type: string;
@@ -77,6 +77,35 @@ export type HorizonLiquidityPoolLike = Readonly<{
   id: string;
   reserves: readonly Readonly<{asset: string}>[];
 }>;
+
+export type HorizonPathAssetLike = Readonly<{
+  asset_type: string;
+  asset_code?: string;
+  asset_issuer?: string;
+}>;
+
+export type HorizonPathRecordLike = Readonly<{
+  source_amount: string;
+  destination_amount: string;
+  path: readonly HorizonPathAssetLike[];
+}>;
+
+export type HorizonPathPageLike = Readonly<{
+  records: readonly HorizonPathRecordLike[];
+}>;
+
+export type HorizonPathServerLike = {
+  loadStrictSendPaths(input: Readonly<{
+    sourceAsset: Asset;
+    sourceAmount: string;
+    destinationAssets: readonly Asset[];
+  }>): Promise<HorizonPathPageLike>;
+  loadStrictReceivePaths(input: Readonly<{
+    sourceAssets: readonly Asset[];
+    destinationAsset: Asset;
+    destinationAmount: string;
+  }>): Promise<HorizonPathPageLike>;
+};
 
 export type HorizonServerLike = {
   loadAccount(address: string): Promise<HorizonAccountLike>;
@@ -190,6 +219,24 @@ export type StellarPaymentAsset =
   | { kind: 'native' }
   | { kind: 'credit'; code: string; issuer: string };
 
+export type StellarPathPaymentRoute = Readonly<{
+  sourceAmount: string;
+  destinationAmount: string;
+  path: readonly StellarPaymentAsset[];
+}>;
+
+export type LoadStrictSendPathsInput = Readonly<{
+  sourceAsset: StellarPaymentAsset;
+  sourceAmount: string;
+  destinationAssets: readonly StellarPaymentAsset[];
+}>;
+
+export type LoadStrictReceivePathsInput = Readonly<{
+  sourceAssets: readonly StellarPaymentAsset[];
+  destinationAsset: StellarPaymentAsset;
+  destinationAmount: string;
+}>;
+
 export type BuildPaymentInput = Readonly<{
   operation: 'payment' | 'create-account';
   source: string;
@@ -206,6 +253,30 @@ export type BuildChangeTrustInput = Readonly<{
   issuer: string;
   limit: string;
   baseFee: string;
+}>;
+
+export type BuildPathPaymentStrictSendInput = Readonly<{
+  source: string;
+  destination: string;
+  sendAsset: StellarPaymentAsset;
+  sendAmount: string;
+  destinationAsset: StellarPaymentAsset;
+  destinationMinimum: string;
+  path: readonly StellarPaymentAsset[];
+  baseFee: string;
+  timeoutSeconds: number;
+}>;
+
+export type BuildPathPaymentStrictReceiveInput = Readonly<{
+  source: string;
+  destination: string;
+  sendAsset: StellarPaymentAsset;
+  sendMaximum: string;
+  destinationAsset: StellarPaymentAsset;
+  destinationAmount: string;
+  path: readonly StellarPaymentAsset[];
+  baseFee: string;
+  timeoutSeconds: number;
 }>;
 
 export type BuiltTransaction = {
