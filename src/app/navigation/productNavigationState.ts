@@ -2,12 +2,13 @@ import type {AccountRecord} from '../../capabilities/account/types';
 import type {MainTab} from './productRoutes';
 
 export type ProductDestination =
-  | Readonly<{tab: 'wallet'; route: 'wallet-home'}>
-  | Readonly<{tab: 'wallet'; route: 'account-details'; accountId: string}>
-  | Readonly<{tab: 'wallet'; route: 'add-account'}>
-  | Readonly<{tab: 'wallet'; route: 'send-form'; accountId: string}>
-  | Readonly<{tab: 'wallet'; route: 'manage-assets'; accountId: string}>
-  | Readonly<{tab: 'activity'; route: 'history'}>
+  | Readonly<{tab: 'home'; route: 'home'}>
+  | Readonly<{tab: 'home'; route: 'account-details'; accountId: string}>
+  | Readonly<{tab: 'home'; route: 'add-account'}>
+  | Readonly<{tab: 'home'; route: 'send-form'; accountId: string}>
+  | Readonly<{tab: 'home'; route: 'manage-assets'; accountId: string}>
+  | Readonly<{tab: 'events'; route: 'events'}>
+  | Readonly<{tab: 'xapps'; route: 'xapps'}>
   | Readonly<{tab: 'settings'; route: 'settings-home'}>
   | Readonly<{tab: 'settings'; route: 'accounts-settings'}>
   | Readonly<{tab: 'settings'; route: 'security-settings'}>
@@ -42,7 +43,7 @@ export function createInitialProductNavigation(
 
   return {
     selectedAccountId: firstAccount.id,
-    destination: {tab: 'wallet', route: 'wallet-home'},
+    destination: {tab: 'home', route: 'home'},
   };
 }
 
@@ -77,32 +78,32 @@ export function reduceProductNavigation(
       assertSelectableAccount(accounts, action.accountId);
       return {
         selectedAccountId: action.accountId,
-        destination: {tab: 'wallet', route: 'wallet-home'},
+        destination: {tab: 'home', route: 'home'},
       };
     case 'open-account':
       assertSelectableAccount(accounts, action.accountId);
       return {
         ...state,
         destination: {
-          tab: 'wallet',
+          tab: 'home',
           route: 'account-details',
           accountId: action.accountId,
         },
       };
     case 'open-add-account':
-      return {...state, destination: {tab: 'wallet', route: 'add-account'}};
+      return {...state, destination: {tab: 'home', route: 'add-account'}};
     case 'open-send':
       assertSelectableAccount(accounts, action.accountId);
       return {
         ...state,
-        destination: {tab: 'wallet', route: 'send-form', accountId: action.accountId},
+        destination: {tab: 'home', route: 'send-form', accountId: action.accountId},
       };
     case 'open-manage-assets':
       assertSelectableAccount(accounts, action.accountId);
       return {
         ...state,
         destination: {
-          tab: 'wallet',
+          tab: 'home',
           route: 'manage-assets',
           accountId: action.accountId,
         },
@@ -164,10 +165,12 @@ export function nextSelectableAccountId(
 
 function rootDestination(tab: MainTab): ProductDestination {
   switch (tab) {
-    case 'wallet':
-      return {tab, route: 'wallet-home'};
-    case 'activity':
-      return {tab, route: 'history'};
+    case 'home':
+      return {tab, route: 'home'};
+    case 'events':
+      return {tab, route: 'events'};
+    case 'xapps':
+      return {tab, route: 'xapps'};
     case 'settings':
       return {tab, route: 'settings-home'};
   }
