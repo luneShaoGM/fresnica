@@ -1,6 +1,8 @@
 import {defaultTheme} from './theme/defaultTheme';
 
 export {defaultTheme};
+export {useAppTheme} from './theme/useAppTheme';
+export {useThemedStyles} from './theme/useThemedStyles';
 export type {
   AppTheme,
   ThemeColors,
