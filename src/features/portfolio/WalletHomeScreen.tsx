@@ -1,5 +1,15 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import type {AccountRecord} from '../../capabilities/account/types';
 import {
@@ -7,10 +17,7 @@ import {
   type BalanceDependencies,
 } from '../../capabilities/balance/loadBalanceSnapshot';
 import type {BalanceSnapshot} from '../../capabilities/balance/types';
-import {Button} from '../../ui/Button';
-import {Card} from '../../ui/Card';
-import {Screen} from '../../ui/Screen';
-import {palette, spacing, typography} from '../../ui/theme';
+import {palette} from '../../ui/theme';
 
 type BalanceState =
   | Readonly<{kind: 'loading'}>
@@ -26,7 +33,14 @@ type Props = Readonly<{
   onOpenAccount: () => void;
   onSend: () => void;
   onManageAssets: () => void;
+  onSwap?: () => void;
+  onRequest?: () => void;
 }>;
+
+const sendIcon = require('../../ui/assets/stellar/icon_send_v2.png');
+const swapIcon = require('../../ui/assets/stellar/icon_swap.png');
+const requestIcon = require('../../ui/assets/stellar/icon_request.png');
+const xlmIcon = require('../../ui/assets/stellar/icon_xlm.png');
 
 export function WalletHomeScreen({
   account,
@@ -37,6 +51,8 @@ export function WalletHomeScreen({
   onOpenAccount,
   onSend,
   onManageAssets,
+  onSwap,
+  onRequest,
 }: Props) {
   const [balanceState, setBalanceState] = useState<BalanceState>({kind: 'loading'});
   const requestVersion = useRef(0);
@@ -70,91 +86,173 @@ export function WalletHomeScreen({
   }, [refreshBalances]);
 
   return (
-    <Screen eyebrow="Stellar Testnet" title="Wallet">
-      <Card title={account.label || 'Stellar account'}>
-        <Text selectable style={styles.address}>
-          {account.address}
-        </Text>
-        <View style={styles.metaRow}>
-          <Text style={styles.meta}>{account.identityKind}</Text>
-          <Text style={styles.meta}>
-            {accountCount === 1 ? '1 account' : `${accountCount} accounts`}
-          </Text>
-        </View>
-        <View style={styles.row}>
-          <View style={styles.flex}>
-            <Button label="Switch" variant="secondary" onPress={onSwitchAccount} />
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={balanceState.kind === 'loading'}
+            tintColor={palette.accent}
+            onRefresh={refreshBalances}
+          />
+        }
+        showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <View style={styles.brandRow}>
+            <View style={styles.brandMark} />
+            <Text style={styles.brand}>Fresnica</Text>
           </View>
-          <View style={styles.flex}>
-            <Button label="Account" variant="secondary" onPress={onOpenAccount} />
+          <View style={styles.networkPill}>
+            <View style={styles.networkDot} />
+            <Text style={styles.networkText}>Testnet</Text>
           </View>
         </View>
-      </Card>
 
-      <Text style={styles.sectionTitle}>Portfolio</Text>
-      {renderPortfolio(balanceState, refreshBalances)}
+        <Pressable
+          accessibilityRole="button"
+          onPress={onOpenAccount}
+          style={({pressed}) => [styles.accountCard, pressed ? styles.pressed : undefined]}>
+          <View style={styles.accountTextBlock}>
+            <Text numberOfLines={1} style={styles.accountLabel}>
+              {account.label || 'Stellar account'}
+            </Text>
+            <Text numberOfLines={1} selectable style={styles.accountAddress}>
+              {shortAddress(account.address)}
+            </Text>
+          </View>
+          <Pressable
+            accessibilityLabel="Switch account"
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={event => {
+              event.stopPropagation();
+              onSwitchAccount();
+            }}
+            style={({pressed}) => [styles.switchButton, pressed ? styles.pressed : undefined]}>
+            <Text style={styles.switchGlyph}>⇄</Text>
+          </Pressable>
+        </Pressable>
 
-      <Text style={styles.sectionTitle}>Actions</Text>
-      <View style={styles.row}>
-        <View style={styles.flex}>
-          <Button label="Send" onPress={onSend} />
+        <View style={styles.accountMetaRow}>
+          <Text style={styles.accountMeta}>{account.identityKind}</Text>
+          <Pressable accessibilityRole="button" onPress={onAddAccount}>
+            <Text style={styles.addAccountText}>
+              {accountCount === 1 ? '+ Add account' : `${accountCount} accounts · Add`}
+            </Text>
+          </Pressable>
         </View>
-        <View style={styles.flex}>
-          <Button label="Manage assets" variant="secondary" onPress={onManageAssets} />
+
+        <View style={styles.actionsRow}>
+          <HomeAction label="Send" source={sendIcon} onPress={onSend} tone="green" />
+          <HomeAction label="Swap" source={swapIcon} onPress={onSwap} tone="dark" />
+          <HomeAction label="Request" source={requestIcon} onPress={onRequest} tone="green" />
         </View>
-      </View>
-      <Button label="Add account" variant="ghost" onPress={onAddAccount} />
-    </Screen>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Tokens</Text>
+          <Pressable accessibilityRole="button" onPress={onManageAssets}>
+            <Text style={styles.sectionLink}>Add asset</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.assetTools}>
+          <Text style={styles.toolText}>Filter</Text>
+          <View style={styles.toolDivider} />
+          <Text style={styles.toolText}>Sort</Text>
+          <View style={styles.toolDivider} />
+          <Text style={styles.toolText}>Favorites</Text>
+        </View>
+
+        {renderPortfolio(balanceState, refreshBalances)}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-function renderPortfolio(
-  state: BalanceState,
-  onRefresh: () => void,
-): React.ReactNode {
+function HomeAction({
+  label,
+  source,
+  tone,
+  onPress,
+}: Readonly<{
+  label: string;
+  source: number;
+  tone: 'green' | 'dark';
+  onPress?: () => void;
+}>) {
+  const enabled = typeof onPress === 'function';
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{disabled: !enabled}}
+      disabled={!enabled}
+      onPress={onPress}
+      style={({pressed}) => [
+        styles.action,
+        tone === 'dark' ? styles.actionDark : styles.actionGreen,
+        !enabled ? styles.actionDisabled : undefined,
+        pressed ? styles.pressed : undefined,
+      ]}>
+      <Image resizeMode="contain" source={source} style={styles.actionIcon} />
+      <Text style={styles.actionText}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function renderPortfolio(state: BalanceState, onRefresh: () => void): React.ReactNode {
   if (state.kind === 'loading') {
     return (
-      <Card title="Balances">
-        <View style={styles.loadingRow}>
-          <ActivityIndicator />
-          <Text style={styles.meta}>Loading current ledger balances...</Text>
-        </View>
-      </Card>
+      <View style={styles.stateBox}>
+        <ActivityIndicator color={palette.accent} />
+        <Text style={styles.stateText}>Loading assets…</Text>
+      </View>
     );
   }
 
   if (state.kind === 'error') {
     return (
-      <Card title="Balances" description={state.message}>
-        <Button label="Retry" variant="secondary" onPress={onRefresh} />
-      </Card>
+      <View style={styles.stateBox}>
+        <Text style={styles.stateTitle}>Balances unavailable</Text>
+        <Text style={styles.stateText}>{state.message}</Text>
+        <Pressable onPress={onRefresh} style={styles.retryButton}>
+          <Text style={styles.retryText}>Try again</Text>
+        </Pressable>
+      </View>
     );
   }
 
   const {snapshot} = state;
   if (snapshot.status === 'inactive') {
     return (
-      <Card
-        title="Account not activated"
-        description="This account does not exist on the selected Stellar network yet. Fund it before balances can appear.">
-        <Button label="Refresh" variant="secondary" onPress={onRefresh} />
-      </Card>
+      <View style={styles.stateBox}>
+        <Text style={styles.stateTitle}>Account not activated</Text>
+        <Text style={styles.stateText}>
+          Fund this account on Testnet before balances can appear.
+        </Text>
+        <Pressable onPress={onRefresh} style={styles.retryButton}>
+          <Text style={styles.retryText}>Refresh</Text>
+        </Pressable>
+      </View>
     );
   }
 
   if (snapshot.status === 'unsupported-account') {
     return (
-      <Card
-        title="Balance view unavailable"
-        description="Classic Horizon balances are not applied to contract accounts."
-      />
+      <View style={styles.stateBox}>
+        <Text style={styles.stateTitle}>Assets unavailable</Text>
+        <Text style={styles.stateText}>
+          Classic Horizon balances are not applied to contract accounts.
+        </Text>
+      </View>
     );
   }
 
   return (
-    <Card title="Balances">
+    <View style={styles.assetList}>
       {snapshot.balances.length === 0 ? (
-        <Text style={styles.meta}>No displayable balances.</Text>
+        <View style={styles.stateBox}>
+          <Text style={styles.stateText}>No displayable assets.</Text>
+        </View>
       ) : (
         snapshot.balances.map(line => {
           const assetKey =
@@ -162,84 +260,338 @@ function renderPortfolio(
               ? 'XLM'
               : `${line.asset.code}:${line.asset.issuer}`;
           return (
-            <View key={assetKey} style={styles.balanceRow}>
-              <View style={styles.balanceIdentity}>
+            <View key={assetKey} style={styles.assetRow}>
+              {line.asset.kind === 'native' ? (
+                <Image resizeMode="contain" source={xlmIcon} style={styles.assetIcon} />
+              ) : (
+                <View style={styles.assetFallbackIcon}>
+                  <Text style={styles.assetFallbackText}>{line.asset.code.slice(0, 1)}</Text>
+                </View>
+              )}
+              <View style={styles.assetIdentity}>
                 <Text style={styles.assetCode}>{line.asset.code}</Text>
-                {line.asset.kind === 'credit' ? (
-                  <Text selectable numberOfLines={1} style={styles.issuer}>
-                    {line.asset.issuer}
-                  </Text>
-                ) : null}
+                <Text numberOfLines={1} style={styles.assetIssuer}>
+                  {line.asset.kind === 'credit' ? shortAddress(line.asset.issuer) : 'Stellar native asset'}
+                </Text>
               </View>
-              <Text selectable style={styles.balanceAmount}>
-                {line.balance}
-              </Text>
+              <View style={styles.assetBalanceBlock}>
+                <Text selectable style={styles.assetBalance}>
+                  {line.balance}
+                </Text>
+                <Text style={styles.assetSymbol}>{line.asset.code}</Text>
+              </View>
             </View>
           );
         })
       )}
       {snapshot.hiddenLiquidityPoolShareCount > 0 ? (
-        <Text style={styles.meta}>
-          {snapshot.hiddenLiquidityPoolShareCount} liquidity-pool position(s) are not shown in this first Portfolio slice.
+        <Text style={styles.hiddenAssetsText}>
+          {snapshot.hiddenLiquidityPoolShareCount} liquidity-pool position(s) hidden
         </Text>
       ) : null}
-      <Button label="Refresh" variant="ghost" onPress={onRefresh} />
-    </Card>
+      <Pressable onPress={onRefresh} style={styles.refreshLink}>
+        <Text style={styles.refreshText}>Refresh balances</Text>
+      </Pressable>
+    </View>
   );
 }
 
+function shortAddress(value: string): string {
+  if (value.length <= 20) {
+    return value;
+  }
+  return `${value.slice(0, 9)}…${value.slice(-7)}`;
+}
+
 const styles = StyleSheet.create({
-  address: {
-    ...typography.caption,
-    color: palette.text,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  meta: {
-    ...typography.caption,
-    color: palette.textMuted,
-  },
-  sectionTitle: {
-    ...typography.sectionTitle,
-    color: palette.text,
-    marginTop: spacing.sm,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  flex: {
+  safeArea: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
-  loadingRow: {
+  content: {
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 30,
+  },
+  header: {
+    minHeight: 50,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-  },
-  balanceRow: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  brandRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: 8,
   },
-  balanceIdentity: {
+  brandMark: {
+    width: 13,
+    height: 13,
+    borderRadius: 7,
+    backgroundColor: '#00CA8A',
+  },
+  brand: {
+    fontSize: 25,
+    lineHeight: 30,
+    fontWeight: '800',
+    color: '#000000',
+    letterSpacing: -0.6,
+  },
+  networkPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 15,
+    backgroundColor: '#F3F6FA',
+  },
+  networkDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#F8BF4C',
+  },
+  networkText: {
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '700',
+    color: '#606885',
+  },
+  accountCard: {
+    minHeight: 74,
+    borderRadius: 12,
+    backgroundColor: '#F3F6FA',
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  accountTextBlock: {
     flex: 1,
+    gap: 4,
   },
-  assetCode: {
-    ...typography.body,
-    color: palette.text,
+  accountLabel: {
+    fontSize: 17,
+    lineHeight: 21,
+    fontWeight: '800',
+    color: '#000000',
+  },
+  accountAddress: {
+    fontSize: 12,
+    lineHeight: 15,
+    color: '#606885',
+    fontVariant: ['tabular-nums'],
+  },
+  switchButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  switchGlyph: {
+    fontSize: 22,
+    lineHeight: 25,
+    color: '#181D41',
     fontWeight: '700',
   },
-  issuer: {
-    ...typography.caption,
-    color: palette.textMuted,
+  accountMetaRow: {
+    minHeight: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
   },
-  balanceAmount: {
-    ...typography.body,
-    color: palette.text,
+  accountMeta: {
+    fontSize: 11,
+    color: '#ACB1C1',
+  },
+  addAccountText: {
+    fontSize: 11,
+    color: '#606885',
+    fontWeight: '600',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 9,
+    marginTop: 5,
+    marginBottom: 24,
+  },
+  action: {
+    flex: 1,
+    minHeight: 88,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  actionGreen: {
+    backgroundColor: '#00CA8A',
+  },
+  actionDark: {
+    backgroundColor: '#181D41',
+  },
+  actionDisabled: {
+    opacity: 0.38,
+  },
+  actionIcon: {
+    width: 31,
+    height: 31,
+  },
+  actionText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 21,
+    lineHeight: 26,
+    fontWeight: '800',
+    color: '#000000',
+  },
+  sectionLink: {
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '700',
+    color: '#00B279',
+  },
+  assetTools: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  toolText: {
+    fontSize: 11,
+    color: '#ACB1C1',
+    fontWeight: '600',
+  },
+  toolDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: '#E7EAF0',
+    marginHorizontal: 10,
+  },
+  stateBox: {
+    minHeight: 92,
+    borderRadius: 10,
+    backgroundColor: '#F3F6FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    gap: 7,
+  },
+  stateTitle: {
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: '800',
+    color: '#000000',
+    textAlign: 'center',
+  },
+  stateText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#606885',
+    textAlign: 'center',
+  },
+  retryButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  retryText: {
+    color: '#00B279',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  assetList: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E7EAF0',
+  },
+  assetRow: {
+    minHeight: 70,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E7EAF0',
+    gap: 12,
+  },
+  assetIcon: {
+    width: 38,
+    height: 38,
+  },
+  assetFallbackIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#181D41',
+  },
+  assetFallbackText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  assetIdentity: {
+    flex: 1,
+    gap: 3,
+  },
+  assetCode: {
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: '800',
+    color: '#000000',
+  },
+  assetIssuer: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: '#ACB1C1',
+  },
+  assetBalanceBlock: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  assetBalance: {
+    fontSize: 15,
+    lineHeight: 18,
+    color: '#000000',
+    fontWeight: '600',
     fontVariant: ['tabular-nums'],
+  },
+  assetSymbol: {
+    fontSize: 10,
+    lineHeight: 13,
+    color: '#ACB1C1',
+  },
+  hiddenAssetsText: {
+    fontSize: 10,
+    lineHeight: 14,
+    color: '#ACB1C1',
+    paddingTop: 10,
+  },
+  refreshLink: {
+    alignSelf: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 16,
+  },
+  refreshText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#00B279',
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });
