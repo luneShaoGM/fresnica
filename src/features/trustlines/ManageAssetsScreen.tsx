@@ -290,15 +290,16 @@ export function ManageAssetsScreen({account, dependencies, onDone}: Props) {
             : 'Removal is preflighted against balance, liabilities and liquidity-pool relationships before XDR is built.'
         }>
         {loadState.trustlines.map(line => {
-          if (line.asset.kind !== 'credit') {
+          const asset = line.asset;
+          if (asset.kind !== 'credit') {
             return null;
           }
           return (
-            <View key={`${line.asset.code}:${line.asset.issuer}`} style={styles.assetRow}>
+            <View key={`${asset.code}:${asset.issuer}`} style={styles.assetRow}>
               <View style={styles.flex}>
-                <Text style={styles.assetCode}>{line.asset.code}</Text>
+                <Text style={styles.assetCode}>{asset.code}</Text>
                 <Text selectable style={styles.assetIssuer}>
-                  {line.asset.issuer}
+                  {asset.issuer}
                 </Text>
                 <Text style={styles.balance}>Balance {line.balance}</Text>
               </View>
@@ -306,7 +307,7 @@ export function ManageAssetsScreen({account, dependencies, onDone}: Props) {
                 label="Review remove"
                 variant="secondary"
                 disabled={building}
-                onPress={() => void prepare('remove', line.asset.code, line.asset.issuer)}
+                onPress={() => void prepare('remove', asset.code, asset.issuer)}
               />
             </View>
           );
