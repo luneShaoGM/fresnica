@@ -12,9 +12,9 @@ export type ProductRouteStatus = Readonly<{
 }>;
 
 export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteStatus>> = {
-  'wallet-home': {
-    readiness: 'implemented',
-    note: 'Runtime Wallet Home is connected to the Balance Capability with loading, inactive, active, error and refresh states.',
+  home: {
+    readiness: 'structure-only',
+    note: 'The Stellar Home tab is now the product root, but its content still reuses the temporary WalletHomeScreen until P2 rebuilds Home presentation.',
   },
   'account-details': {
     readiness: 'structure-only',
@@ -26,35 +26,47 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'asset-details': {
     readiness: 'blocked',
-    note: 'Keep the destination in product structure, but do not finalize route params until the Portfolio/Asset identity read model exists.',
+    note: 'Keep the destination in product structure, but do not finalize route params until the Home/Asset identity read model exists.',
   },
   'send-form': {
     readiness: 'implemented',
-    note: 'Runtime Send validates Stellar G/M destination, exact decimal amount, selected balance asset and 28-byte UTF-8 text memo before building an unsigned payment.',
+    note: 'Runtime Send validates destination, exact decimal amount, selected balance asset and text memo before building an unsigned payment.',
   },
   'send-review': {
     readiness: 'implemented',
-    note: 'Send review is local flow state rendered from PaymentReview derived from exact unsigned XDR; submission re-derives semantics from that XDR and no XDR is placed in navigation params.',
+    note: 'Send review is local flow state rendered from PaymentReview derived from exact unsigned XDR; no XDR is placed in navigation params.',
   },
   'send-result': {
     readiness: 'implemented',
     note: 'Send renders submitted, deterministic rejected, uncertain, authorization-blocked, unsupported signer, watch-only and unsupported-multisig outcomes without collapsing them.',
   },
-  'manage-assets': {
+  request: {
     readiness: 'structure-only',
-    note: 'Destination is reachable from the runtime shell; trustline transaction capability is not connected yet.',
+    note: 'Request is part of the Stellar product route inventory, but no Fresnica Request/share/QR product flow is wired yet.',
   },
-  history: {
+  exchange: {
+    readiness: 'blocked',
+    note: 'Exchange presentation is planned, but authoritative Swap behavior remains blocked on the shared Fresnica Path Payment/Swap Application Capability contract.',
+  },
+  'manage-assets': {
     readiness: 'implemented',
-    note: 'Activity loads normalized Horizon account-operation pages with loading, inactive, empty, error, refresh and deduplicated load-more states; unknown operations remain explicit unsupported entries.',
+    note: 'Manage Assets is connected to the current Trustline capability; P6 will rebuild its product presentation to match Stellar.',
+  },
+  events: {
+    readiness: 'capability-ready',
+    note: 'The Events tab currently reuses the History read flow; P5 will rebuild the user-visible Events presentation while retaining History as the data boundary.',
   },
   'operation-details': {
     readiness: 'structure-only',
-    note: 'Detail route remains reserved for stable accountId + operationId navigation; first History slice does not pass raw operation objects through navigation.',
+    note: 'Detail route remains reserved for stable accountId + operationId navigation; raw operation objects do not enter navigation.',
+  },
+  xapps: {
+    readiness: 'structure-only',
+    note: 'XApps is now a first-class product tab with a safe placeholder; browser, permission and signing behavior remains deferred to the XApps capability/security stage.',
   },
   'settings-home': {
     readiness: 'implemented',
-    note: 'Settings is a live runtime tab routing Accounts, Security, Network and About destinations.',
+    note: 'Settings remains a live runtime tab routing Accounts, Security, Network and About destinations; its information architecture will be rebuilt in P10.',
   },
   'accounts-settings': {
     readiness: 'structure-only',
