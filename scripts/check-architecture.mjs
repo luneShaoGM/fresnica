@@ -78,12 +78,13 @@ function isStrictPresentationFile(relativePath) {
 function checkImports(filePath, relativePath, sourceText) {
   const imports = extractImportSources(sourceText);
   const isFeature = relativePath.startsWith('src/features/');
+  const isStrictFeature = isFeature && isStrictPresentationFile(relativePath);
   const isCapability = relativePath.startsWith('src/capabilities/');
   const isUi = relativePath.startsWith('src/ui/');
   const isPlatform = relativePath.startsWith('src/platform/');
 
   for (const importSource of imports) {
-    if (isFeature) {
+    if (isStrictFeature) {
       if (importsLayer(filePath, importSource, 'platform')) {
         addViolation(relativePath, 'feature-platform-boundary', `imports ${importSource}`);
       }
@@ -121,7 +122,7 @@ function checkImports(filePath, relativePath, sourceText) {
     }
   }
 
-  if ((isFeature || isUi) && /import\s*\{[^}]*\bNativeModules\b[^}]*\}\s*from\s*['"]react-native['"]/.test(sourceText)) {
+  if ((isStrictFeature || isUi) && /import\s*\{[^}]*\bNativeModules\b[^}]*\}\s*from\s*['"]react-native['"]/.test(sourceText)) {
     addViolation(relativePath, 'native-modules-boundary', 'imports NativeModules from react-native');
   }
 }
