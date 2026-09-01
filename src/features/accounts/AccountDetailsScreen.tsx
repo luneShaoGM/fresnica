@@ -9,11 +9,19 @@ import {palette, spacing, typography} from '../../ui/theme';
 
 type Props = Readonly<{
   account: AccountRecord;
+  recoveryExportAvailable: boolean;
   onSend: () => void;
   onManageAssets: () => void;
+  onExportRecovery: () => void;
 }>;
 
-export function AccountDetailsScreen({account, onSend, onManageAssets}: Props) {
+export function AccountDetailsScreen({
+  account,
+  recoveryExportAvailable,
+  onSend,
+  onManageAssets,
+  onExportRecovery,
+}: Props) {
   return (
     <Screen eyebrow="Account" title={account.label || 'Stellar account'}>
       <Card title="Public identity">
@@ -26,8 +34,19 @@ export function AccountDetailsScreen({account, onSend, onManageAssets}: Props) {
 
       <Card
         title="Signer access"
-        description="Signer/watch-only state is derived from Account-Signer relationships. A product presenter will expose that derived state here; this screen does not infer it from the address."
-      />
+        description={
+          recoveryExportAvailable
+            ? 'This account has one protected software signer. Recovery material requires a fresh app passphrase and is never placed in navigation or persistence.'
+            : 'Recovery export is unavailable for watch-only, hardware/external, incomplete or multiple-signer account configurations.'
+        }>
+        {recoveryExportAvailable ? (
+          <Button
+            label="Export recovery material"
+            variant="secondary"
+            onPress={onExportRecovery}
+          />
+        ) : null}
+      </Card>
 
       <Card
         title="Assets"
