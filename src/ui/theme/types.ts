@@ -1,0 +1,54 @@
+export type ThemeColors = Readonly<{
+  background: string;
+  surface: string;
+  surfaceMuted: string;
+  textPrimary: string;
+  textSecondary: string;
+  border: string;
+  actionPrimary: string;
+  actionPrimaryPressed: string;
+  onActionPrimary: string;
+  negative: string;
+  positive: string;
+}>;
+
+export type ThemeSpacing = Readonly<{
+  xs: number;
+  sm: number;
+  md: number;
+  lg: number;
+  xl: number;
+  xxl: number;
+}>;
+
+export type ThemeRadii = Readonly<{
+  sm: number;
+  md: number;
+  lg: number;
+  pill: number;
+}>;
+
+export type ThemeFontWeight = '400' | '600' | '700';
+
+export type ThemeTextStyle = Readonly<{
+  fontSize: number;
+  lineHeight: number;
+  fontWeight: ThemeFontWeight;
+}>;
+
+export type ThemeTypography = Readonly<{
+  eyebrow: ThemeTextStyle;
+  title: ThemeTextStyle;
+  sectionTitle: ThemeTextStyle;
+  body: ThemeTextStyle;
+  label: ThemeTextStyle;
+  caption: ThemeTextStyle;
+  button: ThemeTextStyle;
+}>;
+
+export type AppTheme = Readonly<{
+  colors: ThemeColors;
+  spacing: ThemeSpacing;
+  radii: ThemeRadii;
+  typography: ThemeTypography;
+}>;
