@@ -66,30 +66,42 @@ jobs:
           grep -F "apply plugin: 'com.android.library'" .fresnica-upstream/adapters/react-native/android/build.gradle
           grep -F 'gradle-9.4.1-bin.zip' android/gradle/wrapper/gradle-wrapper.properties
 
-      # Upstream issue: https://github.com/Fresnica/fresnica/issues/128
-      # Gradle init scripts also run for nested/included builds. The 0.2.1
-      # adapter init script currently requires root-only -P properties before
-      # checking which build is being initialized, so React Native's included
-      # Gradle plugin build fails before the consumer settings build completes.
-      # Keep this checkout-only compatibility guard until upstream ships it.
-      - name: Guard Fresnica adapter init script in included builds
+      # Upstream issues:
+      # https://github.com/Fresnica/fresnica/issues/128
+      # https://github.com/Fresnica/fresnica/issues/129
+      # Keep these checkout-only compatibility patches until the canonical
+      # adapter ships fixes for included-build init evaluation and modern
+      # consumer JVM-target alignment.
+      - name: Patch pinned Fresnica adapter compatibility
         shell: bash
         run: |
           set -euo pipefail
-          init_script=.fresnica-upstream/adapters/react-native/android/include.init.gradle
-          grep -F "gradle.startParameter.projectProperties['fresnicaAdapterProjectDir']" "$init_script"
           python3 - <<'PY'
           from pathlib import Path
 
-          path = Path('.fresnica-upstream/adapters/react-native/android/include.init.gradle')
-          original = path.read_text()
-          expected = "def adapterProjectDir = gradle.startParameter.projectProperties['fresnicaAdapterProjectDir']\n"
-          if not original.startswith(expected):
+          init_path = Path('.fresnica-upstream/adapters/react-native/android/include.init.gradle')
+          init_original = init_path.read_text()
+          init_expected = "def adapterProjectDir = gradle.startParameter.projectProperties['fresnicaAdapterProjectDir']\n"
+          if not init_original.startswith(init_expected):
               raise SystemExit('unexpected Fresnica adapter init-script baseline')
-          guard = "if (gradle.parent != null) {\n    return\n}\n\n"
-          path.write_text(guard + original)
+          init_path.write_text("if (gradle.parent != null) {\n    return\n}\n\n" + init_original)
+
+          build_path = Path('.fresnica-upstream/adapters/react-native/android/build.gradle')
+          build_original = build_path.read_text()
+          expected_java = 'sourceCompatibility JavaVersion.VERSION_1_8\n        targetCompatibility JavaVersion.VERSION_1_8'
+          expected_kotlin = "task.kotlinOptions.jvmTarget = '1.8'"
+          if expected_java not in build_original or expected_kotlin not in build_original:
+              raise SystemExit('unexpected Fresnica adapter JVM-target baseline')
+          patched = build_original.replace(
+              expected_java,
+              'sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17',
+              1,
+          ).replace(expected_kotlin, "task.kotlinOptions.jvmTarget = '17'", 1)
+          build_path.write_text(patched)
           PY
-          grep -F 'if (gradle.parent != null)' "$init_script"
+          grep -F 'if (gradle.parent != null)' .fresnica-upstream/adapters/react-native/android/include.init.gradle
+          grep -F 'sourceCompatibility JavaVersion.VERSION_17' .fresnica-upstream/adapters/react-native/android/build.gradle
+          grep -F "task.kotlinOptions.jvmTarget = '17'" .fresnica-upstream/adapters/react-native/android/build.gradle
 
       - name: Build canonical React Native Android adapter
         shell: bash
