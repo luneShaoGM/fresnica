@@ -12,6 +12,7 @@ import {AboutScreen} from '../../features/settings/AboutScreen';
 import {NetworkSettingsScreen} from '../../features/settings/NetworkSettingsScreen';
 import {SettingsHomeScreen} from '../../features/settings/SettingsHomeScreen';
 import {ManageAssetsScreen} from '../../features/trustlines/ManageAssetsScreen';
+import {XAppsScreen} from '../../features/xapps/screens/XAppsScreen';
 import type {AppServices} from '../createAppServices';
 import {ProductShell} from './ProductShell';
 import {
@@ -24,12 +25,19 @@ import {
   type ProductNavigationAction,
   type ProductNavigationState,
 } from './productNavigationState';
+import type {ProductAction} from './productRoutes';
 
 type Props = Readonly<{
   accounts: readonly AccountRecord[];
   services: AppServices;
   onAccountsChanged: () => void;
 }>;
+
+const PRODUCT_ACTION_AVAILABILITY: Readonly<Record<ProductAction, boolean>> = {
+  send: true,
+  swap: false,
+  request: false,
+};
 
 export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
   const [navigation, setNavigation] = useState<ProductNavigationState>(() =>
@@ -49,15 +57,24 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
 
   const completeAccountChange = useCallback(() => {
     onAccountsChanged();
-    dispatch({type: 'select-tab', tab: 'wallet'});
+    dispatch({type: 'select-tab', tab: 'home'});
   }, [dispatch, onAccountsChanged]);
 
   const selectedAccount = resolveSelectedAccount(navigation, accounts);
   const destination = navigation.destination;
 
+  const handleSelectAction = useCallback(
+    (action: ProductAction) => {
+      if (action === 'send') {
+        dispatch({type: 'open-send', accountId: selectedAccount.id});
+      }
+    },
+    [dispatch, selectedAccount.id],
+  );
+
   let content: React.ReactNode;
   switch (destination.route) {
-    case 'wallet-home':
+    case 'home':
       content = (
         <WalletHomeScreen
           account={selectedAccount}
@@ -104,7 +121,7 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
         <SendFlowScreen
           account={account}
           dependencies={services.send}
-          onDone={() => dispatch({type: 'select-tab', tab: 'wallet'})}
+          onDone={() => dispatch({type: 'select-tab', tab: 'home'})}
         />
       );
       break;
@@ -115,18 +132,21 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
         <ManageAssetsScreen
           account={account}
           dependencies={services.trustline}
-          onDone={() => dispatch({type: 'select-tab', tab: 'wallet'})}
+          onDone={() => dispatch({type: 'select-tab', tab: 'home'})}
         />
       );
       break;
     }
-    case 'history':
+    case 'events':
       content = (
         <ActivityHomeScreen
           account={selectedAccount}
           dependencies={services.history}
         />
       );
+      break;
+    case 'xapps':
+      content = <XAppsScreen />;
       break;
     case 'settings-home':
       content = (
@@ -173,6 +193,8 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
   return (
     <ProductShell
       activeTab={destination.tab}
+      actionAvailability={PRODUCT_ACTION_AVAILABILITY}
+      onSelectAction={handleSelectAction}
       onSelectTab={tab => dispatch({type: 'select-tab', tab})}>
       {content}
     </ProductShell>
