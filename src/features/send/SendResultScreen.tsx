@@ -1,10 +1,6 @@
 import React from 'react';
-import {StyleSheet, Text} from 'react-native';
+import {Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View} from 'react-native';
 
-import {Button} from '../../ui/Button';
-import {Card} from '../../ui/Card';
-import {Screen} from '../../ui/Screen';
-import {palette, typography} from '../../ui/theme';
 import type {SendSubmissionResult} from './sendProductFlow';
 
 export type SendTerminalResult = Exclude<
@@ -19,29 +15,53 @@ type Props = Readonly<{
 
 export function SendResultScreen({result, onDone}: Props) {
   const presentation = describeResult(result);
+  const positive = result.status === 'submitted';
+  const uncertain = result.status === 'uncertain';
 
   return (
-    <Screen eyebrow="Send" title="Payment result">
-      <Card title={presentation.title} description={presentation.description}>
-        {'hash' in result ? (
-          <Text selectable style={styles.value}>
-            Transaction hash: {result.hash}
-          </Text>
-        ) : null}
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.resultHero}>
+          <View
+            style={[
+              styles.resultIcon,
+              positive ? styles.resultIconPositive : uncertain ? styles.resultIconUncertain : styles.resultIconNegative,
+            ]}>
+            <Text style={styles.resultGlyph}>{positive ? '✓' : uncertain ? '?' : '!'}</Text>
+          </View>
+          <Text style={styles.title}>{presentation.title}</Text>
+          <Text style={styles.description}>{presentation.description}</Text>
+        </View>
+
+        {'hash' in result ? <ResultRow label="Transaction hash" value={result.hash} mono /> : null}
         {'transactionHash' in result ? (
-          <Text selectable style={styles.value}>
-            Transaction hash: {result.transactionHash}
-          </Text>
+          <ResultRow label="Transaction hash" value={result.transactionHash} mono />
         ) : null}
         {result.status === 'submitted' && result.ledger !== undefined ? (
-          <Text style={styles.value}>Ledger: {result.ledger}</Text>
+          <ResultRow label="Ledger" value={String(result.ledger)} />
         ) : null}
         {result.status === 'submitted' ? (
-          <Text style={styles.value}>Authorization: {result.authorization}</Text>
+          <ResultRow label="Authorization" value={result.authorization} />
         ) : null}
-      </Card>
-      <Button label="Done" onPress={onDone} />
-    </Screen>
+      </ScrollView>
+
+      <View style={styles.bottomBar}>
+        <Pressable onPress={onDone} style={({pressed}) => [styles.doneButton, pressed ? styles.pressed : undefined]}>
+          <Text style={styles.doneText}>Done</Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function ResultRow({label, value, mono = false}: Readonly<{label: string; value: string; mono?: boolean}>) {
+  return (
+    <View style={styles.row}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Text numberOfLines={mono ? 3 : 2} selectable style={[styles.rowValue, mono ? styles.mono : undefined]}>
+        {value}
+      </Text>
+    </View>
   );
 }
 
@@ -52,7 +72,7 @@ function describeResult(result: SendTerminalResult): {
   switch (result.status) {
     case 'submitted':
       return {
-        title: 'Payment submitted',
+        title: 'Payment sent',
         description: 'Horizon accepted the exact signed transaction.',
       };
     case 'rejected':
@@ -64,13 +84,13 @@ function describeResult(result: SendTerminalResult): {
       };
     case 'uncertain':
       return {
-        title: 'Submission uncertain',
+        title: 'Status uncertain',
         description:
-          'Fresnica could not prove whether the network accepted this transaction. Do not assume failure or submit a replacement until its status is checked.',
+          'Fresnica could not prove whether the network accepted this transaction. Verify the transaction hash before trying again.',
       };
     case 'authorization-blocked':
       return {
-        title: 'Signing authorization unavailable',
+        title: 'Authorization unavailable',
         description: `Current ledger authorization is blocked (${result.reason}). Required weight ${result.requiredWeight}; available local weight ${result.availableWeight}.`,
       };
     case 'unsupported-signer':
@@ -94,8 +114,22 @@ function describeResult(result: SendTerminalResult): {
 }
 
 const styles = StyleSheet.create({
-  value: {
-    ...typography.caption,
-    color: palette.text,
-  },
+  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
+  content: {flexGrow: 1, paddingBottom: 24},
+  resultHero: {alignItems: 'center', paddingHorizontal: 28, paddingTop: 60, paddingBottom: 36, gap: 10},
+  resultIcon: {width: 78, height: 78, borderRadius: 39, alignItems: 'center', justifyContent: 'center', marginBottom: 8},
+  resultIconPositive: {backgroundColor: '#00CA8A'},
+  resultIconNegative: {backgroundColor: '#FF5B5B'},
+  resultIconUncertain: {backgroundColor: '#F8BF4C'},
+  resultGlyph: {fontSize: 34, lineHeight: 39, color: '#FFFFFF', fontWeight: '800'},
+  title: {fontSize: 23, lineHeight: 28, color: '#000000', fontWeight: '800', textAlign: 'center'},
+  description: {fontSize: 12, lineHeight: 18, color: '#606885', textAlign: 'center'},
+  row: {minHeight: 57, flexDirection: 'row', alignItems: 'center', gap: 18, paddingHorizontal: 18, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E7EAF0'},
+  rowLabel: {fontSize: 12, lineHeight: 16, color: '#606885', fontWeight: '600'},
+  rowValue: {flex: 1, fontSize: 12, lineHeight: 16, color: '#000000', fontWeight: '600', textAlign: 'right'},
+  mono: {fontSize: 10, lineHeight: 14, color: '#606885', fontWeight: '400'},
+  bottomBar: {paddingHorizontal: 18, paddingTop: 10, paddingBottom: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E7EAF0'},
+  doneButton: {minHeight: 54, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: '#00CA8A'},
+  doneText: {fontSize: 15, lineHeight: 19, color: '#FFFFFF', fontWeight: '800'},
+  pressed: {opacity: 0.68},
 });

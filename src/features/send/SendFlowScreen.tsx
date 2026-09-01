@@ -1,12 +1,10 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {ActivityIndicator, Pressable, SafeAreaView, StyleSheet, Text, View} from 'react-native';
 
 import type {AccountRecord} from '../../capabilities/account/types';
 import {loadBalanceSnapshot} from '../../capabilities/balance/loadBalanceSnapshot';
 import type {BalanceAsset, BalanceLine} from '../../capabilities/balance/types';
 import type {PaymentReview} from '../../capabilities/payment/buildPaymentReview';
-import {Button} from '../../ui/Button';
-import {Card} from '../../ui/Card';
-import {Screen} from '../../ui/Screen';
 import {SendFormScreen} from './SendFormScreen';
 import {SendResultScreen, type SendTerminalResult} from './SendResultScreen';
 import {SendReviewScreen} from './SendReviewScreen';
@@ -167,21 +165,22 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
 
   if (loadState.kind === 'loading') {
     return (
-      <Screen eyebrow="Send" title="Preparing payment">
-        <Card
-          title="Loading account state"
-          description="Fresnica is loading current Testnet balances before constructing a payment."
-        />
-      </Screen>
+      <FlowMessageScreen
+        title="Send"
+        message="Loading current Stellar balances…"
+        loading
+        onBack={onDone}
+      />
     );
   }
 
   if (loadState.kind === 'blocked') {
     return (
-      <Screen eyebrow="Send" title="Send unavailable">
-        <Card title={loadState.title} description={loadState.description} />
-        <Button label="Back to Wallet" onPress={onDone} />
-      </Screen>
+      <FlowMessageScreen
+        title={loadState.title}
+        message={loadState.description}
+        onBack={onDone}
+      />
     );
   }
 
@@ -232,6 +231,44 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
   );
 }
 
+function FlowMessageScreen({
+  title,
+  message,
+  onBack,
+  loading = false,
+}: Readonly<{title: string; message: string; onBack: () => void; loading?: boolean}>) {
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.header}>
+        <Pressable accessibilityLabel="Back" onPress={onBack} style={styles.backButton}>
+          <Text style={styles.backGlyph}>‹</Text>
+        </Pressable>
+        <Text style={styles.headerTitle}>Send</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+      <View style={styles.messageBody}>
+        {loading ? <ActivityIndicator color="#00CA8A" /> : <View style={styles.messageIcon}><Text style={styles.messageGlyph}>!</Text></View>}
+        <Text style={styles.messageTitle}>{title}</Text>
+        <Text style={styles.messageText}>{message}</Text>
+      </View>
+    </SafeAreaView>
+  );
+}
+
 function readableError(error: unknown): string {
   return error instanceof Error ? error.message : 'Unknown Send error.';
 }
+
+const styles = StyleSheet.create({
+  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
+  header: {minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E7EAF0'},
+  backButton: {width: 42, height: 42, alignItems: 'center', justifyContent: 'center'},
+  backGlyph: {fontSize: 36, lineHeight: 38, fontWeight: '300', color: '#181D41'},
+  headerTitle: {fontSize: 18, lineHeight: 22, fontWeight: '800', color: '#000000'},
+  headerSpacer: {width: 42},
+  messageBody: {flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 34, gap: 10},
+  messageIcon: {width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F6FA'},
+  messageGlyph: {fontSize: 24, color: '#606885', fontWeight: '800'},
+  messageTitle: {fontSize: 18, lineHeight: 23, color: '#000000', fontWeight: '800', textAlign: 'center'},
+  messageText: {fontSize: 12, lineHeight: 18, color: '#606885', textAlign: 'center'},
+});
