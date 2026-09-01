@@ -6,6 +6,7 @@ import {
   reduceProductNavigation,
   resolveSelectedAccount,
 } from '../productNavigationState';
+import {MAIN_TABS, PRODUCT_ACTIONS} from '../productRoutes';
 
 function account(id: string, sortOrder: number, hidden = false): AccountRecord {
   return {
@@ -24,29 +25,38 @@ function account(id: string, sortOrder: number, hidden = false): AccountRecord {
 const accounts = [account('one', 0), account('two', 1)];
 
 describe('productNavigationState', () => {
-  it('starts at Wallet Home with the first visible account', () => {
+  it('starts at Home with the first visible account', () => {
     expect(createInitialProductNavigation([account('hidden', 0, true), ...accounts])).toEqual({
       selectedAccountId: 'one',
-      destination: {tab: 'wallet', route: 'wallet-home'},
+      destination: {tab: 'home', route: 'home'},
     });
   });
 
-  it('switches tabs to their root destinations without changing the selected account', () => {
+  it('switches product tabs to their root destinations without changing the selected account', () => {
     const initial = createInitialProductNavigation(accounts);
-    const activity = reduceProductNavigation(
+    const events = reduceProductNavigation(
       initial,
-      {type: 'select-tab', tab: 'activity'},
+      {type: 'select-tab', tab: 'events'},
+      accounts,
+    );
+    const xapps = reduceProductNavigation(
+      events,
+      {type: 'select-tab', tab: 'xapps'},
       accounts,
     );
     const settings = reduceProductNavigation(
-      activity,
+      xapps,
       {type: 'select-tab', tab: 'settings'},
       accounts,
     );
 
-    expect(activity).toEqual({
+    expect(events).toEqual({
       selectedAccountId: 'one',
-      destination: {tab: 'activity', route: 'history'},
+      destination: {tab: 'events', route: 'events'},
+    });
+    expect(xapps).toEqual({
+      selectedAccountId: 'one',
+      destination: {tab: 'xapps', route: 'xapps'},
     });
     expect(settings).toEqual({
       selectedAccountId: 'one',
@@ -54,7 +64,13 @@ describe('productNavigationState', () => {
     });
   });
 
-  it('selecting another account returns to Wallet Home for that account', () => {
+  it('keeps product actions separate from selectable tabs', () => {
+    expect(MAIN_TABS).toEqual(['home', 'events', 'xapps', 'settings']);
+    expect(PRODUCT_ACTIONS).toEqual(['send', 'swap', 'request']);
+    expect(MAIN_TABS).not.toContain('actions');
+  });
+
+  it('selecting another account returns to Home for that account', () => {
     const next = reduceProductNavigation(
       createInitialProductNavigation(accounts),
       {type: 'select-account', accountId: 'two'},
@@ -62,7 +78,7 @@ describe('productNavigationState', () => {
     );
 
     expect(next.selectedAccountId).toBe('two');
-    expect(next.destination).toEqual({tab: 'wallet', route: 'wallet-home'});
+    expect(next.destination).toEqual({tab: 'home', route: 'home'});
     expect(resolveSelectedAccount(next, accounts).id).toBe('two');
   });
 
@@ -88,7 +104,7 @@ describe('productNavigationState', () => {
 
     expect(reconcileProductNavigation(selectedSecond, [accounts[0]])).toEqual({
       selectedAccountId: 'one',
-      destination: {tab: 'wallet', route: 'wallet-home'},
+      destination: {tab: 'home', route: 'home'},
     });
   });
 
