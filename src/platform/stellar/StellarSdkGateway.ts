@@ -132,6 +132,7 @@ function mapAccountState(account: HorizonAccountLike): StellarAccountState {
     subentryCount: account.subentry_count!,
     numSponsoring: account.num_sponsoring!,
     numSponsored: account.num_sponsored!,
+    memoRequired: account.data_attr?.['config.memo_required'] === 'MQ==',
     flags: {
       authRequired: account.flags.auth_required,
       authClawbackEnabled: account.flags.auth_clawback_enabled,
@@ -142,6 +143,7 @@ function mapAccountState(account: HorizonAccountLike): StellarAccountState {
           return {
             kind: 'native' as const,
             balance: balance.balance,
+            buyingLiabilities: balance.buying_liabilities ?? '0',
             sellingLiabilities: balance.selling_liabilities ?? '0',
           };
         case 'credit_alphanum4':
@@ -158,6 +160,7 @@ function mapAccountState(account: HorizonAccountLike): StellarAccountState {
           return {
             kind: 'credit' as const,
             balance: balance.balance,
+            ...(balance.limit === undefined ? {} : {limit: balance.limit}),
             buyingLiabilities: balance.buying_liabilities ?? '0',
             sellingLiabilities: balance.selling_liabilities ?? '0',
             code: balance.asset_code,
@@ -336,16 +339,26 @@ export class StellarSdkGateway implements StellarGateway {
         ? Asset.native()
         : new Asset(input.asset.code, input.asset.issuer);
 
+    if (input.operation === 'create-account' && input.asset.kind !== 'native') {
+      throw new Error('create-account-requires-native-asset');
+    }
+
+    const operation =
+      input.operation === 'create-account'
+        ? Operation.createAccount({
+            destination: input.destination,
+            startingBalance: input.amount,
+          })
+        : Operation.payment({
+            destination: input.destination,
+            asset,
+            amount: input.amount,
+          });
+
     let builder = new TransactionBuilder(sourceAccount, {
       fee: input.baseFee,
       networkPassphrase: APP_CONFIG.network.networkPassphrase,
-    }).addOperation(
-      Operation.payment({
-        destination: input.destination,
-        asset,
-        amount: input.amount,
-      }),
-    );
+    }).addOperation(operation);
 
     if (input.memo !== undefined && input.memo.length > 0) {
       builder = builder.addMemo(Memo.text(input.memo));

@@ -6,6 +6,7 @@ export type HorizonBalanceLike = {
   asset_code?: string;
   asset_issuer?: string;
   liquidity_pool_id?: string;
+  limit?: string;
   buying_liabilities?: string;
   selling_liabilities?: string;
   is_authorized?: boolean;
@@ -18,6 +19,7 @@ export type HorizonAccountLike = TransactionSource & {
   subentry_count?: number;
   num_sponsoring?: number;
   num_sponsored?: number;
+  data_attr?: Record<string, string>;
   flags?: {
     auth_required?: boolean;
     auth_clawback_enabled?: boolean;
@@ -130,6 +132,7 @@ export type StellarAccountOperationResult =
 export type StellarTrustlineBalance = Readonly<{
   kind: 'credit';
   balance: string;
+  limit?: string;
   buyingLiabilities: string;
   sellingLiabilities: string;
   code: string;
@@ -148,6 +151,7 @@ export type StellarLiquidityPoolBalance = Readonly<{
 export type StellarNativeBalance = Readonly<{
   kind: 'native';
   balance: string;
+  buyingLiabilities?: string;
   sellingLiabilities: string;
 }>;
 
@@ -156,6 +160,7 @@ export type StellarAccountState = Readonly<{
   subentryCount: number;
   numSponsoring: number;
   numSponsored: number;
+  memoRequired?: boolean;
   flags: Readonly<{
     authRequired: boolean;
     authClawbackEnabled: boolean;
@@ -185,14 +190,15 @@ export type StellarPaymentAsset =
   | { kind: 'native' }
   | { kind: 'credit'; code: string; issuer: string };
 
-export type BuildPaymentInput = {
+export type BuildPaymentInput = Readonly<{
+  operation: 'payment' | 'create-account';
   source: string;
   destination: string;
   asset: StellarPaymentAsset;
   amount: string;
   memo?: string;
   baseFee: string;
-};
+}>;
 
 export type BuildChangeTrustInput = Readonly<{
   source: string;

@@ -9,6 +9,7 @@ export type PaymentReviewAsset =
 
 export type PaymentReview = ReviewedTransaction &
   Readonly<{
+    operation: 'payment' | 'create-account';
     destination: string;
     amount: string;
     asset: Readonly<PaymentReviewAsset>;
@@ -33,20 +34,26 @@ export function buildPaymentReview(input: {
   }
 
   const operation = transaction.operations[0];
-  if (operation.type !== 'payment') {
-    throw new Error('Payment review requires a payment operation');
+  if (operation.type !== 'payment' && operation.type !== 'createAccount') {
+    throw new Error('Payment review requires Payment or CreateAccount');
   }
   if (operation.source) {
     throw new Error('Payment review does not support an operation source override');
   }
 
-  const asset: PaymentReviewAsset = operation.asset.isNative()
-    ? {kind: 'native'}
-    : {
-        kind: 'credit',
-        code: operation.asset.code,
-        issuer: operation.asset.issuer!,
-      };
+  const asset: PaymentReviewAsset =
+    operation.type === 'createAccount'
+      ? {kind: 'native'}
+      : operation.asset.isNative()
+        ? {kind: 'native'}
+        : {
+            kind: 'credit',
+            code: operation.asset.code,
+            issuer: operation.asset.issuer!,
+          };
+  const destination = operation.destination;
+  const amount =
+    operation.type === 'createAccount' ? operation.startingBalance : operation.amount;
 
   const memo = transaction.memo;
   let memoText: string | undefined;
@@ -64,8 +71,9 @@ export function buildPaymentReview(input: {
     transactionXdrBase64: input.transactionXdrBase64,
     networkId: input.networkId,
     source: transaction.source,
-    destination: operation.destination,
-    amount: operation.amount,
+    operation: operation.type === 'createAccount' ? 'create-account' : 'payment',
+    destination,
+    amount,
     asset: Object.freeze(asset),
     ...(memoText === undefined ? {} : {memo: memoText}),
     fee: transaction.fee,
