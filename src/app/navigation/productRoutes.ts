@@ -5,21 +5,30 @@ export type RootFlow =
   | 'main';
 
 export type MainTab =
-  | 'wallet'
-  | 'activity'
+  | 'home'
+  | 'events'
+  | 'xapps'
   | 'settings';
 
+export type ProductAction =
+  | 'send'
+  | 'swap'
+  | 'request';
+
 export type ProductRoute =
-  | 'wallet-home'
+  | 'home'
   | 'account-details'
   | 'add-account'
   | 'asset-details'
   | 'send-form'
   | 'send-review'
   | 'send-result'
+  | 'request'
+  | 'exchange'
   | 'manage-assets'
-  | 'history'
+  | 'events'
   | 'operation-details'
+  | 'xapps'
   | 'settings-home'
   | 'accounts-settings'
   | 'security-settings'
@@ -38,20 +47,23 @@ export type OnboardingRoute =
   | 'resume-pending-backup';
 
 export type ProductRouteParams = Readonly<{
-  'wallet-home': undefined;
+  home: undefined;
   'account-details': Readonly<{accountId: string}>;
   'add-account': undefined;
-  // Asset identity is intentionally unresolved until the Portfolio/Trustline
-  // read model defines a stable public asset key.
+  // Asset identity is intentionally unresolved until the Home/Trustline read
+  // model defines a stable public asset key.
   'asset-details': undefined;
   'send-form': Readonly<{accountId: string}>;
   // Review/result state stays in the Send flow. Exact XDR and reviewed
   // transaction data must not be transported as navigation parameters.
   'send-review': undefined;
   'send-result': undefined;
+  request: Readonly<{accountId: string}>;
+  exchange: Readonly<{accountId: string}>;
   'manage-assets': Readonly<{accountId: string}>;
-  history: undefined;
+  events: undefined;
   'operation-details': Readonly<{accountId: string; operationId: string}>;
+  xapps: undefined;
   'settings-home': undefined;
   'accounts-settings': undefined;
   'security-settings': undefined;
@@ -60,23 +72,33 @@ export type ProductRouteParams = Readonly<{
 }>;
 
 export const MAIN_TABS: readonly MainTab[] = [
-  'wallet',
-  'activity',
+  'home',
+  'events',
+  'xapps',
   'settings',
 ];
 
+export const PRODUCT_ACTIONS: readonly ProductAction[] = [
+  'send',
+  'swap',
+  'request',
+];
+
 export const PRODUCT_ROUTES: Readonly<Record<MainTab, readonly ProductRoute[]>> = {
-  wallet: [
-    'wallet-home',
+  home: [
+    'home',
     'account-details',
     'add-account',
     'asset-details',
     'send-form',
     'send-review',
     'send-result',
+    'request',
+    'exchange',
     'manage-assets',
   ],
-  activity: ['history', 'operation-details'],
+  events: ['events', 'operation-details'],
+  xapps: ['xapps'],
   settings: [
     'settings-home',
     'accounts-settings',
