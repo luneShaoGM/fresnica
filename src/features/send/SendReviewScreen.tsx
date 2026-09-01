@@ -37,9 +37,13 @@ export function SendReviewScreen({
   return (
     <Screen
       eyebrow="Send"
-      title="Review payment"
+      title={review.operation === 'create-account' ? 'Review account creation' : 'Review payment'}
       description="Every value below was derived from the exact unsigned transaction XDR that will be signed.">
-      <Card title="Payment">
+      <Card title="Transaction">
+        <ReviewRow
+          label="Operation"
+          value={review.operation === 'create-account' ? 'CreateAccount' : 'Payment'}
+        />
         <ReviewRow label="From" value={review.source} />
         <ReviewRow label="To" value={review.destination} />
         <ReviewRow label="Asset" value={assetLabel} />
