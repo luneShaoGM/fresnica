@@ -7,4 +7,13 @@ export const stellarDonorAssets = {
   actionSend: require('./assets/stellar/icon_send.png'),
   actionSwap: require('./assets/stellar/icon_swap.png'),
   actionRequest: require('./assets/stellar/icon_request.png'),
+  settingsAccount: require('./assets/stellar/icon_account.png'),
+  settingsBook: require('./assets/stellar/icon_book.png'),
+  settingsSliders: require('./assets/stellar/icon_sliders.png'),
+  settingsShield: require('./assets/stellar/icon_shield.png'),
+  settingsHelp: require('./assets/stellar/icon_help_circle.png'),
+  settingsInfo: require('./assets/stellar/icon_info.png'),
+  chevronRight: require('./assets/stellar/icon_chevron_right.png'),
+  search: require('./assets/stellar/icon_search.png'),
+  filter: require('./assets/stellar/icon_filter.png'),
 } as const;
