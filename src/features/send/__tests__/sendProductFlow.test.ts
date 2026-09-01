@@ -73,14 +73,14 @@ function dependencies(repository: InMemoryAccountSignerRepository): SendProductD
 }
 
 describe('sendProductFlow', () => {
-  it('accepts valid G and M destinations and trims whitespace', () => {
-    const muxed = StrKey.encodeMed25519PublicKey(new Uint8Array(40).fill(3));
-
+  it('accepts Classic G destinations and trims address whitespace', () => {
     expect(validateDestination(` ${destinationAddress} `)).toBe(destinationAddress);
-    expect(validateDestination(muxed)).toBe(muxed);
   });
 
-  it('rejects invalid destination identities', () => {
+  it('rejects muxed M and invalid destinations until the shared Payment contract expands', () => {
+    const muxed = StrKey.encodeMed25519PublicKey(new Uint8Array(40).fill(3));
+
+    expect(() => validateDestination(muxed)).toThrow('invalid-stellar-destination');
     expect(() => validateDestination('not-a-stellar-address')).toThrow(
       'invalid-stellar-destination',
     );
@@ -99,8 +99,9 @@ describe('sendProductFlow', () => {
     );
   });
 
-  it('validates text memo size in UTF-8 bytes', () => {
+  it('validates text memo size in UTF-8 bytes and preserves semantic whitespace', () => {
     expect(validateTextMemo('测试测试测试')).toBe('测试测试测试');
+    expect(validateTextMemo(' memo ')).toBe(' memo ');
     expect(() => validateTextMemo('测试测试测试测试测试')).toThrow(
       'payment-memo-too-long',
     );

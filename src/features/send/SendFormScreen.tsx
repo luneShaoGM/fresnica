@@ -76,7 +76,7 @@ export function SendFormScreen({
       <Card title="Payment details">
         <Field
           label="Recipient"
-          hint="Classic Stellar G... and muxed M... destinations are supported."
+          hint="Classic Stellar G... destinations are supported in the current Payment contract."
           value={destination}
           onChangeText={onChangeDestination}
           autoCapitalize="characters"
@@ -93,7 +93,7 @@ export function SendFormScreen({
         />
         <Field
           label="Memo (optional)"
-          hint="Text memo, maximum 28 UTF-8 bytes."
+          hint="Text memo, maximum 28 UTF-8 bytes. Text is preserved exactly."
           value={memo}
           onChangeText={onChangeMemo}
           autoCorrect={false}
@@ -113,7 +113,7 @@ export function SendFormScreen({
         </View>
         <View style={styles.flex}>
           <Button
-            label={building ? 'Building...' : 'Review'}
+            label={building ? 'Preparing...' : 'Review'}
             onPress={onContinue}
             disabled={building}
           />
