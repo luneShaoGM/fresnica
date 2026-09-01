@@ -263,7 +263,7 @@ export function ManageAssetsScreen({account, dependencies, onDone}: Props) {
           label="Asset code"
           value={assetCode}
           onChangeText={setAssetCode}
-          autoCapitalize="characters"
+          autoCapitalize="none"
           autoCorrect={false}
           editable={!building}
         />
