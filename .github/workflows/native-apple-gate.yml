@@ -144,8 +144,26 @@ jobs:
             xcrun simctl spawn "$udid" log show --last 5m --style compact --predicate 'process == "Fresnica"' || true
             exit "$smoke_status"
           fi
-          grep -F 'FRESNICA_PARSE_ACCOUNT_SMOKE_OK' "$RUNNER_TEMP/apple-native-runtime-smoke.json"
-          grep -F '"realm":"ok"' "$RUNNER_TEMP/apple-native-runtime-smoke.json"
+          node - "$RUNNER_TEMP/apple-native-runtime-smoke.json" <<'NODE'
+          const fs = require('node:fs');
+          const resultPath = process.argv[2];
+          const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+          if (result.marker !== 'FRESNICA_PARSE_ACCOUNT_SMOKE_OK') {
+            throw new Error(`Unexpected Apple runtime smoke marker: ${String(result.marker)}`);
+          }
+          const body = JSON.parse(result.body);
+          if (body.realm !== 'ok') {
+            throw new Error(`Realm runtime smoke failed: ${JSON.stringify(body)}`);
+          }
+          if (
+            body.kind !== 'classic' ||
+            body.address !== 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF' ||
+            body.publicKey !== 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF' ||
+            body.invalidCode !== 'invalid-input'
+          ) {
+            throw new Error(`FresnicaCore runtime smoke returned unexpected data: ${JSON.stringify(body)}`);
+          }
+          NODE
 
       - name: Collect Apple runtime smoke diagnostics
         if: always()
