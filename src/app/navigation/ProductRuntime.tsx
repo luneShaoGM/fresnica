@@ -111,7 +111,13 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
     }
     case 'manage-assets': {
       const account = resolveAccountById(accounts, destination.accountId);
-      content = <ManageAssetsScreen accountLabel={account.label || account.address} />;
+      content = (
+        <ManageAssetsScreen
+          account={account}
+          dependencies={services.trustline}
+          onDone={() => dispatch({type: 'select-tab', tab: 'wallet'})}
+        />
+      );
       break;
     }
     case 'history':
