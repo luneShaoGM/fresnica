@@ -4,6 +4,7 @@ import type {ProvisionAccountDependencies} from '../capabilities/account/provisi
 import type {ApplicationSecurityDependencies} from '../capabilities/application-security/systemAuth';
 import type {BalanceDependencies} from '../capabilities/balance/loadBalanceSnapshot';
 import type {HistoryDependencies} from '../capabilities/history/loadHistoryPage';
+import type {RecoveryExportDependencies} from '../capabilities/signer/revealRecoveryMaterial';
 import type {SendProductDependencies} from '../features/send/sendProductFlow';
 import type {TrustlineProductDependencies} from '../features/trustlines/trustlineProductFlow';
 import {
@@ -20,6 +21,7 @@ import {StellarSdkGateway} from '../platform/stellar/StellarSdkGateway';
 export type AppServices = Readonly<{
   onboarding: ProvisionAccountDependencies;
   security: ApplicationSecurityDependencies;
+  recoveryExport: RecoveryExportDependencies;
   balance: BalanceDependencies;
   send: SendProductDependencies;
   history: HistoryDependencies;
@@ -44,6 +46,10 @@ export async function createAppServices(): Promise<AppServices> {
         now: () => new Date(),
       },
       security: {
+        sdk,
+        repository,
+      },
+      recoveryExport: {
         sdk,
         repository,
       },
