@@ -109,7 +109,9 @@ export async function preparePayment(
     review.destination !== destination ||
     review.operation !== operation ||
     review.amount !== canonicalAmount(amountStroops) ||
-    !sameAsset(review.asset, asset)
+    !sameAsset(review.asset, asset) ||
+    review.memo !== memo ||
+    review.fee !== String(ledger.baseFeeStroops)
   ) {
     throw new Error('payment-review-context-mismatch');
   }
