@@ -89,7 +89,7 @@ Current PR #21 semantics:
 - submitted, deterministic rejected, uncertain, authorization-blocked and signer-gate outcomes remain distinct;
 - returning to Wallet refreshes balances.
 
-PR #21 normal CI and Realm Integration are green. Native revalidation remains pending integration of the shared #20/#22 native baseline into its Trustline base.
+PR #21 normal CI and Realm Integration are green on its pre-native-integration head. The latest documentation/head update exists specifically to force a fresh pull-request merge tree against the now-integrated Trustline/native base; that current-base full validation remains authoritative.
 
 Send intentionally excludes Path Payment Swap, persistent SDEX offers, full multisig, external signer providers and Agent authorization.
 
@@ -133,14 +133,14 @@ Trustline v1 intentionally does not implement Set Limit UI, Asset Discovery/cata
 
 ## Native gate evidence
 
-The previous runner-allocation blocker is no longer the current state.
+The native recovery is now integrated into the Trustline base.
 
-- PR #20 validates the checkout-only Android adapter compatibility path for upstream RN adapter 0.2.1 through canonical adapter build, manifest/AAR checks and Android app link.
-- Upstream adapter defects remain tracked separately instead of forking canonical source in Mobile.
-- PR #22 latest head executed normal CI, Realm Integration, Native Android Gate and Native Apple Gate successfully on the Stage 1-4 product tree.
-- #22 preserves the Apple runtime smoke: Simulator launch, real Realm read/write and `NativeModules.FresnicaCore.parseAccount`; diagnostics were added without `continue-on-error`, skipped assertions or timeout weakening.
-
-These native compatibility changes still need to be integrated back into `feat/trustline-flow`, then PR #21 must be revalidated on that base before the stacked stages are considered final.
+- Android checkout-only adapter compatibility tracks upstream Fresnica/fresnica#128 and #129 while retaining canonical adapter build, manifest/AAR checks and Android app link.
+- Apple runtime-smoke stabilization starts the unchanged 120s callback window immediately before Simulator launch and persists actionable diagnostics without weakening the Realm or `NativeModules.FresnicaCore.parseAccount` assertions.
+- PR #22 exact head executed normal CI, Realm Integration, Native Android Gate and Native Apple Gate successfully on the Stage 1-4 product tree before merge.
+- PR #22 was then merged into `feat/trustline-flow` as `8741beb4...`; its history includes the Android compatibility commits from #20, and GitHub marked #20 merged as those commits entered the base.
+- PR #19's first post-integration runs, plus an immediate core-CI retry, failed before any step executed (`steps:null`). That is current runner-allocation evidence, not a code-test failure, so PR #19 remains open pending a real current-head run.
+- PR #21 is being revalidated against this integrated base from its newest head rather than reusing Android/Apple results generated before the native fixes existed in the base.
 
 ## Application Security v1 evidence
 
