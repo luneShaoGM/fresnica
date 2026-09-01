@@ -38,8 +38,13 @@ describe('productNavigationState', () => {
       {type: 'select-tab', tab: 'activity'},
       accounts,
     );
-    const settings = reduceProductNavigation(
+    const dapps = reduceProductNavigation(
       activity,
+      {type: 'select-tab', tab: 'dapps'},
+      accounts,
+    );
+    const settings = reduceProductNavigation(
+      dapps,
       {type: 'select-tab', tab: 'settings'},
       accounts,
     );
@@ -47,6 +52,10 @@ describe('productNavigationState', () => {
     expect(activity).toEqual({
       selectedAccountId: 'one',
       destination: {tab: 'activity', route: 'history'},
+    });
+    expect(dapps).toEqual({
+      selectedAccountId: 'one',
+      destination: {tab: 'dapps', route: 'dapps-home'},
     });
     expect(settings).toEqual({
       selectedAccountId: 'one',

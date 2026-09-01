@@ -4,6 +4,7 @@ import type {AccountRecord} from '../../capabilities/account/types';
 import {AccountDetailsScreen} from '../../features/accounts/AccountDetailsScreen';
 import {AccountsScreen} from '../../features/accounts/AccountsScreen';
 import {AddWatchOnlyAccountScreen} from '../../features/accounts/AddWatchOnlyAccountScreen';
+import {DAppsHomeScreen} from '../../features/dapps/DAppsHomeScreen';
 import {ActivityHomeScreen} from '../../features/history/ActivityHomeScreen';
 import {WalletHomeScreen} from '../../features/portfolio/WalletHomeScreen';
 import {SecuritySettingsScreen} from '../../features/security/SecuritySettingsScreen';
@@ -127,6 +128,9 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
           dependencies={services.history}
         />
       );
+      break;
+    case 'dapps-home':
+      content = <DAppsHomeScreen />;
       break;
     case 'settings-home':
       content = (

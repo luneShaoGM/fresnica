@@ -8,6 +8,7 @@ export type ProductDestination =
   | Readonly<{tab: 'wallet'; route: 'send-form'; accountId: string}>
   | Readonly<{tab: 'wallet'; route: 'manage-assets'; accountId: string}>
   | Readonly<{tab: 'activity'; route: 'history'}>
+  | Readonly<{tab: 'dapps'; route: 'dapps-home'}>
   | Readonly<{tab: 'settings'; route: 'settings-home'}>
   | Readonly<{tab: 'settings'; route: 'accounts-settings'}>
   | Readonly<{tab: 'settings'; route: 'security-settings'}>
@@ -168,6 +169,8 @@ function rootDestination(tab: MainTab): ProductDestination {
       return {tab, route: 'wallet-home'};
     case 'activity':
       return {tab, route: 'history'};
+    case 'dapps':
+      return {tab, route: 'dapps-home'};
     case 'settings':
       return {tab, route: 'settings-home'};
   }

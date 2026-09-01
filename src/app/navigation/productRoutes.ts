@@ -7,6 +7,7 @@ export type RootFlow =
 export type MainTab =
   | 'wallet'
   | 'activity'
+  | 'dapps'
   | 'settings';
 
 export type ProductRoute =
@@ -20,6 +21,7 @@ export type ProductRoute =
   | 'manage-assets'
   | 'history'
   | 'operation-details'
+  | 'dapps-home'
   | 'settings-home'
   | 'accounts-settings'
   | 'security-settings'
@@ -52,6 +54,7 @@ export type ProductRouteParams = Readonly<{
   'manage-assets': Readonly<{accountId: string}>;
   history: undefined;
   'operation-details': Readonly<{accountId: string; operationId: string}>;
+  'dapps-home': undefined;
   'settings-home': undefined;
   'accounts-settings': undefined;
   'security-settings': undefined;
@@ -62,6 +65,7 @@ export type ProductRouteParams = Readonly<{
 export const MAIN_TABS: readonly MainTab[] = [
   'wallet',
   'activity',
+  'dapps',
   'settings',
 ];
 
@@ -77,6 +81,7 @@ export const PRODUCT_ROUTES: Readonly<Record<MainTab, readonly ProductRoute[]>> 
     'manage-assets',
   ],
   activity: ['history', 'operation-details'],
+  dapps: ['dapps-home'],
   settings: [
     'settings-home',
     'accounts-settings',
