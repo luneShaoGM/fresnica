@@ -17,6 +17,7 @@ const review: PaymentReview = Object.freeze({
   transactionXdrBase64: 'AAAA-reviewed-xdr',
   networkId: 'stellar-testnet',
   source: 'GSOURCE',
+  operation: 'payment',
   destination: 'GDESTINATION',
   amount: '1.0000000',
   asset: Object.freeze({ kind: 'native' as const }),
