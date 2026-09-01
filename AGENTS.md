@@ -4,6 +4,7 @@ All new or materially rewritten Mobile code must follow:
 
 - `docs/mobile-architecture-style-guide.md`
 - `docs/product-parity-roadmap.md`
+- `docs/product-parity-matrix.md`
 - `docs/fresnica-mobile-stage-plan.md` for existing Capability/security execution history and gates
 
 ## Authority order
@@ -11,6 +12,18 @@ All new or materially rewritten Mobile code must follow:
 - Product layout, navigation, screen hierarchy and user-visible interaction reference: `luneShaoGM/Stellar` branch `stellar-migration`.
 - Engineering/package/style reference: `XRPL-Labs/Xaman-App`, adapted rather than copied.
 - Ledger/security/business authority: current Fresnica source plus upstream Fresnica Application Capability contracts and SDK/Core.
+
+## Product migration rule
+
+Before materially rewriting a product surface, identify its row in `docs/product-parity-matrix.md` and state:
+
+- Stellar reference surface;
+- Fresnica feature owner;
+- required Capability/runtime boundary;
+- parity status (`REBUILD_UI`, `PARTIAL`, `BLOCKED`, `NEW`, `DEFERRED`, `DONOR_RESIDUE`);
+- strict architecture scope added or extended by the PR.
+
+A donor screen is not automatically a Fresnica requirement. `DONOR_RESIDUE` and `DEFERRED` surfaces must not be implemented unless a current product/capability requirement explicitly promotes them.
 
 ## Architecture migration rule
 
