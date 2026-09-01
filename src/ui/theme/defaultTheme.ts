@@ -11,6 +11,7 @@ export const defaultTheme = {
     actionPrimary: '#3D63DD',
     actionPrimaryPressed: '#3154C6',
     onActionPrimary: '#FFFFFF',
+    overlayBackdrop: 'rgba(17, 24, 39, 0.48)',
     negative: '#B42318',
     positive: '#067647',
   },
