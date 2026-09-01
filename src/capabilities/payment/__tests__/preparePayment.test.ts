@@ -1,6 +1,7 @@
 import {
   Account,
   Asset,
+  Memo,
   Networks,
   Operation,
   StrKey,
@@ -117,32 +118,34 @@ function gateway(options?: {
       baseReserveStroops: 5_000_000,
     }),
     loadLiquidityPool: jest.fn(),
-    buildPayment: jest.fn(async input => ({
-      source: input.source,
-      networkId: 'stellar-testnet',
-      transactionXdrBase64: new TransactionBuilder(new Account(input.source, '10'), {
+    buildPayment: jest.fn(async input => {
+      let builder = new TransactionBuilder(new Account(input.source, '10'), {
         fee: input.baseFee,
         networkPassphrase: Networks.TESTNET,
-      })
-        .addOperation(
-          input.operation === 'create-account'
-            ? Operation.createAccount({
-                destination: input.destination,
-                startingBalance: input.amount,
-              })
-            : Operation.payment({
-                destination: input.destination,
-                asset:
-                  input.asset.kind === 'native'
-                    ? Asset.native()
-                    : new Asset(input.asset.code, input.asset.issuer),
-                amount: input.amount,
-              }),
-        )
-        .setTimeout(180)
-        .build()
-        .toXdr(),
-    })),
+      }).addOperation(
+        input.operation === 'create-account'
+          ? Operation.createAccount({
+              destination: input.destination,
+              startingBalance: input.amount,
+            })
+          : Operation.payment({
+              destination: input.destination,
+              asset:
+                input.asset.kind === 'native'
+                  ? Asset.native()
+                  : new Asset(input.asset.code, input.asset.issuer),
+              amount: input.amount,
+            }),
+      );
+      if (input.memo !== undefined) {
+        builder = builder.addMemo(Memo.text(input.memo));
+      }
+      return {
+        source: input.source,
+        networkId: 'stellar-testnet',
+        transactionXdrBase64: builder.setTimeout(180).build().toXdr(),
+      };
+    }),
     buildChangeTrust: jest.fn(),
     submitTransaction: jest.fn(),
   } as jest.Mocked<StellarGateway>;
@@ -201,7 +204,7 @@ describe('preparePayment', () => {
         {
           destination: destinationAddress,
           amount: '1',
-          asset: {kind: 'credit', code: 'USD', issuer: issuerAddress},
+          asset: {kind: 'credit', code: 'USD', issuer: sourceAddress},
         },
       ),
     ).rejects.toThrow('payment-issued-asset-requires-existing-destination');
@@ -419,6 +422,71 @@ describe('preparePayment', () => {
       expect.objectContaining({memo: ' memo '}),
     );
     expect(review.memo).toBe(' memo ');
+  });
+
+  it('rejects a built XDR that drops the preflighted memo', async () => {
+    const stellar = gateway();
+    stellar.buildPayment.mockImplementationOnce(async input => ({
+      source: input.source,
+      networkId: 'stellar-testnet',
+      transactionXdrBase64: new TransactionBuilder(new Account(input.source, '10'), {
+        fee: input.baseFee,
+        networkPassphrase: Networks.TESTNET,
+      })
+        .addOperation(
+          Operation.payment({
+            destination: input.destination,
+            asset: Asset.native(),
+            amount: input.amount,
+          }),
+        )
+        .setTimeout(180)
+        .build()
+        .toXdr(),
+    }));
+
+    await expect(
+      preparePayment(
+        {gateway: stellar},
+        account(),
+        {
+          destination: destinationAddress,
+          amount: '1',
+          asset: {kind: 'native'},
+          memo: 'required semantics',
+        },
+      ),
+    ).rejects.toThrow('payment-review-context-mismatch');
+  });
+
+  it('rejects a built XDR whose fee differs from the preflighted ledger fee', async () => {
+    const stellar = gateway();
+    stellar.buildPayment.mockImplementationOnce(async input => ({
+      source: input.source,
+      networkId: 'stellar-testnet',
+      transactionXdrBase64: new TransactionBuilder(new Account(input.source, '10'), {
+        fee: '200',
+        networkPassphrase: Networks.TESTNET,
+      })
+        .addOperation(
+          Operation.payment({
+            destination: input.destination,
+            asset: Asset.native(),
+            amount: input.amount,
+          }),
+        )
+        .setTimeout(180)
+        .build()
+        .toXdr(),
+    }));
+
+    await expect(
+      preparePayment(
+        {gateway: stellar},
+        account(),
+        {destination: destinationAddress, amount: '1', asset: {kind: 'native'}},
+      ),
+    ).rejects.toThrow('payment-review-context-mismatch');
   });
 
   it('preserves valid issued asset code case as part of identity', () => {
