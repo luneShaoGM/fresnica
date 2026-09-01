@@ -66,6 +66,31 @@ jobs:
           grep -F "apply plugin: 'com.android.library'" .fresnica-upstream/adapters/react-native/android/build.gradle
           grep -F 'gradle-9.4.1-bin.zip' android/gradle/wrapper/gradle-wrapper.properties
 
+      # Upstream issue: https://github.com/Fresnica/fresnica/issues/128
+      # Gradle init scripts also run for nested/included builds. The 0.2.1
+      # adapter init script currently requires root-only -P properties before
+      # checking which build is being initialized, so React Native's included
+      # Gradle plugin build fails before the consumer settings build completes.
+      # Keep this checkout-only compatibility guard until upstream ships it.
+      - name: Guard Fresnica adapter init script in included builds
+        shell: bash
+        run: |
+          set -euo pipefail
+          init_script=.fresnica-upstream/adapters/react-native/android/include.init.gradle
+          grep -F "gradle.startParameter.projectProperties['fresnicaAdapterProjectDir']" "$init_script"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.fresnica-upstream/adapters/react-native/android/include.init.gradle')
+          original = path.read_text()
+          expected = "def adapterProjectDir = gradle.startParameter.projectProperties['fresnicaAdapterProjectDir']\n"
+          if not original.startswith(expected):
+              raise SystemExit('unexpected Fresnica adapter init-script baseline')
+          guard = "if (gradle.parent != null) {\n    return\n}\n\n"
+          path.write_text(guard + original)
+          PY
+          grep -F 'if (gradle.parent != null)' "$init_script"
+
       - name: Build canonical React Native Android adapter
         shell: bash
         run: |
