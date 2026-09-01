@@ -23,7 +23,12 @@ function gateway(): jest.Mocked<StellarGateway> {
   return {
     loadAccountAuthorization: jest.fn(),
     loadAccountBalances: jest.fn(),
+    loadAccountState: jest.fn(),
+    loadAccountOperations: jest.fn(),
+    loadLedgerParameters: jest.fn(),
+    loadLiquidityPool: jest.fn(),
     buildPayment: jest.fn(),
+    buildChangeTrust: jest.fn(),
     submitTransaction: jest.fn(),
   };
 }
