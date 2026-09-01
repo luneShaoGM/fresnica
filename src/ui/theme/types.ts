@@ -8,6 +8,7 @@ export type ThemeColors = Readonly<{
   actionPrimary: string;
   actionPrimaryPressed: string;
   onActionPrimary: string;
+  overlayBackdrop: string;
   negative: string;
   positive: string;
 }>;
