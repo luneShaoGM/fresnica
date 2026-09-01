@@ -79,6 +79,33 @@ describe('productNavigationState', () => {
     expect(nextSelectableAccountId(second, withHidden)).toBe('one');
   });
 
+  it('routes recovery export with public account identity only', () => {
+    const next = reduceProductNavigation(
+      createInitialProductNavigation(accounts),
+      {type: 'open-recovery-export', accountId: 'one'},
+      accounts,
+    );
+
+    expect(next).toEqual({
+      selectedAccountId: 'one',
+      destination: {tab: 'wallet', route: 'recovery-export', accountId: 'one'},
+    });
+    expect(next.destination).not.toHaveProperty('passphrase');
+    expect(next.destination).not.toHaveProperty('recoveryMaterial');
+  });
+
+  it('rejects recovery export navigation for hidden or unknown accounts', () => {
+    const initial = createInitialProductNavigation(accounts);
+
+    expect(() =>
+      reduceProductNavigation(
+        initial,
+        {type: 'open-recovery-export', accountId: 'missing'},
+        accounts,
+      ),
+    ).toThrow('account-not-selectable');
+  });
+
   it('reconciles a removed selected account to the first visible account', () => {
     const selectedSecond = reduceProductNavigation(
       createInitialProductNavigation(accounts),

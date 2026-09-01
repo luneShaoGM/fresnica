@@ -17,8 +17,8 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
     note: 'Runtime Wallet Home is connected to the Balance Capability with loading, inactive, active, error and refresh states.',
   },
   'account-details': {
-    readiness: 'structure-only',
-    note: 'Public account surface is routed through the runtime shell; signer/access presenter is not connected yet.',
+    readiness: 'implemented',
+    note: 'Public account identity is live and recovery export is exposed only when exactly one complete protected-software signer is attached.',
   },
   'add-account': {
     readiness: 'implemented',
@@ -30,7 +30,7 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'send-form': {
     readiness: 'implemented',
-    note: 'Runtime Send validates Stellar G/M destination, exact decimal amount, selected balance asset and 28-byte UTF-8 text memo before building an unsigned payment.',
+    note: 'Runtime Send validates destination, exact decimal amount, selected balance asset and text memo before preparing the current Normative Payment/CreateAccount transaction.',
   },
   'send-review': {
     readiness: 'implemented',
@@ -41,8 +41,12 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
     note: 'Send renders submitted, deterministic rejected, uncertain, authorization-blocked, unsupported signer, watch-only and unsupported-multisig outcomes without collapsing them.',
   },
   'manage-assets': {
-    readiness: 'structure-only',
-    note: 'Destination is reachable from the runtime shell; trustline transaction capability is not connected yet.',
+    readiness: 'implemented',
+    note: 'Manage Assets is connected to the current Trustline Add/Remove product flow with exact-XDR review and shared transaction submission.',
+  },
+  'recovery-export': {
+    readiness: 'implemented',
+    note: 'Recovery material is revealed only through Fresnica Core with a fresh app passphrase; navigation carries only accountId and revealed material remains screen-local.',
   },
   history: {
     readiness: 'implemented',

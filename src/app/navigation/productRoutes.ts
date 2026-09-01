@@ -18,6 +18,7 @@ export type ProductRoute =
   | 'send-review'
   | 'send-result'
   | 'manage-assets'
+  | 'recovery-export'
   | 'history'
   | 'operation-details'
   | 'settings-home'
@@ -50,6 +51,9 @@ export type ProductRouteParams = Readonly<{
   'send-review': undefined;
   'send-result': undefined;
   'manage-assets': Readonly<{accountId: string}>;
+  // Recovery material and fresh passphrases remain screen-local. Navigation
+  // carries only the public account identifier used to resolve the signer.
+  'recovery-export': Readonly<{accountId: string}>;
   history: undefined;
   'operation-details': Readonly<{accountId: string; operationId: string}>;
   'settings-home': undefined;
@@ -75,6 +79,7 @@ export const PRODUCT_ROUTES: Readonly<Record<MainTab, readonly ProductRoute[]>> 
     'send-review',
     'send-result',
     'manage-assets',
+    'recovery-export',
   ],
   activity: ['history', 'operation-details'],
   settings: [
