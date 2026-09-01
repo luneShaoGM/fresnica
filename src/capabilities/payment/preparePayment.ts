@@ -60,8 +60,9 @@ export async function preparePayment(
     ledger.baseFeeStroops,
   );
 
-  const operation = destinationResult.status === 'inactive' ? 'create-account' : 'payment';
-  if (operation === 'create-account') {
+  let operation: 'payment' | 'create-account';
+  if (destinationResult.status === 'inactive') {
+    operation = 'create-account';
     if (asset.kind !== 'native') {
       throw new Error('payment-issued-asset-requires-existing-destination');
     }
@@ -70,16 +71,18 @@ export async function preparePayment(
       throw new Error('payment-create-account-below-minimum-balance');
     }
   } else {
-    if (destinationResult.account.address !== destination) {
+    operation = 'payment';
+    const destinationAccount = destinationResult.account;
+    if (destinationAccount.address !== destination) {
       throw new Error('payment-destination-account-mismatch');
     }
     validateDestinationCapacity(
-      destinationResult.account,
+      destinationAccount,
       destination,
       asset,
       amountStroops,
     );
-    if (memo === undefined && destinationResult.account.memoRequired) {
+    if (memo === undefined && destinationAccount.memoRequired) {
       throw new Error('payment-destination-requires-memo');
     }
   }
