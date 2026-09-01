@@ -8,6 +8,7 @@ const sourceExtensions = new Set(['.js', '.jsx', '.ts', '.tsx']);
 // New product surfaces are strict immediately. Existing legacy feature folders are
 // added here in the same PR that materially rewrites them to the new architecture.
 const strictPresentationScopes = [
+  'src/app/navigation/ProductShell',
   'src/ui/components/',
   'src/features/home/',
   'src/features/events/',
