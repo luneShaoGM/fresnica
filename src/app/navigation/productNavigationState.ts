@@ -7,6 +7,7 @@ export type ProductDestination =
   | Readonly<{tab: 'wallet'; route: 'add-account'}>
   | Readonly<{tab: 'wallet'; route: 'send-form'; accountId: string}>
   | Readonly<{tab: 'wallet'; route: 'manage-assets'; accountId: string}>
+  | Readonly<{tab: 'wallet'; route: 'recovery-export'; accountId: string}>
   | Readonly<{tab: 'activity'; route: 'history'}>
   | Readonly<{tab: 'settings'; route: 'settings-home'}>
   | Readonly<{tab: 'settings'; route: 'accounts-settings'}>
@@ -26,6 +27,7 @@ export type ProductNavigationAction =
   | Readonly<{type: 'open-add-account'}>
   | Readonly<{type: 'open-send'; accountId: string}>
   | Readonly<{type: 'open-manage-assets'; accountId: string}>
+  | Readonly<{type: 'open-recovery-export'; accountId: string}>
   | Readonly<{
       type: 'open-settings-route';
       route: 'accounts-settings' | 'security-settings' | 'network-settings' | 'about';
@@ -104,6 +106,16 @@ export function reduceProductNavigation(
         destination: {
           tab: 'wallet',
           route: 'manage-assets',
+          accountId: action.accountId,
+        },
+      };
+    case 'open-recovery-export':
+      assertSelectableAccount(accounts, action.accountId);
+      return {
+        ...state,
+        destination: {
+          tab: 'wallet',
+          route: 'recovery-export',
           accountId: action.accountId,
         },
       };
