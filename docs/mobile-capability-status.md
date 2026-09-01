@@ -23,10 +23,12 @@ Network                   Stellar Testnet
 | Account | Normative | Onboarding provisioning implemented | Account records, account-signer invariants, derived watch-only state, atomic account+signer registration and first-run create/import/watch-only flows. |
 | Signer | Normative | Protected-software onboarding implemented | Secret/mnemonic protection remains SDK/Core-owned. Mobile persists only public signer identity plus opaque envelope and backup metadata. |
 | Balance / Availability | Normative | Read-only Portfolio slice implemented | Classic Horizon native/credit balances are normalized behind Balance. Exact decimal strings are preserved; inactive and contract-account states remain explicit; LP shares are not projected as ordinary tokens. |
-| Payment | Normative | Product Flow implemented on Testnet | Runtime Send selects a visible balance asset, validates destination/amount/text memo, builds unsigned Payment, derives review from exact XDR and submits through shared Transaction + Signing Coordination. |
+| Payment | Normative | Current contract rebaseline implemented in PR #21 | Classic `G...` destination scope, Payment-vs-CreateAccount selection, current fee/reserve/availability preflight, issued trustline authorization/capacity, SEP-29 memo-required handling and exact-XDR review/submission binding. |
 | Transaction | Normative | Shared reviewed-transaction submission implemented | Payment and Trustline share freshness, current ledger authorization, threshold resolution, Signing Coordination and exact signed-XDR submission semantics. |
-| Trustline | Normative | Add/Remove Product Flow implemented on Testnet | Ordinary Classic `CODE:GISSUER` Add/Remove follows Fresnica canonical limit, reserve/fee, issuer-state, liabilities and liquidity-pool removal rules with exact-XDR review. Set Limit UI is not implemented yet. |
+| Trustline | Normative | Add/Remove Product Flow implemented on Testnet | Ordinary Classic `CODE:GISSUER` Add/Remove follows Fresnica canonical limit, reserve/fee, issuer-state, liabilities and liquidity-pool removal rules with exact-XDR review. Asset-code case is preserved exactly. Set Limit UI is not implemented yet. |
 | History / Activity | Defined | Read-only product slice implemented | Classic Horizon account operations are paged behind `StellarGateway`, normalized into stable History entries, and rendered with loading/refresh/empty/error/load-more states. Payment/create-account are specialized; unknown operations remain explicit. |
+| SDEX | Normative | Not implemented | Current shared contract is for `ManageSellOffer` / `ManageBuyOffer`, order books, offers and fills. It is intentionally not used as an implicit Path Payment Swap contract. |
+| Path Payment / Swap | Shared contract missing | Blocked on Fresnica/fresnica#134 | Donor Swap uses `PathPaymentStrictSend` / `PathPaymentStrictReceive`; Mobile will not invent a platform-only semantic authority for quote/path/slippage policy. |
 | Ledger Authorization | Defined | Classic foundation used by Payment and Trustline | Typed Classic signer conditions and threshold resolution are reloaded immediately before signing. Payment and ChangeTrust use medium threshold. Full multisig/provider coordination remains future work. |
 | Signing Coordination | Normative | Shared routine signing used by write Flows | `routine` prefers Native SDK System Auth and falls back to a fresh app passphrase only when required. `passphrase-required` bypasses System Auth for high-assurance operations. |
 | Application Security | Defined | System Auth foundation implemented | Strong app-passphrase policy, System Auth status/enable/repair/disable and protected-signer registration exist. App lock/session and wallet-wide passphrase rotation remain blocked on explicit upstream APIs. |
@@ -56,20 +58,30 @@ Existing-wallet protected-signer creation/import remains disabled because Native
 - selected-account switching drives Wallet Home and a fresh Balance read;
 - Wallet Home distinguishes loading, inactive, active and error states;
 - native/issued balances remain exact decimal strings;
-- issued asset identity preserves code + issuer;
+- issued asset identity preserves code + issuer and exact case;
 - liquidity-pool shares are not projected as ordinary token balances;
 - contract accounts do not inherit Classic Horizon balance semantics.
 
-## Send v1 evidence
+## Send / Payment evidence
 
-`src/features/send` implements form -> exact-XDR review -> authorization/submission -> result:
+`src/features/send` plus `src/capabilities/payment` implement form -> current-ledger preparation -> exact-XDR review -> authorization/submission -> result.
+
+Current PR #21 semantics:
 
 - native and issued Balance assets are selectable;
-- `G...` and muxed `M...` destinations are validated;
-- amount validation preserves exact decimal strings and seven-decimal Stellar semantics;
-- text memo is limited to 28 UTF-8 bytes and exact-XDR Unicode memo review decodes UTF-8 correctly;
-- unsigned construction uses `StellarGateway.buildPayment`;
-- every review field is derived from exact unsigned XDR;
+- destination scope is Classic `G...`; muxed `M...` is rejected under the current shared contract;
+- amount validation preserves exact positive seven-decimal Stellar semantics without JavaScript floating point;
+- text memo is limited to 28 UTF-8 bytes and leading/trailing whitespace is preserved exactly;
+- source state, destination state and current ledger base fee/reserve are loaded during preparation;
+- missing destination + XLM builds exact `CreateAccount`; missing destination + issued asset fails closed;
+- CreateAccount requires at least the current two-base-reserve minimum starting balance;
+- native source availability subtracts protocol minimum balance, selling liabilities and fee;
+- issued source payments require the exact trustline, full authorization and sufficient available balance unless source is the issuer;
+- issued destination payments require the exact trustline, full authorization and `limit - balance - buying liabilities` receiving capacity unless destination is the issuer;
+- SEP-29 `config.memo_required=1` is enforced before XDR construction;
+- current ledger base fee replaces the earlier hard-coded build fee;
+- `PaymentReview` derives and exposes actual `Payment` vs `CreateAccount` operation from exact unsigned XDR;
+- preparation binds source, destination, operation, amount, asset, memo and fee back to exact XDR context;
 - submission re-derives semantic review from exact XDR before account/signer checks;
 - current ledger authorization and freshness are checked immediately before signing;
 - zero attached signers fail as watch-only; multiple attached signers fail closed pending multisig;
@@ -77,7 +89,9 @@ Existing-wallet protected-signer creation/import remains disabled because Native
 - submitted, deterministic rejected, uncertain, authorization-blocked and signer-gate outcomes remain distinct;
 - returning to Wallet refreshes balances.
 
-Send v1 intentionally excludes path payment, swap, multi-operation review, full multisig, external signer providers and Agent authorization.
+PR #21 normal CI and Realm Integration are green. Native revalidation remains pending integration of the shared #20/#22 native baseline into its Trustline base.
+
+Send intentionally excludes Path Payment Swap, persistent SDEX offers, full multisig, external signer providers and Agent authorization.
 
 ## History / Activity v1 evidence
 
@@ -87,7 +101,7 @@ Send v1 intentionally excludes path payment, swap, multi-operation review, full 
 - v1 specializes `payment` and `create_account`;
 - unknown operation types and malformed specialized operation shapes remain explicit unsupported entries;
 - issued asset identity and exact amount strings are preserved;
-- incoming/outgoing/self/neutral payment direction is explicit, including muxed destination handling;
+- incoming/outgoing/self/neutral payment direction is explicit, including muxed destination handling for history records;
 - Activity has loading, inactive, unsupported account, error, empty, refresh and load-more states;
 - stale async results are ignored after account/request changes;
 - raw Horizon records/cursors never enter product navigation.
@@ -97,7 +111,7 @@ Send v1 intentionally excludes path payment, swap, multi-operation review, full 
 `src/capabilities/trustline` and `src/features/trustlines` implement the first Classic issued-asset write flow according to the upstream Normative Trustline contract:
 
 - ordinary trustline identity is `CODE:GISSUER`; XLM and liquidity-pool-share ChangeTrust assets are outside this v1 product scope;
-- asset code is 1-12 ASCII alphanumeric characters and issuer must be a Classic `G...` account;
+- asset code is 1-12 ASCII alphanumeric characters, preserves exact case, and issuer must be a Classic `G...` account;
 - an issuer cannot create a trustline to its own asset;
 - Add requires no existing trustline and requires the issuer account to exist;
 - Add uses Fresnica canonical default limit `708269837873.6765` rather than Stellar SDK's generic max-int64 default;
@@ -116,6 +130,17 @@ Send v1 intentionally excludes path payment, swap, multi-operation review, full 
 - watch-only and multiple-local-signer accounts fail closed before signing.
 
 Trustline v1 intentionally does not implement Set Limit UI, Asset Discovery/catalog/ranking, liquidity-pool-share ChangeTrust, multisig coordination or Agent authorization.
+
+## Native gate evidence
+
+The previous runner-allocation blocker is no longer the current state.
+
+- PR #20 validates the checkout-only Android adapter compatibility path for upstream RN adapter 0.2.1 through canonical adapter build, manifest/AAR checks and Android app link.
+- Upstream adapter defects remain tracked separately instead of forking canonical source in Mobile.
+- PR #22 latest head executed normal CI, Realm Integration, Native Android Gate and Native Apple Gate successfully on the Stage 1-4 product tree.
+- #22 preserves the Apple runtime smoke: Simulator launch, real Realm read/write and `NativeModules.FresnicaCore.parseAccount`; diagnostics were added without `continue-on-error`, skipped assertions or timeout weakening.
+
+These native compatibility changes still need to be integrated back into `feat/trustline-flow`, then PR #21 must be revalidated on that base before the stacked stages are considered final.
 
 ## Application Security v1 evidence
 
@@ -143,8 +168,6 @@ Two upstream gaps remain explicit: framework-safe verification-only current-pass
 
 Realm v1 includes strict plain-object mapping, atomic writes, network-scoped duplicate account identity, shared-signer preservation, orphan cleanup, account-to-signer lookup, backup-state updates and reopen persistence coverage. Persisted data does not contain plaintext mnemonic, secret, app passphrase, WalletUnlockKey or biometric auth state.
 
-Android and Apple RN runtimes were previously manually verified through the native parse-account/Realm smoke path. New Product Shell, Balance, Send, History and Trustline changes require their own executable validation; CI evidence is recorded per staged PR.
-
 ## Conformance / regression scope
 
 Tests are designed to cover, among other cases:
@@ -154,10 +177,10 @@ Tests are designed to cover, among other cases:
 - mnemonic backup recovery semantics;
 - typed non-Ed25519 ledger signer preservation;
 - exact-XDR Payment and Trustline review/signing binding;
-- Send destination/amount/memo validation and signer gates;
+- Payment Classic destination scope, Payment/CreateAccount selection, reserve/fee/availability, trustline auth/capacity, SEP-29 memo-required and exact memo/asset identity;
 - shared reviewed-transaction freshness and ledger authorization before signing;
 - History normalization, unsupported operation preservation and cursor deduplication;
-- Trustline canonical limit, issuer existence/state, reserve+fee preflight, removal liabilities, liquidity-pool relationship and orphan-issuer removal;
+- Trustline canonical limit, issuer existence/state, reserve+fee preflight, removal liabilities, liquidity-pool relationship, orphan-issuer removal and exact asset-code case;
 - ChangeTrust Horizon state mapping and XDR construction;
 - routine System Auth preference and passphrase-required bypass behavior;
 - accepted / rejected / uncertain submission separation;
@@ -171,7 +194,7 @@ src/platform/fresnica
 
 src/platform/stellar
   Stellar JS SDK / Horizon mechanisms for balances, authorization,
-  history, trustline preflight facts and transaction construction/submission
+  history, account/ledger/trustline facts and transaction construction/submission
 
 src/platform/persistence
   memory/ deterministic tests
@@ -182,20 +205,20 @@ Realm and Horizon remain platform choices; they do not redefine Capability seman
 
 ## Next product milestone
 
-The next staged milestone is Swap / SDEX:
+The donor's immediate Swap surface is a Path Payment product, not the same contract as Fresnica's current Normative SDEX offer capability.
 
-- compare donor Swap UX and confirmation rhythm without copying donor authentication internals;
-- define SDEX quote/read semantics separately from transaction execution;
-- preserve strict-send / strict-receive meaning explicitly;
-- bind source asset, destination asset, amount, limit/slippage and path to exact reviewed transaction XDR;
-- enforce quote freshness before signing;
-- reuse shared Transaction + Signing Coordination so biometric/passphrase behavior cannot diverge from Send/Trustline.
+- Fresnica/fresnica#134 tracks the missing shared Path Payment / Swap contract.
+- Mobile may continue donor UX/quote research and platform-mechanism investigation while that contract is open.
+- Mobile must not ship a private authoritative strict-send/strict-receive, quote freshness, slippage or path policy that could diverge from Fresnica.
+- Normative SDEX `ManageSellOffer` / `ManageBuyOffer` support remains a separate future product stage rather than a substitute for Swap.
+- While Stage 5A is blocked, unblocked Stage 6 security/account-lifecycle slices may proceed independently.
 
 The execution sequence and acceptance gates are maintained in `docs/fresnica-mobile-stage-plan.md`.
 
 ## Not yet implemented
 
-- Swap/SDEX Flow;
+- Path Payment Swap pending shared capability #134;
+- SDEX offer-management product surface;
 - Trustline Set Limit product UI;
 - Asset Discovery/catalog integration;
 - specialized operation-details product flow;
