@@ -23,6 +23,7 @@ export function SecuritySettingsScreen({dependencies, onClose}: Props) {
   const [status, setStatus] = useState<SystemAuthStatus>();
   const [appPassphrase, setAppPassphrase] = useState('');
   const [busy, setBusy] = useState(false);
+  const [confirmDisable, setConfirmDisable] = useState(false);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
 
@@ -42,6 +43,7 @@ export function SecuritySettingsScreen({dependencies, onClose}: Props) {
 
   async function enable() {
     setBusy(true);
+    setConfirmDisable(false);
     setError(undefined);
     setNotice(undefined);
     try {
@@ -67,6 +69,7 @@ export function SecuritySettingsScreen({dependencies, onClose}: Props) {
 
   async function disable() {
     setBusy(true);
+    setConfirmDisable(false);
     setError(undefined);
     setNotice(undefined);
     try {
@@ -119,13 +122,36 @@ export function SecuritySettingsScreen({dependencies, onClose}: Props) {
             disabled={busy || !status.available || appPassphrase.length === 0}
             onPress={() => void enable()}
           />
-          {status.domainInitialized ? (
+          {status.domainInitialized && !confirmDisable ? (
             <Button
               label="Disable System Auth"
               variant="secondary"
               disabled={busy}
-              onPress={() => void disable()}
+              onPress={() => {
+                setError(undefined);
+                setNotice(undefined);
+                setConfirmDisable(true);
+              }}
             />
+          ) : null}
+          {status.domainInitialized && confirmDisable ? (
+            <View style={styles.confirmation}>
+              <Text style={styles.warning}>
+                Disable biometric/System Auth for all protected Fresnica signers on this device? Routine signing will require the app passphrase until System Auth is enabled again.
+              </Text>
+              <Button
+                label="Keep System Auth"
+                variant="ghost"
+                disabled={busy}
+                onPress={() => setConfirmDisable(false)}
+              />
+              <Button
+                label="Disable now"
+                variant="secondary"
+                disabled={busy}
+                onPress={() => void disable()}
+              />
+            </View>
           ) : null}
         </Card>
       ) : (
@@ -171,6 +197,15 @@ const styles = StyleSheet.create({
   statusValue: {
     ...typography.label,
     color: palette.text,
+  },
+  confirmation: {
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  warning: {
+    ...typography.caption,
+    color: palette.danger,
+    fontWeight: '600',
   },
   notice: {
     ...typography.caption,
