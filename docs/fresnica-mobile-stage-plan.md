@@ -12,6 +12,7 @@
 - Do not emulate missing Core security APIs in JavaScript.
 - Agent/AI standing authorization is deferred until Core exposes transaction-specific authority constraints. See `docs/deferred-agent-authorization.md`.
 - Required CI must execute real steps before merge. A workflow failure before checkout is an external gate, not a code result.
+- Do not treat SDK operation availability as an implicit Application Capability contract.
 
 ## Current stack
 
@@ -25,17 +26,28 @@ main
                            -> feat/history-read-flow  PR #18
                                 -> feat/trustline-flow  PR #19
 
+native compatibility stack:
+feat/trustline-flow
+  -> fix/android-adapter-included-build-gate  PR #20
+       -> fix/apple-native-runtime-smoke       PR #22
+
+payment conformance rebaseline:
+feat/trustline-flow
+  -> feat/payment-conformance-rebaseline       PR #21
+
 parallel security fix:
-main -> fix/android-release-signing     PR #14
+main -> fix/android-release-signing             PR #14
 ```
 
-Stages 1-4 are source-complete in stacked PRs. Earlier PRs remain unmerged because their required GitHub Actions runs failed before workflow steps executed. PR #19 is the first recent staged PR whose CI runner has started real steps again; its final validation result is still authoritative.
+Stages 1-4 are source-complete. The latest #22 head executed and passed the full current CI stack: normal CI, Realm Integration, Native Android Gate and Native Apple Gate. That validates the Stage 1-4 product tree plus the Android compatibility workaround on real runners; #20/#22 still need to be integrated back into the Trustline base before #19 is considered final.
+
+Payment was re-audited against the newer upstream Normative contract in PR #21. Its normal CI and Realm Integration are green; native revalidation remains pending until the shared #20/#22 native baseline is integrated.
 
 ---
 
 ## Stage 1 — Runtime Product Shell and Wallet Home
 
-**Status:** SOURCE COMPLETE — PR #16 — CI EXTERNALLY BLOCKED
+**Status:** SOURCE COMPLETE — PR #16 — VALIDATED IN LATEST NATIVE STACK
 
 **Delivered**
 
@@ -54,33 +66,49 @@ Stages 1-4 are source-complete in stacked PRs. Earlier PRs remain unmerged becau
 
 ---
 
-## Stage 2 — Send Product Flow
+## Stage 2 — Send Product Flow / Payment Conformance
 
-**Status:** SOURCE COMPLETE — PR #17 — CI EXTERNALLY BLOCKED
+**Status:** IMPLEMENTED — PR #17 — CURRENT NORMATIVE REBASELINE IN PR #21
 
-**Delivered**
+PR #17 established the first Send product flow. PR #21 supersedes its older Payment assumptions with the current upstream Normative contract.
+
+**Current delivered semantics**
 
 - form -> exact-XDR review -> authorization/submission -> result;
 - native and issued Balance assets;
-- Stellar `G...` and muxed `M...` destinations;
-- exact decimal amount validation and 28-byte UTF-8 text memo validation;
-- Unicode memo review decoding from exact SDK XDR bytes;
-- submit boundary re-derives `PaymentReview` from exact XDR;
+- current destination scope is Classic `G...`; muxed `M...` is rejected unless the shared contract is deliberately expanded;
+- exact positive seven-decimal amount semantics without JavaScript floating point;
+- text memo is limited to 28 UTF-8 bytes and preserved exactly rather than trimmed;
+- source/destination account state and current ledger base fee/reserve are loaded during preparation;
+- missing destination + XLM prepares exact `CreateAccount`; missing destination + issued asset fails closed;
+- CreateAccount starting balance must satisfy the current two-base-reserve minimum;
+- source native availability accounts for protocol minimum balance, selling liabilities and fee;
+- source issued payments require the exact trustline, full authorization and available balance unless the source is the issuer;
+- destination issued payments require the exact trustline, full authorization and receiving capacity unless the destination is the issuer;
+- SEP-29 `config.memo_required=1` is enforced before XDR construction;
+- `PaymentReview` exposes the actual `Payment` vs `CreateAccount` operation derived from exact XDR;
+- preparation and submission bind source, destination, operation, amount, asset, memo and fee to the exact reviewed XDR;
 - freshness -> current ledger authorization -> signer resolution -> shared Signing Coordination -> exact signed XDR submission;
 - System Auth first, app-passphrase fallback only when required;
 - submitted / rejected / uncertain / authorization-blocked / watch-only / unsupported-multisig remain distinct.
 
+**Validation**
+
+- PR #21 normal CI: green;
+- PR #21 Realm Integration: green;
+- native rerun: pending shared #20/#22 integration into its base.
+
 **Non-goals**
 
 - no path payment / swap;
-- no multi-operation transaction UI;
+- no multi-operation transaction UI beyond exact CreateAccount-vs-Payment selection;
 - no Agent signing.
 
 ---
 
 ## Stage 3 — Activity / History Read Flow
 
-**Status:** SOURCE COMPLETE — PR #18 — CI EXTERNALLY BLOCKED
+**Status:** SOURCE COMPLETE — PR #18 — VALIDATED IN LATEST NATIVE STACK
 
 **Delivered**
 
@@ -104,7 +132,7 @@ Stages 1-4 are source-complete in stacked PRs. Earlier PRs remain unmerged becau
 
 ## Stage 4 — Trustline / Manage Assets Flow
 
-**Status:** SOURCE COMPLETE — PR #19 — CI RUNNING
+**Status:** SOURCE COMPLETE — PR #19 — FULL TREE VALIDATED THROUGH #22; BASE INTEGRATION PENDING
 
 **Normative source**
 
@@ -112,7 +140,7 @@ Upstream Fresnica Trustline is Normative. Mobile follows the shared semantic con
 
 **Delivered**
 
-- stable ordinary issued-asset identity `CODE:GISSUER`;
+- stable ordinary issued-asset identity `CODE:GISSUER`; asset code case is preserved exactly;
 - Add / Remove product flow for Classic accounts;
 - Add uses Fresnica canonical default limit `708269837873.6765`;
 - Add rejects existing trustlines, inactive issuers and issuer self-trust;
@@ -130,20 +158,11 @@ Upstream Fresnica Trustline is Normative. Mobile follows the shared semantic con
 - submitted / rejected / uncertain / authorization-blocked / unsupported-signer / watch-only / unsupported-multisig remain distinct;
 - returning to Wallet remounts Portfolio and refreshes ledger balances.
 
-**Regression scope**
+**Native validation**
 
-- canonical limit;
-- issuer existence and issuer flags;
-- reserve + fee preflight;
-- existing trustline rejection;
-- zero-balance/liability removal requirements;
-- liquidity-pool relationship protection;
-- orphaned issuer removal;
-- self-trust and invalid asset identity;
-- exact-XDR review binding and account-source binding;
-- watch-only and multiple local signer gates;
-- Horizon account-state, ledger-parameter and liquidity-pool mapping;
-- ChangeTrust XDR construction.
+- #20 proves the checkout-only Android adapter compatibility path through canonical adapter build, manifest/AAR validation and Android app link;
+- #22 proves the same Stage 1-4 product tree can pass CI, Realm Integration, Native Android and Native Apple runtime gates together without weakening the runtime smoke assertions;
+- merge/integration back into `feat/trustline-flow` remains required before PR #19 is final.
 
 **Non-goals**
 
@@ -155,38 +174,55 @@ Upstream Fresnica Trustline is Normative. Mobile follows the shared semantic con
 
 ---
 
-## Stage 5 — Swap / SDEX Flow
+## Stage 5A — Path Payment Swap
 
-**Status:** NEXT AFTER STAGE 4 VALIDATION
+**Status:** BLOCKED ON SHARED CAPABILITY CONTRACT — UPSTREAM Fresnica/fresnica#134
 
-**Goal**
+**Boundary decision**
 
-Implement swap only after Balance + Send + Trustline transaction patterns are proven.
+The donor Swap flow uses immediate routed exchange through `PathPaymentStrictSend` / `PathPaymentStrictReceive`. The current upstream Normative `SDEX` Capability instead defines `ManageSellOffer` / `ManageBuyOffer`, order books, offers and fills. Mobile must not use SDEX offer semantics as an implicit Swap contract.
 
-**Implementation scope**
+Upstream issue #134 requests a dedicated Path Payment / Swap Application Capability (or an explicit shared extension) covering strict-send/strict-receive intent, quote/path identity, freshness, slippage protection, trustline/capacity rules, exact review and conformance vectors.
 
-- inspect donor swap UX and transaction rhythm without copying donor Vault/authentication internals;
-- define SDEX quote/read boundary separately from write execution;
-- distinguish strict-send / strict-receive semantics explicitly;
+**Safe work before the contract lands**
+
+- inspect donor Swap UX and quote/confirmation rhythm;
+- keep Horizon/Stellar transport research at the platform-mechanism level only;
+- reuse existing exact-asset identity, current ledger facts, Transaction and Signing Coordination concepts;
+- do not ship Mobile-only authoritative quote/slippage/path-payment policy.
+
+**Required implementation semantics once shared**
+
+- distinguish strict-send / strict-receive explicitly;
 - preserve full source/destination asset identity and exact decimal amounts;
-- bind source asset, destination asset, amount, limit/slippage and path to exact reviewed transaction XDR;
-- enforce quote freshness/expiry before signing;
+- bind source asset, destination asset, path, protection amount, fee/network and time bounds to exact reviewed XDR;
+- enforce quote/path freshness immediately before signing;
 - reuse shared Transaction submission and Signing Coordination;
-- keep biometric/passphrase behavior identical in policy to Send/Trustline;
-- fail closed on unsupported route/account/trustline conditions.
+- keep System Auth/passphrase behavior identical in policy to Send/Trustline;
+- fail closed on unsupported route/account/trustline/capacity conditions.
 
 **Acceptance criteria**
 
 - quote expiration is enforced before signing;
 - UI cannot detach review from the exact path/transaction being signed;
 - deterministic rejection and uncertain submission remain distinct;
-- no swap-specific authentication path exists.
+- no Swap-specific authentication path exists.
+
+---
+
+## Stage 5B — SDEX Offer Management
+
+**Status:** NORMATIVE CONTRACT AVAILABLE — SEPARATE PRODUCT STAGE
+
+Upstream `SDEX` is already Normative for pair-relative market reads and offer writes. It is not a substitute for Path Payment Swap.
+
+When prioritized, this stage should implement `ManageSellOffer` / `ManageBuyOffer` create/update/cancel and market/account reads using the upstream exact `n/d` price, liability, reserve, authorization and review semantics. It must remain a separate product surface from immediate Swap.
 
 ---
 
 ## Stage 6 — Security and Account Lifecycle Completion
 
-**Status:** PARTIALLY BLOCKED BY CORE
+**Status:** PARTIALLY BLOCKED BY CORE; INDEPENDENT WORK MAY PROCEED WHILE STAGE 5A WAITS
 
 **Can proceed independently**
 
@@ -249,14 +285,15 @@ When revisited, it must reuse shared Ledger Authorization / Signing Coordination
 ## Execution order
 
 ```text
-1. Runtime Product Shell + Wallet Home        SOURCE COMPLETE / CI BLOCKED
-2. Send                                      SOURCE COMPLETE / CI BLOCKED
-3. Activity / History                        SOURCE COMPLETE / CI BLOCKED
-4. Trustline / Manage Assets                 SOURCE COMPLETE / CI RUNNING
-5. Swap / SDEX                               NEXT
-6. Security & account lifecycle completion   PARTIALLY CORE-BLOCKED
-7. Multisig / external providers             FUTURE
-8. Production hardening / Mainnet gate       PARALLEL
+1. Runtime Product Shell + Wallet Home        SOURCE COMPLETE / VALIDATED IN LATEST STACK
+2. Send / Payment conformance                 PR #21 CORE CI + REALM GREEN; NATIVE REVALIDATION PENDING
+3. Activity / History                         SOURCE COMPLETE / VALIDATED IN LATEST STACK
+4. Trustline / Manage Assets                  SOURCE COMPLETE / #20+#22 INTEGRATION PENDING
+5A. Path Payment Swap                         BLOCKED ON UPSTREAM CAPABILITY #134
+5B. SDEX Offer Management                     SEPARATE / NORMATIVE READY
+6. Security & account lifecycle completion    PARTIALLY CORE-BLOCKED; UNBLOCKED SLICES MAY PROCEED
+7. Multisig / external providers              FUTURE
+8. Production hardening / Mainnet gate        PARALLEL
 ```
 
 ## Definition of done for every stage
