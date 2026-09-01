@@ -1,11 +1,13 @@
 import React, {useCallback, useEffect, useState} from 'react';
 
 import type {AccountRecord} from '../../capabilities/account/types';
+import {resolveRecoveryExportAccess} from '../../capabilities/signer/revealRecoveryMaterial';
 import {AccountDetailsScreen} from '../../features/accounts/AccountDetailsScreen';
 import {AccountsScreen} from '../../features/accounts/AccountsScreen';
 import {AddWatchOnlyAccountScreen} from '../../features/accounts/AddWatchOnlyAccountScreen';
 import {ActivityHomeScreen} from '../../features/history/ActivityHomeScreen';
 import {WalletHomeScreen} from '../../features/portfolio/WalletHomeScreen';
+import {RecoveryExportScreen} from '../../features/security/RecoveryExportScreen';
 import {SecuritySettingsScreen} from '../../features/security/SecuritySettingsScreen';
 import {SendFlowScreen} from '../../features/send/SendFlowScreen';
 import {AboutScreen} from '../../features/settings/AboutScreen';
@@ -80,11 +82,18 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
       break;
     case 'account-details': {
       const account = resolveAccountById(accounts, destination.accountId);
+      const recoveryExportAvailable =
+        resolveRecoveryExportAccess(services.recoveryExport, account.id).status ===
+        'available';
       content = (
         <AccountDetailsScreen
           account={account}
+          recoveryExportAvailable={recoveryExportAvailable}
           onSend={() => dispatch({type: 'open-send', accountId: account.id})}
           onManageAssets={() => dispatch({type: 'open-manage-assets', accountId: account.id})}
+          onExportRecovery={() =>
+            dispatch({type: 'open-recovery-export', accountId: account.id})
+          }
         />
       );
       break;
@@ -116,6 +125,17 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
           account={account}
           dependencies={services.trustline}
           onDone={() => dispatch({type: 'select-tab', tab: 'wallet'})}
+        />
+      );
+      break;
+    }
+    case 'recovery-export': {
+      const account = resolveAccountById(accounts, destination.accountId);
+      content = (
+        <RecoveryExportScreen
+          account={account}
+          dependencies={services.recoveryExport}
+          onDone={() => dispatch({type: 'open-account', accountId: account.id})}
         />
       );
       break;
