@@ -36,7 +36,7 @@ Milestone execution and local acceptance criteria are tracked in `docs/stellar-r
 | --- | --- | --- | --- |
 | `src/theme/colors.ts` | `src/ui/theme/stellar/colors.ts` | ported | Color utility functions are colocated under theme so architecture guard keeps raw colors centralized. |
 | `src/theme/sizes.ts` | `src/ui/theme/stellar/sizes.ts` | ported with boundary | Xaman `DeviceUtilsModule.layoutInsets` is not copied; Fresnica SafeArea containers own insets. Donor scaling/padding metrics remain source-compatible. |
-| `src/theme/fonts.ts` | `src/ui/theme/stellar/fonts.ts` | ported with resource gap | Family names, locale selection and sizing are ported. Font binary/native-project registration is still pending review. |
+| `src/theme/fonts.ts` | `src/ui/theme/stellar/fonts.ts` | ported with resource gap | Family names, locale selection and sizing are ported. Device locale is read through Intl rather than NativeModules so `ui/` stays presentation-only. Font binary/native-project registration is still pending review. |
 | `src/components/General/Spacer` | `src/ui/components/stellar/Spacer` | ported | Direct structural/style port. |
 | `src/components/General/LoadingIndicator` | `src/ui/components/stellar/LoadingIndicator` | ported with theme boundary | Donor `StyleService` is not imported. The current single canonical light theme maps donor default contrast to black; light/dark explicit variants remain white/black. |
 | `src/components/General/TouchableDebounce` | `src/ui/components/stellar/TouchableDebounce` | ported with dependency simplification | Preserves donor 500ms leading-only press behavior without adding lodash only for this presentation helper. |

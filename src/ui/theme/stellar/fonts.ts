@@ -2,10 +2,13 @@
  * Stellar presentation typography.
  *
  * Source: luneShaoGM/Stellar@stellar-migration/src/theme/fonts.ts
- * Font family names and sizing rules are kept source-compatible. The font
- * resource/native-project migration is tracked separately in the parity map.
+ *
+ * Family names, locale selection and sizing stay source-compatible. Donor
+ * NativeModules SettingsManager / I18nManager locale reads are not copied
+ * into ui; Intl supplies the device locale. Font binary/native-project
+ * registration is tracked separately in the parity map.
  */
-import {NativeModules, Platform} from 'react-native';
+import {Platform} from 'react-native';
 
 import stellarSizes from './sizes';
 
@@ -16,15 +19,8 @@ export const scaleStellarFontSize = (size: number): number =>
 
 const getDeviceLocale = (): string => {
   try {
-    if (Platform.OS === 'ios') {
-      const settingsManager = (NativeModules as any)?.SettingsManager;
-      const settings = settingsManager?.settings || settingsManager?.getConstants?.()?.settings || {};
-      const locale = settings?.AppleLocale || settings?.AppleLanguages?.[0];
-      return typeof locale === 'string' ? locale : '';
-    }
-
-    const localeIdentifier = (NativeModules as any)?.I18nManager?.localeIdentifier;
-    return typeof localeIdentifier === 'string' ? localeIdentifier : '';
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale;
+    return typeof locale === 'string' ? locale : '';
   } catch {
     return '';
   }
@@ -33,7 +29,9 @@ const getDeviceLocale = (): string => {
 const normalizedLocale = getDeviceLocale().replace(/_/g, '-').toLowerCase();
 const isChineseLocale = normalizedLocale.startsWith('zh');
 const isTraditionalChineseLocale =
-  normalizedLocale.startsWith('zh-tw') || normalizedLocale.startsWith('zh-hk');
+  normalizedLocale.includes('-hant') ||
+  normalizedLocale.startsWith('zh-tw') ||
+  normalizedLocale.startsWith('zh-hk');
 
 const resolveBaseFamily = (): string | undefined => {
   if (!isChineseLocale) {
