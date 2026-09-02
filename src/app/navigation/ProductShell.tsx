@@ -41,19 +41,9 @@ const TAB_ICONS = {
   },
 } as const;
 
-const ACTION_LABELS: Readonly<Record<ProductAction, string>> = {
-  send: 'Send',
-  swap: 'Swap',
-  request: 'Request',
-};
-
-const ACTION_ICONS = {
-  send: require('../../ui/assets/stellar/icon_send_v2.png'),
-  swap: require('../../ui/assets/stellar/icon_swap.png'),
-  request: require('../../ui/assets/stellar/icon_request.png'),
-} as const;
-
 const tabActionsIcon = require('../../ui/assets/stellar/icon_tabbar_actions.png');
+const swapIcon = require('../../ui/assets/stellar/icon_swap.png');
+const SHORTCUT_SLOTS = [0, 1, 2, 3] as const;
 
 export function ProductShell({
   children,
@@ -88,12 +78,12 @@ export function ProductShell({
     );
   };
 
-  const handleSelectAction = (action: ProductAction) => {
-    if (!actionAvailability[action]) {
+  const handleSwapPress = () => {
+    if (!actionAvailability.swap) {
       return;
     }
     setActionsOpen(false);
-    onSelectAction(action);
+    onSelectAction('swap');
   };
 
   return (
@@ -131,33 +121,54 @@ export function ProductShell({
             onPress={event => event.stopPropagation()}
             style={styles.actionsSheet}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.actionsTitle}>Actions</Text>
-            <View style={styles.actionRow}>
-              {(['send', 'swap', 'request'] as const).map(action => {
-                const enabled = actionAvailability[action];
-                return (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{disabled: !enabled}}
-                    disabled={!enabled}
-                    key={action}
-                    onPress={() => handleSelectAction(action)}
-                    style={({pressed}) => [
-                      styles.actionItem,
-                      action === 'swap' ? styles.actionItemDark : styles.actionItemGreen,
-                      !enabled ? styles.actionItemDisabled : undefined,
-                      pressed ? styles.pressed : undefined,
-                    ]}>
-                    <Image
-                      resizeMode="contain"
-                      source={ACTION_ICONS[action]}
-                      style={styles.actionIcon}
-                    />
-                    <Text style={styles.actionLabel}>{ACTION_LABELS[action]}</Text>
-                    {!enabled ? <Text style={styles.actionStatus}>Coming soon</Text> : null}
-                  </Pressable>
-                );
-              })}
+
+            <Text numberOfLines={1} style={styles.actionsSectionTitle}>
+              Recently used
+            </Text>
+            <View style={styles.shortcutRow}>
+              {SHORTCUT_SLOTS.map(slot => (
+                <View key={`recent-${slot}`} style={styles.shortcutItem}>
+                  <View style={[styles.shortcutIconShell, styles.shortcutPlaceholder]} />
+                  <View style={styles.shortcutLabelPlaceholder} />
+                </View>
+              ))}
+            </View>
+
+            <Text numberOfLines={1} style={styles.actionsSectionTitle}>
+              Quick actions
+            </Text>
+            <View style={styles.shortcutRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{disabled: !actionAvailability.swap}}
+                disabled={!actionAvailability.swap}
+                onPress={handleSwapPress}
+                style={({pressed}) => [
+                  styles.shortcutItem,
+                  !actionAvailability.swap ? styles.shortcutDisabled : undefined,
+                  pressed ? styles.pressed : undefined,
+                ]}>
+                <View style={[styles.shortcutIconShell, styles.nativeShortcutIcon]}>
+                  <Image resizeMode="contain" source={swapIcon} style={styles.shortcutIcon} />
+                </View>
+                <Text numberOfLines={2} style={styles.shortcutLabel}>
+                  Swap
+                </Text>
+              </Pressable>
+              {SHORTCUT_SLOTS.slice(1).map(slot => (
+                <View key={`quick-${slot}`} style={styles.shortcutItem}>
+                  <View style={[styles.shortcutIconShell, styles.shortcutPlaceholder]} />
+                  <View style={styles.shortcutLabelPlaceholder} />
+                </View>
+              ))}
+            </View>
+
+            <View
+              accessibilityRole="button"
+              accessibilityState={{disabled: true}}
+              style={[styles.scanButton, styles.scanButtonDisabled]}>
+              <Text style={styles.scanGlyph}>▣</Text>
+              <Text style={styles.scanLabel}>Scan a QR code</Text>
             </View>
           </Pressable>
         </Pressable>
