@@ -17,8 +17,8 @@ type Props = React.PropsWithChildren<
 
 const TAB_LABELS: Readonly<Record<MainTab, string>> = {
   home: 'Home',
-  events: 'Activity',
-  xapps: 'dApps',
+  events: 'Events',
+  xapps: 'XApps',
   settings: 'Settings',
 };
 
@@ -75,13 +75,20 @@ export function ProductShell({
         accessibilityState={{selected}}
         key={tab}
         onPress={() => onSelectTab(tab)}
-        style={({pressed}) => [styles.tab, pressed ? styles.pressed : undefined]}>
+        style={({pressed}) => [
+          styles.tab,
+          pressed ? styles.pressed : undefined,
+        ]}>
         <Image
           resizeMode="contain"
           source={selected ? icon.selected : icon.idle}
           style={styles.tabIcon}
         />
-        <Text style={[styles.tabText, selected ? styles.selectedTabText : undefined]}>
+        <Text
+          style={[
+            styles.tabText,
+            selected ? styles.selectedTabText : undefined,
+          ]}>
           {TAB_LABELS[tab]}
         </Text>
       </Pressable>
@@ -113,7 +120,11 @@ export function ProductShell({
                 styles.actionsButton,
                 pressed ? styles.actionsButtonPressed : undefined,
               ]}>
-              <Image resizeMode="contain" source={tabActionsIcon} style={styles.actionsImage} />
+              <Image
+                resizeMode="contain"
+                source={tabActionsIcon}
+                style={styles.actionsImage}
+              />
             </Pressable>
           </View>
           {renderTab('xapps')}
@@ -144,7 +155,9 @@ export function ProductShell({
                     onPress={() => handleSelectAction(action)}
                     style={({pressed}) => [
                       styles.actionItem,
-                      action === 'swap' ? styles.actionItemDark : styles.actionItemGreen,
+                      action === 'swap'
+                        ? styles.actionItemDark
+                        : styles.actionItemGreen,
                       !enabled ? styles.actionItemDisabled : undefined,
                       pressed ? styles.pressed : undefined,
                     ]}>
@@ -153,8 +166,12 @@ export function ProductShell({
                       source={ACTION_ICONS[action]}
                       style={styles.actionIcon}
                     />
-                    <Text style={styles.actionLabel}>{ACTION_LABELS[action]}</Text>
-                    {!enabled ? <Text style={styles.actionStatus}>Coming soon</Text> : null}
+                    <Text style={styles.actionLabel}>
+                      {ACTION_LABELS[action]}
+                    </Text>
+                    {!enabled ? (
+                      <Text style={styles.actionStatus}>Coming soon</Text>
+                    ) : null}
                   </Pressable>
                 );
               })}
