@@ -40,7 +40,7 @@ Rules that apply to every milestone:
 | --- | --- |
 | `DONE` | Completed and already absorbed into the rewrite baseline. |
 | `IN_PROGRESS` | Current implementation milestone. |
-| `READY_FOR_LOCAL_CHECK` | Automated checks are complete; milestone is intentionally paused for local/device verification. |
+| `READY_FOR_LOCAL_CHECK` | Implementation/diff review is complete and the automated gate either passed or has a concrete external blocker recorded; milestone is paused for local/device verification. |
 | `QUEUED` | Planned after the current milestone. |
 | `BLOCKED` | Presentation may progress, but required semantics depend on a missing/shared capability contract. |
 
@@ -49,7 +49,7 @@ Rules that apply to every milestone:
 | Milestone | Scope | Status | Local checkpoint |
 | --- | --- | --- | --- |
 | M0 | Rewrite authority, architecture boundary, parity inventory and migration ledger | `DONE` | Documentation/guardrails form a coherent baseline. |
-| M1 | Stellar presentation foundation and five-position Product Shell | `IN_PROGRESS` | App shell can be inspected independently before Home is rewritten. |
+| M1 | Stellar presentation foundation and five-position Product Shell | `READY_FOR_LOCAL_CHECK` | App shell can be inspected independently before Home is rewritten. |
 | M2 | Home vertical slice: account/header/actions/assets/states | `QUEUED` | Home is independently usable with existing Fresnica read capabilities. |
 | M3 | Onboarding and account lifecycle | `QUEUED` | Create/import/watch-only/account switch flows can be checked end-to-end. |
 | M4 | Send, Review, Auth, Submit and Result | `QUEUED` | A payment can be checked from entry through exact review and submission result. |
@@ -92,14 +92,27 @@ Create a stable Stellar-derived presentation base and top-level shell that later
 - [x] Port donor color, metric and typography semantics into the isolated Stellar presentation theme.
 - [x] Port `Spacer`.
 - [x] Port `RaisedButton` with a narrow icon-registry adaptation.
-- [ ] Port the donor `LoadingIndicator` presentation primitive.
-- [ ] Port the donor `TouchableDebounce` interaction primitive without adding lodash only for this helper.
-- [ ] Reuse the shared loading primitive from `StellarRaisedButton` instead of duplicating spinner behavior.
-- [ ] Source-align top-level product vocabulary to `Home | Events | Actions | XApps | Settings`.
-- [ ] Preserve Actions as a trigger rather than a selected tab; opening/closing it must not mutate the active tab.
-- [ ] Keep unavailable action semantics disabled/explicit rather than faking execution.
-- [ ] Update the source-parity ledger with all M1 donor/target paths and adaptations.
-- [ ] Pass `npm run check` / PR CI before handing the milestone to local verification.
+- [x] Port the donor `LoadingIndicator` presentation primitive.
+- [x] Port the donor `TouchableDebounce` interaction primitive without adding lodash only for this helper.
+- [x] Reuse the shared loading primitive from `StellarRaisedButton` instead of duplicating spinner behavior.
+- [x] Source-align top-level product vocabulary to `Home | Events | Actions | XApps | Settings`.
+- [x] Preserve Actions as a trigger rather than a selected tab; opening/closing it must not mutate the active tab.
+- [x] Keep unavailable action semantics disabled/explicit rather than faking execution.
+- [x] Update the source-parity ledger with all M1 donor/target paths and adaptations.
+- [x] Inspect automated gates and record the concrete pre-execution blocker; local `npm run check` remains required before M1 is marked `DONE`.
+
+### Automated verification record — 2026-09-02
+
+Implementation head inspected before this status-only documentation update: `ac8d8f40ea81fced0f7cc224382763aa7e7fd449`.
+
+- Final M1 implementation diff was reviewed. `ProductShell.tsx` is intentionally limited to the two source-vocabulary changes `Activity -> Events` and `dApps -> XApps`; the rest of the shell behavior is unchanged.
+- New M1 presentation files stay under `src/ui/**` and import only React/React Native plus UI theme dependencies. No M1 implementation change touches `features/**`, `capabilities/**` or `platform/**`.
+- The first `TouchableDebounce` draft was corrected during diff review: donor lodash `debounce({leading: true, trailing: false})` uses a resettable quiet window, not a fixed throttle interval. The port now preserves that behavior without adding lodash.
+- The execution container could not clone the private repository because outbound DNS/network access to `github.com` was unavailable, so `npm run check` could not be executed there.
+- PR CI run `33606076766` for the implementation head failed before checkout/execution: job `test` reports `runner_id=0` and `steps=[]`. No typecheck, architecture check or Jest step actually ran.
+- Native Android Gate run `33606076754` failed in the same pre-execution state: job `android` reports `runner_id=0` and `steps=[]`. No Gradle/native step actually ran.
+
+These are external execution blockers, not a test pass and not evidence of a code failure. M1 is therefore `READY_FOR_LOCAL_CHECK`, not `DONE`.
 
 ### Not in M1
 
@@ -113,14 +126,23 @@ Those belong to later vertical milestones.
 
 ### Local acceptance checklist
 
-After the automated gate is green:
+Run the local gate first:
 
-1. Launch the current main product shell after onboarding.
-2. Confirm the bottom product positions read/behave as Home, Events, Actions, XApps and Settings.
-3. Confirm Home/Events/XApps/Settings selection changes the active destination normally.
-4. Open Actions from each tab and close it; the previously selected tab must remain selected.
-5. Confirm disabled actions cannot start a fake workflow and are visibly unavailable.
-6. Confirm existing Fresnica runtime/account/security behavior has not changed merely because of the shell rewrite.
+```text
+git checkout rewrite/stellar-source-parity
+git pull
+npm ci
+npm run check
+```
+
+Then launch the platform you normally use for local validation and check:
+
+1. The bottom product positions read/behave as Home, Events, Actions, XApps and Settings.
+2. Home/Events/XApps/Settings selection changes the active destination normally.
+3. Open Actions from each tab and close it; the previously selected tab must remain selected.
+4. Disabled actions cannot start a fake workflow and remain visibly unavailable.
+5. Existing Fresnica runtime/account/security behavior has not changed merely because of the shell rewrite.
+6. Report any typecheck/test/native/runtime or visual issue against M1 before M2 starts.
 
 ## 6. M2 — Home vertical slice
 
