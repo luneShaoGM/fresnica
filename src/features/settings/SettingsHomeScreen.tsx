@@ -34,39 +34,31 @@ export function SettingsHomeScreen({
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Settings</Text>
 
-        <SettingsGroup>
-          <SettingRow
-            icon="account"
-            label="Accounts"
-            detail={`${accountCount} ${accountCount === 1 ? 'account' : 'accounts'}`}
-            onPress={onOpenAccounts}
-          />
-          <SettingRow icon="book" label="Address book" />
-        </SettingsGroup>
+        <SettingRow
+          icon="account"
+          label="Accounts"
+          detail={`${accountCount} ${accountCount === 1 ? 'account' : 'accounts'}`}
+          onPress={onOpenAccounts}
+        />
+        <SettingRow icon="book" label="Address book" />
 
-        <SettingsGroup>
-          <SettingRow icon="sliders" label="General" detail="Network" onPress={onOpenNetwork} />
-          <SettingRow icon="activity" label="Advanced" />
-        </SettingsGroup>
+        <View style={styles.divider} />
 
-        <SettingsGroup>
-          <SettingRow icon="shield" label="Security" onPress={onOpenSecurity} />
-        </SettingsGroup>
+        <SettingRow icon="sliders" label="General" detail="Network" onPress={onOpenNetwork} />
+        <SettingRow icon="activity" label="Advanced" />
 
-        <SettingsGroup>
-          <SettingRow icon="help" label="Questions & Support" />
-          <SettingRow icon="info" label="Terms & Conditions" />
-          <SettingRow icon="info" label="About" onPress={onOpenAbout} />
-        </SettingsGroup>
+        <View style={styles.divider} />
 
-        <Text style={styles.footer}>Fresnica · Stellar Testnet</Text>
+        <SettingRow icon="shield" label="Security" onPress={onOpenSecurity} />
+
+        <View style={styles.divider} />
+
+        <SettingRow icon="help" label="Questions & Support" />
+        <SettingRow icon="info" label="Terms & Conditions" />
+        <SettingRow icon="info" label="About" onPress={onOpenAbout} />
       </ScrollView>
     </SafeAreaView>
   );
-}
-
-function SettingsGroup({children}: Readonly<{children?: React.ReactNode}>) {
-  return <View style={styles.group}>{children}</View>;
 }
 
 function SettingRow({
@@ -106,18 +98,34 @@ function SettingRow({
 
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
-  content: {paddingHorizontal: 18, paddingTop: 8, paddingBottom: 36},
-  title: {fontSize: 28, lineHeight: 34, fontWeight: '800', color: '#000000', letterSpacing: -0.6, marginBottom: 18},
-  group: {marginBottom: 18},
-  row: {minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12},
-  iconSlot: {width: 30, height: 30, alignItems: 'center', justifyContent: 'center'},
-  rowIcon: {width: 25, height: 25, tintColor: '#00CA8A'},
-  label: {flex: 1, fontSize: 15, lineHeight: 19, color: '#000000', fontWeight: '600'},
+  content: {paddingLeft: 18, paddingRight: 12, paddingTop: 8, paddingBottom: 28},
+  title: {
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '800',
+    color: '#000000',
+    letterSpacing: -0.6,
+    marginBottom: 10,
+  },
+  row: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  iconSlot: {width: 48, alignItems: 'flex-start', justifyContent: 'center'},
+  rowIcon: {width: 25, height: 25, tintColor: '#181D41'},
+  label: {flex: 1, fontSize: 15, lineHeight: 20, color: '#000000', fontWeight: '700'},
   labelDisabled: {color: '#606885'},
-  rowTail: {flexDirection: 'row', alignItems: 'center', gap: 9},
+  rowTail: {flexDirection: 'row', alignItems: 'center', gap: 8},
   detail: {fontSize: 11, lineHeight: 14, color: '#ACB1C1'},
-  chevronIcon: {width: 22, height: 22, tintColor: '#00CA8A'},
-  soon: {fontSize: 10, lineHeight: 13, color: '#ACB1C1'},
-  footer: {fontSize: 10, lineHeight: 14, color: '#ACB1C1', textAlign: 'center', marginTop: 4},
+  chevronIcon: {width: 25, height: 25, tintColor: '#181D41'},
+  soon: {fontSize: 10, lineHeight: 13, color: '#ACB1C1', paddingRight: 5},
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#E7EAF0',
+    marginTop: 7,
+    marginBottom: 7,
+  },
   pressed: {opacity: 0.62},
 });

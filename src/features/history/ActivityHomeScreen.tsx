@@ -2,6 +2,7 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -165,44 +166,45 @@ export function ActivityHomeScreen({account, dependencies}: Props) {
     });
   }, [searchText, state]);
 
+  const refreshing = state.kind === 'ready' && state.refreshing;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Text style={styles.title}>Activity</Text>
-        <Pressable
-          accessibilityLabel="Refresh activity"
+        <View
+          accessibilityLabel="Filter activity"
           accessibilityRole="button"
-          disabled={state.kind === 'loading' || (state.kind === 'ready' && state.refreshing)}
-          onPress={() => loadInitial(true)}
-          style={({pressed}) => [styles.headerButton, pressed ? styles.pressed : undefined]}>
-          <Text style={styles.headerButtonText}>↻</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.searchRow}>
-        <View style={styles.searchBox}>
-          <Text style={styles.searchGlyph}>⌕</Text>
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            onChangeText={setSearchText}
-            placeholder="Search"
-            placeholderTextColor="#ACB1C1"
-            returnKeyType="search"
-            style={styles.searchInput}
-            value={searchText}
-          />
-        </View>
-        <View style={styles.filterButton}>
+          accessibilityState={{disabled: true}}
+          style={styles.filterButton}>
           <Text style={styles.filterGlyph}>≡</Text>
         </View>
       </View>
 
-      <Text numberOfLines={1} style={styles.accountCaption}>
-        {account.label || shortAddress(account.address)}
-      </Text>
+      <View style={styles.searchBox}>
+        <Text style={styles.searchGlyph}>⌕</Text>
+        <TextInput
+          autoCapitalize="none"
+          autoCorrect={false}
+          onChangeText={setSearchText}
+          placeholder="Search"
+          placeholderTextColor="#ACB1C1"
+          returnKeyType="search"
+          style={styles.searchInput}
+          value={searchText}
+        />
+      </View>
 
-      <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            tintColor="#181D41"
+            onRefresh={() => loadInitial(true)}
+          />
+        }
+        showsVerticalScrollIndicator={false}>
         {renderHistoryState(state, visibleEntries, () => loadInitial(true), loadMore)}
       </ScrollView>
     </SafeAreaView>
@@ -236,14 +238,23 @@ function renderHistoryState(
       );
     case 'error':
       return (
-        <StatePanel title="Unable to load activity" message={state.message} action="Try again" onAction={onRefresh} />
+        <StatePanel
+          title="Unable to load activity"
+          message={state.message}
+          action="Try again"
+          onAction={onRefresh}
+        />
       );
     case 'ready': {
       if (visibleEntries.length === 0) {
         return (
           <StatePanel
             title="No activity found"
-            message={state.entries.length === 0 ? 'No successful Stellar operations yet.' : 'No activity matches your search.'}
+            message={
+              state.entries.length === 0
+                ? 'No successful Stellar operations yet.'
+                : 'No activity matches your search.'
+            }
           />
         );
       }
@@ -295,7 +306,15 @@ function HistoryRow({entry}: Readonly<{entry: HistoryEntry}>) {
 
   return (
     <View style={styles.activityRow}>
-      <View style={[styles.operationIcon, incoming ? styles.operationIncoming : outgoing ? styles.operationOutgoing : styles.operationNeutral]}>
+      <View
+        style={[
+          styles.operationIcon,
+          incoming
+            ? styles.operationIncoming
+            : outgoing
+              ? styles.operationOutgoing
+              : styles.operationNeutral,
+        ]}>
         <Text style={styles.operationGlyph}>{glyph}</Text>
       </View>
       <View style={styles.activityIdentity}>
@@ -304,7 +323,10 @@ function HistoryRow({entry}: Readonly<{entry: HistoryEntry}>) {
           {shortAddress(presentation.secondary)}
         </Text>
         <Text style={styles.activityTime}>
-          {new Date(entry.occurredAt).toLocaleTimeString(undefined, {hour: '2-digit', minute: '2-digit'})}
+          {new Date(entry.occurredAt).toLocaleTimeString(undefined, {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
         </Text>
       </View>
       <Text
@@ -334,7 +356,11 @@ function StatePanel({
 }>) {
   return (
     <View style={styles.statePanel}>
-      {loading ? <ActivityIndicator color="#00CA8A" /> : <View style={styles.emptyIcon}><Text style={styles.emptyGlyph}>◎</Text></View>}
+      {loading ? (
+        <ActivityIndicator color="#00CA8A" />
+      ) : (
+        <View style={styles.emptyIcon}><Text style={styles.emptyGlyph}>◎</Text></View>
+      )}
       <Text style={styles.stateTitle}>{title}</Text>
       <Text style={styles.stateMessage}>{message}</Text>
       {action && onAction ? (
@@ -358,28 +384,42 @@ function shortAddress(value: string): string {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
   header: {
-    minHeight: 62,
+    minHeight: 60,
     paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  title: {fontSize: 28, lineHeight: 34, fontWeight: '800', color: '#000000', letterSpacing: -0.6},
-  headerButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  title: {
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '800',
+    color: '#000000',
+    letterSpacing: -0.6,
+  },
+  filterButton: {
+    width: 30,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3F6FA',
+    opacity: 0.45,
   },
-  headerButtonText: {fontSize: 21, lineHeight: 24, color: '#181D41', fontWeight: '700'},
-  searchRow: {paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 9},
+  filterGlyph: {
+    fontSize: 22,
+    lineHeight: 25,
+    color: '#181D41',
+    fontWeight: '700',
+    transform: [{rotate: '90deg'}],
+  },
   searchBox: {
-    flex: 1,
     height: 42,
+    marginHorizontal: 18,
+    marginBottom: 6,
     borderRadius: 10,
     backgroundColor: '#F3F6FA',
     flexDirection: 'row',
@@ -387,49 +427,156 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     gap: 8,
   },
-  searchGlyph: {fontSize: 20, color: '#606885'},
-  searchInput: {flex: 1, color: '#000000', fontSize: 14, paddingVertical: 0},
-  filterButton: {
-    width: 42,
-    height: 42,
+  searchGlyph: {
+    fontSize: 20,
+    color: '#606885',
+  },
+  searchInput: {
+    flex: 1,
+    color: '#000000',
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  listContent: {
+    paddingHorizontal: 18,
+    paddingBottom: 30,
+    flexGrow: 1,
+  },
+  dateHeader: {
+    fontSize: 11,
+    lineHeight: 15,
+    color: '#606885',
+    fontWeight: '700',
+    paddingTop: 10,
+    paddingBottom: 5,
+    backgroundColor: '#FFFFFF',
+  },
+  activityRow: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  operationIcon: {
+    width: 40,
+    height: 40,
     borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E7EAF0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  operationIncoming: {
+    backgroundColor: 'rgba(0, 202, 138, 0.10)',
+  },
+  operationOutgoing: {
+    backgroundColor: 'rgba(255, 91, 91, 0.09)',
+  },
+  operationNeutral: {
+    backgroundColor: '#F3F6FA',
+  },
+  operationGlyph: {
+    fontSize: 19,
+    lineHeight: 22,
+    color: '#181D41',
+    fontWeight: '800',
+  },
+  activityIdentity: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  activityTitle: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '800',
+    color: '#000000',
+  },
+  activitySecondary: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: '#606885',
+    fontWeight: '600',
+  },
+  activityTime: {
+    fontSize: 10,
+    lineHeight: 13,
+    color: '#ACB1C1',
+  },
+  activityAmount: {
+    maxWidth: '38%',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: '#181D41',
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
+  },
+  amountIncoming: {
+    color: '#00B279',
+  },
+  amountOutgoing: {
+    color: '#FF5B5B',
+  },
+  statePanel: {
+    minHeight: 280,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+    gap: 9,
+  },
+  emptyIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F3F6FA',
   },
-  filterGlyph: {fontSize: 20, color: '#181D41', transform: [{rotate: '90deg'}]},
-  accountCaption: {paddingHorizontal: 22, paddingTop: 9, paddingBottom: 3, fontSize: 11, color: '#ACB1C1'},
-  listContent: {paddingHorizontal: 18, paddingBottom: 30},
-  dateHeader: {fontSize: 12, lineHeight: 16, color: '#606885', fontWeight: '700', paddingTop: 17, paddingBottom: 5},
-  activityRow: {
-    minHeight: 72,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 11,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E7EAF0',
+  emptyGlyph: {
+    fontSize: 28,
+    color: '#ACB1C1',
   },
-  operationIcon: {width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center'},
-  operationIncoming: {backgroundColor: 'rgba(0, 202, 138, 0.12)'},
-  operationOutgoing: {backgroundColor: 'rgba(255, 91, 91, 0.11)'},
-  operationNeutral: {backgroundColor: '#F3F6FA'},
-  operationGlyph: {fontSize: 20, lineHeight: 23, color: '#181D41', fontWeight: '800'},
-  activityIdentity: {flex: 1, gap: 2},
-  activityTitle: {fontSize: 14, lineHeight: 18, fontWeight: '800', color: '#000000'},
-  activitySecondary: {fontSize: 11, lineHeight: 14, color: '#606885'},
-  activityTime: {fontSize: 10, lineHeight: 12, color: '#ACB1C1'},
-  activityAmount: {maxWidth: '38%', fontSize: 13, lineHeight: 17, fontWeight: '700', color: '#181D41', textAlign: 'right'},
-  amountIncoming: {color: '#00B279'},
-  amountOutgoing: {color: '#FF5B5B'},
-  statePanel: {minHeight: 280, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, gap: 9},
-  emptyIcon: {width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F6FA'},
-  emptyGlyph: {fontSize: 28, color: '#ACB1C1'},
-  stateTitle: {fontSize: 17, lineHeight: 21, fontWeight: '800', color: '#000000', textAlign: 'center'},
-  stateMessage: {fontSize: 12, lineHeight: 17, color: '#606885', textAlign: 'center'},
-  stateAction: {paddingHorizontal: 15, paddingVertical: 8},
-  stateActionText: {fontSize: 12, fontWeight: '700', color: '#00B279'},
-  loadMoreButton: {minHeight: 52, alignItems: 'center', justifyContent: 'center'},
-  loadMoreText: {fontSize: 12, color: '#00B279', fontWeight: '700'},
-  loadMoreError: {fontSize: 11, lineHeight: 15, color: '#FF5B5B', textAlign: 'center', paddingVertical: 8},
-  pressed: {opacity: 0.68},
+  stateTitle: {
+    fontSize: 17,
+    lineHeight: 21,
+    fontWeight: '800',
+    color: '#000000',
+    textAlign: 'center',
+  },
+  stateMessage: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#606885',
+    textAlign: 'center',
+  },
+  stateAction: {
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+  },
+  stateActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#00B279',
+  },
+  loadMoreButton: {
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadMoreText: {
+    fontSize: 12,
+    color: '#00B279',
+    fontWeight: '700',
+  },
+  loadMoreError: {
+    fontSize: 11,
+    lineHeight: 15,
+    color: '#FF5B5B',
+    textAlign: 'center',
+    paddingVertical: 8,
+  },
+  pressed: {
+    opacity: 0.68,
+  },
 });

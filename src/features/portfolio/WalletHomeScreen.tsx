@@ -149,18 +149,14 @@ export function WalletHomeScreen({
         </View>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Tokens</Text>
-          <Pressable accessibilityRole="button" onPress={onManageAssets}>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>Tokens</Text>
+            <Text style={styles.sectionChevron}>⌄</Text>
+          </View>
+          <Pressable accessibilityRole="button" onPress={onManageAssets} style={styles.addAssetButton}>
+            <Text style={styles.addAssetPlus}>＋</Text>
             <Text style={styles.sectionLink}>Add asset</Text>
           </Pressable>
-        </View>
-
-        <View style={styles.assetTools}>
-          <Text style={styles.toolText}>Filter</Text>
-          <View style={styles.toolDivider} />
-          <Text style={styles.toolText}>Sort</Text>
-          <View style={styles.toolDivider} />
-          <Text style={styles.toolText}>Favorites</Text>
         </View>
 
         {renderPortfolio(balanceState, refreshBalances)}
@@ -247,51 +243,49 @@ function renderPortfolio(state: BalanceState, onRefresh: () => void): React.Reac
     );
   }
 
+  if (snapshot.balances.length === 0) {
+    return (
+      <View style={styles.stateBox}>
+        <Text style={styles.stateText}>No displayable assets.</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.assetList}>
-      {snapshot.balances.length === 0 ? (
-        <View style={styles.stateBox}>
-          <Text style={styles.stateText}>No displayable assets.</Text>
-        </View>
-      ) : (
-        snapshot.balances.map(line => {
-          const assetKey =
-            line.asset.kind === 'native'
-              ? 'XLM'
-              : `${line.asset.code}:${line.asset.issuer}`;
-          return (
-            <View key={assetKey} style={styles.assetRow}>
-              {line.asset.kind === 'native' ? (
-                <Image resizeMode="contain" source={xlmIcon} style={styles.assetIcon} />
-              ) : (
-                <View style={styles.assetFallbackIcon}>
-                  <Text style={styles.assetFallbackText}>{line.asset.code.slice(0, 1)}</Text>
-                </View>
-              )}
-              <View style={styles.assetIdentity}>
-                <Text style={styles.assetCode}>{line.asset.code}</Text>
-                <Text numberOfLines={1} style={styles.assetIssuer}>
-                  {line.asset.kind === 'credit' ? shortAddress(line.asset.issuer) : 'Stellar native asset'}
-                </Text>
+      {snapshot.balances.map(line => {
+        const assetKey =
+          line.asset.kind === 'native'
+            ? 'XLM'
+            : `${line.asset.code}:${line.asset.issuer}`;
+        return (
+          <View key={assetKey} style={styles.assetRow}>
+            {line.asset.kind === 'native' ? (
+              <Image resizeMode="contain" source={xlmIcon} style={styles.assetIcon} />
+            ) : (
+              <View style={styles.assetFallbackIcon}>
+                <Text style={styles.assetFallbackText}>{line.asset.code.slice(0, 1)}</Text>
               </View>
-              <View style={styles.assetBalanceBlock}>
-                <Text selectable style={styles.assetBalance}>
-                  {line.balance}
-                </Text>
-                <Text style={styles.assetSymbol}>{line.asset.code}</Text>
-              </View>
+            )}
+            <View style={styles.assetIdentity}>
+              <Text style={styles.assetCode}>{line.asset.code}</Text>
+              <Text numberOfLines={1} style={styles.assetIssuer}>
+                {line.asset.kind === 'credit'
+                  ? shortAddress(line.asset.issuer)
+                  : 'Stellar native asset'}
+              </Text>
             </View>
-          );
-        })
-      )}
+            <Text selectable numberOfLines={1} style={styles.assetBalance}>
+              {line.balance}
+            </Text>
+          </View>
+        );
+      })}
       {snapshot.hiddenLiquidityPoolShareCount > 0 ? (
         <Text style={styles.hiddenAssetsText}>
           {snapshot.hiddenLiquidityPoolShareCount} liquidity-pool position(s) hidden
         </Text>
       ) : null}
-      <Pressable onPress={onRefresh} style={styles.refreshLink}>
-        <Text style={styles.refreshText}>Refresh balances</Text>
-      </Pressable>
     </View>
   );
 }
@@ -310,15 +304,13 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 18,
-    paddingTop: 10,
     paddingBottom: 24,
   },
   header: {
-    minHeight: 50,
+    minHeight: 60,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
   },
   brandRow: {
     flexDirection: 'row',
@@ -419,8 +411,8 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 8,
-    marginBottom: 18,
+    marginTop: 15,
+    marginBottom: 15,
   },
   action: {
     flex: 1,
@@ -452,10 +444,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   sectionHeader: {
+    minHeight: 42,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 4,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   sectionTitle: {
     fontSize: 20,
@@ -463,33 +460,35 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#000000',
   },
+  sectionChevron: {
+    marginLeft: 3,
+    marginTop: 1,
+    fontSize: 20,
+    lineHeight: 23,
+    color: '#181D41',
+    fontWeight: '700',
+  },
+  addAssetButton: {
+    minHeight: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    gap: 1,
+  },
+  addAssetPlus: {
+    fontSize: 17,
+    lineHeight: 19,
+    color: '#00B279',
+    fontWeight: '700',
+  },
   sectionLink: {
-    fontSize: 13,
-    lineHeight: 17,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '700',
     color: '#00B279',
   },
-  assetTools: {
-    minHeight: 32,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  toolText: {
-    fontSize: 11,
-    color: '#ACB1C1',
-    fontWeight: '600',
-  },
-  toolDivider: {
-    width: 1,
-    height: 12,
-    backgroundColor: '#E7EAF0',
-    marginHorizontal: 10,
-  },
   stateBox: {
-    minHeight: 78,
-    borderRadius: 10,
-    backgroundColor: '#F3F6FA',
+    minHeight: 110,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 14,
@@ -518,24 +517,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   assetList: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E7EAF0',
+    paddingBottom: 6,
   },
   assetRow: {
-    minHeight: 68,
+    minHeight: 55,
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E7EAF0',
-    gap: 12,
+    gap: 10,
   },
   assetIcon: {
-    width: 36,
-    height: 36,
+    width: 35,
+    height: 35,
   },
   assetFallbackIcon: {
-    width: 36,
-    height: 36,
+    width: 35,
+    height: 35,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
@@ -543,55 +539,38 @@ const styles = StyleSheet.create({
   },
   assetFallbackText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
   },
   assetIdentity: {
     flex: 1,
-    gap: 3,
+    gap: 1,
   },
   assetCode: {
-    fontSize: 15,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 17,
     fontWeight: '800',
     color: '#000000',
   },
   assetIssuer: {
     fontSize: 11,
     lineHeight: 14,
-    color: '#ACB1C1',
-  },
-  assetBalanceBlock: {
-    alignItems: 'flex-end',
-    gap: 2,
+    color: '#606885',
   },
   assetBalance: {
-    fontSize: 15,
+    maxWidth: '44%',
+    fontSize: 14,
     lineHeight: 18,
     color: '#000000',
-    fontWeight: '600',
+    fontWeight: '700',
     fontVariant: ['tabular-nums'],
-  },
-  assetSymbol: {
-    fontSize: 10,
-    lineHeight: 13,
-    color: '#ACB1C1',
+    textAlign: 'right',
   },
   hiddenAssetsText: {
     fontSize: 10,
     lineHeight: 14,
     color: '#ACB1C1',
-    paddingTop: 10,
-  },
-  refreshLink: {
-    alignSelf: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-  refreshText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#00B279',
+    paddingTop: 8,
   },
   pressed: {
     opacity: 0.7,
