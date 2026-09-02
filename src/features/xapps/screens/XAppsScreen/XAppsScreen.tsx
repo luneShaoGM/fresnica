@@ -3,17 +3,21 @@ import {
   Pressable,
   SafeAreaView,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+
+import {useAppTheme, useThemedStyles} from '../../../../ui/theme';
+import {createStyles} from './styles';
 
 const CATEGORIES = ['All', 'Wallet', 'Tools', 'Games', 'NFT'] as const;
 
 type Section = 'home' | 'recent';
 
 export function XAppsScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const [section, setSection] = useState<Section>('home');
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>('All');
   const [searchText, setSearchText] = useState('');
@@ -49,7 +53,7 @@ export function XAppsScreen() {
             autoCorrect={false}
             onChangeText={setSearchText}
             placeholder="Search dApps"
-            placeholderTextColor="#ACB1C1"
+            placeholderTextColor={theme.colors.textTertiary}
             returnKeyType="search"
             style={styles.searchInput}
             value={searchText}
@@ -57,8 +61,8 @@ export function XAppsScreen() {
         </View>
 
         <View style={styles.segment}>
-          <SegmentButton label="Home" selected={section === 'home'} onPress={() => setSection('home')} />
-          <SegmentButton label="Recent" selected={section === 'recent'} onPress={() => setSection('recent')} />
+          <SegmentButton label="Home" selected={section === 'home'} onPress={() => setSection('home')} styles={styles} />
+          <SegmentButton label="Recent" selected={section === 'recent'} onPress={() => setSection('recent')} styles={styles} />
         </View>
 
         {section === 'home' ? (
@@ -81,22 +85,26 @@ export function XAppsScreen() {
 
         {section === 'home' && category === 'All' && !searchText.trim() ? (
           <>
-            <SectionTitle title="Development dApps" />
+            <SectionTitle title="Development dApps" styles={styles} />
             <AppRow
               initials="DEV"
               title="Fresnica dApp preview"
               subtitle="Browser and authorization wiring is not enabled yet"
               disabled
+              styles={styles}
             />
-            <SectionTitle title="Our suggestions" />
-            <EmptyCatalog message={emptyMessage} />
-            <SectionTitle title="All" />
-            <EmptyCatalog message="All catalog entries will use this original Stellar list layout once the catalog boundary is connected." />
+            <SectionTitle title="Our suggestions" styles={styles} />
+            <EmptyCatalog message={emptyMessage} styles={styles} />
+            <SectionTitle title="All" styles={styles} />
+            <EmptyCatalog
+              message="All catalog entries will use this original Stellar list layout once the catalog boundary is connected."
+              styles={styles}
+            />
           </>
         ) : (
           <>
-            <SectionTitle title={section === 'recent' ? 'Recently used' : category} />
-            <EmptyCatalog message={emptyMessage} />
+            <SectionTitle title={section === 'recent' ? 'Recently used' : category} styles={styles} />
+            <EmptyCatalog message={emptyMessage} styles={styles} />
           </>
         )}
       </ScrollView>
@@ -104,11 +112,14 @@ export function XAppsScreen() {
   );
 }
 
+type Styles = ReturnType<typeof createStyles>;
+
 function SegmentButton({
   label,
   selected,
   onPress,
-}: Readonly<{label: string; selected: boolean; onPress: () => void}>) {
+  styles,
+}: Readonly<{label: string; selected: boolean; onPress: () => void; styles: Styles}>) {
   return (
     <Pressable onPress={onPress} style={[styles.segmentButton, selected ? styles.segmentButtonSelected : undefined]}>
       <Text style={[styles.segmentText, selected ? styles.segmentTextSelected : undefined]}>{label}</Text>
@@ -116,7 +127,7 @@ function SegmentButton({
   );
 }
 
-function SectionTitle({title}: Readonly<{title: string}>) {
+function SectionTitle({title, styles}: Readonly<{title: string; styles: Styles}>) {
   return <Text style={styles.sectionTitle}>{title}</Text>;
 }
 
@@ -125,7 +136,14 @@ function AppRow({
   title,
   subtitle,
   disabled = false,
-}: Readonly<{initials: string; title: string; subtitle: string; disabled?: boolean}>) {
+  styles,
+}: Readonly<{
+  initials: string;
+  title: string;
+  subtitle: string;
+  disabled?: boolean;
+  styles: Styles;
+}>) {
   return (
     <View style={[styles.appRow, disabled ? styles.appRowDisabled : undefined]}>
       <View style={styles.appIcon}><Text style={styles.appInitials}>{initials}</Text></View>
@@ -138,7 +156,7 @@ function AppRow({
   );
 }
 
-function EmptyCatalog({message}: Readonly<{message: string}>) {
+function EmptyCatalog({message, styles}: Readonly<{message: string; styles: Styles}>) {
   return (
     <View style={styles.emptyCatalog}>
       <View style={styles.emptyIcon}><Text style={styles.emptyGlyph}>◎</Text></View>
@@ -146,50 +164,3 @@ function EmptyCatalog({message}: Readonly<{message: string}>) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
-  content: {paddingHorizontal: 18, paddingTop: 8, paddingBottom: 34},
-  header: {minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-  title: {fontSize: 28, lineHeight: 34, fontWeight: '800', color: '#000000', letterSpacing: -0.6},
-  headerActions: {flexDirection: 'row', gap: 8},
-  headerIcon: {width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F6FA'},
-  headerGlyph: {fontSize: 18, color: '#181D41', fontWeight: '700'},
-  searchBox: {
-    height: 42,
-    borderRadius: 10,
-    backgroundColor: '#F3F6FA',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    gap: 8,
-    marginTop: 8,
-    marginBottom: 12,
-  },
-  searchGlyph: {fontSize: 20, color: '#606885'},
-  searchInput: {flex: 1, color: '#000000', fontSize: 14, paddingVertical: 0},
-  segment: {height: 42, borderRadius: 10, backgroundColor: '#F3F6FA', padding: 3, flexDirection: 'row', marginBottom: 12},
-  segmentButton: {flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 8},
-  segmentButtonSelected: {backgroundColor: '#FFFFFF'},
-  segmentText: {fontSize: 13, color: '#606885', fontWeight: '600'},
-  segmentTextSelected: {color: '#000000', fontWeight: '800'},
-  categories: {gap: 8, paddingBottom: 8},
-  chip: {height: 32, borderRadius: 16, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F6FA'},
-  chipSelected: {backgroundColor: '#181D41'},
-  chipText: {fontSize: 11, color: '#606885', fontWeight: '700'},
-  chipTextSelected: {color: '#FFFFFF'},
-  sectionTitle: {fontSize: 17, lineHeight: 21, fontWeight: '800', color: '#000000', paddingTop: 17, paddingBottom: 8},
-  appRow: {minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 11, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E7EAF0'},
-  appRowDisabled: {opacity: 0.62},
-  appIcon: {width: 46, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#181D41'},
-  appInitials: {fontSize: 11, color: '#FFFFFF', fontWeight: '800'},
-  appIdentity: {flex: 1, gap: 3},
-  appTitle: {fontSize: 14, lineHeight: 18, fontWeight: '800', color: '#000000'},
-  appSubtitle: {fontSize: 11, lineHeight: 15, color: '#606885'},
-  aboutButton: {minWidth: 56, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F6FA', paddingHorizontal: 10},
-  aboutText: {fontSize: 10, color: '#606885', fontWeight: '700'},
-  emptyCatalog: {minHeight: 104, borderRadius: 12, backgroundColor: '#F3F6FA', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 7},
-  emptyIcon: {width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF'},
-  emptyGlyph: {fontSize: 17, color: '#ACB1C1'},
-  emptyText: {fontSize: 11, lineHeight: 16, color: '#606885', textAlign: 'center'},
-});

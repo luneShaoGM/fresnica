@@ -59,7 +59,7 @@ export function createStyles(theme: AppTheme) {
       alignItems: 'center',
       justifyContent: 'center',
       transform: [{translateY: -12}],
-      shadowColor: '#000000',
+      shadowColor: theme.colors.textPrimary,
       shadowOpacity: 0.14,
       shadowRadius: 10,
       shadowOffset: {width: 0, height: 4},
@@ -115,7 +115,7 @@ export function createStyles(theme: AppTheme) {
       backgroundColor: theme.colors.actionPrimary,
     },
     actionItemDark: {
-      backgroundColor: '#181D41',
+      backgroundColor: theme.colors.surfaceStrong,
     },
     actionItemDisabled: {
       opacity: 0.38,

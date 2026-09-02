@@ -2,8 +2,10 @@ export type ThemeColors = Readonly<{
   background: string;
   surface: string;
   surfaceMuted: string;
+  surfaceStrong: string;
   textPrimary: string;
   textSecondary: string;
+  textTertiary: string;
   border: string;
   actionPrimary: string;
   actionPrimaryPressed: string;
