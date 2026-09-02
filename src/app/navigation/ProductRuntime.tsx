@@ -33,12 +33,6 @@ type Props = Readonly<{
   onAccountsChanged: () => void;
 }>;
 
-const PRODUCT_ACTION_AVAILABILITY: Readonly<Record<ProductAction, boolean>> = {
-  send: true,
-  swap: false,
-  request: false,
-};
-
 export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
   const [navigation, setNavigation] = useState<ProductNavigationState>(() =>
     createInitialProductNavigation(accounts),
@@ -64,6 +58,11 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
   const selectedAccountCanSign = !services.onboarding.repository.isWatchOnly(
     selectedAccount.id,
   );
+  const productActionAvailability: Readonly<Record<ProductAction, boolean>> = {
+    send: selectedAccountCanSign,
+    swap: false,
+    request: false,
+  };
   const destination = navigation.destination;
   const showTabBar =
     destination.route === 'home' ||
@@ -203,7 +202,7 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
   return (
     <ProductShell
       activeTab={destination.tab}
-      actionAvailability={PRODUCT_ACTION_AVAILABILITY}
+      actionAvailability={productActionAvailability}
       onSelectAction={handleSelectAction}
       onSelectTab={tab => dispatch({type: 'select-tab', tab})}
       showTabBar={showTabBar}>
