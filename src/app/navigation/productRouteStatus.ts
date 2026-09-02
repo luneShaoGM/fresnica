@@ -14,11 +14,11 @@ export type ProductRouteStatus = Readonly<{
 export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteStatus>> = {
   home: {
     readiness: 'structure-only',
-    note: 'The Stellar Home tab is now the product root, but its content still reuses the temporary WalletHomeScreen until P2 rebuilds Home presentation.',
+    note: 'The Stellar-style Home product surface is rebuilt around the current Balance read model; asset-detail navigation and other deferred product capabilities remain intentionally unavailable.',
   },
   'account-details': {
     readiness: 'structure-only',
-    note: 'Public account surface is routed through the runtime shell; signer/access presenter is not connected yet.',
+    note: 'The account surface is routed through the runtime shell and now follows the Stellar visual hierarchy; signer/access presenter behavior remains deferred.',
   },
   'add-account': {
     readiness: 'implemented',
@@ -50,38 +50,38 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'manage-assets': {
     readiness: 'implemented',
-    note: 'Manage Assets is connected to the current Trustline capability; P6 will rebuild its product presentation to match Stellar.',
+    note: 'Manage Assets is connected to the current Trustline capability and its product presentation has been aligned to the Stellar visual language.',
   },
   events: {
     readiness: 'capability-ready',
-    note: 'The Events tab currently reuses the History read flow; P5 will rebuild the user-visible Events presentation while retaining History as the data boundary.',
+    note: 'The Activity surface is rebuilt around the current History capability, retaining paging and stale-request protection while using the Stellar search/filter/list hierarchy.',
   },
   'operation-details': {
     readiness: 'structure-only',
-    note: 'Detail route remains reserved for stable accountId + operationId navigation; raw operation objects do not enter navigation.',
+    note: 'Detail route remains reserved for stable accountId + operationId navigation; raw operation objects do not enter navigation and no unavailable Horizon detail data is fabricated.',
   },
   xapps: {
     readiness: 'structure-only',
-    note: 'XApps is now a first-class product tab with a safe placeholder; browser, permission and signing behavior remains deferred to the XApps capability/security stage.',
+    note: 'dApps is a first-class product tab with the Stellar-style segmented/category surface; browser, permission and signing behavior remains deferred to the dApps capability/security stage.',
   },
   'settings-home': {
     readiness: 'implemented',
-    note: 'Settings remains a live runtime tab routing Accounts, Security, Network and About destinations; its information architecture will be rebuilt in P10.',
+    note: 'Settings is a live runtime tab with the Stellar-style grouped information architecture routing Accounts, Security, Network and About destinations.',
   },
   'accounts-settings': {
     readiness: 'structure-only',
-    note: 'Account list/details shell is live and uses durable Account records only.',
+    note: 'Account list/details surfaces are live, use durable Account records only, and follow the Stellar visual hierarchy; deeper signer/access presentation remains deferred.',
   },
   'security-settings': {
     readiness: 'implemented',
-    note: 'System Auth status/enable/repair/disable is routed through the runtime shell; app session lock remains upstream-blocked.',
+    note: 'System Auth status/enable/repair/disable is routed through the Stellar-style security surface; app session lock remains upstream-blocked.',
   },
   'network-settings': {
     readiness: 'structure-only',
-    note: 'Runtime destination is reachable; Testnet configuration is display-only and Mainnet switching is intentionally unavailable.',
+    note: 'Runtime destination is reachable and visually aligned to the migrated Settings hierarchy; Testnet configuration is display-only and Mainnet switching is intentionally unavailable.',
   },
   about: {
     readiness: 'structure-only',
-    note: 'Runtime destination is reachable and displays application information.',
+    note: 'Runtime destination is reachable, visually aligned to the migrated Settings hierarchy, and displays application information.',
   },
 };
