@@ -25,4 +25,31 @@ describe('runtime polyfills', () => {
 
     expect(runtime.TextDecoder).toBe(ExistingTextDecoder);
   });
+
+  it('installs Array.prototype.flatMap when the runtime does not provide it', () => {
+    const prototype: {flatMap?: unknown} = {};
+    const runtime = {Array: {prototype}};
+
+    installRuntimePolyfills(runtime);
+
+    const flatMap = prototype.flatMap as (
+      this: number[],
+      callback: (value: number) => number[],
+    ) => unknown[];
+    expect(flatMap.call([1, 2], value => [value, value * 10])).toEqual([
+      1,
+      10,
+      2,
+      20,
+    ]);
+  });
+
+  it('preserves a runtime-provided Array.prototype.flatMap', () => {
+    const existingFlatMap = () => ['existing'];
+    const runtime = {Array: {prototype: {flatMap: existingFlatMap}}};
+
+    installRuntimePolyfills(runtime);
+
+    expect(runtime.Array.prototype.flatMap).toBe(existingFlatMap);
+  });
 });
