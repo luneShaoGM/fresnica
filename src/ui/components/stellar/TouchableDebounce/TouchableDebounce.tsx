@@ -1,4 +1,4 @@
-import React, {useRef} from 'react';
+import React, {useEffect, useRef} from 'react';
 import {
   type GestureResponderEvent,
   TouchableOpacity,
@@ -13,20 +13,37 @@ const PRESS_WINDOW_MS = 500;
  * Source port: Stellar/src/components/General/TouchableDebounce/TouchableDebounce.tsx
  *
  * The donor uses lodash debounce with `{leading: true, trailing: false}`. Fresnica
- * preserves that 500ms interaction contract with a timestamp gate so the
- * presentation primitive does not add lodash as a runtime dependency.
+ * preserves the same leading call plus resettable 500ms quiet window without
+ * adding lodash only for this presentation helper.
  */
 export function StellarTouchableDebounce({onPress, ...props}: Props) {
-  const lastPressAt = useRef(0);
+  const isCoolingDown = useRef(false);
+  const releaseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (releaseTimer.current !== null) {
+        clearTimeout(releaseTimer.current);
+      }
+    },
+    [],
+  );
 
   const handlePress = (event: GestureResponderEvent) => {
-    const now = Date.now();
-    if (now - lastPressAt.current < PRESS_WINDOW_MS) {
-      return;
-    }
+    const shouldInvoke = !isCoolingDown.current;
+    isCoolingDown.current = true;
 
-    lastPressAt.current = now;
-    onPress?.(event);
+    if (releaseTimer.current !== null) {
+      clearTimeout(releaseTimer.current);
+    }
+    releaseTimer.current = setTimeout(() => {
+      isCoolingDown.current = false;
+      releaseTimer.current = null;
+    }, PRESS_WINDOW_MS);
+
+    if (shouldInvoke) {
+      onPress?.(event);
+    }
   };
 
   return <TouchableOpacity {...props} onPress={handlePress} />;
