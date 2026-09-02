@@ -36,13 +36,13 @@ Donor repository/service/native security code is not copied into Mobile. Existin
 | `src/theme/sizes.ts` | `src/ui/theme/stellar/sizes.ts` | ported with boundary | Xaman `DeviceUtilsModule.layoutInsets` is not copied; Fresnica SafeArea containers own insets. Donor scaling/padding metrics remain source-compatible. |
 | `src/theme/fonts.ts` | `src/ui/theme/stellar/fonts.ts` | ported with resource gap | Family names, locale selection and sizing are ported. Font binary/native-project registration is still pending review. |
 | `src/components/General/Spacer` | `src/ui/components/stellar/Spacer` | ported | Direct structural/style port. |
-| `src/components/General/RaisedButton` | `src/ui/components/stellar/RaisedButton` | queued | Preserve height, press animation, leading debounce and loading/disabled behavior; adapt donor icon registry. |
+| `src/components/General/RaisedButton` | `src/ui/components/stellar/RaisedButton` | ported with dependency adapter | Donor sizing, shadow/press animation, 500ms leading debounce, loading and disabled behavior are preserved. Donor `Images`/`Icon` registry key is temporarily an explicit image source until Icon itself is ported. |
 
 ## Primary product surfaces
 
 | Donor surface | Important donor dependencies / functions | Fresnica target | Status / adaptation |
 | --- | --- | --- | --- |
-| `src/screens/Home/HomeView.tsx` | `NetworkSwitchButton`, `AccountSwitchElement`, `RaisedButton`, `AssetsList`, `InactiveAccount`; account switch/add, Send, Swap, Request, Manage Assets, network warning | `src/features/home` | queued. Build from donor-derived Modules; replace account/network repositories with existing props/capabilities. |
+| `src/screens/Home/HomeView.tsx` | `NetworkSwitchButton`, `AccountSwitchElement`, `RaisedButton`, `AssetsList`, `InactiveAccount`; account switch/add, Send, Swap, Request, Manage Assets, network warning | `src/features/home` | in progress. Build from donor-derived Modules; replace account/network repositories with existing props/capabilities. |
 | `src/screens/Events` | event list/search/filter/pagination/detail navigation | `src/features/history` | queued. Keep History capability as data source. |
 | `src/screens/Settings` | full settings row hierarchy and destination screens | `src/features/settings` | queued. Preserve entries; unsupported destinations explicit. |
 | `src/screens/XApps` | catalog/search/recent/actions/browser entry | `src/features/xapps` | queued. Browser/authorization stays disabled until capability exists. |

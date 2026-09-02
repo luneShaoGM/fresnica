@@ -1,2 +1,1 @@
 export {StellarRaisedButton} from './RaisedButton';
-export {StellarSpacer} from './Spacer';
