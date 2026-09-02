@@ -58,8 +58,10 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
   const selectedAccountCanSign = !services.onboarding.repository.isWatchOnly(
     selectedAccount.id,
   );
+  const selectedAccountCanUseClassicSigning =
+    selectedAccount.identityKind === 'classic' && selectedAccountCanSign;
   const productActionAvailability: Readonly<Record<ProductAction, boolean>> = {
-    send: selectedAccountCanSign,
+    send: selectedAccountCanUseClassicSigning,
     swap: false,
     request: false,
   };
