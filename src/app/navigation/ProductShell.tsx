@@ -18,7 +18,7 @@ type Props = React.PropsWithChildren<
 const TAB_LABELS: Readonly<Record<MainTab, string>> = {
   home: 'Home',
   events: 'Events',
-  xapps: 'Apps',
+  xapps: 'XApps',
   settings: 'Settings',
 };
 
