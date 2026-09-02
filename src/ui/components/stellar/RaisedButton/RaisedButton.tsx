@@ -1,6 +1,5 @@
 import React, {Component} from 'react';
 import {
-  ActivityIndicator,
   Animated,
   Image,
   type ImageSourcePropType,
@@ -13,7 +12,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import {stellarColors, stellarSizes} from '../../../theme/stellar';
+import {stellarSizes} from '../../../theme/stellar';
+import {StellarLoadingIndicator} from '../LoadingIndicator';
 import {styles} from './styles';
 
 type IconPosition = 'right' | 'left';
@@ -70,13 +70,18 @@ export class StellarRaisedButton extends Component<Props, State> {
     this.state = {
       isDisabled: props.isDisabled ?? false,
       animatedShadow: new Animated.Value(
-        props.isDisabled ? 0 : (Platform.select({ios: 0.1, android: 5, default: 0}) ?? 0),
+        props.isDisabled
+          ? 0
+          : (Platform.select({ios: 0.1, android: 5, default: 0}) ?? 0),
       ),
       animatedScale: new Animated.Value(0),
     };
   }
 
-  static getDerivedStateFromProps(nextProps: Props, prevState: State): Partial<State> | null {
+  static getDerivedStateFromProps(
+    nextProps: Props,
+    prevState: State,
+  ): Partial<State> | null {
     const isDisabled = nextProps.isDisabled ?? false;
     if (isDisabled === prevState.isDisabled) {
       return null;
@@ -85,7 +90,9 @@ export class StellarRaisedButton extends Component<Props, State> {
     return {
       isDisabled,
       animatedShadow: new Animated.Value(
-        isDisabled ? 0 : (Platform.select({ios: 0.1, android: 5, default: 0}) ?? 0),
+        isDisabled
+          ? 0
+          : (Platform.select({ios: 0.1, android: 5, default: 0}) ?? 0),
       ),
     };
   }
@@ -93,7 +100,12 @@ export class StellarRaisedButton extends Component<Props, State> {
   private getContentHeight = (): number =>
     stellarSizes.scale(this.props.small ? 35 : 50);
 
-  private animateTiming = (variable: Animated.Value, toValue: number, duration = 200, callback?: () => void) => {
+  private animateTiming = (
+    variable: Animated.Value,
+    toValue: number,
+    duration = 200,
+    callback?: () => void,
+  ) => {
     Animated.timing(variable, {
       toValue,
       duration,
@@ -101,7 +113,11 @@ export class StellarRaisedButton extends Component<Props, State> {
     }).start(callback);
   };
 
-  private animateSpring = (variable: Animated.Value, toValue: number, callback?: () => void) => {
+  private animateSpring = (
+    variable: Animated.Value,
+    toValue: number,
+    callback?: () => void,
+  ) => {
     Animated.spring(variable, {
       toValue,
       tension: 100,
@@ -159,8 +175,9 @@ export class StellarRaisedButton extends Component<Props, State> {
 
     if (isLoading) {
       return (
-        <ActivityIndicator
-          color={loadingIndicatorStyle === 'light' ? stellarColors.white : stellarColors.black}
+        <StellarLoadingIndicator
+          color={loadingIndicatorStyle ?? 'default'}
+          size="small"
         />
       );
     }
@@ -178,12 +195,20 @@ export class StellarRaisedButton extends Component<Props, State> {
     ) : null;
 
     return (
-      <View style={[styles.buttonWrapper, isDisabled ? styles.disabledContent : undefined]}>
+      <View
+        style={[
+          styles.buttonWrapper,
+          isDisabled ? styles.disabledContent : undefined,
+        ]}>
         {iconPosition === 'left' ? icon : null}
         {label ? (
           <Text
             numberOfLines={1}
-            style={[styles.textButton, textStyle, isDisabled ? disabledStyle : undefined]}>
+            style={[
+              styles.textButton,
+              textStyle,
+              isDisabled ? disabledStyle : undefined,
+            ]}>
             {label}
           </Text>
         ) : null}
@@ -193,14 +218,17 @@ export class StellarRaisedButton extends Component<Props, State> {
   }
 
   render() {
-    const {containerStyle, accessibilityLabel, testID, onLongPress} = this.props;
+    const {containerStyle, accessibilityLabel, testID, onLongPress} =
+      this.props;
     const {animatedShadow, animatedScale} = this.state;
 
     return (
       <TouchableWithoutFeedback
         accessibilityLabel={accessibilityLabel}
         accessibilityRole="button"
-        accessibilityState={{disabled: this.props.isDisabled || this.props.isLoading}}
+        accessibilityState={{
+          disabled: this.props.isDisabled || this.props.isLoading,
+        }}
         testID={testID}
         onLongPress={onLongPress}
         onPress={this.handlePress}>
