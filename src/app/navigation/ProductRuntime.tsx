@@ -5,7 +5,7 @@ import {AccountDetailsScreen} from '../../features/accounts/AccountDetailsScreen
 import {AccountsScreen} from '../../features/accounts/AccountsScreen';
 import {AddWatchOnlyAccountScreen} from '../../features/accounts/AddWatchOnlyAccountScreen';
 import {ActivityHomeScreen} from '../../features/history/ActivityHomeScreen';
-import {WalletHomeScreen} from '../../features/portfolio/WalletHomeScreen';
+import {HomeScreen} from '../../features/home/HomeScreen';
 import {SecuritySettingsScreen} from '../../features/security/SecuritySettingsScreen';
 import {SendFlowScreen} from '../../features/send/SendFlowScreen';
 import {AboutScreen} from '../../features/settings/AboutScreen';
@@ -61,6 +61,9 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
   }, [dispatch, onAccountsChanged]);
 
   const selectedAccount = resolveSelectedAccount(navigation, accounts);
+  const selectedAccountCanSign = !services.onboarding.repository.isWatchOnly(
+    selectedAccount.id,
+  );
   const destination = navigation.destination;
   const showTabBar =
     destination.route === 'home' ||
@@ -81,10 +84,11 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
   switch (destination.route) {
     case 'home':
       content = (
-        <WalletHomeScreen
+        <HomeScreen
           account={selectedAccount}
           accountCount={accounts.filter(account => !account.hidden).length}
           balanceDependencies={services.balance}
+          canSign={selectedAccountCanSign}
           onSwitchAccount={() =>
             dispatch({
               type: 'select-account',
@@ -92,7 +96,6 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
             })
           }
           onAddAccount={() => dispatch({type: 'open-add-account'})}
-          onOpenAccount={() => dispatch({type: 'open-account', accountId: selectedAccount.id})}
           onSend={() => dispatch({type: 'open-send', accountId: selectedAccount.id})}
           onManageAssets={() =>
             dispatch({type: 'open-manage-assets', accountId: selectedAccount.id})
