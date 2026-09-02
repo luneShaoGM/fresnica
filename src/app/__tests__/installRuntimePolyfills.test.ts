@@ -52,4 +52,80 @@ describe('runtime polyfills', () => {
 
     expect(runtime.Array.prototype.flatMap).toBe(existingFlatMap);
   });
+
+  it('preserves a WHATWG-complete URL implementation', () => {
+    const runtime = {URL};
+
+    installRuntimePolyfills(runtime);
+
+    expect(runtime.URL).toBe(URL);
+  });
+
+  it('makes React Native URL cloning and path assignment usable by Horizon', () => {
+    const runtime = {URL: ReactNativeLikeURL};
+
+    expect(() => {
+      new ReactNativeLikeURL(
+        new ReactNativeLikeURL('https://horizon-testnet.stellar.org') as unknown as string,
+      );
+    }).toThrow(/is not a function/);
+
+    installRuntimePolyfills(runtime);
+
+    type WritableUrl = {
+      pathname: string;
+      protocol: string;
+      host: string;
+      toString(): string;
+    };
+
+    const serverUrl = new runtime.URL('https://horizon-testnet.stellar.org');
+    const accountsUrl = new runtime.URL(serverUrl as unknown as string) as WritableUrl;
+    accountsUrl.pathname = 'accounts';
+    expect(accountsUrl.toString()).toBe('https://horizon-testnet.stellar.org/accounts');
+
+    const accountUrl = new runtime.URL(accountsUrl as unknown as string) as WritableUrl;
+    accountUrl.pathname = 'accounts/GTESTACCOUNT';
+    accountUrl.protocol = accountsUrl.protocol;
+    accountUrl.host = accountsUrl.host;
+    expect(accountUrl.toString()).toBe(
+      'https://horizon-testnet.stellar.org/accounts/GTESTACCOUNT',
+    );
+  });
 });
+
+class ReactNativeLikeURL {
+  _url: string;
+  _searchParamsInstance: unknown = null;
+
+  constructor(url: string) {
+    this._url = url;
+    if (this._url.includes('#')) {
+      this._url = this._url;
+    }
+  }
+
+  get href(): string {
+    return this.toString();
+  }
+
+  get host(): string {
+    const hostMatch = this._url.match(/^https?:\/\/(?:[^@]+@)?([^:/?#]+)/);
+    const portMatch = this._url.match(/:(\d+)(?=[/?#]|$)/);
+    return hostMatch ? hostMatch[1] + (portMatch ? `:${portMatch[1]}` : '') : '';
+  }
+
+  get pathname(): string {
+    const pathMatch = this._url.match(/https?:\/\/[^/]+(\/[^?#]*)?/);
+    return pathMatch ? pathMatch[1] || '/' : '/';
+  }
+
+  get protocol(): string {
+    const protocolMatch = this._url.match(/^([a-zA-Z][a-zA-Z\d+\-.]*):/);
+    return protocolMatch ? `${protocolMatch[1]}:` : '';
+  }
+
+  toString(): string {
+    return this._url;
+  }
+}
