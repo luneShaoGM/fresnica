@@ -119,12 +119,13 @@ PR #17 established the first Send product flow. PR #21 supersedes its older Paym
 - loading / inactive / unsupported account / error / empty / refresh / load-more states;
 - pagination deduplication by stable operation ID;
 - stale account/request results ignored;
-- raw Horizon records and cursors never enter product navigation.
+- raw Horizon records and cursors never enter product navigation;
+- the migrated Activity presentation can search within entries already loaded into the current client page set without changing the History capability boundary.
 
 **Non-goals**
 
 - no persistent History cache/gap recovery;
-- no search/filter layer yet;
+- no server-side/global history search or authoritative filter policy; the current search is client-local over already-loaded entries and the filter affordance remains presentation-only;
 - no transaction actions from History.
 
 ---
@@ -178,35 +179,24 @@ Upstream Fresnica Trustline is Normative. Mobile follows the shared semantic con
 
 **Status:** BLOCKED ON SHARED CAPABILITY CONTRACT — UPSTREAM Fresnica/fresnica#134
 
-**Boundary decision**
+This stage must not invent a Mobile-only semantic contract while the shared Path Payment/Swap capability remains unresolved.
 
-The donor Swap flow uses immediate routed exchange through `PathPaymentStrictSend` / `PathPaymentStrictReceive`. The current upstream Normative `SDEX` Capability instead defines `ManageSellOffer` / `ManageBuyOffer`, order books, offers and fills. Mobile must not use SDEX offer semantics as an implicit Swap contract.
+**Allowed preparatory work while blocked**
 
-Upstream issue #134 requests a dedicated Path Payment / Swap Application Capability (or an explicit shared extension) covering strict-send/strict-receive intent, quote/path identity, freshness, slippage protection, trustline/capacity rules, exact review and conformance vectors.
+- inspect donor UX and interaction patterns;
+- prepare platform mechanism boundaries that do not own product semantics;
+- keep exact asset identity and exact decimal values intact;
+- keep any route/quote data out of persistence and ordinary logs;
+- add tests for platform parsing/building mechanics without claiming product-policy conformance.
 
-**Safe work before the contract lands**
+**Blocked product work**
 
-- inspect donor Swap UX and quote/confirmation rhythm;
-- keep Horizon/Stellar transport research at the platform-mechanism level only;
-- reuse existing exact-asset identity, current ledger facts, Transaction and Signing Coordination concepts;
-- do not ship Mobile-only authoritative quote/slippage/path-payment policy.
-
-**Required implementation semantics once shared**
-
-- distinguish strict-send / strict-receive explicitly;
-- preserve full source/destination asset identity and exact decimal amounts;
-- bind source asset, destination asset, path, protection amount, fee/network and time bounds to exact reviewed XDR;
-- enforce quote/path freshness immediately before signing;
-- reuse shared Transaction submission and Signing Coordination;
-- keep System Auth/passphrase behavior identical in policy to Send/Trustline;
-- fail closed on unsupported route/account/trustline/capacity conditions.
-
-**Acceptance criteria**
-
-- quote expiration is enforced before signing;
-- UI cannot detach review from the exact path/transaction being signed;
-- deterministic rejection and uncertain submission remain distinct;
-- no Swap-specific authentication path exists.
+- strict-send vs strict-receive product semantics;
+- quote identity/freshness and re-quote rules;
+- route selection and slippage policy;
+- trustline/capacity/issuer policy;
+- review identity and exact XDR binding;
+- accepted/rejected/uncertain result semantics.
 
 ---
 
@@ -214,98 +204,76 @@ Upstream issue #134 requests a dedicated Path Payment / Swap Application Capabil
 
 **Status:** NORMATIVE CONTRACT AVAILABLE — SEPARATE PRODUCT STAGE
 
-Upstream `SDEX` is already Normative for pair-relative market reads and offer writes. It is not a substitute for Path Payment Swap.
+This stage is separate from Path Payment/Swap. It must follow the upstream Normative SDEX Application Capability contract and conformance vectors rather than reusing Exchange terminology loosely.
 
-When prioritized, this stage should implement `ManageSellOffer` / `ManageBuyOffer` create/update/cancel and market/account reads using the upstream exact `n/d` price, liability, reserve, authorization and review semantics. It must remain a separate product surface from immediate Swap.
+**Required semantics before product completion**
 
----
-
-## Stage 6 — Security and Account Lifecycle Completion
-
-**Status:** PARTIALLY BLOCKED BY CORE; INDEPENDENT WORK MAY PROCEED WHILE STAGE 5A WAITS
-
-**Can proceed independently**
-
-- Reveal/Export product UI using `passphrase-required`;
-- explicit destructive-action confirmations;
-- secure cleanup/retry orchestration design and tests;
-- Realm database-encryption-key lifecycle design.
-
-**Blocked on upstream authorization primitives**
-
-- app session lock requiring generic existing-domain System Auth challenge;
-- existing-wallet protected-signer provisioning requiring framework-safe current-passphrase verification;
-- complete wallet-wide passphrase rotation/recovery where current adapter cannot safely prove the existing passphrase.
-
-**Forbidden workaround**
-
-Do not use `reveal`, dummy XDR/signing, `reprotect`, or a second JavaScript KDF/verifier to emulate missing authorization primitives.
+- pair identity is `BASE / COUNTER`, with full native or case-sensitive `CODE:GISSUER` asset identity and `BASE != COUNTER`;
+- user amount is always expressed in BASE units and price is always COUNTER per BASE;
+- SELL maps to `ManageSellOffer(selling=BASE, buying=COUNTER, amount=BASE, price=COUNTER/BASE)`;
+- BUY maps to `ManageBuyOffer(selling=COUNTER, buying=BASE, buy_amount=BASE, price=COUNTER/BASE)`;
+- BUY/SELL direction must not be erased by price inversion;
+- decimal input is exact and limited to seven decimals without JavaScript floating point;
+- price is rationalized to a signed-int32 `n/d` before preflight/review/XDR and the same effective rational is used everywhere;
+- liability arithmetic must match Stellar stroop semantics rather than naive decimal multiplication;
+- create/update/cancel reserve and liability behavior must follow the shared contract, including release-before-replace on update and ownership checks on cancel;
+- issued-asset trustline/auth/capacity and issuer/orphaned-asset cases must follow the contract;
+- normalized orderbook semantics are BID = BUY BASE and ASK = SELL BASE;
+- review must expose actual operation family, pair, side, amount, effective `n/d`, total, fee, network and any extra trustline requirement;
+- implementation must pass `spec/test-vectors/sdex-v1.json` before being called conformant.
 
 ---
 
-## Stage 7 — Multisig / External Signer Providers
+## Stage 6 — Security / Account Lifecycle
 
-**Status:** FUTURE
+**Status:** PARTIALLY BLOCKED; INDEPENDENT WORK MAY CONTINUE
 
-- multiple applicable signers/weights and threshold accumulation;
-- external/provider signer coordination;
-- Hash-X / signed-payload support only when provider semantics are explicit;
-- preserve non-Ed25519 signer identities without pretending they are local Ed25519 signers.
+**Available now**
 
-Agent/AI authorization remains outside this stage until Core authority constraints become transaction-specific.
+- System Auth enable / status / repair / disable;
+- pending mnemonic backup recovery;
+- account metadata and signer inventory presentation;
+- explicit watch-only handling;
+- application-level policy screens that do not emulate missing Core primitives.
 
----
+**Blocked or deferred**
 
-## Stage 8 — Production / Release Hardening
-
-**Status:** PARALLEL TRACK
-
-- Android release-signing strategy with no debug-key fallback (PR #14);
-- reproducible npm dependency resolution and committed lockfile;
-- CI/native gates use `npm ci` once lockfile provenance is trusted;
-- pin CI actions/toolchain references where practical;
-- audit cleartext/network-security configuration;
-- release artifact verification/signing checks;
-- keep Mainnet disabled until product and release gates pass.
-
-Do not fabricate a lockfile or dependency hashes manually.
+- app session lock / unlock remains blocked until the shared application-security contract exposes the required Core primitive;
+- Agent/AI standing authority remains deferred;
+- multisig coordination beyond explicit unsupported outcomes remains deferred.
 
 ---
 
-## Deferred — Agent / AI Standing Authorization
+## Stage 7 — dApps / Authorization Surface
 
-**Status:** DEFERRED BY PRODUCT DECISION
+**Status:** STRUCTURE ONLY
 
-Mobile v1 does not expose or persist the current coarse Core Agent capability. Revisit only after Core adds transaction-specific authority constraints such as destination, asset, amount/value and execution/time bounds through a stable Mobile-facing API.
-
-When revisited, it must reuse shared Ledger Authorization / Signing Coordination rather than introducing an alternate signing path.
+The product tab and visual shell may exist before browser/authorization behavior. Do not introduce dApp permission, signing or origin-trust policy until the corresponding Application Capability/security contract is explicit.
 
 ---
 
-## Execution order
+## Stage 8 — Production Hardening
 
-```text
-1. Runtime Product Shell + Wallet Home        SOURCE COMPLETE / VALIDATED IN COMBINED STACK
-2. Send / Payment conformance                 PR #21 CURRENT-BASE REVALIDATION TRIGGERED
-3. Activity / History                         SOURCE COMPLETE / VALIDATED IN COMBINED STACK
-4. Trustline / Manage Assets                  SOURCE COMPLETE / CURRENT-HEAD RUNNER BLOCKED
-5A. Path Payment Swap                         BLOCKED ON UPSTREAM CAPABILITY #134
-5B. SDEX Offer Management                     SEPARATE / NORMATIVE READY
-6. Security & account lifecycle completion    PARTIALLY CORE-BLOCKED; UNBLOCKED SLICES MAY PROCEED
-7. Multisig / external providers              FUTURE
-8. Production hardening / Mainnet gate        PARALLEL
-```
+**Status:** PARALLEL
 
-## Definition of done for every stage
+- Android release signing remains isolated in PR #14;
+- release builds must never fall back to the debug signing key;
+- native gates remain mandatory for native dependency/runtime changes;
+- CI failures before runner checkout remain external blockers, not grounds to weaken checks.
 
-A stage is complete only when:
+---
 
-1. donor behavior was inspected where product behavior is being migrated;
-2. Capability/platform ownership is explicit;
-3. minimal implementation is complete;
-4. regression tests cover critical invariants/failure paths;
-5. no sensitive state leaks into navigation/persistence/logging;
-6. final branch diff contains only stage-related changes;
-7. real CI steps are green, or the stage is explicitly marked externally blocked with no checks weakened;
-8. capability/status/handoff documentation matches implemented behavior;
-9. the stage PR is not merged while required validation is unavailable.
+## Merge discipline
+
+Before a stage is merged:
+
+1. source scope matches the stage goal;
+2. architecture check passes;
+3. TypeScript passes;
+4. Jest passes;
+5. Realm Integration passes when persistence is touched;
+6. Native Android/Apple gates pass when native/runtime boundaries are touched;
+7. required CI has actually executed real steps on the current head;
+8. docs reflect the exact merged behavior and explicit non-goals.
+
+If a gate cannot execute because GitHub does not allocate a runner, keep the stage open and continue only work that does not require pretending the gate passed.
