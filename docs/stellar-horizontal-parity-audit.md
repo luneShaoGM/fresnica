@@ -58,14 +58,14 @@ These items apply to multiple product domains. They must be aligned before later
 
 | Capability | Stellar reference evidence | Fresnica current state | Audit status | Horizontal work required |
 | --- | --- | --- | --- | --- |
-| Locale runtime | `src/locale/index.ts`, `src/locale/en.json`, `src/locale/meta.json`, `src/locale/translations/**` | No `src/locale` or equivalent app-wide locale subsystem | `MISSING` | Add locale resolution, translation lookup, fallback and runtime language state behind a presentation-safe API. |
-| Device locale bootstrap | `src/app.tsx` reads device locale during configure and persists initial language | `src/app/App.tsx` boots services/onboarding directly | `MISSING` | Initialize locale before user-visible app copy is rendered. |
-| Runtime language selection | Settings + locale runtime | Settings has only current limited screens | `MISSING` | Add language setting and app-wide refresh/update behavior. Exact supported-language set must not be silently reduced; confirm product scope before pruning source locales. |
-| Localized number separators | Locale runtime receives device separators / system-separator preference | No common localized number-format boundary | `MISSING` | Centralize amount/number formatting rather than formatting independently in screens. |
-| Date/time locale + timezone | `src/app.tsx` configures timezone; locale layer controls localized date formatting | No equivalent app-level locale/time initialization audited | `MISSING` | Define display-format boundary for event/history timestamps and other user-visible dates. |
-| Translation completeness tooling | `scripts/locales.js` and source locale metadata/translation bundles | No locale check in `npm run check` | `MISSING` | Add a deterministic translation-key integrity check once locale files land. |
-| No hardcoded visible copy | Reference screens use locale lookups broadly | Current App and feature surfaces contain hardcoded English strings | `PARTIAL` | New/reworked user-visible strings must route through the locale layer as horizontal work proceeds. |
-| Navigation state | Reference uses global navigator + registered screens | `src/app/navigation/*` has typed ProductRuntime/ProductShell state | `PARTIAL` | Keep Fresnica navigation authority, but map all required destination, modal and overlay transitions. |
+| Locale runtime | `src/locale/index.ts`, `src/locale/en.json`, `src/locale/meta.json`, `src/locale/translations/**` | H1 `src/locale/**` retains 59 canonical locales, source-compatible aliases, per-key English fallback and controlled runtime locale state | `PARTIAL` pending owner local/device gate | Verify runtime on target RN/Hermes, then migrate each product domain's visible copy through the established locale boundary. |
+| Device locale bootstrap | `src/app.tsx` reads device locale during configure and persists initial language | `src/app/App.tsx` resolves the device locale before startup copy, then restores/persists the canonical selection through `RealmLocalePreferenceStore` | `PARTIAL` pending owner local/device gate | Verify first-launch resolution, v1→v2 Realm open and persisted restart behavior on device. |
+| Runtime language selection | Settings + locale runtime | H1 adds `language-settings`, full canonical locale list, controlled provider update and dedicated persisted preference | `PARTIAL` pending owner local/device gate | Verify immediate rerender and restart persistence. Retained locales without migrated Fresnica dictionaries intentionally use English fallback. |
+| Localized number separators | Locale runtime receives device separators / system-separator preference | H1 provides exact decimal-string display formatting using selected-locale separators without first converting wallet values through floating point | `PARTIAL` | Migrate feature amount displays and separately close locale-aware amount-input/edit semantics in Send/Request/Exchange. |
+| Date/time locale + timezone | `src/app.tsx` configures timezone; locale layer controls localized date formatting | H1 provides `formatDate` through `Intl.DateTimeFormat` using selected locale/runtime timezone | `PARTIAL` | Route Events/history and other user-visible dates through this boundary as each domain closes. |
+| Translation completeness tooling | `scripts/locales.js` and source locale metadata/translation bundles | H1 adds `scripts/check-locales.mjs`, `npm run locale:check`, and includes it in `npm run check` | `PARTIAL` pending executable repo gate | Owner `npm run check` must execute successfully; future migrated dictionaries must keep exact key parity with English. |
+| No hardcoded visible copy | Reference screens use locale lookups broadly | App startup, ProductShell and touched Settings copy are migrated; untouched product features still contain hardcoded English | `PARTIAL` | Every reworked product domain must migrate user-visible copy through H1 before its parity row can close. |
+| Navigation state | Reference uses global navigator + registered screens | `src/app/navigation/*` has typed ProductRuntime/ProductShell state and H1 adds the Language destination | `PARTIAL` | Keep Fresnica navigation authority, but map all required destination, modal and overlay transitions. |
 | Global picker pattern | `src/screens/Global/Picker`, Module pickers | No common full picker flow identified | `MISSING` | Establish reusable functional picker contract; final appearance is `DEFER_UI_SPEC`. |
 | Modal flow infrastructure | `src/screens/Modal/**` | Product screens currently own limited flows | `PARTIAL` | Cover picker, review, submit, scan, browser and other modal roles without copying reference navigation framework. |
 | Overlay flow infrastructure | `src/screens/Overlay/**` | Some current dialogs/screens exist, but no complete source-role mapping | `PARTIAL` | Cover auth, alert, action sheet, warning, permission, connection and product-specific overlays. |
@@ -82,7 +82,7 @@ These items apply to multiple product domains. They must be aligned before later
 | Keyboard / input ergonomics | General inputs and reference screen patterns | Current screens implement inputs locally | `PARTIAL` | Align keyboard avoidance, focus, submit, numeric input and validation behavior. |
 | Safe area / screen container | Reference theme/device/navigation sizing | Fresnica has `Screen` and RN layout infrastructure | `PARTIAL` | Validate all product flows, sheets and modals on Android/iOS; final layout tokens defer to Fresnica UI spec. |
 | Haptic / press feedback | Reference interaction helpers/components | No complete app-wide behavior audit | `MISSING` | Decide functional feedback points during implementation; final motion/haptic polish can follow UI spec. |
-| Accessibility semantics | Critical controls require labels/roles/state | Existing coverage is not complete | `PARTIAL` | Add labels, roles, disabled/selected state and critical test IDs while each horizontal flow is aligned. |
+| Accessibility semantics | Critical controls require labels/roles/state | Existing coverage is not complete; H1 Language/ProductShell adds selected/disabled/expanded semantics where touched | `PARTIAL` | Add labels, roles, disabled/selected state and critical test IDs while each horizontal flow is aligned. |
 | Theme runtime | Reference `src/theme/**`, StyleService and app Appearance handling | Current rewrite has a canonical theme plus source-derived temporary tokens | `PARTIAL` | Preserve a functional theme boundary only; final Fresnica design tokens, dark-mode visuals and component styling are `DEFER_UI_SPEC`. |
 | Icon/image registry | Reference uses centralized reusable assets | Current target assets are limited | `PARTIAL` | Do not expand ad-hoc per-screen asset usage. Final Fresnica icon/illustration system is `DEFER_UI_SPEC`. |
 
@@ -96,7 +96,7 @@ This matrix tracks **behavioral roles**, not final Fresnica visual components.
 | Loading indicator | `General/LoadingIndicator` | Shared migrated component | `COMPLETE` for primitive | Use consistently where source flow blocks/waits. |
 | Primary/loading button | `General/RaisedButton`, `General/Button` | Basic/shared buttons exist | `PARTIAL` | Normalize disabled/loading/submit semantics; final styling deferred. |
 | Text / validation input | General input components | Current `Field` plus feature-local inputs | `PARTIAL` | Centralize validation semantics sufficiently for Send/Request/Exchange/Onboarding. |
-| Amount input | `General/AmountInput`, `AmountText` | Feature-local amount entry | `PARTIAL` | Locale-aware decimal input, max/balance behavior and validation. |
+| Amount input | `General/AmountInput`, `AmountText` | Feature-local amount entry plus H1 locale-aware exact-string display formatter | `PARTIAL` | Close locale-aware decimal **input/edit** semantics, max/balance behavior and validation; reuse H1 for display. |
 | Header/back/close | `General/Header` | Navigation/screen-local controls | `PARTIAL` | Consistent destination/back/dismiss semantics. |
 | Search | General/module search usage | Limited/ad hoc | `PARTIAL` | Needed by Events, Assets and dApp/catalog flows where present in reference. |
 | Filter / chips | Modules such as `EventsFilterChip` | Not source-aligned | `MISSING` | Preserve filter entry, selected state, clear/apply behavior. |
@@ -121,17 +121,17 @@ Existing directories are evidence of prior implementation, not proof of parity.
 
 | Product domain | Stellar reference | Fresnica current evidence | Audit status | Next parity target |
 | --- | --- | --- | --- | --- |
-| App startup/bootstrap | `src/app.tsx`, Setup/Onboarding roots | `src/app/App.tsx`, onboarding bootstrap | `PARTIAL` | Add locale/time initialization and parity-audit startup error/restore/lock behavior. |
-| Setup/onboarding | `src/screens/Setup`, `src/screens/Onboarding` | `OnboardingScreen`, mnemonic backup/provisioning state | `PARTIAL` | Inventory every source path and state; preserve Fresnica secret generation/protection. Fix stale mnemonic-verification error regression. |
+| App startup/bootstrap | `src/app.tsx`, Setup/Onboarding roots | `src/app/App.tsx`, onboarding bootstrap, H1 device-locale resolution and persisted locale preference | `PARTIAL` | Verify H1 bootstrap locally, then parity-audit startup error/restore/lock/lifecycle behavior. |
+| Setup/onboarding | `src/screens/Setup`, `src/screens/Onboarding` | `OnboardingScreen`, mnemonic backup/provisioning state | `PARTIAL` | Inventory every source path and state; preserve Fresnica secret generation/protection. Fix stale mnemonic-verification error regression and route reworked copy through H1. |
 | Account lifecycle | `src/screens/Account`, Module account components | `features/accounts`, account capability | `PARTIAL` | Add/list/switch/edit/remove/details/recovery-related flows as applicable; account picker is P0 behavior gap. |
-| Home | `src/screens/Home` + account/assets modules | `features/home` | `BEHAVIOR_MISMATCH` | Keep current data adapters, reopen interaction parity: account picker, actions, asset interactions and states. Final visual restyling deferred. |
-| Assets / balances | Home assets + asset modules/overlays | balance capability + Home assets | `PARTIAL` | Align asset categories/details/empty/error states supported by Fresnica contracts. Explicitly record unsupported LP/claimable behavior. |
-| Trustlines / add asset | AddToken and asset management flows | `features/trustlines`, trustline capability | `PARTIAL` | Align search/select/add/remove/review/result states without bypassing transaction/security boundaries. |
-| Send/payment | `src/screens/Send`, destination/fee/review/auth/submit flows | Form/Flow/Review/Result screens + payment/transaction/signing capabilities | `PARTIAL` | Compare each step and shared modal/overlay dependency; fill destination picker, auth consistency and result-state gaps. |
-| Request/share | `src/screens/Request`, QR/share interactions | No complete product flow | `MISSING` | Amount/public-address request, QR/copy/share and cancel/result behavior as applicable. |
+| Home | `src/screens/Home` + account/assets modules | `features/home` | `BEHAVIOR_MISMATCH` | Keep current data adapters, reopen interaction parity: account picker, actions, asset interactions, states and H1 copy/format integration. Final visual restyling deferred. |
+| Assets / balances | Home assets + asset modules/overlays | balance capability + Home assets | `PARTIAL` | Align asset categories/details/empty/error states supported by Fresnica contracts and route amounts/copy through H1. Explicitly record unsupported LP/claimable behavior. |
+| Trustlines / add asset | AddToken and asset management flows | `features/trustlines`, trustline capability | `PARTIAL` | Align search/select/add/remove/review/result states without bypassing transaction/security boundaries; integrate H1 display/copy. |
+| Send/payment | `src/screens/Send`, destination/fee/review/auth/submit flows | Form/Flow/Review/Result screens + payment/transaction/signing capabilities | `PARTIAL` | Compare each step and shared modal/overlay dependency; fill destination picker, auth consistency, locale-aware input/copy and result-state gaps. |
+| Request/share | `src/screens/Request`, QR/share interactions | No complete product flow | `MISSING` | Amount/public-address request, QR/copy/share and cancel/result behavior as applicable, using H1 formatting/copy. |
 | Exchange/Swap | `src/screens/Exchange` | No equivalent complete feature domain in current feature root | `BLOCKED_BY_CAPABILITY` for normative execution; presentation/function inventory still required | Align selectors, amount/quote/loading/error/review structure first; execute only through normative shared swap/path-payment semantics. |
-| Events/history | `src/screens/Events`, filters/details | `ActivityHomeScreen`, `OperationDetailsScreen`, history capability | `PARTIAL` | Compare source list/filter/search/pagination/details states and fill gaps. |
-| Settings | `src/screens/Settings` | Settings home, Network, About only | `PARTIAL` | Inventory full settings IA including language, general, security, network, about and applicable product settings. |
+| Events/history | `src/screens/Events`, filters/details | `ActivityHomeScreen`, `OperationDetailsScreen`, history capability | `PARTIAL` | Compare source list/filter/search/pagination/details states; route dates, amounts and copy through H1. |
+| Settings | `src/screens/Settings` | Settings Home/Network/About, Security feature and H1 Language destination/runtime | `PARTIAL` | Verify H1 Language locally, then inventory/close remaining settings IA and migrate remaining visible copy. |
 | Application Security | auth/security settings + `Overlay/Authenticate` | `features/security`, application-security capability | `PARTIAL` | Align lock/passphrase/biometric/reveal/export user flows; central policy remains Fresnica. |
 | Network | source network/settings controls | fixed-Testnet target presentation | `PARTIAL` / product boundary | Record every source network function. Do not invent switching while target product remains fixed-network. |
 | Actions | `Overlay/HomeActions` + shared entries | center trigger + simplified actions | `BEHAVIOR_MISMATCH` | Align overlay behavior, entry availability, scan and public product actions. |
@@ -188,7 +188,8 @@ These remain non-negotiable:
 - no transaction rebuild after authorization;
 - biometric/passphrase policy remains centralized in Application Security;
 - unsupported reference behavior remains explicit instead of receiving invented substitute semantics;
-- public account/asset identifiers may cross presentation/navigation boundaries; repository/domain objects and secret material should not.
+- public account/asset identifiers may cross presentation/navigation boundaries; repository/domain objects and secret material should not;
+- locale preference persistence remains separate from account/signer secret-bearing persistence semantics.
 
 ## 9. Revised execution order
 
@@ -221,6 +222,14 @@ future Fresnica UI-spec visual/system re-skin
 ```
 
 This sequence does not authorize new capability semantics. If a step exposes a missing normative capability, mark the affected function `BLOCKED_BY_CAPABILITY`, complete the safe presentation/flow inventory around it, and raise the capability decision separately.
+
+### 9.1 Current H1 checkpoint
+
+H1 implementation is present in commit `ccfa9eb3bd2f5b8d3021ef513bcf83cae51750c5` and is currently `READY_FOR_LOCAL_CHECK`, not `COMPLETE`.
+
+The retained locale inventory, alias resolution, locale runtime, Realm preference, Language route, initial Fresnica dictionaries, ProductShell/Settings/startup integration and locale-key check are implemented. Standalone locale-core type/behavior checks passed, but full repository CI did not execute: inspected GitHub CI/Realm/Android jobs have no executed steps. The assistant environment also cannot clone GitHub because DNS resolution fails.
+
+Therefore **H2 must not start until the owner local/device H1 checkpoint is resolved or explicitly accepted**.
 
 ## 10. Exit criteria for M0.5
 
