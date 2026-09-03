@@ -48,8 +48,8 @@ future Fresnica UI-spec re-skin
 | --- | --- | --- |
 | M0 | Authority, architecture boundary and migration control | `DONE` |
 | M0.5 | Full horizontal product/cross-cutting audit | `AUDIT_BASELINE_ESTABLISHED` |
-| H1 | Locale/i18n, localized formatting and visible-copy boundary | `QUEUED_NEXT` |
-| H2 | Navigation/modal/overlay/picker/alert/loading shared interaction foundation | `QUEUED` |
+| H1 | Locale/i18n, localized formatting and visible-copy boundary | `READY_FOR_LOCAL_CHECK` |
+| H2 | Navigation/modal/overlay/picker/alert/loading shared interaction foundation | `QUEUED`; do not start until H1 local gate is resolved |
 | M1 | Temporary/source-derived presentation foundation + Product Shell | `DONE_AS_BASELINE`; final UI deferred |
 | M2 | Home vertical slice | `REOPENED_BY_HORIZONTAL_AUDIT` |
 | M3 | Onboarding and account lifecycle | `QUEUED`; closure depends on H1/H2 |
@@ -118,23 +118,67 @@ Status: `AUDIT_BASELINE_ESTABLISHED`.
 
 Restore multilingual behavior as an app-wide product capability before more visible copy is added.
 
-### Required functional scope
+### Confirmed scope decision
 
-- locale resolver and fallback;
-- translation lookup API usable by presentation without violating architecture boundaries;
-- startup device-locale initialization;
-- persisted user language selection;
-- Settings language entry and runtime update behavior;
-- locale-aware decimal/grouping formatting;
-- locale/timezone-aware display dates;
-- translation-key completeness/integrity check integrated into the development gate;
-- migrate reworked user-visible hardcoded strings behind translation keys.
+The owner confirmed that the Stellar locale capability/inventory is retained rather than silently reduced. Fresnica owns its product dictionaries: reference wording is not copied blindly, and each feature migrates its user-visible strings into Fresnica dictionaries as functional parity work proceeds.
 
-### Scope decision that remains explicit
+The canonical locale inventory contains 59 entries, with source-compatible aliases such as `zh-CN → zh`, `es_MX → es-419`, `iw-IL → he`, `br → pt-BR`, `nn → no-NO`, `gl → gl-ES`, `te → te-IN`, `hi → hi-IN`, `fr-HT → ht`, `bn → bn-BD` and `ta → ta-IN`.
 
-The exact retained language set must not be silently reduced during implementation. Source locale inventory is the reference; any product decision to ship a smaller set requires explicit confirmation.
+### Implemented scope
 
-Status: `QUEUED_NEXT`.
+Commit `ccfa9eb3bd2f5b8d3021ef513bcf83cae51750c5` implements the H1 foundation:
+
+- `src/locale/locales.ts` owns the retained canonical locale inventory, alias resolution and device-locale resolution through `Intl` rather than React Native `NativeModules`.
+- `src/locale/localization.ts` provides per-key English fallback, interpolation, plural selection, exact-string decimal/group formatting and localized date/time formatting.
+- `src/locale/LocalizationProvider.tsx` provides controlled React locale state without adding a global service singleton.
+- Fresnica-owned initial dictionaries exist for English, Simplified Chinese and Traditional Chinese. Other retained locales are honestly marked as English fallback until their Fresnica-specific dictionaries are migrated.
+- Realm schema v2 adds only `LocalePreferenceEntity`; existing Account/Signer entities are not transformed. `RealmLocalePreferenceStore` persists the canonical selected locale under a dedicated preference boundary.
+- `src/app/App.tsx` resolves a device locale before visible startup copy, restores/persists the selected locale after Realm opens, and rerenders through the provider when language changes.
+- Settings now exposes a functional Language destination listing the retained locale inventory and translation/fallback state.
+- ProductShell tab labels, Actions labels and accessibility copy are routed through translation keys.
+- Touched Settings copy and startup copy are routed through translation keys.
+- `scripts/check-locales.mjs` checks every existing Fresnica dictionary against the English key baseline, and `npm run check` now includes `npm run locale:check`.
+- Pure locale tests cover alias/base fallback, per-key fallback, interpolation/plural behavior, exact decimal-string formatting and dictionary availability state.
+- Product navigation tests cover the `language-settings` route.
+- Realm schema tests pin schema v2 and verify the locale preference persistence surface contains no wallet secret material.
+
+### Deliberately not claimed complete here
+
+- English/Simplified Chinese/Traditional Chinese are the first migrated Fresnica dictionaries; the remaining retained languages currently fall back to English rather than pretending translation content is complete.
+- Existing product features that were not reworked in H1 can still contain hardcoded English. Their strings must move behind the H1 boundary when each product domain is closed.
+- Locale-aware amount **display** infrastructure exists; amount-input semantics remain a shared interaction concern for later Send/Request/Exchange closure.
+- The current reference explicitly does not support RTL layout switching; H1 does not invent a different RTL product policy.
+
+### Validation state
+
+- The implementation diff from the H1 parent is one atomic code commit touching only locale, app composition/navigation, Settings, ProductShell, Realm locale preference/schema, tests and the locale check script/package script.
+- The assistant execution environment still cannot clone the private repository because DNS resolution for `github.com` fails, so a full repository `npm run check` could not be run there.
+- A standalone TypeScript strict check of the new locale core was executed with TypeScript 5.8.3 and passed.
+- Standalone behavior checks for alias resolution, fallback, English pluralization and exact decimal-string German formatting passed.
+- A standalone execution of the locale-key integrity algorithm passed on three aligned dictionaries.
+- GitHub Actions runs for H1 are red before execution: inspected CI/Realm/Android jobs contain no executed steps (`steps=[]`; previous runs also report `runner_id=0`). They are **not** code-test failures and are **not** a pass.
+
+### Owner local checkpoint
+
+Run:
+
+```bash
+npm run check
+npm run android
+```
+
+Verify at minimum:
+
+1. Existing Realm v1 data opens successfully after the v2 schema addition and existing accounts/signers remain unchanged.
+2. A first launch without a saved locale selects the device-supported locale or English fallback and persists that canonical locale.
+3. Settings → Language lists the full canonical inventory without duplicate alias rows.
+4. Switching between English, 简体中文 and 漢語 immediately updates App/ProductShell/Settings copy and survives app restart.
+5. Selecting a retained language without a migrated Fresnica dictionary keeps that locale selected while visible migrated keys fall back to English and the screen reports the fallback state.
+6. Number formatting uses locale separators without losing precision in long decimal strings.
+7. `npm run locale:check` fails if a migrated dictionary intentionally has a missing/extra key and passes after restoring parity.
+8. Report any typecheck, architecture, Jest, Realm migration or Android runtime findings before H2 starts.
+
+Status: `READY_FOR_LOCAL_CHECK`.
 
 ## 7. H2 — Shared interaction foundation
 
@@ -160,7 +204,7 @@ Provide the reusable behavior required for full workflows without committing Fre
 
 Final colors, typography, iconography, illustrations, spacing, radius, shadow and polished motion are deferred to the Fresnica UI specification.
 
-Status: `QUEUED`.
+Status: `QUEUED` until H1 local checkpoint is resolved.
 
 ## 8. M1 — Presentation baseline and Product Shell
 
