@@ -29,7 +29,7 @@ function walk(directory) {
     return [];
   }
 
-  const entries = fs.readdirSync(directory, {withFileTypes: true});
+  const entries = fs.readdirSync(directory, { withFileTypes: true });
   return entries.flatMap(entry => {
     const absolutePath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
@@ -74,7 +74,7 @@ function importsPackage(importSource, packageName) {
 }
 
 function addViolation(relativePath, rule, detail) {
-  violations.push({relativePath, rule, detail});
+  violations.push({ relativePath, rule, detail });
 }
 
 function isStrictPresentationFile(relativePath) {
@@ -102,26 +102,16 @@ function checkImports(filePath, relativePath, sourceText) {
       if (importsLayer(filePath, importSource, 'platform')) {
         addViolation(relativePath, 'feature-platform-boundary', `imports ${importSource}`);
       }
-      if (
-        importsPackage(importSource, 'realm') ||
-        importsPackage(importSource, '@stellar/stellar-sdk')
-      ) {
+      if (importsPackage(importSource, 'realm') || importsPackage(importSource, '@stellar/stellar-sdk')) {
         addViolation(relativePath, 'feature-external-mechanism-boundary', `imports ${importSource}`);
       }
     }
 
     if (isCapability) {
-      if (
-        importsLayer(filePath, importSource, 'features') ||
-        importsLayer(filePath, importSource, 'ui')
-      ) {
+      if (importsLayer(filePath, importSource, 'features') || importsLayer(filePath, importSource, 'ui')) {
         addViolation(relativePath, 'capability-presentation-boundary', `imports ${importSource}`);
       }
-      if (
-        importSource === 'react' ||
-        importSource === 'react-native' ||
-        importsPackage(importSource, 'realm')
-      ) {
+      if (importSource === 'react' || importSource === 'react-native' || importsPackage(importSource, 'realm')) {
         addViolation(relativePath, 'capability-runtime-boundary', `imports ${importSource}`);
       }
     }
@@ -134,19 +124,13 @@ function checkImports(filePath, relativePath, sourceText) {
       ) {
         addViolation(relativePath, 'ui-domain-boundary', `imports ${importSource}`);
       }
-      if (
-        importsPackage(importSource, 'realm') ||
-        importsPackage(importSource, '@stellar/stellar-sdk')
-      ) {
+      if (importsPackage(importSource, 'realm') || importsPackage(importSource, '@stellar/stellar-sdk')) {
         addViolation(relativePath, 'ui-external-mechanism-boundary', `imports ${importSource}`);
       }
     }
 
     if (isPlatform) {
-      if (
-        importsLayer(filePath, importSource, 'features') ||
-        importsLayer(filePath, importSource, 'ui')
-      ) {
+      if (importsLayer(filePath, importSource, 'features') || importsLayer(filePath, importSource, 'ui')) {
         addViolation(relativePath, 'platform-product-boundary', `imports ${importSource}`);
       }
     }
@@ -182,10 +166,7 @@ function checkStrictPresentation(relativePath, sourceText) {
   }
 
   const isThemeImplementation = relativePath.startsWith('src/ui/theme/');
-  if (
-    !isThemeImplementation &&
-    /#[0-9a-fA-F]{3,8}\b|\brgba?\s*\(|\bhsla?\s*\(/.test(sourceText)
-  ) {
+  if (!isThemeImplementation && /#[0-9a-fA-F]{3,8}\b|\brgba?\s*\(|\bhsla?\s*\(/.test(sourceText)) {
     addViolation(relativePath, 'raw-color-literal', 'contains a raw color literal outside ui/theme');
   }
 }

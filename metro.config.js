@@ -1,5 +1,5 @@
-const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
-const {resolveModuleAlias} = require('./config/moduleAliases.cjs');
+const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
+const { resolveModuleAlias } = require('./config/moduleAliases.cjs');
 
 /**
  * Metro configuration
@@ -10,11 +10,7 @@ const {resolveModuleAlias} = require('./config/moduleAliases.cjs');
 const config = {
   resolver: {
     resolveRequest: (context, moduleName, platform) =>
-      context.resolveRequest(
-        context,
-        resolveModuleAlias(moduleName) ?? moduleName,
-        platform,
-      ),
+      context.resolveRequest(context, resolveModuleAlias(moduleName) ?? moduleName, platform),
   },
 };
 

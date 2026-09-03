@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import {fileURLToPath} from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDirectory, '..');
@@ -46,9 +46,7 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log(
-  `Locale check passed: ${translationFiles.length} dictionaries share ${baselineKeys.length} keys.`,
-);
+console.log(`Locale check passed: ${translationFiles.length} dictionaries share ${baselineKeys.length} keys.`);
 
 function readDictionary(filePath) {
   const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));

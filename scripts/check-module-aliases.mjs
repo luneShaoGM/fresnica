@@ -1,16 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import {createRequire} from 'node:module';
+import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const root = process.cwd();
-const {moduleAliasTargets, createJestModuleNameMapper} = require(
-  path.join(root, 'config/moduleAliases.cjs'),
-);
+const { moduleAliasTargets, createJestModuleNameMapper } = require(path.join(root, 'config/moduleAliases.cjs'));
 const violations = [];
 
 function addViolation(scope, detail) {
-  violations.push({scope, detail});
+  violations.push({ scope, detail });
 }
 
 function readJson(filePath) {
@@ -53,10 +51,7 @@ for (const [alias, target] of Object.entries(moduleAliasTargets)) {
 const jestConfig = require(path.join(root, 'jest.config.js'));
 const expectedJestMapper = createJestModuleNameMapper();
 if (JSON.stringify(jestConfig.moduleNameMapper) !== JSON.stringify(expectedJestMapper)) {
-  addViolation(
-    'jest.config.js',
-    'moduleNameMapper must be generated from config/moduleAliases.cjs',
-  );
+  addViolation('jest.config.js', 'moduleNameMapper must be generated from config/moduleAliases.cjs');
 }
 
 const metroConfig = require(path.join(root, 'metro.config.js'));
@@ -65,27 +60,17 @@ if (typeof metroResolveRequest !== 'function') {
   addViolation('metro.config.js', 'resolver.resolveRequest is missing');
 } else {
   const probeContext = {
-    resolveRequest: (_context, moduleName) => ({type: 'sourceFile', filePath: moduleName}),
+    resolveRequest: (_context, moduleName) => ({ type: 'sourceFile', filePath: moduleName }),
   };
-  const aliased = metroResolveRequest(
-    probeContext,
-    '@app/navigation/ProductRuntime',
-    'android',
-  );
+  const aliased = metroResolveRequest(probeContext, '@app/navigation/ProductRuntime', 'android');
   const expectedAliasedPath = path.join(root, 'src/app/navigation/ProductRuntime');
   if (aliased.filePath !== expectedAliasedPath) {
-    addViolation(
-      'metro.config.js',
-      `@app probe resolved to ${aliased.filePath}, expected ${expectedAliasedPath}`,
-    );
+    addViolation('metro.config.js', `@app probe resolved to ${aliased.filePath}, expected ${expectedAliasedPath}`);
   }
 
   const external = metroResolveRequest(probeContext, 'react', 'android');
   if (external.filePath !== 'react') {
-    addViolation(
-      'metro.config.js',
-      `external package probe was rewritten to ${external.filePath}`,
-    );
+    addViolation('metro.config.js', `external package probe was rewritten to ${external.filePath}`);
   }
 }
 
