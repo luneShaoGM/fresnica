@@ -2,92 +2,207 @@
 
 ## Purpose
 
-`luneShaoGM/Stellar@stellar-migration` is the source of truth for the first-pass Fresnica presentation and interaction rewrite. Screenshots are verification evidence only; they are not the specification.
+`luneShaoGM/Stellar@stellar-migration` is the product/function reference for the current Fresnica Mobile alignment phase. Screenshots are verification evidence only; source behavior and interaction dependencies define functional parity.
 
 The target architecture remains:
 
 ```text
-Stellar-derived presentation / interaction
-            |
-Fresnica screen adapter / application flow
-            |
+Stellar-referenced product function / interaction
+                    |
+Fresnica feature adapter / application flow
+                    |
 Application Capability
-            |
-Fresnica SDK / platform / Horizon mechanisms
+                    |
+Fresnica Core / SDK / platform runtime
 ```
 
-Donor repository/service/native security code is not copied into Mobile. Existing Fresnica security and capability boundaries remain authoritative.
+Reference repository service/native/security implementations are not copied into Mobile. Existing Fresnica security and capability boundaries remain authoritative.
 
-Milestone execution and local acceptance criteria are tracked in `docs/stellar-rewrite-milestones.md`.
+Two ledgers now define completion:
+
+- `docs/stellar-horizontal-parity-audit.md` — authoritative cross-cutting/function-completeness matrix;
+- this document — detailed source → target mappings and adaptations.
+
+Execution/checkpoint order is tracked in `docs/stellar-rewrite-milestones.md`.
+
+## Current phase rule
+
+Fresnica will later maintain its own UI specification. Therefore the current phase prioritizes:
+
+```text
+function coverage
++ complete workflows
++ visible states
++ picker/modal/overlay behavior
++ locale/formatting
++ capability/security correctness
+```
+
+Final colors, typography, iconography, illustrations, spacing, radius, shadow and polished motion are deferred until the Fresnica UI specification is available.
+
+A route, directory or visible button is not evidence of parity by itself.
 
 ## Migration rules
 
-1. Read the donor screen and every directly-used shared component/style before changing the target screen.
-2. Preserve donor component structure, layout rules, interaction entry points, and empty/disabled states unless a documented Fresnica boundary requires adaptation.
-3. Reuse/port donor General and Module components instead of recreating their appearance inside a screen.
-4. Replace `react-native-navigation`, donor repositories/services/native modules, signing, storage, and network access at adapter boundaries.
-5. Replace donor branding with Fresnica branding; do not silently remove donor functions because branding/business dependencies differ.
-6. If Fresnica has no corresponding capability, keep the entry explicit but disabled/unsupported rather than inventing behavior.
-7. A surface is source-parity complete only when donor source paths, target source paths, adaptations, and known gaps are recorded below.
+1. Read the reference product function and all shared behavior dependencies before changing the target flow.
+2. Preserve the functional entry points, interaction semantics and visible states unless a documented Fresnica boundary requires adaptation.
+3. Treat General/Module/Global/Modal/Overlay dependencies as first-class product infrastructure instead of rediscovering them separately from each page.
+4. Replace reference navigation/repositories/services/native modules/signing/storage/network mechanisms at explicit Fresnica adapter/capability boundaries.
+5. Replace reference branding with Fresnica branding; do not silently remove functions because product/backend dependencies differ.
+6. If Fresnica has no normative capability semantics, keep the function explicit and mark it `BLOCKED_BY_CAPABILITY` rather than inventing behavior.
+7. All reworked user-visible copy must converge on the app-wide locale boundary introduced by horizontal work.
+8. Final visual-component decisions wait for the Fresnica UI specification unless required for usability/accessibility.
+9. A function is complete only when source paths, target paths, states/interactions, capability adaptations and known gaps are recorded.
 
-## Foundation
+## Horizontal foundation gaps
 
-| Donor source | Fresnica target | Status | Adaptation |
+The page-first rewrite missed app-wide infrastructure. These are now tracked as P0 in `docs/stellar-horizontal-parity-audit.md`.
+
+### Locale/i18n
+
+Reference evidence:
+
+- `src/locale/index.ts`
+- `src/locale/en.json`
+- `src/locale/meta.json`
+- `src/locale/translations/**`
+- application startup locale/timezone initialization in `src/app.tsx`
+- Settings-level language selection
+- locale-aware number/date behavior
+- translation maintenance/check tooling
+
+Current target evidence:
+
+- no top-level `src/locale` subsystem;
+- current runtime dependency list has no i18n library;
+- `src/app/App.tsx` enters service/bootstrap flow without locale initialization;
+- multiple user-visible strings remain hardcoded.
+
+Status: `MISSING` horizontal foundation. This is not deferred to the later Settings milestone.
+
+The exact supported-language set is a product decision and must not be silently reduced during implementation.
+
+### Modal/overlay/picker infrastructure
+
+Reference source contains first-class:
+
+- `src/screens/Global/Picker`
+- `src/screens/Modal/**`
+- `src/screens/Overlay/**`
+- Module-level account/currency/fee and other pickers
+
+Important roles include CurrencyPicker, DestinationPicker, FilterEvents, ReviewTransaction, Scan, Submit, transaction loading, browser, Authenticate, Alert, AddToken, ConnectionIssue, HomeActions and dApp disclaimer/permission surfaces.
+
+Current target has navigation/runtime primitives and individual screens, but no complete source-role mapping. Status: `PARTIAL` with several `MISSING`/`BEHAVIOR_MISMATCH` rows in the horizontal audit.
+
+## Existing presentation baseline
+
+| Reference source | Fresnica target | Status | Adaptation |
 | --- | --- | --- | --- |
-| `src/theme/colors.ts` | `src/ui/theme/stellar/colors.ts` | M1 ported | Color utility functions are colocated under theme so architecture guard keeps raw colors centralized. |
-| `src/theme/sizes.ts` | `src/ui/theme/stellar/sizes.ts` | M1 ported with boundary | Donor `DeviceUtilsModule.layoutInsets` is not copied; Fresnica SafeArea containers own insets. Donor scaling/padding metrics remain source-compatible. |
-| `src/theme/fonts.ts` | `src/ui/theme/stellar/fonts.ts` | M1 ported with native-module boundary | Family names, locale selection and sizing are ported. Device locale is read through `Intl` rather than `NativeModules`, keeping `ui/**` presentation-only. Font binary/native-project registration remains a later visual-hardening concern. |
-| `src/components/General/Spacer` | `src/ui/components/stellar/Spacer` | M1 ported | Direct structural/style port. |
-| `src/components/General/LoadingIndicator` | `src/ui/components/stellar/LoadingIndicator` | M1 ported with theme boundary | Donor `StyleService` is not imported. The current canonical light theme maps donor default contrast to black. |
-| `src/components/General/TouchableDebounce` | `src/ui/components/stellar/TouchableDebounce` | M1 ported with dependency simplification | Preserves donor 500 ms leading-only debounce and resettable quiet window without adding lodash only for this helper. |
-| `src/components/General/RaisedButton` | `src/ui/components/stellar/RaisedButton` | M1 ported with dependency adapter | Donor sizing, loading, disabled and press behavior are preserved. Donor global image/icon registry remains an explicit image-source adaptation until Icon itself is migrated where needed. |
+| `src/theme/colors.ts` | `src/ui/theme/stellar/colors.ts` | baseline only | Temporary/source-derived palette; final Fresnica tokens are deferred. |
+| `src/theme/sizes.ts` | `src/ui/theme/stellar/sizes.ts` | baseline only | Reference native inset mechanism is not copied; final sizing tokens are deferred. |
+| `src/theme/fonts.ts` | `src/ui/theme/stellar/fonts.ts` | baseline only | Locale-aware family/sizing logic was adapted without React Native `NativeModules`; final type system is deferred. |
+| `src/components/General/Spacer` | `src/ui/components/stellar/Spacer` | baseline complete | Structural primitive. |
+| `src/components/General/LoadingIndicator` | `src/ui/components/stellar/LoadingIndicator` | primitive complete | Must still be integrated consistently across horizontal loading states. |
+| `src/components/General/TouchableDebounce` | `src/ui/components/stellar/TouchableDebounce` | behavior complete | Preserves leading-only debounce without adding lodash. |
+| `src/components/General/RaisedButton` | `src/ui/components/stellar/RaisedButton` | partial system role | Loading/disabled/press behavior exists; final component skin is deferred. |
+
+These components do not define the future Fresnica Design System.
 
 ## Product shell
 
-| Donor source / behavior | Fresnica target | Status | Adaptation |
+| Reference behavior | Fresnica target | Status | Adaptation |
 | --- | --- | --- | --- |
-| tab mapping in donor navigator plus tab assets | `src/app/navigation/ProductShell.tsx` | M1 ported | User-visible vocabulary is `Home | Events | Actions | XApps | Settings`. Fresnica typed navigation replaces donor navigation infrastructure. |
-| `Actions` trigger / donor `HomeActions` interaction role | `ProductShell` center action trigger | M1 partial by design | Actions opens a surface without becoming the selected tab, so the prior tab remains active. Full recent/featured dApp, scan and catalog behavior is deferred to M9. |
-| unavailable donor actions | `ProductShell.actionAvailability` | M1/M2 capability boundary | Unsupported actions remain visibly disabled. M2 additionally makes shell Send unavailable for a watch-only selected account rather than entering a signing flow that cannot complete. |
+| five-position product shell | `src/app/navigation/ProductShell.tsx` | baseline implemented | Fresnica typed navigation replaces the reference navigation framework. |
+| Actions center trigger | ProductShell action trigger | `BEHAVIOR_MISMATCH` at full-flow level | Trigger role exists, but complete HomeActions overlay/recent/scan/catalog behavior is not aligned. |
+| unavailable actions | route/action availability | partial | Unsupported actions remain explicit rather than entering fake flows. |
 
-## M2 Home vertical slice
+Visible dApp/product naming and legacy `xApps` path cleanup are separate product decisions; no terminology migration is performed implicitly during horizontal function alignment.
 
-| Donor source / behavior | Fresnica target | Status | Adaptation / boundary |
+## Home mapping — reopened
+
+| Reference source / behavior | Fresnica target | Current audit status | Adaptation / remaining gap |
 | --- | --- | --- | --- |
-| `src/screens/Home/HomeView.tsx` | `src/features/home/HomeScreen.tsx` | M2 implemented | Home is rebuilt as a strict presentation feature. Loading, refresh, error, inactive, active, unsupported-contract and read-only states are explicit. |
-| donor Home account/network/repository reads | `src/features/home/homeViewModel.ts` + `ProductRuntime` composition | M2 implemented | The view model receives public `AccountRecord`, Balance state and signability; donor repositories/services are not imported. |
-| `src/components/Modules/AccountSwitchElement` | `src/features/home/components/AccountSwitchElement.tsx` | M2 adapted | Donor switcher-overlay responsibility is replaced by typed ProductRuntime account-selection intent. Add-account stays a separate existing Fresnica route. |
-| `src/components/Modules/NetworkSwitchButton` | `src/features/home/components/NetworkSwitchButton.tsx` | M2 adapted / fixed-network boundary | The donor network indicator vocabulary is preserved. Fresnica currently supports only configured Stellar Testnet, so the switch interaction is visible but intentionally disabled instead of inventing a network switcher. |
-| `src/components/Modules/InactiveAccount` | `src/features/home/components/InactiveAccount.tsx` | M2 adapted | Activation explanation and refresh are preserved. Donor Friendbot and QR/share service actions are not copied; Request/share belongs to M6. |
-| `src/components/Modules/AssetsList` | `src/features/home/components/AssetsList.tsx` | M2 adapted | Native/credit token rows come from the existing Balance capability. Donor LP/claimable/category repository state is not invented; unsupported liquidity-pool positions are reported explicitly. |
-| donor Send entry | Home action + existing `SendFlowScreen` | M2 connected | Enabled only for an active classic account with an attached supported Fresnica signer. Watch-only/contract/inactive accounts remain disabled. |
-| donor Swap entry | Home action | M2 visible / disabled | Shared swap/path-payment semantics are deferred to M7; no local quote or execution policy is invented. |
-| donor Request/share entry | Home action | M2 visible / disabled | Request/share implementation is owned by M6. Public-address sharing semantics are not silently substituted before that surface is migrated. |
-| donor Manage Assets entry | Home `Add asset` + existing `ManageAssetsScreen` | M2 connected | Enabled only for an active signable classic account and routed to the existing Trustline product flow. |
-| donor no-account Home state | `App` onboarding bootstrap boundary | M2 mapped at product boundary | ProductRuntime is only entered when the bootstrap has visible accounts. Create/import onboarding remains the authoritative no-account experience and will be source-rewritten in M3 rather than duplicated inside Home. |
-| account change refresh | request-version guarded Home balance loader | M2 implemented | Every account change invalidates prior balance requests, preventing a late response from painting the previous account into the newly selected Home. |
+| `src/screens/Home/HomeView.tsx` | `src/features/home/HomeScreen.tsx` | `PARTIAL` | Loading/error/inactive/active/read-only states exist; horizontal interaction audit is still open. |
+| Home account/network/data reads | `homeViewModel.ts` + ProductRuntime | `PARTIAL` | Public account/balance/signability mapping correctly avoids reference repositories/services. |
+| `Modules/AccountSwitchElement` + AccountPicker role | Home account switch action | `BEHAVIOR_MISMATCH` | Current interaction can reduce switching to next-account behavior; source requires an explicit selectable account surface. |
+| Network indicator/switch role | `NetworkSwitchButton.tsx` | product-boundary partial | Current Fresnica product is fixed to Testnet; do not invent network switching. |
+| `Modules/InactiveAccount` | `InactiveAccount.tsx` | partial | Activation/refresh exists; QR/share is owned by horizontal Request/share work. |
+| `Modules/AssetsList` | `AssetsList.tsx` | partial | Balance capability is correct data boundary; asset interaction/category/detail parity is incomplete. |
+| Send entry | existing Send flow | connected but not fully parity-audited | Requires shared picker/auth/review/result and locale closure. |
+| Swap entry | disabled | `BLOCKED_BY_CAPABILITY` for execution | No local swap semantics may be invented. |
+| Request/share entry | disabled | `MISSING` flow | Horizontal QR/share work must close this. |
+| Manage Assets | existing trustline flow | connected but partial | Full source search/select/add/remove/review/result behavior remains to audit. |
+| account change refresh | request-version guarded balance load | behavior retained | Continue preventing stale prior-account responses. |
 
-The superseded `src/features/portfolio/WalletHomeScreen.tsx` was removed once ProductRuntime switched to `src/features/home/HomeScreen.tsx`, leaving one Home implementation for the rewrite baseline.
+Previous `READY_FOR_LOCAL_CHECK` wording is superseded by the horizontal audit. M2 is `REOPENED_BY_HORIZONTAL_AUDIT`.
 
-## Primary product surfaces after M2
+## Product-domain ledger
 
-| Donor surface | Important donor dependencies / functions | Fresnica target | Status / adaptation |
+| Reference surface | Important functions | Fresnica evidence | Current status |
 | --- | --- | --- | --- |
-| `src/screens/Home/HomeView.tsx` | account/network header, account switch/add, actions, assets, inactive state | `src/features/home` | M2 `READY_FOR_LOCAL_CHECK`; detailed mapping above. |
-| `src/screens/Events` | event list/search/filter/pagination/detail navigation | `src/features/history` | queued for M5. Keep History capability as data source. |
-| `src/screens/Settings` | full settings row hierarchy and destination screens | `src/features/settings` | queued for M8. Preserve entries; unsupported destinations explicit. |
-| `src/screens/XApps` | catalog/search/recent/actions/browser entry | `src/features/xapps` | queued for M9. Browser/authorization stays disabled until capability exists. |
-| `src/screens/Send` | form/review/confirmation/auth/result flow | `src/features/send` | queued for M4. Signing and System Auth remain Fresnica-controlled. |
-| `src/screens/Exchange` | swap input/quote/review flow | future/current shared swap capability adapter | M7 presentation queued; semantics blocked where shared Fresnica swap semantics are unavailable. |
-| `src/screens/Onboarding` + account-add surfaces | start/generate/import/recovery/completion paths | `src/features/onboarding` | queued for M3. Secret lifecycle stays inside Fresnica SDK/application flow. |
-| donor account management surfaces | switch/add/details/trustline/recovery-related surfaces | current account/settings features | queued for M3/M6. Account model becomes a presentation view model over Fresnica account records. |
-| donor overlays/modals | QR/share/selectors/actions/alerts | product-owned overlays | queued by owning milestone. Port structure only where mapped to an existing/explicit capability. |
+| `src/screens/Setup` + `Onboarding` | start/create/import/backup/verify/complete | `src/features/onboarding` | `PARTIAL` |
+| `src/screens/Account` | account list/switch/details/lifecycle | `src/features/accounts` + Account capability | `PARTIAL` |
+| `src/screens/Home` | account/assets/actions/inactive states | `src/features/home` | `BEHAVIOR_MISMATCH` / `PARTIAL` |
+| `src/screens/Events` | list/search/filter/pagination/details | `src/features/history` + History capability | `PARTIAL` |
+| `src/screens/Send` | amount/destination/options/review/auth/submit/result | `src/features/send` + payment/transaction/signing capabilities | `PARTIAL` |
+| `src/screens/Request` | public request/QR/copy/share | no complete target domain | `MISSING` |
+| `src/screens/Exchange` | selectors/amount/quote/review/execute | no complete equivalent feature root | `BLOCKED_BY_CAPABILITY` for normative execution; inventory still required |
+| asset/trustline/AddToken flows | search/select/add/remove/review/result | `src/features/trustlines` + Trustline capability | `PARTIAL` |
+| `src/screens/Settings` | general/language/security/network/about/etc. | Settings Home/Network/About + security feature | `PARTIAL` |
+| Application Security / Authenticate | lock/passphrase/biometric/fresh auth | security feature + Application Security capability | `PARTIAL` |
+| Actions/HomeActions | action overlay, scan and product entries | ProductShell center action | `BEHAVIOR_MISMATCH` |
+| legacy `src/screens/xApps` with dApp-oriented behavior | catalog/search/recent/browser/disclaimer/permission | `src/features/xapps/screens/XAppsScreen` | `PARTIAL` |
+| `src/screens/Global` | global picker/placeholder roles | no equivalent complete shared surface | `MISSING` / `PARTIAL` |
+| `src/screens/Modal` | picker/review/submit/scan/browser/etc. | distributed current screens | `PARTIAL` |
+| `src/screens/Overlay` | alert/auth/action/warning/permission/etc. | distributed/ad hoc current flows | `PARTIAL` |
 
-## Known cross-cutting adaptations
+## Shared interaction ledger
 
-- Donor navigation infrastructure is replaced by Fresnica ProductRuntime/navigation state.
-- Donor repositories and services are not presentation dependencies in the target; screens receive capability DTOs, view models and callbacks from Fresnica flows.
-- Donor native modules are not imported into migrated presentation code.
-- Fresnica Native SDK remains the authority for secrets, recovery material, signing and System Auth.
-- Fixed Stellar Testnet is the current network product boundary; M2 does not fake donor network switching.
-- The React Native URL/Horizon compatibility fix at `a6dd7eaaa4745d5a0cde2b3b329d9d54e51b6224` is the rewrite baseline and must not be reverted by source ports.
+| Role | Reference source | Target status |
+| --- | --- | --- |
+| account picker | Module AccountPicker + switcher interaction | `BEHAVIOR_MISMATCH` |
+| asset/currency picker | Module/Modal CurrencyPicker | `PARTIAL` |
+| destination picker | Modal DestinationPicker | `MISSING` |
+| fee picker/list | Module FeePicker/FeeList | pending transaction-policy classification |
+| event filters | FilterEvents + EventsFilterChip | `MISSING`/`PARTIAL` |
+| Home Actions overlay | Overlay/HomeActions | `BEHAVIOR_MISMATCH` |
+| Authenticate | Overlay/Authenticate | `PARTIAL`; use Fresnica Application Security |
+| Alert/confirm | Overlay/Alert + reference helpers | `PARTIAL` |
+| Review transaction | Modal/ReviewTransaction | `PARTIAL` via Send; must become cross-product invariant |
+| Submit/progress/result | Modal/Submit/TransactionLoader + results | `PARTIAL` |
+| Scan | Modal/Scan | `MISSING` |
+| browser | Modal/InAppBrowser + dApp browser | `PARTIAL` |
+| QR/public share | Request/account interactions | `MISSING` |
+| search/filter/segment | General/Module controls | `PARTIAL`/`MISSING` depending on domain |
+| amount input | General/AmountInput | `PARTIAL`; must become locale-aware |
+
+## Architecture/security invariants
+
+- Navigation infrastructure may differ; user-visible function/transition semantics still require mapping.
+- Reference repositories/services are not presentation dependencies in the target.
+- Reference native modules are not imported into migrated presentation code.
+- Fresnica Native SDK/Core remains authoritative for secrets, recovery material and signing.
+- Application Security remains authoritative for biometric/passphrase/lock policy.
+- Fixed Testnet remains an explicit current product boundary unless separately changed.
+- Reviewed transaction identity must equal authorized, signed and submitted transaction identity; no post-auth rebuild.
+- QR/share/clipboard flows handle public data only.
+- The React Native URL/Horizon compatibility fix at `a6dd7eaaa4745d5a0cde2b3b329d9d54e51b6224` remains the rewrite baseline.
+
+## Functional parity completion rule
+
+Before any product-domain row is marked complete, verify the corresponding rows in `docs/stellar-horizontal-parity-audit.md`.
+
+```text
+source function inventoried
+AND target route/entry exists
+AND full interaction flow exists
+AND all visible states exist
+AND shared picker/modal/overlay dependencies are integrated
+AND locale/formatting is integrated
+AND capability/security boundary is documented
+AND intentional exclusions are explicit
+AND tests/local verification support the result
+```
+
+The future Fresnica UI-spec phase may substantially change component implementation and visual appearance without reopening completed product/capability semantics.
