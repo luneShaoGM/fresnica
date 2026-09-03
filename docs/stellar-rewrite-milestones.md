@@ -2,303 +2,340 @@
 
 ## 1. Purpose
 
-This document is the execution plan and local-checkpoint ledger for rebuilding Fresnica Mobile from the presentation and user-visible behavior of `luneShaoGM/Stellar@stellar-migration` while retaining the existing Fresnica Mobile capability/runtime/security implementation.
+This document is the execution plan and checkpoint ledger for aligning Fresnica Mobile with the product functions and user-visible workflows of `luneShaoGM/Stellar@stellar-migration` while retaining the existing Fresnica Mobile capability/runtime/security implementation.
 
 Architecture rule:
 
 ```text
-Stellar page / component / visible behavior
+Stellar product function / visible workflow
                 ↓
-Fresnica feature-local presentation adapter / view model
+Fresnica feature presentation / product-flow adapter
                 ↓
 Application Capability
                 ↓
-existing Fresnica SDK / platform / Horizon runtime
+existing Fresnica Core / SDK / platform runtime
 ```
 
-The donor repository is authoritative for first-pass page structure, interaction vocabulary and visible states. Current Fresnica Mobile is authoritative for accounts, storage, network access, secrets, signing, transactions, biometrics and security. Screenshots are visual evidence only.
+Stellar is the product/function reference. Current Fresnica Mobile is authoritative for accounts, storage, network access, secrets, signing, transactions, biometrics and security.
 
-## 2. Milestone status
+The current phase prioritizes **horizontal functional alignment**. Fresnica will maintain its own UI specification later, so final visual design-system work is not a gate for the present parity phase.
 
-| Milestone | Scope | Status |
+The authoritative horizontal audit is `docs/stellar-horizontal-parity-audit.md`. The detailed source-to-target ledger remains `docs/stellar-source-parity.md`.
+
+## 2. Why the execution model changed
+
+The earlier plan migrated page slices in sequence. That produced working pieces, but it failed to guarantee app-wide systems such as locale/i18n, shared pickers, modal/overlay behavior, QR/scan/share and common interaction states.
+
+A directory or button is therefore no longer evidence of parity. A function is complete only when its full flow, states, shared interactions and Fresnica capability boundary are accounted for.
+
+The execution model is now:
+
+```text
+horizontal foundation
+        ↓
+shared interaction contracts
+        ↓
+product-domain closure
+        ↓
+full Android/iOS functional audit
+        ↓
+future Fresnica UI-spec re-skin
+```
+
+## 3. Current milestone status
+
+| Milestone / lane | Scope | Status |
 | --- | --- | --- |
-| M0 | Authority, architecture boundary, parity inventory and migration control | `DONE` |
-| M1 | Stellar presentation foundation and five-position Product Shell | `DONE` |
-| M2 | Home vertical slice | `READY_FOR_LOCAL_CHECK` |
-| M3 | Onboarding and account lifecycle | `QUEUED` |
-| M4 | Send → Review → Authorize → Submit → Result | `QUEUED` |
-| M5 | Events/history and event details | `QUEUED` |
-| M6 | Assets/trustlines, Request/share and shared pickers/overlays | `QUEUED` |
-| M7 | Exchange/Swap presentation and execution contract | `BLOCKED` where shared semantics are not normative |
-| M8 | Settings, Security and Network | `QUEUED` |
-| M9 | XApps/dApp and full Actions overlay | `QUEUED` |
-| M10 | Full source-parity audit and Android/iOS hardening | `QUEUED` |
+| M0 | Authority, architecture boundary and migration control | `DONE` |
+| M0.5 | Full horizontal product/cross-cutting audit | `AUDIT_BASELINE_ESTABLISHED` |
+| H1 | Locale/i18n, localized formatting and visible-copy boundary | `QUEUED_NEXT` |
+| H2 | Navigation/modal/overlay/picker/alert/loading shared interaction foundation | `QUEUED` |
+| M1 | Temporary/source-derived presentation foundation + Product Shell | `DONE_AS_BASELINE`; final UI deferred |
+| M2 | Home vertical slice | `REOPENED_BY_HORIZONTAL_AUDIT` |
+| M3 | Onboarding and account lifecycle | `QUEUED`; closure depends on H1/H2 |
+| M4 | Send → Review → Authorize → Submit → Result | `QUEUED`; closure depends on H1/H2 and shared transaction interaction audit |
+| M5 | Events/history and event details | `QUEUED`; closure depends on H1/H2 |
+| M6 | Assets/trustlines, Request/share, QR/scan and shared pickers | `QUEUED`; cross-cutting pieces move earlier where reusable |
+| M7 | Exchange/Swap | `BLOCKED` where shared semantics are not normative; safe presentation inventory still allowed |
+| M8 | Settings, Security and Network | `QUEUED`; language setting is pulled forward into H1 |
+| M9 | Actions + dApp catalog/browser/permission flows | `QUEUED`; shared scanner/browser/overlay pieces may land earlier |
+| M10 | Full functional parity and Android/iOS hardening | `QUEUED` |
+| UI-F | Fresnica-owned final UI specification/design-system adoption | `FUTURE`; not part of current functional gate |
 
-Do not start the next milestone while the current local checkpoint has unresolved parity, runtime or test failures.
+Product milestones remain useful as domain ledgers, but they are no longer executed as a strict page-by-page chain. Reusable horizontal functionality is implemented once at the earliest dependency point and then consumed by each product domain.
 
-## 3. M0 — Rewrite authority and migration control
+## 4. M0 — Rewrite authority and migration control
 
 ### Objective
 
-Lock down the two sources of truth and prevent a page rewrite from becoming a second wallet implementation.
+Lock down the sources of truth and prevent a product rewrite from becoming a second wallet implementation.
 
 ### Completed controls
 
-- Donor presentation authority: `luneShaoGM/Stellar@stellar-migration`.
-- Fresnica capability/runtime/security authority: current Mobile repository plus normative Fresnica Core/capability contracts.
-- `docs/stellar-source-parity.md` records donor → target mappings and intentional adaptations.
+- Product/function reference: `luneShaoGM/Stellar@stellar-migration`.
+- Fresnica capability/runtime/security authority: current Mobile repository plus normative Fresnica Core/Application Capability contracts.
+- `docs/stellar-source-parity.md` records source → target mappings and intentional adaptations.
 - New source-parity surfaces are strict architecture-guard scopes.
-- Unsupported donor behavior must remain explicit/disabled rather than receive substitute semantics.
+- Unsupported source behavior remains explicit/disabled rather than receiving invented semantics.
 - React Native URL/Horizon compatibility baseline `a6dd7eaaa4745d5a0cde2b3b329d9d54e51b6224` must not be regressed.
 
 Status: `DONE`.
 
-## 4. M1 — Presentation foundation and Product Shell
+## 5. M0.5 — Horizontal parity audit
 
 ### Objective
 
-Create the donor-derived presentation primitives required by later screens and establish the five-position product shell without replacing Fresnica navigation/runtime.
+Inventory product-wide functions that cannot safely be discovered one screen at a time.
 
-### Completed scope
+### P0 audit categories
 
-- Stellar colors/sizes/fonts presentation tokens.
-- `Spacer`, `LoadingIndicator`, `TouchableDebounce`, `RaisedButton` source-derived primitives.
-- Product vocabulary and shell roles: `Home | Events | Actions | XApps | Settings`.
-- `Actions` remains a center trigger, not a selected tab; closing it preserves the previously selected tab.
-- Unsupported actions use explicit availability rather than fake flows.
-- Full donor HomeActions dApp/catalog/scan behavior remains owned by M9.
+- locale/i18n and runtime language selection;
+- device locale/timezone and localized number/date formatting;
+- translation-key integrity tooling;
+- navigation destinations and dismissal/back semantics;
+- modal and overlay roles;
+- account/asset/currency/destination/fee/global picker roles;
+- alert/loading/error/connection states;
+- QR generation, public share, scanner and permission flows;
+- clipboard/external intent/deep-link/browser behavior;
+- keyboard/input/safe-area behavior;
+- app lifecycle and security re-auth interactions;
+- accessibility semantics;
+- cross-product transaction review/auth/submit/result behavior;
+- dApp catalog/browser/disclaimer/permission roles.
 
-### Local finding absorbed into M1
+Detailed matrix: `docs/stellar-horizontal-parity-audit.md`.
 
-The first owner-side `npm run check` found that `src/ui/theme/stellar/fonts.ts` imported `NativeModules`, violating the `ui/**` boundary. The owner corrected that implementation to use `Intl`, pushed commit `65aefc9ba1ac21d40df39f1c8272ef580a5fde64`, and explicitly authorized continuation. M1 is therefore part of the accepted rewrite baseline.
+### Exit state
 
-Status: `DONE`.
+The audit baseline is established. Individual matrix rows remain live until closed by implementation and verification.
 
-## 5. M2 — Home vertical slice
+Status: `AUDIT_BASELINE_ESTABLISHED`.
 
-### Objective
-
-Rebuild the Home product surface from donor `HomeView` and its directly-used Module components while making every fact/action come from the current Fresnica account, balance, trustline and runtime contracts.
-
-### Implemented source scope
-
-- New strict `src/features/home/HomeScreen.tsx` replaces the temporary portfolio Home.
-- Source-derived/adapted module components:
-  - `AccountSwitchElement`
-  - `NetworkSwitchButton`
-  - `InactiveAccount`
-  - `AssetsList`
-- Thin `homeViewModel.ts` converts `AccountRecord`, balance state, signability and explicit action availability into presentation state.
-- Existing Balance capability remains the token data boundary.
-- Existing ProductRuntime owns account selection/add-account navigation.
-- Existing Send flow remains the Send destination.
-- Existing Trustline flow remains the Manage Assets destination.
-- Previous `src/features/portfolio/WalletHomeScreen.tsx` was removed so the rewrite has one Home implementation.
-
-### State/behavior mapping
-
-- **No account:** remains the App onboarding/bootstrap boundary; it is not duplicated inside Home. M3 will source-rewrite onboarding.
-- **Loading:** donor-style Home loading state while the Balance capability resolves.
-- **Error:** explicit message and retry.
-- **Inactive/unfunded:** activation explanation, public address and refresh action. Donor Friendbot/QR services are not copied.
-- **Active:** native and credit balances render from the Balance capability.
-- **Liquidity-pool shares:** current Balance contract exposes only a hidden count, so Home reports that positions are omitted rather than inventing LP presentation/state.
-- **Watch-only:** balances remain readable; signing/trustline actions are disabled and the Home shows a read-only notice.
-- **Contract account:** classic Horizon balance/action semantics remain explicitly unavailable.
-- **Account switching:** prior asynchronous balance responses are invalidated with a request version so old-account data cannot paint the newly selected Home.
-- **Network:** current product is fixed to Stellar Testnet. The donor network control remains visible as a status control but is intentionally disabled; M2 does not invent network switching.
-
-### Action mapping
-
-- **Send:** enabled from Home only for an active, classic, signable account and routed to the existing Fresnica Send flow.
-- **Swap:** visible but disabled; normative quote/path-payment/slippage/review semantics belong to M7.
-- **Request:** visible but disabled; public-address share/request flow belongs to M6.
-- **Add asset / Manage Assets:** enabled only for an active, classic, signable account and routed to the existing Trustline product flow.
-- ProductShell Send is also disabled for a watch-only selected account so the shell cannot bypass the Home read-only boundary.
-
-### Tests added
-
-Pure Home view-model tests cover:
-
-- active signable classic account;
-- watch-only classic account;
-- inactive account;
-- contract account;
-- supported/unsupported action availability.
-
-### Automated validation state
-
-The latest inspected GitHub CI run for the M2 implementation/parity head (`3b53659640c49b9a1242ff530e281384cf85029e`, run `33608975802`) ended before executing repository steps: `runner_id=0` and `steps=[]`. Therefore GitHub CI is **not a pass and not evidence of a code failure**. The execution environment used by the assistant also cannot clone GitHub, so the owner-side `npm run check` is the authoritative executable gate for this checkpoint.
-
-### M2 local acceptance checklist
-
-After pulling the branch, run:
-
-```bash
-npm run check
-npm run android
-```
-
-Verify on the local app:
-
-1. A funded, managed classic account shows the account header, `Testnet`, balances, enabled Send, and enabled Add asset.
-2. Swap and Request remain visibly unavailable; neither can start a fake flow.
-3. Add asset opens the existing Manage Assets/Trustline flow and returning brings the user back to Home.
-4. With two or more visible accounts, tapping the account switch control changes the selected account; a late response from the prior account must not flash its balances into the new account.
-5. A funded watch-only account can display balances but Home Send/Add asset and ProductShell Actions→Send are disabled, with a read-only notice.
-6. An inactive account shows activation guidance, its public address and Refresh rather than an empty active-token list.
-7. A contract account shows explicit unsupported classic-balance/action semantics.
-8. The network control reads `Testnet` and is disabled. That is intentional for the current fixed-network product boundary.
-9. With no configured account, the app continues into onboarding rather than a synthetic Home no-account state.
-10. Report typecheck, architecture, Jest, Android runtime or visual/parity findings against M2; M3 must not begin until those findings are resolved.
-
-Status: `READY_FOR_LOCAL_CHECK`.
-
-## 6. M3 — Onboarding and account lifecycle
+## 6. H1 — Locale/i18n and formatting foundation
 
 ### Objective
 
-Rebuild donor onboarding/account lifecycle presentation while retaining Fresnica secret-management and account-provisioning authority.
+Restore multilingual behavior as an app-wide product capability before more visible copy is added.
 
-### Planned scope
+### Required functional scope
+
+- locale resolver and fallback;
+- translation lookup API usable by presentation without violating architecture boundaries;
+- startup device-locale initialization;
+- persisted user language selection;
+- Settings language entry and runtime update behavior;
+- locale-aware decimal/grouping formatting;
+- locale/timezone-aware display dates;
+- translation-key completeness/integrity check integrated into the development gate;
+- migrate reworked user-visible hardcoded strings behind translation keys.
+
+### Scope decision that remains explicit
+
+The exact retained language set must not be silently reduced during implementation. Source locale inventory is the reference; any product decision to ship a smaller set requires explicit confirmation.
+
+Status: `QUEUED_NEXT`.
+
+## 7. H2 — Shared interaction foundation
+
+### Objective
+
+Provide the reusable behavior required for full workflows without committing Fresnica to a final visual design system.
+
+### Required functional roles
+
+- generic picker contract and selection state;
+- account picker;
+- asset/currency picker;
+- modal presentation/dismissal semantics;
+- overlay/action-panel semantics;
+- alert/confirm/warning behavior;
+- loading/progress/error behavior;
+- authentication overlay adapter to Application Security;
+- transaction review/submit/result interaction contract;
+- QR/public share/scanner contracts where shared use is demonstrated;
+- safe browser/open-link contract;
+- permission-state handling;
+- accessibility roles/labels/disabled/selected state.
+
+Final colors, typography, iconography, illustrations, spacing, radius, shadow and polished motion are deferred to the Fresnica UI specification.
+
+Status: `QUEUED`.
+
+## 8. M1 — Presentation baseline and Product Shell
+
+M1 remains part of the accepted rewrite baseline because it established source-derived primitives and the five-position shell without replacing Fresnica runtime/navigation authority.
+
+Completed baseline includes:
+
+- temporary/source-derived colors/sizes/fonts tokens;
+- `Spacer`, `LoadingIndicator`, `TouchableDebounce`, `RaisedButton`;
+- five-position shell roles;
+- Actions as a center trigger rather than selected tab;
+- architecture-boundary correction for the initial `NativeModules` font-locale access.
+
+This does **not** define the final Fresnica UI design system. UI-F will later replace/rework visual tokens and component skins according to Fresnica-owned specifications.
+
+Status: `DONE_AS_BASELINE`.
+
+## 9. M2 — Home interaction closure
+
+### Previous implementation
+
+The rewrite already has `src/features/home/HomeScreen.tsx`, source-adapted account/network/inactive/assets pieces and a capability-backed Home view model.
+
+### Why M2 is reopened
+
+Local product review found that visible entries were sometimes treated as equivalent to source interaction. The clearest example is account switching: the source interaction is a selectable account surface, while the current implementation can reduce the action to selecting the next account.
+
+Therefore Home must be rechecked against the horizontal audit for:
+
+- account picker behavior;
+- Actions overlay behavior;
+- asset interaction states;
+- Request/share dependencies;
+- localized copy/amounts;
+- loading/error/disabled/accessibility states;
+- stale-request protection when accounts change.
+
+Existing capability adapters should be preserved where correct. This is interaction closure, not a rewrite of Fresnica account/balance logic.
+
+Status: `REOPENED_BY_HORIZONTAL_AUDIT`.
+
+## 10. M3 — Onboarding and account lifecycle
+
+### Functional closure scope
 
 - onboarding landing/setup;
 - create account;
 - import mnemonic;
-- import secret;
+- import secret where supported;
 - watch-only account;
 - backup/verification/completion;
-- add/list/switch/edit account presentation;
-- existing Native SDK/Core remains responsible for mnemonic/secret generation, validation and protection;
-- no plaintext secret material in navigation or ordinary persistence.
+- add/list/switch/edit/remove/detail flows as applicable;
+- account picker integration;
+- all visible copy through H1 locale boundary;
+- all secret generation, validation and protection remain Fresnica SDK/Core responsibility;
+- no plaintext secret material in ordinary navigation/persistence.
 
-### Regression cases
+### Required regression
 
-- Corrected mnemonic verification must recover after an initial wrong attempt; a stale error must not permanently poison subsequent validation.
-- Account add/remove/switch must produce coherent Home state without stale reads.
+Correcting mnemonic verification after an initial wrong attempt must succeed; stale error state must not poison later valid verification.
 
-Status: `QUEUED` until M2 local acceptance.
+Status: `QUEUED`.
 
-## 7. M4 — Send, review, authorization, submission and result
+## 11. M4 — Send and shared transaction interaction
 
-### Objective
-
-Rebuild the donor Send experience while preserving exact Fresnica transaction identity and Application Security orchestration.
-
-### Planned flow
+### Target flow
 
 ```text
-asset → amount → destination → memo/options → review → authorize → submit → result
+asset → amount → destination → options → review → authorize → submit → result
 ```
 
-### Non-negotiable invariants
+Current Fresnica already contains Send form/flow/review/result screens, so M4 is a **parity closure**, not greenfield work.
 
-- reviewed transaction == authorized transaction == signed transaction == submitted transaction;
-- no rebuild after authorization;
-- System Auth/biometric/passphrase policy remains centralized;
-- result states distinguish success, definite failure and uncertain submission where the existing runtime does so;
-- watch-only/unsupported signer accounts cannot enter a signing path that pretends success.
+Required closure includes:
+
+- source step/state inventory;
+- asset/destination picker dependencies as applicable;
+- localized amount entry and validation;
+- consistent slide/confirm semantics;
+- Application Security biometric/passphrase behavior shared with other mutating flows;
+- pending/success/definite-failure/uncertain-submission states.
+
+Non-negotiable invariant:
+
+```text
+reviewed transaction
+== authorized transaction
+== signed transaction
+== submitted transaction
+```
+
+No rebuild after authorization.
 
 Status: `QUEUED`.
 
-## 8. M5 — Events/history and details
+## 12. M5 — Events/history and details
 
-### Objective
+Current Fresnica already has activity-list/detail surfaces and the History capability. Closure must compare them with reference Events behavior rather than assuming the existing screens are complete.
 
-Rebuild donor Events presentation over the existing History capability.
+Required scope:
 
-### Planned scope
-
-- event list;
-- loading/empty/error/refresh states;
-- search/filter presentation where supported by the current read contract;
+- list loading/empty/error/refresh;
+- search/filter behavior;
 - pagination;
-- event detail;
-- account changes invalidate prior event reads.
+- details;
+- localized dates/amounts;
+- account change invalidation;
+- reusable filter/picker interactions from H2.
 
 Status: `QUEUED`.
 
-## 9. M6 — Assets/trustlines, Request/share and shared pickers/overlays
+## 13. M6 — Assets/trustlines, Request/share, QR and scanner
 
-### Objective
+Required scope:
 
-Complete the asset-management and public account-sharing surfaces that Home intentionally leaves explicit but incomplete.
+- asset/trustline search/select/add/remove/review/result behavior over the Trustline capability;
+- Request flow using public account identifiers only;
+- QR generation/copy/share;
+- scanner permission/scan/parse/error/cancel contract;
+- stable public identifiers across picker/navigation boundaries;
+- shared asset/account pickers;
+- explicit unsupported states where current Balance/Trustline contracts do not expose reference data.
 
-### Planned scope
-
-- donor trustline/asset management presentation over the existing Trustline capability;
-- Request/share presentation using public account identifiers only;
-- QR/share only after the public-data contract is explicit;
-- asset/account pickers return stable public identifiers rather than leaking repository/domain objects through navigation;
-- shared overlay/UI primitives are promoted only when demonstrated reuse exists.
+Secret material must never enter QR/share/public-copy flows.
 
 Status: `QUEUED`.
 
-## 10. M7 — Exchange / Swap
+## 14. M7 — Exchange / Swap
 
-### Objective
-
-Restore donor Exchange presentation without inventing Mobile-only Path Payment/Swap rules.
-
-### Work allowed before normative capability completion
+Presentation/function inventory is allowed before normative execution semantics are complete:
 
 - source/destination asset selectors;
 - amount editors;
 - quote/loading/error states;
 - review presentation structure;
-- adapter contract that consumes the normative shared capability.
+- adapter boundary that consumes a normative shared capability.
 
-### Blocked execution semantics
+Execution remains `BLOCKED_BY_CAPABILITY` wherever shared Fresnica semantics do not define quote identity/freshness, strict-send/strict-receive behavior, slippage protection, destination trustline/capacity rules and exact review/sign/submit identity.
 
-Execution remains blocked wherever the shared Fresnica Path Payment/Swap contract does not define:
+No Mobile-only swap policy may be invented to make the screen appear complete.
 
-- quote identity/freshness;
-- strict-send/strict-receive behavior;
-- slippage protection;
-- destination trustline/capacity rules;
-- exact review/sign/submit identity.
+## 15. M8 — Settings, Security and Network
 
-Status: `BLOCKED` for those execution semantics.
+Required closure:
 
-## 11. M8 — Settings, Security and Network
-
-### Objective
-
-Rebuild donor settings information architecture while routing supported actions through existing Fresnica security/network boundaries.
-
-### Planned scope
-
-- Settings home, General, Security, Network and About hierarchy;
+- full settings information architecture inventory;
+- language setting is implemented earlier through H1 and then integrated here;
 - Application Security passphrase/biometric/lock operations;
+- Reveal/Export fresh authorization contract;
 - network presentation around actual supported product mechanisms;
-- explicit treatment of developer-only, diagnostics, donor Realm-viewer and vendor residue;
-- Reveal/Export continues to require the current fresh-authorization contract.
+- About/general/applicable developer/diagnostic entries explicitly classified;
+- vendor/reference-specific residue marked `NOT_APPLICABLE` instead of silently omitted.
 
 Status: `QUEUED`.
 
-## 12. M9 — XApps/dApp and Actions-overlay completion
+## 16. M9 — Actions and dApp flows
 
-### Objective
+The reference contains legacy `xApps` paths but current dApp-oriented catalog/service/overlay behavior. Functional parity work must inventory:
 
-Restore XApps as a first-class presentation surface and complete donor Actions-overlay vocabulary without bypassing Fresnica authorization boundaries.
+- catalog/list/search/recent;
+- Actions overlay entries;
+- scan entry;
+- browser navigation;
+- disclaimer;
+- permission/account-data exposure;
+- safe shared-data/signing boundaries;
+- unsupported backend/catalog/auth states.
 
-### Planned scope
-
-- catalog/list/search/recent presentation as supported;
-- recent/featured/quick-action/scan entries from donor Actions overlay;
-- browser/connection/permission adapters only behind explicit Fresnica contracts;
-- explicit account exposure, permission, disclaimer and signing boundaries;
-- unavailable catalog/browser/auth behavior remains disabled until its capability exists.
+Product naming and legacy source-path cleanup are not changed implicitly during this functional phase; any naming migration is a separate confirmed product decision.
 
 Status: `QUEUED`.
 
-## 13. M10 — Full parity audit and hardening
+## 17. M10 — Full functional parity and hardening
 
-### Objective
-
-Verify product coherence after source-equivalent migration is complete.
-
-### Audit matrix
+Audit matrix:
 
 ```text
 Stellar source/reference
@@ -308,56 +345,64 @@ Fresnica Android
 Fresnica iOS
 ```
 
-Check:
+Verify:
 
-- page/navigation hierarchy;
-- modal/overlay transitions;
-- labels/action placement;
-- shared component/state reuse;
-- loading/empty/error/retry behavior;
-- account/network switching;
+- every top-level product surface accounted for;
+- full workflows rather than entry-only implementations;
+- navigation/modal/overlay/picker behavior;
+- locale/language switching and localized formatting;
+- loading/empty/error/retry/disabled/success states;
+- QR/scan/share/browser/permission flows;
+- account/network switching boundaries;
 - exact review/auth/sign/submit identity;
 - biometric/passphrase consistency;
 - accessibility/test IDs on critical actions;
-- typecheck, architecture guard, tests and native gates;
-- parity ledger has no unexplained gaps.
+- architecture/typecheck/tests/native gates;
+- horizontal audit has no unexplained gaps.
+
+Pixel-level visual matching is not a completion gate here; UI-F follows the Fresnica UI specification.
 
 Status: `QUEUED`.
 
-## 14. Per-milestone development loop
+## 18. Development loop for each horizontal function
 
 ```text
-Read donor source + direct dependencies
+Read reference function + all shared interaction dependencies
         ↓
-Read current Fresnica feature/capability/runtime implementation
+Read current Fresnica feature + capability/runtime implementation
         ↓
-Update source-parity map + define smallest adapter boundary
+Update horizontal audit / source-parity ledger
         ↓
-Port presentation/interaction in dependency order
+Identify smallest reusable functional boundary
+        ↓
+Implement behavior through Fresnica capabilities
         ↓
 Run typecheck + architecture guard + tests when executable
         ↓
-Inspect diff + capability/security impact
+Inspect cross-product impact
         ↓
-Update milestone/ledger status
+Update audit status
         ↓
-Hand off exactly one milestone for local/device verification
+Local/device verification for the closed behavior
 ```
 
-## 15. Definition of done for a local checkpoint
+Do not create a second wallet implementation and do not expand a general abstraction without demonstrated reuse.
 
-A milestone is not marked `READY_FOR_LOCAL_CHECK` until:
+## 19. Definition of done during functional parity phase
+
+A function may move to `COMPLETE` only when:
 
 ```text
-planned donor source scope implemented
-AND donor → target mapping recorded
-AND capability/runtime adaptations recorded
+reference source scope inventoried
+AND target flow implemented
+AND required states implemented
+AND shared interactions integrated
+AND locale/formatting integrated for visible copy/data
+AND capability/security adaptations documented
 AND no unexplained functional omissions
-AND relevant tests updated where behavior changed
+AND relevant tests updated
 AND npm run check passes OR a concrete external execution blocker is recorded
-AND PR/CI state inspected
-AND final milestone diff reviewed
-AND no superseded temporary migration implementation remains
+AND local/device findings are resolved or explicitly accepted
 ```
 
-Owner-side local/device findings feed back into the same milestone. The next milestone starts only after those findings are resolved or the owner explicitly accepts the checkpoint.
+Final Fresnica visual design-system adoption is intentionally outside this definition until UI-F begins.
