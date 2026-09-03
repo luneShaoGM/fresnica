@@ -9,10 +9,13 @@
     "test": "jest --runInBand",
     "test:realm": "jest --runInBand --config jest.realm.config.js",
     "typecheck": "tsc --noEmit",
+    "format": "prettier --write eslint.config.js babel.config.js jest.config.js jest.realm.config.js metro.config.js scripts config",
+    "format:check": "prettier --check eslint.config.js babel.config.js jest.config.js jest.realm.config.js metro.config.js scripts config",
+    "lint": "eslint eslint.config.js babel.config.js jest.config.js jest.realm.config.js metro.config.js scripts config",
     "alias:check": "node scripts/check-module-aliases.mjs",
     "architecture:check": "node scripts/check-architecture.mjs",
     "locale:check": "node scripts/check-locales.mjs",
-    "check": "npm run typecheck && npm run alias:check && npm run architecture:check && npm run locale:check && npm test"
+    "check": "npm run typecheck && npm run format:check && npm run lint && npm run alias:check && npm run architecture:check && npm run locale:check && npm test"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "17.0.1",
