@@ -1,5 +1,7 @@
 # Stellar source-parity rewrite
 
+> Historical source→target inventory. Product shell, naming, Adopt/Adapt/Exclude, and rewrite order live in `docs/stellar-product-information-architecture.md`. Ignore Events/XApps ids and the “retain XApps label” note when they conflict.
+
 ## Purpose
 
 `luneShaoGM/Stellar@stellar-migration` is the product/function reference for the current Fresnica Mobile alignment phase. Screenshots are verification evidence only; source behavior and interaction dependencies define functional parity.

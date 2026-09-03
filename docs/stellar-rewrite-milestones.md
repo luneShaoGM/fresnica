@@ -1,5 +1,7 @@
 # Stellar source-parity rewrite milestones
 
+> Historical checkpoint ledger. Product shell, naming, and rewrite order live in `docs/stellar-product-information-architecture.md`. Ignore Events/XApps, H1→H2 page order, and “M1 Product Shell is done” claims when they conflict with that guide.
+
 ## 1. Purpose
 
 This document is the execution plan and checkpoint ledger for aligning Fresnica Mobile with the product functions and user-visible workflows of `luneShaoGM/Stellar@stellar-migration` while retaining the existing Fresnica Mobile capability/runtime/security implementation.

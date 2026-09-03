@@ -1,6 +1,8 @@
 # Fresnica Mobile Product Parity Matrix
 
-> Product reference: `luneShaoGM/Stellar` branch `stellar-migration`.
+> Historical inventory. Product shell, naming, Adopt/Adapt/Exclude, and rewrite order live in `docs/stellar-product-information-architecture.md`. Ignore Events/XApps tab ids in this file when they conflict.
+
+> Product reference: `origin/Stellar` branch `stellar-migration`.
 >
 > Engineering reference: `XRPL-Labs/Xaman-App` patterns, adapted rather than copied.
 >

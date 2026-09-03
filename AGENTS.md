@@ -2,28 +2,32 @@
 
 All new or materially rewritten Mobile code must follow:
 
-- `docs/mobile-architecture-style-guide.md`
-- `docs/product-parity-roadmap.md`
-- `docs/product-parity-matrix.md`
-- `docs/fresnica-mobile-stage-plan.md` for existing Capability/security execution history and gates
+- `docs/stellar-product-information-architecture.md` — rewrite guide (product shell, naming, foundation order, definition of done)
+- `docs/mobile-architecture-style-guide.md` — layer, style, and packaging rules
+- `docs/mobile-capability-status.md` and `docs/fresnica-mobile-stage-plan.md` — Capability/security evidence and upstream gates
+
+Historical inventories (ignore tab names, shell diagrams, and rewrite order when they conflict): `docs/product-parity-roadmap.md`, `docs/product-parity-matrix.md`, `docs/product-structure.md`, `docs/fresnica-mobile-handoff.md`, `docs/stellar-rewrite-milestones.md`, `docs/stellar-source-parity.md`, `docs/stellar-horizontal-parity-audit.md`, `docs/product-donor-map.md`.
 
 ## Authority order
 
-- Product layout, navigation, screen hierarchy and user-visible interaction reference: `luneShaoGM/Stellar` branch `stellar-migration`.
-- Engineering/package/style reference: `XRPL-Labs/Xaman-App`, adapted rather than copied.
-- Ledger/security/business authority: current Fresnica source plus upstream Fresnica Application Capability contracts and SDK/Core.
+- Product ideas (shell, flows, interaction roles): `origin/Stellar@stellar-migration`, recorded in `docs/stellar-product-information-architecture.md`. User-visible names are `Home | Activity | Actions | dApps | Settings`. Stellar was forked from Xaman; do not copy Stellar or Xaman source. Older product-structure/parity/handoff tab claims are historical where they conflict.
+- Engineering packaging ideas: `origin/Xaman-App` (component directories, theme tokens, lint/aliases), adapted rather than copied. Do not copy `Navigator` / `NavigationService` / `StyleService` / global `services/`. Navigation library is React Navigation (`docs/stellar-product-information-architecture.md` §5–§6 F0). Do not add Wix RNN.
+- Ledger/security/business authority: `origin/fresnica` Application Capability/SDK/Core contracts plus current Mobile source.
+
+Application semantics live in `capabilities/`. Do not add a global `src/services` layer.
 
 ## Product migration rule
 
-Before materially rewriting a product surface, identify its row in `docs/product-parity-matrix.md` and state:
+Before materially rewriting a product surface, identify its row in `docs/stellar-product-information-architecture.md` §7 and state:
 
 - Stellar reference surface;
 - Fresnica feature owner;
 - required Capability/runtime boundary;
-- parity status (`REBUILD_UI`, `PARTIAL`, `BLOCKED`, `NEW`, `DEFERRED`, `DONOR_RESIDUE`);
+- decision (`Adopt`, `Adapt`, `Exclude`);
+- foundation stage (`F0`–`F4`) or F4 surface from that guide;
 - strict architecture scope added or extended by the PR.
 
-A donor screen is not automatically a Fresnica requirement. `DONOR_RESIDUE` and `DEFERRED` surfaces must not be implemented unless a current product/capability requirement explicitly promotes them.
+A donor screen is not automatically a Fresnica requirement. `Exclude` surfaces must not be implemented unless a current product/capability requirement explicitly promotes them.
 
 ## Architecture migration rule
 

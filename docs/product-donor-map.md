@@ -1,5 +1,7 @@
 # Product Donor Map
 
+> Historical idea inventory. Product shell, naming, and Adopt/Adapt/Exclude live in `docs/stellar-product-information-architecture.md`. Stellar/Xaman remain idea references, not merge donors.
+
 ## Purpose
 
 The existing `luneShaoGM/Stellar` / Xaman-derived application is a product-behavior and UX donor only. This map records which product ideas are worth retaining and where they belong in Fresnica without importing the donor architecture, XRPL assumptions, navigation library or security model.

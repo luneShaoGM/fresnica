@@ -1,5 +1,7 @@
 # Stellar horizontal source-parity audit
 
+> Historical cross-cutting audit. Product shell, naming, foundation order (F0–F4), and definition of done live in `docs/stellar-product-information-architecture.md`. Ignore Events/XApps labels and H-lane order when they conflict.
+
 ## 1. Purpose
 
 This document is the authoritative horizontal capability audit for the Fresnica Mobile rewrite against `luneShaoGM/Stellar@stellar-migration`.
