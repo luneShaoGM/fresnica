@@ -54,33 +54,29 @@ A route, directory or visible button is not evidence of parity by itself.
 8. Final visual-component decisions wait for the Fresnica UI specification unless required for usability/accessibility.
 9. A function is complete only when source paths, target paths, states/interactions, capability adaptations and known gaps are recorded.
 
-## Horizontal foundation gaps
+## Horizontal foundation
 
-The page-first rewrite missed app-wide infrastructure. These are now tracked as P0 in `docs/stellar-horizontal-parity-audit.md`.
+### Locale/i18n — H1 implemented, local gate pending
 
-### Locale/i18n
+| Reference source / behavior | Fresnica target | Status | Adaptation / remaining work |
+| --- | --- | --- | --- |
+| `src/locale/meta.json` locale inventory | `src/locale/locales.ts` | H1 implemented | Retains 59 canonical locale entries. Source compatibility aliases resolve to canonical codes; alias rows are not duplicated in Settings. |
+| `Localize.resolveLocale` exact/base/English fallback | `resolveLocale` | H1 implemented | Pure TypeScript implementation; device locale comes from `Intl`, not React Native `NativeModules`. |
+| `src/locale/en.json` + `translations/**` | `src/locale/translations/*.json` + per-key fallback | H1 foundation implemented | Fresnica owns product dictionaries. English, Simplified Chinese and Traditional Chinese are the first migrated dictionaries; retained locales without Fresnica copy fall back to English instead of claiming translation completeness. |
+| `Localize.t` | `createLocalization().t` + `LocalizationProvider` | H1 implemented | Controlled React locale state; no global service singleton. |
+| pluralized visible copy | `tPlural` | H1 implemented | Uses `Intl.PluralRules`; missing locale-specific plural keys fall back to the English `other` key. |
+| device locale initialization in source `src/app.tsx` | `src/app/App.tsx` | H1 implemented | Device locale is resolved before startup copy; saved canonical locale is restored after Realm opens. |
+| persisted language setting | `RealmLocalePreferenceStore` + Realm schema v2 | H1 implemented | Dedicated `LocalePreferenceEntity`; Account/Signer schemas are not repurposed and no secret material is stored. |
+| Settings language selection | `LanguageSettingsScreen` + `language-settings` ProductRoute | H1 implemented | Full canonical inventory is selectable; each row exposes migrated/fallback state and current selection. |
+| runtime language change | controlled provider + App persistence callback | H1 implemented | Switching locale rerenders the current React tree and persists the canonical locale. |
+| `Localize.formatNumber` | `LocalizationRuntime.formatNumber` | H1 implemented display boundary | Decimal strings are grouped/formatted without first converting wallet values through IEEE floating point. Input parsing remains a later interaction concern. |
+| Moment locale/timezone display role | `LocalizationRuntime.formatDate` using `Intl.DateTimeFormat` | H1 implemented display boundary | Uses runtime/device timezone and selected locale; feature-specific date migration remains part of each domain closure. |
+| translation maintenance/check tooling | `scripts/check-locales.mjs` + `npm run locale:check` | H1 implemented | Existing Fresnica dictionaries must match the English key baseline; `npm run check` now includes the locale check. |
+| broad localized visible copy | App startup + ProductShell + touched Settings copy | H1 partial product coverage | The boundary exists. Product features not reworked in H1 may still contain English literals and must migrate when their domain is closed. |
 
-Reference evidence:
+H1 implementation commit: `ccfa9eb3bd2f5b8d3021ef513bcf83cae51750c5`.
 
-- `src/locale/index.ts`
-- `src/locale/en.json`
-- `src/locale/meta.json`
-- `src/locale/translations/**`
-- application startup locale/timezone initialization in `src/app.tsx`
-- Settings-level language selection
-- locale-aware number/date behavior
-- translation maintenance/check tooling
-
-Current target evidence:
-
-- no top-level `src/locale` subsystem;
-- current runtime dependency list has no i18n library;
-- `src/app/App.tsx` enters service/bootstrap flow without locale initialization;
-- multiple user-visible strings remain hardcoded.
-
-Status: `MISSING` horizontal foundation. This is not deferred to the later Settings milestone.
-
-The exact supported-language set is a product decision and must not be silently reduced during implementation.
+H1 is `READY_FOR_LOCAL_CHECK`, not complete: GitHub CI/Realm/Android jobs for this head failed before executing any steps, and the assistant environment cannot clone GitHub. A standalone strict TypeScript/behavior check of the locale core passed; owner-side `npm run check` plus Android/Realm migration verification remains the executable gate.
 
 ### Modal/overlay/picker infrastructure
 
@@ -93,7 +89,7 @@ Reference source contains first-class:
 
 Important roles include CurrencyPicker, DestinationPicker, FilterEvents, ReviewTransaction, Scan, Submit, transaction loading, browser, Authenticate, Alert, AddToken, ConnectionIssue, HomeActions and dApp disclaimer/permission surfaces.
 
-Current target has navigation/runtime primitives and individual screens, but no complete source-role mapping. Status: `PARTIAL` with several `MISSING`/`BEHAVIOR_MISMATCH` rows in the horizontal audit.
+Current target has navigation/runtime primitives and individual screens, but no complete source-role mapping. Status: `PARTIAL` with several `MISSING`/`BEHAVIOR_MISMATCH` rows in the horizontal audit. H2 remains queued until the H1 local checkpoint is resolved.
 
 ## Existing presentation baseline
 
@@ -113,11 +109,11 @@ These components do not define the future Fresnica Design System.
 
 | Reference behavior | Fresnica target | Status | Adaptation |
 | --- | --- | --- | --- |
-| five-position product shell | `src/app/navigation/ProductShell.tsx` | baseline implemented | Fresnica typed navigation replaces the reference navigation framework. |
+| five-position product shell | `src/app/navigation/ProductShell.tsx` | baseline implemented | Fresnica typed navigation replaces the reference navigation framework; H1 routes tab/action/accessibility labels through locale keys. |
 | Actions center trigger | ProductShell action trigger | `BEHAVIOR_MISMATCH` at full-flow level | Trigger role exists, but complete HomeActions overlay/recent/scan/catalog behavior is not aligned. |
 | unavailable actions | route/action availability | partial | Unsupported actions remain explicit rather than entering fake flows. |
 
-Visible dApp/product naming and legacy `xApps` path cleanup are separate product decisions; no terminology migration is performed implicitly during horizontal function alignment.
+Visible dApp/product naming and legacy `xApps` path cleanup are separate product decisions; no terminology migration is performed implicitly during horizontal function alignment. The H1 English locale intentionally retains the current visible `XApps` label until that decision is confirmed separately.
 
 ## Home mapping — reopened
 
@@ -149,7 +145,7 @@ Previous `READY_FOR_LOCAL_CHECK` wording is superseded by the horizontal audit. 
 | `src/screens/Request` | public request/QR/copy/share | no complete target domain | `MISSING` |
 | `src/screens/Exchange` | selectors/amount/quote/review/execute | no complete equivalent feature root | `BLOCKED_BY_CAPABILITY` for normative execution; inventory still required |
 | asset/trustline/AddToken flows | search/select/add/remove/review/result | `src/features/trustlines` + Trustline capability | `PARTIAL` |
-| `src/screens/Settings` | general/language/security/network/about/etc. | Settings Home/Network/About + security feature | `PARTIAL` |
+| `src/screens/Settings` | general/language/security/network/about/etc. | Settings Home/Network/About + Security + H1 Language route | `PARTIAL`; language foundation implemented |
 | Application Security / Authenticate | lock/passphrase/biometric/fresh auth | security feature + Application Security capability | `PARTIAL` |
 | Actions/HomeActions | action overlay, scan and product entries | ProductShell center action | `BEHAVIOR_MISMATCH` |
 | legacy `src/screens/xApps` with dApp-oriented behavior | catalog/search/recent/browser/disclaimer/permission | `src/features/xapps/screens/XAppsScreen` | `PARTIAL` |
@@ -175,7 +171,7 @@ Previous `READY_FOR_LOCAL_CHECK` wording is superseded by the horizontal audit. 
 | browser | Modal/InAppBrowser + dApp browser | `PARTIAL` |
 | QR/public share | Request/account interactions | `MISSING` |
 | search/filter/segment | General/Module controls | `PARTIAL`/`MISSING` depending on domain |
-| amount input | General/AmountInput | `PARTIAL`; must become locale-aware |
+| amount input | General/AmountInput | `PARTIAL`; H1 provides locale-aware display formatting, input semantics remain open |
 
 ## Architecture/security invariants
 
@@ -184,6 +180,7 @@ Previous `READY_FOR_LOCAL_CHECK` wording is superseded by the horizontal audit. 
 - Reference native modules are not imported into migrated presentation code.
 - Fresnica Native SDK/Core remains authoritative for secrets, recovery material and signing.
 - Application Security remains authoritative for biometric/passphrase/lock policy.
+- Locale preference persistence is isolated from Account/Signer secret-bearing boundaries.
 - Fixed Testnet remains an explicit current product boundary unless separately changed.
 - Reviewed transaction identity must equal authorized, signed and submitted transaction identity; no post-auth rebuild.
 - QR/share/clipboard flows handle public data only.
