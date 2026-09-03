@@ -309,9 +309,7 @@ Avoid visual implementation names such as `blue`, `darkGreyButton` or `redText` 
 - Prefer semantic style names (`header`, `accountName`, `selectedTab`) over visual names (`blueText`, `leftBox`).
 - Keep style construction out of render loops.
 - Screen layout should reuse standard `Screen`, header, section, list-row, modal/overlay and bottom-action primitives where appropriate.
-- Light/dark mode should use an explicit Theme/provider model rather than a mutable global StyleService singleton.
-
-The Stellar/Xaman visual values are a donor reference. Fresnica theme tokens become the canonical implementation source once parity is established.
+The Stellar/Xaman visual values are a packaging reference, not a frozen palette. Fresnica screens consume semantic `AppTheme` tokens. A later custom theme (image → extracted primary/secondary colors) must be able to replace the active theme without rewriting those screens. Light/dark, if added, uses the same provider — not a mutable global StyleService.
 
 ## 10. TypeScript and declaration style
 

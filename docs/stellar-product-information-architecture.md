@@ -22,7 +22,9 @@
 4. 若是底层工作，按 §6 的顺序做。不要在还不存在的导航栈上假设去重写功能。
 5. 编码时跟 §11。一个表面只有 §8 和对应的 §9 都成立，才算重写完成。
 
-不要从 Xaman / Stellar 源码开工。打开它们只为回忆流程或角色，然后在 Fresnica 分层里实现。
+除 Stellar 自研 dApp 外，不要从 Xaman / Stellar 源码开工。打开它们只为回忆流程或角色，然后在 Fresnica 分层里实现。dApp 以 Stellar 自研实现为照搬来源，见 §1.1。
+
+当前仓库里的 Onboarding / Send / Home 等只是薄脚手架，**不是**重写完成标准。产品完整度以 Stellar 产品表和本文为准。
 
 F0 已定：React Navigation。F1 完成前不要开始 F2。不要接入 Wix RNN。
 
@@ -46,19 +48,21 @@ Stellar 从 Xaman fork 而来。Stellar 和 Xaman 的源码都不是可合并的
 
 | 树 | 角色 |
 | --- | --- |
-| `origin/Stellar` 分支 `stellar-migration` | 产品壳、屏幕层级、交互角色 |
-| `origin/Xaman-App` | 打包方式、token、lint / 别名 |
+| `origin/Stellar` 分支 `stellar-migration` | 产品壳、屏幕层级、交互角色；**自研 dApp 是照搬来源**；Vault / 加密可参考 |
+| `origin/Xaman-App` | 打包方式、token、lint / 别名；Developer Mode 产品角色 |
 | `origin/fresnica` | Application Capability / Core / SDK 契约 |
 
-| 可借鉴 | 禁止照抄 |
-| --- | --- |
-| 信息架构 | 屏幕、helper、启动代码 |
-| 导航*角色*（tab / stack / modal / overlay） | `Navigator`、`NavigationService`、RNN 启动辅助 |
-| 交互节奏（空态 / 加载 / 错误 / 审阅 / 提交） | `services/`、`store/`、单例 `StyleService` |
-| UI kit *打包方式*（General 目录、token、lint） | 配色、品牌、PIN / Secret Number、XRPL 控件 |
-| | Vault / 加密、Account 与 Signer 耦合、XRPL 账本类型 |
+### 1.1 源码策略
 
-Stellar 里有某个屏幕，并不等于可以粘贴它的实现。
+| 来源 | 做法 |
+| --- | --- |
+| Stellar 自研 dApp（目录、浏览器、Freighter 桥、权限、数据互通、disclaimer） | **照搬**到 Fresnica 分层（`features/dapps` + 桥接 platform）。不要缩成空 Tab。不要走 Xaman xApps。仍不要引入全局 `services/` |
+| Stellar Vault / 加密（`Overlay/Vault`、`common/libs/vault.ts`、native keychain） | **参考**交互与分层；密钥与信封权威仍是 Fresnica Core / Native SDK |
+| 其余 Stellar / Xaman 屏幕、helper、boot | 只借鉴角色，在 Fresnica 分层重写 |
+| `Navigator`、`NavigationService`、RNN boot、`StyleService`、PIN / Secret Number、XRPL 控件 | 禁止照抄 |
+| Account 与 Signer 耦合、Xaman 私有 Vault 当安全权威 | 禁止。Fresnica 保持 Account ≠ Signer |
+
+Stellar 里有某个屏幕，默认不等于可以粘贴它的实现。dApp 是明确例外。
 
 在 `origin/Stellar@bd0f4540` 上，**可见文案**已经是 Activity / dApps（`global.events` = "Activity"，`global.xapps` = "dApps"）。**RNN id 和文件夹**仍是 Events / XApps。跟可见产品壳，不要跟残留 id。
 
@@ -86,20 +90,22 @@ Stellar 里有某个屏幕，并不等于可以粘贴它的实现。
 
 ## 3. 目标 vs 现状
 
-本文描述的是**目标**。Git 是**当前实现**。新代码用目标名。不要加 Events / XApps 兼容别名。
+本文描述的是**目标**。Git 只是未完成脚手架，**不要拿当前代码当重写完成标准**。现有 Onboarding / Send / Home / Activity 能跑，不等于产品已覆盖。新代码用目标名。不要加 Events / XApps 兼容别名。
 
-| 事项 | 目标 | 当前 Mobile 代码 |
+| 事项 | 目标 | 当前脚手架（不是完成态） |
 | --- | --- | --- |
-| 产品壳 | Home / Activity / Actions / dApps / Settings | 已是五项壳；Actions 已是中间触发 |
-| Tab id | `home`、`activity`、`dapps`、`settings` | `src/app/navigation/productNavigationState.ts` 里仍是 `home`、`events`、`xapps`、`settings` |
-| Activity 功能 | `features/activity` | `features/history` |
-| dApps 功能 | `features/dapps` | `features/xapps` |
-| 导航 | React Navigation：native stack + tabs + modal + `app/` OverlayHost | `ProductRuntime` 的 destination `switch` + 一个 RN `Modal` |
+| 产品壳 | Home / Activity / Actions / dApps / Settings | 五项壳外形；Actions 已是中间触发 |
+| Tab id | `home`、`activity`、`dapps`、`settings` | `productNavigationState.ts` 仍是 `events` / `xapps` |
+| Activity | 完整列表 / 筛选 / 详情 | `features/history` 只读切片 |
+| dApps | 照搬 Stellar 自研：目录、Recent、浏览器、权限、Freighter 桥 | `features/xapps` 未接目录的预览壳 |
+| Developer Mode | 采用 Stellar/Xaman 设计（鉴权开启、网络可见性、日志、开发者页） | **未做** |
+| 硬件钱包 | 产品内一等 signer（添加、签名、账户列表） | 类型里有 `hardware`，产品流 **未做** |
+| Vault / 加密 | 参考 Stellar Vault overlay 与 native 加密；Core 管密钥 | 无 Vault overlay；Realm 不存密钥 |
+| 自定义主题 | 上传图片 → 提取主色 / 次主色等 → `AppTheme` 全 app 应用 | 单一 `defaultTheme`；UI kit **尚未约定** |
+| 导航 | React Navigation：stack + tabs + modal + OverlayHost | `ProductRuntime` switch + 一个 RN `Modal` |
 | i18n | 已改写表面没有硬编码文案 | 语言运行时已有；多数屏幕仍是英文直写 |
-| UI kit | 语义 token + General 打包 | 薄的 `AppTheme` + 混杂的扁平组件 |
-| Lint / 别名 | ESLint、Prettier、路径别名、严格架构范围 | 仅增量 `architecture:check`；Send / Trustline / Onboarding 并未全部纳入严格范围 |
 
-改壳时不得削弱的内核：Account ≠ Signer、Native SDK 0.2.1、Realm 不存密钥、Payment / Trustline 精确 XDR。证据见 `docs/mobile-capability-status.md`。
+安全不变量仍要遵守（Account ≠ Signer、密钥不进 JS 持久化、会改账本的路径绑精确 XDR）。它们约束怎么实现，不证明当前屏幕已经写完。`docs/mobile-capability-status.md` 只记录脚手架做过什么，不当产品验收。
 
 ---
 
@@ -208,35 +214,41 @@ F2 落实这一选择。不要加 RNN。不要引入 `NavigationService` 或其�
 - [ ] Tab id 为 `home | activity | dapps | settings`
 - [ ] Actions 是 overlay，不是被选中的 Tab
 
-### F3 — UI kit 骨架
+### F3 — UI kit 契约（尚未约定）
 
-- 只用语义 `AppTheme`。占位 token 即可。
-- 壳需要的 General 原语：Screen、Header、Button、Input、金额展示、ListRow、Sheet / ActionPanel、Loading、TouchableDebounce。
-- 样式放在同目录 `styles.ts`。主题外不要写裸颜色。
-- 钱包专用控件留在 feature，直到出现第二个调用点。
+组件清单和最终视觉**还没定**。F3 先锁语义契约，不要把当前 `defaultTheme` 或现有扁平组件当成 kit。
+
+必须先成立：
+
+- 语义 `AppTheme`：主色、次主色、背景、表面、文字、边框、状态色。屏幕只消费这些 token，不写裸颜色。
+- 自定义主题是产品功能，不是以后再说：用户上传一张图片 → 程序提取主色、次主色等 → 生成一份 `AppTheme` → 全 app 应用并持久化。
+- General 原语清单待约定后再补（Screen、Header、Button 等）。钱包专用控件留在 feature，直到出现第二个调用点。
+- 向 Xaman 学打包（General 目录、token、lint），不抄色板、品牌、`StyleService`。
 
 退出条件：
 
-- [ ] 产品壳和下一张迁入的屏幕消费 kit 的 token / 组件
-- [ ] 这些文件里没有新的裸颜色字面量
+- [ ] `AppTheme` 语义字段已写出，并且能被「默认主题」和「从图片生成的主题」替换，而不改 feature 屏幕
+- [ ] 约定中的壳组件消费 token；这些文件没有裸颜色
+- [ ] 自定义主题的入口位置已记在 Settings（实现可在 F4 之后，契约必须在 F3 留下）
 
-### F4 — 把现有流程放到栈上
+### F4 — 按产品表重建流程
 
-按此顺序迁移，不增加新的产品语义：
+按此顺序**重建**（不是把当前脚手架搬到栈上就算完）：
 
-1. Onboarding / 待备份
+1. Onboarding / 待备份 / 硬件钱包添加入口
 2. Home
-3. Send（精确 XDR 路径不变）
-4. Activity（History capability 不变）
-5. Settings / Security / Language / Network / About
+3. Send（精确 XDR；硬件 / 软件 signer 都要能走审阅-签名）
+4. Activity
+5. Settings，含 **Developer Mode**、语言、网络、Security、自定义主题入口
 6. Trustline / 管理资产
-7. dApps 壳（在有 dApp capability 之前只做结构）
+7. dApps：**照搬** Stellar 自研实现，不是空壳
+8. Vault overlay（参考 Stellar，接 Fresnica 签名 / 揭示）
 
-每个迁入的表面必须满足 §8 和对应的 §9。
+每个表面必须满足 §8 和对应的 §9，对照的是 Stellar 产品行为，不是当前 Mobile 占位。
 
-退出条件：这些流程能通过 F2 导航到达；`npm run check` 通过；Payment / Trustline / History 的 Capability 测试没有被削弱。
+退出条件：这些流程能通过 F2 导航到达；`npm run check` 通过；安全不变量没有被削弱。
 
-卡在上游、不卡这条顺序的：Path Payment / Swap 执行、应用锁、已有钱包上添加受保护 signer、Realm 加密密钥生命周期、多签、硬件签名器、Mainnet。
+实现可能卡在上游、但**设计必须包含**的：Path Payment / Swap 执行、应用锁、已有钱包添加受保护软件 signer、Realm 加密密钥生命周期、多签、**硬件签名器**、Mainnet（由 Developer Mode 门控可见性，不要在未开门时假装已是 Mainnet）。
 
 ---
 
@@ -260,7 +272,7 @@ Adopt（采用）= 在 Fresnica 重写用户可见表面。Adapt（适配）= �
 | --- | --- | --- | --- |
 | Home | Adopt | `features/home` | Account、Balance |
 | Events id / Activity 名 | Adopt 为 Activity | `features/activity`（当前 `features/history`） | History |
-| XApps id / dApps 名 | Adopt 为 dApps；浏览器 / 权限稍后 | `features/dapps`（当前 `features/xapps`） | 尚无 |
+| XApps id / dApps 名 | **照搬** Stellar 自研 dApp（目录、Recent、浏览器、权限、Freighter 桥、数据互通） | `features/dapps`（当前 `features/xapps` 只是预览壳） | 待建 dApp 授权 / 桥接；实现来源是 Stellar，不是空 capability 再发明 |
 | Settings | Adopt | `features/settings` | — |
 | Overlay / HomeActions | Adopt | app 壳 + feature 操作 | — |
 | Send | Adopt | `features/send` | Payment、Transaction、Signing Coordination |
@@ -272,9 +284,10 @@ Adopt（采用）= 在 Fresnica 重写用户可见表面。Adapt（适配）= �
 | Stellar 表面 | 决定 | Fresnica 归属 | Capability |
 | --- | --- | --- | --- |
 | Account Add / Import / Generate / List / Edit | Adopt | `features/accounts` | Account、Signer |
-| 查看助记词 / 密钥 | 经 Fresnica reveal Adopt | `features/security` | Signer、Application Security |
+| 添加硬件钱包 | Adopt；设计阶段就纳入，不是 residual | `features/accounts`、Signing | Signer（`hardware`） |
+| 查看助记词 / 密钥 | Adopt；可参考 Stellar Vault 揭示交互 | `features/security` | Signer、Application Security |
 | 修改口令 | Core 验证 API 就绪后 Adopt | `features/security` | Application Security |
-| Tangem 安全 | Exclude | — | donor 残留 |
+| Tangem（Xaman 卡） | Exclude，除非 Core 明确支持 | — | 不是通用硬件钱包需求 |
 | Cipher 迁移 | Exclude | — | donor 残留 |
 
 ### 7.4 共享 modal / overlay 词汇
@@ -289,37 +302,66 @@ Adopt（采用）= 在 Fresnica 重写用户可见表面。Adapt（适配）= �
 | 币种 / 收款方 / 账户 / 手续费选择器 | Modal + Overlay pickers | Adopt 角色；手续费策略仅在 Capability 支持时 |
 | 全局选择器 | `Global/Picker` | Adopt 为共享选择器壳 |
 | Alert / 确认 | `Overlay/Alert` | Adopt |
-| 鉴权 / 口令 | Auth overlays | Adapt 到 Signing Coordination |
-| 锁 | `Overlay/Lock` | Adopt 角色；实现卡在上游 API |
+| 鉴权 / 口令 | Auth overlays | Adapt 到 Signing Coordination；可参考 Vault 方法 |
+| 锁 | `Overlay/Lock` | Adopt 角色；实现可能卡上游 API，设计要留位 |
+| Vault / 解密签名 | `Overlay/Vault`、`common/libs/vault.ts` | **参考**并纳入；接 Fresnica 签名 / 揭示，不要当第二套加密权威 |
 | 切换账户 / 网络 | overlays | Adopt |
 | 分享账户 | overlay | Adopt |
-| 添加代币 / 代币设置 | overlays | 经 Trustline Adopt |
+| 添加代币 / 代币设置 | overlays | Adopt through Trustline |
 | 连接问题 | overlay | Adopt |
-| 应用内 / dApp 浏览器 | modals | 稍后，需有明确权限契约 |
-| Destination tag / Vault / PurchaseProduct / NetworkRailsSync | overlays | Exclude |
+| 应用内 / dApp 浏览器 | Stellar `Modal/XAppBrowser` 等自研 | **照搬** |
+| Destination tag / PurchaseProduct / NetworkRailsSync | overlays | Exclude |
 
 ### 7.5 Settings
 
 ```text
 Settings
   General
+    自定义主题            （上传图片提取色板；契约在 F3，实现可稍后）
   Security
-    Connected dApps          （稍后）
-    修改口令                 （Core 允许时）
+    Connected dApps
+    修改口令
   Advanced
-    网络列表 / 添加          （现在只展示 Testnet；不要假 Mainnet）
-    Developer / logs         （推迟）
-  地址簿                     （稍后）
+    Developer Mode       （必要；见下）
+    网络列表 / 添加        （非 Dev Mode 不暴露未开门的 Mainnet 伪装）
+    Session logs
+    Developer settings   （仅 Dev Mode 开启后）
+  地址簿
   Terms / Credits / About
 ```
 
 除非明确要求开发专用工具，否则 Exclude Realm Viewer。
 
+### 7.6 Developer Mode
+
+Stellar 保留了 Xaman 的 Developer Mode，Fresnica **要做**。当前代码没有。
+
+参考 `origin/Stellar`：`Settings/Advanced/AdvancedSettingsView`、`CoreRepository.isDeveloperModeEnabled`、`NetworkRepository.getVisibleNetworks`。
+
+产品角色：
+
+- Advanced 里开关；**开启需鉴权**，并警告。
+- 开启后：显示测试网等非 Main 网络、Session logs、Developer settings、Android 可关截屏保护。
+- 关闭时：若当前不在 Main 网络，先切回默认网络再关。
+- Send / Token settings 等处的 Dev Mode 分支一并搬产品行为，语义仍走 Fresnica 网络 / 网关。
+
+不要把「现在只连 Testnet」当成已经覆盖了 Dev Mode。Testnet 脚手架 ≠ Developer Mode。
+
+### 7.7 硬件钱包
+
+重写必须按一等能力设计，不要等「以后再加口」。
+
+- 账户添加：软件 signer 之外有硬件入口（Ledger / Trezor 等 Core 支持的类型；Stellar `hardwareWallet.ts` 为产品参考）。
+- 列表与详情能区分硬件账户。
+- 审阅 → 授权 → 签名：硬件路径走 Signing Coordination，不要另写一套 XDR。
+- Core / SDK 未接通时，UI 可禁用并说明原因，但信息架构和路由要留好。
+- Tangem 是 Xaman 卡路径，默认 Exclude，与「支持硬件钱包」不是同一件事。
+
 ---
 
 ## 8. 重写完成标准
 
-一个表面只有下列适用项全部成立，才算重写完成：
+一个表面只有下列适用项全部成立，才算重写完成。对照 Stellar 产品行为，**不要对照当前 Mobile 占位是否“已经能点”。**
 
 - 用户可见结构符合 §4 / §7（Activity / dApps 命名，Actions 为 overlay）。
 - 账本 / 安全语义跟当前 Fresnica Capabilities；不要新增仅 Mobile 的协议策略。
@@ -341,7 +383,8 @@ Settings
 ### Onboarding / 待备份
 
 - 创建 / 导入 / 只读观察仍走 SDK 保护 API。JS 持久化里不得出现明文助记词或口令。
-- 已有钱包上添加受保护 signer 保持关闭，直到 Core 提供只验证、不改写的当前口令能力。
+- 添加流程里要有**硬件钱包**入口（§7.7）。Core 未接通时可禁用，不能从信息架构里删掉。
+- 已有钱包上添加受保护**软件** signer 保持关闭，直到 Core 提供只验证当前口令的能力。
 - 待备份助记词是栈上的一等目的地，不能只靠 `ProductRuntime` 特例。
 - 文案和错误已本地化。
 
@@ -355,9 +398,9 @@ Settings
 ### Send
 
 - 表单 → 当前账本准备 → 精确 XDR 审阅 → 授权 → 提交 → 结果。
-- Payment / CreateAccount 选择、memo、手续费、trustline、只读 / 多签失败仍在 `capabilities/payment` + Transaction。不要为了改样式换成另一套协议。
-- 审阅和提交是 §5 的 modal / stack 角色，不是再开一套复制 XDR 的 `ProductRuntime` 路由。
-- Payment 测试保持绿色，不要改成更弱的断言。
+- Payment / CreateAccount 选择、memo、手续费、trustline、只读 / 多签 / **硬件**失败仍在 Payment + Transaction + Signing Coordination。不要为了改样式换成另一套协议。
+- 审阅和提交是 §5 的 modal / stack 角色。Vault 签名交互可参考 Stellar，密钥仍走 Core。
+- 现有 Payment 测试不能改弱；它们也不等于 Send 产品已经写完。
 
 ### Activity
 
@@ -366,41 +409,48 @@ Settings
 - 日期 / 金额 / 文案走 i18n 和格式化 helper，不要内联英文。
 - 除非 History capability 拥有，否则不要做 donor 式的持久化缺口恢复缓存。
 
-### Settings / Security / Language / Network / About
+### Settings / Security / Language / Network / About / Developer Mode / 主题
 
-- 分组符合 §7.5。不要假 Mainnet 开关。
-- 语言通过现有 locale preference store 持久化。
-- Security 屏幕不持久化密钥。应用锁在上游 API 出现前只保留占位角色。
-- About / terms / credits 只做文案。
+- 分组符合 §7.5。**Developer Mode 是必要项**，不是推迟项。当前仓库没有，按 §7.6 补。
+- 自定义主题入口在 General；实现依赖 F3 的 `AppTheme` 可替换契约。
+- 不要在未开 Dev Mode 时提供假 Mainnet 开关。
+- 语言通过 locale preference store 持久化。
+- Security / Vault 不把密钥写入普通持久化。应用锁在上游 API 出现前保留占位角色。
 
 ### Trustline / 管理资产
 
 - 添加 / 移除仍走 Trustline 精确 XDR 路径。资产代码大小写原样保留。
-- 产品流程尚未拥有 Set Limit 时，不要发明该 UI。
-- Trustline 测试保持绿色。
+- Set Limit 若 Stellar 产品有、Fresnica 流程尚未拥有，先标缺口，不要用当前「没做」当最终决定。
 
-### dApps 壳
+### dApps
 
 - Tab id 和目录是 `dapps` / `features/dapps`。用户文案是 dApps。
-- 在有明确的 dApp 授权 capability 之前，不实现目录 / 浏览器 / 权限。
-- F4 有结构 Tab（空态 / 即将推出，文案走 i18n）即可。
+- **照搬** Stellar 自研：FChain 目录、Home / Recent、分类、自定义 URL、disclaimer、浏览器、Freighter 注入、权限与数据互通。参考 `origin/Stellar` 的 `screens/xApps`、`Modal/XAppBrowser`、`freighter/`。
+- 迁入 Fresnica 分层，不要整棵 `services/` 搬进来。
+- 当前 `features/xapps` 预览壳**不算**完成。
+
+### 硬件钱包
+
+- 见 §7.7。账户、签名、列表三条路径都要在设计里。当前「Not yet implemented」不是 Exclude。
 
 ### Request / Exchange
 
-- Request 若只分享公开账户身份，可在 F4 的 Home / Send 之后再做。
-- Exchange 可以盘点 UI 结构。Path Payment 执行被挡住（见 `docs/mobile-capability-status.md`）。
+- Request 若只分享公开账户身份，可在 Home / Send 之后做。
+- Exchange 盘点 UI 结构。Path Payment 执行仍可能卡契约，但不要从产品表删掉。
 
 ---
 
-## 10. 先做 UI kit，视觉后做
+## 10. UI kit 与自定义主题
 
-现在做结构和行为。最终视觉设计稍后。
+UI kit **尚未约定**组件清单和视觉。不要提前把当前扁平组件或 `defaultTheme` 当成 kit。
 
-向 Xaman 学：General 打包、token、lint、别名。
+F3 只锁这些：
 
-不要抄：色板、品牌、`StyleService`、PIN / Secret Number、XRPL 控件。
+- 语义 token，屏幕不写裸颜色。
+- 活跃主题可替换：默认一套，用户上传图片后提取主色、次主色等生成另一套，应用到整个 app。
+- 提取与持久化放在 Settings / 主题 feature，经 `app/` 注入 `AppTheme`。不要每个屏幕自己读图片。
 
-占位 token 即可。以后换 token 不应迫使重写 feature 屏幕。新改 / 重写的 UI 依赖语义 `AppTheme` 值，不写裸颜色。
+向 Xaman 学打包，不抄色板、`StyleService`、PIN / Secret Number、XRPL 控件。
 
 ---
 
@@ -409,9 +459,9 @@ Settings
 F2 存在之后，每个产品 PR 都按此做。F1–F3 只跟 §6。导航库是 React Navigation（§5–§6 F0）。
 
 1. 在 PR 说明里写出 §7 行、feature 归属、Capability。若是 Exclude，停止。
-2. 读 `docs/mobile-capability-status.md` 里对应证据。Capability 被挡住或缺失时，UI 保持诚实（禁用 / 占位），不要假装能用。
-3. 看 `origin/Stellar` 只看：屏幕顺序、空态 / 加载 / 错误、打开的是哪种 overlay / modal。关掉 donor 文件后再写 Fresnica 代码。
-4. 在 `features/*` + `ui/*` 实现。适配器在 `app/` 接线。只有可复用的钱包策略才放进 `capabilities/`。
+2. 读 `docs/mobile-capability-status.md` 只当作「脚手架现状」，不当验收。Capability 被挡住时 UI 保持诚实（禁用 / 占位），但不要从产品表删掉（硬件钱包、Dev Mode、dApp 都是例子）。
+3. 看 `origin/Stellar`：屏幕顺序、空态 / 加载 / 错误、overlay / modal。**dApp 把 Stellar 自研实现当照搬来源，迁入时可以对照那些文件。** 其余表面关掉 donor 文件后再写 Fresnica 代码。Vault / 加密可对照 Stellar 再接到 Core。
+4. 实现进 `features/*` + `ui/*`。适配器在 `app/`。可复用钱包策略进 `capabilities/`。
 5. 文案走 i18n。用目标名（`activity`、`dapps`）。
 6. 为流程状态和该屏幕能到达的 Capability 失败补测试。
 7. 若这是该 feature 目录第一次实质性重写，同一 PR 扩展 `scripts/check-architecture.mjs`。
@@ -419,10 +469,11 @@ F2 存在之后，每个产品 PR 都按此做。F1–F3 只跟 §6。导航库�
 
 遇到这些情况先停下来问，不要自行绕过：
 
-- 把 Stellar / Xaman 文件抄进 `src/`
+- 把 **Xaman** 文件或 Stellar **非 dApp** 屏幕整文件抄进 `src/`
 - 加 `src/services` 或全局 `NavigationService`
 - 在 F0 已选 React Navigation 之后再加 Wix RNN
-- 发明 Path Payment、应用锁、Mainnet 或 dApp 权限语义
+- 用当前脚手架「已经能点」代替 Stellar 产品覆盖
+- 把 Developer Mode、硬件钱包、dApp 浏览器标成 Exclude
 - 为「兼容」留下 Events / XApps 别名
 - 把底层 PR 和新的产品 Capability 混在一起
 
@@ -435,6 +486,7 @@ F2 存在之后，每个产品 PR 都按此做。F1–F3 只跟 §6。导航库�
 - 实质性重写遗留 feature 目录时，同一 PR 扩展 `scripts/check-architecture.mjs`。
 - 不要把底层（F1–F3）和新的产品 Capability 混在一起。
 - 不要为了让屏幕看起来完整而削弱精确 XDR 或密钥处理。
+- 不要拿当前仓库占位当产品已覆盖。
 - 不要加 `src/services`。
 - 不要加 Wix RNN 或全局 `NavigationService`。
 - 不要大规模格式化无关文件。

@@ -2,7 +2,7 @@
 
 This file records current Mobile implementation evidence against the shared Fresnica Application Capability vocabulary. Upstream maturity labels describe the shared specification, not Mobile implementation quality.
 
-Target product shell, naming, and rewrite order: `docs/stellar-product-information-architecture.md`. Evidence below describes Git as it is (including `events`/`xapps` tab ids and the temporary `ProductRuntime`).
+Target product shell, naming, and rewrite order: `docs/stellar-product-information-architecture.md`. Evidence below describes Git scaffolding as it is. It is **not** the rewrite completion bar (Developer Mode, hardware wallets, Stellar dApp port, and custom themes are required in that guide and absent here).
 
 ## Compatibility baseline
 
