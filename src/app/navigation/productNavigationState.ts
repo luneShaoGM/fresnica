@@ -13,6 +13,7 @@ export type ProductDestination =
   | Readonly<{tab: 'settings'; route: 'accounts-settings'}>
   | Readonly<{tab: 'settings'; route: 'security-settings'}>
   | Readonly<{tab: 'settings'; route: 'network-settings'}>
+  | Readonly<{tab: 'settings'; route: 'language-settings'}>
   | Readonly<{tab: 'settings'; route: 'about'}>;
 
 export type ProductNavigationState = Readonly<{
@@ -29,7 +30,12 @@ export type ProductNavigationAction =
   | Readonly<{type: 'open-manage-assets'; accountId: string}>
   | Readonly<{
       type: 'open-settings-route';
-      route: 'accounts-settings' | 'security-settings' | 'network-settings' | 'about';
+      route:
+        | 'accounts-settings'
+        | 'security-settings'
+        | 'network-settings'
+        | 'language-settings'
+        | 'about';
     }>
   | Readonly<{type: 'back-to-root'}>;
 

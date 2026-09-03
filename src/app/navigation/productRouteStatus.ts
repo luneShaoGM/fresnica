@@ -66,7 +66,7 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'settings-home': {
     readiness: 'implemented',
-    note: 'Settings is a live runtime tab with the Stellar-style grouped information architecture routing Accounts, Security, Network and About destinations.',
+    note: 'Settings is a live runtime tab with the grouped information architecture routing Accounts, Security, Network, Language and About destinations.',
   },
   'accounts-settings': {
     readiness: 'structure-only',
@@ -79,6 +79,10 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   'network-settings': {
     readiness: 'structure-only',
     note: 'Runtime destination is reachable and visually aligned to the migrated Settings hierarchy; Testnet configuration is display-only and Mainnet switching is intentionally unavailable.',
+  },
+  'language-settings': {
+    readiness: 'implemented',
+    note: 'The runtime exposes the full Stellar locale inventory, persists the selected locale independently of wallet secrets, and falls back to English for Fresnica dictionaries not yet migrated.',
   },
   about: {
     readiness: 'structure-only',

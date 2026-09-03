@@ -1,6 +1,7 @@
 import React, {useState} from 'react';
 import {Image, Modal, Pressable, Text, View} from 'react-native';
 
+import {useLocalization} from '../../locale';
 import {useThemedStyles} from '../../ui/theme';
 import {createStyles} from './ProductShell.styles';
 import type {MainTab, ProductAction} from './productRoutes';
@@ -15,11 +16,11 @@ type Props = React.PropsWithChildren<
   }>
 >;
 
-const TAB_LABELS: Readonly<Record<MainTab, string>> = {
-  home: 'Home',
-  events: 'Events',
-  xapps: 'XApps',
-  settings: 'Settings',
+const TAB_LABEL_KEYS: Readonly<Record<MainTab, string>> = {
+  home: 'nav.home',
+  events: 'nav.events',
+  xapps: 'nav.xapps',
+  settings: 'nav.settings',
 };
 
 const TAB_ICONS = {
@@ -41,10 +42,10 @@ const TAB_ICONS = {
   },
 } as const;
 
-const ACTION_LABELS: Readonly<Record<ProductAction, string>> = {
-  send: 'Send',
-  swap: 'Swap',
-  request: 'Request',
+const ACTION_LABEL_KEYS: Readonly<Record<ProductAction, string>> = {
+  send: 'nav.send',
+  swap: 'nav.swap',
+  request: 'nav.request',
 };
 
 const ACTION_ICONS = {
@@ -63,6 +64,7 @@ export function ProductShell({
   onSelectAction,
   showTabBar = true,
 }: Props) {
+  const {t} = useLocalization();
   const styles = useThemedStyles(createStyles);
   const [isActionsOpen, setActionsOpen] = useState(false);
 
@@ -82,7 +84,7 @@ export function ProductShell({
           style={styles.tabIcon}
         />
         <Text style={[styles.tabText, selected ? styles.selectedTabText : undefined]}>
-          {TAB_LABELS[tab]}
+          {t(TAB_LABEL_KEYS[tab])}
         </Text>
       </Pressable>
     );
@@ -105,7 +107,7 @@ export function ProductShell({
           {renderTab('events')}
           <View style={styles.actionsSlot}>
             <Pressable
-              accessibilityLabel="Actions"
+              accessibilityLabel={t('nav.actions')}
               accessibilityRole="button"
               accessibilityState={{expanded: isActionsOpen}}
               onPress={() => setActionsOpen(true)}
@@ -131,7 +133,7 @@ export function ProductShell({
             onPress={event => event.stopPropagation()}
             style={styles.actionsSheet}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.actionsTitle}>Actions</Text>
+            <Text style={styles.actionsTitle}>{t('nav.actions')}</Text>
             <View style={styles.actionRow}>
               {(['send', 'swap', 'request'] as const).map(action => {
                 const enabled = actionAvailability[action];
@@ -153,8 +155,8 @@ export function ProductShell({
                       source={ACTION_ICONS[action]}
                       style={styles.actionIcon}
                     />
-                    <Text style={styles.actionLabel}>{ACTION_LABELS[action]}</Text>
-                    {!enabled ? <Text style={styles.actionStatus}>Coming soon</Text> : null}
+                    <Text style={styles.actionLabel}>{t(ACTION_LABEL_KEYS[action])}</Text>
+                    {!enabled ? <Text style={styles.actionStatus}>{t('nav.comingSoon')}</Text> : null}
                   </Pressable>
                 );
               })}

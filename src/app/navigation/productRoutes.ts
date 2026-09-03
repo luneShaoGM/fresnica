@@ -33,6 +33,7 @@ export type ProductRoute =
   | 'accounts-settings'
   | 'security-settings'
   | 'network-settings'
+  | 'language-settings'
   | 'about';
 
 export type OnboardingRoute =
@@ -49,7 +50,6 @@ export type OnboardingRoute =
 export type ProductRouteParams = Readonly<{
   home: undefined;
   'account-details': Readonly<{accountId: string}>;
-  'add-account': undefined;
   // Asset identity is intentionally unresolved until the Home/Trustline read
   // model defines a stable public asset key.
   'asset-details': undefined;
@@ -68,6 +68,7 @@ export type ProductRouteParams = Readonly<{
   'accounts-settings': undefined;
   'security-settings': undefined;
   'network-settings': undefined;
+  'language-settings': undefined;
   about: undefined;
 }>;
 
@@ -104,6 +105,7 @@ export const PRODUCT_ROUTES: Readonly<Record<MainTab, readonly ProductRoute[]>> 
     'accounts-settings',
     'security-settings',
     'network-settings',
+    'language-settings',
     'about',
   ],
 };

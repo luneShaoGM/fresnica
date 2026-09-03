@@ -3,25 +3,29 @@ import {
   ACCOUNT_SCHEMA,
   ACCOUNT_SIGNER_REFERENCE_ENTITY,
   ACCOUNT_SIGNER_REFERENCE_SCHEMA,
+  LOCALE_PREFERENCE_ENTITY,
+  LOCALE_PREFERENCE_SCHEMA,
   SIGNER_ENTITY,
   SIGNER_SCHEMA,
   WALLET_REALM_SCHEMAS,
   WALLET_REALM_SCHEMA_VERSION,
 } from '../schemas';
 
-describe('Realm wallet schema v1', () => {
-  it('pins the first durable schema version and entity names', () => {
-    expect(WALLET_REALM_SCHEMA_VERSION).toBe(1);
+describe('Realm wallet schema v2', () => {
+  it('adds locale preference persistence without changing wallet entity identities', () => {
+    expect(WALLET_REALM_SCHEMA_VERSION).toBe(2);
     expect(WALLET_REALM_SCHEMAS).toEqual([
       ACCOUNT_SCHEMA,
       SIGNER_SCHEMA,
       ACCOUNT_SIGNER_REFERENCE_SCHEMA,
+      LOCALE_PREFERENCE_SCHEMA,
     ]);
     expect(ACCOUNT_SCHEMA.name).toBe(ACCOUNT_ENTITY);
     expect(SIGNER_SCHEMA.name).toBe(SIGNER_ENTITY);
     expect(ACCOUNT_SIGNER_REFERENCE_SCHEMA.name).toBe(
       ACCOUNT_SIGNER_REFERENCE_ENTITY,
     );
+    expect(LOCALE_PREFERENCE_SCHEMA.name).toBe(LOCALE_PREFERENCE_ENTITY);
   });
 
   it('stores Account fields one-to-one without persisting derived watch-only state', () => {
@@ -84,6 +88,18 @@ describe('Realm wallet schema v1', () => {
         accountId: 'string',
         signerId: 'string',
         createdAt: 'date',
+      },
+    });
+  });
+
+  it('persists only the selected locale and its update timestamp', () => {
+    expect(LOCALE_PREFERENCE_SCHEMA).toEqual({
+      name: 'LocalePreferenceEntity',
+      primaryKey: 'id',
+      properties: {
+        id: 'string',
+        locale: 'string',
+        updatedAt: 'date',
       },
     });
   });

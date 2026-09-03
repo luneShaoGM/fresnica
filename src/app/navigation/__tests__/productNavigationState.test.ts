@@ -6,7 +6,7 @@ import {
   reduceProductNavigation,
   resolveSelectedAccount,
 } from '../productNavigationState';
-import {MAIN_TABS, PRODUCT_ACTIONS} from '../productRoutes';
+import {MAIN_TABS, PRODUCT_ACTIONS, PRODUCT_ROUTES} from '../productRoutes';
 
 function account(id: string, sortOrder: number, hidden = false): AccountRecord {
   return {
@@ -68,6 +68,17 @@ describe('productNavigationState', () => {
     expect(MAIN_TABS).toEqual(['home', 'events', 'xapps', 'settings']);
     expect(PRODUCT_ACTIONS).toEqual(['send', 'swap', 'request']);
     expect(MAIN_TABS).not.toContain('actions');
+  });
+
+  it('keeps language settings in the Settings product route inventory', () => {
+    expect(PRODUCT_ROUTES.settings).toContain('language-settings');
+
+    const next = reduceProductNavigation(
+      createInitialProductNavigation(accounts),
+      {type: 'open-settings-route', route: 'language-settings'},
+      accounts,
+    );
+    expect(next.destination).toEqual({tab: 'settings', route: 'language-settings'});
   });
 
   it('selecting another account returns to Home for that account', () => {

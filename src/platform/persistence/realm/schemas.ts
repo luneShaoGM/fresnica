@@ -1,10 +1,11 @@
 import type Realm from 'realm';
 
-export const WALLET_REALM_SCHEMA_VERSION = 1;
+export const WALLET_REALM_SCHEMA_VERSION = 2;
 
 export const ACCOUNT_ENTITY = 'AccountEntity';
 export const SIGNER_ENTITY = 'SignerEntity';
 export const ACCOUNT_SIGNER_REFERENCE_ENTITY = 'AccountSignerReferenceEntity';
+export const LOCALE_PREFERENCE_ENTITY = 'LocalePreferenceEntity';
 
 export const ACCOUNT_SCHEMA = {
   name: ACCOUNT_ENTITY,
@@ -51,8 +52,19 @@ export const ACCOUNT_SIGNER_REFERENCE_SCHEMA = {
   },
 } satisfies Realm.ObjectSchema;
 
+export const LOCALE_PREFERENCE_SCHEMA = {
+  name: LOCALE_PREFERENCE_ENTITY,
+  primaryKey: 'id',
+  properties: {
+    id: 'string',
+    locale: 'string',
+    updatedAt: 'date',
+  },
+} satisfies Realm.ObjectSchema;
+
 export const WALLET_REALM_SCHEMAS = [
   ACCOUNT_SCHEMA,
   SIGNER_SCHEMA,
   ACCOUNT_SIGNER_REFERENCE_SCHEMA,
+  LOCALE_PREFERENCE_SCHEMA,
 ] as const;

@@ -9,6 +9,7 @@ import {HomeScreen} from '../../features/home/HomeScreen';
 import {SecuritySettingsScreen} from '../../features/security/SecuritySettingsScreen';
 import {SendFlowScreen} from '../../features/send/SendFlowScreen';
 import {AboutScreen} from '../../features/settings/AboutScreen';
+import {LanguageSettingsScreen} from '../../features/settings/LanguageSettingsScreen';
 import {NetworkSettingsScreen} from '../../features/settings/NetworkSettingsScreen';
 import {SettingsHomeScreen} from '../../features/settings/SettingsHomeScreen';
 import {ManageAssetsScreen} from '../../features/trustlines/ManageAssetsScreen';
@@ -171,6 +172,9 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
           onOpenNetwork={() =>
             dispatch({type: 'open-settings-route', route: 'network-settings'})
           }
+          onOpenLanguage={() =>
+            dispatch({type: 'open-settings-route', route: 'language-settings'})
+          }
           onOpenAbout={() => dispatch({type: 'open-settings-route', route: 'about'})}
         />
       );
@@ -195,6 +199,9 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
       break;
     case 'network-settings':
       content = <NetworkSettingsScreen onBack={() => dispatch({type: 'back-to-root'})} />;
+      break;
+    case 'language-settings':
+      content = <LanguageSettingsScreen onBack={() => dispatch({type: 'back-to-root'})} />;
       break;
     case 'about':
       content = <AboutScreen onBack={() => dispatch({type: 'back-to-root'})} />;

@@ -12,6 +12,7 @@ import {
 } from '../platform/fresnica/native';
 import {
   RealmAccountSignerRepository,
+  RealmLocalePreferenceStore,
   createRealmRecordId,
   openWalletRealm,
 } from '../platform/persistence/realm';
@@ -24,6 +25,7 @@ export type AppServices = Readonly<{
   send: SendProductDependencies;
   history: HistoryDependencies;
   trustline: TrustlineProductDependencies;
+  localePreferences: RealmLocalePreferenceStore;
   close: () => void;
 }>;
 
@@ -34,6 +36,7 @@ export async function createAppServices(): Promise<AppServices> {
     const nativeModule = loadNativeFresnicaModule(NativeModules);
     const sdk = new ReactNativeFresnicaSdk(nativeModule);
     const repository = new RealmAccountSignerRepository(realm);
+    const localePreferences = new RealmLocalePreferenceStore(realm);
     const stellarGateway = new StellarSdkGateway();
 
     return {
@@ -63,6 +66,7 @@ export async function createAppServices(): Promise<AppServices> {
         sdk,
         repository,
       },
+      localePreferences,
       close: () => realm.close(),
     };
   } catch (error) {
