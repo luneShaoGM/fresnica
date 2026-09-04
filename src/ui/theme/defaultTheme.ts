@@ -2,6 +2,8 @@ import type {AppTheme} from './types';
 
 export const defaultTheme = {
   colors: {
+    primary: '#00CA8A',
+    secondary: '#181D41',
     background: '#FFFFFF',
     surface: '#FFFFFF',
     surfaceMuted: '#F3F6FA',

@@ -1,11 +1,11 @@
-import React from 'react';
+import React, {useMemo} from 'react';
 import {ActivityIndicator, Text, View} from 'react-native';
 import {DefaultTheme, NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
 import {OnboardingScreen} from '@features/onboarding/OnboardingScreen';
 import {PendingMnemonicBackupScreen} from '@features/onboarding/PendingMnemonicBackupScreen';
-import {defaultTheme, useAppTheme, useThemedStyles} from '@ui/theme';
+import {useAppTheme, useThemedStyles, type AppTheme} from '@ui/theme';
 
 import {useLocalization} from '../../locale';
 import type {AppRuntimeState} from '../runtimeState';
@@ -15,25 +15,15 @@ import type {RootStackParamList} from './navigationTypes';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
-const navigationTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    primary: defaultTheme.colors.actionPrimary,
-    background: defaultTheme.colors.background,
-    card: defaultTheme.colors.surface,
-    text: defaultTheme.colors.textPrimary,
-    border: defaultTheme.colors.border,
-    notification: defaultTheme.colors.negative,
-  },
-};
-
 type Props = Readonly<{
   runtime: AppRuntimeState;
   onRefreshBootstrap: () => void;
 }>;
 
 export function AppNavigator({runtime, onRefreshBootstrap}: Props) {
+  const appTheme = useAppTheme();
+  const navigationTheme = useMemo(() => createNavigationTheme(appTheme), [appTheme]);
+
   return (
     <NavigationContainer theme={navigationTheme}>
       <RootStack.Navigator screenOptions={{headerShown: false}}>
@@ -42,6 +32,21 @@ export function AppNavigator({runtime, onRefreshBootstrap}: Props) {
       </RootStack.Navigator>
     </NavigationContainer>
   );
+}
+
+function createNavigationTheme(theme: AppTheme) {
+  return {
+    ...DefaultTheme,
+    colors: {
+      ...DefaultTheme.colors,
+      primary: theme.colors.actionPrimary,
+      background: theme.colors.background,
+      card: theme.colors.surface,
+      text: theme.colors.textPrimary,
+      border: theme.colors.border,
+      notification: theme.colors.negative,
+    },
+  };
 }
 
 function renderRootScreen(runtime: AppRuntimeState, onRefreshBootstrap: () => void) {

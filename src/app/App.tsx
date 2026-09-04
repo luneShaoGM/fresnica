@@ -1,5 +1,7 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 
+import {AppThemeProvider} from '@ui/theme';
+
 import {resolveOnboardingBootstrap} from '../features/onboarding/onboardingBootstrap';
 import {
   getDeviceLocale,
@@ -73,11 +75,13 @@ export function App() {
   }, []);
 
   return (
-    <LocalizationProvider locale={locale} onChangeLocale={handleChangeLocale}>
-      <OverlayHost>
-        <AppNavigator runtime={runtime} onRefreshBootstrap={refreshBootstrap} />
-      </OverlayHost>
-    </LocalizationProvider>
+    <AppThemeProvider>
+      <LocalizationProvider locale={locale} onChangeLocale={handleChangeLocale}>
+        <OverlayHost>
+          <AppNavigator runtime={runtime} onRefreshBootstrap={refreshBootstrap} />
+        </OverlayHost>
+      </LocalizationProvider>
+    </AppThemeProvider>
   );
 }
 

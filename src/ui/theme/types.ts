@@ -1,4 +1,6 @@
 export type ThemeColors = Readonly<{
+  primary: string;
+  secondary: string;
   background: string;
   surface: string;
   surfaceMuted: string;
@@ -55,3 +57,14 @@ export type AppTheme = Readonly<{
   radii: ThemeRadii;
   typography: ThemeTypography;
 }>;
+
+export type ThemeSeed =
+  | Readonly<{kind: 'default'}>
+  | Readonly<{
+      kind: 'image';
+      primary: string;
+      secondary: string;
+      primaryPressed?: string;
+      onPrimary?: string;
+      semantic?: Partial<ThemeColors>;
+    }>;
