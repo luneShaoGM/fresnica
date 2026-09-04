@@ -30,12 +30,12 @@ const TAB_ICONS = {
     selected: require('../../ui/assets/stellar/icon_tabbar_home_selected.png'),
   },
   activity: {
-    idle: require('../../ui/assets/stellar/icon_tabbar_events.png'),
-    selected: require('../../ui/assets/stellar/icon_tabbar_events_selected.png'),
+    idle: require('../../ui/assets/stellar/icon_tabbar_activity.png'),
+    selected: require('../../ui/assets/stellar/icon_tabbar_activity_selected.png'),
   },
   dapps: {
-    idle: require('../../ui/assets/stellar/icon_tabbar_xapp.png'),
-    selected: require('../../ui/assets/stellar/icon_tabbar_xapp_selected.png'),
+    idle: require('../../ui/assets/stellar/icon_tabbar_dapps.png'),
+    selected: require('../../ui/assets/stellar/icon_tabbar_dapps_selected.png'),
   },
   settings: {
     idle: require('../../ui/assets/stellar/icon_tabbar_settings.png'),

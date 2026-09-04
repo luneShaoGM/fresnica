@@ -14,19 +14,19 @@ export class RealmLocalePreferenceStore {
   constructor(private readonly realm: Realm) {}
 
   getLocale(): string | undefined {
-    const preference = this.realm.objectForPrimaryKey(
+    const preference = this.realm.objectForPrimaryKey<PersistedLocalePreference>(
       LOCALE_PREFERENCE_ENTITY,
       LOCALE_PREFERENCE_ID,
-    ) as unknown as PersistedLocalePreference | null;
+    );
     return preference?.locale;
   }
 
   setLocale(locale: string, updatedAt = new Date()): void {
     this.realm.write(() => {
-      const preference = this.realm.objectForPrimaryKey(
+      const preference = this.realm.objectForPrimaryKey<PersistedLocalePreference>(
         LOCALE_PREFERENCE_ENTITY,
         LOCALE_PREFERENCE_ID,
-      ) as unknown as PersistedLocalePreference | null;
+      );
 
       if (preference) {
         preference.locale = locale;

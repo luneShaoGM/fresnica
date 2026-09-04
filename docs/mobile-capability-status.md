@@ -54,7 +54,7 @@ Existing-wallet protected-signer creation/import remains disabled because Native
 
 ## Runtime Product Shell / Portfolio evidence
 
-- completed onboarding enters one `ProductRuntime`;
+- completed onboarding enters `AppNavigator` main tabs;
 - Wallet / Activity / Settings are typed roots;
 - navigation carries public account IDs/destinations only;
 - selected-account switching drives Wallet Home and a fresh Balance read;

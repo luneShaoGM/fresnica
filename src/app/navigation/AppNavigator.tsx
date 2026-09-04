@@ -37,43 +37,60 @@ export function AppNavigator({runtime, onRefreshBootstrap}: Props) {
   return (
     <NavigationContainer theme={navigationTheme}>
       <RootStack.Navigator screenOptions={{headerShown: false}}>
-        {runtime.kind !== 'ready' ? (
-          <RootStack.Screen name="bootstrap">
-            {() => <BootstrapScreen runtime={runtime} />}
-          </RootStack.Screen>
-        ) : runtime.bootstrap.kind === 'onboarding' ? (
-          <RootStack.Screen name="onboarding">
-            {() => (
-              <OnboardingScreen
-                dependencies={runtime.services.onboarding}
-                onComplete={onRefreshBootstrap}
-              />
-            )}
-          </RootStack.Screen>
-        ) : runtime.bootstrap.kind === 'pending-mnemonic-backup' ? (
-          <RootStack.Screen name="onboarding">
-            {() => (
-              <PendingMnemonicBackupScreen
-                dependencies={runtime.services.onboarding}
-                signerId={runtime.bootstrap.signerId}
-                onComplete={onRefreshBootstrap}
-              />
-            )}
-          </RootStack.Screen>
-        ) : (
-          <RootStack.Screen name="main">
-            {() => (
-              <MainTabsNavigator
-                accounts={runtime.bootstrap.accounts}
-                services={runtime.services}
-                onAccountsChanged={onRefreshBootstrap}
-              />
-            )}
-          </RootStack.Screen>
-        )}
+        {renderRootScreen(runtime, onRefreshBootstrap)}
         <RootStack.Screen name="locked" component={LockedPlaceholderScreen} />
       </RootStack.Navigator>
     </NavigationContainer>
+  );
+}
+
+function renderRootScreen(runtime: AppRuntimeState, onRefreshBootstrap: () => void) {
+  if (runtime.kind !== 'ready') {
+    return (
+      <RootStack.Screen name="bootstrap">
+        {() => <BootstrapScreen runtime={runtime} />}
+      </RootStack.Screen>
+    );
+  }
+
+  const {bootstrap} = runtime;
+  if (bootstrap.kind === 'onboarding') {
+    return (
+      <RootStack.Screen name="onboarding">
+        {() => (
+          <OnboardingScreen
+            dependencies={runtime.services.onboarding}
+            onComplete={onRefreshBootstrap}
+          />
+        )}
+      </RootStack.Screen>
+    );
+  }
+
+  if (bootstrap.kind === 'pending-mnemonic-backup') {
+    return (
+      <RootStack.Screen name="onboarding">
+        {() => (
+          <PendingMnemonicBackupScreen
+            dependencies={runtime.services.onboarding}
+            signerId={bootstrap.signerId}
+            onComplete={onRefreshBootstrap}
+          />
+        )}
+      </RootStack.Screen>
+    );
+  }
+
+  return (
+    <RootStack.Screen name="main">
+      {() => (
+        <MainTabsNavigator
+          accounts={bootstrap.accounts}
+          services={runtime.services}
+          onAccountsChanged={onRefreshBootstrap}
+        />
+      )}
+    </RootStack.Screen>
   );
 }
 

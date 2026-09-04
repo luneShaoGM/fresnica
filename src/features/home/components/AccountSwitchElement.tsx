@@ -17,8 +17,8 @@ type Props = Readonly<{
  * Presentation adaptation of
  * Stellar/src/components/Modules/AccountSwitchElement/AccountSwitchElement.tsx.
  *
- * The donor opens a repository-backed switcher overlay. Fresnica keeps account
- * selection in ProductRuntime, so this component only emits public UI intents.
+ * The donor opens a repository-backed switcher overlay. Fresnica keeps the
+ * selected account in `app/navigation` and only passes public UI intents here.
  */
 export function AccountSwitchElement({
   label,

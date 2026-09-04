@@ -53,6 +53,24 @@ describe('localization', () => {
     expect(english.tPlural('settings.accountCount', 2)).toBe('2 accounts');
   });
 
+  it('pluralizes without Intl.PluralRules', () => {
+    const intl = Intl as typeof Intl & {PluralRules?: unknown};
+    const original = intl.PluralRules;
+    Reflect.deleteProperty(intl, 'PluralRules');
+
+    try {
+      const english = createLocalization('en');
+      expect(english.tPlural('settings.accountCount', 1)).toBe('1 account');
+      expect(english.tPlural('settings.accountCount', 2)).toBe('2 accounts');
+
+      const chinese = createLocalization('zh');
+      expect(chinese.tPlural('settings.accountCount', 1)).toBe('1 个账户');
+      expect(chinese.tPlural('settings.accountCount', 2)).toBe('2 个账户');
+    } finally {
+      intl.PluralRules = original;
+    }
+  });
+
   it('formats decimal strings without converting wallet values through floating point', () => {
     const german = createLocalization('de');
     expect(german.formatNumber('1234567.890000')).toBe('1.234.567,89');

@@ -26,7 +26,7 @@
 
 当前仓库里的 Onboarding / Send / Home 等只是薄脚手架，**不是**重写完成标准。产品完整度以 Stellar 产品表和本文为准。
 
-F0 已定：React Navigation。F1 完成前不要开始 F2。不要接入 Wix RNN。
+F0 已定：React Navigation。F2 主壳已接上。不要接入 Wix RNN。不要在还不存在的导航栈上假设去重写功能——栈已经在 `app/navigation`。
 
 ---
 
@@ -94,15 +94,15 @@ Stellar 里有某个屏幕，默认不等于可以粘贴它的实现。dApp 是�
 
 | 事项 | 目标 | 当前脚手架（不是完成态） |
 | --- | --- | --- |
-| 产品壳 | Home / Activity / Actions / dApps / Settings | 五项壳外形；Actions 已是中间触发 |
-| Tab id | `home`、`activity`、`dapps`、`settings` | `productNavigationState.ts` 仍是 `events` / `xapps` |
-| Activity | 完整列表 / 筛选 / 详情 | `features/history` 只读切片 |
-| dApps | 照搬 Stellar 自研：目录、Recent、浏览器、权限、Freighter 桥 | `features/xapps` 未接目录的预览壳 |
+| 产品壳 | Home / Activity / Actions / dApps / Settings | 五项壳外形；Actions 已是 OverlayHost |
+| Tab id | `home`、`activity`、`dapps`、`settings` | 已是这些 id |
+| Activity | 完整列表 / 筛选 / 详情 | `features/activity` + History capability；详情路由未挂 |
+| dApps | 照搬 Stellar 自研：目录、Recent、浏览器、权限、Freighter 桥 | `features/dapps` 预览壳，未接目录 |
 | Developer Mode | 采用 Stellar/Xaman 设计（鉴权开启、网络可见性、日志、开发者页） | **未做** |
 | 硬件钱包 | 产品内一等 signer（添加、签名、账户列表） | 类型里有 `hardware`，产品流 **未做** |
 | Vault / 加密 | 参考 Stellar Vault overlay 与 native 加密；Core 管密钥 | 无 Vault overlay；Realm 不存密钥 |
 | 自定义主题 | 上传图片 → 提取主色 / 次主色等 → `AppTheme` 全 app 应用 | 单一 `defaultTheme`；UI kit **尚未约定** |
-| 导航 | React Navigation：stack + tabs + modal + OverlayHost | `ProductRuntime` switch + 一个 RN `Modal` |
+| 导航 | React Navigation：根 stack + tabs + 每 tab 的 native-stack + OverlayHost | **F2 主壳已接上。** 根流程仍按 bootstrap 条件注册 `bootstrap` / `onboarding` / `main`；`locked` 已注册但未进入；modal / 其余 overlay 角色尚未占用 |
 | i18n | 已改写表面没有硬编码文案 | 语言运行时已有；多数屏幕仍是英文直写 |
 
 安全不变量仍要遵守（Account ≠ Signer、密钥不进 JS 持久化、会改账本的路径绑精确 XDR）。它们约束怎么实现，不证明当前屏幕已经写完。`docs/mobile-capability-status.md` 只记录脚手架做过什么，不当产品验收。
@@ -125,8 +125,8 @@ Home | Activity | Actions | dApps | Settings
 | Tab / 操作 | 目标 feature | 当前目录 |
 | --- | --- | --- |
 | Home | `features/home` | `features/home` |
-| Activity | `features/activity` | `features/history` |
-| dApps | `features/dapps` | `features/xapps` |
+| Activity | `features/activity` | `features/activity` |
+| dApps | `features/dapps` | `features/dapps` |
 | Settings | `features/settings` | `features/settings` |
 | Send / Request / Exchange | `features/send`、`features/request`、`features/exchange` | Send 已有；Request / Exchange 没有 |
 
@@ -161,7 +161,9 @@ App
 
 `app/navigation` 负责 tab / stack / modal。OverlayHost 留在 `app/` 组合层。feature 不得 import 全局 `NavigationService`。只有当 OverlayHost 无法覆盖必须盖住原生 modal 的锁 / 鉴权层，并且把失败证据记下来，才重新考虑 RNN。
 
-F2 时：React Navigation 8 若已稳定就用 8；否则用稳定 7.x，并匹配 `react-native-screens`、`react-native-safe-area-context`、`react-native-gesture-handler`。不要在本指南里钉 pre-release。
+根流程（`bootstrap` / `onboarding` / `locked` / `main`）当前按鉴权状态**条件注册**其中一个主屏幕，同时始终注册 `locked` 占位。这不是产品 destination `switch`。不必在 F3 之前改成四屏始终挂齐；有真实 lock / onboarding 子栈时再改。
+
+F2 已用稳定 React Navigation 7.x，并匹配 `react-native-screens`、`react-native-safe-area-context`。`react-native-gesture-handler` 尚未装；需要手势栈或 modal 手势时再补。不要在本指南里钉 pre-release。
 
 导航参数只能带公开 ID。精确 XDR、助记词、口令和解密后的 signer 材料留在所属流程 / controller。
 
@@ -200,19 +202,25 @@ F2 落实这一选择。不要加 RNN。不要引入 `NavigationService` 或其�
 
 ### F2 — 导航栈和产品 id
 
-依赖 F0（React Navigation）和 F1。
+状态：**主壳已接上**（2026-09-04）。
 
-- 按 §5 用 React Navigation 替换 `ProductRuntime` 的 destination `switch`。
-- OverlayHost 放在 `app/`。Actions 是 overlay，不是 Tab。
-- 运行时 id 和 feature 目录改成 Activity / dApps。不要 Events / XApps 别名。不要同时留下 `features/history` 和 `features/activity`。
-- `capabilities/history` 仍叫 History。
-- 导航参数仍只带公开 ID。
+- 已用 React Navigation 7 替换 `ProductRuntime` 的 destination `switch`：根 `native-stack` + bottom tabs + 每 tab 的 `native-stack`。
+- OverlayHost 在 `app/`。Actions 是 overlay，不是 Tab。
+- 运行时 id 和 feature 目录是 Activity / dApps。`capabilities/history` 仍叫 History。
+- 导航参数只带公开 ID。
 
 退出条件：
 
-- [ ] Onboarding、locked（占位）、主壳是 stack / tabs / overlay，不是 destination `switch`
-- [ ] Tab id 为 `home | activity | dapps | settings`
-- [ ] Actions 是 overlay，不是被选中的 Tab
+- [x] 主壳是 tabs + 每 tab 的 native-stack，不是产品 destination `switch`
+- [x] Tab id 为 `home | activity | dapps | settings`
+- [x] Actions 是 overlay，不是被选中的 Tab
+
+F2 尾巴，不挡 F3，随对应表面补：
+
+- 根流程仍按 bootstrap **条件注册** `bootstrap` / `onboarding` / `main`（见 §5 说明）。不必为了 F3 先改成始终挂齐四屏。
+- `locked` 已在根栈注册，没有进入路径，也不要伪造解锁。
+- `presentation: 'modal'` 以及锁 / 鉴权 / Alert / 切账户 overlay，等那些表面存在再占用角色。
+- Activity `operation-details` 类型已留，栈上未挂，等详情屏。
 
 ### F3 — UI kit 契约（尚未约定）
 
@@ -271,8 +279,8 @@ Adopt（采用）= 在 Fresnica 重写用户可见表面。Adapt（适配）= �
 | Stellar 表面 | 决定 | Fresnica 归属 | Capability |
 | --- | --- | --- | --- |
 | Home | Adopt | `features/home` | Account、Balance |
-| Events id / Activity 名 | Adopt 为 Activity | `features/activity`（当前 `features/history`） | History |
-| XApps id / dApps 名 | **照搬** Stellar 自研 dApp（目录、Recent、浏览器、权限、Freighter 桥、数据互通） | `features/dapps`（当前 `features/xapps` 只是预览壳） | 待建 dApp 授权 / 桥接；实现来源是 Stellar，不是空 capability 再发明 |
+| Events id / Activity 名 | Adopt 为 Activity | `features/activity` | History |
+| XApps id / dApps 名 | **照搬** Stellar 自研 dApp（目录、Recent、浏览器、权限、Freighter 桥、数据互通） | `features/dapps`（当前仍是预览壳） | 待建 dApp 授权 / 桥接；实现来源是 Stellar，不是空 capability 再发明 |
 | Settings | Adopt | `features/settings` | — |
 | Overlay / HomeActions | Adopt | app 壳 + feature 操作 | — |
 | Send | Adopt | `features/send` | Payment、Transaction、Signing Coordination |
@@ -385,7 +393,7 @@ Stellar 保留了 Xaman 的 Developer Mode，Fresnica **要做**。当前代码�
 - 创建 / 导入 / 只读观察仍走 SDK 保护 API。JS 持久化里不得出现明文助记词或口令。
 - 添加流程里要有**硬件钱包**入口（§7.7）。Core 未接通时可禁用，不能从信息架构里删掉。
 - 已有钱包上添加受保护**软件** signer 保持关闭，直到 Core 提供只验证当前口令的能力。
-- 待备份助记词是栈上的一等目的地，不能只靠 `ProductRuntime` 特例。
+- 待备份助记词是栈上的一等目的地，不能只靠 bootstrap 特例。
 - 文案和错误已本地化。
 
 ### Home
@@ -427,7 +435,7 @@ Stellar 保留了 Xaman 的 Developer Mode，Fresnica **要做**。当前代码�
 - Tab id 和目录是 `dapps` / `features/dapps`。用户文案是 dApps。
 - **照搬** Stellar 自研：FChain 目录、Home / Recent、分类、自定义 URL、disclaimer、浏览器、Freighter 注入、权限与数据互通。参考 `origin/Stellar` 的 `screens/xApps`、`Modal/XAppBrowser`、`freighter/`。
 - 迁入 Fresnica 分层，不要整棵 `services/` 搬进来。
-- 当前 `features/xapps` 预览壳**不算**完成。
+- 当前 `features/dapps` 预览壳**不算**完成。
 
 ### 硬件钱包
 

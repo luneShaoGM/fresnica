@@ -81,9 +81,9 @@ src/
 │   ├── send/
 │   ├── request/
 │   ├── exchange/
-│   ├── activity/          # currently src/features/history
+│   ├── activity/
 │   ├── assets/            # currently src/features/trustlines
-│   ├── dapps/             # currently src/features/xapps
+│   ├── dapps/
 │   └── settings/
 │
 ├── platform/

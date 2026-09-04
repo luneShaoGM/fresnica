@@ -43,7 +43,7 @@ export function createLocalization(localeInput: string): LocalizationRuntime {
     count: number,
     params: TranslationParams = {},
   ): string => {
-    const category = new Intl.PluralRules(locale).select(count);
+    const category = selectPluralCategory(locale, count);
     const categoryKey = `${baseKey}.${category}`;
     const otherKey = `${baseKey}.other`;
     const key = hasTranslationKey(locale, categoryKey) ? categoryKey : otherKey;
@@ -61,6 +61,33 @@ export function createLocalization(localeInput: string): LocalizationRuntime {
     formatNumber: (value, precision = 8) => formatNumber(value, locale, precision),
     formatDate: value => formatDate(value, locale),
   };
+}
+
+function selectPluralCategory(locale: SupportedLocale, count: number): string {
+  try {
+    if (typeof Intl.PluralRules === 'function') {
+      return new Intl.PluralRules(locale).select(count);
+    }
+  } catch {
+    // Android Hermes may expose Intl without PluralRules.
+  }
+
+  return fallbackPluralCategory(locale, count);
+}
+
+function fallbackPluralCategory(locale: SupportedLocale, count: number): string {
+  const language = locale.split('-')[0]?.toLowerCase() ?? 'en';
+  if (
+    language === 'zh' ||
+    language === 'ja' ||
+    language === 'ko' ||
+    language === 'id' ||
+    language === 'vi'
+  ) {
+    return 'other';
+  }
+
+  return Math.abs(count) === 1 ? 'one' : 'other';
 }
 
 function hasTranslationKey(locale: SupportedLocale, key: string): boolean {

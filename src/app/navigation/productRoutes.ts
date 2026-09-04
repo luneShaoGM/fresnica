@@ -50,6 +50,9 @@ export type OnboardingRoute =
 export type ProductRouteParams = Readonly<{
   home: undefined;
   'account-details': Readonly<{accountId: string}>;
+  // Existing-wallet add account currently has no route payload; the screen
+  // reads account creation inputs from local feature state.
+  'add-account': undefined;
   // Asset identity is intentionally unresolved until the Home/Trustline read
   // model defines a stable public asset key.
   'asset-details': undefined;
