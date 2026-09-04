@@ -34,29 +34,29 @@ describe('productNavigationState', () => {
 
   it('switches product tabs to their root destinations without changing the selected account', () => {
     const initial = createInitialProductNavigation(accounts);
-    const events = reduceProductNavigation(
+    const activity = reduceProductNavigation(
       initial,
-      {type: 'select-tab', tab: 'events'},
+      {type: 'select-tab', tab: 'activity'},
       accounts,
     );
-    const xapps = reduceProductNavigation(
-      events,
-      {type: 'select-tab', tab: 'xapps'},
+    const dapps = reduceProductNavigation(
+      activity,
+      {type: 'select-tab', tab: 'dapps'},
       accounts,
     );
     const settings = reduceProductNavigation(
-      xapps,
+      dapps,
       {type: 'select-tab', tab: 'settings'},
       accounts,
     );
 
-    expect(events).toEqual({
+    expect(activity).toEqual({
       selectedAccountId: 'one',
-      destination: {tab: 'events', route: 'events'},
+      destination: {tab: 'activity', route: 'activity'},
     });
-    expect(xapps).toEqual({
+    expect(dapps).toEqual({
       selectedAccountId: 'one',
-      destination: {tab: 'xapps', route: 'xapps'},
+      destination: {tab: 'dapps', route: 'dapps'},
     });
     expect(settings).toEqual({
       selectedAccountId: 'one',
@@ -65,7 +65,7 @@ describe('productNavigationState', () => {
   });
 
   it('keeps product actions separate from selectable tabs', () => {
-    expect(MAIN_TABS).toEqual(['home', 'events', 'xapps', 'settings']);
+    expect(MAIN_TABS).toEqual(['home', 'activity', 'dapps', 'settings']);
     expect(PRODUCT_ACTIONS).toEqual(['send', 'swap', 'request']);
     expect(MAIN_TABS).not.toContain('actions');
   });

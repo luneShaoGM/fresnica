@@ -69,8 +69,8 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
   const destination = navigation.destination;
   const showTabBar =
     destination.route === 'home' ||
-    destination.route === 'events' ||
-    destination.route === 'xapps' ||
+    destination.route === 'activity' ||
+    destination.route === 'dapps' ||
     destination.route === 'settings-home';
 
   const handleSelectAction = useCallback(
@@ -148,7 +148,7 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
       );
       break;
     }
-    case 'events':
+    case 'activity':
       content = (
         <ActivityHomeScreen
           account={selectedAccount}
@@ -156,7 +156,7 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
         />
       );
       break;
-    case 'xapps':
+    case 'dapps':
       content = <XAppsScreen />;
       break;
     case 'settings-home':

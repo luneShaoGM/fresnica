@@ -18,8 +18,8 @@ type Props = React.PropsWithChildren<
 
 const TAB_LABEL_KEYS: Readonly<Record<MainTab, string>> = {
   home: 'nav.home',
-  events: 'nav.events',
-  xapps: 'nav.xapps',
+  activity: 'nav.activity',
+  dapps: 'nav.dapps',
   settings: 'nav.settings',
 };
 
@@ -28,11 +28,11 @@ const TAB_ICONS = {
     idle: require('../../ui/assets/stellar/icon_tabbar_home.png'),
     selected: require('../../ui/assets/stellar/icon_tabbar_home_selected.png'),
   },
-  events: {
+  activity: {
     idle: require('../../ui/assets/stellar/icon_tabbar_events.png'),
     selected: require('../../ui/assets/stellar/icon_tabbar_events_selected.png'),
   },
-  xapps: {
+  dapps: {
     idle: require('../../ui/assets/stellar/icon_tabbar_xapp.png'),
     selected: require('../../ui/assets/stellar/icon_tabbar_xapp_selected.png'),
   },
@@ -104,7 +104,7 @@ export function ProductShell({
       {showTabBar ? (
         <View style={styles.tabBar}>
           {renderTab('home')}
-          {renderTab('events')}
+          {renderTab('activity')}
           <View style={styles.actionsSlot}>
             <Pressable
               accessibilityLabel={t('nav.actions')}
@@ -118,7 +118,7 @@ export function ProductShell({
               <Image resizeMode="contain" source={tabActionsIcon} style={styles.actionsImage} />
             </Pressable>
           </View>
-          {renderTab('xapps')}
+          {renderTab('dapps')}
           {renderTab('settings')}
         </View>
       ) : null}

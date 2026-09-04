@@ -6,8 +6,8 @@ export type RootFlow =
 
 export type MainTab =
   | 'home'
-  | 'events'
-  | 'xapps'
+  | 'activity'
+  | 'dapps'
   | 'settings';
 
 export type ProductAction =
@@ -26,9 +26,9 @@ export type ProductRoute =
   | 'request'
   | 'exchange'
   | 'manage-assets'
-  | 'events'
+  | 'activity'
   | 'operation-details'
-  | 'xapps'
+  | 'dapps'
   | 'settings-home'
   | 'accounts-settings'
   | 'security-settings'
@@ -61,9 +61,9 @@ export type ProductRouteParams = Readonly<{
   request: Readonly<{accountId: string}>;
   exchange: Readonly<{accountId: string}>;
   'manage-assets': Readonly<{accountId: string}>;
-  events: undefined;
+  activity: undefined;
   'operation-details': Readonly<{accountId: string; operationId: string}>;
-  xapps: undefined;
+  dapps: undefined;
   'settings-home': undefined;
   'accounts-settings': undefined;
   'security-settings': undefined;
@@ -74,8 +74,8 @@ export type ProductRouteParams = Readonly<{
 
 export const MAIN_TABS: readonly MainTab[] = [
   'home',
-  'events',
-  'xapps',
+  'activity',
+  'dapps',
   'settings',
 ];
 
@@ -98,8 +98,8 @@ export const PRODUCT_ROUTES: Readonly<Record<MainTab, readonly ProductRoute[]>> 
     'exchange',
     'manage-assets',
   ],
-  events: ['events', 'operation-details'],
-  xapps: ['xapps'],
+  activity: ['activity', 'operation-details'],
+  dapps: ['dapps'],
   settings: [
     'settings-home',
     'accounts-settings',

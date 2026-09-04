@@ -52,17 +52,17 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
     readiness: 'implemented',
     note: 'Manage Assets is connected to the current Trustline capability and its product presentation has been aligned to the Stellar visual language.',
   },
-  events: {
-    readiness: 'capability-ready',
-    note: 'The Activity surface is rebuilt around the current History capability, retaining paging and stale-request protection while using the Stellar search/filter/list hierarchy.',
+  activity: {
+    readiness: 'structure-only',
+    note: 'The current Activity scaffold reads through the History capability, but the full product surface still needs the F4 list, filtering, paging and detail rebuild.',
   },
   'operation-details': {
     readiness: 'structure-only',
     note: 'Detail route remains reserved for stable accountId + operationId navigation; raw operation objects do not enter navigation and no unavailable Horizon detail data is fabricated.',
   },
-  xapps: {
+  dapps: {
     readiness: 'structure-only',
-    note: 'dApps is a first-class product tab with the Stellar-style segmented/category surface; browser, permission and signing behavior remains deferred to the dApps capability/security stage.',
+    note: 'The current dApps preview is only scaffolding. F4 must port the Stellar-owned catalog, Recent, browser, Freighter bridge, permissions and data exchange into Fresnica layers.',
   },
   'settings-home': {
     readiness: 'implemented',

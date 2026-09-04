@@ -7,8 +7,8 @@ export type ProductDestination =
   | Readonly<{tab: 'home'; route: 'add-account'}>
   | Readonly<{tab: 'home'; route: 'send-form'; accountId: string}>
   | Readonly<{tab: 'home'; route: 'manage-assets'; accountId: string}>
-  | Readonly<{tab: 'events'; route: 'events'}>
-  | Readonly<{tab: 'xapps'; route: 'xapps'}>
+  | Readonly<{tab: 'activity'; route: 'activity'}>
+  | Readonly<{tab: 'dapps'; route: 'dapps'}>
   | Readonly<{tab: 'settings'; route: 'settings-home'}>
   | Readonly<{tab: 'settings'; route: 'accounts-settings'}>
   | Readonly<{tab: 'settings'; route: 'security-settings'}>
@@ -173,10 +173,10 @@ function rootDestination(tab: MainTab): ProductDestination {
   switch (tab) {
     case 'home':
       return {tab, route: 'home'};
-    case 'events':
-      return {tab, route: 'events'};
-    case 'xapps':
-      return {tab, route: 'xapps'};
+    case 'activity':
+      return {tab, route: 'activity'};
+    case 'dapps':
+      return {tab, route: 'dapps'};
     case 'settings':
       return {tab, route: 'settings-home'};
   }
