@@ -1,14 +1,22 @@
 import React, {createContext, useCallback, useContext, useMemo, useState} from 'react';
-import {Modal} from 'react-native';
+import {Modal, StatusBar} from 'react-native';
+import {SafeAreaProvider} from 'react-native-safe-area-context';
+
+import type {ThemeStatusBarContent} from '@ui/theme';
+
+type OverlayOptions = Readonly<{
+  statusBarContent?: ThemeStatusBarContent;
+}>;
 
 type OverlayEntry = Readonly<{
   id: string;
   content: React.ReactNode;
+  statusBarContent?: ThemeStatusBarContent;
 }>;
 
 type OverlayContextValue = Readonly<{
   activeOverlayId: string | undefined;
-  present: (id: string, content: React.ReactNode) => void;
+  present: (id: string, content: React.ReactNode, options?: OverlayOptions) => void;
   dismiss: () => void;
 }>;
 
@@ -17,8 +25,14 @@ const OverlayContext = createContext<OverlayContextValue | undefined>(undefined)
 export function OverlayHost({children}: React.PropsWithChildren) {
   const [overlay, setOverlay] = useState<OverlayEntry | undefined>(undefined);
 
-  const present = useCallback((id: string, content: React.ReactNode) => {
-    setOverlay({id, content});
+  const present = useCallback((id: string, content: React.ReactNode, options?: OverlayOptions) => {
+    setOverlay({
+      id,
+      content,
+      ...(options?.statusBarContent === undefined
+        ? {}
+        : {statusBarContent: options.statusBarContent}),
+    });
   }, []);
 
   const dismiss = useCallback(() => {
@@ -38,7 +52,12 @@ export function OverlayHost({children}: React.PropsWithChildren) {
         onRequestClose={dismiss}
         transparent
         visible={overlay !== undefined}>
-        {overlay?.content}
+        {overlay?.statusBarContent ? (
+          <StatusBar
+            barStyle={overlay.statusBarContent === 'dark' ? 'dark-content' : 'light-content'}
+          />
+        ) : null}
+        <SafeAreaProvider>{overlay?.content}</SafeAreaProvider>
       </Modal>
     </OverlayContext.Provider>
   );

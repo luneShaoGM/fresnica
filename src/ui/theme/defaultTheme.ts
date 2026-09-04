@@ -26,4 +26,5 @@ export const defaultTheme = {
     caption: {fontSize: 12, lineHeight: 16, fontWeight: '400'},
     button: {fontSize: 15, lineHeight: 19, fontWeight: '700'},
   },
+  statusBarContent: 'dark',
 } as const satisfies AppTheme;

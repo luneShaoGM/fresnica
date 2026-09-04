@@ -1,6 +1,8 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {StatusBar} from 'react-native';
+import {initialWindowMetrics, SafeAreaProvider} from 'react-native-safe-area-context';
 
-import {AppThemeProvider} from '@ui/theme';
+import {AppThemeProvider, useAppTheme} from '@ui/theme';
 
 import {resolveOnboardingBootstrap} from '../features/onboarding/onboardingBootstrap';
 import {
@@ -75,13 +77,26 @@ export function App() {
   }, []);
 
   return (
-    <AppThemeProvider>
-      <LocalizationProvider locale={locale} onChangeLocale={handleChangeLocale}>
-        <OverlayHost>
-          <AppNavigator runtime={runtime} onRefreshBootstrap={refreshBootstrap} />
-        </OverlayHost>
-      </LocalizationProvider>
-    </AppThemeProvider>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <AppThemeProvider>
+        <ThemeStatusBar />
+        <LocalizationProvider locale={locale} onChangeLocale={handleChangeLocale}>
+          <OverlayHost>
+            <AppNavigator runtime={runtime} onRefreshBootstrap={refreshBootstrap} />
+          </OverlayHost>
+        </LocalizationProvider>
+      </AppThemeProvider>
+    </SafeAreaProvider>
+  );
+}
+
+function ThemeStatusBar() {
+  const theme = useAppTheme();
+  return (
+    <StatusBar
+      animated
+      barStyle={theme.statusBarContent === 'dark' ? 'dark-content' : 'light-content'}
+    />
   );
 }
 

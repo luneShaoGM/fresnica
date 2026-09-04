@@ -4,6 +4,14 @@ import type {AppTheme} from '@ui/theme';
 
 export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    scrollView: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
     screen: {
       flexGrow: 1,
       backgroundColor: theme.colors.background,

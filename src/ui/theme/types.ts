@@ -51,11 +51,14 @@ export type ThemeTypography = Readonly<{
   button: ThemeTextStyle;
 }>;
 
+export type ThemeStatusBarContent = 'dark' | 'light';
+
 export type AppTheme = Readonly<{
   colors: ThemeColors;
   spacing: ThemeSpacing;
   radii: ThemeRadii;
   typography: ThemeTypography;
+  statusBarContent: ThemeStatusBarContent;
 }>;
 
 export type ThemeSeed =
@@ -66,5 +69,6 @@ export type ThemeSeed =
       secondary: string;
       primaryPressed?: string;
       onPrimary?: string;
+      statusBarContent?: ThemeStatusBarContent;
       semantic?: Partial<ThemeColors>;
     }>;

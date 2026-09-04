@@ -2,6 +2,7 @@ import React from 'react';
 import {Image, Pressable, Text, View} from 'react-native';
 import type {BottomTabBarProps} from '@react-navigation/bottom-tabs';
 import {getFocusedRouteNameFromRoute} from '@react-navigation/native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 
 import {useThemedStyles} from '@ui/theme';
 
@@ -143,43 +144,46 @@ export function MainTabBar({
     present(
       ACTIONS_OVERLAY_ID,
       <Pressable style={styles.overlay} onPress={dismiss}>
-        <Pressable onPress={event => event.stopPropagation()} style={styles.actionsSheet}>
-          <View style={styles.sheetHandle} />
-          <Text style={styles.actionsTitle}>{t('nav.actions')}</Text>
-          <View style={styles.actionRow}>
-            {(['send', 'swap', 'request'] as const).map(action => {
-              const enabled = actionAvailability[action];
-              return (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{disabled: !enabled}}
-                  disabled={!enabled}
-                  key={action}
-                  onPress={() => selectAction(action)}
-                  style={({pressed}) => [
-                    styles.actionItem,
-                    action === 'swap' ? styles.actionItemStrong : styles.actionItemPrimary,
-                    !enabled ? styles.actionItemDisabled : undefined,
-                    pressed ? styles.pressed : undefined,
-                  ]}>
-                  <Image
-                    resizeMode="contain"
-                    source={ACTION_ICONS[action]}
-                    style={styles.actionIcon}
-                  />
-                  <Text style={styles.actionLabel}>{t(ACTION_LABEL_KEYS[action])}</Text>
-                  {!enabled ? <Text style={styles.actionStatus}>{t('nav.comingSoon')}</Text> : null}
-                </Pressable>
-              );
-            })}
-          </View>
+        <Pressable onPress={event => event.stopPropagation()}>
+          <SafeAreaView edges={['right', 'bottom', 'left']} style={styles.actionsSheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.actionsTitle}>{t('nav.actions')}</Text>
+            <View style={styles.actionRow}>
+              {(['send', 'swap', 'request'] as const).map(action => {
+                const enabled = actionAvailability[action];
+                return (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{disabled: !enabled}}
+                    disabled={!enabled}
+                    key={action}
+                    onPress={() => selectAction(action)}
+                    style={({pressed}) => [
+                      styles.actionItem,
+                      action === 'swap' ? styles.actionItemStrong : styles.actionItemPrimary,
+                      !enabled ? styles.actionItemDisabled : undefined,
+                      pressed ? styles.pressed : undefined,
+                    ]}>
+                    <Image
+                      resizeMode="contain"
+                      source={ACTION_ICONS[action]}
+                      style={styles.actionIcon}
+                    />
+                    <Text style={styles.actionLabel}>{t(ACTION_LABEL_KEYS[action])}</Text>
+                    {!enabled ? <Text style={styles.actionStatus}>{t('nav.comingSoon')}</Text> : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </SafeAreaView>
         </Pressable>
       </Pressable>,
+      {statusBarContent: 'light'},
     );
   };
 
   return (
-    <View style={styles.tabBar}>
+    <SafeAreaView edges={['right', 'bottom', 'left']} style={styles.tabBar}>
       {renderTab(0)}
       {renderTab(1)}
       <View style={styles.actionsSlot}>
@@ -197,6 +201,6 @@ export function MainTabBar({
       </View>
       {renderTab(2)}
       {renderTab(3)}
-    </View>
+    </SafeAreaView>
   );
 }
