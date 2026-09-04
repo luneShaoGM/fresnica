@@ -4,6 +4,7 @@ import type {AccountRecord} from '../../capabilities/account/types';
 import {AccountDetailsScreen} from '../../features/accounts/AccountDetailsScreen';
 import {AccountsScreen} from '../../features/accounts/AccountsScreen';
 import {AddWatchOnlyAccountScreen} from '../../features/accounts/AddWatchOnlyAccountScreen';
+import {DAppsScreen} from '../../features/dapps/screens/DAppsScreen';
 import {ActivityHomeScreen} from '../../features/history/ActivityHomeScreen';
 import {HomeScreen} from '../../features/home/HomeScreen';
 import {SecuritySettingsScreen} from '../../features/security/SecuritySettingsScreen';
@@ -13,7 +14,6 @@ import {LanguageSettingsScreen} from '../../features/settings/LanguageSettingsSc
 import {NetworkSettingsScreen} from '../../features/settings/NetworkSettingsScreen';
 import {SettingsHomeScreen} from '../../features/settings/SettingsHomeScreen';
 import {ManageAssetsScreen} from '../../features/trustlines/ManageAssetsScreen';
-import {XAppsScreen} from '../../features/xapps/screens/XAppsScreen';
 import type {AppServices} from '../createAppServices';
 import {ProductShell} from './ProductShell';
 import {
@@ -157,7 +157,7 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
       );
       break;
     case 'dapps':
-      content = <XAppsScreen />;
+      content = <DAppsScreen />;
       break;
     case 'settings-home':
       content = (

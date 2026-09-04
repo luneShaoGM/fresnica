@@ -1,8 +1,9 @@
-import React, {useState} from 'react';
-import {Image, Modal, Pressable, Text, View} from 'react-native';
+import React from 'react';
+import {Image, Pressable, Text, View} from 'react-native';
 
 import {useLocalization} from '../../locale';
 import {useThemedStyles} from '../../ui/theme';
+import {useOverlay} from '../OverlayHost';
 import {createStyles} from './ProductShell.styles';
 import type {MainTab, ProductAction} from './productRoutes';
 
@@ -55,6 +56,7 @@ const ACTION_ICONS = {
 } as const;
 
 const tabActionsIcon = require('../../ui/assets/stellar/icon_tabbar_actions.png');
+const ACTIONS_OVERLAY_ID = 'actions';
 
 export function ProductShell({
   children,
@@ -66,7 +68,8 @@ export function ProductShell({
 }: Props) {
   const {t} = useLocalization();
   const styles = useThemedStyles(createStyles);
-  const [isActionsOpen, setActionsOpen] = useState(false);
+  const {activeOverlayId, present, dismiss} = useOverlay();
+  const isActionsOpen = activeOverlayId === ACTIONS_OVERLAY_ID;
 
   const renderTab = (tab: MainTab) => {
     const selected = tab === activeTab;
@@ -94,8 +97,47 @@ export function ProductShell({
     if (!actionAvailability[action]) {
       return;
     }
-    setActionsOpen(false);
+    dismiss();
     onSelectAction(action);
+  };
+
+  const openActions = () => {
+    present(
+      ACTIONS_OVERLAY_ID,
+      <Pressable style={styles.overlay} onPress={dismiss}>
+        <Pressable onPress={event => event.stopPropagation()} style={styles.actionsSheet}>
+          <View style={styles.sheetHandle} />
+          <Text style={styles.actionsTitle}>{t('nav.actions')}</Text>
+          <View style={styles.actionRow}>
+            {(['send', 'swap', 'request'] as const).map(action => {
+              const enabled = actionAvailability[action];
+              return (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{disabled: !enabled}}
+                  disabled={!enabled}
+                  key={action}
+                  onPress={() => handleSelectAction(action)}
+                  style={({pressed}) => [
+                    styles.actionItem,
+                    action === 'swap' ? styles.actionItemDark : styles.actionItemGreen,
+                    !enabled ? styles.actionItemDisabled : undefined,
+                    pressed ? styles.pressed : undefined,
+                  ]}>
+                  <Image
+                    resizeMode="contain"
+                    source={ACTION_ICONS[action]}
+                    style={styles.actionIcon}
+                  />
+                  <Text style={styles.actionLabel}>{t(ACTION_LABEL_KEYS[action])}</Text>
+                  {!enabled ? <Text style={styles.actionStatus}>{t('nav.comingSoon')}</Text> : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        </Pressable>
+      </Pressable>,
+    );
   };
 
   return (
@@ -110,7 +152,7 @@ export function ProductShell({
               accessibilityLabel={t('nav.actions')}
               accessibilityRole="button"
               accessibilityState={{expanded: isActionsOpen}}
-              onPress={() => setActionsOpen(true)}
+              onPress={openActions}
               style={({pressed}) => [
                 styles.actionsButton,
                 pressed ? styles.actionsButtonPressed : undefined,
@@ -122,48 +164,6 @@ export function ProductShell({
           {renderTab('settings')}
         </View>
       ) : null}
-
-      <Modal
-        animationType="fade"
-        onRequestClose={() => setActionsOpen(false)}
-        transparent
-        visible={showTabBar && isActionsOpen}>
-        <Pressable style={styles.overlay} onPress={() => setActionsOpen(false)}>
-          <Pressable
-            onPress={event => event.stopPropagation()}
-            style={styles.actionsSheet}>
-            <View style={styles.sheetHandle} />
-            <Text style={styles.actionsTitle}>{t('nav.actions')}</Text>
-            <View style={styles.actionRow}>
-              {(['send', 'swap', 'request'] as const).map(action => {
-                const enabled = actionAvailability[action];
-                return (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{disabled: !enabled}}
-                    disabled={!enabled}
-                    key={action}
-                    onPress={() => handleSelectAction(action)}
-                    style={({pressed}) => [
-                      styles.actionItem,
-                      action === 'swap' ? styles.actionItemDark : styles.actionItemGreen,
-                      !enabled ? styles.actionItemDisabled : undefined,
-                      pressed ? styles.pressed : undefined,
-                    ]}>
-                    <Image
-                      resizeMode="contain"
-                      source={ACTION_ICONS[action]}
-                      style={styles.actionIcon}
-                    />
-                    <Text style={styles.actionLabel}>{t(ACTION_LABEL_KEYS[action])}</Text>
-                    {!enabled ? <Text style={styles.actionStatus}>{t('nav.comingSoon')}</Text> : null}
-                  </Pressable>
-                );
-              })}
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   );
 }

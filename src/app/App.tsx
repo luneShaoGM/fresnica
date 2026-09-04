@@ -16,6 +16,7 @@ import {
 } from '../locale';
 import {createAppServices, type AppServices} from './createAppServices';
 import {ProductRuntime} from './navigation/ProductRuntime';
+import {OverlayHost} from './OverlayHost';
 
 type RuntimeState =
   | Readonly<{kind: 'loading'}>
@@ -88,7 +89,9 @@ export function App() {
 
   return (
     <LocalizationProvider locale={locale} onChangeLocale={handleChangeLocale}>
-      <AppContent runtime={runtime} onRefreshBootstrap={refreshBootstrap} />
+      <OverlayHost>
+        <AppContent runtime={runtime} onRefreshBootstrap={refreshBootstrap} />
+      </OverlayHost>
     </LocalizationProvider>
   );
 }

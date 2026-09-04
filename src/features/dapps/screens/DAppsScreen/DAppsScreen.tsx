@@ -15,7 +15,7 @@ const CATEGORIES = ['All', 'Wallet', 'Tools', 'Games', 'NFT'] as const;
 
 type Section = 'home' | 'recent';
 
-export function XAppsScreen() {
+export function DAppsScreen() {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const [section, setSection] = useState<Section>('home');
