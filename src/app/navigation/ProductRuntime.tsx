@@ -4,8 +4,8 @@ import type {AccountRecord} from '../../capabilities/account/types';
 import {AccountDetailsScreen} from '../../features/accounts/AccountDetailsScreen';
 import {AccountsScreen} from '../../features/accounts/AccountsScreen';
 import {AddWatchOnlyAccountScreen} from '../../features/accounts/AddWatchOnlyAccountScreen';
+import {ActivityScreen} from '../../features/activity/ActivityScreen';
 import {DAppsScreen} from '../../features/dapps/screens/DAppsScreen';
-import {ActivityHomeScreen} from '../../features/history/ActivityHomeScreen';
 import {HomeScreen} from '../../features/home/HomeScreen';
 import {SecuritySettingsScreen} from '../../features/security/SecuritySettingsScreen';
 import {SendFlowScreen} from '../../features/send/SendFlowScreen';
@@ -150,7 +150,7 @@ export function ProductRuntime({accounts, services, onAccountsChanged}: Props) {
     }
     case 'activity':
       content = (
-        <ActivityHomeScreen
+        <ActivityScreen
           account={selectedAccount}
           dependencies={services.history}
         />

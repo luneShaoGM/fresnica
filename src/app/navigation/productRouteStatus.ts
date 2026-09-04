@@ -53,8 +53,8 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
     note: 'Manage Assets is connected to the current Trustline capability and its product presentation has been aligned to the Stellar visual language.',
   },
   activity: {
-    readiness: 'structure-only',
-    note: 'The current Activity scaffold reads through the History capability, but the full product surface still needs the F4 list, filtering, paging and detail rebuild.',
+    readiness: 'capability-ready',
+    note: 'Activity now lives under the target feature id and uses the History capability with localized states, search, real category filters, paging, duplicate suppression and stale-request protection. Operation detail routing remains the next navigation-layer increment.',
   },
   'operation-details': {
     readiness: 'structure-only',
