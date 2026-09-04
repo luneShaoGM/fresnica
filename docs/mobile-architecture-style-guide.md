@@ -311,6 +311,8 @@ Avoid visual implementation names such as `blue`, `darkGreyButton` or `redText` 
 - Screen layout should reuse standard `Screen`, header, section, list-row, modal/overlay and bottom-action primitives where appropriate.
 The Stellar/Xaman visual values are a packaging reference, not a frozen palette. Fresnica screens consume semantic `AppTheme` tokens. A later custom theme (image → extracted primary/secondary colors) must be able to replace the active theme without rewriting those screens. Light/dark, if added, uses the same provider — not a mutable global StyleService.
 
+Status bar content style (dark icons on a light background, light icons on a dark background) is chrome owned by `app/`, derived from the active `AppTheme`. Feature screens do not hard-code `StatusBar` `barStyle`. Safe-area insets belong on Screen / Header / TabBar primitives via `react-native-safe-area-context`, not a copied Xaman `DeviceUtils` native module. Product contract: `docs/stellar-product-information-architecture.md` §10.1.
+
 ## 10. TypeScript and declaration style
 
 ### Formatting baseline

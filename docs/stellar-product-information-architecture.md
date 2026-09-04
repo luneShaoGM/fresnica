@@ -102,6 +102,7 @@ Stellar 里有某个屏幕，默认不等于可以粘贴它的实现。dApp 是�
 | 硬件钱包 | 产品内一等 signer（添加、签名、账户列表） | 类型里有 `hardware`，产品流 **未做** |
 | Vault / 加密 | 参考 Stellar Vault overlay 与 native 加密；Core 管密钥 | 无 Vault overlay；Realm 不存密钥 |
 | 自定义主题 | 上传图片 → 提取主色 / 次主色等 → `AppTheme` 全 app 应用 | 单一 `defaultTheme`；UI kit **尚未约定** |
+| 状态栏 / 安全区 | 状态栏对比度跟主题走；壳消费设备 inset（刘海 / 灵动岛 / 手势条） | 无 `StatusBar`；屏幕用 RN 自带 `SafeAreaView`；浅色底上系统时间可能看不见。契约见 §10.1 |
 | 导航 | React Navigation：根 stack + tabs + 每 tab 的 native-stack + OverlayHost | **F2 主壳已接上。** 根流程仍按 bootstrap 条件注册 `bootstrap` / `onboarding` / `main`；`locked` 已注册但未进入；modal / 其余 overlay 角色尚未占用 |
 | i18n | 已改写表面没有硬编码文案 | 语言运行时已有；多数屏幕仍是英文直写 |
 
@@ -230,14 +231,18 @@ F2 尾巴，不挡 F3，随对应表面补：
 
 - 语义 `AppTheme`：主色、次主色、背景、表面、文字、边框、状态色。屏幕只消费这些 token，不写裸颜色。
 - 自定义主题是产品功能，不是以后再说：用户上传一张图片 → 程序提取主色、次主色等 → 生成一份 `AppTheme` → 全 app 应用并持久化。
+- 状态栏内容样式（深色字 / 浅色字）是主题的一部分，由壳随 `AppTheme` 替换而更新。见 §10.1。不要让 feature 写死 `barStyle`。
+- 安全区是壳原语（将来的 Screen / Header / TabBar）消费设备 inset，不是每页自己猜刘海高度。见 §10.1。
 - General 原语清单待约定后再补（Screen、Header、Button 等）。钱包专用控件留在 feature，直到出现第二个调用点。
-- 向 Xaman 学打包（General 目录、token、lint），不抄色板、品牌、`StyleService`。
+- 向 Xaman 学打包（General 目录、token、lint）和状态栏**产品角色**，不抄色板、品牌、`StyleService`、RNN `statusBar` options、`DeviceUtilsModule`。
 
 退出条件：
 
 - [ ] `AppTheme` 语义字段已写出，并且能被「默认主题」和「从图片生成的主题」替换，而不改 feature 屏幕
+- [ ] `AppTheme` 能派生或携带状态栏内容样式（浅底深字 / 深底浅字）；壳随主题替换更新
 - [ ] 约定中的壳组件消费 token；这些文件没有裸颜色
 - [ ] 自定义主题的入口位置已记在 Settings（实现可在 F4 之后，契约必须在 F3 留下）
+- [ ] 安全区由壳原语消费 inset 的位置已记下（实现可随 Screen / Header / TabBar 原语）
 
 ### F4 — 按产品表重建流程
 
@@ -457,8 +462,30 @@ F3 只锁这些：
 - 语义 token，屏幕不写裸颜色。
 - 活跃主题可替换：默认一套，用户上传图片后提取主色、次主色等生成另一套，应用到整个 app。
 - 提取与持久化放在 Settings / 主题 feature，经 `app/` 注入 `AppTheme`。不要每个屏幕自己读图片。
+- 状态栏对比度和安全区跟主题 / 设备走，见 §10.1。
 
 向 Xaman 学打包，不抄色板、`StyleService`、PIN / Secret Number、XRPL 控件。
+
+### 10.1 状态栏与安全区
+
+参考 `origin/Xaman-App` 的**产品角色**，用 React Navigation + `AppTheme` 实现。不要抄 RNN `Navigator` / `setDefaultOptions` / `mergeOptions`，不要抄 `StyleService`，不要抄 `DeviceUtilsModule.layoutInsets`。
+
+#### Xaman 怎么同步（思路）
+
+1. **对比度反相，不跟系统时间抢色。** 默认导航选项里：浅色主题用 `statusBar.style = 'dark'`（深色时间 / 图标），深色主题用 `'light'`。判定是 `theme !== 'light'`（`dark` / `moonlight` / `royal` 都算深色）。公式等价于 `select({ light: 'dark', dark: 'light' })`。
+2. **写在壳上，换主题再刷一遍。** 进主壳或 Onboarding 时把上述选项设成默认；Settings 改主题后 `StyleService.setTheme` → `Navigator.switchTheme` → 再 `setDefaultOptions`，并对已挂屏幕 `mergeOptions`。OS 外观变化（`Appearance`）和从后台回前台，在开启自动跟随时走同一条重绑。
+3. **不要在任意中间页立刻整树重绘。** 等回到主 Tab 或 Settings General，并且 modal / overlay 关掉再刷，避免半透明层上闪状态栏。
+4. **内容画到状态栏后面，用 inset 把 Header 推下来。** `drawBehind: true`；Android 状态栏背景透明；系统导航条颜色跟 `$background`。Header `marginTop` 用 native `safeAreaInsets.top`（他们叫 `statusBarHeight`）；iOS TabBar 高度含 `bottomInset`。
+5. **例外覆盖，离开后回到主题值。** 暗色遮罩 overlay（Actions、切账户等）和扫码相机强制 `'light'`；Lock 跟当前 `isDarkMode`。WebView `autoManageStatusBarEnabled={false}`，避免页面把状态栏抢走。Info.plist 的 `UIStatusBarStyleLightContent` 只是 JS 起来前的启动默认，运行时被主题覆盖。
+
+#### Fresnica 契约
+
+- `AppTheme` 必须能推出状态栏内容样式：`dark`（深色字，配浅底）或 `light`（浅色字，配深底）。可由背景亮度派生，或作为显式 token。默认浅色主题和「从图片生成的主题」都走这条，避免白底白字。
+- 壳（`app/`）统一设置 `StatusBar`（以及 Android 系统导航条颜色）。feature 屏幕默认不写 `barStyle`。暗色 scrim overlay、相机扫码等可以覆盖；关闭后恢复主题值。dApp WebView 不得自行管理状态栏。
+- 主题替换时只重绑壳，不要模仿 Xaman 对每个屏幕 `mergeOptions`，也不要引入 `StyleService`。
+- 安全区用已接入的 `react-native-safe-area-context`（根上 `SafeAreaProvider`，壳用 `useSafeAreaInsets`）。Screen / Header / TabBar / Overlay 消费 inset。不要再搬 Xaman 的 native inset 模块，不要为灵动岛写死 47/59，不要把 RN 自带 `SafeAreaView` 当成完成态（Android 挖孔和自定义 TabBar 底栏都不可靠）。
+- 允许内容画到状态栏后面（edge-to-edge），由壳 inset 让开刘海 / 灵动岛 / Home Indicator / 手势条。
+- 实现随 F3 壳原语落地；F4 重建表面时只消费壳。当前脚手架没有 `StatusBar`、inset 为 0，不当验收。
 
 ---
 
