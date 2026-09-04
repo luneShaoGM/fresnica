@@ -1,27 +1,27 @@
 import React from 'react';
 import {Image, Pressable, Text, View} from 'react-native';
+import type {BottomTabBarProps} from '@react-navigation/bottom-tabs';
+import {getFocusedRouteNameFromRoute} from '@react-navigation/native';
+
+import {useThemedStyles} from '@ui/theme';
 
 import {useLocalization} from '../../locale';
-import {useThemedStyles} from '../../ui/theme';
 import {useOverlay} from '../OverlayHost';
-import {createStyles} from './ProductShell.styles';
+import {createStyles} from './MainTabBar.styles';
 import type {MainTab, ProductAction} from './productRoutes';
-
-type Props = React.PropsWithChildren<
-  Readonly<{
-    activeTab: MainTab;
-    actionAvailability: Readonly<Record<ProductAction, boolean>>;
-    onSelectTab: (tab: MainTab) => void;
-    onSelectAction: (action: ProductAction) => void;
-    showTabBar?: boolean;
-  }>
->;
 
 const TAB_LABEL_KEYS: Readonly<Record<MainTab, string>> = {
   home: 'nav.home',
   activity: 'nav.activity',
   dapps: 'nav.dapps',
   settings: 'nav.settings',
+};
+
+const ROOT_ROUTE_BY_TAB: Readonly<Record<MainTab, string>> = {
+  home: 'home',
+  activity: 'activity',
+  dapps: 'dapps',
+  settings: 'settings-home',
 };
 
 const TAB_ICONS = {
@@ -55,50 +55,88 @@ const ACTION_ICONS = {
   request: require('../../ui/assets/stellar/icon_request.png'),
 } as const;
 
-const tabActionsIcon = require('../../ui/assets/stellar/icon_tabbar_actions.png');
+const actionsTabIcon = require('../../ui/assets/stellar/icon_tabbar_actions.png');
 const ACTIONS_OVERLAY_ID = 'actions';
 
-export function ProductShell({
-  children,
-  activeTab,
+export type MainTabBarProps = BottomTabBarProps &
+  Readonly<{
+    selectedAccountId: string;
+    actionAvailability: Readonly<Record<ProductAction, boolean>>;
+  }>;
+
+export function MainTabBar({
+  state,
+  descriptors,
+  navigation,
+  selectedAccountId,
   actionAvailability,
-  onSelectTab,
-  onSelectAction,
-  showTabBar = true,
-}: Props) {
+}: MainTabBarProps) {
   const {t} = useLocalization();
   const styles = useThemedStyles(createStyles);
   const {activeOverlayId, present, dismiss} = useOverlay();
-  const isActionsOpen = activeOverlayId === ACTIONS_OVERLAY_ID;
 
-  const renderTab = (tab: MainTab) => {
-    const selected = tab === activeTab;
+  const activeRoute = state.routes[state.index];
+  const activeTab = activeRoute.name as MainTab;
+  const focusedChildRoute = getFocusedRouteNameFromRoute(activeRoute);
+  if (focusedChildRoute && focusedChildRoute !== ROOT_ROUTE_BY_TAB[activeTab]) {
+    return null;
+  }
+
+  const renderTab = (index: number) => {
+    const route = state.routes[index];
+    const tab = route.name as MainTab;
+    const focused = state.index === index;
+    const options = descriptors[route.key].options;
     const icon = TAB_ICONS[tab];
+
+    const onPress = () => {
+      const event = navigation.emit({
+        type: 'tabPress',
+        target: route.key,
+        canPreventDefault: true,
+      });
+
+      if (!focused && !event.defaultPrevented) {
+        navigation.navigate(route.name);
+      }
+    };
+
+    const onLongPress = () => {
+      navigation.emit({type: 'tabLongPress', target: route.key});
+    };
+
     return (
       <Pressable
+        accessibilityLabel={options.tabBarAccessibilityLabel}
         accessibilityRole="tab"
-        accessibilityState={{selected}}
-        key={tab}
-        onPress={() => onSelectTab(tab)}
+        accessibilityState={{selected: focused}}
+        key={route.key}
+        onLongPress={onLongPress}
+        onPress={onPress}
         style={({pressed}) => [styles.tab, pressed ? styles.pressed : undefined]}>
         <Image
           resizeMode="contain"
-          source={selected ? icon.selected : icon.idle}
+          source={focused ? icon.selected : icon.idle}
           style={styles.tabIcon}
         />
-        <Text style={[styles.tabText, selected ? styles.selectedTabText : undefined]}>
+        <Text style={[styles.tabText, focused ? styles.selectedTabText : undefined]}>
           {t(TAB_LABEL_KEYS[tab])}
         </Text>
       </Pressable>
     );
   };
 
-  const handleSelectAction = (action: ProductAction) => {
+  const selectAction = (action: ProductAction) => {
     if (!actionAvailability[action]) {
       return;
     }
     dismiss();
-    onSelectAction(action);
+    if (action === 'send') {
+      navigation.navigate('home', {
+        screen: 'send-form',
+        params: {accountId: selectedAccountId},
+      });
+    }
   };
 
   const openActions = () => {
@@ -117,10 +155,10 @@ export function ProductShell({
                   accessibilityState={{disabled: !enabled}}
                   disabled={!enabled}
                   key={action}
-                  onPress={() => handleSelectAction(action)}
+                  onPress={() => selectAction(action)}
                   style={({pressed}) => [
                     styles.actionItem,
-                    action === 'swap' ? styles.actionItemDark : styles.actionItemGreen,
+                    action === 'swap' ? styles.actionItemStrong : styles.actionItemPrimary,
                     !enabled ? styles.actionItemDisabled : undefined,
                     pressed ? styles.pressed : undefined,
                   ]}>
@@ -141,29 +179,24 @@ export function ProductShell({
   };
 
   return (
-    <View style={styles.root}>
-      <View style={styles.content}>{children}</View>
-      {showTabBar ? (
-        <View style={styles.tabBar}>
-          {renderTab('home')}
-          {renderTab('activity')}
-          <View style={styles.actionsSlot}>
-            <Pressable
-              accessibilityLabel={t('nav.actions')}
-              accessibilityRole="button"
-              accessibilityState={{expanded: isActionsOpen}}
-              onPress={openActions}
-              style={({pressed}) => [
-                styles.actionsButton,
-                pressed ? styles.actionsButtonPressed : undefined,
-              ]}>
-              <Image resizeMode="contain" source={tabActionsIcon} style={styles.actionsImage} />
-            </Pressable>
-          </View>
-          {renderTab('dapps')}
-          {renderTab('settings')}
-        </View>
-      ) : null}
+    <View style={styles.tabBar}>
+      {renderTab(0)}
+      {renderTab(1)}
+      <View style={styles.actionsSlot}>
+        <Pressable
+          accessibilityLabel={t('nav.actions')}
+          accessibilityRole="button"
+          accessibilityState={{expanded: activeOverlayId === ACTIONS_OVERLAY_ID}}
+          onPress={openActions}
+          style={({pressed}) => [
+            styles.actionsButton,
+            pressed ? styles.actionsButtonPressed : undefined,
+          ]}>
+          <Image resizeMode="contain" source={actionsTabIcon} style={styles.actionsImage} />
+        </Pressable>
+      </View>
+      {renderTab(2)}
+      {renderTab(3)}
     </View>
   );
 }

@@ -1,16 +1,9 @@
 import {StyleSheet} from 'react-native';
 
-import type {AppTheme} from '../../ui/theme';
+import type {AppTheme} from '@ui/theme';
 
 export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
-    root: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    },
-    content: {
-      flex: 1,
-    },
     tabBar: {
       minHeight: 64,
       flexDirection: 'row',
@@ -18,7 +11,7 @@ export function createStyles(theme: AppTheme) {
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: theme.colors.border,
       backgroundColor: theme.colors.surface,
-      paddingHorizontal: 4,
+      paddingHorizontal: theme.spacing.xs,
       paddingTop: 3,
       paddingBottom: 5,
     },
@@ -55,7 +48,7 @@ export function createStyles(theme: AppTheme) {
     actionsButton: {
       width: 48,
       height: 48,
-      borderRadius: 24,
+      borderRadius: theme.radii.pill,
       alignItems: 'center',
       justifyContent: 'center',
       transform: [{translateY: -6}],
@@ -100,21 +93,21 @@ export function createStyles(theme: AppTheme) {
     },
     actionRow: {
       flexDirection: 'row',
-      gap: 8,
+      gap: theme.spacing.sm,
     },
     actionItem: {
       flex: 1,
       minHeight: 72,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 11,
-      paddingHorizontal: 7,
+      borderRadius: theme.radii.md,
+      paddingHorizontal: theme.spacing.sm,
       gap: 3,
     },
-    actionItemGreen: {
+    actionItemPrimary: {
       backgroundColor: theme.colors.actionPrimary,
     },
-    actionItemDark: {
+    actionItemStrong: {
       backgroundColor: theme.colors.surfaceStrong,
     },
     actionItemDisabled: {

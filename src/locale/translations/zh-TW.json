@@ -2,6 +2,8 @@
   "app.opening": "正在開啟 Fresnica...",
   "app.startErrorTitle": "Fresnica 無法啟動",
   "app.unknownStartError": "未知啟動錯誤。",
+  "lock.title": "錢包已鎖定",
+  "lock.blocked": "共享 System Auth Capability 提供應用程式工作階段所需的 challenge 流程後，將啟用解鎖功能。",
   "nav.home": "首頁",
   "nav.activity": "活動",
   "nav.dapps": "dApps",

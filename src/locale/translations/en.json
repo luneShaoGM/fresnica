@@ -2,6 +2,8 @@
   "app.opening": "Opening Fresnica...",
   "app.startErrorTitle": "Fresnica could not start",
   "app.unknownStartError": "Unknown startup error.",
+  "lock.title": "Wallet locked",
+  "lock.blocked": "App-session unlock will be enabled when the shared System Auth capability exposes the required challenge flow.",
   "nav.home": "Home",
   "nav.activity": "Activity",
   "nav.dapps": "dApps",
