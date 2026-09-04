@@ -18,11 +18,11 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'account-details': {
     readiness: 'structure-only',
-    note: 'The account surface is routed through the runtime shell and now follows the Stellar visual hierarchy; signer/access presenter behavior remains deferred.',
+    note: 'The account surface is registered in the Home native stack and follows the Stellar visual hierarchy; signer/access presenter behavior remains deferred.',
   },
   'add-account': {
     readiness: 'implemented',
-    note: 'Existing-wallet Add Account is routed through the runtime shell and currently supports watch-only only.',
+    note: 'Existing-wallet Add Account is registered in the Home native stack and currently supports watch-only only.',
   },
   'asset-details': {
     readiness: 'blocked',
@@ -30,7 +30,7 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'send-form': {
     readiness: 'implemented',
-    note: 'Runtime Send validates destination, exact decimal amount, selected balance asset and text memo before building an unsigned payment.',
+    note: 'Send validates destination, exact decimal amount, selected balance asset and text memo before building an unsigned payment.',
   },
   'send-review': {
     readiness: 'implemented',
@@ -66,7 +66,7 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'settings-home': {
     readiness: 'implemented',
-    note: 'Settings is a live runtime tab with the grouped information architecture routing Accounts, Security, Network, Language and About destinations.',
+    note: 'Settings is a live bottom-tab root backed by a native stack for Accounts, Security, Network, Language and About destinations.',
   },
   'accounts-settings': {
     readiness: 'structure-only',
@@ -78,14 +78,14 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'network-settings': {
     readiness: 'structure-only',
-    note: 'Runtime destination is reachable and visually aligned to the migrated Settings hierarchy; Testnet configuration is display-only and Mainnet switching is intentionally unavailable.',
+    note: 'The Settings native stack reaches this visually aligned destination; Testnet configuration is display-only and Mainnet switching is intentionally unavailable.',
   },
   'language-settings': {
     readiness: 'implemented',
-    note: 'The runtime exposes the full Stellar locale inventory, persists the selected locale independently of wallet secrets, and falls back to English for Fresnica dictionaries not yet migrated.',
+    note: 'The app exposes the full Stellar locale inventory, persists the selected locale independently of wallet secrets, and falls back to English for Fresnica dictionaries not yet migrated.',
   },
   about: {
     readiness: 'structure-only',
-    note: 'Runtime destination is reachable, visually aligned to the migrated Settings hierarchy, and displays application information.',
+    note: 'The Settings native stack reaches the visually aligned About destination and displays application information.',
   },
 };
