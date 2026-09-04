@@ -1,38 +1,43 @@
-import React, {useCallback, useEffect, useState} from 'react';
-import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {StatusBar} from 'react-native';
+import {initialWindowMetrics, SafeAreaProvider} from 'react-native-safe-area-context';
 
-import {OnboardingScreen} from '../features/onboarding/OnboardingScreen';
-import {PendingMnemonicBackupScreen} from '../features/onboarding/PendingMnemonicBackupScreen';
+import {AppThemeProvider, useAppTheme} from '@ui/theme';
+
+import {resolveOnboardingBootstrap} from '../features/onboarding/onboardingBootstrap';
 import {
-  resolveOnboardingBootstrap,
-  type OnboardingBootstrapState,
-} from '../features/onboarding/onboardingBootstrap';
+  getDeviceLocale,
+  LocalizationProvider,
+  resolveLocale,
+  type SupportedLocale,
+} from '../locale';
 import {createAppServices, type AppServices} from './createAppServices';
-import {ProductRuntime} from './navigation/ProductRuntime';
-
-type RuntimeState =
-  | Readonly<{kind: 'loading'}>
-  | Readonly<{kind: 'error'; message: string}>
-  | Readonly<{
-      kind: 'ready';
-      services: AppServices;
-      bootstrap: OnboardingBootstrapState;
-    }>;
+import {AppNavigator} from './navigation/AppNavigator';
+import {OverlayHost} from './OverlayHost';
+import type {AppRuntimeState} from './runtimeState';
 
 export function App() {
-  const [runtime, setRuntime] = useState<RuntimeState>({kind: 'loading'});
+  const [runtime, setRuntime] = useState<AppRuntimeState>({kind: 'loading'});
+  const [locale, setLocale] = useState<SupportedLocale>(() => getDeviceLocale());
+  const servicesRef = useRef<AppServices | undefined>(undefined);
 
   useEffect(() => {
     let mounted = true;
-    let services: AppServices | undefined;
 
     void createAppServices()
       .then(created => {
-        services = created;
         if (!mounted) {
           created.close();
           return;
         }
+
+        servicesRef.current = created;
+        const storedLocale = created.localePreferences.getLocale();
+        const resolvedLocale = resolveLocale(storedLocale ?? getDeviceLocale());
+        if (!storedLocale) {
+          created.localePreferences.setLocale(resolvedLocale);
+        }
+        setLocale(resolvedLocale);
 
         setRuntime({
           kind: 'ready',
@@ -48,7 +53,8 @@ export function App() {
 
     return () => {
       mounted = false;
-      services?.close();
+      servicesRef.current?.close();
+      servicesRef.current = undefined;
     };
   }, []);
 
@@ -65,68 +71,37 @@ export function App() {
     });
   }, []);
 
-  if (runtime.kind === 'loading') {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator />
-        <Text>Opening Fresnica...</Text>
-      </View>
-    );
-  }
-
-  if (runtime.kind === 'error') {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.errorTitle}>Fresnica could not start</Text>
-        <Text>{runtime.message}</Text>
-      </View>
-    );
-  }
-
-  if (runtime.bootstrap.kind === 'onboarding') {
-    return (
-      <OnboardingScreen
-        dependencies={runtime.services.onboarding}
-        onComplete={refreshBootstrap}
-      />
-    );
-  }
-
-  if (runtime.bootstrap.kind === 'pending-mnemonic-backup') {
-    return (
-      <PendingMnemonicBackupScreen
-        dependencies={runtime.services.onboarding}
-        signerId={runtime.bootstrap.signerId}
-        onComplete={refreshBootstrap}
-      />
-    );
-  }
+  const handleChangeLocale = useCallback((nextLocale: SupportedLocale) => {
+    servicesRef.current?.localePreferences.setLocale(nextLocale);
+    setLocale(nextLocale);
+  }, []);
 
   return (
-    <ProductRuntime
-      accounts={runtime.bootstrap.accounts}
-      services={runtime.services}
-      onAccountsChanged={refreshBootstrap}
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <AppThemeProvider>
+        <ThemeStatusBar />
+        <LocalizationProvider locale={locale} onChangeLocale={handleChangeLocale}>
+          <OverlayHost>
+            <AppNavigator runtime={runtime} onRefreshBootstrap={refreshBootstrap} />
+          </OverlayHost>
+        </LocalizationProvider>
+      </AppThemeProvider>
+    </SafeAreaProvider>
+  );
+}
+
+function ThemeStatusBar() {
+  const theme = useAppTheme();
+  return (
+    <StatusBar
+      animated
+      barStyle={theme.statusBarContent === 'dark' ? 'dark-content' : 'light-content'}
     />
   );
 }
 
-function readableError(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unknown startup error.';
+function readableError(error: unknown): string | undefined {
+  return error instanceof Error ? error.message : undefined;
 }
-
-const styles = StyleSheet.create({
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    gap: 12,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-});
 
 export default App;

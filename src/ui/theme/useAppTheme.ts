@@ -1,6 +1,8 @@
-import {defaultTheme} from './defaultTheme';
+import {useContext} from 'react';
+
+import {AppThemeContext} from './AppThemeProvider';
 import type {AppTheme} from './types';
 
 export function useAppTheme(): AppTheme {
-  return defaultTheme;
+  return useContext(AppThemeContext);
 }

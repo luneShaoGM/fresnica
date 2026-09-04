@@ -1,11 +1,14 @@
 import React from 'react';
 import {Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View} from 'react-native';
 
+import {useLocalization} from '../../locale';
+
 type Props = Readonly<{
   accountCount: number;
   onOpenAccounts: () => void;
   onOpenSecurity: () => void;
   onOpenNetwork: () => void;
+  onOpenLanguage: () => void;
   onOpenAbout: () => void;
 }>;
 
@@ -27,39 +30,54 @@ export function SettingsHomeScreen({
   onOpenAccounts,
   onOpenSecurity,
   onOpenNetwork,
+  onOpenLanguage,
   onOpenAbout,
 }: Props) {
+  const {locale, locales, t, tPlural} = useLocalization();
+  const currentLocaleName = locales.find(option => option.code === locale)?.localName ?? locale;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Settings</Text>
+        <Text style={styles.title}>{t('settings.title')}</Text>
 
         <SettingsGroup>
           <SettingRow
             icon="account"
-            label="Accounts"
-            detail={`${accountCount} ${accountCount === 1 ? 'account' : 'accounts'}`}
+            label={t('settings.accounts')}
+            detail={tPlural('settings.accountCount', accountCount)}
             onPress={onOpenAccounts}
           />
-          <SettingRow icon="book" label="Address book" />
+          <SettingRow icon="book" label={t('settings.addressBook')} />
         </SettingsGroup>
 
         <SettingsGroup>
-          <SettingRow icon="sliders" label="General" detail="Network" onPress={onOpenNetwork} />
-          <SettingRow icon="activity" label="Advanced" />
+          <SettingRow
+            icon="sliders"
+            label={t('settings.general')}
+            detail={t('settings.generalDetail')}
+            onPress={onOpenNetwork}
+          />
+          <SettingRow
+            icon="book"
+            label={t('settings.language')}
+            detail={currentLocaleName}
+            onPress={onOpenLanguage}
+          />
+          <SettingRow icon="activity" label={t('settings.advanced')} />
         </SettingsGroup>
 
         <SettingsGroup>
-          <SettingRow icon="shield" label="Security" onPress={onOpenSecurity} />
+          <SettingRow icon="shield" label={t('settings.security')} onPress={onOpenSecurity} />
         </SettingsGroup>
 
         <SettingsGroup>
-          <SettingRow icon="help" label="Questions & Support" />
-          <SettingRow icon="info" label="Terms & Conditions" />
-          <SettingRow icon="info" label="About" onPress={onOpenAbout} />
+          <SettingRow icon="help" label={t('settings.support')} />
+          <SettingRow icon="info" label={t('settings.terms')} />
+          <SettingRow icon="info" label={t('settings.about')} onPress={onOpenAbout} />
         </SettingsGroup>
 
-        <Text style={styles.footer}>Fresnica · Stellar Testnet</Text>
+        <Text style={styles.footer}>{t('settings.footer')}</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -80,6 +98,7 @@ function SettingRow({
   detail?: string;
   onPress?: () => void;
 }>) {
+  const {t} = useLocalization();
   const enabled = typeof onPress === 'function';
   return (
     <Pressable
@@ -97,7 +116,7 @@ function SettingRow({
         {enabled ? (
           <Image resizeMode="contain" source={icons.chevron} style={styles.chevronIcon} />
         ) : (
-          <Text style={styles.soon}>Soon</Text>
+          <Text style={styles.soon}>{t('settings.soon')}</Text>
         )}
       </View>
     </Pressable>

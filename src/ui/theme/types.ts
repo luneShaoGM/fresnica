@@ -1,4 +1,6 @@
 export type ThemeColors = Readonly<{
+  primary: string;
+  secondary: string;
   background: string;
   surface: string;
   surfaceMuted: string;
@@ -49,9 +51,24 @@ export type ThemeTypography = Readonly<{
   button: ThemeTextStyle;
 }>;
 
+export type ThemeStatusBarContent = 'dark' | 'light';
+
 export type AppTheme = Readonly<{
   colors: ThemeColors;
   spacing: ThemeSpacing;
   radii: ThemeRadii;
   typography: ThemeTypography;
+  statusBarContent: ThemeStatusBarContent;
 }>;
+
+export type ThemeSeed =
+  | Readonly<{kind: 'default'}>
+  | Readonly<{
+      kind: 'image';
+      primary: string;
+      secondary: string;
+      primaryPressed?: string;
+      onPrimary?: string;
+      statusBarContent?: ThemeStatusBarContent;
+      semantic?: Partial<ThemeColors>;
+    }>;

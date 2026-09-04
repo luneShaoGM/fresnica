@@ -6,8 +6,8 @@ export type RootFlow =
 
 export type MainTab =
   | 'home'
-  | 'events'
-  | 'xapps'
+  | 'activity'
+  | 'dapps'
   | 'settings';
 
 export type ProductAction =
@@ -26,13 +26,14 @@ export type ProductRoute =
   | 'request'
   | 'exchange'
   | 'manage-assets'
-  | 'events'
+  | 'activity'
   | 'operation-details'
-  | 'xapps'
+  | 'dapps'
   | 'settings-home'
   | 'accounts-settings'
   | 'security-settings'
   | 'network-settings'
+  | 'language-settings'
   | 'about';
 
 export type OnboardingRoute =
@@ -49,6 +50,8 @@ export type OnboardingRoute =
 export type ProductRouteParams = Readonly<{
   home: undefined;
   'account-details': Readonly<{accountId: string}>;
+  // Existing-wallet add account currently has no route payload; the screen
+  // reads account creation inputs from local feature state.
   'add-account': undefined;
   // Asset identity is intentionally unresolved until the Home/Trustline read
   // model defines a stable public asset key.
@@ -61,20 +64,21 @@ export type ProductRouteParams = Readonly<{
   request: Readonly<{accountId: string}>;
   exchange: Readonly<{accountId: string}>;
   'manage-assets': Readonly<{accountId: string}>;
-  events: undefined;
+  activity: undefined;
   'operation-details': Readonly<{accountId: string; operationId: string}>;
-  xapps: undefined;
+  dapps: undefined;
   'settings-home': undefined;
   'accounts-settings': undefined;
   'security-settings': undefined;
   'network-settings': undefined;
+  'language-settings': undefined;
   about: undefined;
 }>;
 
 export const MAIN_TABS: readonly MainTab[] = [
   'home',
-  'events',
-  'xapps',
+  'activity',
+  'dapps',
   'settings',
 ];
 
@@ -97,13 +101,14 @@ export const PRODUCT_ROUTES: Readonly<Record<MainTab, readonly ProductRoute[]>> 
     'exchange',
     'manage-assets',
   ],
-  events: ['events', 'operation-details'],
-  xapps: ['xapps'],
+  activity: ['activity', 'operation-details'],
+  dapps: ['dapps'],
   settings: [
     'settings-home',
     'accounts-settings',
     'security-settings',
     'network-settings',
+    'language-settings',
     'about',
   ],
 };

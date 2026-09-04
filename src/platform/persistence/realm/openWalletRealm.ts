@@ -16,7 +16,8 @@ export function walletRealmConfiguration(
     schema: [...WALLET_REALM_SCHEMAS],
     schemaVersion: WALLET_REALM_SCHEMA_VERSION,
     onMigration: () => {
-      // Schema v1 has no prior Mobile Realm schema to transform.
+      // Schema v2 only adds LocalePreferenceEntity. Existing account and signer
+      // records require no transformation.
     },
   };
 }

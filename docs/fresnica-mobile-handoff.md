@@ -1,5 +1,7 @@
 # Fresnica Mobile Project Handoff
 
+> Historical continuation notes. Product shell and rewrite rules live in `docs/stellar-product-information-architecture.md`. Capability evidence lives in `docs/mobile-capability-status.md`. Do not treat the “next milestone is Product Shell” section below as current.
+
 > Purpose: continuation baseline for the independent `fresnica-mobile` React Native application.
 >
 > Upstream Mobile SDK contract source of truth: `manran/fresnica/docs/platforms/mobile/sdk-usage.md`.

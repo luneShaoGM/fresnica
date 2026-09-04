@@ -1,5 +1,11 @@
 import {defaultTheme} from './theme/defaultTheme';
 
+export {AppThemeProvider} from './theme/AppThemeProvider';
+export {
+  createAppTheme,
+  DEFAULT_THEME_SEED,
+  resolveStatusBarContent,
+} from './theme/createAppTheme';
 export {defaultTheme};
 export {useAppTheme} from './theme/useAppTheme';
 export {useThemedStyles} from './theme/useThemedStyles';
@@ -8,13 +14,15 @@ export type {
   ThemeColors,
   ThemeFontWeight,
   ThemeRadii,
+  ThemeSeed,
   ThemeSpacing,
+  ThemeStatusBarContent,
   ThemeTextStyle,
   ThemeTypography,
 } from './theme/types';
 
-// Compatibility facade for the current product shell. New/reworked UI should
-// depend on semantic AppTheme fields instead of adding more legacy palette names.
+// Legacy static facade for scaffolding that has not reached its F4 rewrite yet.
+// Runtime-theme-aware code must use useAppTheme/useThemedStyles instead.
 export const palette = {
   background: defaultTheme.colors.background,
   surface: defaultTheme.colors.surface,

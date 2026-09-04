@@ -1,6 +1,8 @@
 # Fresnica Mobile Product Parity Roadmap
 
-> Product reference: `luneShaoGM/Stellar` branch `stellar-migration`.
+> Historical inventory. Product shell, naming, and rewrite order live in `docs/stellar-product-information-architecture.md`. Ignore Events/XApps and older tab claims in this file when they conflict.
+
+> Product reference: `origin/Stellar` branch `stellar-migration`.
 >
 > Architecture/style authority: `docs/mobile-architecture-style-guide.md`.
 >

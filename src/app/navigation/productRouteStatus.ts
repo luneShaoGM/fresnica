@@ -18,11 +18,11 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'account-details': {
     readiness: 'structure-only',
-    note: 'The account surface is routed through the runtime shell and now follows the Stellar visual hierarchy; signer/access presenter behavior remains deferred.',
+    note: 'The account surface is registered in the Home native stack and follows the Stellar visual hierarchy; signer/access presenter behavior remains deferred.',
   },
   'add-account': {
     readiness: 'implemented',
-    note: 'Existing-wallet Add Account is routed through the runtime shell and currently supports watch-only only.',
+    note: 'Existing-wallet Add Account is registered in the Home native stack and currently supports watch-only only.',
   },
   'asset-details': {
     readiness: 'blocked',
@@ -30,7 +30,7 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'send-form': {
     readiness: 'implemented',
-    note: 'Runtime Send validates destination, exact decimal amount, selected balance asset and text memo before building an unsigned payment.',
+    note: 'Send validates destination, exact decimal amount, selected balance asset and text memo before building an unsigned payment.',
   },
   'send-review': {
     readiness: 'implemented',
@@ -52,21 +52,21 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
     readiness: 'implemented',
     note: 'Manage Assets is connected to the current Trustline capability and its product presentation has been aligned to the Stellar visual language.',
   },
-  events: {
+  activity: {
     readiness: 'capability-ready',
-    note: 'The Activity surface is rebuilt around the current History capability, retaining paging and stale-request protection while using the Stellar search/filter/list hierarchy.',
+    note: 'Activity now lives under the target feature id and uses the History capability with localized states, search, real category filters, paging, duplicate suppression and stale-request protection. Operation detail routing remains the next navigation-layer increment.',
   },
   'operation-details': {
     readiness: 'structure-only',
     note: 'Detail route remains reserved for stable accountId + operationId navigation; raw operation objects do not enter navigation and no unavailable Horizon detail data is fabricated.',
   },
-  xapps: {
+  dapps: {
     readiness: 'structure-only',
-    note: 'dApps is a first-class product tab with the Stellar-style segmented/category surface; browser, permission and signing behavior remains deferred to the dApps capability/security stage.',
+    note: 'The current dApps preview is only scaffolding. F4 must port the Stellar-owned catalog, Recent, browser, Freighter bridge, permissions and data exchange into Fresnica layers.',
   },
   'settings-home': {
     readiness: 'implemented',
-    note: 'Settings is a live runtime tab with the Stellar-style grouped information architecture routing Accounts, Security, Network and About destinations.',
+    note: 'Settings is a live bottom-tab root backed by a native stack for Accounts, Security, Network, Language and About destinations.',
   },
   'accounts-settings': {
     readiness: 'structure-only',
@@ -78,10 +78,14 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'network-settings': {
     readiness: 'structure-only',
-    note: 'Runtime destination is reachable and visually aligned to the migrated Settings hierarchy; Testnet configuration is display-only and Mainnet switching is intentionally unavailable.',
+    note: 'The Settings native stack reaches this visually aligned destination; Testnet configuration is display-only and Mainnet switching is intentionally unavailable.',
+  },
+  'language-settings': {
+    readiness: 'implemented',
+    note: 'The app exposes the full Stellar locale inventory, persists the selected locale independently of wallet secrets, and falls back to English for Fresnica dictionaries not yet migrated.',
   },
   about: {
     readiness: 'structure-only',
-    note: 'Runtime destination is reachable, visually aligned to the migrated Settings hierarchy, and displays application information.',
+    note: 'The Settings native stack reaches the visually aligned About destination and displays application information.',
   },
 };

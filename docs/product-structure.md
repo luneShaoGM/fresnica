@@ -1,5 +1,7 @@
 # Fresnica Mobile Product Structure
 
+> Historical. Product shell and rewrite rules live in `docs/stellar-product-information-architecture.md`. The three-tab diagram below (`Wallet | Activity | Settings`) is not the current target.
+
 ## Purpose
 
 This document defines the product shell before individual screens are filled in. The goal is to build Fresnica as one coherent wallet product, not as a sequence of isolated feature pages.

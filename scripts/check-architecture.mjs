@@ -5,14 +5,14 @@ const root = process.cwd();
 const srcRoot = path.join(root, 'src');
 const sourceExtensions = new Set(['.js', '.jsx', '.ts', '.tsx']);
 
-// New product surfaces are strict immediately. Existing legacy feature folders are
-// added here in the same PR that materially rewrites them to the new architecture.
+// New/reworked product surfaces are strict immediately. Legacy feature folders
+// are added when that surface is deliberately migrated under the rewrite guide.
 const strictPresentationScopes = [
-  'src/app/navigation/ProductShell',
+  'src/app/navigation/',
   'src/ui/components/',
   'src/features/home/',
-  'src/features/events/',
-  'src/features/xapps/',
+  'src/features/activity/',
+  'src/features/dapps/',
   'src/features/request/',
   'src/features/exchange/',
 ];
@@ -28,7 +28,7 @@ function walk(directory) {
     return [];
   }
 
-  const entries = fs.readdirSync(directory, {withFileTypes: true});
+  const entries = fs.readdirSync(directory, { withFileTypes: true });
   return entries.flatMap(entry => {
     const absolutePath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
@@ -68,8 +68,12 @@ function importsLayer(filePath, importSource, layer) {
   return resolved === layerRoot || resolved.startsWith(`${layerRoot}${path.sep}`);
 }
 
+function importsPackage(importSource, packageName) {
+  return importSource === packageName || importSource.startsWith(`${packageName}/`);
+}
+
 function addViolation(relativePath, rule, detail) {
-  violations.push({relativePath, rule, detail});
+  violations.push({ relativePath, rule, detail });
 }
 
 function isStrictPresentationFile(relativePath) {
@@ -85,11 +89,19 @@ function checkImports(filePath, relativePath, sourceText) {
   const isPlatform = relativePath.startsWith('src/platform/');
 
   for (const importSource of imports) {
+    if (importsPackage(importSource, 'react-native-navigation')) {
+      addViolation(
+        relativePath,
+        'navigation-library-boundary',
+        `imports ${importSource}; F0 requires React Navigation`,
+      );
+    }
+
     if (isStrictFeature) {
       if (importsLayer(filePath, importSource, 'platform')) {
         addViolation(relativePath, 'feature-platform-boundary', `imports ${importSource}`);
       }
-      if (importSource === 'realm' || importSource.startsWith('realm/') || importSource === '@stellar/stellar-sdk') {
+      if (importsPackage(importSource, 'realm') || importsPackage(importSource, '@stellar/stellar-sdk')) {
         addViolation(relativePath, 'feature-external-mechanism-boundary', `imports ${importSource}`);
       }
     }
@@ -98,7 +110,7 @@ function checkImports(filePath, relativePath, sourceText) {
       if (importsLayer(filePath, importSource, 'features') || importsLayer(filePath, importSource, 'ui')) {
         addViolation(relativePath, 'capability-presentation-boundary', `imports ${importSource}`);
       }
-      if (importSource === 'react' || importSource === 'react-native' || importSource === 'realm' || importSource.startsWith('realm/')) {
+      if (importSource === 'react' || importSource === 'react-native' || importsPackage(importSource, 'realm')) {
         addViolation(relativePath, 'capability-runtime-boundary', `imports ${importSource}`);
       }
     }
@@ -111,7 +123,7 @@ function checkImports(filePath, relativePath, sourceText) {
       ) {
         addViolation(relativePath, 'ui-domain-boundary', `imports ${importSource}`);
       }
-      if (importSource === 'realm' || importSource.startsWith('realm/') || importSource === '@stellar/stellar-sdk') {
+      if (importsPackage(importSource, 'realm') || importsPackage(importSource, '@stellar/stellar-sdk')) {
         addViolation(relativePath, 'ui-external-mechanism-boundary', `imports ${importSource}`);
       }
     }
@@ -123,7 +135,10 @@ function checkImports(filePath, relativePath, sourceText) {
     }
   }
 
-  if ((isStrictFeature || isUi) && /import\s*\{[^}]*\bNativeModules\b[^}]*\}\s*from\s*['"]react-native['"]/.test(sourceText)) {
+  if (
+    (isStrictFeature || isUi) &&
+    /import\s*\{[^}]*\bNativeModules\b[^}]*\}\s*from\s*['"]react-native['"]/.test(sourceText)
+  ) {
     addViolation(relativePath, 'native-modules-boundary', 'imports NativeModules from react-native');
   }
 }
@@ -158,6 +173,14 @@ function checkStrictPresentation(relativePath, sourceText) {
 if (!fs.existsSync(srcRoot)) {
   console.error('Architecture check failed: src/ directory not found.');
   process.exit(1);
+}
+
+if (fs.existsSync(path.join(srcRoot, 'services'))) {
+  addViolation(
+    'src/services',
+    'global-services-layer',
+    'global services layer is forbidden; use features/capabilities/platform',
+  );
 }
 
 for (const filePath of walk(srcRoot)) {

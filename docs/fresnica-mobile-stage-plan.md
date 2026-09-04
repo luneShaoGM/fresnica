@@ -1,6 +1,8 @@
 # Fresnica Mobile Staged Execution Plan
 
-> Purpose: execution roadmap for the Fresnica Mobile rewrite. This is an execution checklist, not a speculative wishlist. Git/source/tests/CI remain the source of truth.
+> Historical Capability/security PR evidence. Product shell, naming, and the current rewrite sequence (F0–F4) live in `docs/stellar-product-information-architecture.md`. Stages 1–4 below record what already shipped (temporary `ProductRuntime`, Send, History, Trustline). They are not the next construction order.
+
+> Purpose: execution checklist for already-run Capability/security gates. Git/source/tests/CI remain the source of truth.
 
 ## Operating rules
 

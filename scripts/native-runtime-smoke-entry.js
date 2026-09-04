@@ -1,10 +1,9 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import Realm from 'realm';
-import {AppRegistry, NativeModules, Text, View} from 'react-native';
-import {name as appName} from './app.json';
+import { AppRegistry, NativeModules, Text, View } from 'react-native';
+import { name as appName } from './app.json';
 
-const VALID_CLASSIC_ACCOUNT =
-  'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
+const VALID_CLASSIC_ACCOUNT = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
 const OK_MARKER = 'FRESNICA_PARSE_ACCOUNT_SMOKE_OK';
 const FAIL_MARKER = 'FRESNICA_PARSE_ACCOUNT_SMOKE_FAIL';
 const CALLBACK_BASE_URL = 'http://127.0.0.1:8765';
@@ -20,7 +19,7 @@ const REALM_SMOKE_SCHEMA = {
 async function report(marker, payload) {
   await fetch(`${CALLBACK_BASE_URL}/${marker}`, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
 }
@@ -43,9 +42,7 @@ function fresnicaNativeModuleDiagnostic() {
   return {
     enumerableKeys: fresnicaNativeModuleKeys(),
     hasFresnicaCoreModule:
-      alternate !== null &&
-      typeof alternate === 'object' &&
-      typeof alternate.parseAccount === 'function',
+      alternate !== null && typeof alternate === 'object' && typeof alternate.parseAccount === 'function',
   };
 }
 
@@ -57,7 +54,7 @@ async function verifyRealmRuntime() {
 
   try {
     realm.write(() => {
-      realm.create('RuntimeSmokeRecord', {id: 'smoke', value: 'ok'});
+      realm.create('RuntimeSmokeRecord', { id: 'smoke', value: 'ok' });
     });
     const record = realm.objectForPrimaryKey('RuntimeSmokeRecord', 'smoke');
     if (record?.value !== 'ok') {
@@ -80,16 +77,12 @@ function SmokeApp() {
       const core = NativeModules.FresnicaCore;
       if (core === null || typeof core !== 'object') {
         throw new Error(
-          `FresnicaCore native module is not linked; diagnostic: ${JSON.stringify(
-            fresnicaNativeModuleDiagnostic(),
-          )}`,
+          `FresnicaCore native module is not linked; diagnostic: ${JSON.stringify(fresnicaNativeModuleDiagnostic())}`,
         );
       }
       if (typeof core.parseAccount !== 'function') {
         throw new Error(
-          `FresnicaCore.parseAccount is not linked; diagnostic: ${JSON.stringify(
-            fresnicaNativeModuleDiagnostic(),
-          )}`,
+          `FresnicaCore.parseAccount is not linked; diagnostic: ${JSON.stringify(fresnicaNativeModuleDiagnostic())}`,
         );
       }
 
@@ -134,7 +127,7 @@ function SmokeApp() {
     run().catch(async error => {
       const message = errorMessage(error);
       try {
-        await report(FAIL_MARKER, {message});
+        await report(FAIL_MARKER, { message });
       } catch (reportError) {
         console.error(FAIL_MARKER, message, errorMessage(reportError));
       }
@@ -149,11 +142,7 @@ function SmokeApp() {
     };
   }, []);
 
-  return React.createElement(
-    View,
-    {testID: 'fresnica-runtime-smoke'},
-    React.createElement(Text, null, status),
-  );
+  return React.createElement(View, { testID: 'fresnica-runtime-smoke' }, React.createElement(Text, null, status));
 }
 
 AppRegistry.registerComponent(appName, () => SmokeApp);

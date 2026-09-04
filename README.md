@@ -20,6 +20,8 @@ Current foundation includes:
 
 ## Architecture
 
+Rewrite authority for product shell, naming, and execution order: `docs/stellar-product-information-architecture.md`. Layer and style rules: `docs/mobile-architecture-style-guide.md`.
+
 ```text
 Mobile Feature
   -> Application Flow

@@ -2,7 +2,9 @@
 
 > Status: architecture baseline for the ongoing Fresnica Mobile rewrite.
 >
-> This document defines how the current Fresnica codebase, the Stellar product donor, and Xaman engineering patterns are combined. Git/source/tests/CI and upstream Fresnica Application Capability contracts remain the implementation facts.
+> Product shell, naming, foundation order, and rewrite-not-copy rules: `docs/stellar-product-information-architecture.md`.
+>
+> This document defines layer boundaries and code style. Git/source/tests/CI and upstream Fresnica Application Capability contracts remain the implementation facts.
 
 ## 1. Source responsibilities
 
@@ -10,9 +12,9 @@ Fresnica Mobile deliberately uses three references with different authority:
 
 | Source | Authority | What to reuse | What not to inherit automatically |
 | --- | --- | --- | --- |
-| `luneShaoGM/fresnica` | Runtime architecture and current implementation | Application Capability boundaries, platform adapters, Realm persistence, exact-XDR review/sign/submit pipeline, Fresnica Native SDK integration | Current temporary product shell or placeholder visual design |
-| `luneShaoGM/Stellar` (`stellar-migration`) | Product and UX reference | Screen hierarchy, navigation shape, layout, user-visible states, feature entry points, transaction flow rhythm | Legacy service/repository/vault/security implementation as semantic authority |
-| `XRPL-Labs/Xaman-App` | Engineering/reference donor | Component packaging, co-located styles, theme separation, test organization, import aliases, style/lint discipline, mature wallet UI decomposition | XRPL-specific behavior, large global services, singleton-heavy state, old navigation/runtime architecture |
+| `origin/fresnica` (current Mobile + Core contracts) | Runtime architecture and current implementation | Application Capability boundaries, platform adapters, Realm persistence, exact-XDR review/sign/submit pipeline, Fresnica Native SDK integration | Current temporary product shell or placeholder visual design |
+| `origin/Stellar` (`stellar-migration`) | Product-idea reference only | Screen hierarchy, navigation roles, layout, user-visible states, feature entry points, transaction flow rhythm | Source files, services, vault/security, RNN boot. Visible names are Home / Activity / Actions / dApps / Settings |
+| `origin/Xaman-App` | Engineering-idea reference | Component packaging, co-located styles, theme tokens, test organization, import aliases, style/lint discipline | XRPL-specific behavior, large global `services/`, singleton `StyleService`/`Navigator`, PIN/Secret Number |
 
 The rule is:
 
@@ -55,9 +57,8 @@ src/
 │   │   ├── installRuntimePolyfills.ts
 │   │   └── createAppRuntime.ts
 │   ├── config/
-│   ├── navigation/
+│   ├── navigation/        # React Navigation; OverlayHost lives here / in App composition
 │   │   ├── routes.ts
-│   │   ├── navigationState.ts
 │   │   └── components/
 │   └── providers/
 │
@@ -80,9 +81,9 @@ src/
 │   ├── send/
 │   ├── request/
 │   ├── exchange/
-│   ├── events/
-│   ├── assets/
-│   ├── xapps/
+│   ├── activity/
+│   ├── assets/            # currently src/features/trustlines
+│   ├── dapps/
 │   └── settings/
 │
 ├── platform/
@@ -120,6 +121,8 @@ Directories are created only when there is real content for them. The target tre
 ### Why this differs from Xaman
 
 Xaman's top-level `screens / components / services / store / theme` structure is effective for discovering a mature UI, but its large global services allow many unrelated screens to reach the same mutable singletons. Fresnica already has a stronger `capabilities / platform` separation. We therefore reuse Xaman's packaging discipline without introducing a new flat global `services/` layer.
+
+Stellar is an Xaman fork. It is a product-idea reference only. Do not copy Stellar screens, services, or navigation boot. Product shell names are recorded in `docs/stellar-product-information-architecture.md`.
 
 ### Why this differs from the current Fresnica product shell
 
@@ -306,9 +309,9 @@ Avoid visual implementation names such as `blue`, `darkGreyButton` or `redText` 
 - Prefer semantic style names (`header`, `accountName`, `selectedTab`) over visual names (`blueText`, `leftBox`).
 - Keep style construction out of render loops.
 - Screen layout should reuse standard `Screen`, header, section, list-row, modal/overlay and bottom-action primitives where appropriate.
-- Light/dark mode should use an explicit Theme/provider model rather than a mutable global StyleService singleton.
+The Stellar/Xaman visual values are a packaging reference, not a frozen palette. Fresnica screens consume semantic `AppTheme` tokens. A later custom theme (image → extracted primary/secondary colors) must be able to replace the active theme without rewriting those screens. Light/dark, if added, uses the same provider — not a mutable global StyleService.
 
-The Stellar/Xaman visual values are a donor reference. Fresnica theme tokens become the canonical implementation source once parity is established.
+Status bar content style (dark icons on a light background, light icons on a dark background) is chrome owned by `app/`, derived from the active `AppTheme`. Feature screens do not hard-code `StatusBar` `barStyle`. Safe-area insets belong on Screen / Header / TabBar primitives via `react-native-safe-area-context`, not a copied Xaman `DeviceUtils` native module. Product contract: `docs/stellar-product-information-architecture.md` §10.1.
 
 ## 10. TypeScript and declaration style
 

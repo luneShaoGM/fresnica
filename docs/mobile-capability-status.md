@@ -2,6 +2,8 @@
 
 This file records current Mobile implementation evidence against the shared Fresnica Application Capability vocabulary. Upstream maturity labels describe the shared specification, not Mobile implementation quality.
 
+Target product shell, naming, and rewrite order: `docs/stellar-product-information-architecture.md`. Evidence below describes Git scaffolding as it is. It is **not** the rewrite completion bar (Developer Mode, hardware wallets, Stellar dApp port, and custom themes are required in that guide and absent here).
+
 ## Compatibility baseline
 
 ```text
@@ -52,7 +54,7 @@ Existing-wallet protected-signer creation/import remains disabled because Native
 
 ## Runtime Product Shell / Portfolio evidence
 
-- completed onboarding enters one `ProductRuntime`;
+- completed onboarding enters `AppNavigator` main tabs;
 - Wallet / Activity / Settings are typed roots;
 - navigation carries public account IDs/destinations only;
 - selected-account switching drives Wallet Home and a fresh Balance read;

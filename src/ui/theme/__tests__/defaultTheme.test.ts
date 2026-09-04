@@ -3,6 +3,8 @@ import {palette, radius, spacing, typography} from '../../theme';
 
 describe('default theme compatibility facade', () => {
   it('keeps legacy palette exports mapped to semantic colors', () => {
+    expect(defaultTheme.colors.primary).toBe(defaultTheme.colors.actionPrimary);
+    expect(defaultTheme.colors.secondary).toBe(defaultTheme.colors.surfaceStrong);
     expect(palette.background).toBe(defaultTheme.colors.background);
     expect(palette.surface).toBe(defaultTheme.colors.surface);
     expect(palette.surfaceMuted).toBe(defaultTheme.colors.surfaceMuted);
