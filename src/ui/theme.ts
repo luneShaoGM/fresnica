@@ -1,7 +1,11 @@
 import {defaultTheme} from './theme/defaultTheme';
 
 export {AppThemeProvider} from './theme/AppThemeProvider';
-export {createAppTheme, DEFAULT_THEME_SEED} from './theme/createAppTheme';
+export {
+  createAppTheme,
+  DEFAULT_THEME_SEED,
+  resolveStatusBarContent,
+} from './theme/createAppTheme';
 export {defaultTheme};
 export {useAppTheme} from './theme/useAppTheme';
 export {useThemedStyles} from './theme/useThemedStyles';
@@ -12,6 +16,7 @@ export type {
   ThemeRadii,
   ThemeSeed,
   ThemeSpacing,
+  ThemeStatusBarContent,
   ThemeTextStyle,
   ThemeTypography,
 } from './theme/types';

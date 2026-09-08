@@ -1,5 +1,6 @@
 import React from 'react';
 import {ScrollView, Text, View} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 
 import {useThemedStyles} from '@ui/theme';
 
@@ -26,14 +27,17 @@ export function Screen({
   const styles = useThemedStyles(createStyles);
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.screen}
-      keyboardShouldPersistTaps={keyboardShouldPersistTaps}>
-      {leading ? <View>{leading}</View> : null}
-      {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-      {title ? <Text style={styles.title}>{title}</Text> : null}
-      {description ? <Text style={styles.description}>{description}</Text> : null}
-      {children}
-    </ScrollView>
+    <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.safeArea}>
+      <ScrollView
+        contentContainerStyle={styles.screen}
+        keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+        style={styles.scrollView}>
+        {leading ? <View>{leading}</View> : null}
+        {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
+        {title ? <Text style={styles.title}>{title}</Text> : null}
+        {description ? <Text style={styles.description}>{description}</Text> : null}
+        {children}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
