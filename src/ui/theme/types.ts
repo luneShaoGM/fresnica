@@ -9,12 +9,28 @@ export type ThemeColors = Readonly<{
   textSecondary: string;
   textTertiary: string;
   border: string;
+  separatorSubtle: string;
   actionPrimary: string;
   actionPrimaryPressed: string;
+  actionPrimarySubtle: string;
+  actionPrimarySoft: string;
+  actionPrimaryMuted: string;
+  actionPrimaryDecoration: string;
+  actionPrimaryOutline: string;
+  actionPrimaryTrack: string;
   onActionPrimary: string;
+  onActionPrimarySubtle: string;
+  onActionPrimaryMuted: string;
+  onSurfaceStrong: string;
+  onSurfaceStrongMuted: string;
   overlayBackdrop: string;
   negative: string;
+  negativeStrong: string;
+  negativeMuted: string;
   positive: string;
+  positiveMuted: string;
+  warning: string;
+  warningMuted: string;
 }>;
 
 export type ThemeSpacing = Readonly<{
@@ -31,6 +47,19 @@ export type ThemeRadii = Readonly<{
   md: number;
   lg: number;
   pill: number;
+}>;
+
+export type ThemeElevationLevel = Readonly<{
+  offsetY: number;
+  opacity: number;
+  radius: number;
+  androidElevation: number;
+}>;
+
+export type ThemeElevation = Readonly<{
+  low: ThemeElevationLevel;
+  medium: ThemeElevationLevel;
+  high: ThemeElevationLevel;
 }>;
 
 export type ThemeFontWeight = '400' | '600' | '700';
@@ -57,12 +86,13 @@ export type AppTheme = Readonly<{
   colors: ThemeColors;
   spacing: ThemeSpacing;
   radii: ThemeRadii;
+  elevation: ThemeElevation;
   typography: ThemeTypography;
   statusBarContent: ThemeStatusBarContent;
 }>;
 
 export type ThemeSeed =
-  | Readonly<{kind: 'default'}>
+  | Readonly<{ kind: 'default' }>
   | Readonly<{
       kind: 'image';
       primary: string;

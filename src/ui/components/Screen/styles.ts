@@ -20,6 +20,16 @@ export function createStyles(theme: AppTheme) {
       paddingBottom: theme.spacing.xxl,
       gap: theme.spacing.md,
     },
+    screenFlush: {
+      paddingHorizontal: 0,
+      paddingTop: 0,
+      paddingBottom: 0,
+      gap: 0,
+    },
+    staticScreen: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
     eyebrow: {
       ...theme.typography.eyebrow,
       color: theme.colors.textSecondary,

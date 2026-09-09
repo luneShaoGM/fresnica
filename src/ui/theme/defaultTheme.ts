@@ -17,6 +17,11 @@ export const defaultTheme = {
     lg: 14,
     pill: 999,
   },
+  elevation: {
+    low: {offsetY: 2, opacity: 0.08, radius: 4, androidElevation: 2},
+    medium: {offsetY: 6, opacity: 0.12, radius: 12, androidElevation: 6},
+    high: {offsetY: 12, opacity: 0.18, radius: 24, androidElevation: 12},
+  },
   typography: {
     eyebrow: {fontSize: 11, lineHeight: 14, fontWeight: '700'},
     title: {fontSize: 28, lineHeight: 34, fontWeight: '700'},

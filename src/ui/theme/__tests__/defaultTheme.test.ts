@@ -5,6 +5,8 @@ describe('default theme compatibility facade', () => {
   it('keeps legacy palette exports mapped to semantic colors', () => {
     expect(defaultTheme.colors.primary).toBe(defaultTheme.colors.actionPrimary);
     expect(defaultTheme.colors.secondary).toBe(defaultTheme.colors.surfaceStrong);
+    expect(defaultTheme.colors.onSurfaceStrong).toBe('#FFFFFF');
+    expect(defaultTheme.colors.warning).toBe('#F8BF4C');
     expect(palette.background).toBe(defaultTheme.colors.background);
     expect(palette.surface).toBe(defaultTheme.colors.surface);
     expect(palette.surfaceMuted).toBe(defaultTheme.colors.surfaceMuted);
@@ -22,5 +24,6 @@ describe('default theme compatibility facade', () => {
     expect(spacing).toBe(defaultTheme.spacing);
     expect(radius).toBe(defaultTheme.radii);
     expect(typography).toBe(defaultTheme.typography);
+    expect(defaultTheme.elevation.medium.androidElevation).toBe(6);
   });
 });

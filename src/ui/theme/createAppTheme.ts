@@ -24,6 +24,7 @@ export function createAppTheme(seed: ThemeSeed = DEFAULT_THEME_SEED): AppTheme {
     colors,
     spacing: defaultTheme.spacing,
     radii: defaultTheme.radii,
+    elevation: defaultTheme.elevation,
     typography: defaultTheme.typography,
     statusBarContent: seed.statusBarContent ?? resolveStatusBarContent(colors.background),
   };

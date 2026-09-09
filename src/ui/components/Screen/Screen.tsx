@@ -1,5 +1,5 @@
 import React from 'react';
-import {ScrollView, Text, View} from 'react-native';
+import {ScrollView, Text, View, type StyleProp, type ViewStyle} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 
 import {useThemedStyles} from '@ui/theme';
@@ -13,6 +13,9 @@ export type ScreenProps = React.PropsWithChildren<
     description?: string;
     keyboardShouldPersistTaps?: 'always' | 'never' | 'handled';
     leading?: React.ReactNode;
+    scrollable?: boolean;
+    contentInset?: 'default' | 'none';
+    contentContainerStyle?: StyleProp<ViewStyle>;
   }>
 >;
 
@@ -23,21 +26,40 @@ export function Screen({
   description,
   keyboardShouldPersistTaps,
   leading,
+  scrollable = true,
+  contentInset = 'default',
+  contentContainerStyle,
 }: ScreenProps) {
   const styles = useThemedStyles(createStyles);
 
+  const content = (
+    <>
+      {leading ? <View>{leading}</View> : null}
+      {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
+      {title ? <Text style={styles.title}>{title}</Text> : null}
+      {description ? <Text style={styles.description}>{description}</Text> : null}
+      {children}
+    </>
+  );
+
+  const containerStyle = [
+    styles.screen,
+    contentInset === 'none' ? styles.screenFlush : undefined,
+    contentContainerStyle,
+  ];
+
   return (
     <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.screen}
-        keyboardShouldPersistTaps={keyboardShouldPersistTaps}
-        style={styles.scrollView}>
-        {leading ? <View>{leading}</View> : null}
-        {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-        {title ? <Text style={styles.title}>{title}</Text> : null}
-        {description ? <Text style={styles.description}>{description}</Text> : null}
-        {children}
-      </ScrollView>
+      {scrollable ? (
+        <ScrollView
+          contentContainerStyle={containerStyle}
+          keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+          style={styles.scrollView}>
+          {content}
+        </ScrollView>
+      ) : (
+        <View style={[styles.staticScreen, ...containerStyle]}>{content}</View>
+      )}
     </SafeAreaView>
   );
 }

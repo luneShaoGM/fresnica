@@ -12,6 +12,8 @@ export {useThemedStyles} from './theme/useThemedStyles';
 export type {
   AppTheme,
   ThemeColors,
+  ThemeElevation,
+  ThemeElevationLevel,
   ThemeFontWeight,
   ThemeRadii,
   ThemeSeed,
@@ -39,4 +41,5 @@ export const palette = {
 
 export const spacing = defaultTheme.spacing;
 export const radius = defaultTheme.radii;
+export const elevation = defaultTheme.elevation;
 export const typography = defaultTheme.typography;
