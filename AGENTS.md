@@ -2,32 +2,38 @@
 
 All new or materially rewritten Mobile code must follow:
 
-- `docs/stellar-product-information-architecture.md` — rewrite guide (product shell, naming, foundation order, definition of done)
+- `docs/stellar-product-information-architecture.md` — rewrite guide (maturity table is the start gate; product tables and §8/§9 are definition of done)
 - `docs/mobile-architecture-style-guide.md` — layer, style, and packaging rules
-- `docs/mobile-capability-status.md` and `docs/fresnica-mobile-stage-plan.md` — Capability/security evidence and upstream gates
+- `docs/fresnica-mobile-rewrite-execution-plan.md` — current construction order, status ledger, provenance and release sequencing
+- `docs/product-traceability-ledger.md` and `docs/provenance/README.md` — stable product IDs, stage/acceptance mapping and clean-room source gate
+- `docs/mobile-capability-status.md` and `docs/fresnica-mobile-stage-plan.md` — Capability/security evidence and historical upstream gates
 
 Historical inventories (ignore tab names, shell diagrams, and rewrite order when they conflict): `docs/product-parity-roadmap.md`, `docs/product-parity-matrix.md`, `docs/product-structure.md`, `docs/fresnica-mobile-handoff.md`, `docs/stellar-rewrite-milestones.md`, `docs/stellar-source-parity.md`, `docs/stellar-horizontal-parity-audit.md`, `docs/product-donor-map.md`.
 
 ## Authority order
 
-- Product ideas (shell, flows, interaction roles): `origin/Stellar@stellar-migration`, recorded in `docs/stellar-product-information-architecture.md`. User-visible names are `Home | Activity | Actions | dApps | Settings`. Stellar was forked from Xaman; do not copy Stellar or Xaman source **except Stellar-owned dApp** (catalog, browser, Freighter bridge, permission), which is ported into Fresnica layers. Vault/encryption may be referenced. Older product-structure/parity/handoff tab claims are historical where they conflict.
-- Engineering packaging ideas: `origin/Xaman-App` (component directories, theme tokens, lint/aliases), adapted rather than copied. Do not copy `Navigator` / `NavigationService` / `StyleService` / global `services/`. Navigation library is React Navigation (`docs/stellar-product-information-architecture.md` §5–§6 F0). Do not add Wix RNN. Developer Mode from Xaman/Stellar is in scope.
+- Product ideas (shell, flows, interaction roles): `origin/Stellar@stellar-migration`, recorded in `docs/stellar-product-information-architecture.md`. User-visible names are `Home | Activity | Actions | dApps | Settings`. Stellar was forked from Xaman and its later dApp work was built inside that derivative tree; do not copy Stellar or Xaman source. Preserve behavior through clean-room rewrite in Fresnica layers. A directly migrated file requires file-level provenance proving independent Fresnica ownership plus an explicit approval record. Vault/encryption may be referenced only as behavior/role input. Older product-structure/parity/handoff tab claims are historical where they conflict.
+- Engineering packaging ideas: `origin/Xaman-App` (component directories, theme tokens, lint/aliases), adapted rather than copied. Do not copy `Navigator` / `NavigationService` / `StyleService` / global `services/`. Navigation library is React Navigation (`docs/stellar-product-information-architecture.md` maturity table 2b / §5). Do not add Wix RNN. Developer Mode from Xaman/Stellar is in scope.
 - Ledger/security/business authority: `origin/fresnica` Application Capability/SDK/Core contracts plus current Mobile source. Hardware signers are a rewrite requirement, not residue. Current Mobile screens are scaffolding, not product-complete.
 
 Application semantics live in `capabilities/`. Do not add a global `src/services` layer.
 
 ## Product migration rule
 
-Before materially rewriting a product surface, identify its row in `docs/stellar-product-information-architecture.md` §7 and state:
+Before materially rewriting a product surface, first check the maturity table at the top of `docs/stellar-product-information-architecture.md`. Phase 0 is passed. Do not treat F4 rebuilds as consuming the theme shell until table row 2c (F3) is done. Then identify the row in §7 (including §7.8). Cross-cutting chrome/runtime uses §14; data kinds use §2.1. State:
 
-- Stellar reference surface;
+- maturity Phase and status;
+- Stellar reference surface or engineering role;
 - Fresnica feature owner;
 - required Capability/runtime boundary;
 - decision (`Adopt`, `Adapt`, `Exclude`);
-- foundation stage (`F0`–`F4`) or F4 surface from that guide;
+- F-alias only as a nickname (F0–F4), not as a separate queue;
 - strict architecture scope added or extended by the PR.
+- product traceability ID, delivery/acceptance mapping and clean-room/provenance classification from `docs/product-traceability-ledger.md` and `docs/provenance/README.md`.
 
-A donor screen is not automatically a Fresnica requirement. `Exclude` surfaces must not be implemented unless a current product/capability requirement explicitly promotes them.
+PRs must satisfy the guide's three gates: vertical slice, one transaction pipeline, closed-loop progress (not page count). Completeness outranks construction speed.
+
+A donor screen is not automatically a Fresnica requirement. `Exclude` surfaces must not be implemented unless a current product/capability requirement explicitly promotes them. A concern missing from §7 / §14 / §2.1 must be added to the guide before it is implemented.
 
 ## Architecture migration rule
 
