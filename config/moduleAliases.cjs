@@ -8,7 +8,6 @@ const moduleAliasTargets = Object.freeze({
   '@features': 'src/features',
   '@platform': 'src/platform',
   '@ui': 'src/ui',
-  '@lib': 'src/lib',
 });
 
 function resolveModuleAlias(moduleName) {

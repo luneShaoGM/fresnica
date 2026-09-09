@@ -15,7 +15,7 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
-const expectedAliases = ['@app', '@capabilities', '@features', '@platform', '@ui', '@lib'];
+const expectedAliases = ['@app', '@capabilities', '@features', '@platform', '@ui'];
 const configuredAliases = Object.keys(moduleAliasTargets);
 
 if (JSON.stringify(configuredAliases) !== JSON.stringify(expectedAliases)) {

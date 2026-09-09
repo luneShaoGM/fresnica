@@ -12,9 +12,7 @@
       "@platform": ["./src/platform"],
       "@platform/*": ["./src/platform/*"],
       "@ui": ["./src/ui"],
-      "@ui/*": ["./src/ui/*"],
-      "@lib": ["./src/lib"],
-      "@lib/*": ["./src/lib/*"]
+      "@ui/*": ["./src/ui/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
