@@ -9,20 +9,20 @@ describe('Fresnica adapter compatibility', () => {
     schemaVersion: 1,
     framework: 'react-native',
     frameworkVersion: '0.87.0',
-    adapterSourceVersion: '0.2.1',
-    fresnicaNativeSdkVersion: '0.2.1',
-    nativeBindingApiVersion: 2,
+    adapterSourceVersion: '0.3.0',
+    fresnicaNativeSdkVersion: '0.3.0',
+    nativeBindingApiVersion: 3,
     jsModuleName: 'FresnicaCore',
   } as const;
 
   it('records every separately versioned Mobile consumer contract', () => {
     expect(FRESNICA_SDK_COMPATIBILITY).toEqual({
-      nativeSdkVersion: '0.2.1',
-      nativeBindingApiVersion: 2,
-      universalSdkApiVersion: 3,
-      coreClientApiVersion: 3,
-      adapterSourceVersion: '0.2.1',
-      adapterSourceRevision: '47383bd94b1f88882dd0759f7275bd8b5452dcdb',
+      nativeSdkVersion: '0.3.0',
+      nativeBindingApiVersion: 3,
+      universalSdkApiVersion: 5,
+      coreClientApiVersion: 5,
+      adapterSourceVersion: '0.3.0',
+      adapterSourceRevision: 'b1d0427ec5c5398c3bb2e01b886e4e3084e46a73',
       reactNativeVersion: '0.87.0',
     });
     expect(Object.isFrozen(FRESNICA_SDK_COMPATIBILITY)).toBe(true);
@@ -41,7 +41,7 @@ describe('Fresnica adapter compatibility', () => {
     ['frameworkVersion', '0.88.0'],
     ['adapterSourceVersion', '0.2.0'],
     ['fresnicaNativeSdkVersion', '0.2.0'],
-    ['nativeBindingApiVersion', 3],
+    ['nativeBindingApiVersion', 2],
     ['jsModuleName', 'OtherModule'],
   ] as const)('rejects a %s mismatch', (field, value) => {
     const result = validateAdapterManifest({

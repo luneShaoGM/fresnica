@@ -19,13 +19,13 @@ Normal Mobile builds link binaries only. They do not compile Rust/Core, run UniF
 ## Version pins
 
 ```text
-Native SDK release/tag    native-sdk-v0.2.1
-Native SDK package        0.2.1
-Native Binding API        2
-Universal SDK API         3
-Core Client API           3
-RN adapter source         0.2.1
-Adapter source commit     47383bd94b1f88882dd0759f7275bd8b5452dcdb
+Native SDK release/tag    native-sdk-v0.3.0
+Native SDK package        0.3.0
+Native Binding API        3
+Universal SDK API         5
+Core Client API           5
+RN adapter source         0.3.0
+Adapter source commit     b1d0427ec5c5398c3bb2e01b886e4e3084e46a73
 React Native              0.87.0
 JS module                 FresnicaCore
 Android minSdk            26
@@ -34,13 +34,17 @@ Apple minimum iOS         13.4
 
 The adapter revision includes upstream PR #121 (`Align Apple React Native module name`), so Apple natively exports `FresnicaCore` via `RCT_EXTERN_REMAP_MODULE`. Mobile must not patch the bridge module name locally.
 
+Native SDK 0.3.0 adds the SEP-53 high-level React Native bridge operations `signMessageWithSystemAuth` and `signMessageWithPasscode`. The bridge signs the exact UTF-8 bytes of the JavaScript string and does not expose `WalletUnlockKey`, raw message-signing primitives, or a generic hash signer. `prepareEd25519Signing` / `applyEd25519Signature` remain the external-signer boundary.
+
+The exact 0.3.0 adapter source still requires two checkout-only Android compatibility patches in the RN 0.87 / Gradle 9.4.1 consumer build: Fresnica issues #128 (included-build init evaluation) and #129 (JVM target alignment). These patches change adapter build compatibility only; they do not change the Native/SDK contract and must be removed when upstream ships the canonical fixes.
+
 ## Mobile-owned files
 
 ```text
 vendor/fresnica/
   FresnicaNative.podspec
   native/
-    fresnica-native-sdk-0.2.1.aar
+    fresnica-native-sdk-0.3.0.aar
     FresnicaSDK.xcframework/
     FresnicaSDKFFI.xcframework/
   adapter/react-native/
@@ -49,14 +53,14 @@ vendor/fresnica/
     adapter-manifest.json
 ```
 
-Native SDK files come from the published `native-sdk-v0.2.1` release and are verified against its SHA256SUMS. Adapter binaries are generated from the pinned canonical adapter source inside the actual Mobile toolchain.
+Native SDK files come from the published `native-sdk-v0.3.0` release and are verified against its SHA256SUMS. Adapter binaries are generated from the pinned canonical adapter source inside the actual Mobile toolchain.
 
 ## Android
 
 Required host dependencies:
 
 ```gradle
-implementation files("../../vendor/fresnica/native/fresnica-native-sdk-0.2.1.aar")
+implementation files("../../vendor/fresnica/native/fresnica-native-sdk-0.3.0.aar")
 implementation files("../../vendor/fresnica/adapter/react-native/fresnica-rn-adapter.aar")
 implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.24"
 implementation "net.java.dev.jna:jna:5.12.1@aar"
@@ -67,7 +71,7 @@ implementation "androidx.core:core:1.12.0"
 
 React Native supplies `com.facebook.react:react-android` at the pinned framework version.
 
-Adapter source 0.2.1 is consumer-toolchain neutral. Its tooling invokes this project's `android/gradlew`, temporarily injects the adapter as a subproject, and uses Mobile's plugin resolution/repositories/compileSdk policy. Do not reintroduce a Fresnica-owned Gradle/AGP/Kotlin override shim.
+Adapter source 0.3.0 is consumer-toolchain neutral. Its tooling invokes this project's `android/gradlew`, temporarily injects the adapter as a subproject, and uses Mobile's plugin resolution/repositories/compileSdk policy. Do not reintroduce a Fresnica-owned Gradle/AGP/Kotlin override shim.
 
 One-time adapter build:
 
@@ -76,7 +80,7 @@ node .fresnica-upstream/adapters/react-native/tooling/fresnica-adapter.mjs \
   build react-native \
   --platform android \
   --project "$PWD" \
-  --native-android-aar "$PWD/vendor/fresnica/native/fresnica-native-sdk-0.2.1.aar" \
+  --native-android-aar "$PWD/vendor/fresnica/native/fresnica-native-sdk-0.3.0.aar" \
   --out "$PWD/vendor/fresnica/adapter/react-native"
 ```
 

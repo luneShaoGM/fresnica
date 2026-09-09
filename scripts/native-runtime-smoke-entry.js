@@ -80,9 +80,17 @@ function SmokeApp() {
           `FresnicaCore native module is not linked; diagnostic: ${JSON.stringify(fresnicaNativeModuleDiagnostic())}`,
         );
       }
-      if (typeof core.parseAccount !== 'function') {
+      const requiredMethods = [
+        'parseAccount',
+        'prepareEd25519Signing',
+        'applyEd25519Signature',
+        'signMessageWithSystemAuth',
+        'signMessageWithPasscode',
+      ];
+      const missingMethods = requiredMethods.filter(method => typeof core[method] !== 'function');
+      if (missingMethods.length > 0) {
         throw new Error(
-          `FresnicaCore.parseAccount is not linked; diagnostic: ${JSON.stringify(fresnicaNativeModuleDiagnostic())}`,
+          `FresnicaCore bridge methods are not linked: ${missingMethods.join(',')}; diagnostic: ${JSON.stringify(fresnicaNativeModuleDiagnostic())}`,
         );
       }
 
@@ -116,6 +124,8 @@ function SmokeApp() {
         address: identity.address,
         publicKey: identity.publicKey,
         invalidCode,
+        externalSigningBridge: 'ok',
+        sep53MessageSigningBridge: 'ok',
       };
       await report(OK_MARKER, summary);
       console.log(OK_MARKER, summary);

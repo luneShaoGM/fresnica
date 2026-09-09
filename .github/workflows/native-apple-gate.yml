@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: manran/fresnica
-          ref: 47383bd94b1f88882dd0759f7275bd8b5452dcdb
+          ref: b1d0427ec5c5398c3bb2e01b886e4e3084e46a73
           path: .fresnica-upstream
 
       - name: Set up Node
@@ -42,20 +42,20 @@ jobs:
       - name: Verify TypeScript and unit tests
         run: npm run check
 
-      - name: Download and verify Fresnica Native SDK 0.2.1
+      - name: Download and verify Fresnica Native SDK 0.3.0
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p vendor/fresnica/native vendor/fresnica/adapter/react-native
-          curl --fail --location --retry 3 --output "$RUNNER_TEMP/FresnicaSDK-0.2.1-apple.zip" https://github.com/manran/fresnica/releases/download/native-sdk-v0.2.1/FresnicaSDK-0.2.1-apple.zip
-          curl --fail --location --retry 3 --output "$RUNNER_TEMP/SHA256SUMS" https://github.com/manran/fresnica/releases/download/native-sdk-v0.2.1/SHA256SUMS
-          expected="$(grep 'FresnicaSDK-0.2.1-apple.zip' "$RUNNER_TEMP/SHA256SUMS" | awk '{print $1}')"
-          test "$expected" = "dccb756ca034a42df760114031ea2abf7b0e95cabebda6fe536c29f1dcd5a3d2"
-          actual="$(shasum -a 256 "$RUNNER_TEMP/FresnicaSDK-0.2.1-apple.zip" | awk '{print $1}')"
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/FresnicaSDK-0.3.0-apple.zip" https://github.com/manran/fresnica/releases/download/native-sdk-v0.3.0/FresnicaSDK-0.3.0-apple.zip
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/SHA256SUMS" https://github.com/manran/fresnica/releases/download/native-sdk-v0.3.0/SHA256SUMS
+          expected="$(grep 'FresnicaSDK-0.3.0-apple.zip' "$RUNNER_TEMP/SHA256SUMS" | awk '{print $1}')"
+          test "$expected" = "50759efe4bb98243d13ddd735f69631574f9a40c3bc917596cbc7c69992b6464"
+          actual="$(shasum -a 256 "$RUNNER_TEMP/FresnicaSDK-0.3.0-apple.zip" | awk '{print $1}')"
           test "$actual" = "$expected"
           extract_dir="$RUNNER_TEMP/fresnica-apple-sdk"
           rm -rf "$extract_dir" && mkdir -p "$extract_dir"
-          unzip -q "$RUNNER_TEMP/FresnicaSDK-0.2.1-apple.zip" -d "$extract_dir"
+          unzip -q "$RUNNER_TEMP/FresnicaSDK-0.3.0-apple.zip" -d "$extract_dir"
           sdk="$(find "$extract_dir" -type d -name FresnicaSDK.xcframework -print -quit)"
           ffi="$(find "$extract_dir" -type d -name FresnicaSDKFFI.xcframework -print -quit)"
           test -n "$sdk" && test -n "$ffi"
@@ -73,7 +73,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(node -p "require('./.fresnica-upstream/adapters/react-native/package.json').version")" = "0.2.1"
+          test "$(node -p "require('./.fresnica-upstream/adapters/react-native/package.json').version")" = "0.3.0"
           grep -F '@interface RCT_EXTERN_REMAP_MODULE(FresnicaCore, FresnicaCoreModule, NSObject)' \
             .fresnica-upstream/adapters/react-native/apple/FresnicaCoreModule.m
 

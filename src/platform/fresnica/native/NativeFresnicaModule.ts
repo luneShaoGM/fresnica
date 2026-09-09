@@ -4,15 +4,11 @@ import type {
   GeneratedSigner,
   ProtectedSigner,
   RevealedSigningMaterial,
-} from '../types';
+} from '../../../capabilities/ports/fresnicaTypes';
 
 export interface NativeFresnicaModule {
   parseAccount(address: string): Promise<AccountIdentity>;
-  protectSecret(
-    secret: string,
-    appPasscode: string,
-    expectedSignerPublicKey?: string,
-  ): Promise<ProtectedSigner>;
+  protectSecret(secret: string, appPasscode: string, expectedSignerPublicKey?: string): Promise<ProtectedSigner>;
   protectMnemonic(
     mnemonic: string,
     mnemonicPassphrase: string,
@@ -45,10 +41,7 @@ export interface NativeFresnicaModule {
     freshAppPasscode: string,
     expectedSignerPublicKey: string,
   ): Promise<RevealedSigningMaterial>;
-  prepareEd25519Signing(
-    transactionXdrBase64: string,
-    networkPassphrase: string,
-  ): Promise<Ed25519SigningRequest>;
+  prepareEd25519Signing(transactionXdrBase64: string, networkPassphrase: string): Promise<Ed25519SigningRequest>;
   applyEd25519Signature(
     transactionXdrBase64: string,
     networkPassphrase: string,
@@ -66,6 +59,18 @@ export interface NativeFresnicaModule {
   hasSignerSystemAuth(expectedSignerPublicKey: string): Promise<boolean>;
   removeSignerSystemAuth(expectedSignerPublicKey: string): Promise<boolean>;
   removeSystemAuthDomain(): Promise<boolean>;
+  signMessageWithSystemAuth(
+    envelopeJson: string,
+    expectedSignerPublicKey: string,
+    message: string,
+    reason: string,
+  ): Promise<string>;
+  signMessageWithPasscode(
+    envelopeJson: string,
+    appPasscode: string,
+    expectedSignerPublicKey: string,
+    message: string,
+  ): Promise<string>;
   signWithSystemAuth(
     envelopeJson: string,
     expectedSignerPublicKey: string,

@@ -5,7 +5,7 @@ function readAndroidRootBuildGradle(): string {
 }
 
 describe('Android native compatibility', () => {
-  it('pins minSdkVersion 26 for Fresnica Native SDK 0.2.1', () => {
+  it('pins minSdkVersion 26 for Fresnica Native SDK 0.3.0', () => {
     expect(readAndroidRootBuildGradle()).toMatch(/minSdkVersion\s*=\s*26\b/);
   });
 });
