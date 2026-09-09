@@ -1,9 +1,9 @@
-import type {AccountSignerRepository} from '../account/AccountSignerRepository';
-import type {SignerRecord} from '../signer/types';
-import type {FresnicaSdk} from '../../platform/fresnica/FresnicaSdk';
+import type { AccountSignerRepository } from '../account/AccountSignerRepository';
+import type { SignerRecord } from '../signer/types';
+import type { FresnicaSdkPort } from '../ports/FresnicaSdkPort';
 
 export type ApplicationSecurityDependencies = Readonly<{
-  sdk: FresnicaSdk;
+  sdk: FresnicaSdkPort;
   repository: AccountSignerRepository;
 }>;
 
@@ -19,12 +19,8 @@ export type EnableSystemAuthResult = Readonly<{
   failedSignerPublicKeys: readonly string[];
 }>;
 
-export async function getSystemAuthStatus(
-  dependencies: ApplicationSecurityDependencies,
-): Promise<SystemAuthStatus> {
-  const protectedSigners = protectedSoftwareSigners(
-    dependencies.repository.listSigners(),
-  );
+export async function getSystemAuthStatus(dependencies: ApplicationSecurityDependencies): Promise<SystemAuthStatus> {
+  const protectedSigners = protectedSoftwareSigners(dependencies.repository.listSigners());
   const available = await dependencies.sdk.canUseSystemAuth();
   const domainInitialized = await dependencies.sdk.hasSystemAuthDomain();
 
@@ -38,9 +34,7 @@ export async function getSystemAuthStatus(
   }
 
   const enrollment = await Promise.all(
-    protectedSigners.map(signer =>
-      dependencies.sdk.hasSignerSystemAuth(signer.publicKey),
-    ),
+    protectedSigners.map(signer => dependencies.sdk.hasSignerSystemAuth(signer.publicKey)),
   );
 
   return {
@@ -53,11 +47,9 @@ export async function getSystemAuthStatus(
 
 export async function enableSystemAuth(
   dependencies: ApplicationSecurityDependencies,
-  input: Readonly<{appPassphrase: string; reason: string}>,
+  input: Readonly<{ appPassphrase: string; reason: string }>,
 ): Promise<EnableSystemAuthResult> {
-  const protectedSigners = protectedSoftwareSigners(
-    dependencies.repository.listSigners(),
-  );
+  const protectedSigners = protectedSoftwareSigners(dependencies.repository.listSigners());
   if (protectedSigners.length === 0) {
     throw new Error('protected-signer-required');
   }
@@ -78,7 +70,7 @@ export async function enableSystemAuth(
     try {
       await dependencies.sdk.registerSignerSystemAuth({
         envelopeJson: signer.envelopeJson!,
-        appPasscode: input.appPassphrase,
+        appPassphrase: input.appPassphrase,
         expectedSignerPublicKey: signer.publicKey,
       });
     } catch (error) {
@@ -102,19 +94,13 @@ export async function enableSystemAuth(
   };
 }
 
-export async function disableSystemAuth(
-  dependencies: ApplicationSecurityDependencies,
-): Promise<SystemAuthStatus> {
+export async function disableSystemAuth(dependencies: ApplicationSecurityDependencies): Promise<SystemAuthStatus> {
   if (await dependencies.sdk.hasSystemAuthDomain()) {
     await dependencies.sdk.removeSystemAuthDomain();
   }
   return getSystemAuthStatus(dependencies);
 }
 
-function protectedSoftwareSigners(
-  signers: readonly SignerRecord[],
-): SignerRecord[] {
-  return signers.filter(
-    signer => signer.kind === 'protected-software' && Boolean(signer.envelopeJson),
-  );
+function protectedSoftwareSigners(signers: readonly SignerRecord[]): SignerRecord[] {
+  return signers.filter(signer => signer.kind === 'protected-software' && Boolean(signer.envelopeJson));
 }

@@ -8,7 +8,11 @@ Fresnica Mobile uses a strong **app passphrase** to protect local software signi
 
 New passphrases must contain at least 15 Unicode characters. This follows the current upstream passphrase policy and intentionally rejects PIN-length values such as `123456`.
 
-The Native Binding API 2 still exposes compatibility names such as `appPasscode`, `signWithPasscode`, and `invalid-passcode`. Mobile may keep those names at the platform adapter boundary until the upstream binding contract changes; product/domain/UI terminology is `passphrase`.
+Product intent is passphrase-first protection with system-auth convenience: creating or importing a protected software signer establishes the strong app passphrase, routine signing should normally use System Auth, and serious maintenance or explicitly high-risk actions require a fresh passphrase. The product must not offer a short numeric passcode mode as an alternative protection root.
+
+Firefly and imToken are UX references for this split between a strong wallet credential and convenient system authentication; they are not implementation or cryptographic authorities. Compared with Xaman strongest-password mode, Fresnica intentionally relies more on System Auth for routine actions while retaining fresh-passphrase authority for export, recovery, credential rotation, and other serious maintenance.
+
+The Native Binding API 3 still exposes compatibility names such as `appPasscode`, `signWithPasscode`, and `invalid-passcode`. Mobile may keep those names at the platform adapter boundary until the upstream binding contract changes; product/domain/UI terminology is `passphrase`.
 
 Never persist the passphrase, mnemonic, secret key, WalletUnlockKey, decrypted signer material, or biometric cipher/authentication state in Realm, Redux/navigation state, logs, analytics, or crash reports.
 

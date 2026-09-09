@@ -1,11 +1,7 @@
-import type {FresnicaSdk} from '../../../platform/fresnica/FresnicaSdk';
-import {InMemoryAccountSignerRepository} from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
-import type {SignerRecord} from '../../signer/types';
-import {
-  disableSystemAuth,
-  enableSystemAuth,
-  getSystemAuthStatus,
-} from '../systemAuth';
+import type { FresnicaSdkPort } from '../../ports/FresnicaSdkPort';
+import { InMemoryAccountSignerRepository } from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
+import type { SignerRecord } from '../../signer/types';
+import { disableSystemAuth, enableSystemAuth, getSystemAuthStatus } from '../systemAuth';
 
 const now = new Date('2026-08-31T00:00:00.000Z');
 
@@ -39,9 +35,9 @@ function createDependencies(input?: {
       return true;
     }),
     hasSignerSystemAuth: jest.fn(async (publicKey: string) => enrolled.has(publicKey)),
-    registerSignerSystemAuth: jest.fn(async ({expectedSignerPublicKey}: {expectedSignerPublicKey: string}) => {
+    registerSignerSystemAuth: jest.fn(async ({ expectedSignerPublicKey }: { expectedSignerPublicKey: string }) => {
       if (registrationFailures.has(expectedSignerPublicKey)) {
-        throw new Error('invalid-passcode');
+        throw new Error('invalid-passphrase');
       }
       enrolled.add(expectedSignerPublicKey);
       return true;
@@ -51,14 +47,14 @@ function createDependencies(input?: {
       enrolled.clear();
       return true;
     }),
-  } as unknown as jest.Mocked<FresnicaSdk>;
+  } as unknown as jest.Mocked<FresnicaSdkPort>;
 
-  return {repository, sdk, dependencies: {repository, sdk}};
+  return { repository, sdk, dependencies: { repository, sdk } };
 }
 
 describe('application System Auth', () => {
   it('reports device/domain/signer enrollment status', async () => {
-    const {repository, dependencies} = createDependencies({
+    const { repository, dependencies } = createDependencies({
       domainInitialized: true,
       enrolled: ['Gsigner-a'],
     });
@@ -74,7 +70,7 @@ describe('application System Auth', () => {
   });
 
   it('initializes the device domain once and registers every protected signer', async () => {
-    const {repository, sdk, dependencies} = createDependencies();
+    const { repository, sdk, dependencies } = createDependencies();
     repository.createSigner(protectedSigner('signer-a'));
     repository.createSigner(protectedSigner('signer-b'));
 
@@ -90,7 +86,7 @@ describe('application System Auth', () => {
   });
 
   it('removes a newly initialized empty domain and surfaces the registration error', async () => {
-    const {repository, sdk, dependencies} = createDependencies({
+    const { repository, sdk, dependencies } = createDependencies({
       registrationFailures: ['Gsigner-a', 'Gsigner-b'],
     });
     repository.createSigner(protectedSigner('signer-a'));
@@ -101,13 +97,13 @@ describe('application System Auth', () => {
         appPassphrase: 'wrong app passphrase',
         reason: 'Enable Fresnica System Auth',
       }),
-    ).rejects.toThrow('invalid-passcode');
+    ).rejects.toThrow('invalid-passphrase');
 
     expect(sdk.removeSystemAuthDomain).toHaveBeenCalledTimes(1);
   });
 
   it('keeps partial registration failures visible and retryable', async () => {
-    const {repository, dependencies} = createDependencies({
+    const { repository, dependencies } = createDependencies({
       domainInitialized: true,
       registrationFailures: ['Gsigner-b'],
     });
@@ -124,7 +120,7 @@ describe('application System Auth', () => {
   });
 
   it('fails closed when System Auth is unavailable', async () => {
-    const {repository, sdk, dependencies} = createDependencies({available: false});
+    const { repository, sdk, dependencies } = createDependencies({ available: false });
     repository.createSigner(protectedSigner('signer-a'));
 
     await expect(
@@ -137,7 +133,7 @@ describe('application System Auth', () => {
   });
 
   it('removes the whole device domain when disabled', async () => {
-    const {repository, sdk, dependencies} = createDependencies({
+    const { repository, sdk, dependencies } = createDependencies({
       domainInitialized: true,
       enrolled: ['Gsigner-a'],
     });
