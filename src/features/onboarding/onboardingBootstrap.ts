@@ -65,7 +65,7 @@ export async function recoverPendingMnemonicBackup(
 
   const revealed = await dependencies.sdk.reveal({
     envelopeJson: signer.envelopeJson,
-    freshAppPasscode: appPassphrase,
+    freshAppPassphrase: appPassphrase,
     expectedSignerPublicKey: signer.publicKey,
   });
 

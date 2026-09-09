@@ -1,12 +1,12 @@
-import type {FresnicaSdk} from '../../platform/fresnica/FresnicaSdk';
-import type {AccountSignerRepository} from './AccountSignerRepository';
-import type {AccountRecord} from './types';
-import type {BackupState, RecoveryKind, SignerRecord} from '../signer/types';
+import type { FresnicaSdkPort } from '../ports/FresnicaSdkPort';
+import type { AccountSignerRepository } from './AccountSignerRepository';
+import type { AccountRecord } from './types';
+import type { BackupState, RecoveryKind, SignerRecord } from '../signer/types';
 
 export type ProvisionRecordIdFactory = (kind: 'account' | 'signer') => string;
 
 export type ProvisionAccountDependencies = {
-  sdk: FresnicaSdk;
+  sdk: FresnicaSdkPort;
   repository: AccountSignerRepository;
   createId: ProvisionRecordIdFactory;
   now: () => Date;
@@ -82,7 +82,7 @@ export async function importSecretAccount(
 ): Promise<ProvisionedAccount> {
   const protectedSigner = await dependencies.sdk.protectSecret({
     secret: input.secret,
-    appPasscode: input.appPassphrase,
+    appPassphrase: input.appPassphrase,
   });
 
   return persistProtectedSigner(dependencies, protectedSigner, {
@@ -101,7 +101,7 @@ export async function importMnemonicAccount(
     mnemonicPassphrase: input.mnemonicPassphrase,
     index: input.index,
     language: input.language,
-    appPasscode: input.appPassphrase,
+    appPassphrase: input.appPassphrase,
   });
 
   return persistProtectedSigner(dependencies, protectedSigner, {
@@ -120,7 +120,7 @@ export async function generateMnemonicAccount(
     strength: input.strength,
     mnemonicPassphrase: input.mnemonicPassphrase,
     index: input.index,
-    appPasscode: input.appPassphrase,
+    appPassphrase: input.appPassphrase,
   });
 
   const persisted = await persistProtectedSigner(dependencies, generated.signer, {
@@ -147,7 +147,7 @@ type PersistProtectedSignerOptions = {
 
 async function persistProtectedSigner(
   dependencies: ProvisionAccountDependencies,
-  protectedSigner: {signerPublicKey: string; envelopeJson: string},
+  protectedSigner: { signerPublicKey: string; envelopeJson: string },
   options: PersistProtectedSignerOptions,
 ): Promise<ProvisionedAccount> {
   const networkId = requireNonEmpty(options.networkId, 'networkId');
@@ -175,9 +175,7 @@ async function persistProtectedSigner(
     kind: 'protected-software',
     envelopeJson: protectedSigner.envelopeJson,
     recoveryKind: options.recoveryKind,
-    ...(options.backupState === undefined
-      ? {}
-      : {backupState: options.backupState}),
+    ...(options.backupState === undefined ? {} : { backupState: options.backupState }),
     createdAt: now,
     updatedAt: now,
   };
@@ -188,7 +186,7 @@ async function persistProtectedSigner(
     attachedAt: now,
   });
 
-  return {account, signer};
+  return { account, signer };
 }
 
 function requireNonEmpty(value: string, field: string): string {

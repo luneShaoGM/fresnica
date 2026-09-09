@@ -1,8 +1,8 @@
-import type {FresnicaSdk} from '../../../platform/fresnica/FresnicaSdk';
-import {InMemoryAccountSignerRepository} from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
-import type {ProvisionAccountDependencies} from '../../../capabilities/account/provisionAccount';
-import type {AccountRecord} from '../../../capabilities/account/types';
-import type {SignerRecord} from '../../../capabilities/signer/types';
+import type { FresnicaSdkPort } from '../../../capabilities/ports/FresnicaSdkPort';
+import { InMemoryAccountSignerRepository } from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
+import type { ProvisionAccountDependencies } from '../../../capabilities/account/provisionAccount';
+import type { AccountRecord } from '../../../capabilities/account/types';
+import type { SignerRecord } from '../../../capabilities/signer/types';
 import {
   confirmMnemonicBackup,
   recoverPendingMnemonicBackup,
@@ -48,21 +48,21 @@ function createDependencies() {
   }));
   const dependencies: ProvisionAccountDependencies = {
     repository,
-    sdk: {reveal} as unknown as FresnicaSdk,
+    sdk: { reveal } as unknown as FresnicaSdkPort,
     createId: () => 'unused',
     now: () => new Date('2026-08-29T00:00:00.000Z'),
   };
-  return {dependencies, repository, reveal};
+  return { dependencies, repository, reveal };
 }
 
 describe('onboarding bootstrap', () => {
   it('starts onboarding when no account exists', () => {
-    const {dependencies} = createDependencies();
-    expect(resolveOnboardingBootstrap(dependencies)).toEqual({kind: 'onboarding'});
+    const { dependencies } = createDependencies();
+    expect(resolveOnboardingBootstrap(dependencies)).toEqual({ kind: 'onboarding' });
   });
 
   it('resumes pending generated-mnemonic backup after restart', () => {
-    const {dependencies, repository} = createDependencies();
+    const { dependencies, repository } = createDependencies();
     repository.createAccountWithSigner({
       account: account(),
       signer: pendingSigner(),
@@ -77,20 +77,14 @@ describe('onboarding bootstrap', () => {
   });
 
   it('recovers pending mnemonic only through fresh-passphrase reveal', async () => {
-    const {dependencies, repository, reveal} = createDependencies();
+    const { dependencies, repository, reveal } = createDependencies();
     repository.createAccountWithSigner({
       account: account(),
       signer: pendingSigner(),
       attachedAt: now,
     });
 
-    await expect(
-      recoverPendingMnemonicBackup(
-        dependencies,
-        'signer-a',
-        'a strong app passphrase',
-      ),
-    ).resolves.toEqual({
+    await expect(recoverPendingMnemonicBackup(dependencies, 'signer-a', 'a strong app passphrase')).resolves.toEqual({
       mnemonic: 'alpha beta gamma',
       language: 'english',
       index: 0,
@@ -98,13 +92,13 @@ describe('onboarding bootstrap', () => {
 
     expect(reveal).toHaveBeenCalledWith({
       envelopeJson: '{opaque-envelope}',
-      freshAppPasscode: 'a strong app passphrase',
+      freshAppPassphrase: 'a strong app passphrase',
       expectedSignerPublicKey: 'GSIGNER',
     });
   });
 
   it('marks backup confirmed and then boots ready', () => {
-    const {dependencies, repository} = createDependencies();
+    const { dependencies, repository } = createDependencies();
     repository.createAccountWithSigner({
       account: account(),
       signer: pendingSigner(),

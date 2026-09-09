@@ -1,4 +1,4 @@
-import type {FresnicaSdk} from '../../../platform/fresnica/FresnicaSdk';
+import type { FresnicaSdkPort } from '../../../capabilities/ports/FresnicaSdkPort';
 import type {AccountIdentity, GenerateMnemonicInput} from '../../../platform/fresnica/types';
 import {InMemoryAccountSignerRepository} from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
 import type {ProvisionAccountDependencies} from '../../../capabilities/account/provisionAccount';
@@ -42,7 +42,7 @@ function createDependencies() {
 
   let nextId = 0;
   const dependencies: ProvisionAccountDependencies = {
-    sdk: sdk as unknown as FresnicaSdk,
+    sdk: sdk as unknown as FresnicaSdkPort,
     repository,
     createId: kind => `${kind}-${++nextId}`,
     now: () => now,

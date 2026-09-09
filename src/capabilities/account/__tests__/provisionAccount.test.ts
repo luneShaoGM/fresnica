@@ -1,9 +1,6 @@
-import type {FresnicaSdk} from '../../../platform/fresnica/FresnicaSdk';
-import type {
-  AccountIdentity,
-  GenerateMnemonicInput,
-} from '../../../platform/fresnica/types';
-import {InMemoryAccountSignerRepository} from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
+import type { FresnicaSdkPort } from '../../ports/FresnicaSdkPort';
+import type { AccountIdentity, GenerateMnemonicInput } from '../../ports/fresnicaTypes';
+import { InMemoryAccountSignerRepository } from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
 import {
   generateMnemonicAccount,
   importMnemonicAccount,
@@ -17,13 +14,11 @@ const now = new Date('2026-08-28T00:00:00.000Z');
 function createDependencies() {
   const repository = new InMemoryAccountSignerRepository();
   const sdk = {
-    parseAccount: jest.fn(
-      async (address: string): Promise<AccountIdentity> => ({
-        kind: 'classic',
-        address,
-        publicKey: address,
-      }),
-    ),
+    parseAccount: jest.fn(async (address: string): Promise<AccountIdentity> => ({
+      kind: 'classic',
+      address,
+      publicKey: address,
+    })),
     protectSecret: jest.fn(async () => ({
       signerPublicKey: 'GSECRET',
       envelopeJson: '{secret-envelope}',
@@ -45,18 +40,18 @@ function createDependencies() {
 
   let nextId = 0;
   const dependencies: ProvisionAccountDependencies = {
-    sdk: sdk as unknown as FresnicaSdk,
+    sdk: sdk as unknown as FresnicaSdkPort,
     repository,
     createId: kind => `${kind}-${++nextId}`,
     now: () => now,
   };
 
-  return {dependencies, repository, sdk};
+  return { dependencies, repository, sdk };
 }
 
 describe('account provisioning', () => {
   it('registers watch-only identity without creating a signer', async () => {
-    const {dependencies, repository, sdk} = createDependencies();
+    const { dependencies, repository, sdk } = createDependencies();
 
     const account = await registerWatchOnlyAccount(dependencies, {
       address: 'GWATCH',
@@ -71,7 +66,7 @@ describe('account provisioning', () => {
   });
 
   it('imports a secret through Fresnica and persists only the protected signer', async () => {
-    const {dependencies, repository, sdk} = createDependencies();
+    const { dependencies, repository, sdk } = createDependencies();
 
     const result = await importSecretAccount(dependencies, {
       secret: 'SPLAINTEXT',
@@ -81,7 +76,7 @@ describe('account provisioning', () => {
 
     expect(sdk.protectSecret).toHaveBeenCalledWith({
       secret: 'SPLAINTEXT',
-      appPasscode: 'a strong app passphrase',
+      appPassphrase: 'a strong app passphrase',
     });
     expect(result.account.address).toBe('GSECRET');
     expect(result.signer.envelopeJson).toBe('{secret-envelope}');
@@ -92,7 +87,7 @@ describe('account provisioning', () => {
   });
 
   it('imports mnemonic material through Fresnica and does not return plaintext recovery material', async () => {
-    const {dependencies, repository, sdk} = createDependencies();
+    const { dependencies, repository, sdk } = createDependencies();
 
     const result = await importMnemonicAccount(dependencies, {
       mnemonic: 'one two three',
@@ -108,7 +103,7 @@ describe('account provisioning', () => {
       mnemonicPassphrase: '',
       index: 0,
       language: 'english',
-      appPasscode: 'a strong app passphrase',
+      appPassphrase: 'a strong app passphrase',
     });
     expect(result.account.address).toBe('GMNEMONIC');
     expect(result.signer.recoveryKind).toBe('mnemonic');
@@ -118,7 +113,7 @@ describe('account provisioning', () => {
   });
 
   it('returns generated mnemonic only as one-time result and marks backup pending', async () => {
-    const {dependencies, repository, sdk} = createDependencies();
+    const { dependencies, repository, sdk } = createDependencies();
 
     const result = await generateMnemonicAccount(dependencies, {
       language: 'english',
@@ -134,20 +129,16 @@ describe('account provisioning', () => {
       strength: 128,
       mnemonicPassphrase: '',
       index: 0,
-      appPasscode: 'a strong app passphrase',
+      appPassphrase: 'a strong app passphrase',
     });
     expect(result.mnemonic).toBe('alpha beta gamma');
     expect(result.signer.backupState).toBe('pending');
-    expect(repository.getSigner(result.signer.id)?.envelopeJson).toBe(
-      '{generated-envelope}',
-    );
-    expect(JSON.stringify(repository.getSigner(result.signer.id))).not.toContain(
-      'alpha beta gamma',
-    );
+    expect(repository.getSigner(result.signer.id)?.envelopeJson).toBe('{generated-envelope}');
+    expect(JSON.stringify(repository.getSigner(result.signer.id))).not.toContain('alpha beta gamma');
   });
 
   it('rejects a non-classic identity before persistence for software signer provisioning', async () => {
-    const {dependencies, repository, sdk} = createDependencies();
+    const { dependencies, repository, sdk } = createDependencies();
     sdk.parseAccount.mockResolvedValueOnce({
       kind: 'contract',
       address: 'CCONTRACT',
