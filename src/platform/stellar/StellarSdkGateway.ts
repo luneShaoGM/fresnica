@@ -1,4 +1,4 @@
-import { Asset, Horizon, Memo, Operation, StrKey, Transaction, TransactionBuilder } from '@stellar/stellar-sdk';
+import {Asset, Horizon, Memo, Operation, StrKey, Transaction, TransactionBuilder} from '@stellar/stellar-sdk/axios';
 
 import type { HistoryOperationRecord } from '../../capabilities/history/HistoryGateway';
 import type { NetworkContext } from '../../capabilities/network/types';
@@ -56,7 +56,7 @@ function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryOperatio
   });
 }
 
-function createDefaultServer(horizonUrl: string): HorizonServerLike {
+function createDefaultServer(horizonUrl: string, networkPassphrase: string): HorizonServerLike {
   const server = new Horizon.Server(horizonUrl);
 
   return {
@@ -97,7 +97,8 @@ function createDefaultServer(horizonUrl: string): HorizonServerLike {
         successful: transaction.successful,
       };
     },
-    submitTransaction: async transaction => {
+    submitTransaction: async signedXdrBase64 => {
+      const transaction = new Transaction(signedXdrBase64, networkPassphrase);
       const result = await server.submitTransaction(transaction);
       return {
         hash: result.hash,
@@ -290,7 +291,7 @@ export class StellarSdkGateway implements StellarGateway {
     private readonly config: StellarSdkGatewayConfig,
     server?: HorizonServerLike,
   ) {
-    this.server = server ?? createDefaultServer(config.horizonUrl);
+    this.server = server ?? createDefaultServer(config.horizonUrl, config.network.networkPassphrase);
   }
 
   async loadAccountAuthorization(address: string) {
@@ -568,11 +569,10 @@ export class StellarSdkGateway implements StellarGateway {
   }
 
   async submitTransaction(signedXdrBase64: string): Promise<TransactionSubmissionResult> {
-    const transaction = new Transaction(signedXdrBase64, this.config.network.networkPassphrase);
     const transactionHash = this.transactionHash(signedXdrBase64);
 
     try {
-      const result = await this.server.submitTransaction(transaction);
+      const result = await this.server.submitTransaction(signedXdrBase64);
       return {
         status: 'accepted',
         hash: result.hash,

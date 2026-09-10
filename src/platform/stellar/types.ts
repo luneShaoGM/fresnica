@@ -1,4 +1,4 @@
-import type { Asset, Transaction, TransactionSource } from '@stellar/stellar-sdk';
+import type {Asset, TransactionSource} from '@stellar/stellar-sdk';
 
 import type { BuiltTransaction, StellarPaymentAsset } from '../../capabilities/stellar/types';
 
@@ -142,7 +142,7 @@ export type HorizonServerLike = {
   loadLedgerParameters(): Promise<HorizonLedgerParametersLike>;
   loadLiquidityPool(id: string): Promise<HorizonLiquidityPoolLike>;
   loadTransaction(transactionHash: string): Promise<HorizonTransactionLike>;
-  submitTransaction(transaction: Transaction): Promise<{
+  submitTransaction(signedXdrBase64: string): Promise<{
     hash: string;
     ledger?: number;
   }>;

@@ -629,6 +629,7 @@ describe('StellarSdkGateway', () => {
       hash: 'accepted-hash',
       ledger: 77,
     });
+    expect(horizon.submitTransaction).toHaveBeenCalledWith(xdr);
   });
 
   it('derives and reconciles the exact network-bound transaction hash', async () => {
