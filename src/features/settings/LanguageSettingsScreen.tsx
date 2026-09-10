@@ -1,5 +1,7 @@
 import React from 'react';
-import {Pressable, SafeAreaView, ScrollView, Text, View} from 'react-native';
+import {Pressable, ScrollView, Text, View} from 'react-native';
+
+import {Screen} from '@ui/components';
 
 import {useLocalization} from '../../locale';
 import {useThemedStyles} from '../../ui/theme';
@@ -17,7 +19,7 @@ export function LanguageSettingsScreen({onBack}: Props) {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
@@ -55,6 +57,6 @@ export function LanguageSettingsScreen({onBack}: Props) {
           );
         })}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }

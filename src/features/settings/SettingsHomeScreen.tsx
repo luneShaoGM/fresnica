@@ -1,7 +1,10 @@
 import React from 'react';
-import {Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {Image, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+
+import {Screen} from '@ui/components';
 
 import {useLocalization} from '../../locale';
+import {useThemedStyles, type AppTheme} from '../../ui/theme';
 
 type Props = Readonly<{
   accountCount: number;
@@ -34,10 +37,11 @@ export function SettingsHomeScreen({
   onOpenAbout,
 }: Props) {
   const {locale, locales, t, tPlural} = useLocalization();
+  const styles = useThemedStyles(createStyles);
   const currentLocaleName = locales.find(option => option.code === locale)?.localName ?? locale;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen scrollable={false} contentInset="none">
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>{t('settings.title')}</Text>
 
@@ -79,11 +83,12 @@ export function SettingsHomeScreen({
 
         <Text style={styles.footer}>{t('settings.footer')}</Text>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 function SettingsGroup({children}: Readonly<{children?: React.ReactNode}>) {
+  const styles = useThemedStyles(createStyles);
   return <View style={styles.group}>{children}</View>;
 }
 
@@ -99,6 +104,7 @@ function SettingRow({
   onPress?: () => void;
 }>) {
   const {t} = useLocalization();
+  const styles = useThemedStyles(createStyles);
   const enabled = typeof onPress === 'function';
   return (
     <Pressable
@@ -123,20 +129,29 @@ function SettingRow({
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
-  content: {paddingHorizontal: 18, paddingTop: 8, paddingBottom: 36},
-  title: {fontSize: 28, lineHeight: 34, fontWeight: '800', color: '#000000', letterSpacing: -0.6, marginBottom: 18},
-  group: {marginBottom: 18},
-  row: {minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12},
-  iconSlot: {width: 30, height: 30, alignItems: 'center', justifyContent: 'center'},
-  rowIcon: {width: 25, height: 25, tintColor: '#00CA8A'},
-  label: {flex: 1, fontSize: 15, lineHeight: 19, color: '#000000', fontWeight: '600'},
-  labelDisabled: {color: '#606885'},
-  rowTail: {flexDirection: 'row', alignItems: 'center', gap: 9},
-  detail: {fontSize: 11, lineHeight: 14, color: '#ACB1C1'},
-  chevronIcon: {width: 22, height: 22, tintColor: '#00CA8A'},
-  soon: {fontSize: 10, lineHeight: 13, color: '#ACB1C1'},
-  footer: {fontSize: 10, lineHeight: 14, color: '#ACB1C1', textAlign: 'center', marginTop: 4},
-  pressed: {opacity: 0.62},
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    safeArea: {flex: 1, backgroundColor: theme.colors.background},
+    content: {paddingHorizontal: 18, paddingTop: 8, paddingBottom: 36},
+    title: {
+      fontSize: 28,
+      lineHeight: 34,
+      fontWeight: '800',
+      color: theme.colors.textPrimary,
+      letterSpacing: -0.6,
+      marginBottom: 18,
+    },
+    group: {marginBottom: 18},
+    row: {minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12},
+    iconSlot: {width: 30, height: 30, alignItems: 'center', justifyContent: 'center'},
+    rowIcon: {width: 25, height: 25, tintColor: theme.colors.actionPrimary},
+    label: {flex: 1, fontSize: 15, lineHeight: 19, color: theme.colors.textPrimary, fontWeight: '600'},
+    labelDisabled: {color: theme.colors.textSecondary},
+    rowTail: {flexDirection: 'row', alignItems: 'center', gap: 9},
+    detail: {fontSize: 11, lineHeight: 14, color: theme.colors.textTertiary},
+    chevronIcon: {width: 22, height: 22, tintColor: theme.colors.actionPrimary},
+    soon: {fontSize: 10, lineHeight: 13, color: theme.colors.textTertiary},
+    footer: {fontSize: 10, lineHeight: 14, color: theme.colors.textTertiary, textAlign: 'center', marginTop: 4},
+    pressed: {opacity: 0.62},
+  });
+}
