@@ -7,7 +7,7 @@
 | S01 | Create/import/watch-only/HD account entry | accounts/onboarding + Account/Signer | Adapt | clean-room | Fresnica recovery/derivation contracts | L3 partial |
 | S02 | Account list/select/label/sort/hide | accounts + Account | Adapt | clean-room | persistence lifecycle | L2/L3 partial |
 | S03 | Reveal mnemonic/secret/change passphrase | accounts/security + Signer/Backup | Adapt | clean-room | Fresnica reveal/reprotect/System Auth | L1/L2 partial |
-| S04 | App lock/auth/security/privacy controls | security + Application Security | Adapt | clean-room | generic System Auth challenge still missing | L2 partial/blocker |
+| S04 | App lock/auth/security/privacy controls | security + Application Security | Adapt | clean-room / Fresnica security requirement for disable confirmation | generic System Auth challenge still missing | L3 partial/blocker |
 | S05 | Home balances/availability/refresh/inactive/Friendbot | home + Balance/Network | Adapt | clean-room | Horizon; Friendbot Testnet only | L3 partial |
 | S06 | Asset discovery/details/icons/risk | assets + Asset Discovery | Adapt | clean-room | TOML/catalog authority | L1 partial |
 | S07 | Send/CreateAccount + memo families | send + Payment/Transaction | Adapt | clean-room | memo return/muxed require shared contract | L3 partial |
@@ -60,6 +60,13 @@ This map assigns construction order without reducing final scope. An ID is compl
 - Android and iOS current-head native runtime smoke both passed after the NetInfo dependency was integrated; iOS also completed a fresh simulator build.
 - This evidence passes the S07/S30 **shared recovery gate only**. The product rows remain `L3 partial` until their Stage 4 user-flow, failure, localization/accessibility and native/E2E acceptance is complete.
 - Future ledger-write slices S10–S12 and S18 must consume this recovery path; passing Stage 2.5 is not permission to implement them before their own Stage/Capability gates.
+
+## Current milestone security / release evidence
+
+- S04 `6a19346`: reachable Security Settings now requires an explicit second confirmation before disabling System Auth; cancellation paths do not call Native remove, in-flight confirm is de-duplicated, and Native failure preserves the truthful enabled state. This slice used no donor implementation; provenance is `none / Fresnica security requirement`. S04 is therefore `L3 partial/blocker`, not L4, because app-session unlock and other security/privacy sub-behaviors remain incomplete or upstream-blocked.
+- Release-critical S04 `50d8653`: Android release no longer references `signingConfigs.debug`; missing/partial credentials fail closed from the actual release task graph. A temporary local PKCS12 successfully signed `assembleRelease`, and `apksigner` verified `CN=Fresnica Local Release Gate` rather than Android Debug. No production keystore or password was created, persisted or committed.
+- Local code-head baseline at `50d8653`: `npm run check` 56/56 suites and 284/284 tests, `npm run test:realm` 17/17, ESLint 0 errors / 28 warnings, locale dictionaries 98 keys. This is pre-final local milestone evidence; remote CI and final milestone rerun are recorded separately when available.
+- Android Application ID remains `com.fresnica.mobile`, production release credentials are not provisioned, and iOS distribution identity is not frozen. Therefore Stage 9 remains incomplete even though the debug-signing fallback merge blocker is closed.
 
 ## Gate rules
 

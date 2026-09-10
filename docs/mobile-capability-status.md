@@ -25,7 +25,7 @@ Network                   Stellar Testnet
 | Account | Normative | Onboarding provisioning implemented | Account records, account-signer invariants, derived watch-only state, atomic account+signer registration and first-run create/import/watch-only flows. |
 | Signer | Normative | Protected-software onboarding implemented | Secret/mnemonic protection remains SDK/Core-owned. Mobile persists only public signer identity plus opaque envelope and backup metadata. |
 | Balance / Availability | Normative | Read-only Portfolio slice implemented | Classic Horizon native/credit balances are normalized behind Balance. Exact decimal strings are preserved; inactive and contract-account states remain explicit; LP shares are not projected as ordinary tokens. |
-| Payment | Normative | S07 contract rebaseline implemented in PR #21 | Classic `G...` destination scope, Payment-vs-CreateAccount selection, current fee/reserve/availability preflight, issued trustline authorization/capacity, SEP-29 memo-required handling and exact-XDR review/submission binding. |
+| Payment | Normative | S07 production flow + shared recovery implemented on Testnet | Classic `G...` destination scope, Payment-vs-CreateAccount selection, current fee/reserve/availability preflight, issued trustline authorization/capacity, SEP-29 memo-required handling, exact-XDR review/submission binding and Stage 2.5 pending/reconciliation are wired. S07 remains L3 partial until the remaining Stage 4 memo/product/native/E2E acceptance is complete. |
 | Transaction | Normative | Shared submission + Stage 2.5 restart recovery verified | S07 Payment and S30 Trustline persist public pending metadata before broadcast, block unresolved duplicate economic intentions, and reconcile the original network-bound hash through one single-flight App coordinator on cold start, foreground, definite offline→online recovery and manual refresh. Long-lived still-unknown records never auto-expire. The recovery slice has current Realm/native/Testnet process-death evidence; this does not by itself make the S07/S30 product surfaces L4. |
 | Trustline | Normative | S30 Add/Set Limit/Remove Product Flow + shared recovery implemented on Testnet | Ordinary Classic `CODE:GISSUER` Add/Set Limit/Remove follows Fresnica canonical add limit, set-limit commitment/issuer rules, reserve/fee, authorization/clawback state and liquidity-pool removal rules with exact-XDR review and pre-sign ledger revalidation. Asset-code case is preserved exactly. Stage 2.5 recovery is shared with S07 and verified; S30 remains L3 partial until its remaining Stage 4 product/native/E2E acceptance is complete. |
 | History / Activity | Defined | Read-only list + operation detail implemented | Classic Horizon account operations are paged behind `StellarGateway`, while detail uses the single-operation endpoint. Both are normalized into stable History DTOs; detail validates requested operation identity and account association before presentation. |
@@ -33,8 +33,8 @@ Network                   Stellar Testnet
 | Path Payment / Swap | Shared contract missing | Blocked on Fresnica/fresnica#134 | Donor Swap uses `PathPaymentStrictSend` / `PathPaymentStrictReceive`; Mobile will not invent a platform-only semantic authority for quote/path/slippage policy. |
 | Ledger Authorization | Defined | Classic foundation used by Payment and Trustline | Typed Classic signer conditions and threshold resolution are reloaded immediately before signing. Payment and ChangeTrust use medium threshold. Full multisig/provider coordination remains future work. |
 | Signing Coordination | Normative | Shared routine signing used by write Flows | `routine` prefers Native SDK System Auth and falls back to a fresh app passphrase only when required. `passphrase-required` bypasses System Auth for high-assurance operations. Native SDK 0.3.0 also exposes high-level SEP-53 message signing for future dApp flows; product permission/session policy is not implemented yet. |
-| Application Security | Defined | System Auth foundation implemented | Strong app-passphrase policy, System Auth status/enable/repair/disable and protected-signer registration exist. Generic app-session System Auth challenge remains blocked upstream; all-signer staged `reprotect`/atomic persistence and post-commit registration recovery are Mobile orchestration work, not wholly blocked. |
-| Network / Gateway | Defined | Platform mechanism implemented | `src/platform/stellar`: Horizon balance/authorization/history/account-state/ledger/liquidity-pool reads, Payment/ChangeTrust construction and normalized transaction submission. |
+| Application Security | Defined | S04 System Auth production settings partial | Strong app-passphrase policy, System Auth status/enable/repair/disable and protected-signer registration exist. `6a19346` adds explicit confirmation before disable, fail-closed Native error handling and duplicate-confirm protection in the reachable Security Settings flow. Generic app-session System Auth challenge remains blocked upstream; all-signer staged `reprotect`/atomic persistence and post-commit registration recovery remain Mobile orchestration work. |
+| Network / Gateway | Defined | Platform mechanism implemented | `src/platform/stellar`: Horizon balance/authorization/history/account-state/ledger/liquidity-pool reads, Payment/ChangeTrust construction and normalized transaction submission. S07/S30 Horizon submission uses Stellar SDK 17.0.1 official `/axios` transport after real RN Testnet validation (`eaa1e8c`); Path Payment remains a separate blocked mechanism. |
 | Persistence | Mobile platform mechanism | Realm v3 verified with pending-submission recovery | Realm v3 includes `PendingSubmissionEntity` for public recovery metadata. Memory/Realm repositories enforce unresolved intent guards and survive close/reopen; current Realm integration is 17/17. Secrets, app passphrases, unlock keys, signer material and transaction XDR are not stored in pending records. |
 
 ## Onboarding v1 evidence
@@ -138,7 +138,17 @@ Trustline v1 intentionally does not implement Asset Discovery/catalog/ranking, l
 
 ## Native gate evidence
 
-The native recovery is now integrated into the Trustline base.
+### Current rewrite milestone evidence — 2026-09-10
+
+- Stage 2.5 real Android Testnet process-death recovery is recorded under `5db3610`: the original network/account/source/hash survives process replacement and is reconciled without another sign/broadcast.
+- After NetInfo integration, current Android and iOS Native runtime smoke both passed; iOS also completed a fresh simulator build on iPhone 15 Pro / iOS 17.2.
+- `6a19346` adds the S04 System Auth disable-confirmation product boundary without changing Native API semantics; capability tests prove a failed `removeSystemAuthDomain` does not report a false disabled state.
+- `50d8653` removes Android release debug-signing fallback. Local fail-closed, root-task-graph and ephemeral release-signing/APK-certificate checks pass; production keystore/CI secret remains intentionally unprovisioned.
+- Code head `50d8653` local baseline before the final milestone rerun: `npm run check` 56 suites / 284 tests, `npm run test:realm` 17/17, ESLint 0 errors / 28 warnings. Remote GitHub Actions evidence for this head has not yet been recorded.
+
+### Historical native-integration PR evidence
+
+The native recovery was integrated into the earlier Trustline base as follows.
 
 - Android checkout-only adapter compatibility tracks upstream Fresnica/fresnica#128 and #129 while retaining canonical adapter build, manifest/AAR checks and Android app link.
 - Apple runtime-smoke stabilization starts the unchanged 120s callback window immediately before Simulator launch and persists actionable diagnostics without weakening the Realm or `NativeModules.FresnicaCore.parseAccount` assertions.
@@ -151,6 +161,7 @@ The native recovery is now integrated into the Trustline base.
 
 - query System Auth availability and Protection Domain state;
 - initialize/disable the device domain;
+- require an explicit S04 product confirmation before invoking disable; Cancel/backdrop/system-back have no Native side effect, and disable failure remains visibly enabled/retryable;
 - register/repair protected software signers only with the current app passphrase;
 - remove a newly created empty domain if all registrations fail;
 - never persist app passphrase, WalletUnlockKey or biometric authorization state.

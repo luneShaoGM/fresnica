@@ -51,6 +51,19 @@ bash scripts/run-native-runtime-smoke.sh android --rebuild
 
 第一次从零搭原生，仍按 CI / 既有步骤准备 vendor，再 `--rebuild`。
 
+
+## Transaction recovery Testnet smoke
+
+Stage 2.5 另有 Android 专用的真实 Testnet process-death 恢复门：
+
+```bash
+npm run smoke:transaction-recovery:android
+```
+
+该命令会 fresh build Android debug App，使用 Fresnica Native/Core 生成临时 Testnet signer，经 Friendbot 只给测试源账户注资，随后走生产 S07 `buildSendReview → submitSendReview → shared transaction pipeline`。测试 wrapper 只把一次真实 Horizon `accepted` 客户端结果投影为 `uncertain`，模拟响应丢失；pending public metadata 写入专用 `transaction-recovery-smoke.realm` 后，runner 强杀第一个 App PID，再启动新 PID，只按原 `network/account/source/transactionHash` 做 reconciliation。成功必须证明第二进程没有重新签名或广播。
+
+测试不会把 mnemonic、App Passphrase、secret、signed XDR 或 signer material 写入 callback/Realm。专用 Realm 与测试进程在退出时清理，不代替正常钱包 Realm。
+
 ## 常见失败
 
 | 屏幕/结果 | 含义 | 处理 |
@@ -59,6 +72,7 @@ bash scripts/run-native-runtime-smoke.sh android --rebuild
 | `Network request failed` | 8765 回报没打到电脑 | 用本脚本（会起 server）；Android 不要自己漏 `adb reverse` |
 | `command not found: react-native` | `node_modules` 不完整 | `npm ci` |
 | 端口 8765 占用 | 上次回报服务还在 | 停掉后再跑 |
+| iOS smoke 启动 server 后立刻误报失败 | 同一 Metro 下仍运行的 Android Fresnica 可能在 `index.js` reload 后先打到 8765 callback | 先 `adb shell am force-stop com.fresnica.mobile`，再 terminate iOS App 后重跑；不要把抢跑 callback 当 iOS native 失败 |
 
 ## 测什么、不测什么
 

@@ -165,15 +165,15 @@ Stellar 里有某个屏幕，只证明需要审计该产品行为，不代表可
 | --- | --- | --- |
 | 产品壳 | Home / Activity / Actions / dApps / Settings | 五项壳外形；Actions 已是 OverlayHost |
 | Tab id | `home`、`activity`、`dapps`、`settings` | 已是这些 id |
-| Activity | 完整列表 / 筛选 / 详情 | `features/activity` + History capability；详情路由未挂 |
+| Activity | 完整列表 / 筛选 / 详情 | `features/activity` + History capability；列表与单 operation detail 已接，筛选/搜索/完整 operation-family projection 未完 |
 | dApps | clean-room 重写 Stellar 已形成的目录、Recent、浏览器、权限、Freighter 桥行为 | `features/dapps` 预览壳，未接目录 |
 | Developer Mode | 采用 Stellar/Xaman 设计（鉴权开启、网络可见性、日志、开发者页） | **未做** |
 | 硬件钱包 | 产品内一等 signer（添加、签名、账户列表） | 类型里有 `hardware`，产品流 **未做** |
 | Vault / 加密 | 参考 Stellar Vault overlay 与 native 加密；Core 管密钥 | 无 Vault overlay；Realm 不存密钥 |
 | 自定义主题 | 上传图片 → 提取主色 / 次主色等 → `AppTheme` 全 app 应用 | 单一 `defaultTheme`；UI kit **尚未约定** |
-| 状态栏 / 安全区 | 状态栏对比度跟主题走；壳消费设备 inset（刘海 / 灵动岛 / 手势条） | 无 `StatusBar`；屏幕用 RN 自带 `SafeAreaView`；浅色底上系统时间可能看不见。契约见 §10.1 |
+| 状态栏 / 安全区 | 状态栏对比度跟主题走；壳消费设备 inset（刘海 / 灵动岛 / 手势条） | App-level `StatusBar` + `SafeAreaProvider` + shared `Screen` 已接；Feature 直接 `SafeAreaView` 审计为 0。dark/system/image theme 仍未完成，契约见 §10.1 |
 | 导航 | React Navigation：根 stack + tabs + 每 tab 的 native-stack + OverlayHost | **F2 主壳已接上。** 根流程仍按 bootstrap 条件注册 `bootstrap` / `onboarding` / `main`；`locked` 已注册但未进入；modal / 其余 overlay 角色尚未占用 |
-| 链上快照 | 交易后（含 uncertain）按账户失效，focus / 显式刷新再拉 Balance / History | Send 返回后 Home 仍显示旧余额（栈里 Home 未卸载） |
+| 链上快照 | 交易后（含 uncertain）按账户失效，focus / 显式刷新再拉 Balance / History | Stage 2.5 已建立 network/account-scoped invalidation revision；submitted/uncertain、reconciliation、focus 与 manual refresh 会驱动 Balance / Activity 重新读取权威状态 |
 | i18n | 已改写表面没有硬编码文案 | 语言运行时已有；多数屏幕仍是英文直写 |
 
 安全不变量仍要遵守（Account ≠ Signer、密钥不进 JS 持久化、会改账本的路径绑精确 XDR）。它们约束怎么实现，不证明当前屏幕已经写完。`docs/mobile-capability-status.md` 只记录脚手架做过什么，不当产品验收。
@@ -359,7 +359,7 @@ HomeActions
 | 留角色：账户、切换、主操作、资产；未激活 ≠ 断网 | `HomeScreen` + `loadBalanceSnapshot`；**脚手架** |
 | **留：测试网 Friendbot 激活按钮** | 现 `InactiveAccount` 注释写明 M2 故意没搬，与产品要求冲突，要补 |
 | **留：资产增减**（进 Trustline 精确 XDR，不是 Home 里直接改余额） | Manage Assets 能力有；Home 入口要保留 |
-| 删载体：Realm 当余额真值 | 交易后 focus 失效（未接）；UX 上可先显示上次 snapshot |
+| 删载体：Realm 当余额真值 | 交易后 focus + Stage 2.5 read invalidation 已接；UX 上仍可先显示上次 snapshot，但权威继续来自 Horizon |
 | LP / claimable 详情 | Claimable **搬运**；LP 仍按 §7.8 |
 
 #### Stellar 已做的缓存（Fresnica 要对齐思想）
@@ -428,7 +428,7 @@ EventsView / Details / FilterEvents
 
 | 标记 | Fresnica |
 | --- | --- |
-| 留角色：列表/刷新/更多/空态/详情/已加载页筛选 | `features/activity` + History；列表脚手架，详情路由未挂 |
+| 留角色：列表/刷新/更多/空态/详情/已加载页筛选 | `features/activity` + History；列表与单 operation detail 已接，筛选/搜索和完整 operation family 仍未闭合 |
 | 删：Realm 操作缓存当权威 | 不做缺口恢复 |
 | 呈现层 helpers（operation 分类） | 重构，不抄 XRPL 语义 |
 
@@ -445,7 +445,7 @@ AddToken / TokenSettings
 | --- | --- |
 | 留角色：Add/Remove 精确 XDR | `trustlineProductFlow`；**脚手架/能力已接** |
 | 删载体：页面拼 `changeTrust` | 与 Send 同一套提交管线 |
-| Set Limit | 产品缺口，先标着 |
+| Set Limit | S30 已实现并进入统一 exact-XDR / revalidation / recovery 管线；完整产品 L4 仍按 Stage 4 运行验收 |
 
 **Settings（Stellar 实际有的，对照脚手架缺项）**
 
@@ -498,9 +498,9 @@ XAppsView → DappCatalogService（https://dapp.fchain.io/v1）
 | --- | --- | --- |
 | Onboarding | 是 | 脚手架；密钥已交 SDK |
 | Home | 是 | 脚手架；刷新模型与 Stellar 相反（不应写 Realm） |
-| Send | 是 | capability 闭环有；页面仍可加强；返回失效未接 |
+| Send | 是 | S07 capability/页面与 Stage 2.5 invalidation/recovery 已接；memo family 与完整产品 native/E2E 仍未闭合 |
 | 交易框架 | 是 | 能力完成 / UI 脚手架 |
-| Activity | 是 | 列表有；详情/筛选产品未完；不要迁操作缓存 |
+| Activity | 是 | 列表与单 operation detail 已接；筛选/搜索/完整 family projection 未完；不要把操作缓存当权威 |
 | Trustline | 是 | 能力有；页面脚手架 |
 | Settings | 是 | 分组未按 §7.5 做完 |
 | dApps | 是 | 预览壳；clean-room 重写未开始 |
@@ -559,7 +559,7 @@ F2 尾巴，随对应表面补（不构成「可以开 F3」）：
 - 根流程仍按 bootstrap **条件注册** `bootstrap` / `onboarding` / `main`（见 §5 说明）。不必为了主题壳先改成始终挂齐四屏。
 - `locked` 已在根栈注册，没有进入路径，也不要伪造解锁。
 - `presentation: 'modal'` 以及锁 / 鉴权 / Alert / 切账户 overlay，等那些表面存在再占用角色。
-- Activity `operation-details` 类型已留，栈上未挂，等详情屏。
+- Activity `operation-details` 已挂入 Activity native stack；导航只传 `accountId + operationId`，详情重新查询 History capability。
 
 ### F3 — UI kit 契约（总表 2c；Phase 0 已过，本行部分完成）
 
@@ -862,7 +862,7 @@ F3 只锁这些：
 - 主题替换时只重绑壳，不要模仿 Xaman 对每个屏幕 `mergeOptions`，也不要引入 `StyleService`。
 - 安全区用已接入的 `react-native-safe-area-context`（根上 `SafeAreaProvider`，壳用 `useSafeAreaInsets`）。Screen / Header / TabBar / Overlay 消费 inset。不要再搬 Xaman 的 native inset 模块，不要为灵动岛写死 47/59，不要把 RN 自带 `SafeAreaView` 当成完成态（Android 挖孔和自定义 TabBar 底栏都不可靠）。
 - 允许内容画到状态栏后面（edge-to-edge），由壳 inset 让开刘海 / 灵动岛 / Home Indicator / 手势条。
-- 实现随 F3 壳原语落地；F4 重建表面时只消费壳。当前脚手架没有 `StatusBar`、inset 为 0，不当验收。
+- F3 壳原语已落地 App-level `StatusBar`、`SafeAreaProvider` 与 shared `Screen` inset；F4 表面只消费壳。dark/system/image-generated theme 等未完成项仍不得冒充完整 F3。
 
 ---
 

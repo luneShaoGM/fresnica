@@ -20,9 +20,9 @@
 - 核心写账底座：Stage 2.5 已闭合 pending/uncertain 持久化、按原 hash 重启协调、同一经济意图防重复与 read-model 失效；S07 Payment 与 S30 Trustline 已证明共用同一恢复管线，并有真实 Android Testnet process-death/restart 证据。该 Transaction recovery 切片达到 L4 证据门，但 S07/S30 产品本身仍须按 Stage 4 的完整 UI/异常/native/E2E 标准分别验收，不能据此整体升级 L4。
 - 原生安全与持久化：审计时 Mobile 使用 Fresnica Native SDK 0.2.1；Stage 1 已升级到发布的 0.3.0（Native Binding API 3 / SDK API 5 / Core Client API 5），双端 build/runtime smoke 已通过。
 - 架构边界：Stage 2 已完成生产依赖收口；Capability-owned ports、network 注入和 Platform projection 已成立，production Feature / Capability / Platform 反向依赖审计为 0。依赖守卫已全量，presentation/style strict scope 仍按已重写表面扩展，不能笼统称为全仓风格封板。
-- 产品壳：React Navigation、四个可见 Tab 与 Actions Overlay 已成立，但主题、安全区、会话锁、统一错误与日志仍未形成完整横切能力。
+- 产品壳：React Navigation、四个可见 Tab 与 Actions Overlay 已成立；浅色 semantic AppTheme、壳级 StatusBar/safe-area、共享 UI primitive、Feature error projection 与脱敏 SessionLogger 基础已经接入。dark/system/image theme、可用的 app-session lock、Developer Mode 日志入口等横切仍未完成。
 - Stellar 功能重写：只完成少数可运行闭环；dApps、Request、Swap、Claimable、资产元数据、Developer Mode、通讯录等尚未重写完成。
-- 发布成熟度：尚未达到 Mainnet 钱包发布条件。
+- 发布成熟度：尚未达到 Mainnet 钱包发布条件。Android release 已在 `50d8653` 移除 debug-signing fallback，并用 fail-closed + 临时测试证书验证 wiring；生产 release keystore/CI secret 尚未配置，Android Application ID、iOS distribution identity、Mainnet 与其余 Stage 9 门仍未完成。
 
 因此，后续不应重新搭建第二套底层，也不应按页面数量平推。正确策略是先消除底座版本差和边界缺口，再以“一个真实用户闭环 + 一条复用交易管线 + 可执行验收证据”为单位逐功能重写。
 
@@ -561,7 +561,7 @@ UI 执行策略：
 - Logger 不记录敏感材料。
 - L4 所需的产品 E2E 证据已有可执行载体；只有单元测试的表面最高仍是 L3。
 
-当前执行证据（2026-09-09）：
+当前执行证据（截至 2026-09-10，仍为 partial）：
 
 - 浅色 semantic `AppTheme`、App-level `StatusBar`、共享 `Screen` safe-area shell 已接入；`src/features` 裸色、legacy palette、Stellar theme import、Feature 直接 `SafeAreaView` 审计均为 0。
 - 用户已完成 safe-area 人工走查；Theme 采用 B 方向：最终 dark palette / system switching 等正式视觉稿，不自行发明品牌深色方案。
@@ -629,11 +629,12 @@ UI 执行策略：
 - `Settings → Accounts → Account Detail` 已改为同一 Settings native stack 内的本地历史，不再为打开 Detail 先切 Home tab；Back 语义现由 `navigation.goBack()` 返回 Accounts。跨 tab 入场导致的视觉下跳是否完全消失仍待 simulator 人工确认。
 - Settings 与 Home 的 Add Account 复用同一 watch-only Screen，但各自保留自己的 native-stack 返回历史。现有钱包新增 protected software signer 继续 fail closed，因为 Fresnica 0.3.0 尚无 framework-safe `verifySignerPassphrase`。
 - 新保护 App Passphrase 策略已从 Onboarding 抽到 Application Security：至少 15 个 Unicode scalar，不静默 normalize，不增加强制大小写/数字/符号组合规则；Onboarding 已增加最低要求、确认一致和 System Auth / fresh-passphrase 职责提示。新版视觉仍待 simulator 人工确认。
+- S04 `6a19346` 已将 System Auth Disable 改为显式二次确认：Cancel/backdrop/system-back 不触发 Native remove，busy 期间阻止重复确认；Native remove 失败时保持真实 enabled 状态并可重试。该切片来自 Fresnica security requirement，未参考 donor 实现；app-session unlock 仍被通用 System Auth challenge API 阻断，因此 S04 仍是 partial/blocker。
 - Home 与 Activity 的 focus revalidation 由 App navigator wrapper 触发，Feature 不导入 React Navigation；交易返回 Home 或后续切回 Activity 时重新读取权威数据，不对 Realm 余额做乐观修改。
 - Home `asset-details` 已接通：导航只携带 `accountId + BalanceAsset identity`，详情页重新读取 Balance capability，覆盖 loading / ready / inactive / unsupported / missing / error 与手动 refresh；Asset Metadata / Stellar TOML 保持 Stage 8。
 - Activity `operation-details` 已接通：导航只携带 `accountId + operationId`；History Capability 使用单 operation Horizon 查询，验证 operation id 与账户关联，区分 404 / gateway failure，并只向 Feature 暴露稳定 DTO。
 - S30 Trustline 已闭合 Add / Set Limit / Remove 的产品语义：Set Limit 要求现有 trustline、正 limit 不低于 `balance + buying liabilities`、非零结果要求 issuer 仍存在，并在签名前重新验证 intent、limit、authorization/clawback 与 ledger state；Manage Assets 复用同一 exact-XDR review / System Auth / sign / submit 管线。Stage 2.5 shared recovery 已与 S07 一起通过，但 S30 的完整 Stage 4 产品/native/E2E 仍未全部验收，因此继续标记 L3 partial。
-- Stage 2.5 已在 2026-09-10 从该临时失败状态闭合：当前基线为 `npm run check` 55 suites / 278 tests、`npm run test:realm` 17 tests 全通过，ESLint 0 errors / 29 warnings；Realm v3、Transaction lifecycle recovery 与双端 native gate 均已有当前提交证据。Stage 4 尚未完成的账户/Send/Trustline/Activity 产品验收仍按各 Sxx 独立保留。
+- Stage 2.5 已在 2026-09-10 从该临时失败状态闭合；其冻结证据仍是 `5db3610` 上的 55 suites / 278 tests 与 Realm 17/17。后续安全/发布收口到代码 head `50d8653` 时，`npm run check` 为 56 suites / 284 tests、`npm run test:realm` 17/17、ESLint 0 errors / 28 warnings；这组较新数字不回写覆盖 Stage 2.5 历史快照。Stage 4 尚未完成的账户/Send/Trustline/Activity 产品验收仍按各 Sxx 独立保留。
 
 ### Stage 5：Request 与 Stellar URI
 
@@ -816,6 +817,14 @@ Hardware Signer 候选验证矩阵（不是当前支持声明）：
   - background lock。
 - Mainnet release 前必须完成 Testnet soak；这不改变首版同时包含 Mainnet/Testnet 的产品范围。
 
+当前里程碑 release-signing 证据（2026-09-10，Stage 9 仍未完成）：
+
+- `50d8653` 删除 `buildTypes.release -> signingConfigs.debug` fallback；release signing 仅接受四个显式 Gradle property / 同名环境变量，部分配置或缺失 keystore 都 fail closed，credential value 不做 trim/normalize。
+- 无 release credentials 时 `:app:assembleRelease` exit 1；根 `./gradlew assemble --dry-run` 因实际 task graph 包含 release packaging 同样 exit 1，不能通过入口名称绕过。
+- 本地仅在 `/tmp` 生成临时测试 PKCS12，并成功执行 `:app:assembleRelease`；`apksigner` 证明 APK 证书为 `CN=Fresnica Local Release Gate, O=Fresnica, C=US`，且不是 Android Debug。临时 keystore 已删除，不是生产签名材料。
+- `native-android-gate.yml` 已增加同样的无凭据 fail-closed 与 ephemeral CI release-signing gate；当前只完成本地 YAML/Gradle 验证，尚无本 commit 的远端 GitHub Actions 成功记录。
+- 生产 Android release keystore / CI secret 尚未配置；Application ID 仍是临时 `com.fresnica.mobile`，所以不得把本项写成“正式发布签名完成”。
+
 退出条件：
 
 - Release candidate 的所有必需 Capability 为 L4。
@@ -938,9 +947,9 @@ Backend 交付并完成身份/滥用验证后才可支持：
 2. Stage 2 架构边界收口已完成。
 3. **Stage 0A 基础账本已经建立；所有 donor-derived PR 持续执行 clean-room 规格、来源声明与独立审查，当前没有任何可直接移植文件。**
 4. **S07 Payment + S30 Trustline 的 Stage 2.5 uncertain submission 恢复与防重复已于 2026-09-10 完成首轮证明；以后新增改账本类型必须复用该管线，不能另建恢复路径。**
-5. 继续 Stage 3 产品 Shell，并提前建立产品 E2E/native-flow harness。
-6. Stage 4 已在进行的切片先修复当前测试并补齐账户生命周期、完整 operation/memo 决策和逐切片 i18n/accessibility；功能型 UI 必须消费稳定 Theme 与 Component seam。
-7. 之后按追踪 ID 和依赖逐项完成 Request、Swap、dApps、扩展产品；“后做”不等于删除。
+5. **当前 `rewrite/stellar-source-parity` 里程碑的 S04 System Auth Disable Confirmation（`6a19346`）与 Android independent release-signing wiring（`50d8653`）已完成本地代码门；先同步当前文档证据，再执行整套 milestone validation。**
+6. 完整验证通过、工作区干净、远端 PR/CI/provenance 状态满足合并门后，再以普通 merge commit 合入 `main`；不 squash/rebase。生产 release keystore、最终 Application ID/iOS identity 仍属于 Stage 9 后续，不因本里程碑合并而宣称完成。
+7. 合并里程碑后从最新 `main` 继续 Stage 3 产品 Shell/E2E harness 与 Stage 4 账户、Send/Trustline/Activity 剩余闭环；之后再按追踪 ID 和依赖推进 Request、Swap、dApps 和扩展产品。“后做”不等于删除。
 8. 同步设计缓存 schema、失效规则和容量，不在页面完成后补做第二套数据层。
 9. 将 Push 的“当前无后端范围”和“未来 Backend 协议”分开验收。
 10. 在发布工程中恢复 Android `com.fresnica.wallet`，冻结新的 iOS Bundle ID，并实现不迁移旧数据的受控 fresh-start。
