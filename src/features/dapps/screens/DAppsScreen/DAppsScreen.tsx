@@ -1,12 +1,13 @@
 import React, {useMemo, useState} from 'react';
 import {
   Pressable,
-  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
   View,
 } from 'react-native';
+
+import {Screen} from '@ui/components';
 
 import {useAppTheme, useThemedStyles} from '../../../../ui/theme';
 import {createStyles} from './styles';
@@ -36,7 +37,7 @@ export function DAppsScreen() {
   }, [category, searchText, section]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen scrollable={false} contentInset="none">
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>dApps</Text>
@@ -108,7 +109,7 @@ export function DAppsScreen() {
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
