@@ -3,6 +3,7 @@ import type { FresnicaSdkPort } from '../../../capabilities/ports/FresnicaSdkPor
 import type { TrustlineReview } from '../../../capabilities/trustline/buildTrustlineReview';
 import { InMemoryAccountSignerRepository } from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
 import { submitTrustlineProductReview, type TrustlineProductDependencies } from '../trustlineProductFlow';
+import type { PendingSubmissionRepository } from '../../../capabilities/transaction/pendingSubmission';
 
 const TEST_NETWORK = Object.freeze({
   id: 'stellar-testnet',
@@ -56,10 +57,25 @@ function gateway(): TrustlineProductDependencies['gateway'] {
 function dependencies(repository: InMemoryAccountSignerRepository): TrustlineProductDependencies {
   return {
     repository,
+    recovery: recovery(),
     gateway: gateway(),
     sdk: {} as FresnicaSdkPort,
     network: TEST_NETWORK,
   };
+}
+
+function recovery() {
+  const repository = {
+    create: jest.fn(),
+    get: jest.fn(),
+    findBlockingIntent: jest.fn(),
+    listUnresolved: jest.fn().mockReturnValue([]),
+    markUncertain: jest.fn(),
+    markConfirmed: jest.fn(),
+    markRejected: jest.fn(),
+    markStillUnknown: jest.fn(),
+  } satisfies jest.Mocked<PendingSubmissionRepository>;
+  return {repository, now: () => new Date('2026-09-10T02:00:00.000Z')};
 }
 
 describe('trustlineProductFlow', () => {

@@ -1,5 +1,6 @@
 import type { FresnicaSdkPort } from '../../ports/FresnicaSdkPort';
 import type { TransactionGatewayPort } from '../../transaction/TransactionGateway';
+import type { PendingSubmissionRepository } from '../../transaction/pendingSubmission';
 import type { SignerRecord } from '../../signer/types';
 import type { PaymentReview } from '../buildPaymentReview';
 import { submitReviewedPayment } from '../submitReviewedPayment';
@@ -31,6 +32,12 @@ function gatewayWith(options?: {
   threshold?: number;
   submission?: Awaited<ReturnType<TransactionGatewayPort['submitTransaction']>>;
 }) {
+  const transactionHash =
+    options?.submission === undefined
+      ? 'tx-hash'
+      : options.submission.status === 'accepted'
+        ? options.submission.hash
+        : options.submission.transactionHash;
   return {
     loadAccountAuthorization: jest.fn().mockResolvedValue({
       address: review.source,
@@ -43,12 +50,32 @@ function gatewayWith(options?: {
         },
       ],
     }),
-    transactionHash: jest.fn(),
+    transactionHash: jest.fn().mockReturnValue(transactionHash),
     loadTransactionOutcome: jest.fn(),
     submitTransaction: jest
       .fn()
       .mockResolvedValue(options?.submission ?? { status: 'accepted', hash: 'tx-hash', ledger: 77 }),
   } as jest.Mocked<TransactionGatewayPort>;
+}
+
+function pendingRecovery() {
+  const repository = {
+    create: jest.fn(),
+    get: jest.fn(),
+    findBlockingIntent: jest.fn(),
+    listUnresolved: jest.fn().mockReturnValue([]),
+    markUncertain: jest.fn(),
+    markConfirmed: jest.fn(),
+    markRejected: jest.fn(),
+    markStillUnknown: jest.fn(),
+  } satisfies jest.Mocked<PendingSubmissionRepository>;
+  return {
+    repository,
+    recovery: {
+      repository,
+      now: jest.fn().mockReturnValue(new Date('2026-09-10T02:00:00.000Z')),
+    },
+  };
 }
 
 function sdkWith(systemAuth: boolean) {
@@ -59,13 +86,30 @@ function sdkWith(systemAuth: boolean) {
   } as unknown as jest.Mocked<FresnicaSdkPort>;
 }
 
+function submitInput(gateway: jest.Mocked<TransactionGatewayPort>, sdk: jest.Mocked<FresnicaSdkPort>) {
+  const pending = pendingRecovery();
+  return {
+    pending,
+    input: {
+      gateway,
+      sdk,
+      review,
+      accountId: 'account-1',
+      recovery: pending.recovery,
+      signer,
+      networkPassphrase: NETWORK_PASSPHRASE,
+    },
+  };
+}
+
 describe('submitReviewedPayment', () => {
   it('revalidates ledger authorization, signs the exact reviewed XDR, then submits the exact signed XDR', async () => {
     const gateway = gatewayWith();
     const sdk = sdkWith(true);
+    const {pending, input} = submitInput(gateway, sdk);
 
     await expect(
-      submitReviewedPayment({ gateway, sdk, review, signer, networkPassphrase: NETWORK_PASSPHRASE }),
+      submitReviewedPayment(input),
     ).resolves.toEqual({
       status: 'submitted',
       authorization: 'system-auth',
@@ -78,6 +122,25 @@ describe('submitReviewedPayment', () => {
       expect.objectContaining({ transactionXdrBase64: review.transactionXdrBase64 }),
     );
     expect(gateway.submitTransaction).toHaveBeenCalledWith('AAAA-system-signed');
+    expect(pending.repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: review.networkId,
+        accountId: 'account-1',
+        sourceAddress: review.source,
+        transactionHash: 'tx-hash',
+        intentKind: 'payment',
+        state: 'submitting',
+      }),
+    );
+    expect(pending.repository.create.mock.invocationCallOrder[0]).toBeLessThan(
+      gateway.submitTransaction.mock.invocationCallOrder[0],
+    );
+    expect(pending.repository.markConfirmed).toHaveBeenCalledWith(
+      review.networkId,
+      'tx-hash',
+      expect.any(Date),
+      77,
+    );
   });
 
   it('blocks before authentication when ledger signer weight is insufficient', async () => {
@@ -85,7 +148,7 @@ describe('submitReviewedPayment', () => {
     const sdk = sdkWith(true);
 
     await expect(
-      submitReviewedPayment({ gateway, sdk, review, signer, networkPassphrase: NETWORK_PASSPHRASE }),
+      submitReviewedPayment(submitInput(gateway, sdk).input),
     ).resolves.toEqual({
       status: 'authorization-blocked',
       reason: 'insufficient-weight',
@@ -107,7 +170,7 @@ describe('submitReviewedPayment', () => {
     });
 
     await expect(
-      submitReviewedPayment({ gateway, sdk, review: expiredReview, signer, networkPassphrase: NETWORK_PASSPHRASE }),
+      submitReviewedPayment({...submitInput(gateway, sdk).input, review: expiredReview}),
     ).rejects.toThrow('Reviewed transaction is expired');
 
     expect(gateway.loadAccountAuthorization).not.toHaveBeenCalled();
@@ -120,7 +183,7 @@ describe('submitReviewedPayment', () => {
     const sdk = sdkWith(false);
 
     await expect(
-      submitReviewedPayment({ gateway, sdk, review, signer, networkPassphrase: NETWORK_PASSPHRASE }),
+      submitReviewedPayment(submitInput(gateway, sdk).input),
     ).resolves.toEqual({
       status: 'passphrase-required',
     });
@@ -138,7 +201,7 @@ describe('submitReviewedPayment', () => {
     const sdk = sdkWith(true);
 
     await expect(
-      submitReviewedPayment({ gateway, sdk, review, signer, networkPassphrase: NETWORK_PASSPHRASE }),
+      submitReviewedPayment(submitInput(gateway, sdk).input),
     ).resolves.toEqual({
       status: 'rejected',
       transactionHash: 'deadbeef',
@@ -153,7 +216,7 @@ describe('submitReviewedPayment', () => {
     const sdk = sdkWith(true);
 
     await expect(
-      submitReviewedPayment({ gateway, sdk, review, signer, networkPassphrase: NETWORK_PASSPHRASE }),
+      submitReviewedPayment(submitInput(gateway, sdk).input),
     ).resolves.toEqual({
       status: 'uncertain',
       transactionHash: 'cafebabe',

@@ -2,6 +2,7 @@ import type { AccountRecord } from '../../../capabilities/account/types';
 import type { FresnicaSdkPort } from '../../../capabilities/ports/FresnicaSdkPort';
 import type { PaymentReview } from '../../../capabilities/payment/buildPaymentReview';
 import { InMemoryAccountSignerRepository } from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
+import type { PendingSubmissionRepository } from '../../../capabilities/transaction/pendingSubmission';
 import {
   submitSendReview,
   validateDestination,
@@ -66,10 +67,25 @@ function gateway(): SendProductDependencies['gateway'] {
 function dependencies(repository: InMemoryAccountSignerRepository): SendProductDependencies {
   return {
     repository,
+    recovery: recovery(),
     gateway: gateway(),
     sdk: {} as FresnicaSdkPort,
     network: TEST_NETWORK,
   };
+}
+
+function recovery() {
+  const repository = {
+    create: jest.fn(),
+    get: jest.fn(),
+    findBlockingIntent: jest.fn(),
+    listUnresolved: jest.fn().mockReturnValue([]),
+    markUncertain: jest.fn(),
+    markConfirmed: jest.fn(),
+    markRejected: jest.fn(),
+    markStillUnknown: jest.fn(),
+  } satisfies jest.Mocked<PendingSubmissionRepository>;
+  return {repository, now: () => new Date('2026-09-10T02:00:00.000Z')};
 }
 
 describe('sendProductFlow', () => {

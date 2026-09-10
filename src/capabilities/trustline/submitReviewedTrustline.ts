@@ -3,6 +3,10 @@ import type { FresnicaSdkPort } from '../ports/FresnicaSdkPort';
 import type { TrustlineGatewayPort } from './TrustlineGateway';
 import type { SignerRecord } from '../signer/types';
 import {
+  createTransactionIntentIdentity,
+  type PendingSubmissionDependencies,
+} from '../transaction/pendingSubmission';
+import {
   submitReviewedTransaction,
   type SubmitReviewedTransactionResult,
 } from '../transaction/submitReviewedTransaction';
@@ -14,6 +18,8 @@ export async function submitReviewedTrustline(input: {
   gateway: TrustlineGatewayPort;
   sdk: FresnicaSdkPort;
   review: TrustlineReview;
+  accountId: string;
+  recovery: PendingSubmissionDependencies;
   signer: SignerRecord;
   appPassphrase?: string;
   systemAuthReason?: string;
@@ -38,6 +44,14 @@ export async function submitReviewedTrustline(input: {
     gateway: input.gateway,
     sdk: input.sdk,
     review: exactReview,
+    accountId: input.accountId,
+    intent: createTransactionIntentIdentity('trustline', [
+      exactReview.operation,
+      exactReview.asset.code,
+      exactReview.asset.issuer,
+      exactReview.limit ?? 'limit:none',
+    ]),
+    recovery: input.recovery,
     signer: input.signer,
     thresholdLevel: 'medium',
     ...(input.appPassphrase === undefined ? {} : { appPassphrase: input.appPassphrase }),

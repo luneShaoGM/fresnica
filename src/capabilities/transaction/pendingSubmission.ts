@@ -30,6 +30,11 @@ export interface PendingSubmissionRepository {
   markRejected(networkId: string, transactionHash: string, checkedAt: Date, resultCode?: string): void;
   markStillUnknown(networkId: string, transactionHash: string, checkedAt: Date): void;
 }
+
+export type PendingSubmissionDependencies = Readonly<{
+  repository: PendingSubmissionRepository;
+  now: () => Date;
+}>;
 export function createTransactionIntentIdentity(
   kind: string,
   components: readonly string[],

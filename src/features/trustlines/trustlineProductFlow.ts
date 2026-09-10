@@ -15,11 +15,13 @@ import {
   type SubmitReviewedTrustlineResult,
 } from '../../capabilities/trustline/submitReviewedTrustline';
 import type { FresnicaSdkPort } from '../../capabilities/ports/FresnicaSdkPort';
+import type { PendingSubmissionDependencies } from '../../capabilities/transaction/pendingSubmission';
 
 export type TrustlineProductDependencies = Readonly<{
   gateway: TrustlineGatewayPort & BalanceGatewayPort;
   sdk: FresnicaSdkPort;
   repository: AccountSignerRepository;
+  recovery: PendingSubmissionDependencies;
   network: NetworkContext;
 }>;
 
@@ -78,6 +80,8 @@ export async function submitTrustlineProductReview(
     gateway: dependencies.gateway,
     sdk: dependencies.sdk,
     review: exactReview,
+    accountId: account.id,
+    recovery: dependencies.recovery,
     signer: signers[0],
     ...(appPassphrase === undefined ? {} : { appPassphrase }),
     systemAuthReason: `${trustlineActionLabel(exactReview.operation)} ${exactReview.asset.code} trustline`,

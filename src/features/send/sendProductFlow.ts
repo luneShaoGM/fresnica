@@ -21,11 +21,13 @@ import {
 } from '../../capabilities/payment/submitReviewedPayment';
 import type { SignerRecord } from '../../capabilities/signer/types';
 import type { FresnicaSdkPort } from '../../capabilities/ports/FresnicaSdkPort';
+import type { PendingSubmissionDependencies } from '../../capabilities/transaction/pendingSubmission';
 
 export type SendProductDependencies = Readonly<{
   gateway: PaymentGatewayPort & BalanceGatewayPort;
   sdk: FresnicaSdkPort;
   repository: AccountSignerRepository;
+  recovery: PendingSubmissionDependencies;
   network: NetworkContext;
 }>;
 
@@ -88,6 +90,8 @@ export async function submitSendReview(
     gateway: dependencies.gateway,
     sdk: dependencies.sdk,
     review: exactReview,
+    accountId: account.id,
+    recovery: dependencies.recovery,
     signer: signerResolution.signer,
     ...(appPassphrase ? { appPassphrase } : {}),
     systemAuthReason: `${exactReview.operation === 'create-account' ? 'Create account with' : 'Send'} ${exactReview.amount} ${assetCode(exactReview.asset)}`,

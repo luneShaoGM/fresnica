@@ -6,6 +6,11 @@ import type { SignerRecord } from '../signer/types';
 import { signReviewedTransaction } from '../signing/signReviewedTransaction';
 import { assertReviewedTransactionFresh } from './assertReviewedTransactionFresh';
 import type { ReviewedTransaction } from './ReviewedTransaction';
+import {
+  pendingSubmissionId,
+  type PendingSubmissionDependencies,
+  type TransactionIntentIdentity,
+} from './pendingSubmission';
 
 export type SubmitReviewedTransactionResult =
   | {
@@ -29,6 +34,9 @@ export async function submitReviewedTransaction(input: {
   gateway: TransactionGatewayPort;
   sdk: FresnicaSdkPort;
   review: ReviewedTransaction;
+  accountId: string;
+  intent: TransactionIntentIdentity;
+  recovery: PendingSubmissionDependencies;
   signer: SignerRecord;
   thresholdLevel: StellarThresholdLevel;
   appPassphrase?: string;
@@ -62,16 +70,58 @@ export async function submitReviewedTransaction(input: {
     return signing;
   }
 
+  const transactionHash = input.gateway.transactionHash(signing.signedTransactionXdrBase64);
+  const startedAt = input.recovery.now();
+  input.recovery.repository.create({
+    id: pendingSubmissionId(input.review.networkId, transactionHash),
+    networkId: input.review.networkId,
+    accountId: input.accountId,
+    sourceAddress: input.review.source,
+    transactionHash,
+    intentKind: input.intent.kind,
+    intentKey: input.intent.key,
+    state: 'submitting',
+    createdAt: startedAt,
+    updatedAt: startedAt,
+  });
+
   const submission = await input.gateway.submitTransaction(signing.signedTransactionXdrBase64);
+  const completedAt = input.recovery.now();
 
   if (submission.status === 'accepted') {
+    if (submission.hash !== transactionHash) {
+      input.recovery.repository.markUncertain(input.review.networkId, transactionHash, completedAt);
+      return {status: 'uncertain', transactionHash};
+    }
+    input.recovery.repository.markConfirmed(
+      input.review.networkId,
+      transactionHash,
+      completedAt,
+      submission.ledger,
+    );
     return {
       status: 'submitted',
       authorization: signing.authorization,
-      hash: submission.hash,
+      hash: transactionHash,
       ...(submission.ledger === undefined ? {} : { ledger: submission.ledger }),
     };
   }
 
+  if (submission.transactionHash !== transactionHash) {
+    input.recovery.repository.markUncertain(input.review.networkId, transactionHash, completedAt);
+    return {status: 'uncertain', transactionHash};
+  }
+
+  if (submission.status === 'rejected') {
+    input.recovery.repository.markRejected(
+      input.review.networkId,
+      transactionHash,
+      completedAt,
+      submission.resultCode,
+    );
+    return submission;
+  }
+
+  input.recovery.repository.markUncertain(input.review.networkId, transactionHash, completedAt);
   return submission;
 }

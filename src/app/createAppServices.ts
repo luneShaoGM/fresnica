@@ -12,6 +12,7 @@ import { ReactNativeFresnicaSdk, loadNativeFresnicaModule } from '../platform/fr
 import {
   RealmAccountSignerRepository,
   RealmLocalePreferenceStore,
+  RealmPendingSubmissionRepository,
   createRealmRecordId,
   openWalletRealm,
 } from '../platform/persistence/realm';
@@ -38,6 +39,11 @@ export async function createAppServices(): Promise<AppServices> {
     const sdk = new ReactNativeFresnicaSdk(nativeModule);
     const repository = new RealmAccountSignerRepository(realm);
     const localePreferences = new RealmLocalePreferenceStore(realm);
+    const pendingSubmissions = new RealmPendingSubmissionRepository(realm);
+    const recovery = Object.freeze({
+      repository: pendingSubmissions,
+      now: () => new Date(),
+    });
     const network = Object.freeze({
       id: APP_CONFIG.network.id,
       networkPassphrase: APP_CONFIG.network.networkPassphrase,
@@ -70,6 +76,7 @@ export async function createAppServices(): Promise<AppServices> {
         gateway: stellarGateway,
         sdk,
         repository,
+        recovery,
         network,
       },
       history: {
@@ -80,6 +87,7 @@ export async function createAppServices(): Promise<AppServices> {
         gateway: stellarGateway,
         sdk,
         repository,
+        recovery,
         network,
       },
       localePreferences,
