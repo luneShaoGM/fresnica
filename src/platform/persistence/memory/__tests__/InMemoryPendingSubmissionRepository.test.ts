@@ -67,3 +67,20 @@ describe('InMemoryPendingSubmissionRepository', () => {
     ]);
   });
 });
+
+it('isolates the same economic intent by network', () => {
+  const repository = new InMemoryPendingSubmissionRepository();
+  const testnet = record();
+  const mainnet = {
+    ...testnet,
+    id: 'stellar-mainnet:transaction-hash',
+    networkId: 'stellar-mainnet',
+  };
+
+  repository.create(testnet);
+  expect(repository.findBlockingIntent('stellar-mainnet', testnet.accountId, testnet.intentKey)).toBeUndefined();
+
+  repository.create(mainnet);
+  expect(repository.listUnresolved('stellar-testnet')).toEqual([testnet]);
+  expect(repository.listUnresolved('stellar-mainnet')).toEqual([mainnet]);
+});

@@ -5,6 +5,7 @@ import Realm from 'realm';
 import type { AccountRecord } from '../../../../capabilities/account/types';
 import type { SignerRecord } from '../../../../capabilities/signer/types';
 import type { PendingSubmissionRecord } from '../../../../capabilities/transaction/pendingSubmission';
+import { reconcilePendingSubmissions } from '../../../../capabilities/transaction/reconcilePendingSubmissions';
 import { runAccountSignerRepositoryContract } from '../../__tests__/repositoryContract';
 import { RealmAccountSignerRepository } from '../RealmAccountSignerRepository';
 import { RealmPendingSubmissionRepository } from '../RealmPendingSubmissionRepository';
@@ -170,6 +171,136 @@ describe('RealmPendingSubmissionRepository restart integration', () => {
     } finally {
       activeRealm?.close();
       rmSync(directory, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('Realm pending-submission reconciliation recovery', () => {
+  it('keeps a long-unknown intent blocking across restart until the original hash is confirmed', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'fresnica-realm-long-unknown-'));
+    const path = join(directory, 'wallet.realm');
+    let activeRealm: Awaited<ReturnType<typeof openWalletRealm>> | undefined;
+    const createdAt = new Date('2020-01-01T00:00:00.000Z');
+    const checkedAt = new Date('2036-01-01T00:00:00.000Z');
+    const pending: PendingSubmissionRecord = {
+      id: 'stellar-testnet:long-unknown-hash',
+      networkId: 'stellar-testnet',
+      accountId: 'account-long-unknown',
+      sourceAddress: 'GSOURCE',
+      transactionHash: 'long-unknown-hash',
+      intentKind: 'payment',
+      intentKey: '["payment","GDESTINATION","1.0000000"]',
+      state: 'uncertain',
+      createdAt,
+      updatedAt: createdAt,
+    };
+
+    try {
+      activeRealm = await openWalletRealm({path});
+      new RealmPendingSubmissionRepository(activeRealm).create(pending);
+      activeRealm.close();
+      activeRealm = undefined;
+      activeRealm = await openWalletRealm({path});
+      let reopened = new RealmPendingSubmissionRepository(activeRealm);
+      await reconcilePendingSubmissions({
+        gateway: {
+          loadTransactionOutcome: jest.fn().mockResolvedValue({
+            status: 'still-unknown',
+            transactionHash: pending.transactionHash,
+          }),
+        },
+        repository: reopened,
+        readInvalidation: {invalidate: jest.fn()},
+        networkId: pending.networkId,
+        now: () => checkedAt,
+      });
+
+      expect(reopened.findBlockingIntent(pending.networkId, pending.accountId, pending.intentKey)).toMatchObject({
+        state: 'uncertain',
+        lastCheckedAt: checkedAt,
+      });
+      expect(() => reopened.create({
+        ...pending,
+        id: 'stellar-testnet:replacement-hash',
+        transactionHash: 'replacement-hash',
+        createdAt: checkedAt,
+        updatedAt: checkedAt,
+      })).toThrow('pending-submission-intent-blocked');
+      activeRealm.close();
+      activeRealm = undefined;
+      activeRealm = await openWalletRealm({path});
+      reopened = new RealmPendingSubmissionRepository(activeRealm);
+      expect(reopened.findBlockingIntent(pending.networkId, pending.accountId, pending.intentKey)).toBeDefined();
+
+      await reconcilePendingSubmissions({
+        gateway: {
+          loadTransactionOutcome: jest.fn().mockResolvedValue({
+            status: 'confirmed',
+            transactionHash: pending.transactionHash,
+            ledger: 9001,
+          }),
+        },
+        repository: reopened,
+        readInvalidation: {invalidate: jest.fn()},
+        networkId: pending.networkId,
+        now: () => new Date('2036-01-01T00:01:00.000Z'),
+      });
+      expect(reopened.findBlockingIntent(pending.networkId, pending.accountId, pending.intentKey)).toBeUndefined();
+      expect(reopened.get(pending.networkId, pending.transactionHash)).toMatchObject({
+        state: 'confirmed',
+        ledger: 9001,
+      });
+    } finally {
+      activeRealm?.close();
+      rmSync(directory, {recursive: true, force: true});
+    }
+  });
+  it('releases a restarted pending intent only after a deterministic rejected outcome is observed', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'fresnica-realm-rejected-'));
+    const path = join(directory, 'wallet.realm');
+    let activeRealm: Awaited<ReturnType<typeof openWalletRealm>> | undefined;
+    const pending: PendingSubmissionRecord = {
+      id: 'stellar-testnet:rejected-hash',
+      networkId: 'stellar-testnet',
+      accountId: 'account-rejected',
+      sourceAddress: 'GSOURCE',
+      transactionHash: 'rejected-hash',
+      intentKind: 'trustline',
+      intentKey: '["trustline","remove","USD","GISSUER","limit:none"]',
+      state: 'uncertain',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    try {
+      activeRealm = await openWalletRealm({path});
+      new RealmPendingSubmissionRepository(activeRealm).create(pending);
+      activeRealm.close();
+      activeRealm = undefined;
+      activeRealm = await openWalletRealm({path});
+      const reopened = new RealmPendingSubmissionRepository(activeRealm);
+      await reconcilePendingSubmissions({
+        gateway: {
+          loadTransactionOutcome: jest.fn().mockResolvedValue({
+            status: 'rejected',
+            transactionHash: pending.transactionHash,
+            resultCode: 'tx_bad_seq',
+          }),
+        },
+        repository: reopened,
+        readInvalidation: {invalidate: jest.fn()},
+        networkId: pending.networkId,
+        now: () => new Date('2026-09-10T00:03:00.000Z'),
+      });
+
+      expect(reopened.findBlockingIntent(pending.networkId, pending.accountId, pending.intentKey)).toBeUndefined();
+      expect(reopened.get(pending.networkId, pending.transactionHash)).toMatchObject({
+        state: 'rejected',
+        resultCode: 'tx_bad_seq',
+      });
+    } finally {
+      activeRealm?.close();
+      rmSync(directory, {recursive: true, force: true});
     }
   });
 });

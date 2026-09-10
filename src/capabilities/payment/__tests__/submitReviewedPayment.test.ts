@@ -1,6 +1,8 @@
 import type { FresnicaSdkPort } from '../../ports/FresnicaSdkPort';
 import type { TransactionGatewayPort } from '../../transaction/TransactionGateway';
 import type { PendingSubmissionRepository } from '../../transaction/pendingSubmission';
+import { reconcilePendingSubmissions } from '../../transaction/reconcilePendingSubmissions';
+import { InMemoryPendingSubmissionRepository } from '../../../platform/persistence/memory/InMemoryPendingSubmissionRepository';
 import type { SignerRecord } from '../../signer/types';
 import type { PaymentReview } from '../buildPaymentReview';
 import { submitReviewedPayment } from '../submitReviewedPayment';
@@ -299,4 +301,50 @@ describe('submitReviewedPayment', () => {
       transactionHash: 'cafebabe',
     });
   });
+
+  it('reconciles a timeout-style uncertain submission when the original hash later appears on-chain', async () => {
+    const gateway = gatewayWith({
+      submission: {status: 'uncertain', transactionHash: 'late-confirmed-hash'},
+    });
+    const sdk = sdkWith(true);
+    const repository = new InMemoryPendingSubmissionRepository();
+    const readInvalidation = {invalidate: jest.fn()};
+    const recovery = {
+      repository,
+      readInvalidation,
+      now: () => new Date('2026-09-10T02:00:00.000Z'),
+    };
+
+    await expect(
+      submitReviewedPayment({
+        gateway,
+        sdk,
+        review,
+        accountId: 'account-1',
+        recovery,
+        signer,
+        networkPassphrase: NETWORK_PASSPHRASE,
+      }),
+    ).resolves.toEqual({status: 'uncertain', transactionHash: 'late-confirmed-hash'});
+    expect(repository.listUnresolved(review.networkId)).toHaveLength(1);
+
+    gateway.loadTransactionOutcome.mockResolvedValue({
+      status: 'confirmed',
+      transactionHash: 'late-confirmed-hash',
+      ledger: 88,
+    });
+    await reconcilePendingSubmissions({
+      gateway,
+      repository,
+      readInvalidation,
+      networkId: review.networkId,
+      now: () => new Date('2026-09-10T02:05:00.000Z'),
+    });
+    expect(repository.listUnresolved(review.networkId)).toEqual([]);
+    expect(repository.get(review.networkId, 'late-confirmed-hash')).toMatchObject({
+      state: 'confirmed',
+      ledger: 88,
+    });
+  });
+
 });
