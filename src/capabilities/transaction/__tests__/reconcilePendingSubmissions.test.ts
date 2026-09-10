@@ -91,6 +91,38 @@ describe('pending submission reconciliation', () => {
     expect(pending.markStillUnknown).toHaveBeenCalledWith('stellar-testnet', 'unknown-hash', checkedAt);
   });
 
+  it.each([
+    ['confirmed', {status: 'confirmed' as const, transactionHash: 'different-hash', ledger: 77}],
+    [
+      'rejected',
+      {
+        status: 'rejected' as const,
+        transactionHash: 'different-hash',
+        resultCode: 'tx_bad_seq',
+      },
+    ],
+    ['still-unknown', {status: 'still-unknown' as const, transactionHash: 'different-hash'}],
+  ])('keeps the original pending record unresolved when a %s outcome returns a different hash', async (_status, outcome) => {
+    const pending = repository([record('expected-hash')]);
+
+    const results = await reconcilePendingSubmissions({
+      gateway: {loadTransactionOutcome: jest.fn().mockResolvedValue(outcome)},
+      repository: pending,
+      readInvalidation: {invalidate: jest.fn()},
+      now: () => checkedAt,
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      transactionHash: 'expected-hash',
+      status: 'check-failed',
+      error: expect.objectContaining({message: 'transaction-reconciliation-hash-mismatch'}),
+    });
+    expect(pending.markConfirmed).not.toHaveBeenCalled();
+    expect(pending.markRejected).not.toHaveBeenCalled();
+    expect(pending.markStillUnknown).not.toHaveBeenCalled();
+  });
+
   it('keeps a pending record unresolved when its lookup fails', async () => {
     const pending = repository([record('offline-hash')]);
     const error = new Error('offline');

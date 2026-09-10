@@ -42,6 +42,13 @@ async function reconcileOne(
 
   try {
     const outcome = await gateway.loadTransactionOutcome(record.transactionHash);
+    if (outcome.transactionHash !== record.transactionHash) {
+      return {
+        transactionHash: record.transactionHash,
+        status: 'check-failed',
+        error: new Error('transaction-reconciliation-hash-mismatch'),
+      };
+    }
     const checkedAt = now();
 
     switch (outcome.status) {
