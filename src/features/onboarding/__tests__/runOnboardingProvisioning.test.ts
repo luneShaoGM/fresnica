@@ -1,12 +1,12 @@
 import type { FresnicaSdkPort } from '../../../capabilities/ports/FresnicaSdkPort';
-import type {AccountIdentity, GenerateMnemonicInput} from '../../../platform/fresnica/types';
-import {InMemoryAccountSignerRepository} from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
-import type {ProvisionAccountDependencies} from '../../../capabilities/account/provisionAccount';
+import type { AccountIdentity, GenerateMnemonicInput } from '../../../capabilities/ports/fresnicaTypes';
+import { InMemoryAccountSignerRepository } from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
 import {
   runGeneratedMnemonicOnboarding,
   runMnemonicImportOnboarding,
   runSecretImportOnboarding,
   runWatchOnlyOnboarding,
+  type OnboardingProvisioningDependencies,
 } from '../runOnboardingProvisioning';
 
 const now = new Date('2026-08-28T00:00:00.000Z');
@@ -14,13 +14,11 @@ const now = new Date('2026-08-28T00:00:00.000Z');
 function createDependencies() {
   const repository = new InMemoryAccountSignerRepository();
   const sdk = {
-    parseAccount: jest.fn(
-      async (address: string): Promise<AccountIdentity> => ({
-        kind: 'classic',
-        address,
-        publicKey: address,
-      }),
-    ),
+    parseAccount: jest.fn(async (address: string): Promise<AccountIdentity> => ({
+      kind: 'classic',
+      address,
+      publicKey: address,
+    })),
     protectSecret: jest.fn(async () => ({
       signerPublicKey: 'GSECRET',
       envelopeJson: '{secret-envelope}',
@@ -41,19 +39,20 @@ function createDependencies() {
   };
 
   let nextId = 0;
-  const dependencies: ProvisionAccountDependencies = {
+  const dependencies: OnboardingProvisioningDependencies = {
     sdk: sdk as unknown as FresnicaSdkPort,
     repository,
     createId: kind => `${kind}-${++nextId}`,
     now: () => now,
+    networkId: 'stellar-testnet',
   };
 
-  return {dependencies, repository, sdk};
+  return { dependencies, repository, sdk };
 }
 
 describe('onboarding provisioning flow', () => {
   it('registers watch-only on the app network and completes', async () => {
-    const {dependencies, repository} = createDependencies();
+    const { dependencies, repository } = createDependencies();
 
     const result = await runWatchOnlyOnboarding(dependencies, {
       address: 'GWATCH',
@@ -62,11 +61,11 @@ describe('onboarding provisioning flow', () => {
 
     expect(result.account.networkId).toBe('stellar-testnet');
     expect(repository.isWatchOnly(result.account.id)).toBe(true);
-    expect(result.state).toEqual({method: 'watch-only', step: 'complete'});
+    expect(result.state).toEqual({ method: 'watch-only', step: 'complete' });
   });
 
   it('imports a secret without returning the plaintext input', async () => {
-    const {dependencies} = createDependencies();
+    const { dependencies } = createDependencies();
 
     const result = await runSecretImportOnboarding(dependencies, {
       secret: 'SPLAINTEXT',
@@ -74,13 +73,13 @@ describe('onboarding provisioning flow', () => {
     });
 
     expect(result.account.account.networkId).toBe('stellar-testnet');
-    expect(result.state).toEqual({method: 'import-secret', step: 'complete'});
+    expect(result.state).toEqual({ method: 'import-secret', step: 'complete' });
     expect(JSON.stringify(result)).not.toContain('SPLAINTEXT');
     expect(JSON.stringify(result)).not.toContain('a strong app passphrase');
   });
 
   it('imports a mnemonic without returning recovery material', async () => {
-    const {dependencies} = createDependencies();
+    const { dependencies } = createDependencies();
 
     const result = await runMnemonicImportOnboarding(dependencies, {
       mnemonic: 'one two three',
@@ -91,13 +90,13 @@ describe('onboarding provisioning flow', () => {
     });
 
     expect(result.account.account.networkId).toBe('stellar-testnet');
-    expect(result.state).toEqual({method: 'import-mnemonic', step: 'complete'});
+    expect(result.state).toEqual({ method: 'import-mnemonic', step: 'complete' });
     expect(JSON.stringify(result)).not.toContain('one two three');
     expect(JSON.stringify(result)).not.toContain('a strong app passphrase');
   });
 
   it('returns generated recovery material only in the one-time backup result', async () => {
-    const {dependencies, repository} = createDependencies();
+    const { dependencies, repository } = createDependencies();
 
     const result = await runGeneratedMnemonicOnboarding(dependencies, {
       language: 'english',
@@ -118,8 +117,6 @@ describe('onboarding provisioning flow', () => {
     });
     expect(JSON.stringify(result.state)).not.toContain('alpha beta gamma');
     expect(JSON.stringify(result.account)).not.toContain('alpha beta gamma');
-    expect(JSON.stringify(repository.getSigner(result.account.signer.id))).not.toContain(
-      'alpha beta gamma',
-    );
+    expect(JSON.stringify(repository.getSigner(result.account.signer.id))).not.toContain('alpha beta gamma');
   });
 });

@@ -1,5 +1,23 @@
 import type { Asset, Transaction, TransactionSource } from '@stellar/stellar-sdk';
 
+import type { BuiltTransaction, StellarPaymentAsset } from '../../capabilities/stellar/types';
+
+export type {
+  BuildChangeTrustInput,
+  BuildPaymentInput,
+  BuiltTransaction,
+  StellarAccountBalanceResult,
+  StellarAccountState,
+  StellarAccountStateResult,
+  StellarBalanceLine,
+  StellarLedgerParameters,
+  StellarLiquidityPoolBalance,
+  StellarLiquidityPoolState,
+  StellarNativeBalance,
+  StellarPaymentAsset,
+  StellarTrustlineBalance,
+} from '../../capabilities/stellar/types';
+
 export type HorizonBalanceLike = {
   asset_type: string;
   balance: string;
@@ -75,7 +93,13 @@ export type HorizonLedgerParametersLike = Readonly<{
 
 export type HorizonLiquidityPoolLike = Readonly<{
   id: string;
-  reserves: readonly Readonly<{asset: string}>[];
+  reserves: readonly Readonly<{ asset: string }>[];
+}>;
+
+export type HorizonTransactionLike = Readonly<{
+  hash: string;
+  ledger: number;
+  successful: boolean;
 }>;
 
 export type HorizonPathAssetLike = Readonly<{
@@ -95,129 +119,34 @@ export type HorizonPathPageLike = Readonly<{
 }>;
 
 export type HorizonPathServerLike = {
-  loadStrictSendPaths(input: Readonly<{
-    sourceAsset: Asset;
-    sourceAmount: string;
-    destinationAssets: readonly Asset[];
-  }>): Promise<HorizonPathPageLike>;
-  loadStrictReceivePaths(input: Readonly<{
-    sourceAssets: readonly Asset[];
-    destinationAsset: Asset;
-    destinationAmount: string;
-  }>): Promise<HorizonPathPageLike>;
+  loadStrictSendPaths(
+    input: Readonly<{
+      sourceAsset: Asset;
+      sourceAmount: string;
+      destinationAssets: readonly Asset[];
+    }>,
+  ): Promise<HorizonPathPageLike>;
+  loadStrictReceivePaths(
+    input: Readonly<{
+      sourceAssets: readonly Asset[];
+      destinationAsset: Asset;
+      destinationAmount: string;
+    }>,
+  ): Promise<HorizonPathPageLike>;
 };
 
 export type HorizonServerLike = {
   loadAccount(address: string): Promise<HorizonAccountLike>;
   loadAccountOperations(input: LoadAccountOperationsInput): Promise<HorizonOperationPageLike>;
+  loadOperation(operationId: string): Promise<HorizonOperationLike>;
   loadLedgerParameters(): Promise<HorizonLedgerParametersLike>;
   loadLiquidityPool(id: string): Promise<HorizonLiquidityPoolLike>;
+  loadTransaction(transactionHash: string): Promise<HorizonTransactionLike>;
   submitTransaction(transaction: Transaction): Promise<{
     hash: string;
     ledger?: number;
   }>;
 };
-
-export type StellarBalanceLine =
-  | Readonly<{
-      kind: 'native';
-      balance: string;
-    }>
-  | Readonly<{
-      kind: 'credit';
-      balance: string;
-      code: string;
-      issuer: string;
-    }>
-  | Readonly<{
-      kind: 'liquidity-pool-share';
-      balance: string;
-      liquidityPoolId: string;
-    }>;
-
-export type StellarAccountBalanceResult =
-  | Readonly<{
-      status: 'active';
-      address: string;
-      balances: readonly StellarBalanceLine[];
-    }>
-  | Readonly<{
-      status: 'inactive';
-      address: string;
-    }>;
-
-export type StellarAccountOperationResult =
-  | Readonly<{
-      status: 'active';
-      address: string;
-      records: readonly HorizonOperationLike[];
-      nextCursor?: string;
-    }>
-  | Readonly<{
-      status: 'inactive';
-      address: string;
-    }>;
-
-export type StellarTrustlineBalance = Readonly<{
-  kind: 'credit';
-  balance: string;
-  limit?: string;
-  buyingLiabilities: string;
-  sellingLiabilities: string;
-  code: string;
-  issuer: string;
-  isAuthorized: boolean;
-  isAuthorizedToMaintainLiabilities: boolean;
-  isClawbackEnabled: boolean;
-}>;
-
-export type StellarLiquidityPoolBalance = Readonly<{
-  kind: 'liquidity-pool-share';
-  balance: string;
-  liquidityPoolId: string;
-}>;
-
-export type StellarNativeBalance = Readonly<{
-  kind: 'native';
-  balance: string;
-  buyingLiabilities?: string;
-  sellingLiabilities: string;
-}>;
-
-export type StellarAccountState = Readonly<{
-  address: string;
-  subentryCount: number;
-  numSponsoring: number;
-  numSponsored: number;
-  memoRequired?: boolean;
-  flags: Readonly<{
-    authRequired: boolean;
-    authClawbackEnabled: boolean;
-  }>;
-  balances: readonly (
-    | StellarNativeBalance
-    | StellarTrustlineBalance
-    | StellarLiquidityPoolBalance
-  )[];
-}>;
-
-export type StellarAccountStateResult =
-  | Readonly<{status: 'active'; account: StellarAccountState}>
-  | Readonly<{status: 'inactive'; address: string}>;
-
-export type StellarLedgerParameters = Readonly<{
-  baseFeeStroops: number;
-  baseReserveStroops: number;
-}>;
-
-export type StellarLiquidityPoolState = Readonly<{
-  id: string;
-  reserveAssets: readonly string[];
-}>;
-
-export type StellarPaymentAsset =
-  | { kind: 'native' }
-  | { kind: 'credit'; code: string; issuer: string };
 
 export type StellarPathPaymentRoute = Readonly<{
   sourceAmount: string;
@@ -235,24 +164,6 @@ export type LoadStrictReceivePathsInput = Readonly<{
   sourceAssets: readonly StellarPaymentAsset[];
   destinationAsset: StellarPaymentAsset;
   destinationAmount: string;
-}>;
-
-export type BuildPaymentInput = Readonly<{
-  operation: 'payment' | 'create-account';
-  source: string;
-  destination: string;
-  asset: StellarPaymentAsset;
-  amount: string;
-  memo?: string;
-  baseFee: string;
-}>;
-
-export type BuildChangeTrustInput = Readonly<{
-  source: string;
-  code: string;
-  issuer: string;
-  limit: string;
-  baseFee: string;
 }>;
 
 export type BuildPathPaymentStrictSendInput = Readonly<{
@@ -279,8 +190,4 @@ export type BuildPathPaymentStrictReceiveInput = Readonly<{
   timeoutSeconds: number;
 }>;
 
-export type BuiltTransaction = {
-  source: string;
-  networkId: 'stellar-testnet';
-  transactionXdrBase64: string;
-};
+export type PathPaymentBuiltTransaction = BuiltTransaction;

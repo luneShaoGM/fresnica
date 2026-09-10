@@ -1,11 +1,9 @@
-import {Transaction} from '@stellar/stellar-sdk';
+import type { NetworkContext } from '../network/types';
+import type { StellarPaymentAsset } from '../stellar/types';
+import type { ReviewedTransaction } from '../transaction/ReviewedTransaction';
+import type { PaymentGatewayPort } from './PaymentGateway';
 
-import {APP_CONFIG} from '../../app/config/appConfig';
-import type {ReviewedTransaction} from '../transaction/ReviewedTransaction';
-
-export type PaymentReviewAsset =
-  | {kind: 'native'}
-  | {kind: 'credit'; code: string; issuer: string};
+export type PaymentReviewAsset = StellarPaymentAsset;
 
 export type PaymentReview = ReviewedTransaction &
   Readonly<{
@@ -16,79 +14,31 @@ export type PaymentReview = ReviewedTransaction &
     memo?: string;
   }>;
 
-export function buildPaymentReview(input: {
-  transactionXdrBase64: string;
-  networkId: string;
-}): PaymentReview {
-  if (input.networkId !== APP_CONFIG.network.id) {
+export type BuildPaymentReviewDependencies = Readonly<{
+  gateway: Pick<PaymentGatewayPort, 'inspectPaymentTransaction'>;
+  network: NetworkContext;
+}>;
+
+export function buildPaymentReview(
+  dependencies: BuildPaymentReviewDependencies,
+  input: Readonly<{
+    transactionXdrBase64: string;
+    networkId: string;
+  }>,
+): PaymentReview {
+  if (input.networkId !== dependencies.network.id) {
     throw new Error('Payment review network mismatch');
   }
 
-  const transaction = new Transaction(
-    input.transactionXdrBase64,
-    APP_CONFIG.network.networkPassphrase,
-  );
-
-  if (transaction.operations.length !== 1) {
-    throw new Error('Payment review requires exactly one operation');
-  }
-
-  const operation = transaction.operations[0];
-  if (operation.type !== 'payment' && operation.type !== 'createAccount') {
-    throw new Error('Payment review requires Payment or CreateAccount');
-  }
-  if (operation.source) {
-    throw new Error('Payment review does not support an operation source override');
-  }
-
-  const asset: PaymentReviewAsset =
-    operation.type === 'createAccount'
-      ? {kind: 'native'}
-      : operation.asset.isNative()
-        ? {kind: 'native'}
-        : {
-            kind: 'credit',
-            code: operation.asset.code,
-            issuer: operation.asset.issuer!,
-          };
-  const destination = operation.destination;
-  const amount =
-    operation.type === 'createAccount' ? operation.startingBalance : operation.amount;
-
-  const memo = transaction.memo;
-  let memoText: string | undefined;
-  if (memo.type === 'text') {
-    memoText = decodeUtf8(memo.value as Uint8Array);
-  } else if (memo.type !== 'none') {
-    throw new Error('Payment review supports only none or text memo');
-  }
-
-  const maxTime = transaction.timeBounds?.maxTime;
-  const expiresAtUnixSeconds =
-    maxTime !== undefined && maxTime !== '0' ? Number(maxTime) : undefined;
+  const projection = dependencies.gateway.inspectPaymentTransaction({
+    transactionXdrBase64: input.transactionXdrBase64,
+    networkPassphrase: dependencies.network.networkPassphrase,
+  });
 
   return Object.freeze({
     transactionXdrBase64: input.transactionXdrBase64,
     networkId: input.networkId,
-    source: transaction.source,
-    operation: operation.type === 'createAccount' ? 'create-account' : 'payment',
-    destination,
-    amount,
-    asset: Object.freeze(asset),
-    ...(memoText === undefined ? {} : {memo: memoText}),
-    fee: transaction.fee,
-    ...(expiresAtUnixSeconds === undefined ? {} : {expiresAtUnixSeconds}),
+    ...projection,
+    asset: Object.freeze(projection.asset),
   });
-}
-
-function decodeUtf8(bytes: Uint8Array): string {
-  const encoded = Array.from(bytes)
-    .map(byte => `%${byte.toString(16).padStart(2, '0')}`)
-    .join('');
-
-  try {
-    return decodeURIComponent(encoded);
-  } catch {
-    throw new Error('Payment review contains invalid UTF-8 text memo');
-  }
 }

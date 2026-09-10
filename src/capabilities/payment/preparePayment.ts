@@ -1,24 +1,15 @@
-import {StrKey} from '@stellar/stellar-sdk';
-
-import {APP_CONFIG} from '../../app/config/appConfig';
-import type {AccountRecord} from '../account/types';
-import type {StellarGateway} from '../../platform/stellar/StellarGateway';
-import type {
-  StellarAccountState,
-  StellarNativeBalance,
-  StellarTrustlineBalance,
-} from '../../platform/stellar/types';
-import {
-  buildPaymentReview,
-  type PaymentReview,
-  type PaymentReviewAsset,
-} from './buildPaymentReview';
+import type { AccountRecord } from '../account/types';
+import type { NetworkContext } from '../network/types';
+import type { StellarAccountState, StellarNativeBalance, StellarTrustlineBalance } from '../stellar/types';
+import type { PaymentGatewayPort } from './PaymentGateway';
+import { buildPaymentReview, type PaymentReview, type PaymentReviewAsset } from './buildPaymentReview';
 
 const MAX_STELLAR_AMOUNT_STROOPS = 9_223_372_036_854_775_807n;
 const MAX_TEXT_MEMO_BYTES = 28;
 
 export type PreparePaymentDependencies = Readonly<{
-  gateway: StellarGateway;
+  gateway: PaymentGatewayPort;
+  network: NetworkContext;
 }>;
 
 export type PaymentRequest = Readonly<{
@@ -33,11 +24,13 @@ export async function preparePayment(
   account: AccountRecord,
   request: PaymentRequest,
 ): Promise<PaymentReview> {
-  assertClassicSource(account);
-  const destination = validateClassicDestination(request.destination);
+  assertClassicSource(account, dependencies.network.id);
+  const destination = validateClassicDestination(request.destination, address =>
+    dependencies.gateway.isClassicAccountAddress(address),
+  );
   const amount = validatePaymentAmount(request.amount);
   const amountStroops = parsePositiveStroops(amount);
-  const asset = validatePaymentAsset(request.asset);
+  const asset = validatePaymentAsset(request.asset, address => dependencies.gateway.isClassicAccountAddress(address));
   const memo = validatePaymentTextMemo(request.memo ?? '');
 
   const sourceResult = await dependencies.gateway.loadAccountState(account.address);
@@ -76,12 +69,7 @@ export async function preparePayment(
     if (destinationAccount.address !== destination) {
       throw new Error('payment-destination-account-mismatch');
     }
-    validateDestinationCapacity(
-      destinationAccount,
-      destination,
-      asset,
-      amountStroops,
-    );
+    validateDestinationCapacity(destinationAccount, destination, asset, amountStroops);
     if (memo === undefined && destinationAccount.memoRequired) {
       throw new Error('payment-destination-requires-memo');
     }
@@ -93,14 +81,14 @@ export async function preparePayment(
     destination,
     asset,
     amount,
-    ...(memo === undefined ? {} : {memo}),
+    ...(memo === undefined ? {} : { memo }),
     baseFee: String(ledger.baseFeeStroops),
   });
   if (built.source !== account.address || built.networkId !== account.networkId) {
     throw new Error('payment-built-transaction-context-mismatch');
   }
 
-  const review = buildPaymentReview({
+  const review = buildPaymentReview(dependencies, {
     transactionXdrBase64: built.transactionXdrBase64,
     networkId: built.networkId,
   });
@@ -118,9 +106,12 @@ export async function preparePayment(
   return review;
 }
 
-export function validateClassicDestination(value: string): string {
+export function validateClassicDestination(
+  value: string,
+  isClassicAccountAddress: (address: string) => boolean,
+): string {
   const destination = value.trim();
-  if (!StrKey.isValidEd25519PublicKey(destination)) {
+  if (!isClassicAccountAddress(destination)) {
     throw new Error('invalid-stellar-destination');
   }
   return destination;
@@ -132,14 +123,17 @@ export function validatePaymentAmount(value: string): string {
   return amount;
 }
 
-export function validatePaymentAsset(asset: PaymentReviewAsset): PaymentReviewAsset {
+export function validatePaymentAsset(
+  asset: PaymentReviewAsset,
+  isClassicAccountAddress: (address: string) => boolean,
+): PaymentReviewAsset {
   if (asset.kind === 'native') {
     return asset;
   }
   if (!/^[A-Za-z0-9]{1,12}$/.test(asset.code)) {
     throw new Error('invalid-stellar-asset-code');
   }
-  if (!StrKey.isValidEd25519PublicKey(asset.issuer)) {
+  if (!isClassicAccountAddress(asset.issuer)) {
     throw new Error('invalid-stellar-asset-issuer');
   }
   return asset;
@@ -155,8 +149,8 @@ export function validatePaymentTextMemo(value: string): string | undefined {
   return value;
 }
 
-function assertClassicSource(account: AccountRecord): void {
-  if (account.networkId !== APP_CONFIG.network.id) {
+function assertClassicSource(account: AccountRecord, networkId: string): void {
+  if (account.networkId !== networkId) {
     throw new Error('send-network-mismatch');
   }
   if (account.identityKind !== 'classic') {
@@ -203,9 +197,7 @@ function validateSourceAvailability(
     throw new Error('payment-source-trustline-not-authorized');
   }
   ensureNativeFeeCapacity(account, baseReserveStroops, baseFeeStroops);
-  const available = maxZero(
-    parseStroops(trustline.balance) - parseStroops(trustline.sellingLiabilities),
-  );
+  const available = maxZero(parseStroops(trustline.balance) - parseStroops(trustline.sellingLiabilities));
   if (amount > available) {
     throw new Error('payment-insufficient-source-balance');
   }
@@ -226,8 +218,7 @@ function validateDestinationCapacity(
     if (!native) {
       throw new Error('payment-destination-native-balance-missing');
     }
-    const committed =
-      parseStroops(native.balance) + parseStroops(native.buyingLiabilities ?? '0');
+    const committed = parseStroops(native.balance) + parseStroops(native.buyingLiabilities ?? '0');
     if (amount > maxZero(MAX_STELLAR_AMOUNT_STROOPS - committed)) {
       throw new Error('payment-destination-insufficient-capacity');
     }
@@ -244,8 +235,7 @@ function validateDestinationCapacity(
   if (trustline.limit === undefined) {
     throw new Error('payment-destination-trustline-limit-missing');
   }
-  const committed =
-    parseStroops(trustline.balance) + parseStroops(trustline.buyingLiabilities);
+  const committed = parseStroops(trustline.balance) + parseStroops(trustline.buyingLiabilities);
   const capacity = maxZero(parseStroops(trustline.limit) - committed);
   if (amount > capacity) {
     throw new Error('payment-destination-insufficient-capacity');
@@ -272,28 +262,21 @@ function ensureNativeFeeCapacity(
 }
 
 function minimumBalance(account: StellarAccountState, baseReserveStroops: number): bigint {
-  const reserveUnits = Math.max(
-    0,
-    2 + account.subentryCount + account.numSponsoring - account.numSponsored,
-  );
+  const reserveUnits = Math.max(0, 2 + account.subentryCount + account.numSponsoring - account.numSponsored);
   return BigInt(reserveUnits) * BigInt(baseReserveStroops);
 }
 
 function findNative(account: StellarAccountState): StellarNativeBalance | undefined {
-  return account.balances.find(
-    (balance): balance is StellarNativeBalance => balance.kind === 'native',
-  );
+  return account.balances.find((balance): balance is StellarNativeBalance => balance.kind === 'native');
 }
 
 function findTrustline(
   account: StellarAccountState,
-  asset: Extract<PaymentReviewAsset, {kind: 'credit'}>,
+  asset: Extract<PaymentReviewAsset, { kind: 'credit' }>,
 ): StellarTrustlineBalance | undefined {
   return account.balances.find(
     (balance): balance is StellarTrustlineBalance =>
-      balance.kind === 'credit' &&
-      balance.code === asset.code &&
-      balance.issuer === asset.issuer,
+      balance.kind === 'credit' && balance.code === asset.code && balance.issuer === asset.issuer,
   );
 }
 
@@ -351,8 +334,7 @@ function utf8ByteLength(value: string): number {
   let bytes = 0;
   for (const character of value) {
     const codePoint = character.codePointAt(0)!;
-    bytes +=
-      codePoint <= 0x7f ? 1 : codePoint <= 0x7ff ? 2 : codePoint <= 0xffff ? 3 : 4;
+    bytes += codePoint <= 0x7f ? 1 : codePoint <= 0x7ff ? 2 : codePoint <= 0xffff ? 3 : 4;
   }
   return bytes;
 }

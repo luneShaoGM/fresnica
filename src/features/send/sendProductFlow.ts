@@ -1,7 +1,9 @@
-import {APP_CONFIG} from '../../app/config/appConfig';
-import type {AccountSignerRepository} from '../../capabilities/account/AccountSignerRepository';
-import type {AccountRecord} from '../../capabilities/account/types';
-import type {BalanceAsset} from '../../capabilities/balance/types';
+import type { AccountSignerRepository } from '../../capabilities/account/AccountSignerRepository';
+import type { AccountRecord } from '../../capabilities/account/types';
+import type { BalanceGatewayPort } from '../../capabilities/balance/BalanceGateway';
+import type { BalanceAsset } from '../../capabilities/balance/types';
+import type { NetworkContext } from '../../capabilities/network/types';
+import type { PaymentGatewayPort } from '../../capabilities/payment/PaymentGateway';
 import {
   buildPaymentReview,
   type PaymentReview,
@@ -17,14 +19,14 @@ import {
   submitReviewedPayment,
   type SubmitReviewedPaymentResult,
 } from '../../capabilities/payment/submitReviewedPayment';
-import type {SignerRecord} from '../../capabilities/signer/types';
-import type {FresnicaSdk} from '../../platform/fresnica/FresnicaSdk';
-import type {StellarGateway} from '../../platform/stellar/StellarGateway';
+import type { SignerRecord } from '../../capabilities/signer/types';
+import type { FresnicaSdkPort } from '../../capabilities/ports/FresnicaSdkPort';
 
 export type SendProductDependencies = Readonly<{
-  gateway: StellarGateway;
-  sdk: FresnicaSdk;
+  gateway: PaymentGatewayPort & BalanceGatewayPort;
+  sdk: FresnicaSdkPort;
   repository: AccountSignerRepository;
+  network: NetworkContext;
 }>;
 
 export type SendDraft = Readonly<{
@@ -36,19 +38,16 @@ export type SendDraft = Readonly<{
 
 export type SendSubmissionResult =
   | SubmitReviewedPaymentResult
-  | Readonly<{status: 'watch-only'}>
-  | Readonly<{status: 'unsupported-account-signers'}>;
+  | Readonly<{ status: 'watch-only' }>
+  | Readonly<{ status: 'unsupported-account-signers' }>;
 
 export async function buildSendReview(
   dependencies: SendProductDependencies,
   account: AccountRecord,
   draft: SendDraft,
 ): Promise<PaymentReview> {
-  assertSendSource(account);
-  const signerResolution = resolveSingleAccountSigner(
-    dependencies.repository,
-    account.id,
-  );
+  assertSendSource(account, dependencies.network.id);
+  const signerResolution = resolveSingleAccountSigner(dependencies.repository, account.id);
   if (signerResolution.status === 'watch-only') {
     throw new Error('send-watch-only');
   }
@@ -56,34 +55,31 @@ export async function buildSendReview(
     throw new Error('send-unsupported-account-signers');
   }
 
-  return preparePayment({gateway: dependencies.gateway}, account, draft);
+  return preparePayment({ gateway: dependencies.gateway, network: dependencies.network }, account, draft);
 }
 
 export async function submitSendReview(
   dependencies: SendProductDependencies,
   account: AccountRecord,
   review: PaymentReview,
-  appPasscode?: string,
+  appPassphrase?: string,
 ): Promise<SendSubmissionResult> {
-  assertSendSource(account);
+  assertSendSource(account, dependencies.network.id);
 
   // Re-derive semantics from the exact XDR at the submission boundary rather
   // than trusting mutable/plain JS review fields supplied by the caller.
-  const exactReview = buildPaymentReview({
-    transactionXdrBase64: review.transactionXdrBase64,
-    networkId: review.networkId,
-  });
-  if (
-    exactReview.source !== account.address ||
-    exactReview.networkId !== account.networkId
-  ) {
+  const exactReview = buildPaymentReview(
+    { gateway: dependencies.gateway, network: dependencies.network },
+    {
+      transactionXdrBase64: review.transactionXdrBase64,
+      networkId: review.networkId,
+    },
+  );
+  if (exactReview.source !== account.address || exactReview.networkId !== account.networkId) {
     throw new Error('send-review-account-mismatch');
   }
 
-  const signerResolution = resolveSingleAccountSigner(
-    dependencies.repository,
-    account.id,
-  );
+  const signerResolution = resolveSingleAccountSigner(dependencies.repository, account.id);
   if (signerResolution.status !== 'ready') {
     return signerResolution;
   }
@@ -93,12 +89,15 @@ export async function submitSendReview(
     sdk: dependencies.sdk,
     review: exactReview,
     signer: signerResolution.signer,
-    ...(appPasscode ? {appPasscode} : {}),
+    ...(appPassphrase ? { appPassphrase } : {}),
     systemAuthReason: `${exactReview.operation === 'create-account' ? 'Create account with' : 'Send'} ${exactReview.amount} ${assetCode(exactReview.asset)}`,
+    networkPassphrase: dependencies.network.networkPassphrase,
   });
 }
 
-export const validateDestination = validateClassicDestination;
+export function validateDestination(dependencies: Pick<SendProductDependencies, 'gateway'>, value: string): string {
+  return validateClassicDestination(value, address => dependencies.gateway.isClassicAccountAddress(address));
+}
 export const validateStellarAmount = validatePaymentAmount;
 export const validateTextMemo = validatePaymentTextMemo;
 
@@ -106,8 +105,8 @@ export function sendAssetKey(asset: BalanceAsset | PaymentReviewAsset): string {
   return asset.kind === 'native' ? 'XLM' : `${asset.code}:${asset.issuer}`;
 }
 
-function assertSendSource(account: AccountRecord): void {
-  if (account.networkId !== APP_CONFIG.network.id) {
+function assertSendSource(account: AccountRecord, networkId: string): void {
+  if (account.networkId !== networkId) {
     throw new Error('send-network-mismatch');
   }
   if (account.identityKind !== 'classic') {
@@ -119,17 +118,17 @@ function resolveSingleAccountSigner(
   repository: AccountSignerRepository,
   accountId: string,
 ):
-  | Readonly<{status: 'ready'; signer: SignerRecord}>
-  | Readonly<{status: 'watch-only'}>
-  | Readonly<{status: 'unsupported-account-signers'}> {
+  | Readonly<{ status: 'ready'; signer: SignerRecord }>
+  | Readonly<{ status: 'watch-only' }>
+  | Readonly<{ status: 'unsupported-account-signers' }> {
   const signers = repository.listSignersForAccount(accountId);
   if (signers.length === 0) {
-    return {status: 'watch-only'};
+    return { status: 'watch-only' };
   }
   if (signers.length !== 1) {
-    return {status: 'unsupported-account-signers'};
+    return { status: 'unsupported-account-signers' };
   }
-  return {status: 'ready', signer: signers[0]};
+  return { status: 'ready', signer: signers[0] };
 }
 
 function assetCode(asset: PaymentReviewAsset): string {

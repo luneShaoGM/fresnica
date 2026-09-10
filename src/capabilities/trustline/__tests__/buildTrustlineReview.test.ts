@@ -1,88 +1,103 @@
-import {
-  Account,
-  Asset,
-  Networks,
-  Operation,
-  StrKey,
-  Transaction,
-  TransactionBuilder,
-} from '@stellar/stellar-sdk';
+import type { NetworkContext } from '../../network/types';
+import type { TrustlineGatewayPort } from '../TrustlineGateway';
+import { buildTrustlineReview } from '../buildTrustlineReview';
 
-import {buildTrustlineReview} from '../buildTrustlineReview';
+const TEST_NETWORK: NetworkContext = Object.freeze({
+  id: 'stellar-testnet',
+  networkPassphrase: 'Test SDF Network ; September 2015',
+});
 
-const source = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(21));
-const issuer = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(22));
-
-function changeTrustXdr(limit: string, withSource = false): string {
-  return new TransactionBuilder(new Account(source, '10'), {
-    fee: '100',
-    networkPassphrase: Networks.TESTNET,
-  })
-    .addOperation(
-      Operation.changeTrust({
-        asset: new Asset('USD', issuer),
-        limit,
-        ...(withSource ? {source} : {}),
-      }),
-    )
-    .setTimeout(180)
-    .build()
-    .toXdr();
+function gateway(limit: string | null = '708269837873.6765000') {
+  return {
+    inspectTrustlineTransaction: jest.fn().mockReturnValue({
+      source: 'GSOURCE',
+      fee: '100',
+      expiresAtUnixSeconds: 1_800_000_000,
+      asset: { code: 'USD', issuer: 'GISSUER' },
+      ...(limit === null ? {} : { limit }),
+    }),
+  } satisfies Pick<TrustlineGatewayPort, 'inspectTrustlineTransaction'>;
 }
 
+function dependencies(stellar = gateway()) {
+  return { gateway: stellar, network: TEST_NETWORK } as const;
+}
 describe('buildTrustlineReview', () => {
-  it('derives add semantics from the exact ChangeTrust XDR', () => {
-    const xdr = changeTrustXdr('708269837873.6765');
-    const transaction = new Transaction(xdr, Networks.TESTNET);
-
-    const review = buildTrustlineReview({
-      transactionXdrBase64: xdr,
-      networkId: 'stellar-testnet',
+  it('binds an add projection to exact XDR and expected issuer state', () => {
+    const stellar = gateway();
+    const review = buildTrustlineReview(dependencies(stellar), {
+      transactionXdrBase64: 'exact-change-trust-xdr',
+      networkId: TEST_NETWORK.id,
       expectedAuthorization: 'unauthorized',
       expectedClawbackEnabled: true,
     });
 
+    expect(stellar.inspectTrustlineTransaction).toHaveBeenCalledWith({
+      transactionXdrBase64: 'exact-change-trust-xdr',
+      networkPassphrase: TEST_NETWORK.networkPassphrase,
+    });
     expect(review).toEqual({
-      transactionXdrBase64: xdr,
-      networkId: 'stellar-testnet',
-      source,
+      transactionXdrBase64: 'exact-change-trust-xdr',
+      networkId: TEST_NETWORK.id,
+      source: 'GSOURCE',
       fee: '100',
-      expiresAtUnixSeconds: Number(transaction.timeBounds?.maxTime),
+      expiresAtUnixSeconds: 1_800_000_000,
       operation: 'add',
-      asset: {code: 'USD', issuer},
+      asset: { code: 'USD', issuer: 'GISSUER' },
       limit: '708269837873.6765000',
       expectedAuthorization: 'unauthorized',
       expectedClawbackEnabled: true,
     });
-    expect(Object.isFrozen(review)).toBe(true);
-    expect(Object.isFrozen(review.asset)).toBe(true);
+  });
+  it('preserves explicit set-limit intent for a nonzero ChangeTrust projection', () => {
+    const review = buildTrustlineReview(dependencies(gateway('5.0000000')), {
+      transactionXdrBase64: 'exact-set-limit-xdr',
+      networkId: TEST_NETWORK.id,
+      operation: 'set-limit',
+    });
+
+    expect(review.operation).toBe('set-limit');
+    expect(review.limit).toBe('5.0000000');
   });
 
-  it('derives remove semantics only from zero-limit exact XDR', () => {
-    const review = buildTrustlineReview({
-      transactionXdrBase64: changeTrustXdr('0'),
-      networkId: 'stellar-testnet',
+  it('rejects intent that contradicts zero/nonzero ChangeTrust XDR semantics', () => {
+    expect(() =>
+      buildTrustlineReview(dependencies(gateway('5.0000000')), {
+        transactionXdrBase64: 'exact-nonzero-xdr',
+        networkId: TEST_NETWORK.id,
+        operation: 'remove',
+      }),
+    ).toThrow('trustline-review-operation-xdr-mismatch');
+    expect(() =>
+      buildTrustlineReview(dependencies(gateway(null)), {
+        transactionXdrBase64: 'exact-zero-xdr',
+        networkId: TEST_NETWORK.id,
+        operation: 'set-limit',
+      }),
+    ).toThrow('trustline-review-operation-xdr-mismatch');
+  });
+
+  it('derives remove semantics when the platform projection has no nonzero limit', () => {
+    const review = buildTrustlineReview(dependencies(gateway(null)), {
+      transactionXdrBase64: 'exact-remove-xdr',
+      networkId: TEST_NETWORK.id,
     });
 
     expect(review.operation).toBe('remove');
     expect(review.limit).toBeUndefined();
+    expect(Object.isFrozen(review)).toBe(true);
+    expect(Object.isFrozen(review.asset)).toBe(true);
   });
 
-  it('rejects an operation-level source override', () => {
-    expect(() =>
-      buildTrustlineReview({
-        transactionXdrBase64: changeTrustXdr('1', true),
-        networkId: 'stellar-testnet',
-      }),
-    ).toThrow('Trustline review does not support an operation source override');
-  });
+  it('rejects a network mismatch before asking the platform to inspect XDR', () => {
+    const stellar = gateway();
 
-  it('rejects the wrong network before parsing semantics', () => {
     expect(() =>
-      buildTrustlineReview({
-        transactionXdrBase64: changeTrustXdr('1'),
+      buildTrustlineReview(dependencies(stellar), {
+        transactionXdrBase64: 'exact-change-trust-xdr',
         networkId: 'stellar-mainnet',
       }),
     ).toThrow('Trustline review network mismatch');
+    expect(stellar.inspectTrustlineTransaction).not.toHaveBeenCalled();
   });
 });

@@ -1,25 +1,25 @@
-import {NativeModules} from 'react-native';
+import { NativeModules } from 'react-native';
 
-import type {ProvisionAccountDependencies} from '../capabilities/account/provisionAccount';
-import type {ApplicationSecurityDependencies} from '../capabilities/application-security/systemAuth';
-import type {BalanceDependencies} from '../capabilities/balance/loadBalanceSnapshot';
-import type {HistoryDependencies} from '../capabilities/history/loadHistoryPage';
-import type {SendProductDependencies} from '../features/send/sendProductFlow';
-import type {TrustlineProductDependencies} from '../features/trustlines/trustlineProductFlow';
-import {
-  ReactNativeFresnicaSdk,
-  loadNativeFresnicaModule,
-} from '../platform/fresnica/native';
+import { APP_CONFIG } from './config/appConfig';
+import { SessionLogger } from './diagnostics/SessionLogger';
+import type { OnboardingProvisioningDependencies } from '../features/onboarding/runOnboardingProvisioning';
+import type { ApplicationSecurityDependencies } from '../capabilities/application-security/systemAuth';
+import type { BalanceDependencies } from '../capabilities/balance/loadBalanceSnapshot';
+import type { HistoryDependencies } from '../capabilities/history/loadHistoryPage';
+import type { SendProductDependencies } from '../features/send/sendProductFlow';
+import type { TrustlineProductDependencies } from '../features/trustlines/trustlineProductFlow';
+import { ReactNativeFresnicaSdk, loadNativeFresnicaModule } from '../platform/fresnica/native';
 import {
   RealmAccountSignerRepository,
   RealmLocalePreferenceStore,
   createRealmRecordId,
   openWalletRealm,
 } from '../platform/persistence/realm';
-import {StellarSdkGateway} from '../platform/stellar/StellarSdkGateway';
+import { StellarSdkGateway } from '../platform/stellar/StellarSdkGateway';
 
 export type AppServices = Readonly<{
-  onboarding: ProvisionAccountDependencies;
+  diagnostics: SessionLogger;
+  onboarding: OnboardingProvisioningDependencies;
   security: ApplicationSecurityDependencies;
   balance: BalanceDependencies;
   send: SendProductDependencies;
@@ -30,6 +30,7 @@ export type AppServices = Readonly<{
 }>;
 
 export async function createAppServices(): Promise<AppServices> {
+  const diagnostics = new SessionLogger();
   const realm = await openWalletRealm();
 
   try {
@@ -37,14 +38,25 @@ export async function createAppServices(): Promise<AppServices> {
     const sdk = new ReactNativeFresnicaSdk(nativeModule);
     const repository = new RealmAccountSignerRepository(realm);
     const localePreferences = new RealmLocalePreferenceStore(realm);
-    const stellarGateway = new StellarSdkGateway();
+    const network = Object.freeze({
+      id: APP_CONFIG.network.id,
+      networkPassphrase: APP_CONFIG.network.networkPassphrase,
+    });
+    const stellarGateway = new StellarSdkGateway({
+      network,
+      horizonUrl: APP_CONFIG.network.horizonUrl,
+    });
+
+    diagnostics.info('app-services-ready', {details: {networkId: network.id}});
 
     return {
+      diagnostics,
       onboarding: {
         sdk,
         repository,
         createId: () => createRealmRecordId(),
         now: () => new Date(),
+        networkId: network.id,
       },
       security: {
         sdk,
@@ -52,19 +64,23 @@ export async function createAppServices(): Promise<AppServices> {
       },
       balance: {
         gateway: stellarGateway,
+        networkId: network.id,
       },
       send: {
         gateway: stellarGateway,
         sdk,
         repository,
+        network,
       },
       history: {
         gateway: stellarGateway,
+        networkId: network.id,
       },
       trustline: {
         gateway: stellarGateway,
         sdk,
         repository,
+        network,
       },
       localePreferences,
       close: () => realm.close(),

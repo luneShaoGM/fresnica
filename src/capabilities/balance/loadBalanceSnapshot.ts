@@ -1,22 +1,22 @@
-import {APP_CONFIG} from '../../app/config/appConfig';
-import type {AccountRecord} from '../account/types';
-import type {StellarGateway} from '../../platform/stellar/StellarGateway';
-import type {BalanceLine, BalanceSnapshot} from './types';
+import type { AccountRecord } from '../account/types';
+import type { BalanceGatewayPort } from './BalanceGateway';
+import type { BalanceLine, BalanceSnapshot } from './types';
 
 export type BalanceDependencies = Readonly<{
-  gateway: StellarGateway;
+  gateway: BalanceGatewayPort;
+  networkId: string;
 }>;
 
 export async function loadBalanceSnapshot(
   dependencies: BalanceDependencies,
   account: AccountRecord,
 ): Promise<BalanceSnapshot> {
-  if (account.networkId !== APP_CONFIG.network.id) {
+  if (account.networkId !== dependencies.networkId) {
     throw new Error(`balance-network-mismatch:${account.networkId}`);
   }
 
   if (account.identityKind !== 'classic') {
-    return {status: 'unsupported-account', address: account.address};
+    return { status: 'unsupported-account', address: account.address };
   }
 
   const result = await dependencies.gateway.loadAccountBalances(account.address);
@@ -31,14 +31,15 @@ export async function loadBalanceSnapshot(
     switch (line.kind) {
       case 'native':
         balances.push({
-          asset: {kind: 'native', code: 'XLM'},
+          asset: { kind: 'native', code: 'XLM' },
           balance: line.balance,
         });
         break;
       case 'credit':
         balances.push({
-          asset: {kind: 'credit', code: line.code, issuer: line.issuer},
+          asset: { kind: 'credit', code: line.code, issuer: line.issuer },
           balance: line.balance,
+          ...(line.limit === undefined ? {} : {limit: line.limit}),
         });
         break;
       case 'liquidity-pool-share':

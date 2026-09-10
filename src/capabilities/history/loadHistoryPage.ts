@@ -1,7 +1,5 @@
-import {APP_CONFIG} from '../../app/config/appConfig';
-import type {AccountRecord} from '../account/types';
-import type {HorizonOperationLike} from '../../platform/stellar/types';
-import type {StellarGateway} from '../../platform/stellar/StellarGateway';
+import type { AccountRecord } from '../account/types';
+import type { HistoryGatewayPort, HistoryOperationRecord } from './HistoryGateway';
 import type {
   HistoryAsset,
   HistoryCreateAccountEntry,
@@ -13,43 +11,43 @@ import type {
   HistoryUnsupportedEntry,
 } from './types';
 
-export type HistoryDependencies = Readonly<{gateway: StellarGateway}>;
+export type HistoryDependencies = Readonly<{
+  gateway: HistoryGatewayPort;
+  networkId: string;
+}>;
 
 const DEFAULT_HISTORY_PAGE_SIZE = 20;
 
 export async function loadHistoryPage(
   dependencies: HistoryDependencies,
   account: AccountRecord,
-  input?: Readonly<{cursor?: string; limit?: number}>,
+  input?: Readonly<{ cursor?: string; limit?: number }>,
 ): Promise<HistoryPage> {
-  if (account.networkId !== APP_CONFIG.network.id) {
+  if (account.networkId !== dependencies.networkId) {
     throw new Error('history-network-mismatch');
   }
   if (account.identityKind !== 'classic') {
-    return {status: 'unsupported-account'};
+    return { status: 'unsupported-account' };
   }
 
   const page = await dependencies.gateway.loadAccountOperations({
     address: account.address,
-    ...(input?.cursor === undefined ? {} : {cursor: input.cursor}),
+    ...(input?.cursor === undefined ? {} : { cursor: input.cursor }),
     limit: input?.limit ?? DEFAULT_HISTORY_PAGE_SIZE,
   });
 
   if (page.status === 'inactive') {
-    return {status: 'inactive'};
+    return { status: 'inactive' };
   }
 
   return {
     status: 'active',
     entries: page.records.map(record => mapHistoryEntry(record, account.address)),
-    ...(page.nextCursor === undefined ? {} : {nextCursor: page.nextCursor}),
+    ...(page.nextCursor === undefined ? {} : { nextCursor: page.nextCursor }),
   };
 }
 
-export function mapHistoryEntry(
-  record: HorizonOperationLike,
-  accountAddress: string,
-): HistoryEntry {
+export function mapHistoryEntry(record: HistoryOperationRecord, accountAddress: string): HistoryEntry {
   const base = mapBase(record);
 
   switch (record.type) {
@@ -66,13 +64,13 @@ export function mapHistoryEntry(
   }
 }
 
-function mapBase(record: HorizonOperationLike): HistoryEntryBase {
-  const id = nonEmpty(record.id) ?? nonEmpty(record.paging_token);
-  const pagingToken = nonEmpty(record.paging_token);
+function mapBase(record: HistoryOperationRecord): HistoryEntryBase {
+  const id = nonEmpty(record.id) ?? nonEmpty(record.pagingToken);
+  const pagingToken = nonEmpty(record.pagingToken);
   const operationType = nonEmpty(record.type);
-  const occurredAt = nonEmpty(record.created_at);
-  const transactionHash = nonEmpty(record.transaction_hash);
-  const sourceAccount = nonEmpty(record.source_account);
+  const occurredAt = nonEmpty(record.occurredAt);
+  const transactionHash = nonEmpty(record.transactionHash);
+  const sourceAccount = nonEmpty(record.sourceAccount);
 
   if (
     !id ||
@@ -96,14 +94,10 @@ function mapBase(record: HorizonOperationLike): HistoryEntryBase {
   });
 }
 
-function mapPayment(
-  record: HorizonOperationLike,
-  accountAddress: string,
-  base: HistoryEntryBase,
-): HistoryEntry {
+function mapPayment(record: HistoryOperationRecord, accountAddress: string, base: HistoryEntryBase): HistoryEntry {
   const sender = nonEmpty(record.from) ?? base.sourceAccount;
   const recipientBase = nonEmpty(record.to);
-  const recipientDisplay = nonEmpty(record.to_muxed) ?? recipientBase;
+  const recipientDisplay = nonEmpty(record.toMuxed) ?? recipientBase;
   const amount = nonEmpty(record.amount);
   const asset = mapAsset(record);
 
@@ -127,13 +121,13 @@ function mapPayment(
 }
 
 function mapCreateAccount(
-  record: HorizonOperationLike,
+  record: HistoryOperationRecord,
   accountAddress: string,
   base: HistoryEntryBase,
 ): HistoryEntry {
   const funder = nonEmpty(record.funder) ?? base.sourceAccount;
   const createdAccount = nonEmpty(record.account);
-  const startingBalance = nonEmpty(record.starting_balance);
+  const startingBalance = nonEmpty(record.startingBalance);
   if (!funder || !createdAccount || !startingBalance) {
     return unsupportedShape(base);
   }
@@ -147,40 +141,27 @@ function mapCreateAccount(
   } satisfies HistoryCreateAccountEntry);
 }
 
-function mapAsset(record: HorizonOperationLike): HistoryAsset | undefined {
-  if (record.asset_type === 'native') {
-    return {kind: 'native', code: 'XLM'};
+function mapAsset(record: HistoryOperationRecord): HistoryAsset | undefined {
+  if (record.asset?.kind === 'native') {
+    return { kind: 'native', code: 'XLM' };
   }
 
-  if (
-    (record.asset_type === 'credit_alphanum4' ||
-      record.asset_type === 'credit_alphanum12') &&
-    nonEmpty(record.asset_code) &&
-    nonEmpty(record.asset_issuer)
-  ) {
+  if (record.asset?.kind === 'credit' && nonEmpty(record.asset.code) && nonEmpty(record.asset.issuer)) {
     return {
       kind: 'credit',
-      code: record.asset_code!,
-      issuer: record.asset_issuer!,
+      code: record.asset.code!,
+      issuer: record.asset.issuer!,
     };
   }
 
   return undefined;
 }
 
-function paymentDirection(
-  accountAddress: string,
-  sender: string,
-  recipientBase: string,
-): HistoryDirection {
+function paymentDirection(accountAddress: string, sender: string, recipientBase: string): HistoryDirection {
   return flowDirection(accountAddress, sender, recipientBase);
 }
 
-function flowDirection(
-  accountAddress: string,
-  source: string,
-  destination: string,
-): HistoryDirection {
+function flowDirection(accountAddress: string, source: string, destination: string): HistoryDirection {
   const fromSelf = source === accountAddress;
   const toSelf = destination === accountAddress;
   if (fromSelf && toSelf) {

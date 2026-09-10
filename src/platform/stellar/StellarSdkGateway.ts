@@ -1,13 +1,9 @@
-import {
-  Asset,
-  Horizon,
-  Memo,
-  Operation,
-  Transaction,
-  TransactionBuilder,
-} from '@stellar/stellar-sdk';
+import { Asset, Horizon, Memo, Operation, StrKey, Transaction, TransactionBuilder } from '@stellar/stellar-sdk';
 
-import { APP_CONFIG } from '../../app/config/appConfig';
+import type { HistoryOperationRecord } from '../../capabilities/history/HistoryGateway';
+import type { NetworkContext } from '../../capabilities/network/types';
+import type { PaymentTransactionProjection } from '../../capabilities/payment/PaymentGateway';
+import type { TrustlineTransactionProjection } from '../../capabilities/trustline/TrustlineGateway';
 import type { LedgerSignerCondition } from '../../capabilities/ledger-authorization/types';
 import type { TransactionSubmissionResult } from '../../capabilities/transaction/submission';
 import type { StellarGateway } from './StellarGateway';
@@ -23,22 +19,57 @@ import type {
   StellarBalanceLine,
 } from './types';
 
-function createDefaultServer(): HorizonServerLike {
-  const server = new Horizon.Server(APP_CONFIG.network.horizonUrl);
+export type StellarSdkGatewayConfig = Readonly<{
+  network: NetworkContext;
+  horizonUrl: string;
+}>;
+
+function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryOperationRecord {
+  const asset =
+    input.asset_type === undefined
+      ? undefined
+      : input.asset_type === 'native'
+        ? ({ kind: 'native' } as const)
+        : input.asset_type === 'credit_alphanum4' || input.asset_type === 'credit_alphanum12'
+          ? ({
+              kind: 'credit',
+              ...(input.asset_code === undefined ? {} : { code: input.asset_code }),
+              ...(input.asset_issuer === undefined ? {} : { issuer: input.asset_issuer }),
+            } as const)
+          : ({ kind: 'unsupported' } as const);
+
+  return Object.freeze({
+    id: input.id,
+    pagingToken: input.paging_token,
+    type: input.type,
+    occurredAt: input.created_at,
+    transactionHash: input.transaction_hash,
+    sourceAccount: input.source_account,
+    ...(input.from === undefined ? {} : { from: input.from }),
+    ...(input.to === undefined ? {} : { to: input.to }),
+    ...(input.to_muxed === undefined ? {} : { toMuxed: input.to_muxed }),
+    ...(input.amount === undefined ? {} : { amount: input.amount }),
+    ...(asset === undefined ? {} : { asset: Object.freeze(asset) }),
+    ...(input.funder === undefined ? {} : { funder: input.funder }),
+    ...(input.account === undefined ? {} : { account: input.account }),
+    ...(input.starting_balance === undefined ? {} : { startingBalance: input.starting_balance }),
+  });
+}
+
+function createDefaultServer(horizonUrl: string): HorizonServerLike {
+  const server = new Horizon.Server(horizonUrl);
 
   return {
     loadAccount: address => server.loadAccount(address),
+    loadOperation: async operationId =>
+      (await server.operations().operation(operationId).call()) as unknown as HorizonOperationLike,
     loadAccountOperations: async input => {
-      let request = server
-        .operations()
-        .forAccount(input.address)
-        .order('desc')
-        .limit(input.limit);
+      let request = server.operations().forAccount(input.address).order('desc').limit(input.limit);
       if (input.cursor !== undefined) {
         request = request.cursor(input.cursor);
       }
       const page = await request.call();
-      return {records: page.records as unknown as HorizonOperationLike[]};
+      return { records: page.records as unknown as HorizonOperationLike[] };
     },
     loadLedgerParameters: async () => {
       const page = await server.ledgers().order('desc').limit(1).call();
@@ -55,7 +86,15 @@ function createDefaultServer(): HorizonServerLike {
       const pool = await server.liquidityPools().liquidityPoolId(id).call();
       return {
         id: pool.id,
-        reserves: pool.reserves.map(reserve => ({asset: reserve.asset})),
+        reserves: pool.reserves.map(reserve => ({ asset: reserve.asset })),
+      };
+    },
+    loadTransaction: async transactionHash => {
+      const transaction = await server.transactions().transaction(transactionHash).call();
+      return {
+        hash: transaction.hash,
+        ledger: transaction.ledger_attr,
+        successful: transaction.successful,
       };
     },
     submitTransaction: async transaction => {
@@ -68,11 +107,7 @@ function createDefaultServer(): HorizonServerLike {
   };
 }
 
-function mapLedgerSigner(input: {
-  key: string;
-  weight: number;
-  type: string;
-}): LedgerSignerCondition {
+function mapLedgerSigner(input: { key: string; weight: number; type: string }): LedgerSignerCondition {
   switch (input.type) {
     case 'ed25519_public_key':
       return { kind: 'ed25519', publicKey: input.key, weight: input.weight };
@@ -90,7 +125,7 @@ function mapLedgerSigner(input: {
 function mapBalance(input: HorizonBalanceLike): StellarBalanceLine {
   switch (input.asset_type) {
     case 'native':
-      return {kind: 'native', balance: input.balance};
+      return { kind: 'native', balance: input.balance };
     case 'credit_alphanum4':
     case 'credit_alphanum12':
       if (!input.asset_code || !input.asset_issuer) {
@@ -101,6 +136,7 @@ function mapBalance(input: HorizonBalanceLike): StellarBalanceLine {
         balance: input.balance,
         code: input.asset_code,
         issuer: input.asset_issuer,
+        ...(input.limit === undefined ? {} : { limit: input.limit }),
       };
     case 'liquidity_pool_shares':
       if (!input.liquidity_pool_id) {
@@ -160,14 +196,13 @@ function mapAccountState(account: HorizonAccountLike): StellarAccountState {
           return {
             kind: 'credit' as const,
             balance: balance.balance,
-            ...(balance.limit === undefined ? {} : {limit: balance.limit}),
+            ...(balance.limit === undefined ? {} : { limit: balance.limit }),
             buyingLiabilities: balance.buying_liabilities ?? '0',
             sellingLiabilities: balance.selling_liabilities ?? '0',
             code: balance.asset_code,
             issuer: balance.asset_issuer,
             isAuthorized: balance.is_authorized,
-            isAuthorizedToMaintainLiabilities:
-              balance.is_authorized_to_maintain_liabilities,
+            isAuthorizedToMaintainLiabilities: balance.is_authorized_to_maintain_liabilities,
             isClawbackEnabled: balance.is_clawback_enabled,
           };
         case 'liquidity_pool_shares':
@@ -190,12 +225,8 @@ function isHorizonNotFound(error: unknown): boolean {
   if (error === null || typeof error !== 'object') {
     return false;
   }
-  const response = (error as {response?: unknown}).response;
-  return (
-    response !== null &&
-    typeof response === 'object' &&
-    (response as {status?: unknown}).status === 404
-  );
+  const response = (error as { response?: unknown }).response;
+  return response !== null && typeof response === 'object' && (response as { status?: unknown }).status === 404;
 }
 
 function transactionHashHex(transaction: Transaction): string {
@@ -204,9 +235,9 @@ function transactionHashHex(transaction: Transaction): string {
     .join('');
 }
 
-function deterministicSubmissionRejection(error: unknown):
-  | { rejected: false }
-  | { rejected: true; resultCode?: string } {
+function deterministicSubmissionRejection(
+  error: unknown,
+): { rejected: false } | { rejected: true; resultCode?: string } {
   if (error === null || typeof error !== 'object') {
     return { rejected: false };
   }
@@ -237,13 +268,30 @@ function deterministicSubmissionRejection(error: unknown):
   }
 
   const transactionCode = (resultCodes as { transaction?: unknown }).transaction;
-  return typeof transactionCode === 'string'
-    ? { rejected: true, resultCode: transactionCode }
-    : { rejected: true };
+  return typeof transactionCode === 'string' ? { rejected: true, resultCode: transactionCode } : { rejected: true };
+}
+
+function decodeUtf8(bytes: Uint8Array): string {
+  const encoded = Array.from(bytes)
+    .map(byte => `%${byte.toString(16).padStart(2, '0')}`)
+    .join('');
+
+  try {
+    return decodeURIComponent(encoded);
+  } catch {
+    throw new Error('Payment review contains invalid UTF-8 text memo');
+  }
 }
 
 export class StellarSdkGateway implements StellarGateway {
-  constructor(private readonly server: HorizonServerLike = createDefaultServer()) {}
+  private readonly server: HorizonServerLike;
+
+  constructor(
+    private readonly config: StellarSdkGatewayConfig,
+    server?: HorizonServerLike,
+  ) {
+    this.server = server ?? createDefaultServer(config.horizonUrl);
+  }
 
   async loadAccountAuthorization(address: string) {
     const account = await this.server.loadAccount(address);
@@ -269,7 +317,7 @@ export class StellarSdkGateway implements StellarGateway {
       };
     } catch (error) {
       if (isHorizonNotFound(error)) {
-        return {status: 'inactive' as const, address};
+        return { status: 'inactive' as const, address };
       }
       throw error;
     }
@@ -278,39 +326,50 @@ export class StellarSdkGateway implements StellarGateway {
   async loadAccountState(address: string) {
     try {
       const account = await this.server.loadAccount(address);
-      return {status: 'active' as const, account: mapAccountState(account)};
+      return { status: 'active' as const, account: mapAccountState(account) };
     } catch (error) {
       if (isHorizonNotFound(error)) {
-        return {status: 'inactive' as const, address};
+        return { status: 'inactive' as const, address };
       }
       throw error;
     }
   }
 
-  async loadAccountOperations(input: {
-    address: string;
-    cursor?: string;
-    limit: number;
-  }) {
+  async loadOperation(input: { operationId: string }) {
+    const operationId = input.operationId.trim();
+    if (!operationId) {
+      throw new Error('invalid-history-operation-id');
+    }
+
+    try {
+      const operation = await this.server.loadOperation(operationId);
+      return { status: 'found' as const, record: mapHistoryOperationRecord(operation) };
+    } catch (error) {
+      if (isHorizonNotFound(error)) {
+        return { status: 'not-found' as const };
+      }
+      throw error;
+    }
+  }
+
+  async loadAccountOperations(input: { address: string; cursor?: string; limit: number }) {
     if (!Number.isInteger(input.limit) || input.limit < 1 || input.limit > 200) {
       throw new Error('invalid-horizon-operation-page-limit');
     }
 
     try {
       const page = await this.server.loadAccountOperations(input);
-      const records = [...page.records];
-      const lastRecord = records[records.length - 1];
+      const rawRecords = [...page.records];
+      const lastRecord = rawRecords[rawRecords.length - 1];
       return {
         status: 'active' as const,
         address: input.address,
-        records,
-        ...(records.length === input.limit && lastRecord
-          ? {nextCursor: lastRecord.paging_token}
-          : {}),
+        records: rawRecords.map(mapHistoryOperationRecord),
+        ...(rawRecords.length === input.limit && lastRecord ? { nextCursor: lastRecord.paging_token } : {}),
       };
     } catch (error) {
       if (isHorizonNotFound(error)) {
-        return {status: 'inactive' as const, address: input.address};
+        return { status: 'inactive' as const, address: input.address };
       }
       throw error;
     }
@@ -332,12 +391,100 @@ export class StellarSdkGateway implements StellarGateway {
     };
   }
 
+  isClassicAccountAddress(address: string): boolean {
+    return StrKey.isValidEd25519PublicKey(address);
+  }
+
+  inspectPaymentTransaction(
+    input: Readonly<{
+      transactionXdrBase64: string;
+      networkPassphrase: string;
+    }>,
+  ): PaymentTransactionProjection {
+    const transaction = new Transaction(input.transactionXdrBase64, input.networkPassphrase);
+    if (transaction.operations.length !== 1) {
+      throw new Error('Payment review requires exactly one operation');
+    }
+
+    const operation = transaction.operations[0];
+    if (operation.type !== 'payment' && operation.type !== 'createAccount') {
+      throw new Error('Payment review requires Payment or CreateAccount');
+    }
+    if (operation.source) {
+      throw new Error('Payment review does not support an operation source override');
+    }
+
+    const asset =
+      operation.type === 'createAccount'
+        ? ({ kind: 'native' } as const)
+        : operation.asset.isNative()
+          ? ({ kind: 'native' } as const)
+          : ({
+              kind: 'credit',
+              code: operation.asset.code,
+              issuer: operation.asset.issuer!,
+            } as const);
+    const memo = transaction.memo;
+    let memoText: string | undefined;
+    if (memo.type === 'text') {
+      memoText = decodeUtf8(memo.value as Uint8Array);
+    } else if (memo.type !== 'none') {
+      throw new Error('Payment review supports only none or text memo');
+    }
+
+    const maxTime = transaction.timeBounds?.maxTime;
+    const expiresAtUnixSeconds = maxTime !== undefined && maxTime !== '0' ? Number(maxTime) : undefined;
+
+    return Object.freeze({
+      source: transaction.source,
+      fee: transaction.fee,
+      ...(expiresAtUnixSeconds === undefined ? {} : { expiresAtUnixSeconds }),
+      operation: operation.type === 'createAccount' ? 'create-account' : 'payment',
+      destination: operation.destination,
+      amount: operation.type === 'createAccount' ? operation.startingBalance : operation.amount,
+      asset: Object.freeze(asset),
+      ...(memoText === undefined ? {} : { memo: memoText }),
+    });
+  }
+
+  inspectTrustlineTransaction(
+    input: Readonly<{
+      transactionXdrBase64: string;
+      networkPassphrase: string;
+    }>,
+  ): TrustlineTransactionProjection {
+    const transaction = new Transaction(input.transactionXdrBase64, input.networkPassphrase);
+    if (transaction.operations.length !== 1) {
+      throw new Error('Trustline review requires exactly one operation');
+    }
+
+    const operation = transaction.operations[0];
+    if (operation.type !== 'changeTrust') {
+      throw new Error('Trustline review requires a ChangeTrust operation');
+    }
+    if (operation.source) {
+      throw new Error('Trustline review does not support an operation source override');
+    }
+    if (!(operation.line instanceof Asset) || operation.line.isNative()) {
+      throw new Error('Trustline review supports only ordinary issued assets');
+    }
+
+    const isRemove = operation.limit === '0.0000000' || operation.limit === '0';
+    const maxTime = transaction.timeBounds?.maxTime;
+    const expiresAtUnixSeconds = maxTime !== undefined && maxTime !== '0' ? Number(maxTime) : undefined;
+
+    return Object.freeze({
+      source: transaction.source,
+      fee: transaction.fee,
+      ...(expiresAtUnixSeconds === undefined ? {} : { expiresAtUnixSeconds }),
+      asset: Object.freeze({ code: operation.line.code, issuer: operation.line.issuer! }),
+      ...(isRemove ? {} : { limit: operation.limit }),
+    });
+  }
+
   async buildPayment(input: BuildPaymentInput): Promise<BuiltTransaction> {
     const sourceAccount = await this.server.loadAccount(input.source);
-    const asset =
-      input.asset.kind === 'native'
-        ? Asset.native()
-        : new Asset(input.asset.code, input.asset.issuer);
+    const asset = input.asset.kind === 'native' ? Asset.native() : new Asset(input.asset.code, input.asset.issuer);
 
     if (input.operation === 'create-account' && input.asset.kind !== 'native') {
       throw new Error('create-account-requires-native-asset');
@@ -357,7 +504,7 @@ export class StellarSdkGateway implements StellarGateway {
 
     let builder = new TransactionBuilder(sourceAccount, {
       fee: input.baseFee,
-      networkPassphrase: APP_CONFIG.network.networkPassphrase,
+      networkPassphrase: this.config.network.networkPassphrase,
     }).addOperation(operation);
 
     if (input.memo !== undefined && input.memo.length > 0) {
@@ -368,7 +515,7 @@ export class StellarSdkGateway implements StellarGateway {
 
     return {
       source: input.source,
-      networkId: APP_CONFIG.network.id,
+      networkId: this.config.network.id,
       transactionXdrBase64: transaction.toXdr(),
     };
   }
@@ -377,7 +524,7 @@ export class StellarSdkGateway implements StellarGateway {
     const sourceAccount = await this.server.loadAccount(input.source);
     const transaction = new TransactionBuilder(sourceAccount, {
       fee: input.baseFee,
-      networkPassphrase: APP_CONFIG.network.networkPassphrase,
+      networkPassphrase: this.config.network.networkPassphrase,
     })
       .addOperation(
         Operation.changeTrust({
@@ -390,19 +537,39 @@ export class StellarSdkGateway implements StellarGateway {
 
     return {
       source: input.source,
-      networkId: APP_CONFIG.network.id,
+      networkId: this.config.network.id,
       transactionXdrBase64: transaction.toXdr(),
     };
   }
 
-  async submitTransaction(
-    signedXdrBase64: string,
-  ): Promise<TransactionSubmissionResult> {
-    const transaction = new Transaction(
-      signedXdrBase64,
-      APP_CONFIG.network.networkPassphrase,
-    );
-    const transactionHash = transactionHashHex(transaction);
+  transactionHash(signedXdrBase64: string): string {
+    return transactionHashHex(new Transaction(signedXdrBase64, this.config.network.networkPassphrase));
+  }
+
+  async loadTransactionOutcome(transactionHash: string) {
+    try {
+      const transaction = await this.server.loadTransaction(transactionHash);
+      if (transaction.hash !== transactionHash) {
+        throw new Error('horizon-transaction-hash-mismatch');
+      }
+      return transaction.successful
+        ? {
+            status: 'confirmed' as const,
+            transactionHash,
+            ledger: transaction.ledger,
+          }
+        : { status: 'rejected' as const, transactionHash };
+    } catch (error) {
+      if (isHorizonNotFound(error)) {
+        return { status: 'still-unknown' as const, transactionHash };
+      }
+      throw error;
+    }
+  }
+
+  async submitTransaction(signedXdrBase64: string): Promise<TransactionSubmissionResult> {
+    const transaction = new Transaction(signedXdrBase64, this.config.network.networkPassphrase);
+    const transactionHash = this.transactionHash(signedXdrBase64);
 
     try {
       const result = await this.server.submitTransaction(transaction);
@@ -417,9 +584,7 @@ export class StellarSdkGateway implements StellarGateway {
         return {
           status: 'rejected',
           transactionHash,
-          ...(rejection.resultCode === undefined
-            ? {}
-            : { resultCode: rejection.resultCode }),
+          ...(rejection.resultCode === undefined ? {} : { resultCode: rejection.resultCode }),
         };
       }
 

@@ -1,14 +1,16 @@
-import {Account, Asset, Networks, StrKey, Transaction} from '@stellar/stellar-sdk';
+import { Account, Networks, StrKey, Transaction } from '@stellar/stellar-sdk';
 
-import {StellarPathPaymentSdkGateway} from '../StellarPathPaymentSdkGateway';
-import type {
-  HorizonAccountLike,
-  HorizonPathServerLike,
-} from '../types';
+import { StellarPathPaymentSdkGateway } from '../StellarPathPaymentSdkGateway';
+import type { HorizonAccountLike, HorizonPathServerLike } from '../types';
 
 const sourceAddress = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(11));
 const destinationAddress = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(12));
 const issuerAddress = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(13));
+
+const TEST_GATEWAY_CONFIG = Object.freeze({
+  network: Object.freeze({ id: 'stellar-testnet', networkPassphrase: Networks.TESTNET }),
+  horizonUrl: 'https://horizon-testnet.stellar.org',
+});
 
 type PathPaymentServer = HorizonPathServerLike & {
   loadAccount(address: string): Promise<HorizonAccountLike>;
@@ -37,8 +39,8 @@ function horizonAccount(): HorizonAccountLike {
 function server(): jest.Mocked<PathPaymentServer> {
   return {
     loadAccount: jest.fn().mockResolvedValue(horizonAccount()),
-    loadStrictSendPaths: jest.fn().mockResolvedValue({records: []}),
-    loadStrictReceivePaths: jest.fn().mockResolvedValue({records: []}),
+    loadStrictSendPaths: jest.fn().mockResolvedValue({ records: [] }),
+    loadStrictReceivePaths: jest.fn().mockResolvedValue({ records: [] }),
   };
 }
 
@@ -61,30 +63,28 @@ describe('StellarPathPaymentSdkGateway', () => {
         {
           source_amount: '1.0000000',
           destination_amount: '9.0000000',
-          path: [{asset_type: 'native'}],
+          path: [{ asset_type: 'native' }],
         },
       ],
     });
-    const gateway = new StellarPathPaymentSdkGateway(horizon);
+    const gateway = new StellarPathPaymentSdkGateway(TEST_GATEWAY_CONFIG, horizon);
 
     await expect(
       gateway.loadStrictSendPaths({
-        sourceAsset: {kind: 'native'},
+        sourceAsset: { kind: 'native' },
         sourceAmount: '1.0000000',
-        destinationAssets: [
-          {kind: 'credit', code: 'usd', issuer: issuerAddress},
-        ],
+        destinationAssets: [{ kind: 'credit', code: 'usd', issuer: issuerAddress }],
       }),
     ).resolves.toEqual([
       {
         sourceAmount: '1.0000000',
         destinationAmount: '2.0000000',
-        path: [{kind: 'credit', code: 'usd', issuer: issuerAddress}],
+        path: [{ kind: 'credit', code: 'usd', issuer: issuerAddress }],
       },
       {
         sourceAmount: '1.0000000',
         destinationAmount: '9.0000000',
-        path: [{kind: 'native'}],
+        path: [{ kind: 'native' }],
       },
     ]);
 
@@ -107,12 +107,12 @@ describe('StellarPathPaymentSdkGateway', () => {
         },
       ],
     });
-    const gateway = new StellarPathPaymentSdkGateway(horizon);
+    const gateway = new StellarPathPaymentSdkGateway(TEST_GATEWAY_CONFIG, horizon);
 
     await expect(
       gateway.loadStrictReceivePaths({
-        sourceAssets: [{kind: 'native'}],
-        destinationAsset: {kind: 'credit', code: 'usd', issuer: issuerAddress},
+        sourceAssets: [{ kind: 'native' }],
+        destinationAsset: { kind: 'credit', code: 'usd', issuer: issuerAddress },
         destinationAmount: '1.0000000',
       }),
     ).resolves.toEqual([
@@ -137,32 +137,30 @@ describe('StellarPathPaymentSdkGateway', () => {
         {
           source_amount: '1.0000000',
           destination_amount: '2.0000000',
-          path: [{asset_type: 'credit_alphanum4', asset_code: 'usd'}],
+          path: [{ asset_type: 'credit_alphanum4', asset_code: 'usd' }],
         },
       ],
     });
 
     await expect(
-      new StellarPathPaymentSdkGateway(horizon).loadStrictSendPaths({
-        sourceAsset: {kind: 'native'},
+      new StellarPathPaymentSdkGateway(TEST_GATEWAY_CONFIG, horizon).loadStrictSendPaths({
+        sourceAsset: { kind: 'native' },
         sourceAmount: '1.0000000',
-        destinationAssets: [
-          {kind: 'credit', code: 'usd', issuer: issuerAddress},
-        ],
+        destinationAssets: [{ kind: 'credit', code: 'usd', issuer: issuerAddress }],
       }),
     ).rejects.toThrow('invalid-horizon-path-asset:credit_alphanum4');
   });
 
   it('builds strict-send XDR from caller-provided path, protection amount, fee and timeout', async () => {
     const horizon = server();
-    const built = await new StellarPathPaymentSdkGateway(horizon).buildPathPaymentStrictSend({
+    const built = await new StellarPathPaymentSdkGateway(TEST_GATEWAY_CONFIG, horizon).buildPathPaymentStrictSend({
       source: sourceAddress,
       destination: destinationAddress,
-      sendAsset: {kind: 'native'},
+      sendAsset: { kind: 'native' },
       sendAmount: '4.0000000',
-      destinationAsset: {kind: 'credit', code: 'usd', issuer: issuerAddress},
+      destinationAsset: { kind: 'credit', code: 'usd', issuer: issuerAddress },
       destinationMinimum: '7.5000000',
-      path: [{kind: 'credit', code: 'eur', issuer: issuerAddress}],
+      path: [{ kind: 'credit', code: 'eur', issuer: issuerAddress }],
       baseFee: '123',
       timeoutSeconds: 300,
     });
@@ -188,14 +186,14 @@ describe('StellarPathPaymentSdkGateway', () => {
 
   it('builds strict-receive XDR from caller-provided maximum source amount', async () => {
     const horizon = server();
-    const built = await new StellarPathPaymentSdkGateway(horizon).buildPathPaymentStrictReceive({
+    const built = await new StellarPathPaymentSdkGateway(TEST_GATEWAY_CONFIG, horizon).buildPathPaymentStrictReceive({
       source: sourceAddress,
       destination: destinationAddress,
-      sendAsset: {kind: 'credit', code: 'eur', issuer: issuerAddress},
+      sendAsset: { kind: 'credit', code: 'eur', issuer: issuerAddress },
       sendMaximum: '8.5000000',
-      destinationAsset: {kind: 'native'},
+      destinationAsset: { kind: 'native' },
       destinationAmount: '5.0000000',
-      path: [{kind: 'credit', code: 'usd', issuer: issuerAddress}],
+      path: [{ kind: 'credit', code: 'usd', issuer: issuerAddress }],
       baseFee: '100',
       timeoutSeconds: 300,
     });
@@ -219,12 +217,12 @@ describe('StellarPathPaymentSdkGateway', () => {
     const horizon = server();
 
     await expect(
-      new StellarPathPaymentSdkGateway(horizon).buildPathPaymentStrictSend({
+      new StellarPathPaymentSdkGateway(TEST_GATEWAY_CONFIG, horizon).buildPathPaymentStrictSend({
         source: sourceAddress,
         destination: destinationAddress,
-        sendAsset: {kind: 'native'},
+        sendAsset: { kind: 'native' },
         sendAmount: '1.0000000',
-        destinationAsset: {kind: 'native'},
+        destinationAsset: { kind: 'native' },
         destinationMinimum: '1.0000000',
         path: [],
         baseFee: '100',

@@ -1,4 +1,3 @@
-import {APP_CONFIG} from '../../app/config/appConfig';
 import {
   generateMnemonicAccount,
   importMnemonicAccount,
@@ -11,12 +10,10 @@ import {
   type ProvisionedAccount,
   type WatchOnlyAccountInput,
 } from '../../capabilities/account/provisionAccount';
-import type {AccountRecord} from '../../capabilities/account/types';
-import {
-  completeOnboarding,
-  markGeneratedMnemonicBackupRequired,
-  type OnboardingState,
-} from './onboardingState';
+import type { AccountRecord } from '../../capabilities/account/types';
+import { completeOnboarding, markGeneratedMnemonicBackupRequired, type OnboardingState } from './onboardingState';
+
+export type OnboardingProvisioningDependencies = ProvisionAccountDependencies & Readonly<{ networkId: string }>;
 
 export type GeneratedMnemonicBackup = Readonly<{
   mnemonic: string;
@@ -31,12 +28,12 @@ export type GeneratedOnboardingResult = Readonly<{
 }>;
 
 export async function runWatchOnlyOnboarding(
-  dependencies: ProvisionAccountDependencies,
+  dependencies: OnboardingProvisioningDependencies,
   input: Omit<WatchOnlyAccountInput, 'networkId'>,
-): Promise<Readonly<{account: AccountRecord; state: OnboardingState}>> {
+): Promise<Readonly<{ account: AccountRecord; state: OnboardingState }>> {
   const account = await registerWatchOnlyAccount(dependencies, {
     ...input,
-    networkId: APP_CONFIG.network.id,
+    networkId: dependencies.networkId,
   });
 
   return {
@@ -46,12 +43,12 @@ export async function runWatchOnlyOnboarding(
 }
 
 export async function runSecretImportOnboarding(
-  dependencies: ProvisionAccountDependencies,
+  dependencies: OnboardingProvisioningDependencies,
   input: Omit<ImportSecretAccountInput, 'networkId'>,
-): Promise<Readonly<{account: ProvisionedAccount; state: OnboardingState}>> {
+): Promise<Readonly<{ account: ProvisionedAccount; state: OnboardingState }>> {
   const account = await importSecretAccount(dependencies, {
     ...input,
-    networkId: APP_CONFIG.network.id,
+    networkId: dependencies.networkId,
   });
 
   return {
@@ -61,12 +58,12 @@ export async function runSecretImportOnboarding(
 }
 
 export async function runMnemonicImportOnboarding(
-  dependencies: ProvisionAccountDependencies,
+  dependencies: OnboardingProvisioningDependencies,
   input: Omit<ImportMnemonicAccountInput, 'networkId'>,
-): Promise<Readonly<{account: ProvisionedAccount; state: OnboardingState}>> {
+): Promise<Readonly<{ account: ProvisionedAccount; state: OnboardingState }>> {
   const account = await importMnemonicAccount(dependencies, {
     ...input,
-    networkId: APP_CONFIG.network.id,
+    networkId: dependencies.networkId,
   });
 
   return {
@@ -76,12 +73,12 @@ export async function runMnemonicImportOnboarding(
 }
 
 export async function runGeneratedMnemonicOnboarding(
-  dependencies: ProvisionAccountDependencies,
+  dependencies: OnboardingProvisioningDependencies,
   input: Omit<GenerateMnemonicAccountInput, 'networkId'>,
 ): Promise<GeneratedOnboardingResult> {
   const generated = await generateMnemonicAccount(dependencies, {
     ...input,
-    networkId: APP_CONFIG.network.id,
+    networkId: dependencies.networkId,
   });
 
   return {

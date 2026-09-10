@@ -1,8 +1,10 @@
-import type { FresnicaSdk } from '../../../platform/fresnica/FresnicaSdk';
-import type { StellarGateway } from '../../../platform/stellar/StellarGateway';
+import type { FresnicaSdkPort } from '../../ports/FresnicaSdkPort';
+import type { TransactionGatewayPort } from '../../transaction/TransactionGateway';
 import type { SignerRecord } from '../../signer/types';
 import type { PaymentReview } from '../buildPaymentReview';
 import { submitReviewedPayment } from '../submitReviewedPayment';
+
+const NETWORK_PASSPHRASE = 'Test SDF Network ; September 2015';
 
 const signer: SignerRecord = {
   id: 'signer-1',
@@ -27,7 +29,7 @@ const review: PaymentReview = Object.freeze({
 function gatewayWith(options?: {
   weight?: number;
   threshold?: number;
-  submission?: Awaited<ReturnType<StellarGateway['submitTransaction']>>;
+  submission?: Awaited<ReturnType<TransactionGatewayPort['submitTransaction']>>;
 }) {
   return {
     loadAccountAuthorization: jest.fn().mockResolvedValue({
@@ -41,18 +43,20 @@ function gatewayWith(options?: {
         },
       ],
     }),
-    submitTransaction: jest.fn().mockResolvedValue(
-      options?.submission ?? { status: 'accepted', hash: 'tx-hash', ledger: 77 },
-    ),
-  } as unknown as jest.Mocked<StellarGateway>;
+    transactionHash: jest.fn(),
+    loadTransactionOutcome: jest.fn(),
+    submitTransaction: jest
+      .fn()
+      .mockResolvedValue(options?.submission ?? { status: 'accepted', hash: 'tx-hash', ledger: 77 }),
+  } as jest.Mocked<TransactionGatewayPort>;
 }
 
 function sdkWith(systemAuth: boolean) {
   return {
     hasSignerSystemAuth: jest.fn().mockResolvedValue(systemAuth),
     signWithSystemAuth: jest.fn().mockResolvedValue('AAAA-system-signed'),
-    signWithPasscode: jest.fn().mockResolvedValue('AAAA-passcode-signed'),
-  } as unknown as jest.Mocked<FresnicaSdk>;
+    signWithPassphrase: jest.fn().mockResolvedValue('AAAA-passphrase-signed'),
+  } as unknown as jest.Mocked<FresnicaSdkPort>;
 }
 
 describe('submitReviewedPayment', () => {
@@ -60,7 +64,9 @@ describe('submitReviewedPayment', () => {
     const gateway = gatewayWith();
     const sdk = sdkWith(true);
 
-    await expect(submitReviewedPayment({ gateway, sdk, review, signer })).resolves.toEqual({
+    await expect(
+      submitReviewedPayment({ gateway, sdk, review, signer, networkPassphrase: NETWORK_PASSPHRASE }),
+    ).resolves.toEqual({
       status: 'submitted',
       authorization: 'system-auth',
       hash: 'tx-hash',
@@ -78,7 +84,9 @@ describe('submitReviewedPayment', () => {
     const gateway = gatewayWith({ weight: 1, threshold: 2 });
     const sdk = sdkWith(true);
 
-    await expect(submitReviewedPayment({ gateway, sdk, review, signer })).resolves.toEqual({
+    await expect(
+      submitReviewedPayment({ gateway, sdk, review, signer, networkPassphrase: NETWORK_PASSPHRASE }),
+    ).resolves.toEqual({
       status: 'authorization-blocked',
       reason: 'insufficient-weight',
       requiredWeight: 2,
@@ -99,7 +107,7 @@ describe('submitReviewedPayment', () => {
     });
 
     await expect(
-      submitReviewedPayment({ gateway, sdk, review: expiredReview, signer }),
+      submitReviewedPayment({ gateway, sdk, review: expiredReview, signer, networkPassphrase: NETWORK_PASSPHRASE }),
     ).rejects.toThrow('Reviewed transaction is expired');
 
     expect(gateway.loadAccountAuthorization).not.toHaveBeenCalled();
@@ -107,12 +115,14 @@ describe('submitReviewedPayment', () => {
     expect(gateway.submitTransaction).not.toHaveBeenCalled();
   });
 
-  it('returns passcode-required without submission when System Auth is not registered', async () => {
+  it('returns passphrase-required without submission when System Auth is not registered', async () => {
     const gateway = gatewayWith();
     const sdk = sdkWith(false);
 
-    await expect(submitReviewedPayment({ gateway, sdk, review, signer })).resolves.toEqual({
-      status: 'passcode-required',
+    await expect(
+      submitReviewedPayment({ gateway, sdk, review, signer, networkPassphrase: NETWORK_PASSPHRASE }),
+    ).resolves.toEqual({
+      status: 'passphrase-required',
     });
     expect(gateway.submitTransaction).not.toHaveBeenCalled();
   });
@@ -127,7 +137,9 @@ describe('submitReviewedPayment', () => {
     });
     const sdk = sdkWith(true);
 
-    await expect(submitReviewedPayment({ gateway, sdk, review, signer })).resolves.toEqual({
+    await expect(
+      submitReviewedPayment({ gateway, sdk, review, signer, networkPassphrase: NETWORK_PASSPHRASE }),
+    ).resolves.toEqual({
       status: 'rejected',
       transactionHash: 'deadbeef',
       resultCode: 'tx_bad_seq',
@@ -140,7 +152,9 @@ describe('submitReviewedPayment', () => {
     });
     const sdk = sdkWith(true);
 
-    await expect(submitReviewedPayment({ gateway, sdk, review, signer })).resolves.toEqual({
+    await expect(
+      submitReviewedPayment({ gateway, sdk, review, signer, networkPassphrase: NETWORK_PASSPHRASE }),
+    ).resolves.toEqual({
       status: 'uncertain',
       transactionHash: 'cafebabe',
     });

@@ -1,25 +1,16 @@
-import {
-  Account,
-  Asset,
-  Networks,
-  Operation,
-  StrKey,
-  TransactionBuilder,
-} from '@stellar/stellar-sdk';
+import type { AccountRecord } from '../../../capabilities/account/types';
+import type { FresnicaSdkPort } from '../../../capabilities/ports/FresnicaSdkPort';
+import type { TrustlineReview } from '../../../capabilities/trustline/buildTrustlineReview';
+import { InMemoryAccountSignerRepository } from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
+import { submitTrustlineProductReview, type TrustlineProductDependencies } from '../trustlineProductFlow';
 
-import type {AccountRecord} from '../../../capabilities/account/types';
-import {buildTrustlineReview} from '../../../capabilities/trustline/buildTrustlineReview';
-import type {FresnicaSdk} from '../../../platform/fresnica/FresnicaSdk';
-import {InMemoryAccountSignerRepository} from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
-import type {StellarGateway} from '../../../platform/stellar/StellarGateway';
-import {
-  submitTrustlineProductReview,
-  type TrustlineProductDependencies,
-} from '../trustlineProductFlow';
-
-const sourceAddress = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(41));
-const otherSourceAddress = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(42));
-const issuerAddress = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(43));
+const TEST_NETWORK = Object.freeze({
+  id: 'stellar-testnet',
+  networkPassphrase: 'Test SDF Network ; September 2015',
+});
+const sourceAddress = 'GSOURCE';
+const otherSourceAddress = 'GOTHERSOURCE';
+const issuerAddress = 'GISSUER';
 
 function account(): AccountRecord {
   const now = new Date('2026-09-01T00:00:00.000Z');
@@ -27,7 +18,7 @@ function account(): AccountRecord {
     id: 'account-a',
     address: sourceAddress,
     identityKind: 'classic',
-    networkId: 'stellar-testnet',
+    networkId: TEST_NETWORK.id,
     label: 'Primary',
     sortOrder: 0,
     hidden: false,
@@ -36,34 +27,38 @@ function account(): AccountRecord {
   };
 }
 
-function review(source = sourceAddress) {
-  const xdr = new TransactionBuilder(new Account(source, '10'), {
+function review(source = sourceAddress): TrustlineReview {
+  return Object.freeze({
+    transactionXdrBase64: `change-trust-xdr:${source}`,
+    networkId: TEST_NETWORK.id,
+    source,
     fee: '100',
-    networkPassphrase: Networks.TESTNET,
-  })
-    .addOperation(
-      Operation.changeTrust({
-        asset: new Asset('USD', issuerAddress),
-        limit: '708269837873.6765',
-      }),
-    )
-    .setTimeout(180)
-    .build()
-    .toXdr();
-
-  return buildTrustlineReview({
-    transactionXdrBase64: xdr,
-    networkId: 'stellar-testnet',
+    operation: 'add',
+    asset: Object.freeze({ code: 'USD', issuer: issuerAddress }),
+    limit: '708269837873.6765000',
   });
 }
 
-function dependencies(
-  repository: InMemoryAccountSignerRepository,
-): TrustlineProductDependencies {
+function gateway(): TrustlineProductDependencies['gateway'] {
+  return {
+    inspectTrustlineTransaction: jest.fn(input => {
+      const source = input.transactionXdrBase64.split(':')[1] ?? sourceAddress;
+      return {
+        source,
+        fee: '100',
+        asset: { code: 'USD', issuer: issuerAddress },
+        limit: '708269837873.6765000',
+      };
+    }),
+  } as unknown as TrustlineProductDependencies['gateway'];
+}
+
+function dependencies(repository: InMemoryAccountSignerRepository): TrustlineProductDependencies {
   return {
     repository,
-    gateway: {} as StellarGateway,
-    sdk: {} as FresnicaSdk,
+    gateway: gateway(),
+    sdk: {} as FresnicaSdkPort,
+    network: TEST_NETWORK,
   };
 }
 
@@ -73,9 +68,9 @@ describe('trustlineProductFlow', () => {
     const source = account();
     repository.createAccount(source);
 
-    await expect(
-      submitTrustlineProductReview(dependencies(repository), source, review()),
-    ).resolves.toEqual({status: 'watch-only'});
+    await expect(submitTrustlineProductReview(dependencies(repository), source, review())).resolves.toEqual({
+      status: 'watch-only',
+    });
   });
 
   it('fails closed when multiple local account signers are attached in v1', async () => {
@@ -84,13 +79,10 @@ describe('trustlineProductFlow', () => {
     const now = new Date('2026-09-01T00:00:00.000Z');
     repository.createAccount(source);
 
-    for (const [id, fill] of [
-      ['one', 44],
-      ['two', 45],
-    ] as const) {
+    for (const id of ['one', 'two']) {
       repository.createSigner({
         id,
-        publicKey: StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(fill)),
+        publicKey: id === 'one' ? 'GSIGNERONE' : 'GSIGNERTWO',
         kind: 'protected-software',
         envelopeJson: '{}',
         createdAt: now,
@@ -99,12 +91,12 @@ describe('trustlineProductFlow', () => {
       repository.attachSigner(source.id, id, now);
     }
 
-    await expect(
-      submitTrustlineProductReview(dependencies(repository), source, review()),
-    ).resolves.toEqual({status: 'unsupported-account-signers'});
+    await expect(submitTrustlineProductReview(dependencies(repository), source, review())).resolves.toEqual({
+      status: 'unsupported-account-signers',
+    });
   });
 
-  it('re-derives Trustline semantics from exact XDR before applying signer gates', async () => {
+  it('rejects a mutable intent label that contradicts the exact ChangeTrust XDR', async () => {
     const repository = new InMemoryAccountSignerRepository();
     const source = account();
     repository.createAccount(source);
@@ -115,9 +107,9 @@ describe('trustlineProductFlow', () => {
         ...exactReview,
         source: otherSourceAddress,
         operation: 'remove',
-        asset: {code: 'FAKE', issuer: otherSourceAddress},
+        asset: { code: 'FAKE', issuer: otherSourceAddress },
       }),
-    ).resolves.toEqual({status: 'watch-only'});
+    ).rejects.toThrow('trustline-review-operation-xdr-mismatch');
   });
 
   it('rejects exact ChangeTrust XDR whose source belongs to another account', async () => {
@@ -126,11 +118,7 @@ describe('trustlineProductFlow', () => {
     repository.createAccount(source);
 
     await expect(
-      submitTrustlineProductReview(
-        dependencies(repository),
-        source,
-        review(otherSourceAddress),
-      ),
+      submitTrustlineProductReview(dependencies(repository), source, review(otherSourceAddress)),
     ).rejects.toThrow('trustline-review-account-mismatch');
   });
 });

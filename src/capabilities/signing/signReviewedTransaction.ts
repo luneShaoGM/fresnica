@@ -1,31 +1,31 @@
-import {APP_CONFIG} from '../../app/config/appConfig';
-import type {FresnicaSdk} from '../../platform/fresnica/FresnicaSdk';
-import type {SignerRecord} from '../signer/types';
-import type {ReviewedTransaction} from '../transaction/ReviewedTransaction';
+import type { FresnicaSdkPort } from '../ports/FresnicaSdkPort';
+import type { SignerRecord } from '../signer/types';
+import type { ReviewedTransaction } from '../transaction/ReviewedTransaction';
 
 export type SigningAuthorizationPolicy = 'routine' | 'passphrase-required';
 
 export type ReviewedTransactionSigningResult =
   | {
       status: 'signed';
-      authorization: 'system-auth' | 'passcode';
+      authorization: 'system-auth' | 'passphrase';
       signedTransactionXdrBase64: string;
     }
-  | {status: 'passcode-required'}
-  | {status: 'unsupported-signer'};
+  | { status: 'passphrase-required' }
+  | { status: 'unsupported-signer' };
 
 export async function signReviewedTransaction(input: {
-  sdk: FresnicaSdk;
+  sdk: FresnicaSdkPort;
   review: ReviewedTransaction;
   signer: SignerRecord;
-  appPasscode?: string;
+  appPassphrase?: string;
   systemAuthReason?: string;
   authorizationPolicy?: SigningAuthorizationPolicy;
+  networkPassphrase: string;
 }): Promise<ReviewedTransactionSigningResult> {
-  const {sdk, review, signer} = input;
+  const { sdk, review, signer } = input;
 
   if (signer.kind !== 'protected-software' || !signer.envelopeJson) {
-    return {status: 'unsupported-signer'};
+    return { status: 'unsupported-signer' };
   }
 
   const authorizationPolicy = input.authorizationPolicy ?? 'routine';
@@ -36,7 +36,7 @@ export async function signReviewedTransaction(input: {
         envelopeJson: signer.envelopeJson,
         expectedSignerPublicKey: signer.publicKey,
         transactionXdrBase64: review.transactionXdrBase64,
-        networkPassphrase: APP_CONFIG.network.networkPassphrase,
+        networkPassphrase: input.networkPassphrase,
         reason: input.systemAuthReason ?? 'Confirm Fresnica transaction',
       });
 
@@ -48,21 +48,21 @@ export async function signReviewedTransaction(input: {
     }
   }
 
-  if (!input.appPasscode) {
-    return {status: 'passcode-required'};
+  if (!input.appPassphrase) {
+    return { status: 'passphrase-required' };
   }
 
-  const signedTransactionXdrBase64 = await sdk.signWithPasscode({
+  const signedTransactionXdrBase64 = await sdk.signWithPassphrase({
     envelopeJson: signer.envelopeJson,
-    appPasscode: input.appPasscode,
+    appPassphrase: input.appPassphrase,
     expectedSignerPublicKey: signer.publicKey,
     transactionXdrBase64: review.transactionXdrBase64,
-    networkPassphrase: APP_CONFIG.network.networkPassphrase,
+    networkPassphrase: input.networkPassphrase,
   });
 
   return {
     status: 'signed',
-    authorization: 'passcode',
+    authorization: 'passphrase',
     signedTransactionXdrBase64,
   };
 }

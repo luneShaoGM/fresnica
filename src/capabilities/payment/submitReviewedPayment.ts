@@ -1,21 +1,22 @@
-import type {FresnicaSdk} from '../../platform/fresnica/FresnicaSdk';
-import type {StellarGateway} from '../../platform/stellar/StellarGateway';
-import type {SignerRecord} from '../signer/types';
+import type { FresnicaSdkPort } from '../ports/FresnicaSdkPort';
+import type { TransactionGatewayPort } from '../transaction/TransactionGateway';
+import type { SignerRecord } from '../signer/types';
 import {
   submitReviewedTransaction,
   type SubmitReviewedTransactionResult,
 } from '../transaction/submitReviewedTransaction';
-import type {PaymentReview} from './buildPaymentReview';
+import type { PaymentReview } from './buildPaymentReview';
 
 export type SubmitReviewedPaymentResult = SubmitReviewedTransactionResult;
 
 export async function submitReviewedPayment(input: {
-  gateway: StellarGateway;
-  sdk: FresnicaSdk;
+  gateway: TransactionGatewayPort;
+  sdk: FresnicaSdkPort;
   review: PaymentReview;
   signer: SignerRecord;
-  appPasscode?: string;
+  appPassphrase?: string;
   systemAuthReason?: string;
+  networkPassphrase: string;
 }): Promise<SubmitReviewedPaymentResult> {
   return submitReviewedTransaction({
     gateway: input.gateway,
@@ -23,9 +24,8 @@ export async function submitReviewedPayment(input: {
     review: input.review,
     signer: input.signer,
     thresholdLevel: 'medium',
-    ...(input.appPasscode === undefined ? {} : {appPasscode: input.appPasscode}),
-    ...(input.systemAuthReason === undefined
-      ? {}
-      : {systemAuthReason: input.systemAuthReason}),
+    ...(input.appPassphrase === undefined ? {} : { appPassphrase: input.appPassphrase }),
+    ...(input.systemAuthReason === undefined ? {} : { systemAuthReason: input.systemAuthReason }),
+    networkPassphrase: input.networkPassphrase,
   });
 }

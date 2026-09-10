@@ -5,6 +5,7 @@ export type BalanceAsset =
 export type BalanceLine = Readonly<{
   asset: BalanceAsset;
   balance: string;
+  limit?: string;
 }>;
 
 export type BalanceSnapshot =

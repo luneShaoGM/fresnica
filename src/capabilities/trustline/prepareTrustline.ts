@@ -1,36 +1,92 @@
-import {StrKey} from '@stellar/stellar-sdk';
-
-import {APP_CONFIG} from '../../app/config/appConfig';
-import type {AccountRecord} from '../account/types';
-import type {StellarGateway} from '../../platform/stellar/StellarGateway';
-import type {
-  StellarAccountState,
-  StellarNativeBalance,
-  StellarTrustlineBalance,
-} from '../../platform/stellar/types';
+import type { AccountRecord } from '../account/types';
+import type { NetworkContext } from '../network/types';
+import type { StellarAccountState, StellarNativeBalance, StellarTrustlineBalance } from '../stellar/types';
+import type { TrustlineGatewayPort } from './TrustlineGateway';
 import {
   buildTrustlineReview,
   type TrustlineAuthorization,
+  type TrustlineOperation,
   type TrustlineReview,
 } from './buildTrustlineReview';
 
 export const DEFAULT_TRUSTLINE_LIMIT = '708269837873.6765';
 const MAX_INT64_STROOPS = 9_223_372_036_854_775_807n;
 
-export type TrustlineAsset = Readonly<{code: string; issuer: string}>;
-export type TrustlineAction = 'add' | 'remove';
+export type TrustlineAsset = Readonly<{ code: string; issuer: string }>;
+export type TrustlineAction = TrustlineOperation;
 
 export type PrepareTrustlineDependencies = Readonly<{
-  gateway: StellarGateway;
+  gateway: TrustlineGatewayPort;
+  network: NetworkContext;
 }>;
 
 export async function prepareTrustline(
   dependencies: PrepareTrustlineDependencies,
   account: AccountRecord,
-  input: Readonly<{action: TrustlineAction; asset: TrustlineAsset}>,
+  input: Readonly<{ action: TrustlineAction; asset: TrustlineAsset; limit?: string }>,
 ): Promise<TrustlineReview> {
-  assertClassicAccount(account);
-  const asset = validateTrustlineAsset(input.asset);
+  const validated = await validateTrustlineIntent(dependencies, account, input);
+  return buildPreparedReview(
+    dependencies,
+    account,
+    validated.operation,
+    validated.asset,
+    validated.limit,
+    validated.baseFeeStroops,
+    validated.expectedAuthorization,
+    validated.expectedClawbackEnabled,
+  );
+}
+
+export async function revalidateTrustlineReview(
+  dependencies: PrepareTrustlineDependencies,
+  account: AccountRecord,
+  review: TrustlineReview,
+): Promise<void> {
+  const validated = await validateTrustlineIntent(dependencies, account, {
+    action: review.operation,
+    asset: review.asset,
+    ...(review.limit === undefined ? {} : {limit: review.limit}),
+  });
+
+  if (review.operation !== validated.operation) {
+    throw new Error('trustline-review-operation-state-changed');
+  }
+  if (review.operation !== 'remove') {
+    if (review.limit === undefined || parseStroops(review.limit) !== parseStroops(validated.limit)) {
+      throw new Error('trustline-review-limit-state-changed');
+    }
+  }
+  if (
+    review.expectedAuthorization !== undefined &&
+    review.expectedAuthorization !== validated.expectedAuthorization
+  ) {
+    throw new Error('trustline-review-authorization-state-changed');
+  }
+  if (
+    review.expectedClawbackEnabled !== undefined &&
+    review.expectedClawbackEnabled !== validated.expectedClawbackEnabled
+  ) {
+    throw new Error('trustline-review-clawback-state-changed');
+  }
+}
+
+type ValidatedTrustlineIntent = Readonly<{
+  operation: TrustlineOperation;
+  asset: TrustlineAsset;
+  limit: string;
+  baseFeeStroops: number;
+  expectedAuthorization?: TrustlineAuthorization;
+  expectedClawbackEnabled?: boolean;
+}>;
+
+async function validateTrustlineIntent(
+  dependencies: PrepareTrustlineDependencies,
+  account: AccountRecord,
+  input: Readonly<{action: TrustlineAction; asset: TrustlineAsset; limit?: string}>,
+): Promise<ValidatedTrustlineIntent> {
+  assertClassicAccount(account, dependencies.network.id);
+  const asset = validateTrustlineAsset(input.asset, address => dependencies.gateway.isClassicAccountAddress(address));
   if (asset.issuer === account.address) {
     throw new Error('trustline-issuer-cannot-trust-own-asset');
   }
@@ -47,77 +103,122 @@ export async function prepareTrustline(
   const existing = findTrustline(source, asset);
   const ledger = await dependencies.gateway.loadLedgerParameters();
 
-  if (input.action === 'add') {
-    if (existing) {
-      throw new Error('trustline-already-exists');
+  switch (input.action) {
+    case 'add': {
+      if (existing) {
+        throw new Error('trustline-already-exists');
+      }
+      const limit = validatePositiveTrustlineLimit(input.limit ?? DEFAULT_TRUSTLINE_LIMIT);
+      const issuer = await loadRequiredIssuer(dependencies.gateway, asset.issuer);
+      ensureNativeCapacity(source, ledger.baseReserveStroops, ledger.baseFeeStroops, ledger.baseReserveStroops);
+      return {
+        operation: 'add',
+        asset,
+        limit,
+        baseFeeStroops: ledger.baseFeeStroops,
+        expectedAuthorization: issuer.flags.authRequired ? 'unauthorized' : 'full',
+        expectedClawbackEnabled: issuer.flags.authClawbackEnabled,
+      };
     }
-
-    const issuerResult = await dependencies.gateway.loadAccountState(asset.issuer);
-    if (issuerResult.status !== 'active') {
-      throw new Error('trustline-issuer-account-inactive');
+    case 'set-limit': {
+      if (!existing) {
+        throw new Error('trustline-not-found');
+      }
+      const limit = validatePositiveTrustlineLimit(input.limit);
+      const limitStroops = parseStroops(limit);
+      const commitment = parseStroops(existing.balance) + parseStroops(existing.buyingLiabilities);
+      if (limitStroops < commitment) {
+        throw new Error('trustline-limit-below-commitment');
+      }
+      await loadRequiredIssuer(dependencies.gateway, asset.issuer);
+      ensureNativeCapacity(source, ledger.baseReserveStroops, ledger.baseFeeStroops, 0);
+      return {
+        operation: 'set-limit',
+        asset,
+        limit,
+        baseFeeStroops: ledger.baseFeeStroops,
+        expectedAuthorization: authorizationFromTrustline(existing),
+        expectedClawbackEnabled: existing.isClawbackEnabled,
+      };
     }
-    if (issuerResult.account.address !== asset.issuer) {
-      throw new Error('trustline-issuer-account-mismatch');
+    case 'remove': {
+      if (!existing) {
+        throw new Error('trustline-not-found');
+      }
+      if (
+        parseStroops(existing.balance) !== 0n ||
+        parseStroops(existing.buyingLiabilities) !== 0n ||
+        parseStroops(existing.sellingLiabilities) !== 0n
+      ) {
+        throw new Error('trustline-remove-nonzero-balance-or-liabilities');
+      }
+      await ensureNotUsedByLiquidityPool(dependencies.gateway, source, asset);
+      ensureNativeCapacity(source, ledger.baseReserveStroops, ledger.baseFeeStroops, 0);
+      return {
+        operation: 'remove',
+        asset,
+        limit: '0',
+        baseFeeStroops: ledger.baseFeeStroops,
+      };
     }
-
-    ensureNativeCapacity(
-      source,
-      ledger.baseReserveStroops,
-      ledger.baseFeeStroops,
-      ledger.baseReserveStroops,
-    );
-
-    const expectedAuthorization: TrustlineAuthorization = issuerResult.account.flags.authRequired
-      ? 'unauthorized'
-      : 'full';
-    return buildPreparedReview(
-      dependencies.gateway,
-      account,
-      asset,
-      DEFAULT_TRUSTLINE_LIMIT,
-      ledger.baseFeeStroops,
-      expectedAuthorization,
-      issuerResult.account.flags.authClawbackEnabled,
-    );
   }
-
-  if (!existing) {
-    throw new Error('trustline-not-found');
-  }
-  if (
-    parseStroops(existing.balance) !== 0n ||
-    parseStroops(existing.buyingLiabilities) !== 0n ||
-    parseStroops(existing.sellingLiabilities) !== 0n
-  ) {
-    throw new Error('trustline-remove-nonzero-balance-or-liabilities');
-  }
-
-  await ensureNotUsedByLiquidityPool(dependencies.gateway, source, asset);
-  ensureNativeCapacity(source, ledger.baseReserveStroops, ledger.baseFeeStroops, 0);
-
-  return buildPreparedReview(
-    dependencies.gateway,
-    account,
-    asset,
-    '0',
-    ledger.baseFeeStroops,
-  );
 }
 
-export function validateTrustlineAsset(asset: TrustlineAsset): TrustlineAsset {
+async function loadRequiredIssuer(
+  gateway: TrustlineGatewayPort,
+  issuer: string,
+): Promise<StellarAccountState> {
+  const result = await gateway.loadAccountState(issuer);
+  if (result.status !== 'active') {
+    throw new Error('trustline-issuer-account-inactive');
+  }
+  if (result.account.address !== issuer) {
+    throw new Error('trustline-issuer-account-mismatch');
+  }
+  return result.account;
+}
+
+function authorizationFromTrustline(trustline: StellarTrustlineBalance): TrustlineAuthorization {
+  if (trustline.isAuthorized) {
+    return 'full';
+  }
+  return trustline.isAuthorizedToMaintainLiabilities ? 'maintain-liabilities' : 'unauthorized';
+}
+
+function validatePositiveTrustlineLimit(value: string | undefined): string {
+  if (value === undefined) {
+    throw new Error('invalid-trustline-limit');
+  }
+  const normalized = value.trim();
+  let stroops: bigint;
+  try {
+    stroops = parseStroops(normalized);
+  } catch {
+    throw new Error('invalid-trustline-limit');
+  }
+  if (stroops <= 0n) {
+    throw new Error('invalid-trustline-limit');
+  }
+  return normalized;
+}
+
+export function validateTrustlineAsset(
+  asset: TrustlineAsset,
+  isClassicAccountAddress: (address: string) => boolean,
+): TrustlineAsset {
   const code = asset.code.trim();
   const issuer = asset.issuer.trim();
   if (!/^[A-Za-z0-9]{1,12}$/.test(code)) {
     throw new Error('invalid-trustline-asset-code');
   }
-  if (!StrKey.isValidEd25519PublicKey(issuer)) {
+  if (!isClassicAccountAddress(issuer)) {
     throw new Error('invalid-trustline-asset-issuer');
   }
-  return {code, issuer};
+  return { code, issuer };
 }
 
-function assertClassicAccount(account: AccountRecord): void {
-  if (account.networkId !== APP_CONFIG.network.id) {
+function assertClassicAccount(account: AccountRecord, networkId: string): void {
+  if (account.networkId !== networkId) {
     throw new Error('trustline-network-mismatch');
   }
   if (account.identityKind !== 'classic') {
@@ -125,22 +226,15 @@ function assertClassicAccount(account: AccountRecord): void {
   }
 }
 
-function findTrustline(
-  account: StellarAccountState,
-  asset: TrustlineAsset,
-): StellarTrustlineBalance | undefined {
+function findTrustline(account: StellarAccountState, asset: TrustlineAsset): StellarTrustlineBalance | undefined {
   return account.balances.find(
     (balance): balance is StellarTrustlineBalance =>
-      balance.kind === 'credit' &&
-      balance.code === asset.code &&
-      balance.issuer === asset.issuer,
+      balance.kind === 'credit' && balance.code === asset.code && balance.issuer === asset.issuer,
   );
 }
 
 function nativeBalance(account: StellarAccountState): StellarNativeBalance | undefined {
-  return account.balances.find(
-    (balance): balance is StellarNativeBalance => balance.kind === 'native',
-  );
+  return account.balances.find((balance): balance is StellarNativeBalance => balance.kind === 'native');
 }
 
 function ensureNativeCapacity(
@@ -161,10 +255,7 @@ function ensureNativeCapacity(
   const native = nativeBalance(account);
   const balance = native ? parseStroops(native.balance) : 0n;
   const sellingLiabilities = native ? parseStroops(native.sellingLiabilities) : 0n;
-  const reserveUnits = Math.max(
-    0,
-    2 + account.subentryCount + account.numSponsoring - account.numSponsored,
-  );
+  const reserveUnits = Math.max(0, 2 + account.subentryCount + account.numSponsoring - account.numSponsored);
   const minimumBalance = BigInt(reserveUnits) * BigInt(baseReserveStroops);
   const free = balance - sellingLiabilities - minimumBalance;
   const required = BigInt(baseFeeStroops + additionalReserveStroops);
@@ -174,7 +265,7 @@ function ensureNativeCapacity(
 }
 
 async function ensureNotUsedByLiquidityPool(
-  gateway: StellarGateway,
+  gateway: TrustlineGatewayPort,
   account: StellarAccountState,
   asset: TrustlineAsset,
 ): Promise<void> {
@@ -191,15 +282,16 @@ async function ensureNotUsedByLiquidityPool(
 }
 
 async function buildPreparedReview(
-  gateway: StellarGateway,
+  dependencies: PrepareTrustlineDependencies,
   account: AccountRecord,
+  operation: TrustlineOperation,
   asset: TrustlineAsset,
   limit: string,
   baseFeeStroops: number,
   expectedAuthorization?: TrustlineAuthorization,
   expectedClawbackEnabled?: boolean,
 ): Promise<TrustlineReview> {
-  const built = await gateway.buildChangeTrust({
+  const built = await dependencies.gateway.buildChangeTrust({
     source: account.address,
     code: asset.code,
     issuer: asset.issuer,
@@ -210,16 +302,19 @@ async function buildPreparedReview(
     throw new Error('trustline-built-transaction-context-mismatch');
   }
 
-  const review = buildTrustlineReview({
+  const review = buildTrustlineReview(dependencies, {
     transactionXdrBase64: built.transactionXdrBase64,
     networkId: built.networkId,
-    ...(expectedAuthorization === undefined ? {} : {expectedAuthorization}),
-    ...(expectedClawbackEnabled === undefined ? {} : {expectedClawbackEnabled}),
+    operation,
+    ...(expectedAuthorization === undefined ? {} : { expectedAuthorization }),
+    ...(expectedClawbackEnabled === undefined ? {} : { expectedClawbackEnabled }),
   });
   if (
     review.source !== account.address ||
+    review.operation !== operation ||
     review.asset.code !== asset.code ||
-    review.asset.issuer !== asset.issuer
+    review.asset.issuer !== asset.issuer ||
+    (operation !== 'remove' && (review.limit === undefined || parseStroops(review.limit) !== parseStroops(limit)))
   ) {
     throw new Error('trustline-review-context-mismatch');
   }

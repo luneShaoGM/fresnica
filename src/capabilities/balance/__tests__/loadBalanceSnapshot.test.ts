@@ -1,6 +1,6 @@
-import {loadBalanceSnapshot} from '../loadBalanceSnapshot';
-import type {AccountRecord} from '../../account/types';
-import type {StellarGateway} from '../../../platform/stellar/StellarGateway';
+import { loadBalanceSnapshot } from '../loadBalanceSnapshot';
+import type { AccountRecord } from '../../account/types';
+import type { BalanceGatewayPort } from '../BalanceGateway';
 
 const NOW = new Date('2026-08-31T00:00:00.000Z');
 
@@ -19,18 +19,12 @@ function account(overrides: Partial<AccountRecord> = {}): AccountRecord {
   };
 }
 
-function gateway(): jest.Mocked<StellarGateway> {
-  return {
-    loadAccountAuthorization: jest.fn(),
-    loadAccountBalances: jest.fn(),
-    loadAccountState: jest.fn(),
-    loadAccountOperations: jest.fn(),
-    loadLedgerParameters: jest.fn(),
-    loadLiquidityPool: jest.fn(),
-    buildPayment: jest.fn(),
-    buildChangeTrust: jest.fn(),
-    submitTransaction: jest.fn(),
-  };
+function gateway(): jest.Mocked<BalanceGatewayPort> {
+  return { loadAccountBalances: jest.fn() };
+}
+
+function dependencies(stellar: BalanceGatewayPort) {
+  return { gateway: stellar, networkId: 'stellar-testnet' } as const;
 }
 
 describe('loadBalanceSnapshot', () => {
@@ -40,19 +34,20 @@ describe('loadBalanceSnapshot', () => {
       status: 'active',
       address: 'GTEST',
       balances: [
-        {kind: 'native', balance: '12.3456789'},
-        {kind: 'credit', balance: '7.0000001', code: 'USD', issuer: 'GISSUER'},
+        { kind: 'native', balance: '12.3456789' },
+        { kind: 'credit', balance: '7.0000001', code: 'USD', issuer: 'GISSUER', limit: '500.0000000' },
       ],
     });
 
-    await expect(loadBalanceSnapshot({gateway: stellar}, account())).resolves.toEqual({
+    await expect(loadBalanceSnapshot(dependencies(stellar), account())).resolves.toEqual({
       status: 'active',
       address: 'GTEST',
       balances: [
-        {asset: {kind: 'native', code: 'XLM'}, balance: '12.3456789'},
+        { asset: { kind: 'native', code: 'XLM' }, balance: '12.3456789' },
         {
-          asset: {kind: 'credit', code: 'USD', issuer: 'GISSUER'},
+          asset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' },
           balance: '7.0000001',
+          limit: '500.0000000',
         },
       ],
       hiddenLiquidityPoolShareCount: 0,
@@ -65,24 +60,24 @@ describe('loadBalanceSnapshot', () => {
       status: 'active',
       address: 'GTEST',
       balances: [
-        {kind: 'native', balance: '1.0000000'},
-        {kind: 'liquidity-pool-share', balance: '0.5000000', liquidityPoolId: 'pool'},
+        { kind: 'native', balance: '1.0000000' },
+        { kind: 'liquidity-pool-share', balance: '0.5000000', liquidityPoolId: 'pool' },
       ],
     });
 
-    await expect(loadBalanceSnapshot({gateway: stellar}, account())).resolves.toEqual({
+    await expect(loadBalanceSnapshot(dependencies(stellar), account())).resolves.toEqual({
       status: 'active',
       address: 'GTEST',
-      balances: [{asset: {kind: 'native', code: 'XLM'}, balance: '1.0000000'}],
+      balances: [{ asset: { kind: 'native', code: 'XLM' }, balance: '1.0000000' }],
       hiddenLiquidityPoolShareCount: 1,
     });
   });
 
   it('preserves the inactive account state', async () => {
     const stellar = gateway();
-    stellar.loadAccountBalances.mockResolvedValue({status: 'inactive', address: 'GTEST'});
+    stellar.loadAccountBalances.mockResolvedValue({ status: 'inactive', address: 'GTEST' });
 
-    await expect(loadBalanceSnapshot({gateway: stellar}, account())).resolves.toEqual({
+    await expect(loadBalanceSnapshot(dependencies(stellar), account())).resolves.toEqual({
       status: 'inactive',
       address: 'GTEST',
     });
@@ -92,20 +87,17 @@ describe('loadBalanceSnapshot', () => {
     const stellar = gateway();
 
     await expect(
-      loadBalanceSnapshot(
-        {gateway: stellar},
-        account({identityKind: 'contract', address: 'CTEST'}),
-      ),
-    ).resolves.toEqual({status: 'unsupported-account', address: 'CTEST'});
+      loadBalanceSnapshot(dependencies(stellar), account({ identityKind: 'contract', address: 'CTEST' })),
+    ).resolves.toEqual({ status: 'unsupported-account', address: 'CTEST' });
     expect(stellar.loadAccountBalances).not.toHaveBeenCalled();
   });
 
   it('fails closed when a persisted account belongs to another network', async () => {
     const stellar = gateway();
 
-    await expect(
-      loadBalanceSnapshot({gateway: stellar}, account({networkId: 'stellar-mainnet'})),
-    ).rejects.toThrow('balance-network-mismatch:stellar-mainnet');
+    await expect(loadBalanceSnapshot(dependencies(stellar), account({ networkId: 'stellar-mainnet' }))).rejects.toThrow(
+      'balance-network-mismatch:stellar-mainnet',
+    );
     expect(stellar.loadAccountBalances).not.toHaveBeenCalled();
   });
 });
