@@ -147,4 +147,21 @@ describe('application System Auth', () => {
     });
     expect(sdk.removeSystemAuthDomain).toHaveBeenCalledTimes(1);
   });
+
+  it('does not report System Auth as disabled when native domain removal fails', async () => {
+    const {repository, sdk, dependencies} = createDependencies({
+      domainInitialized: true,
+      enrolled: ['Gsigner-a'],
+    });
+    repository.createSigner(protectedSigner('signer-a'));
+    sdk.removeSystemAuthDomain.mockRejectedValueOnce(new Error('native-remove-failed'));
+
+    await expect(disableSystemAuth(dependencies)).rejects.toThrow('native-remove-failed');
+    expect(sdk.removeSystemAuthDomain).toHaveBeenCalledTimes(1);
+    await expect(getSystemAuthStatus(dependencies)).resolves.toMatchObject({
+      domainInitialized: true,
+      enrolledSignerCount: 1,
+    });
+  });
+
 });

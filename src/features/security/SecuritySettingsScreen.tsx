@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -10,10 +10,20 @@ import {
   View,
 } from 'react-native';
 
-import {Screen} from '@ui/components';
+import {AppModal, Screen} from '@ui/components';
 
-import { useAppTheme, useThemedStyles, type AppTheme } from '../../ui/theme';
+import {useLocalization} from '../../locale';
+import {useAppTheme, useThemedStyles, type AppTheme} from '../../ui/theme';
 import {projectFeatureError} from '../featureError';
+import {
+  SYSTEM_AUTH_DISABLE_IDLE,
+  beginSystemAuthDisable,
+  cancelSystemAuthDisable,
+  completeSystemAuthDisable,
+  failSystemAuthDisable,
+  requestSystemAuthDisable,
+  type SystemAuthDisableFlowState,
+} from './systemAuthDisableFlow';
 
 import {
   disableSystemAuth,
@@ -31,11 +41,14 @@ type Props = Readonly<{
 export function SecuritySettingsScreen({ dependencies, onClose }: Props) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
+  const {t} = useLocalization();
   const [status, setStatus] = useState<SystemAuthStatus>();
   const [appPassphrase, setAppPassphrase] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
+  const [disableFlow, setDisableFlow] = useState<SystemAuthDisableFlowState>(SYSTEM_AUTH_DISABLE_IDLE);
+  const disableInFlightRef = useRef(false);
 
   useEffect(() => {
     let mounted = true;
@@ -76,7 +89,26 @@ export function SecuritySettingsScreen({ dependencies, onClose }: Props) {
     }
   }
 
-  async function disable() {
+  function requestDisable() {
+    setError(undefined);
+    setNotice(undefined);
+    setDisableFlow(current => requestSystemAuthDisable(current));
+  }
+
+  function cancelDisable() {
+    if (disableInFlightRef.current) {
+      return;
+    }
+    setDisableFlow(current => cancelSystemAuthDisable(current));
+  }
+
+  async function confirmDisable() {
+    if (disableFlow.kind !== 'confirming' || disableInFlightRef.current) {
+      return;
+    }
+
+    disableInFlightRef.current = true;
+    setDisableFlow(current => beginSystemAuthDisable(current));
     setBusy(true);
     setError(undefined);
     setNotice(undefined);
@@ -84,10 +116,16 @@ export function SecuritySettingsScreen({ dependencies, onClose }: Props) {
       const next = await disableSystemAuth(dependencies);
       setStatus(next);
       setAppPassphrase('');
-      setNotice('System Auth has been disabled for Fresnica signers on this device.');
+      setDisableFlow(completeSystemAuthDisable());
+      setNotice(t('security.systemAuth.disable.success'));
     } catch (caught) {
-      setError(readableError(caught));
+      setDisableFlow(
+        failSystemAuthDisable(
+          readableError(caught, t('security.systemAuth.disable.error')),
+        ),
+      );
     } finally {
+      disableInFlightRef.current = false;
       setBusy(false);
     }
   }
@@ -172,7 +210,7 @@ export function SecuritySettingsScreen({ dependencies, onClose }: Props) {
               {status.domainInitialized ? (
                 <Pressable
                   disabled={busy}
-                  onPress={() => void disable()}
+                  onPress={requestDisable}
                   style={({ pressed }) => [
                     styles.dangerButton,
                     busy ? styles.disabled : undefined,
@@ -207,6 +245,46 @@ export function SecuritySettingsScreen({ dependencies, onClose }: Props) {
           </Text>
         </View>
       </ScrollView>
+
+      <AppModal
+        visible={disableFlow.kind !== 'idle'}
+        onRequestClose={cancelDisable}
+        title={t('security.systemAuth.disable.title')}
+        description={t('security.systemAuth.disable.description')}>
+        {disableFlow.kind === 'confirming' && disableFlow.error ? (
+          <Text accessibilityRole="alert" style={styles.modalError}>
+            {disableFlow.error}
+          </Text>
+        ) : null}
+        <View style={styles.modalActions}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={disableFlow.kind === 'disabling'}
+            onPress={cancelDisable}
+            style={({pressed}) => [
+              styles.primaryButton,
+              disableFlow.kind === 'disabling' ? styles.disabled : undefined,
+              pressed ? styles.pressed : undefined,
+            ]}>
+            <Text style={styles.primaryButtonText}>{t('security.systemAuth.disable.cancel')}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={disableFlow.kind === 'disabling'}
+            onPress={confirmDisable}
+            style={({pressed}) => [
+              styles.dangerButton,
+              disableFlow.kind === 'disabling' ? styles.disabled : undefined,
+              pressed ? styles.pressed : undefined,
+            ]}>
+            <Text style={styles.dangerButtonText}>
+              {disableFlow.kind === 'disabling'
+                ? t('security.systemAuth.disable.disabling')
+                : t('security.systemAuth.disable.confirm')}
+            </Text>
+          </Pressable>
+        </View>
+      </AppModal>
     </Screen>
   );
 }
@@ -222,9 +300,9 @@ function StatusRow({ label, value }: Readonly<{ label: string; value: string }>)
   );
 }
 
-function readableError(error: unknown): string {
+function readableError(error: unknown, fallbackMessage = 'Unable to update security settings.'): string {
   return projectFeatureError(error, {
-    fallbackMessage: 'Unable to update security settings.',
+    fallbackMessage,
     messages: {
       'protected-signer-required': 'No protected software signer is available on this device.',
     },
@@ -343,6 +421,14 @@ function createStyles(theme: AppTheme) {
       color: theme.colors.negative,
       fontSize: 11,
       lineHeight: 16,
+    },
+    modalActions: {gap: theme.spacing.sm},
+    modalError: {
+      borderRadius: theme.radii.sm,
+      padding: theme.spacing.sm,
+      backgroundColor: theme.colors.negativeMuted,
+      color: theme.colors.negative,
+      ...theme.typography.caption,
     },
     disabled: { opacity: 0.45 },
     pressed: { opacity: 0.68 },

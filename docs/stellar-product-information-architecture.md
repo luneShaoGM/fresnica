@@ -800,6 +800,7 @@ Stellar 有、§7.1–§7.7 原先没逐行写的表面。这里给决定，避�
 - 推送是产品项（§7.1 已提升）；不要搬 Xaman SignRequest 云载荷。
 - 语言通过 locale preference store 持久化。
 - Security / Vault 不把密钥写入普通持久化。应用锁在上游 API 出现前保留占位角色。
+- S04 System Auth 关闭属于高影响安全设置变更：点击关闭先进入明确确认，不得直接调用 Native remove。确认文案必须说明关闭后 routine signing 将回退到 Fresnica/App Passphrase，同时明确不会删除钱包、protected signer 或改变 App Passphrase。Cancel、遮罩/系统返回均不得产生副作用；Confirm 在 busy 期间只能执行一次。Native 关闭失败时继续展示真实 enabled 状态并允许重试，不得用本地状态伪装成功。该行为来自 Fresnica 安全产品要求，本切片不依赖 donor 实现。
 - ChangeLog 在 About 或版本升级说明里；Terms / Credits 走通用 InAppBrowser，不走 dApp 浏览器。
 - Connected dApps 覆盖原 ThirdPartyApps 角色，不另开一页。
 
