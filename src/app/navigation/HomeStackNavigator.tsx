@@ -51,6 +51,7 @@ export function HomeStackNavigator({
             onOpenAsset={asset =>
               navigation.navigate('asset-details', {accountId: selectedAccount.id, asset})
             }
+            onManualRefresh={() => services.transactionRecovery.reconcile('manual-refresh')}
           />
         )}
       </Stack.Screen>

@@ -2,6 +2,7 @@ import { NativeModules } from 'react-native';
 
 import { APP_CONFIG } from './config/appConfig';
 import { SessionLogger } from './diagnostics/SessionLogger';
+import {createTransactionReconciliationCoordinator, type TransactionReconciliationCoordinator} from './transaction/TransactionReconciliationCoordinator';
 import type { OnboardingProvisioningDependencies } from '../features/onboarding/runOnboardingProvisioning';
 import type { ApplicationSecurityDependencies } from '../capabilities/application-security/systemAuth';
 import type { BalanceDependencies } from '../capabilities/balance/loadBalanceSnapshot';
@@ -26,6 +27,7 @@ export type AppServices = Readonly<{
   send: SendProductDependencies;
   history: HistoryDependencies;
   trustline: TrustlineProductDependencies;
+  transactionRecovery: TransactionReconciliationCoordinator;
   localePreferences: RealmLocalePreferenceStore;
   close: () => void;
 }>;
@@ -51,6 +53,16 @@ export async function createAppServices(): Promise<AppServices> {
     const stellarGateway = new StellarSdkGateway({
       network,
       horizonUrl: APP_CONFIG.network.horizonUrl,
+    });
+    const transactionRecovery = createTransactionReconciliationCoordinator({
+      gateway: stellarGateway,
+      repository: pendingSubmissions,
+      networkId: network.id,
+      now: () => new Date(),
+      onRunStart: reason =>
+        diagnostics.info('transaction-reconciliation-start', {details: {reason, networkId: network.id}}),
+      onRunFailure: (reason, error) =>
+        diagnostics.warn('transaction-reconciliation-failed', {details: {reason, networkId: network.id, error}}),
     });
 
     diagnostics.info('app-services-ready', {details: {networkId: network.id}});
@@ -90,6 +102,7 @@ export async function createAppServices(): Promise<AppServices> {
         recovery,
         network,
       },
+      transactionRecovery,
       localePreferences,
       close: () => realm.close(),
     };

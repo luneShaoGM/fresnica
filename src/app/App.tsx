@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {StatusBar} from 'react-native';
+import {AppState, StatusBar} from 'react-native';
 import {initialWindowMetrics, SafeAreaProvider} from 'react-native-safe-area-context';
 
 import {AppThemeProvider, useAppTheme} from '@ui/theme';
@@ -12,6 +12,8 @@ import {
   type SupportedLocale,
 } from '../locale';
 import {createAppServices, type AppServices} from './createAppServices';
+import {startTransactionReconciliationLifecycle} from './transaction/startTransactionReconciliationLifecycle';
+import {subscribeToNetworkRecovery} from '../platform/system/networkConnectivity';
 import {AppNavigator} from './navigation/AppNavigator';
 import {OverlayHost} from './OverlayHost';
 import type {AppRuntimeState} from './runtimeState';
@@ -23,6 +25,7 @@ export function App() {
 
   useEffect(() => {
     let mounted = true;
+    let stopTransactionLifecycle: (() => void) | undefined;
 
     void createAppServices()
       .then(created => {
@@ -32,6 +35,15 @@ export function App() {
         }
 
         servicesRef.current = created;
+        stopTransactionLifecycle = startTransactionReconciliationLifecycle({
+          coordinator: created.transactionRecovery,
+          currentAppState: AppState.currentState,
+          subscribeAppState: listener => {
+            const subscription = AppState.addEventListener('change', listener);
+            return () => subscription.remove();
+          },
+          subscribeNetworkRecovery: listener => subscribeToNetworkRecovery(listener),
+        });
         const storedLocale = created.localePreferences.getLocale();
         const resolvedLocale = resolveLocale(storedLocale ?? getDeviceLocale());
         if (!storedLocale) {
@@ -53,6 +65,7 @@ export function App() {
 
     return () => {
       mounted = false;
+      stopTransactionLifecycle?.();
       servicesRef.current?.close();
       servicesRef.current = undefined;
     };

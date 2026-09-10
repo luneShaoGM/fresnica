@@ -39,6 +39,7 @@ type Props = Readonly<{
   onSend: () => void;
   onManageAssets: () => void;
   onOpenAsset: (asset: BalanceAsset) => void;
+  onManualRefresh: () => Promise<unknown>;
   onSwap?: () => void;
   onRequest?: () => void;
   active: boolean;
@@ -65,6 +66,7 @@ export function HomeScreen({
   onSend,
   onManageAssets,
   onOpenAsset,
+  onManualRefresh,
   onSwap,
   onRequest,
   active,
@@ -74,12 +76,17 @@ export function HomeScreen({
   const [balanceState, setBalanceState] = useState<HomeBalanceState>({kind: 'loading'});
   const requestVersion = useRef(0);
 
-  const refreshBalances = useCallback(() => {
+  const refreshBalances = useCallback((beforeLoad?: () => Promise<unknown>) => {
     const version = requestVersion.current + 1;
     requestVersion.current = version;
     setBalanceState({kind: 'loading'});
 
-    void loadBalanceSnapshot(balanceDependencies, account)
+    const before = beforeLoad
+      ? Promise.resolve().then(beforeLoad).catch(() => undefined)
+      : Promise.resolve();
+
+    void before
+      .then(() => loadBalanceSnapshot(balanceDependencies, account))
       .then(snapshot => {
         if (requestVersion.current === version) {
           setBalanceState({kind: 'ready', snapshot});
@@ -124,7 +131,7 @@ export function HomeScreen({
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
-            onRefresh={refreshBalances}
+            onRefresh={() => refreshBalances(onManualRefresh)}
             refreshing={balanceState.kind === 'loading'}
             tintColor={theme.colors.actionPrimary}
           />

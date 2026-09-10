@@ -31,6 +31,7 @@ export function ActivityStackNavigator({accounts, selectedAccountId, services}: 
             onOpenOperation={operationId =>
               navigation.navigate('operation-details', {accountId: account.id, operationId})
             }
+            onManualRefresh={() => services.transactionRecovery.reconcile('manual-refresh')}
           />
         )}
       </Stack.Screen>

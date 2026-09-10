@@ -47,6 +47,7 @@ type Props = Readonly<{
   dependencies: HistoryDependencies;
   active: boolean;
   onOpenOperation: (operationId: string) => void;
+  onManualRefresh: () => Promise<unknown>;
 }>;
 
 const FILTERS: readonly ActivityFilter[] = ['all', 'payments', 'accounts', 'other'];
@@ -57,7 +58,7 @@ const FILTER_LABEL_KEYS: Readonly<Record<ActivityFilter, string>> = {
   other: 'activity.filter.other',
 };
 
-export function ActivityScreen({account, dependencies, active, onOpenOperation}: Props) {
+export function ActivityScreen({account, dependencies, active, onOpenOperation, onManualRefresh}: Props) {
   const {formatNumber, locale, t} = useLocalization();
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
@@ -67,7 +68,7 @@ export function ActivityScreen({account, dependencies, active, onOpenOperation}:
   const requestVersion = useRef(0);
 
   const loadInitial = useCallback(
-    (refreshing: boolean) => {
+    (refreshing: boolean, beforeLoad?: () => Promise<unknown>) => {
       const version = requestVersion.current + 1;
       requestVersion.current = version;
 
@@ -81,7 +82,12 @@ export function ActivityScreen({account, dependencies, active, onOpenOperation}:
         setState({kind: 'loading'});
       }
 
-      void loadHistoryPage(dependencies, account)
+      const before = beforeLoad
+        ? Promise.resolve().then(beforeLoad).catch(() => undefined)
+        : Promise.resolve();
+
+      void before
+        .then(() => loadHistoryPage(dependencies, account))
         .then(page => {
           if (requestVersion.current !== version) {
             return;
@@ -237,7 +243,7 @@ export function ActivityScreen({account, dependencies, active, onOpenOperation}:
           accessibilityLabel={t('activity.refresh')}
           accessibilityRole="button"
           disabled={state.kind === 'loading' || refreshing}
-          onPress={() => loadInitial(true)}
+          onPress={() => loadInitial(true, onManualRefresh)}
           style={({pressed}) => [
             styles.headerButton,
             pressed ? styles.pressed : undefined,
@@ -305,7 +311,7 @@ export function ActivityScreen({account, dependencies, active, onOpenOperation}:
           formatNumber={formatNumber}
           onLoadMore={loadMore}
           onOpenOperation={onOpenOperation}
-          onRetry={() => loadInitial(true)}
+          onRetry={() => loadInitial(true, onManualRefresh)}
           searchText={searchText}
           state={state}
           styles={styles}
