@@ -1,8 +1,8 @@
 import React from 'react';
-import {Text, View} from 'react-native';
+import {Pressable, Text, View} from 'react-native';
 
-import {StellarTouchableDebounce} from '../../../ui/components/stellar';
 import {useThemedStyles} from '@ui/theme';
+
 import {createStyles} from '../styles';
 
 type Props = Readonly<{
@@ -14,14 +14,7 @@ type Props = Readonly<{
   onAddAccount: () => void;
 }>;
 
-/**
- * Presentation adaptation of
- * Stellar/src/components/Modules/AccountSwitchElement/AccountSwitchElement.tsx.
- *
- * The donor opens a repository-backed switcher overlay. Fresnica keeps the
- * selected account in `app/navigation` and only passes public UI intents here.
- */
-export function AccountSwitchElement({
+export function AccountSummary({
   label,
   maskedAddress,
   accountKindLabel,
@@ -32,37 +25,31 @@ export function AccountSwitchElement({
   const styles = useThemedStyles(createStyles);
   return (
     <>
-      <StellarTouchableDebounce
+      <Pressable
         accessibilityHint="Switch to another configured account"
         accessibilityLabel={`Current account ${label}`}
         accessibilityRole="button"
-        activeOpacity={0.7}
         onPress={onSwitchAccount}
-        style={styles.accountSwitchContainer}>
+        style={({pressed}) => [
+          styles.accountSwitchContainer,
+          pressed ? styles.pressed : undefined,
+        ]}>
         <View style={styles.accountTextBlock}>
-          <Text numberOfLines={1} style={styles.accountLabel}>
-            {label}
-          </Text>
-          <Text numberOfLines={1} selectable style={styles.accountAddress}>
-            {maskedAddress}
-          </Text>
+          <Text numberOfLines={1} style={styles.accountLabel}>{label}</Text>
+          <Text numberOfLines={1} selectable style={styles.accountAddress}>{maskedAddress}</Text>
         </View>
-        <Text accessibilityElementsHidden style={styles.switchChevron}>
-          ⌄
-        </Text>
-      </StellarTouchableDebounce>
+      </Pressable>
 
       <View style={styles.accountMetaRow}>
         <Text style={styles.accountMeta}>{accountKindLabel}</Text>
-        <StellarTouchableDebounce
+        <Pressable
           accessibilityRole="button"
-          activeOpacity={0.7}
           onPress={onAddAccount}
-          style={styles.addAccountButton}>
+          style={({pressed}) => [styles.addAccountButton, pressed ? styles.pressed : undefined]}>
           <Text style={styles.addAccountText}>
             {accountCount === 1 ? '+ Add account' : `${accountCount} accounts · Add`}
           </Text>
-        </StellarTouchableDebounce>
+        </Pressable>
       </View>
     </>
   );

@@ -1,8 +1,8 @@
 import React from 'react';
-import {Text, View} from 'react-native';
+import {Pressable, Text, View} from 'react-native';
 
-import {StellarTouchableDebounce} from '../../../ui/components/stellar';
 import {useThemedStyles} from '@ui/theme';
+
 import {createStyles} from '../styles';
 
 type Props = Readonly<{
@@ -10,15 +10,7 @@ type Props = Readonly<{
   onRefresh: () => void;
 }>;
 
-/**
- * Presentation adaptation of
- * Stellar/src/components/Modules/InactiveAccount/InactiveAccount.tsx.
- *
- * The donor also exposes QR sharing and Friendbot funding. Those actions depend
- * on product contracts not owned by M2, so M2 keeps the activation explanation
- * and refresh path without copying donor services.
- */
-export function InactiveAccount({address, onRefresh}: Props) {
+export function InactiveAccountPanel({address, onRefresh}: Props) {
   const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.inactiveContainer} testID="not-activated-account-container">
@@ -39,17 +31,14 @@ export function InactiveAccount({address, onRefresh}: Props) {
         </Text>
       </View>
 
-      <Text selectable style={styles.inactiveAddress}>
-        {address}
-      </Text>
+      <Text selectable style={styles.inactiveAddress}>{address}</Text>
 
-      <StellarTouchableDebounce
+      <Pressable
         accessibilityRole="button"
-        activeOpacity={0.7}
         onPress={onRefresh}
-        style={styles.retryButton}>
+        style={({pressed}) => [styles.retryButton, pressed ? styles.pressed : undefined]}>
         <Text style={styles.retryText}>Refresh account</Text>
-      </StellarTouchableDebounce>
+      </Pressable>
     </View>
   );
 }

@@ -1,7 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
-  Image,
-  type ImageSourcePropType,
+  ActivityIndicator,
+  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 
 import {Screen} from '@ui/components';
+import {useAppTheme, useThemedStyles} from '@ui/theme';
 
 import type {AccountRecord} from '../../capabilities/account/types';
 import {
@@ -16,13 +17,11 @@ import {
   type BalanceDependencies,
 } from '../../capabilities/balance/loadBalanceSnapshot';
 import type {BalanceAsset} from '../../capabilities/balance/types';
-import {StellarLoadingIndicator, StellarTouchableDebounce} from '../../ui/components/stellar';
-import {useAppTheme, useThemedStyles} from '@ui/theme';
 import {projectFeatureError} from '../featureError';
-import {AccountSwitchElement} from './components/AccountSwitchElement';
-import {AssetsList} from './components/AssetsList';
-import {InactiveAccount} from './components/InactiveAccount';
-import {NetworkSwitchButton} from './components/NetworkSwitchButton';
+import {AccountSummary} from './components/AccountSummary';
+import {AssetList} from './components/AssetList';
+import {InactiveAccountPanel} from './components/InactiveAccountPanel';
+import {NetworkStatus} from './components/NetworkStatus';
 import {
   createHomeViewModel,
   type HomeBalanceState,
@@ -46,17 +45,6 @@ type Props = Readonly<{
   active: boolean;
 }>;
 
-const sendIcon = require('../../ui/assets/stellar/icon_send_v2.png');
-const swapIcon = require('../../ui/assets/stellar/icon_swap.png');
-const requestIcon = require('../../ui/assets/stellar/icon_request.png');
-
-/**
- * Source-parity Home vertical slice.
- *
- * Presentation authority: Stellar/src/screens/Home/HomeView.tsx and the directly
- * used NetworkSwitchButton, AccountSwitchElement, InactiveAccount and AssetsList.
- * Data and action authority remains Fresnica Account/Balance/Trustline/runtime.
- */
 export function HomeScreen({
   account,
   accountCount,
@@ -140,14 +128,11 @@ export function HomeScreen({
         }
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <View style={styles.brandRow}>
-            <View style={styles.brandMark} />
-            <Text style={styles.brand}>Fresnica</Text>
-          </View>
-          <NetworkSwitchButton networkLabel={viewModel.networkLabel} />
+          <Text style={styles.brand}>Fresnica</Text>
+          <NetworkStatus networkLabel={viewModel.networkLabel} />
         </View>
 
-        <AccountSwitchElement
+        <AccountSummary
           accountCount={accountCount}
           accountKindLabel={viewModel.accountKindLabel}
           label={viewModel.accountLabel}
@@ -157,27 +142,9 @@ export function HomeScreen({
         />
 
         <View style={styles.actionsRow}>
-          <HomeAction
-            enabled={viewModel.canSend}
-            label="Send"
-            onPress={onSend}
-            source={sendIcon}
-            tone="green"
-          />
-          <HomeAction
-            enabled={viewModel.canSwap}
-            label="Swap"
-            onPress={onSwap}
-            source={swapIcon}
-            tone="dark"
-          />
-          <HomeAction
-            enabled={viewModel.canRequest}
-            label="Request"
-            onPress={onRequest}
-            source={requestIcon}
-            tone="green"
-          />
+          <HomeAction enabled={viewModel.canSend} label="Send" onPress={onSend} />
+          <HomeAction enabled={viewModel.canSwap} label="Swap" onPress={onSwap} />
+          <HomeAction enabled={viewModel.canRequest} label="Request" onPress={onRequest} />
         </View>
 
         {viewModel.isReadOnly ? (
@@ -192,13 +159,15 @@ export function HomeScreen({
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Tokens</Text>
-          <StellarTouchableDebounce
+          <Pressable
             accessibilityRole="button"
             accessibilityState={{disabled: !viewModel.canManageAssets}}
-            activeOpacity={0.7}
             disabled={!viewModel.canManageAssets}
             onPress={viewModel.canManageAssets ? onManageAssets : undefined}
-            style={styles.sectionLinkButton}>
+            style={({pressed}) => [
+              styles.sectionLinkButton,
+              pressed ? styles.pressed : undefined,
+            ]}>
             <Text
               style={[
                 styles.sectionLink,
@@ -206,10 +175,17 @@ export function HomeScreen({
               ]}>
               Add asset
             </Text>
-          </StellarTouchableDebounce>
+          </Pressable>
         </View>
 
-        {renderPortfolio(balanceState, viewModel.accountAddress, refreshBalances, onOpenAsset, styles)}
+        {renderPortfolio(
+          balanceState,
+          viewModel.accountAddress,
+          refreshBalances,
+          onOpenAsset,
+          theme.colors.actionPrimary,
+          styles,
+        )}
       </ScrollView>
     </Screen>
   );
@@ -218,32 +194,27 @@ export function HomeScreen({
 function HomeAction({
   enabled,
   label,
-  source,
-  tone,
   onPress,
 }: Readonly<{
   enabled: boolean;
   label: string;
-  source: ImageSourcePropType;
-  tone: 'green' | 'dark';
   onPress?: () => void;
 }>) {
   const styles = useThemedStyles(createStyles);
   return (
-    <StellarTouchableDebounce
+    <Pressable
+      accessibilityLabel={label}
       accessibilityRole="button"
       accessibilityState={{disabled: !enabled}}
-      activeOpacity={0.7}
       disabled={!enabled}
       onPress={enabled ? onPress : undefined}
-      style={[
+      style={({pressed}) => [
         styles.action,
-        tone === 'dark' ? styles.actionDark : styles.actionGreen,
         !enabled ? styles.actionDisabled : undefined,
+        pressed ? styles.pressed : undefined,
       ]}>
-      <Image resizeMode="contain" source={source} style={styles.actionIcon} />
       <Text style={styles.actionText}>{label}</Text>
-    </StellarTouchableDebounce>
+    </Pressable>
   );
 }
 
@@ -252,12 +223,13 @@ function renderPortfolio(
   address: string,
   onRefresh: () => void,
   onOpenAsset: (asset: BalanceAsset) => void,
+  loadingColor: string,
   styles: ReturnType<typeof createStyles>,
 ): React.ReactNode {
   if (state.kind === 'loading') {
     return (
       <View style={styles.stateBox}>
-        <StellarLoadingIndicator color="default" />
+        <ActivityIndicator color={loadingColor} />
         <Text style={styles.stateText}>Loading assets…</Text>
       </View>
     );
@@ -268,19 +240,18 @@ function renderPortfolio(
       <View style={styles.stateBox}>
         <Text style={styles.stateTitle}>Balances unavailable</Text>
         <Text style={styles.stateText}>{state.message}</Text>
-        <StellarTouchableDebounce
+        <Pressable
           accessibilityRole="button"
-          activeOpacity={0.7}
           onPress={onRefresh}
-          style={styles.retryButton}>
+          style={({pressed}) => [styles.retryButton, pressed ? styles.pressed : undefined]}>
           <Text style={styles.retryText}>Try again</Text>
-        </StellarTouchableDebounce>
+        </Pressable>
       </View>
     );
   }
 
   if (state.snapshot.status === 'inactive') {
-    return <InactiveAccount address={address} onRefresh={onRefresh} />;
+    return <InactiveAccountPanel address={address} onRefresh={onRefresh} />;
   }
 
   if (state.snapshot.status === 'unsupported-account') {
@@ -295,7 +266,7 @@ function renderPortfolio(
   }
 
   return (
-    <AssetsList
+    <AssetList
       balances={state.snapshot.balances}
       hiddenLiquidityPoolShareCount={state.snapshot.hiddenLiquidityPoolShareCount}
       onRefresh={onRefresh}

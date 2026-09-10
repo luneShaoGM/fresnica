@@ -1,13 +1,10 @@
 import React from 'react';
-import {Image, Text, View} from 'react-native';
+import {Pressable, Text, View} from 'react-native';
 
 import type {BalanceLine} from '../../../capabilities/balance/types';
-import {StellarTouchableDebounce} from '../../../ui/components/stellar';
-import {maskAddress} from '../homeViewModel';
 import {useThemedStyles} from '@ui/theme';
+import {maskAddress} from '../homeViewModel';
 import {createStyles} from '../styles';
-
-const xlmIcon = require('../../../ui/assets/stellar/icon_xlm.png');
 
 type Props = Readonly<{
   balances: readonly BalanceLine[];
@@ -16,14 +13,7 @@ type Props = Readonly<{
   onOpenAsset: (asset: BalanceLine['asset']) => void;
 }>;
 
-/**
- * M2 token-list adaptation of Stellar AssetsList.
- *
- * The current Balance capability exposes native and credit balances. Donor LP,
- * claimable-balance, filtering and category repository state stays out of this
- * component until those read contracts exist in Fresnica.
- */
-export function AssetsList({
+export function AssetList({
   balances,
   hiddenLiquidityPoolShareCount,
   onRefresh,
@@ -34,13 +24,12 @@ export function AssetsList({
     return (
       <View style={styles.stateBox}>
         <Text style={styles.stateText}>No displayable assets.</Text>
-        <StellarTouchableDebounce
+        <Pressable
           accessibilityRole="button"
-          activeOpacity={0.7}
           onPress={onRefresh}
-          style={styles.retryButton}>
+          style={({pressed}) => [styles.retryButton, pressed ? styles.pressed : undefined]}>
           <Text style={styles.retryText}>Refresh balances</Text>
-        </StellarTouchableDebounce>
+        </Pressable>
       </View>
     );
   }
@@ -52,23 +41,18 @@ export function AssetsList({
           line.asset.kind === 'native'
             ? 'XLM'
             : `${line.asset.code}:${line.asset.issuer}`;
+        const badge = line.asset.kind === 'native' ? 'XLM' : line.asset.code.slice(0, 3);
 
         return (
-          <StellarTouchableDebounce
+          <Pressable
+            accessibilityLabel={`${line.asset.code} balance ${line.balance}`}
             accessibilityRole="button"
-            activeOpacity={0.7}
             key={assetKey}
             onPress={() => onOpenAsset(line.asset)}
-            style={styles.assetRow}>
-            {line.asset.kind === 'native' ? (
-              <Image resizeMode="contain" source={xlmIcon} style={styles.assetIcon} />
-            ) : (
-              <View style={styles.assetFallbackIcon}>
-                <Text style={styles.assetFallbackText}>
-                  {line.asset.code.slice(0, 1)}
-                </Text>
-              </View>
-            )}
+            style={({pressed}) => [styles.assetRow, pressed ? styles.pressed : undefined]}>
+            <View style={styles.assetBadge}>
+              <Text numberOfLines={1} style={styles.assetBadgeText}>{badge}</Text>
+            </View>
 
             <View style={styles.assetIdentity}>
               <Text style={styles.assetCode}>{line.asset.code}</Text>
@@ -80,12 +64,10 @@ export function AssetsList({
             </View>
 
             <View style={styles.assetBalanceBlock}>
-              <Text selectable style={styles.assetBalance}>
-                {line.balance}
-              </Text>
+              <Text selectable style={styles.assetBalance}>{line.balance}</Text>
               <Text style={styles.assetSymbol}>{line.asset.code}</Text>
             </View>
-          </StellarTouchableDebounce>
+          </Pressable>
         );
       })}
 
@@ -96,13 +78,12 @@ export function AssetsList({
         </Text>
       ) : null}
 
-      <StellarTouchableDebounce
+      <Pressable
         accessibilityRole="button"
-        activeOpacity={0.7}
         onPress={onRefresh}
-        style={styles.refreshLink}>
+        style={({pressed}) => [styles.refreshLink, pressed ? styles.pressed : undefined]}>
         <Text style={styles.refreshText}>Refresh balances</Text>
-      </StellarTouchableDebounce>
+      </Pressable>
     </View>
   );
 }

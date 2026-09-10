@@ -1,1 +1,0 @@
-export {StellarSpacer} from './Spacer';

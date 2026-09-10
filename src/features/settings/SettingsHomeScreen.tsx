@@ -1,7 +1,7 @@
 import React from 'react';
-import {Image, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {ScrollView, StyleSheet, Text, View} from 'react-native';
 
-import {Screen} from '@ui/components';
+import {ListRow, Screen} from '@ui/components';
 
 import {useLocalization} from '../../locale';
 import {useThemedStyles, type AppTheme} from '../../ui/theme';
@@ -14,19 +14,6 @@ type Props = Readonly<{
   onOpenLanguage: () => void;
   onOpenAbout: () => void;
 }>;
-
-const icons = {
-  account: require('../../ui/assets/stellar/icon_account.png'),
-  book: require('../../ui/assets/stellar/icon_book.png'),
-  sliders: require('../../ui/assets/stellar/icon_sliders.png'),
-  activity: require('../../ui/assets/stellar/icon_activity.png'),
-  shield: require('../../ui/assets/stellar/icon_shield.png'),
-  help: require('../../ui/assets/stellar/icon_help_circle.png'),
-  info: require('../../ui/assets/stellar/icon_info.png'),
-  chevron: require('../../ui/assets/stellar/icon_chevron_right.png'),
-} as const;
-
-type SettingIcon = Exclude<keyof typeof icons, 'chevron'>;
 
 export function SettingsHomeScreen({
   accountCount,
@@ -46,39 +33,36 @@ export function SettingsHomeScreen({
         <Text style={styles.title}>{t('settings.title')}</Text>
 
         <SettingsGroup>
-          <SettingRow
-            icon="account"
-            label={t('settings.accounts')}
-            detail={tPlural('settings.accountCount', accountCount)}
+          <ListRow
             onPress={onOpenAccounts}
+            subtitle={tPlural('settings.accountCount', accountCount)}
+            title={t('settings.accounts')}
           />
-          <SettingRow icon="book" label={t('settings.addressBook')} />
+          <ListRow subtitle={t('settings.soon')} title={t('settings.addressBook')} />
         </SettingsGroup>
 
         <SettingsGroup>
-          <SettingRow
-            icon="sliders"
-            label={t('settings.general')}
-            detail={t('settings.generalDetail')}
+          <ListRow
             onPress={onOpenNetwork}
+            subtitle={t('settings.generalDetail')}
+            title={t('settings.general')}
           />
-          <SettingRow
-            icon="book"
-            label={t('settings.language')}
-            detail={currentLocaleName}
+          <ListRow
             onPress={onOpenLanguage}
+            subtitle={currentLocaleName}
+            title={t('settings.language')}
           />
-          <SettingRow icon="activity" label={t('settings.advanced')} />
+          <ListRow subtitle={t('settings.soon')} title={t('settings.advanced')} />
         </SettingsGroup>
 
         <SettingsGroup>
-          <SettingRow icon="shield" label={t('settings.security')} onPress={onOpenSecurity} />
+          <ListRow onPress={onOpenSecurity} title={t('settings.security')} />
         </SettingsGroup>
 
         <SettingsGroup>
-          <SettingRow icon="help" label={t('settings.support')} />
-          <SettingRow icon="info" label={t('settings.terms')} />
-          <SettingRow icon="info" label={t('settings.about')} onPress={onOpenAbout} />
+          <ListRow subtitle={t('settings.soon')} title={t('settings.support')} />
+          <ListRow subtitle={t('settings.soon')} title={t('settings.terms')} />
+          <ListRow onPress={onOpenAbout} title={t('settings.about')} />
         </SettingsGroup>
 
         <Text style={styles.footer}>{t('settings.footer')}</Text>
@@ -92,66 +76,26 @@ function SettingsGroup({children}: Readonly<{children?: React.ReactNode}>) {
   return <View style={styles.group}>{children}</View>;
 }
 
-function SettingRow({
-  icon,
-  label,
-  detail,
-  onPress,
-}: Readonly<{
-  icon: SettingIcon;
-  label: string;
-  detail?: string;
-  onPress?: () => void;
-}>) {
-  const {t} = useLocalization();
-  const styles = useThemedStyles(createStyles);
-  const enabled = typeof onPress === 'function';
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{disabled: !enabled}}
-      disabled={!enabled}
-      onPress={onPress}
-      style={({pressed}) => [styles.row, pressed ? styles.pressed : undefined]}>
-      <View style={styles.iconSlot}>
-        <Image resizeMode="contain" source={icons[icon]} style={styles.rowIcon} />
-      </View>
-      <Text style={[styles.label, !enabled ? styles.labelDisabled : undefined]}>{label}</Text>
-      <View style={styles.rowTail}>
-        {detail ? <Text style={styles.detail}>{detail}</Text> : null}
-        {enabled ? (
-          <Image resizeMode="contain" source={icons.chevron} style={styles.chevronIcon} />
-        ) : (
-          <Text style={styles.soon}>{t('settings.soon')}</Text>
-        )}
-      </View>
-    </Pressable>
-  );
-}
-
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
-    safeArea: {flex: 1, backgroundColor: theme.colors.background},
-    content: {paddingHorizontal: 18, paddingTop: 8, paddingBottom: 36},
-    title: {
-      fontSize: 28,
-      lineHeight: 34,
-      fontWeight: '800',
-      color: theme.colors.textPrimary,
-      letterSpacing: -0.6,
-      marginBottom: 18,
+    content: {
+      paddingHorizontal: theme.spacing.lg,
+      paddingTop: theme.spacing.sm,
+      paddingBottom: theme.spacing.xl,
     },
-    group: {marginBottom: 18},
-    row: {minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12},
-    iconSlot: {width: 30, height: 30, alignItems: 'center', justifyContent: 'center'},
-    rowIcon: {width: 25, height: 25, tintColor: theme.colors.actionPrimary},
-    label: {flex: 1, fontSize: 15, lineHeight: 19, color: theme.colors.textPrimary, fontWeight: '600'},
-    labelDisabled: {color: theme.colors.textSecondary},
-    rowTail: {flexDirection: 'row', alignItems: 'center', gap: 9},
-    detail: {fontSize: 11, lineHeight: 14, color: theme.colors.textTertiary},
-    chevronIcon: {width: 22, height: 22, tintColor: theme.colors.actionPrimary},
-    soon: {fontSize: 10, lineHeight: 13, color: theme.colors.textTertiary},
-    footer: {fontSize: 10, lineHeight: 14, color: theme.colors.textTertiary, textAlign: 'center', marginTop: 4},
-    pressed: {opacity: 0.62},
+    title: {
+      ...theme.typography.title,
+      color: theme.colors.textPrimary,
+      marginBottom: theme.spacing.md,
+    },
+    group: {
+      marginBottom: theme.spacing.lg,
+    },
+    footer: {
+      ...theme.typography.caption,
+      color: theme.colors.textTertiary,
+      textAlign: 'center',
+      marginTop: theme.spacing.xs,
+    },
   });
 }

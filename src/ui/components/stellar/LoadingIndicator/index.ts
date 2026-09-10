@@ -1,1 +1,0 @@
-export {StellarLoadingIndicator} from './LoadingIndicator';
