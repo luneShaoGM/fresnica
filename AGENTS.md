@@ -35,6 +35,8 @@ PRs must satisfy the guide's three gates: vertical slice, one transaction pipeli
 
 A donor screen is not automatically a Fresnica requirement. `Exclude` surfaces must not be implemented unless a current product/capability requirement explicitly promotes them. A concern missing from §7 / §14 / §2.1 must be added to the guide before it is implemented.
 
+Stage 0A also applies to the **current target tree**, not only to new diffs. `npm run provenance:check` compares every tracked or non-ignored target file against the fixed Stellar/Xaman donor blob index and fails on exact matches by default. Any exception must be bound to one path, one content hash, a named third-party source/version and its license. Passing the automatic collision gate does not prove clean-room authorship; materially rewritten donor-informed surfaces still require behavior-spec and human implementation-structure review.
+
 ## Architecture migration rule
 
 The dependency model below is the target for all new and materially rewritten code. Some already validated Capability code still imports concrete Stellar/platform mechanisms; that is explicit migration debt, not permission to add more coupling.
@@ -77,7 +79,7 @@ The dependency model below is the target for all new and materially rewritten co
 
 ## Validation
 
-- `npm run check` includes the incremental architecture/style guard.
+- `npm run check` includes the incremental architecture/style guard and the fixed-snapshot Stage 0A target-tree donor collision/marker gate.
 - ESLint/Prettier/import-alias tooling should be added only with a normally generated npm lockfile; never hand-author dependency lock data.
 - A product rewrite is not complete until relevant typecheck/lint/tests execute successfully, or an external CI/runtime blocker is recorded explicitly.
 - `steps:null` or other pre-execution CI failures are not a pass.

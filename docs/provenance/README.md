@@ -47,3 +47,24 @@ Before implementing behavior learned from a donor surface:
 5. A direct migration remains prohibited unless a separate rights review supplies file-level history, author/rightsholder confirmation, dependency licensing and an explicit approval record.
 
 Regenerate the ledger only against the audited commits recorded above, or update this README and review the resulting ledger diff in the same PR. Moving donor `HEAD` must never silently redefine the audit baseline.
+
+## Current target-tree collision gate
+
+`donor-blob-index.tsv` is a full-tree hash index for the same fixed donor commits above. It is regenerated explicitly with `npm run provenance:index`; normal checks never follow donor `HEAD` and do not require the donor repositories to exist.
+
+`npm run provenance:check` scans every tracked or non-ignored target file and fails on an exact Git blob match with either fixed donor tree by default. It also scans implementation source for known direct-port markers such as `Source port`, `source-equivalent`, donor implementation annotations and explicit Stellar/Xaman source-path comments. The command is part of `npm run check`, so the normal CI and native workflows enforce it automatically.
+
+An exception is valid only when `docs/provenance/target-tree-collision-allowlist.json` binds one target path to its exact Git blob, SHA-256, third-party source repository/version/path and license proof. Stale or changed exceptions fail the gate.
+
+The only current exception is `ios/.xcode.env`:
+
+- target Git blob: `3d5782c71568d32eec2fe71b034efcde053305f9`;
+- target SHA-256: `3c02dca07775b31ce4e77dfb3bb660d7c6e577474d65a6216f1ea9bef54e1ca6`;
+- source: `react-native-community/template` tag `0.87.0`, `template/ios/_xcode.env`;
+- source Git blob: the same `3d5782c71568d32eec2fe71b034efcde053305f9`;
+- source package/version evidence: `@react-native-community/template` `0.87.0`;
+- license: MIT, `LICENSE` blob `7042b1f8c786a8881bd37d6d2ce923d43cec4506`.
+
+This is a path-and-content exception, not a general "template files are safe" rule. The Android debug keystore is deliberately not allowlisted; Fresnica generates its own debug key instead.
+
+Passing this automatic gate is **not** proof that a donor-informed implementation is clean-room. Behavior specifications, provenance records and human review of implementation structure remain mandatory. In particular, Home, Settings, MainTabBar and other presentation surfaces must not preserve donor-specific component structure merely because their bytes differ.
