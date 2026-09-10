@@ -16,7 +16,7 @@
 
 ## 怎么用这份指南
 
-1. **开工**：先看下面成熟度总表确认 Foundation gate，再看 `docs/fresnica-mobile-rewrite-execution-plan.md` 的当前阶段、provenance 和依赖顺序。Phase 0 与 Stage 0A 基础门已建立；当前必须闭合 Stage 2.5 交易恢复，并继续 2c/F3。所有 donor-derived PR 仍持续执行 Stage 0A。
+1. **开工**：先看下面成熟度总表确认 Foundation gate，再看 `docs/fresnica-mobile-rewrite-execution-plan.md` 的当前阶段、provenance 和依赖顺序。Phase 0 与 Stage 0A 基础门已建立；Stage 2.5 交易恢复已于 2026-09-10 用 S07/S30 完成首轮共享证明，当前继续 2c/F3 与 Stage 4。所有 donor-derived PR 仍持续执行 Stage 0A。
 2. **有什么**：产品表面 §7（含 §7.8）、工程角色 §14、数据权威 §2.1。Exclude 则停止。表外默认不存在；要做必须先入表。
 3. **做成什么样**：§8 与对应的 §9。Git 脚手架能点 ≠ 完成。`docs/mobile-capability-status.md` 只记现状，不当验收。
 4. **每条 PR**：下面三条门禁 + §11。共享契约没有的语义，不要在 Mobile 里发明。
@@ -42,14 +42,14 @@ F0–F4 只是总表里的别名（导航库 / 守卫 / 栈 / 主题壳 / 按表
 | 3 Core 边界 | capability-status | Account / Balance / Payment / Transaction / Trustline / Signing / Gateway | 主体完成 | App 只依赖 capability，不依赖 `StellarSdk.xxx` | 缺的契约（Path Payment、SDEX、锁、dApp 授权）在 Mobile 发明 |
 | 4 Account 切片 | F4-1 | 启动 → 创建/导入 → 落库 → 进壳 | 脚手架 | §9 Onboarding；含硬件入口（可禁用） | 只加页面不加用例/测试 |
 | 5 Wallet / Balance | F4-2 | 选中账户、snapshot、Home、未激活 ≠ 断网 | 脚手架 | §9 Home；交易后 focus 失效 | 余额写入 Realm；乐观减余额 |
-| 6 交易框架 | — | prepare → review → authorize → sign → submit → 协调/结果 | L3+：共享提交骨架已成；pending/uncertain 重启恢复与防重复未完成 | 写路径共用提交与 reconciliation 管线，满足 Transaction uncertainty 契约 | 未闭合恢复前新增 Swap / SDEX / Claimable 等写路径；各 Flow 各写一套提交 |
+| 6 交易框架 | — | prepare → review → authorize → sign → submit → 协调/结果 | **Stage 2.5 完成**：S07/S30 共用 pre-broadcast pending、无时效 duplicate guard、single-flight lifecycle reconciliation 与 read invalidation；Android 真实 Testnet process-death/restart 已验证 | 新写路径必须复用同一提交/reconciliation 管线并满足自己的 Capability/Stage 门 | 另建提交/恢复管线；把基础恢复通过误当成未开工写类型已获授权 |
 | 7 Send / Request | F4-3、F4-4 | 精确 XDR Send；Request 分享公开身份 | Send 脚手架；Request 未做 | §9 Send / Request | Phase 6 未复用就开新写路径 |
 | 8 Swap / SDEX | F4 表内未编号 | Path Payment；SDEX 独立 | Swap 卡 Path Payment 上游；SDEX 有规范但产品未实现 | 各自 Capability 契约 + 走 Phase 6 管线 | 未到契约就做执行；Swap 和 SDEX 混名 |
 | 9 Security | F4-9 部分 | System Auth、Vault、硬件签名、截屏 | 部分 / 卡上游 | §7.6–§7.7、§9 Security；锁/改口令卡 Core 则占位 | 把 System Auth 当成 Dev Mode 或锁已经做完 |
 | 10 Settings / 次要 | F4-5–8 | Dev Mode、主题入口、Activity 详情、dApps、Help | Activity detail 已有有限闭环；其余未做 / 预览壳 | 对应 §9；dApps 按 behavior clean-room 重写 | 空 Tab 当完成；复制 donor 或搬入 `services/` |
 | 11 发布 | — | 异常、deep link、崩溃、商店 | 未到 | 原生变更走 native gate；签名不回落 debug | 用 `steps:null` 当通过 |
 
-当前封面结论：**Phase 0 与 Stage 0A 基础门已建立，Stage 1/2 底座可继续使用，但未封板。** 当前闭合 Stage 2.5（uncertain submission 恢复）和 2c/F3 剩余项；Stage 0A 对所有 donor-derived PR 持续生效。在 2.5 完成前不新增改账本产品类型。F4 已有切片仍按 §8/§9 补齐，不能因页面可达而标记完成。
+当前封面结论：**Phase 0 与 Stage 0A 基础门已建立，Stage 1/2 可继续使用，Stage 2.5 交易恢复门已通过，但整个钱包仍未封板。** 当前继续 2c/F3 与 Stage 4；Stage 0A 对所有 donor-derived PR 持续生效。新的改账本产品类型仍必须先过自己的 Stage/Capability 门并复用 Stage 2.5 管线，不能因为恢复底座完成就提前实施。F4 已有切片仍按 §8/§9 补齐，不能因页面可达而标记完成。
 
 ### PR 门禁
 
@@ -897,7 +897,7 @@ F3 只锁这些：
 - 一个分支一个产品目标。
 - 编码前写出总表 Phase、§7 行（或 §14 / §2.1 行）、feature 归属、Capability。
 - 通过文首三条 PR 门禁。
-- Phase 0 已过。2c（F3）剩余项未完成前不要声称相关 F4 表面已经消费完整主题能力；Stage 2.5 未完成前不得新增写账类型。
+- Phase 0 已过。2c（F3）剩余项未完成前不要声称相关 F4 表面已经消费完整主题能力；Stage 2.5 已完成，但任何新写账类型仍须先过自己的 Stage/Capability 门并复用同一恢复管线。
 - 实质性重写遗留 feature 目录时，同一 PR 扩展 `scripts/check-architecture.mjs`。
 - 不要把底层（总表 2c / F3 等）和新的产品 Capability 混在一起。
 - 不要为了让屏幕看起来完整而削弱精确 XDR 或密钥处理。

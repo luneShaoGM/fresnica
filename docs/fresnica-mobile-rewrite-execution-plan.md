@@ -1,6 +1,6 @@
 # Fresnica Mobile 重写评估与执行计划
 
-> 状态：2026-09-08 源码审计基线；2026-09-09 产品范围与迁移策略确认；Stage 0/0A 基础门已建立并持续执行，Stage 1/2 已完成，当前闭合 Stage 2.5 与 Stage 3
+> 状态：2026-09-08 源码审计基线；2026-09-09 产品范围与迁移策略确认；2026-09-10 Stage 2.5 交易恢复门完成；Stage 0/0A 持续执行，当前继续 Stage 3/4 与里程碑安全收口
 >
 > 审计对象：
 >
@@ -17,7 +17,7 @@
 
 更准确的定级是：
 
-- 核心写账底座：精确 XDR、授权、签名与提交骨架达到 L3+；Payment 与 Trustline 的部分语义已有 L4 级单元/native 证据，但通用交易管线仍缺 uncertain submission 持久协调与防重复，不能整体标记 L4。
+- 核心写账底座：Stage 2.5 已闭合 pending/uncertain 持久化、按原 hash 重启协调、同一经济意图防重复与 read-model 失效；S07 Payment 与 S30 Trustline 已证明共用同一恢复管线，并有真实 Android Testnet process-death/restart 证据。该 Transaction recovery 切片达到 L4 证据门，但 S07/S30 产品本身仍须按 Stage 4 的完整 UI/异常/native/E2E 标准分别验收，不能据此整体升级 L4。
 - 原生安全与持久化：审计时 Mobile 使用 Fresnica Native SDK 0.2.1；Stage 1 已升级到发布的 0.3.0（Native Binding API 3 / SDK API 5 / Core Client API 5），双端 build/runtime smoke 已通过。
 - 架构边界：Stage 2 已完成生产依赖收口；Capability-owned ports、network 注入和 Platform projection 已成立，production Feature / Capability / Platform 反向依赖审计为 0。依赖守卫已全量，presentation/style strict scope 仍按已重写表面扩展，不能笼统称为全仓风格封板。
 - 产品壳：React Navigation、四个可见 Tab 与 Actions Overlay 已成立，但主题、安全区、会话锁、统一错误与日志仍未形成完整横切能力。
@@ -57,7 +57,7 @@
 
 - `scripts/check-architecture.mjs` 已检查全部生产 Feature / Capability / UI / Platform 的依赖方向，但裸色、inline style、样式共置等 strict presentation 规则仍只覆盖已登记的重写表面。
 - `npm run lint` 已覆盖 `src/`，但 warning 尚未清零，也没有屏幕级 E2E 证据。
-- pending submission Capability 契约、Realm/memory repository 与 reconciliation 已在当前工作树开始实现，但尚未接入共享 submit/App lifecycle，也没有完整测试证据；因此按 hash 重启恢复和防重复仍视为未完成。
+- Stage 2.5 transaction recovery 已完成首轮 S07/S30 证明；后续 S10–S12、S18 等新的改账本路径仍必须显式复用同一 pending/reconciliation 管线，不能因基础设施已完成而建立第二套提交恢复。
 - Activity detail 已接通，但当前只覆盖有限 operation projection，不能代表 Stellar Activity 行为完整。
 - dApps 当前只是静态预览。
 - Request 与 Exchange 没有实际 Feature 目录和生产接线。
@@ -490,7 +490,7 @@ UI 执行策略：
 - `npm run lint` 已纳入完整 `src/`；当前 0 errors、25 个既有 warnings。`@lib -> src/lib` 空预留别名已删除并同步 alias gate。
 - `npm run check`：40 suites / 216 tests；`npm run test:realm`：14 tests，全部通过。
 
-### Stage 2.5：交易可靠性与重启恢复（当前必须闭合）
+### Stage 2.5：交易可靠性与重启恢复（已完成 2026-09-10）
 
 目标：在新增 Swap、SDEX、Claimable、LP、dApp transaction 等写路径前，把同一条提交管线补成可重启恢复且防重复的基础能力。
 
@@ -501,7 +501,7 @@ UI 执行策略：
 - 定义 Capability-owned pending submission / reconciliation 契约和公开 DTO。
 - 在签名完成、提交开始前或能够确定 transaction hash 的最早安全点持久化公开恢复状态。
 - 保存 network id、account id/address、transaction hash、提交时间、operation/intention identity 与协调状态；不得保存 secret、passphrase、unlock key、未保护 signer material 或为 UI 方便长期保存敏感 XDR。
-- 对 timeout/transport uncertainty 按原 transaction hash 查询 Horizon/RPC，区分 confirmed、rejected、still-unknown 和超过明确政策窗口。
+- 对 timeout/transport uncertainty 按原 transaction hash 查询 Horizon/RPC，区分 confirmed、rejected、still-unknown；不设置自动失效窗口。长期 still-unknown 只允许降低查询频率或改变 UI 提示，仍继续阻止普通重构/重试。
 - App cold start、foreground、网络恢复和用户显式刷新走同一协调入口。
 - 未协调前阻止相同经济意图的普通重试；任何显式替代交易政策必须由 Transaction Capability 规定。
 - submitted 与 uncertain 都使 Balance、Activity 和相关 read model 失效，但刷新失败不能改写已确认的 transaction identity。
@@ -513,6 +513,19 @@ UI 执行策略：
 - 杀进程后仍能恢复并协调 uncertain submission。
 - 在协调前不能无提示构造并提交相同经济意图的新交易。
 - Transaction 管线满足 `origin/fresnica/docs/capabilities/transaction.md` 的 uncertainty 要求后，才能整体升级到 L4。
+
+执行证据（2026-09-10，Transaction recovery 切片）：
+
+- Trace IDs：S07、S30。`043c947` 在 exact signed XDR 广播前计算 transaction hash 并持久化公开 pending metadata；持久化失败即不广播，不保存 XDR、passphrase、secret、unlock key 或 signer material。
+- `3651aa7` 对 `network + account + economic intent` 建立 unresolved duplicate guard，并在 Repository `create()` 层关闭并发竞态；still-unknown 无时间失效，只有 confirmed/rejected 或未来 Transaction Capability 明确定义的用户 replacement/cancel policy 才能解除。
+- `b035037` 引入 `@react-native-community/netinfo@12.0.1`，仅 `platform/system` 解释 connectivity；只有明确 offline → online 触发恢复，`isInternetReachable === null` 保持 unknown。cold start、foreground、network recovery、manual refresh 全部进入同一个 App-level single-flight coordinator。
+- `6e50817` 建立 account/network-scoped read invalidation port/store：submitted 与 uncertain 均使 Balance、Activity 及相关详情 stale；deterministic rejection 不伪装成账本变化，刷新失败也不改变既有 transaction identity。
+- `8f5bffd` 覆盖 restart、timeout 后实际 confirmed、deterministic rejected、跨网络隔离和 S07/S30 共用 Repository；长期未知测试从 2020 跨到 2036 并再次 reopen，仍保持 duplicate guard。
+- `eaa1e8c` 将 S07/S30 的 Horizon Platform transport 切换为 Stellar SDK 17.0.1 官方 `/axios` variant，并把内部 submit seam 收敛为 signed-XDR string；解决 RN 默认 fetch/feaxios transport 在真实提交时的 400 问题，不改变 Capability 语义。
+- `5db3610` 增加可重复 Android Testnet process-death harness。由已提交 HEAD fresh rebuild 后执行 `npm run smoke:transaction-recovery:android`：真实交易 `f4c319cbe5db754888a419af7311901331ebf1b5a9209d2dd7fff8cd057e1417` 先持久化为 uncertain；PID 7631 被 force-stop；新 PID 7773 从同一 Realm 读取同一 network/account/source/hash，只做 reconciliation，最终 confirmed，没有重新签名或广播。
+- 当前代码门禁：`npm run check` 55 suites / 278 tests 全通过；`npm run test:realm` 17/17；ESLint 0 errors / 29 warnings；format、alias、architecture、locale 全通过。
+- Native gate：Android `npm run smoke:android` 通过；iOS fresh simulator `xcodebuild` 成功，随后 `npm run smoke:ios` 通过，均验证 Realm、`FresnicaCore.parseAccount`、external-signing bridge 与 SEP-53 bridge。iOS simulator 为 iPhone 15 Pro / iOS 17.2。
+- 以上只升级 Transaction recovery 基础切片；S07/S30 的产品成熟度仍保持 L3 partial，等待 Stage 4 各自完整用户闭环/native/E2E。未来 S10–S12、S18 的写账部分必须复用该管线。
 
 ### Stage 3：产品 Shell 与横切能力
 
@@ -619,8 +632,8 @@ UI 执行策略：
 - Home 与 Activity 的 focus revalidation 由 App navigator wrapper 触发，Feature 不导入 React Navigation；交易返回 Home 或后续切回 Activity 时重新读取权威数据，不对 Realm 余额做乐观修改。
 - Home `asset-details` 已接通：导航只携带 `accountId + BalanceAsset identity`，详情页重新读取 Balance capability，覆盖 loading / ready / inactive / unsupported / missing / error 与手动 refresh；Asset Metadata / Stellar TOML 保持 Stage 8。
 - Activity `operation-details` 已接通：导航只携带 `accountId + operationId`；History Capability 使用单 operation Horizon 查询，验证 operation id 与账户关联，区分 404 / gateway failure，并只向 Feature 暴露稳定 DTO。
-- S30 Trustline 已闭合 Add / Set Limit / Remove 的产品语义：Set Limit 要求现有 trustline、正 limit 不低于 `balance + buying liabilities`、非零结果要求 issuer 仍存在，并在签名前重新验证 intent、limit、authorization/clawback 与 ledger state；Manage Assets 复用同一 exact-XDR review / System Auth / sign / submit 管线。因 Stage 2.5 恢复尚未闭合，S30 当前仍是 L3 partial，不能升级 L4。
-- 当前工作树门禁不是全绿：TypeScript 有 6 个 Stage 2.5 接线错误（新 `transactionHash` / `loadTransactionOutcome` 端口尚未由组合根、`StellarSdkGateway` 和测试桩完整实现）；Jest 47 suites 中 46 通过、1 失败，257 tests 中 256 通过、1 失败（Realm 已加入 `PendingSubmissionEntity` 并把 schema 升到 v3，但 `schemas.test.ts` 仍断言 v2）。`npm run test:realm` 14 tests 通过；format、alias、architecture、locale 通过；ESLint 0 errors / 28 warnings。以上是 Stage 2.5 并行实现尚未收口的证据，不得写成已通过。
+- S30 Trustline 已闭合 Add / Set Limit / Remove 的产品语义：Set Limit 要求现有 trustline、正 limit 不低于 `balance + buying liabilities`、非零结果要求 issuer 仍存在，并在签名前重新验证 intent、limit、authorization/clawback 与 ledger state；Manage Assets 复用同一 exact-XDR review / System Auth / sign / submit 管线。Stage 2.5 shared recovery 已与 S07 一起通过，但 S30 的完整 Stage 4 产品/native/E2E 仍未全部验收，因此继续标记 L3 partial。
+- Stage 2.5 已在 2026-09-10 从该临时失败状态闭合：当前基线为 `npm run check` 55 suites / 278 tests、`npm run test:realm` 17 tests 全通过，ESLint 0 errors / 29 warnings；Realm v3、Transaction lifecycle recovery 与双端 native gate 均已有当前提交证据。Stage 4 尚未完成的账户/Send/Trustline/Activity 产品验收仍按各 Sxx 独立保留。
 
 ### Stage 5：Request 与 Stellar URI
 
@@ -924,7 +937,7 @@ Backend 交付并完成身份/滥用验证后才可支持：
 1. Stage 1 Native SDK 升级已完成。
 2. Stage 2 架构边界收口已完成。
 3. **Stage 0A 基础账本已经建立；所有 donor-derived PR 持续执行 clean-room 规格、来源声明与独立审查，当前没有任何可直接移植文件。**
-4. **立即以 S07 Payment + S30 Trustline 完成 Stage 2.5 uncertain submission 恢复与防重复；未完成前不新增改账本产品类型。**
+4. **S07 Payment + S30 Trustline 的 Stage 2.5 uncertain submission 恢复与防重复已于 2026-09-10 完成首轮证明；以后新增改账本类型必须复用该管线，不能另建恢复路径。**
 5. 继续 Stage 3 产品 Shell，并提前建立产品 E2E/native-flow harness。
 6. Stage 4 已在进行的切片先修复当前测试并补齐账户生命周期、完整 operation/memo 决策和逐切片 i18n/accessibility；功能型 UI 必须消费稳定 Theme 与 Component seam。
 7. 之后按追踪 ID 和依赖逐项完成 Request、Swap、dApps、扩展产品；“后做”不等于删除。

@@ -42,7 +42,7 @@ This map assigns construction order without reducing final scope. An ID is compl
 | Target stage | Trace IDs | Acceptance anchor |
 | --- | --- | --- |
 | Stage 0 / 0A | S01–S30 | Every implementation PR names IDs; provenance path is recorded; donor-derived behavior has a clean-room behavior specification before code is written. |
-| Stage 2.5 | Current ledger-write IDs S07 and S30; mandatory later for the ledger-write portions of S10–S12 and S18 | Pending submission is persisted before broadcast; accepted/rejected/uncertain states reconcile after restart; duplicate submission is blocked by network + exact transaction hash. Payment and Trustline prove the shared implementation before another write type is added. |
+| Stage 2.5 | Current ledger-write IDs S07 and S30; mandatory later for the ledger-write portions of S10–S12 and S18 | **Passed 2026-09-10 for the shared recovery gate.** Pending submission is persisted before broadcast; reconciliation uses the original network-bound transaction hash; unresolved duplicates are blocked by network + account + economic intent with no time expiry. Payment and Trustline prove the shared implementation before another write type is added. |
 | Stage 3 | S04, S23, S24, S25, S27 | Shared shell/theme/modal/error/diagnostic/lifecycle carriers exist; a minimal native-flow E2E harness proves they work across feature boundaries. |
 | Stage 4 | S01–S08, S13, S30 and the local-wallet portion of S04/S23/S24/S27 | Account lifecycle, Home, Send, Trustline, Activity and core Settings meet their §9 flows, failure states, localization/accessibility and native/E2E evidence. Blocked memo/muxed/security semantics remain explicit, not silently excluded. S30 additionally proves Add/Set Limit/Remove, exact asset identity, pre-sign ledger revalidation and Stage 2.5 recovery. |
 | Stage 5 | S09 plus the destination/deep-link portions of S08/S27 | QR, share, SEP-7, paste/scan and deep link converge on one typed parser/router and fail closed on network or asset mismatch. |
@@ -51,6 +51,15 @@ This map assigns construction order without reducing final scope. An ID is compl
 | Stage 8 | S03, S06, S11–S13, S22–S28 | Remaining asset, claimable, LP, contact, diagnostics, support, platform and external-signer behavior reaches the relevant §7/§9 contract. Hardware support is limited to combinations proven on actual devices. |
 | Stage 8B | Backend-dependent portions of S14, S17, S24 and S27 | Versioned backend contracts and threat models exist; unavailable/not-configured/degraded states are honest and do not block unrelated local-wallet capability. |
 | Stage 9 | S04, S24, S27, S29 and all release-critical IDs | Android identity is `com.fresnica.wallet`; the new iOS Bundle ID is frozen; legacy data is never silently adopted or erased; release signing, SBOM/provenance and critical native E2E matrix pass. |
+
+## Stage 2.5 recovery evidence
+
+- Evidence head: `5db3610` (includes `043c947`, `3651aa7`, `b035037`, `6e50817`, `8f5bffd` and Horizon transport fix `eaa1e8c`).
+- `npm run check`: 55 suites / 278 tests passed; `npm run test:realm`: 17/17; ESLint 0 errors / 29 warnings.
+- Android real-Testnet process-death smoke: transaction `f4c319cbe5db754888a419af7311901331ebf1b5a9209d2dd7fff8cd057e1417` persisted uncertain under PID 7631, process was force-stopped, PID 7773 reopened the same Realm and reconciled the same network/account/source/hash to confirmed without signing or broadcasting again.
+- Android and iOS current-head native runtime smoke both passed after the NetInfo dependency was integrated; iOS also completed a fresh simulator build.
+- This evidence passes the S07/S30 **shared recovery gate only**. The product rows remain `L3 partial` until their Stage 4 user-flow, failure, localization/accessibility and native/E2E acceptance is complete.
+- Future ledger-write slices S10–S12 and S18 must consume this recovery path; passing Stage 2.5 is not permission to implement them before their own Stage/Capability gates.
 
 ## Gate rules
 
