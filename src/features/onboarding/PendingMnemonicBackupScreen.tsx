@@ -1,8 +1,7 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,8 +9,11 @@ import {
   View,
 } from 'react-native';
 
-import type {ProvisionAccountDependencies} from '../../capabilities/account/provisionAccount';
-import {palette} from '../../ui/theme';
+import {Screen} from '@ui/components';
+
+import type { ProvisionAccountDependencies } from '../../capabilities/account/provisionAccount';
+import {projectFeatureError} from '../featureError';
+import { useAppTheme, useThemedStyles, type AppTheme } from '../../ui/theme';
 import {
   confirmMnemonicBackup,
   recoverPendingMnemonicBackup,
@@ -24,11 +26,9 @@ type Props = Readonly<{
   onComplete: () => void;
 }>;
 
-export function PendingMnemonicBackupScreen({
-  dependencies,
-  signerId,
-  onComplete,
-}: Props) {
+export function PendingMnemonicBackupScreen({ dependencies, signerId, onComplete }: Props) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const [appPassphrase, setAppPassphrase] = useState('');
   const [backup, setBackup] = useState<RecoveredMnemonicBackup>();
   const [busy, setBusy] = useState(false);
@@ -38,11 +38,7 @@ export function PendingMnemonicBackupScreen({
     setBusy(true);
     setError(undefined);
     try {
-      const recovered = await recoverPendingMnemonicBackup(
-        dependencies,
-        signerId,
-        appPassphrase,
-      );
+      const recovered = await recoverPendingMnemonicBackup(dependencies, signerId, appPassphrase);
       setAppPassphrase('');
       setBackup(recovered);
     } catch (caught) {
@@ -63,14 +59,15 @@ export function PendingMnemonicBackupScreen({
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
         <Text style={styles.brand}>fresnica</Text>
       </View>
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.hero}>
           <View style={styles.securityMark}>
             <Text style={styles.securityGlyph}>⌁</Text>
@@ -94,8 +91,8 @@ export function PendingMnemonicBackupScreen({
               value={appPassphrase}
               onChangeText={setAppPassphrase}
               placeholder="Enter your app passphrase"
-              placeholderTextColor="#ACB1C1"
-              selectionColor={palette.accent}
+              placeholderTextColor={theme.colors.textTertiary}
+              selectionColor={theme.colors.actionPrimary}
               style={styles.input}
             />
             <View style={styles.infoRow}>
@@ -119,100 +116,154 @@ export function PendingMnemonicBackupScreen({
           accessibilityRole="button"
           disabled={backup ? false : busy || appPassphrase.length === 0}
           onPress={backup ? confirm : () => void recover()}
-          style={({pressed}) => [
+          style={({ pressed }) => [
             styles.primaryButton,
             !backup && (busy || appPassphrase.length === 0) ? styles.disabled : undefined,
             pressed ? styles.primaryButtonPressed : undefined,
-          ]}>
+          ]}
+        >
           {busy && !backup ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={theme.colors.onActionPrimary} />
           ) : (
-            <Text style={styles.primaryButtonText}>
-              {backup ? 'I have backed it up' : 'Reveal recovery phrase'}
-            </Text>
+            <Text style={styles.primaryButtonText}>{backup ? 'I have backed it up' : 'Reveal recovery phrase'}</Text>
           )}
         </Pressable>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
-function RecoveryPhrase({mnemonic}: Readonly<{mnemonic: string}>) {
+function RecoveryPhrase({ mnemonic }: Readonly<{ mnemonic: string }>) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.recoveryBox}>
-      {mnemonic.trim().split(/\s+/u).map((word, index) => (
-        <View key={`${index}-${word}`} style={styles.recoveryWord}>
-          <Text style={styles.recoveryNumber}>{index + 1}</Text>
-          <Text selectable style={styles.recoveryText}>{word}</Text>
-        </View>
-      ))}
+      {mnemonic
+        .trim()
+        .split(/\s+/u)
+        .map((word, index) => (
+          <View key={`${index}-${word}`} style={styles.recoveryWord}>
+            <Text style={styles.recoveryNumber}>{index + 1}</Text>
+            <Text selectable style={styles.recoveryText}>
+              {word}
+            </Text>
+          </View>
+        ))}
     </View>
   );
 }
 
 function readableError(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unable to continue.';
+  return projectFeatureError(error, {fallbackMessage: 'Unable to continue.'}).message;
 }
 
-const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: palette.background},
-  header: {height: 60, justifyContent: 'center', paddingHorizontal: 20},
-  brand: {color: palette.text, fontSize: 24, lineHeight: 30, fontWeight: '800', letterSpacing: -0.6},
-  scroll: {flexGrow: 1, paddingBottom: 24},
-  hero: {alignItems: 'center', paddingHorizontal: 26, paddingTop: 28, paddingBottom: 24},
-  securityMark: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,202,138,0.13)',
-    marginBottom: 18,
-  },
-  securityGlyph: {color: palette.accentPressed, fontSize: 34, lineHeight: 38, fontWeight: '800'},
-  title: {color: palette.text, fontSize: 25, lineHeight: 31, fontWeight: '800', textAlign: 'center', letterSpacing: -0.5},
-  body: {color: palette.textMuted, fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 9, maxWidth: 350},
-  formCard: {marginHorizontal: 20, padding: 16, borderRadius: 12, backgroundColor: palette.surfaceMuted, gap: 8},
-  label: {color: palette.text, fontSize: 13, lineHeight: 17, fontWeight: '700'},
-  input: {minHeight: 48, borderRadius: 9, backgroundColor: '#FFFFFF', color: palette.text, fontSize: 15, paddingHorizontal: 13},
-  infoRow: {flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 4},
-  infoGlyph: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    textAlign: 'center',
-    backgroundColor: '#181D41',
-    color: '#FFFFFF',
-    fontSize: 11,
-    lineHeight: 18,
-    fontWeight: '800',
-  },
-  infoText: {flex: 1, color: palette.textMuted, fontSize: 11, lineHeight: 17},
-  recoveryBox: {
-    marginHorizontal: 20,
-    borderRadius: 12,
-    backgroundColor: palette.surfaceMuted,
-    padding: 12,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  recoveryWord: {
-    width: '47%',
-    minHeight: 38,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 9,
-  },
-  recoveryNumber: {width: 22, color: '#ACB1C1', fontSize: 11, lineHeight: 15},
-  recoveryText: {flex: 1, color: palette.text, fontSize: 14, lineHeight: 19, fontWeight: '700'},
-  errorBox: {marginHorizontal: 20, marginTop: 14, borderRadius: 9, backgroundColor: 'rgba(255,91,91,0.09)', padding: 11},
-  error: {color: '#C43C3C', fontSize: 12, lineHeight: 18, fontWeight: '600'},
-  footer: {paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.border},
-  primaryButton: {minHeight: 50, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.accent, paddingHorizontal: 18},
-  primaryButtonPressed: {backgroundColor: palette.accentPressed},
-  primaryButtonText: {color: '#FFFFFF', fontSize: 15, lineHeight: 20, fontWeight: '800'},
-  disabled: {opacity: 0.45},
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    safeArea: { flex: 1, backgroundColor: theme.colors.background },
+    header: { height: 60, justifyContent: 'center', paddingHorizontal: 20 },
+    brand: { color: theme.colors.textPrimary, fontSize: 24, lineHeight: 30, fontWeight: '800', letterSpacing: -0.6 },
+    scroll: { flexGrow: 1, paddingBottom: 24 },
+    hero: { alignItems: 'center', paddingHorizontal: 26, paddingTop: 28, paddingBottom: 24 },
+    securityMark: {
+      width: 68,
+      height: 68,
+      borderRadius: 34,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.actionPrimaryDecoration,
+      marginBottom: 18,
+    },
+    securityGlyph: { color: theme.colors.actionPrimaryPressed, fontSize: 34, lineHeight: 38, fontWeight: '800' },
+    title: {
+      color: theme.colors.textPrimary,
+      fontSize: 25,
+      lineHeight: 31,
+      fontWeight: '800',
+      textAlign: 'center',
+      letterSpacing: -0.5,
+    },
+    body: {
+      color: theme.colors.textSecondary,
+      fontSize: 14,
+      lineHeight: 21,
+      textAlign: 'center',
+      marginTop: 9,
+      maxWidth: 350,
+    },
+    formCard: {
+      marginHorizontal: 20,
+      padding: 16,
+      borderRadius: 12,
+      backgroundColor: theme.colors.surfaceMuted,
+      gap: 8,
+    },
+    label: { color: theme.colors.textPrimary, fontSize: 13, lineHeight: 17, fontWeight: '700' },
+    input: {
+      minHeight: 48,
+      borderRadius: 9,
+      backgroundColor: theme.colors.surface,
+      color: theme.colors.textPrimary,
+      fontSize: 15,
+      paddingHorizontal: 13,
+    },
+    infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 4 },
+    infoGlyph: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      textAlign: 'center',
+      backgroundColor: theme.colors.surfaceStrong,
+      color: theme.colors.onSurfaceStrong,
+      fontSize: 11,
+      lineHeight: 18,
+      fontWeight: '800',
+    },
+    infoText: { flex: 1, color: theme.colors.textSecondary, fontSize: 11, lineHeight: 17 },
+    recoveryBox: {
+      marginHorizontal: 20,
+      borderRadius: 12,
+      backgroundColor: theme.colors.surfaceMuted,
+      padding: 12,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    recoveryWord: {
+      width: '47%',
+      minHeight: 38,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderRadius: 8,
+      backgroundColor: theme.colors.surface,
+      paddingHorizontal: 9,
+    },
+    recoveryNumber: { width: 22, color: theme.colors.textTertiary, fontSize: 11, lineHeight: 15 },
+    recoveryText: { flex: 1, color: theme.colors.textPrimary, fontSize: 14, lineHeight: 19, fontWeight: '700' },
+    errorBox: {
+      marginHorizontal: 20,
+      marginTop: 14,
+      borderRadius: 9,
+      backgroundColor: theme.colors.negativeMuted,
+      padding: 11,
+    },
+    error: { color: theme.colors.negativeStrong, fontSize: 12, lineHeight: 18, fontWeight: '600' },
+    footer: {
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 8,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: theme.colors.border,
+    },
+    primaryButton: {
+      minHeight: 50,
+      borderRadius: 9,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.actionPrimary,
+      paddingHorizontal: 18,
+    },
+    primaryButtonPressed: { backgroundColor: theme.colors.actionPrimaryPressed },
+    primaryButtonText: { color: theme.colors.onActionPrimary, fontSize: 15, lineHeight: 20, fontWeight: '800' },
+    disabled: { opacity: 0.45 },
+  });
+}
