@@ -151,7 +151,7 @@ Stellar 里有某个屏幕，只证明需要审计该产品行为，不代表可
 4. 下拉刷新走同一条 capability，不另开数据源。
 5. Horizon 404 是未激活；请求失败是断网 / 网关错误。二者不要和「刚转完、旧 snapshot 还在」混成一种 UI。
 
-当前脚手架：Home 只在挂载、换账户、下拉时刷新；Send 返回后数字会旧。F4 重建 Home / Send 时按上面做，不当成可选项。打开 Activity 应能先看到上次缓存再刷新，不是每次空白等网。
+当前实现：Stage 2.5 已把 submitted/uncertain 统一写入 network/account-scoped invalidation，并由 focus、cold start、foreground、明确离线→在线恢复和手动刷新进入同一个 reconciliation/read-refresh 路径。Home / Activity 不再依赖首次 mount；仍未实现的 UX cache 不得替代 Horizon 权威。
 
 **UX 缓存（要做）和「缓存当权威」（不做）不是同一件事。** 上次余额/历史可以立刻上屏，但过期后必须再问 Horizon；交易后必须失效。Stellar 把余额写进 Realm 当真值，那条不要。
 
@@ -163,18 +163,20 @@ Stellar 里有某个屏幕，只证明需要审计该产品行为，不代表可
 
 | 事项 | 目标 | 当前脚手架（不是完成态） |
 | --- | --- | --- |
-| 产品壳 | Home / Activity / Actions / dApps / Settings | 五项壳外形；Actions 已是 OverlayHost |
+| 产品壳 | Home / Activity / Actions / dApps / Settings | 当前为中性功能型 presentation：四个目的地只显示文字 Tab，中央 Actions 为 `+` + 文字，操作为纯文字按钮；无 donor 图标。最终视觉与品牌资产未完成 |
 | Tab id | `home`、`activity`、`dapps`、`settings` | 已是这些 id |
 | Activity | 完整列表 / 筛选 / 详情 | `features/activity` + History capability；列表与单 operation detail 已接，筛选/搜索/完整 operation-family projection 未完 |
 | dApps | clean-room 重写 Stellar 已形成的目录、Recent、浏览器、权限、Freighter 桥行为 | `features/dapps` 预览壳，未接目录 |
 | Developer Mode | 采用 Stellar/Xaman 设计（鉴权开启、网络可见性、日志、开发者页） | **未做** |
 | 硬件钱包 | 产品内一等 signer（添加、签名、账户列表） | 类型里有 `hardware`，产品流 **未做** |
 | Vault / 加密 | 参考 Stellar Vault overlay 与 native 加密；Core 管密钥 | 无 Vault overlay；Realm 不存密钥 |
-| 自定义主题 | 上传图片 → 提取主色 / 次主色等 → `AppTheme` 全 app 应用 | 单一 `defaultTheme`；UI kit **尚未约定** |
+| 自定义主题 | 上传图片 → 提取主色 / 次主色等 → `AppTheme` 全 app 应用 | semantic `AppTheme` 与可替换 seed 接口已建立；当前功能型 UI 消费语义 token。dark/system/image-generated theme、最终视觉与品牌资产仍未完成 |
 | 状态栏 / 安全区 | 状态栏对比度跟主题走；壳消费设备 inset（刘海 / 灵动岛 / 手势条） | App-level `StatusBar` + `SafeAreaProvider` + shared `Screen` 已接；Feature 直接 `SafeAreaView` 审计为 0。dark/system/image theme 仍未完成，契约见 §10.1 |
 | 导航 | React Navigation：根 stack + tabs + 每 tab 的 native-stack + OverlayHost | **F2 主壳已接上。** 根流程仍按 bootstrap 条件注册 `bootstrap` / `onboarding` / `main`；`locked` 已注册但未进入；modal / 其余 overlay 角色尚未占用 |
 | 链上快照 | 交易后（含 uncertain）按账户失效，focus / 显式刷新再拉 Balance / History | Stage 2.5 已建立 network/account-scoped invalidation revision；submitted/uncertain、reconciliation、focus 与 manual refresh 会驱动 Balance / Activity 重新读取权威状态 |
 | i18n | 已改写表面没有硬编码文案 | 语言运行时已有；多数屏幕仍是英文直写 |
+
+本轮 Stage 0A presentation remediation 的成熟度必须拆开记录：**功能闭环：已实现；语义主题接口：已建立；临时功能型 presentation：已实现；最终视觉设计与品牌资产：未完成。** 最终设计替换 presentation 时不得重写 Capability、Transaction 或 Platform。
 
 安全不变量仍要遵守（Account ≠ Signer、密钥不进 JS 持久化、会改账本的路径绑精确 XDR）。它们约束怎么实现，不证明当前屏幕已经写完。`docs/mobile-capability-status.md` 只记录脚手架做过什么，不当产品验收。
 
@@ -357,7 +359,7 @@ HomeActions
 | 标记 | Fresnica |
 | --- | --- |
 | 留角色：账户、切换、主操作、资产；未激活 ≠ 断网 | `HomeScreen` + `loadBalanceSnapshot`；**脚手架** |
-| **留：测试网 Friendbot 激活按钮** | 现 `InactiveAccount` 注释写明 M2 故意没搬，与产品要求冲突，要补 |
+| **留：测试网 Friendbot 激活按钮** | 当前 `InactiveAccountPanel` 只保留公开地址、资金提示和 refresh；自动 Friendbot 激活按钮仍是产品缺口，要按 Network/Testnet 边界单独补 |
 | **留：资产增减**（进 Trustline 精确 XDR，不是 Home 里直接改余额） | Manage Assets 能力有；Home 入口要保留 |
 | 删载体：Realm 当余额真值 | 交易后 focus + Stage 2.5 read invalidation 已接；UX 上仍可先显示上次 snapshot，但权威继续来自 Horizon |
 | LP / claimable 详情 | Claimable **搬运**；LP 仍按 §7.8 |

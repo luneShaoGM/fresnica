@@ -1,6 +1,6 @@
 # Fresnica Mobile 重写评估与执行计划
 
-> 状态：2026-09-08 源码审计基线；2026-09-09 产品范围与迁移策略确认；2026-09-10 Stage 2.5 交易恢复门完成；Stage 0/0A 持续执行，当前继续 Stage 3/4 与里程碑安全收口
+> 状态：2026-09-08 源码审计基线；2026-09-09 产品范围与迁移策略确认；2026-09-10 Stage 2.5 交易恢复门完成；Stage 0A 发现历史 donor presentation blocker 后进入净树 remediation，当前目标是 clean integration milestone，而不是直接合并 rewrite 历史
 >
 > 审计对象：
 >
@@ -20,7 +20,7 @@
 - 核心写账底座：Stage 2.5 已闭合 pending/uncertain 持久化、按原 hash 重启协调、同一经济意图防重复与 read-model 失效；S07 Payment 与 S30 Trustline 已证明共用同一恢复管线，并有真实 Android Testnet process-death/restart 证据。该 Transaction recovery 切片达到 L4 证据门，但 S07/S30 产品本身仍须按 Stage 4 的完整 UI/异常/native/E2E 标准分别验收，不能据此整体升级 L4。
 - 原生安全与持久化：审计时 Mobile 使用 Fresnica Native SDK 0.2.1；Stage 1 已升级到发布的 0.3.0（Native Binding API 3 / SDK API 5 / Core Client API 5），双端 build/runtime smoke 已通过。
 - 架构边界：Stage 2 已完成生产依赖收口；Capability-owned ports、network 注入和 Platform projection 已成立，production Feature / Capability / Platform 反向依赖审计为 0。依赖守卫已全量，presentation/style strict scope 仍按已重写表面扩展，不能笼统称为全仓风格封板。
-- 产品壳：React Navigation、四个可见 Tab 与 Actions Overlay 已成立；浅色 semantic AppTheme、壳级 StatusBar/safe-area、共享 UI primitive、Feature error projection 与脱敏 SessionLogger 基础已经接入。dark/system/image theme、可用的 app-session lock、Developer Mode 日志入口等横切仍未完成。
+- 产品壳：React Navigation、四个可见 Tab 与 Actions Overlay 已成立；浅色 semantic AppTheme、壳级 StatusBar/safe-area、共享 UI primitive、Feature error projection 与脱敏 SessionLogger 基础已经接入。Stage 0A remediation 将 Shell/Home/Settings 收缩为 `Pressable + Text + ActivityIndicator + AppTheme` 的中性功能型 presentation，并移除 donor assets/components/theme；dark/system/image theme、最终视觉品牌、可用的 app-session lock、Developer Mode 日志入口等仍未完成。
 - Stellar 功能重写：只完成少数可运行闭环；dApps、Request、Swap、Claimable、资产元数据、Developer Mode、通讯录等尚未重写完成。
 - 发布成熟度：尚未达到 Mainnet 钱包发布条件。Android release 已在 `50d8653` 移除 debug-signing fallback，并用 fail-closed + 临时测试证书验证 wiring；生产 release keystore/CI secret 尚未配置，Android Application ID、iOS distribution identity、Mainnet 与其余 Stage 9 门仍未完成。
 
@@ -439,7 +439,12 @@ UI 执行策略：
 - `scripts/audit-donor-provenance.mjs` 可重建上述索引；变更 donor 基线必须同时更新审计 commit 并审阅 ledger diff，不得以移动的 `HEAD` 静默重定义证据。
 - 当前没有任何文件被认定为 `provably Fresnica original`，也没有直接移植审批；因此实际默认路径仍是 clean-room rewrite。
 - 文件 blob 对比只是来源证据索引，不是法律结论。每个 donor-derived 功能仍需先形成不含实现表达的行为规格，再由实现审查证明没有把 donor 当代码模板。
-- 生成器当前已固定 commit 且结果可重建，但 `--check`/CI 漂移门尚未接入；在自动门完成前，PR 必须人工重建并审阅 ledger diff。
+- `docs/provenance/donor-blob-index.tsv` 另保存两个固定 donor commit 的全树 blob 索引；`npm run provenance:check` 对当前 tracked + non-ignored target tree 做 exact blob collision 与直接移植标记检查，并由 `npm run check`/CI 强制执行。
+- 当前唯一 collision allowlist 是 `ios/.xcode.env`，绑定 React Native Community template `0.87.0` 官方路径、Git blob、SHA-256 与 MIT license；不存在“模板文件通用忽略”规则。Android debug keystore 已重新生成成 Fresnica debug key，不使用 allowlist。
+- 自动 collision=0 只证明没有已知 exact donor blob/marker，不自动证明 clean-room；Home、Settings、MainTabBar 等 donor-informed surface 在 integration 前仍要人工检查实现结构。
+- `donor-source-ledger.tsv` 的固定 commit 漂移目前仍通过人工重建审阅；target-tree collision gate 的自动化不替代该来源账本，也不替代行为规格。
+- `36d306f` 已删除 `src/ui/assets/stellar/**`、`src/ui/components/stellar/**`、`src/ui/theme/stellar/**`，并把 MainTabBar/Home/Settings 收缩为中性 `Pressable`/文字/`ActivityIndicator`/`ListRow` presentation；人工结构审查确认这些生产表面不再含 donor Image、500ms debounce helper、Stellar presentation import 或实现来源标记。
+- `bd916c5` 已建立全 donor-tree blob 索引与 fail-closed target-tree collision/marker gate，并将 Android debug keystore 重新生成成 Fresnica 自有 debug key。该 rewrite 净树随后 `npm run check` 56/56 suites、284/284 tests，Realm 17/17，ESLint 0 errors / 23 warnings；collision gate 扫描 347 个目标文件，结果为 0 个未授权 exact donor blob、1 个固定 RN template 例外、0 个 direct-migration marker。该结果是 **pre-integration evidence**，clean integration 仍必须全部重跑。
 
 ### Stage 1：升级 Fresnica Native SDK 基线（已完成 2026-09-08）
 
@@ -960,9 +965,9 @@ Backend 交付并完成身份/滥用验证后才可支持：
 2. Stage 2 架构边界收口已完成。
 3. **Stage 0A 基础账本已经建立；所有 donor-derived PR 持续执行 clean-room 规格、来源声明与独立审查，当前没有任何可直接移植文件。**
 4. **S07 Payment + S30 Trustline 的 Stage 2.5 uncertain submission 恢复与防重复已于 2026-09-10 完成首轮证明；以后新增改账本类型必须复用该管线，不能另建恢复路径。**
-5. **当前 `rewrite/stellar-source-parity` 里程碑的 S04 System Auth Disable Confirmation（`6a19346`）与 Android independent release-signing wiring（`50d8653`）已完成；`f49dc50` 已通过整套本地 milestone validation，下一门是同步远端分支并取得当前 PR/CI 证据。**
-6. 完整验证通过、工作区干净、远端 PR/CI/provenance 状态满足合并门后，再以普通 merge commit 合入 `main`；不 squash/rebase。生产 release keystore、最终 Application ID/iOS identity 仍属于 Stage 9 后续，不因本里程碑合并而宣称完成。
-7. 合并里程碑后从最新 `main` 继续 Stage 3 产品 Shell/E2E harness 与 Stage 4 账户、Send/Trustline/Activity 剩余闭环；之后再按追踪 ID 和依赖推进 Request、Swap、dApps 和扩展产品。“后做”不等于删除。
+5. **`rewrite/stellar-source-parity` 只用于完成 Stage 0A 净树 remediation：删除未经授权的 donor presentation 资源/实现，建立 target-tree collision gate，并把受影响表面收缩到中性功能布局。不得再把这个含历史 donor blob/port commits 的 412-commit 分支普通 merge 到 `main`。**
+6. remediation 净树通过 `npm run check`、Realm、target-tree collision 与人工 Home/Settings/MainTabBar 结构审查后，从最新 `origin/main` 新建 clean integration 分支，把 rewrite 分支的**最终净树**作为一个新的里程碑 snapshot/squash commit 引入；该 integration 分支不得继承 rewrite 历史。
+7. clean integration 分支重新执行全部代码/Realm/provenance、Android/iOS native、Android release-signing 和 PR-triggered CI 门。全部通过后，才允许 `integration → main` PR 使用普通 merge commit；最终文档记录新的 integration commit SHA 与 PR/CI。生产 release keystore、最终 Application ID/iOS identity 仍属于 Stage 9 后续。
 8. 同步设计缓存 schema、失效规则和容量，不在页面完成后补做第二套数据层。
 9. 将 Push 的“当前无后端范围”和“未来 Backend 协议”分开验收。
 10. 在发布工程中恢复 Android `com.fresnica.wallet`，冻结新的 iOS Bundle ID，并实现不迁移旧数据的受控 fresh-start。

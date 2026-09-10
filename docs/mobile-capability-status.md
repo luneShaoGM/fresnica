@@ -55,7 +55,10 @@ Existing-wallet protected-signer creation/import remains disabled because Native
 ## Runtime Product Shell / Portfolio evidence
 
 - completed onboarding enters `AppNavigator` main tabs;
-- Wallet / Activity / Settings are typed roots;
+- Home / Activity / dApps / Settings are typed destination roots and Actions remains a non-selected overlay trigger;
+- the current Shell/Home/Settings presentation is intentionally neutral and functional: text-only destination tabs, a `+` Actions trigger, text action buttons, text asset badges, ordinary `ListRow`, React Native `Pressable` and `ActivityIndicator`; donor presentation assets/components/theme are not runtime dependencies;
+- semantic `AppTheme` remains the replacement seam; final visual design and brand assets are explicitly not complete;
+- Stage 0A remediation `36d306f` removes the donor presentation asset/component/theme trees; `bd916c5` adds the fixed target-tree exact-blob/marker gate. The remediated rewrite tip passes 56/284 unit tests, Realm 17/17 and 0 unapproved donor collisions, but this evidence must be reproduced on the clean integration commit before merge;
 - navigation carries public account IDs/destinations only;
 - selected-account switching drives Wallet Home and a fresh Balance read;
 - Wallet Home distinguishes loading, inactive, active and error states;
