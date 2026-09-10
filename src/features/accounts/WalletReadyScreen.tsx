@@ -1,15 +1,16 @@
 import React from 'react';
 import {
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 
+import {Screen} from '@ui/components';
+
 import type {AccountRecord} from '../../capabilities/account/types';
-import {palette} from '../../ui/theme';
+import {useThemedStyles, type AppTheme} from '@ui/theme';
 
 type Props = Readonly<{
   accounts: readonly AccountRecord[];
@@ -18,8 +19,9 @@ type Props = Readonly<{
 }>;
 
 export function WalletReadyScreen({accounts, onAddAccount, onOpenSecurity}: Props) {
+  const styles = useThemedStyles(createStyles);
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
         <Text style={styles.brand}>fresnica</Text>
       </View>
@@ -84,7 +86,7 @@ export function WalletReadyScreen({accounts, onAddAccount, onOpenSecurity}: Prop
           <Text style={styles.secondaryText}>Security</Text>
         </Pressable>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -95,10 +97,10 @@ function shortAddress(address: string): string {
   return `${address.slice(0, 10)}…${address.slice(-8)}`;
 }
 
-const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: palette.background},
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
   header: {height: 60, justifyContent: 'center', paddingHorizontal: 20},
-  brand: {color: palette.text, fontSize: 24, lineHeight: 30, fontWeight: '800', letterSpacing: -0.6},
+  brand: {color: theme.colors.textPrimary, fontSize: 24, lineHeight: 30, fontWeight: '800', letterSpacing: -0.6},
   scroll: {flexGrow: 1, paddingBottom: 24},
   hero: {alignItems: 'center', paddingHorizontal: 26, paddingTop: 30, paddingBottom: 34},
   completeMark: {
@@ -107,36 +109,37 @@ const styles = StyleSheet.create({
     borderRadius: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.accent,
+    backgroundColor: theme.colors.actionPrimary,
     marginBottom: 20,
-    shadowColor: '#00CA8A',
+    shadowColor: theme.colors.actionPrimary,
     shadowOffset: {width: 0, height: 8},
     shadowOpacity: 0.18,
     shadowRadius: 16,
     elevation: 4,
   },
-  completeGlyph: {color: '#FFFFFF', fontSize: 34, lineHeight: 39, fontWeight: '800'},
-  title: {color: palette.text, fontSize: 27, lineHeight: 33, fontWeight: '800', textAlign: 'center', letterSpacing: -0.5},
-  body: {color: palette.textMuted, fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 8},
+  completeGlyph: {color: theme.colors.onActionPrimary, fontSize: 34, lineHeight: 39, fontWeight: '800'},
+  title: {color: theme.colors.textPrimary, fontSize: 27, lineHeight: 33, fontWeight: '800', textAlign: 'center', letterSpacing: -0.5},
+  body: {color: theme.colors.textSecondary, fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 8},
   sectionHeader: {height: 36, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-  sectionTitle: {color: palette.text, fontSize: 14, lineHeight: 18, fontWeight: '800'},
-  sectionCount: {minWidth: 22, height: 22, borderRadius: 11, textAlign: 'center', color: palette.textMuted, backgroundColor: palette.surfaceMuted, fontSize: 11, lineHeight: 22, fontWeight: '700'},
-  accountList: {marginHorizontal: 20, borderRadius: 12, backgroundColor: palette.surfaceMuted, overflow: 'hidden'},
+  sectionTitle: {color: theme.colors.textPrimary, fontSize: 14, lineHeight: 18, fontWeight: '800'},
+  sectionCount: {minWidth: 22, height: 22, borderRadius: 11, textAlign: 'center', color: theme.colors.textSecondary, backgroundColor: theme.colors.surfaceMuted, fontSize: 11, lineHeight: 22, fontWeight: '700'},
+  accountList: {marginHorizontal: 20, borderRadius: 12, backgroundColor: theme.colors.surfaceMuted, overflow: 'hidden'},
   accountRow: {minHeight: 72, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 10},
-  accountRowBorder: {borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border},
-  accountAvatar: {width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#181D41'},
-  accountAvatarText: {color: '#FFFFFF', fontSize: 15, lineHeight: 19, fontWeight: '800'},
+  accountRowBorder: {borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.colors.border},
+  accountAvatar: {width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surfaceStrong},
+  accountAvatarText: {color: theme.colors.onSurfaceStrong, fontSize: 15, lineHeight: 19, fontWeight: '800'},
   accountIdentity: {flex: 1, gap: 3},
-  accountLabel: {color: palette.text, fontSize: 14, lineHeight: 18, fontWeight: '800'},
-  address: {color: palette.textMuted, fontFamily: 'monospace', fontSize: 10, lineHeight: 14},
+  accountLabel: {color: theme.colors.textPrimary, fontSize: 14, lineHeight: 18, fontWeight: '800'},
+  address: {color: theme.colors.textSecondary, fontFamily: 'monospace', fontSize: 10, lineHeight: 14},
   accountMeta: {maxWidth: 105, alignItems: 'flex-end', gap: 3},
-  identityKind: {color: palette.accentPressed, fontSize: 10, lineHeight: 13, fontWeight: '800', textTransform: 'uppercase'},
-  network: {color: '#ACB1C1', fontSize: 9, lineHeight: 12},
-  footer: {paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.border, gap: 9},
-  primaryButton: {height: 50, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.accent},
-  primaryPressed: {backgroundColor: palette.accentPressed},
-  primaryText: {color: '#FFFFFF', fontSize: 15, lineHeight: 20, fontWeight: '800'},
-  secondaryButton: {height: 46, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceMuted},
-  secondaryText: {color: '#181D41', fontSize: 14, lineHeight: 19, fontWeight: '800'},
+  identityKind: {color: theme.colors.actionPrimaryPressed, fontSize: 10, lineHeight: 13, fontWeight: '800', textTransform: 'uppercase'},
+  network: {color: theme.colors.textTertiary, fontSize: 9, lineHeight: 12},
+  footer: {paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border, gap: 9},
+  primaryButton: {height: 50, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.actionPrimary},
+  primaryPressed: {backgroundColor: theme.colors.actionPrimaryPressed},
+  primaryText: {color: theme.colors.onActionPrimary, fontSize: 15, lineHeight: 20, fontWeight: '800'},
+  secondaryButton: {height: 46, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surfaceMuted},
+  secondaryText: {color: theme.colors.surfaceStrong, fontSize: 14, lineHeight: 19, fontWeight: '800'},
   pressed: {opacity: 0.68},
-});
+  });
+}

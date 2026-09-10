@@ -1,7 +1,10 @@
 import React from 'react';
-import {Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+
+import {Screen} from '@ui/components';
 
 import type {AccountRecord} from '../../capabilities/account/types';
+import {useThemedStyles, type AppTheme} from '@ui/theme';
 
 type Props = Readonly<{
   accounts: readonly AccountRecord[];
@@ -11,8 +14,9 @@ type Props = Readonly<{
 }>;
 
 export function AccountsScreen({accounts, onOpenAccount, onAddAccount, onBack}: Props) {
+  const styles = useThemedStyles(createStyles);
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
         <Pressable accessibilityLabel="Back" accessibilityRole="button" onPress={onBack} style={styles.backButton}>
           <Text style={styles.backGlyph}>‹</Text>
@@ -66,12 +70,12 @@ export function AccountsScreen({accounts, onOpenAccount, onAddAccount, onBack}: 
           <Text style={styles.addText}>Add account</Text>
         </Pressable>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
   header: {
     minHeight: 58,
     flexDirection: 'row',
@@ -79,22 +83,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E7EAF0',
+    borderBottomColor: theme.colors.border,
   },
   backButton: {width: 42, height: 42, alignItems: 'center', justifyContent: 'center'},
-  backGlyph: {fontSize: 36, lineHeight: 38, fontWeight: '300', color: '#181D41'},
-  title: {fontSize: 18, lineHeight: 22, fontWeight: '800', color: '#000000'},
+  backGlyph: {fontSize: 36, lineHeight: 38, fontWeight: '300', color: theme.colors.surfaceStrong},
+  title: {fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary},
   headerSpacer: {width: 42},
   content: {paddingTop: 16, paddingBottom: 34},
-  description: {paddingHorizontal: 20, paddingBottom: 12, fontSize: 12, lineHeight: 16, color: '#ACB1C1'},
+  description: {paddingHorizontal: 20, paddingBottom: 12, fontSize: 12, lineHeight: 16, color: theme.colors.textTertiary},
   accountCard: {
     minHeight: 108,
     marginHorizontal: 20,
     marginBottom: 12,
     borderWidth: 2,
-    borderColor: '#E7EAF0',
+    borderColor: theme.colors.border,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 6,
@@ -102,15 +106,15 @@ const styles = StyleSheet.create({
   accountCardHidden: {opacity: 0.58},
   accountTopRow: {flexDirection: 'row', alignItems: 'flex-start', gap: 10},
   accountIdentity: {flex: 1, gap: 7},
-  accountLabel: {fontSize: 16, lineHeight: 20, color: '#000000', fontWeight: '800'},
+  accountLabel: {fontSize: 16, lineHeight: 20, color: theme.colors.textPrimary, fontWeight: '800'},
   badges: {flexDirection: 'row', flexWrap: 'wrap', gap: 6},
-  accessBadge: {paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: 'rgba(0, 202, 138, 0.12)'},
-  accessBadgeText: {fontSize: 9, lineHeight: 12, fontWeight: '800', color: '#00B279'},
-  hiddenBadge: {paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: '#F3F6FA'},
-  hiddenBadgeText: {fontSize: 9, lineHeight: 12, fontWeight: '800', color: '#606885'},
-  chevron: {fontSize: 28, lineHeight: 30, color: '#ACB1C1', fontWeight: '300'},
-  address: {fontSize: 11, lineHeight: 15, color: '#606885', fontVariant: ['tabular-nums']},
-  network: {fontSize: 10, lineHeight: 13, color: '#ACB1C1'},
+  accessBadge: {paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: theme.colors.actionPrimaryMuted},
+  accessBadgeText: {fontSize: 9, lineHeight: 12, fontWeight: '800', color: theme.colors.actionPrimaryPressed},
+  hiddenBadge: {paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: theme.colors.surfaceMuted},
+  hiddenBadgeText: {fontSize: 9, lineHeight: 12, fontWeight: '800', color: theme.colors.textSecondary},
+  chevron: {fontSize: 28, lineHeight: 30, color: theme.colors.textTertiary, fontWeight: '300'},
+  address: {fontSize: 11, lineHeight: 15, color: theme.colors.textSecondary, fontVariant: ['tabular-nums']},
+  network: {fontSize: 10, lineHeight: 13, color: theme.colors.textTertiary},
   addButton: {
     minHeight: 64,
     marginHorizontal: 20,
@@ -120,9 +124,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#00CA8A',
+    backgroundColor: theme.colors.actionPrimary,
   },
-  addIcon: {fontSize: 20, lineHeight: 22, color: '#FFFFFF', fontWeight: '600'},
-  addText: {fontSize: 15, lineHeight: 19, color: '#FFFFFF', fontWeight: '800'},
+  addIcon: {fontSize: 20, lineHeight: 22, color: theme.colors.onActionPrimary, fontWeight: '600'},
+  addText: {fontSize: 15, lineHeight: 19, color: theme.colors.onActionPrimary, fontWeight: '800'},
   pressed: {opacity: 0.68},
-});
+  });
+}
