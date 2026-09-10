@@ -31,31 +31,58 @@ export function createTransactionReconciliationCoordinator(
   dependencies: Dependencies,
 ): TransactionReconciliationCoordinator {
   let inFlight: Promise<readonly PendingSubmissionReconciliation[]> | undefined;
+  let trailingReason: TransactionReconciliationReason | undefined;
+
+  async function runUntilIdle(
+    initialReason: TransactionReconciliationReason,
+  ): Promise<readonly PendingSubmissionReconciliation[]> {
+    let reason: TransactionReconciliationReason | undefined = initialReason;
+    let lastResult: readonly PendingSubmissionReconciliation[] = [];
+    let firstFailure: Readonly<{error: unknown}> | undefined;
+
+    while (reason) {
+      const runReason = reason;
+      reason = undefined;
+      dependencies.onRunStart?.(runReason);
+
+      try {
+        lastResult = await reconcilePendingSubmissions({
+          gateway: dependencies.gateway,
+          repository: dependencies.repository,
+          readInvalidation: dependencies.readInvalidation,
+          networkId: dependencies.networkId,
+          ...(dependencies.now === undefined ? {} : {now: dependencies.now}),
+        });
+      } catch (error) {
+        dependencies.onRunFailure?.(runReason, error);
+        firstFailure ??= {error};
+      }
+
+      if (trailingReason) {
+        reason = trailingReason;
+        trailingReason = undefined;
+      }
+    }
+
+    if (firstFailure) {
+      throw firstFailure.error;
+    }
+    return lastResult;
+  }
 
   return {
     reconcile(reason) {
       if (inFlight) {
+        trailingReason = reason;
         return inFlight;
       }
 
-      dependencies.onRunStart?.(reason);
-      const run = reconcilePendingSubmissions({
-        gateway: dependencies.gateway,
-        repository: dependencies.repository,
-        readInvalidation: dependencies.readInvalidation,
-        networkId: dependencies.networkId,
-        ...(dependencies.now === undefined ? {} : {now: dependencies.now}),
+      const run = runUntilIdle(reason);
+      const tracked = run.finally(() => {
+        if (inFlight === tracked) {
+          inFlight = undefined;
+        }
       });
-      const tracked = run
-        .catch(error => {
-          dependencies.onRunFailure?.(reason, error);
-          throw error;
-        })
-        .finally(() => {
-          if (inFlight === tracked) {
-            inFlight = undefined;
-          }
-        });
       inFlight = tracked;
       return tracked;
     },

@@ -49,8 +49,6 @@ describe('TransactionReconciliationCoordinator', () => {
     });
 
     const coldStart = coordinator.reconcile('cold-start');
-    const manualRefresh = coordinator.reconcile('manual-refresh');
-    expect(manualRefresh).toBe(coldStart);
     expect(gateway.loadTransactionOutcome).toHaveBeenCalledTimes(1);
     expect(onRunStart).toHaveBeenCalledTimes(1);
     resolveOutcome?.({status: 'still-unknown', transactionHash: 'hash-1'});
@@ -62,5 +60,45 @@ describe('TransactionReconciliationCoordinator', () => {
     expect(onRunStart).toHaveBeenNthCalledWith(2, 'foreground');
     resolveOutcome?.({status: 'still-unknown', transactionHash: 'hash-1'});
     await foreground;
+  });
+
+  it('queues one trailing reconciliation when a recovery trigger arrives during an active run', async () => {
+    const pending = repository();
+    const resolvers: Array<
+      (value: {status: 'still-unknown'; transactionHash: string}) => void
+    > = [];
+    const gateway = {
+      loadTransactionOutcome: jest.fn(
+        () =>
+          new Promise<{status: 'still-unknown'; transactionHash: string}>(resolve => {
+            resolvers.push(resolve);
+          }),
+      ),
+    };
+    const onRunStart = jest.fn();
+    const coordinator = createTransactionReconciliationCoordinator({
+      gateway,
+      repository: pending,
+      readInvalidation: {invalidate: jest.fn()},
+      networkId: 'stellar-testnet',
+      onRunStart,
+    });
+
+    const coldStart = coordinator.reconcile('cold-start');
+    const networkRecovery = coordinator.reconcile('network-recovery');
+
+    expect(networkRecovery).toBe(coldStart);
+    expect(gateway.loadTransactionOutcome).toHaveBeenCalledTimes(1);
+    resolvers[0]?.({status: 'still-unknown', transactionHash: 'hash-1'});
+    await new Promise<void>(resolve => {
+      setTimeout(resolve, 0);
+    });
+
+    expect(gateway.loadTransactionOutcome).toHaveBeenCalledTimes(2);
+    expect(onRunStart).toHaveBeenNthCalledWith(2, 'network-recovery');
+    resolvers[1]?.({status: 'still-unknown', transactionHash: 'hash-1'});
+    await coldStart;
+
+    expect(gateway.loadTransactionOutcome).toHaveBeenCalledTimes(2);
   });
 });
