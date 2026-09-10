@@ -16,8 +16,9 @@ export function walletRealmConfiguration(
     schema: [...WALLET_REALM_SCHEMAS],
     schemaVersion: WALLET_REALM_SCHEMA_VERSION,
     onMigration: () => {
-      // Schema v2 only adds LocalePreferenceEntity. Existing account and signer
-      // records require no transformation.
+      // Schema v2 added LocalePreferenceEntity; v3 adds public-only
+      // PendingSubmissionEntity recovery metadata. Existing records require no
+      // transformation because both additions are new top-level entities.
     },
   };
 }

@@ -1,5 +1,6 @@
 export {RealmAccountSignerRepository} from './RealmAccountSignerRepository';
 export {RealmLocalePreferenceStore} from './RealmLocalePreferenceStore';
+export {RealmPendingSubmissionRepository} from './RealmPendingSubmissionRepository';
 export {createRealmRecordId} from './createRealmRecordId';
 export {
   openWalletRealm,
@@ -13,6 +14,8 @@ export {
   ACCOUNT_SIGNER_REFERENCE_SCHEMA,
   LOCALE_PREFERENCE_ENTITY,
   LOCALE_PREFERENCE_SCHEMA,
+  PENDING_SUBMISSION_ENTITY,
+  PENDING_SUBMISSION_SCHEMA,
   SIGNER_ENTITY,
   SIGNER_SCHEMA,
   WALLET_REALM_SCHEMAS,

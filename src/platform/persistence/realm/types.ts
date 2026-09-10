@@ -30,3 +30,19 @@ export type PersistedAccountSignerReference = {
   signerId: string;
   createdAt: Date;
 };
+
+export type PersistedPendingSubmission = {
+  id: string;
+  networkId: string;
+  accountId: string;
+  sourceAddress: string;
+  transactionHash: string;
+  intentKind: string;
+  intentKey: string;
+  state: string;
+  createdAt: Date;
+  updatedAt: Date;
+  lastCheckedAt?: Date | null;
+  ledger?: number | null;
+  resultCode?: string | null;
+};

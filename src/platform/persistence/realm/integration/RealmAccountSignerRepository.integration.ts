@@ -1,13 +1,15 @@
-import {mkdtempSync, rmSync} from 'node:fs';
-import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import Realm from 'realm';
-import type {AccountRecord} from '../../../../capabilities/account/types';
-import type {SignerRecord} from '../../../../capabilities/signer/types';
-import {runAccountSignerRepositoryContract} from '../../__tests__/repositoryContract';
-import {RealmAccountSignerRepository} from '../RealmAccountSignerRepository';
-import {createRealmRecordId} from '../createRealmRecordId';
-import {openWalletRealm} from '../openWalletRealm';
+import type { AccountRecord } from '../../../../capabilities/account/types';
+import type { SignerRecord } from '../../../../capabilities/signer/types';
+import type { PendingSubmissionRecord } from '../../../../capabilities/transaction/pendingSubmission';
+import { runAccountSignerRepositoryContract } from '../../__tests__/repositoryContract';
+import { RealmAccountSignerRepository } from '../RealmAccountSignerRepository';
+import { RealmPendingSubmissionRepository } from '../RealmPendingSubmissionRepository';
+import { createRealmRecordId } from '../createRealmRecordId';
+import { openWalletRealm } from '../openWalletRealm';
 
 const now = new Date('2026-08-28T00:00:00.000Z');
 
@@ -61,7 +63,7 @@ describe('RealmAccountSignerRepository contract', () => {
 
   beforeEach(async () => {
     directory = mkdtempSync(join(tmpdir(), 'fresnica-realm-contract-'));
-    realm = await openWalletRealm({path: join(directory, 'wallet.realm')});
+    realm = await openWalletRealm({ path: join(directory, 'wallet.realm') });
     repository = new RealmAccountSignerRepository(realm);
   });
 
@@ -69,7 +71,7 @@ describe('RealmAccountSignerRepository contract', () => {
     realm?.close();
     repository = undefined;
     realm = undefined;
-    rmSync(directory, {recursive: true, force: true});
+    rmSync(directory, { recursive: true, force: true });
   });
 
   runAccountSignerRepositoryContract(() => {
@@ -87,7 +89,7 @@ describe('RealmAccountSignerRepository restart integration', () => {
     let activeRealm: Awaited<ReturnType<typeof openWalletRealm>> | undefined;
 
     try {
-      activeRealm = await openWalletRealm({path});
+      activeRealm = await openWalletRealm({ path });
       const firstRepository = new RealmAccountSignerRepository(activeRealm);
       firstRepository.createAccount(account('account-a'));
       firstRepository.createAccount(account('account-b'));
@@ -97,7 +99,7 @@ describe('RealmAccountSignerRepository restart integration', () => {
       activeRealm.close();
       activeRealm = undefined;
 
-      activeRealm = await openWalletRealm({path});
+      activeRealm = await openWalletRealm({ path });
       const reopenedRepository = new RealmAccountSignerRepository(activeRealm);
 
       expect(reopenedRepository.getAccount('account-a')).toEqual(account('account-a'));
@@ -115,7 +117,51 @@ describe('RealmAccountSignerRepository restart integration', () => {
       expect(reopenedRepository.getSigner('shared')).toBeUndefined();
     } finally {
       activeRealm?.close();
-      rmSync(directory, {recursive: true, force: true});
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('RealmPendingSubmissionRepository restart integration', () => {
+  it('persists public recovery metadata and preserves the duplicate guard after reopen', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'fresnica-realm-pending-'));
+    const path = join(directory, 'wallet.realm');
+    let activeRealm: Awaited<ReturnType<typeof openWalletRealm>> | undefined;
+    const pending: PendingSubmissionRecord = {
+      id: 'stellar-testnet:transaction-hash',
+      networkId: 'stellar-testnet',
+      accountId: 'account-1',
+      sourceAddress: 'GSOURCE',
+      transactionHash: 'transaction-hash',
+      intentKind: 'trustline',
+      intentKey: '["trustline","USD","GISSUER","add"]',
+      state: 'uncertain',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    try {
+      activeRealm = await openWalletRealm({ path });
+      new RealmPendingSubmissionRepository(activeRealm).create(pending);
+      activeRealm.close();
+      activeRealm = undefined;
+
+      activeRealm = await openWalletRealm({ path });
+      const reopened = new RealmPendingSubmissionRepository(activeRealm);
+
+      expect(reopened.findBlockingIntent(pending.networkId, pending.accountId, pending.intentKey)).toEqual(pending);
+
+      const checkedAt = new Date('2026-09-10T00:02:00.000Z');
+      reopened.markRejected(pending.networkId, pending.transactionHash, checkedAt, 'tx_bad_seq');
+      expect(reopened.listUnresolved()).toEqual([]);
+      expect(reopened.get(pending.networkId, pending.transactionHash)).toMatchObject({
+        state: 'rejected',
+        lastCheckedAt: checkedAt,
+        resultCode: 'tx_bad_seq',
+      });
+    } finally {
+      activeRealm?.close();
+      rmSync(directory, { recursive: true, force: true });
     }
   });
 });
