@@ -1,3 +1,5 @@
+import type {BalanceAsset} from '@capabilities/balance/types';
+
 export type RootFlow =
   | 'bootstrap'
   | 'onboarding'
@@ -53,9 +55,8 @@ export type ProductRouteParams = Readonly<{
   // Existing-wallet add account currently has no route payload; the screen
   // reads account creation inputs from local feature state.
   'add-account': undefined;
-  // Asset identity is intentionally unresolved until the Home/Trustline read
-  // model defines a stable public asset key.
-  'asset-details': undefined;
+  // Public domain identity only. Current balance is reloaded by the destination.
+  'asset-details': Readonly<{accountId: string; asset: BalanceAsset}>;
   'send-form': Readonly<{accountId: string}>;
   // Review/result state stays in the Send flow. Exact XDR and reviewed
   // transaction data must not be transported as navigation parameters.
@@ -91,7 +92,6 @@ export const PRODUCT_ACTIONS: readonly ProductAction[] = [
 export const PRODUCT_ROUTES: Readonly<Record<MainTab, readonly ProductRoute[]>> = {
   home: [
     'home',
-    'account-details',
     'add-account',
     'asset-details',
     'send-form',
@@ -106,6 +106,8 @@ export const PRODUCT_ROUTES: Readonly<Record<MainTab, readonly ProductRoute[]>> 
   settings: [
     'settings-home',
     'accounts-settings',
+    'account-details',
+    'add-account',
     'security-settings',
     'network-settings',
     'language-settings',

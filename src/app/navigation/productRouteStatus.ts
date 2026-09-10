@@ -14,19 +14,19 @@ export type ProductRouteStatus = Readonly<{
 export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteStatus>> = {
   home: {
     readiness: 'structure-only',
-    note: 'The Stellar-style Home product surface is rebuilt around the current Balance read model; asset-detail navigation and other deferred product capabilities remain intentionally unavailable.',
+    note: 'The Stellar-style Home product surface is live on the Balance read model with focus revalidation and asset-detail navigation; Request, Swap and later portfolio metadata remain separate deferred capabilities.',
   },
   'account-details': {
     readiness: 'structure-only',
-    note: 'The account surface is registered in the Home native stack and follows the Stellar visual hierarchy; signer/access presenter behavior remains deferred.',
+    note: 'The account surface is registered in the Settings native stack so Accounts → Detail preserves local back history; signer/access presenter behavior remains deferred.',
   },
   'add-account': {
     readiness: 'implemented',
-    note: 'Existing-wallet Add Account is registered in the Home native stack and currently supports watch-only only.',
+    note: 'Existing-wallet Add Account reuses the same watch-only screen from Home and Settings while each entry keeps its own native-stack back history.',
   },
   'asset-details': {
-    readiness: 'blocked',
-    note: 'Keep the destination in product structure, but do not finalize route params until the Home/Asset identity read model exists.',
+    readiness: 'implemented',
+    note: 'Home opens a live asset detail route using only stable accountId + BalanceAsset identity; the destination reloads the current Balance capability snapshot and keeps metadata/TOML deferred.',
   },
   'send-form': {
     readiness: 'implemented',
@@ -50,15 +50,15 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'manage-assets': {
     readiness: 'implemented',
-    note: 'Manage Assets is connected to the current Trustline capability and its product presentation has been aligned to the Stellar visual language.',
+    note: 'Manage Assets supports Add, Set Limit and Remove through the shared Trustline exact-XDR review/sign/submit pipeline, including pre-sign ledger-state revalidation.',
   },
   activity: {
-    readiness: 'capability-ready',
-    note: 'Activity now lives under the target feature id and uses the History capability with localized states, search, real category filters, paging, duplicate suppression and stale-request protection. Operation detail routing remains the next navigation-layer increment.',
+    readiness: 'implemented',
+    note: 'Activity uses the History capability with localized states, search, real category filters, paging, duplicate suppression, focus revalidation and a live operation-detail route.',
   },
   'operation-details': {
-    readiness: 'structure-only',
-    note: 'Detail route remains reserved for stable accountId + operationId navigation; raw operation objects do not enter navigation and no unavailable Horizon detail data is fabricated.',
+    readiness: 'implemented',
+    note: 'Detail navigation carries only accountId + operationId. History reloads the single Horizon operation, verifies account association, distinguishes 404 from gateway failure, and projects only stable domain fields.',
   },
   dapps: {
     readiness: 'structure-only',
@@ -78,7 +78,7 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'network-settings': {
     readiness: 'structure-only',
-    note: 'The Settings native stack reaches this visually aligned destination; Testnet configuration is display-only and Mainnet switching is intentionally unavailable.',
+    note: 'The Settings native stack reaches a read-only network destination. The development build remains on Testnet while release policy is Mainnet-default with Testnet/custom endpoints behind authenticated Developer Mode.',
   },
   'language-settings': {
     readiness: 'implemented',

@@ -1,9 +1,10 @@
 import React from 'react';
+import {useIsFocused} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
 import type {AccountRecord} from '@capabilities/account/types';
-import {AccountDetailsScreen} from '@features/accounts/AccountDetailsScreen';
 import {AddWatchOnlyAccountScreen} from '@features/accounts/AddWatchOnlyAccountScreen';
+import {AssetDetailsScreen} from '@features/home/AssetDetailsScreen';
 import {HomeScreen} from '@features/home/HomeScreen';
 import {SendFlowScreen} from '@features/send/SendFlowScreen';
 import {ManageAssetsScreen} from '@features/trustlines/ManageAssetsScreen';
@@ -36,7 +37,7 @@ export function HomeStackNavigator({
     <Stack.Navigator initialRouteName="home" screenOptions={{headerShown: false}}>
       <Stack.Screen name="home">
         {({navigation}) => (
-          <HomeScreen
+          <HomeRoute
             account={selectedAccount}
             accountCount={accounts.filter(account => !account.hidden).length}
             balanceDependencies={services.balance}
@@ -47,18 +48,21 @@ export function HomeStackNavigator({
             onManageAssets={() =>
               navigation.navigate('manage-assets', {accountId: selectedAccount.id})
             }
+            onOpenAsset={asset =>
+              navigation.navigate('asset-details', {accountId: selectedAccount.id, asset})
+            }
           />
         )}
       </Stack.Screen>
-      <Stack.Screen name="account-details">
+      <Stack.Screen name="asset-details">
         {({navigation, route}) => {
           const account = resolveVisibleAccount(accounts, route.params.accountId);
           return (
-            <AccountDetailsScreen
+            <AssetDetailsRoute
               account={account}
+              asset={route.params.asset}
+              dependencies={services.balance}
               onBack={() => navigation.goBack()}
-              onSend={() => navigation.navigate('send-form', {accountId: account.id})}
-              onManageAssets={() => navigation.navigate('manage-assets', {accountId: account.id})}
             />
           );
         }}
@@ -101,4 +105,14 @@ export function HomeStackNavigator({
       </Stack.Screen>
     </Stack.Navigator>
   );
+}
+
+function HomeRoute(props: Omit<React.ComponentProps<typeof HomeScreen>, 'active'>) {
+  const active = useIsFocused();
+  return <HomeScreen {...props} active={active} />;
+}
+
+function AssetDetailsRoute(props: Omit<React.ComponentProps<typeof AssetDetailsScreen>, 'active'>) {
+  const active = useIsFocused();
+  return <AssetDetailsScreen {...props} active={active} />;
 }

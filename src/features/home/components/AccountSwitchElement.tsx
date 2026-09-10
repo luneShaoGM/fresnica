@@ -2,7 +2,8 @@ import React from 'react';
 import {Text, View} from 'react-native';
 
 import {StellarTouchableDebounce} from '../../../ui/components/stellar';
-import {styles} from '../styles';
+import {useThemedStyles} from '@ui/theme';
+import {createStyles} from '../styles';
 
 type Props = Readonly<{
   label: string;
@@ -28,6 +29,7 @@ export function AccountSwitchElement({
   onSwitchAccount,
   onAddAccount,
 }: Props) {
+  const styles = useThemedStyles(createStyles);
   return (
     <>
       <StellarTouchableDebounce

@@ -88,13 +88,13 @@ export function MainTabsNavigator({accounts, services, onAccountsChanged}: Props
           <SettingsStackNavigator
             accounts={accounts}
             services={services}
-            onOpenAccount={accountId =>
-              navigation.navigate('home', {
-                screen: 'account-details',
-                params: {accountId},
-              })
+            onAccountsChanged={onAccountsChanged}
+            onSend={accountId =>
+              navigation.navigate('home', {screen: 'send-form', params: {accountId}})
             }
-            onAddAccount={() => navigation.navigate('home', {screen: 'add-account'})}
+            onManageAssets={accountId =>
+              navigation.navigate('home', {screen: 'manage-assets', params: {accountId}})
+            }
           />
         )}
       </Tab.Screen>

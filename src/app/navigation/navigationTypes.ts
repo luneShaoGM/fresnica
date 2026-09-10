@@ -11,8 +11,8 @@ export type RootStackParamList = {
 
 export type HomeStackParamList = {
   home: ProductRouteParams['home'];
-  'account-details': ProductRouteParams['account-details'];
   'add-account': ProductRouteParams['add-account'];
+  'asset-details': ProductRouteParams['asset-details'];
   'send-form': ProductRouteParams['send-form'];
   'manage-assets': ProductRouteParams['manage-assets'];
 };
@@ -29,6 +29,8 @@ export type DAppsStackParamList = {
 export type SettingsStackParamList = {
   'settings-home': ProductRouteParams['settings-home'];
   'accounts-settings': ProductRouteParams['accounts-settings'];
+  'account-details': ProductRouteParams['account-details'];
+  'add-account': ProductRouteParams['add-account'];
   'security-settings': ProductRouteParams['security-settings'];
   'network-settings': ProductRouteParams['network-settings'];
   'language-settings': ProductRouteParams['language-settings'];

@@ -1,13 +1,12 @@
 import {StyleSheet} from 'react-native';
 
-import {stellarColors, stellarThemeColors} from '../../ui/theme/stellar';
+import type {AppTheme} from '@ui/theme';
 
-const light = stellarThemeColors.light;
-
-export const styles = StyleSheet.create({
+export function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: light.background,
+    backgroundColor: theme.colors.background,
   },
   content: {
     paddingHorizontal: 18,
@@ -30,13 +29,13 @@ export const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: stellarColors.green,
+    backgroundColor: theme.colors.actionPrimary,
   },
   brand: {
     fontSize: 24,
     lineHeight: 29,
     fontWeight: '800',
-    color: light.textPrimary,
+    color: theme.colors.textPrimary,
     letterSpacing: -0.6,
   },
   networkButton: {
@@ -47,7 +46,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 15,
-    backgroundColor: light.tint,
+    backgroundColor: theme.colors.surfaceMuted,
   },
   networkButtonPressed: {
     opacity: 0.7,
@@ -59,18 +58,18 @@ export const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: stellarColors.orange,
+    backgroundColor: theme.colors.warning,
   },
   networkText: {
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '700',
-    color: light.textSecondary,
+    color: theme.colors.textSecondary,
   },
   accountSwitchContainer: {
     minHeight: 72,
     borderRadius: 11,
-    backgroundColor: light.tint,
+    backgroundColor: theme.colors.surfaceMuted,
     paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: 'row',
@@ -88,18 +87,18 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 20,
     fontWeight: '800',
-    color: light.textPrimary,
+    color: theme.colors.textPrimary,
   },
   accountAddress: {
     fontSize: 12,
     lineHeight: 15,
-    color: light.textSecondary,
+    color: theme.colors.textSecondary,
     fontVariant: ['tabular-nums'],
   },
   switchChevron: {
     fontSize: 24,
     lineHeight: 26,
-    color: stellarColors.darkBlue,
+    color: theme.colors.surfaceStrong,
     fontWeight: '700',
   },
   accountMetaRow: {
@@ -112,7 +111,7 @@ export const styles = StyleSheet.create({
   accountMeta: {
     fontSize: 11,
     lineHeight: 14,
-    color: stellarColors.silver,
+    color: theme.colors.textTertiary,
   },
   addAccountButton: {
     paddingVertical: 6,
@@ -120,7 +119,7 @@ export const styles = StyleSheet.create({
   addAccountText: {
     fontSize: 11,
     lineHeight: 14,
-    color: light.textSecondary,
+    color: theme.colors.textSecondary,
     fontWeight: '600',
   },
   actionsRow: {
@@ -140,10 +139,10 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   actionGreen: {
-    backgroundColor: stellarColors.green,
+    backgroundColor: theme.colors.actionPrimary,
   },
   actionDark: {
-    backgroundColor: stellarColors.darkBlue,
+    backgroundColor: theme.colors.surfaceStrong,
   },
   actionDisabled: {
     opacity: 0.4,
@@ -153,7 +152,7 @@ export const styles = StyleSheet.create({
     height: 18,
   },
   actionText: {
-    color: stellarColors.white,
+    color: theme.colors.onActionPrimary,
     fontSize: 13,
     lineHeight: 17,
     fontWeight: '800',
@@ -168,7 +167,7 @@ export const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 25,
     fontWeight: '800',
-    color: light.textPrimary,
+    color: theme.colors.textPrimary,
   },
   sectionLinkButton: {
     paddingVertical: 6,
@@ -177,15 +176,15 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 17,
     fontWeight: '700',
-    color: stellarColors.primaryActive,
+    color: theme.colors.actionPrimaryPressed,
   },
   sectionLinkDisabled: {
-    color: stellarColors.silver,
+    color: theme.colors.textTertiary,
   },
   stateBox: {
     minHeight: 90,
     borderRadius: 10,
-    backgroundColor: light.tint,
+    backgroundColor: theme.colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
@@ -195,13 +194,13 @@ export const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 19,
     fontWeight: '800',
-    color: light.textPrimary,
+    color: theme.colors.textPrimary,
     textAlign: 'center',
   },
   stateText: {
     fontSize: 12,
     lineHeight: 17,
-    color: light.textSecondary,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
   },
   retryButton: {
@@ -209,7 +208,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   retryText: {
-    color: stellarColors.primaryActive,
+    color: theme.colors.actionPrimaryPressed,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '700',
@@ -217,7 +216,7 @@ export const styles = StyleSheet.create({
   readOnlyNotice: {
     marginBottom: 14,
     borderRadius: 10,
-    backgroundColor: light.lightOrange,
+    backgroundColor: theme.colors.warningMuted,
     paddingHorizontal: 14,
     paddingVertical: 11,
     gap: 3,
@@ -225,17 +224,17 @@ export const styles = StyleSheet.create({
   readOnlyTitle: {
     fontSize: 12,
     lineHeight: 16,
-    color: stellarColors.darkBlue,
+    color: theme.colors.surfaceStrong,
     fontWeight: '800',
   },
   readOnlyText: {
     fontSize: 11,
     lineHeight: 16,
-    color: light.textSecondary,
+    color: theme.colors.textSecondary,
   },
   inactiveContainer: {
     borderRadius: 12,
-    backgroundColor: light.lightBlue,
+    backgroundColor: theme.colors.actionPrimarySoft,
     paddingHorizontal: 18,
     paddingVertical: 20,
     gap: 14,
@@ -244,7 +243,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 21,
     fontWeight: '800',
-    color: stellarColors.darkBlue,
+    color: theme.colors.surfaceStrong,
     textAlign: 'center',
   },
   inactiveStep: {
@@ -254,29 +253,29 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '800',
-    color: stellarColors.darkBlue,
+    color: theme.colors.surfaceStrong,
   },
   inactiveStepText: {
     fontSize: 12,
     lineHeight: 18,
-    color: light.textSecondary,
+    color: theme.colors.textSecondary,
   },
   inactiveAddress: {
     fontSize: 11,
     lineHeight: 16,
-    color: light.textSecondary,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
   },
   assetList: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: light.transparentContrast,
+    borderTopColor: theme.colors.separatorSubtle,
   },
   assetRow: {
     minHeight: 68,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: light.transparentContrast,
+    borderBottomColor: theme.colors.separatorSubtle,
     gap: 12,
   },
   assetIcon: {
@@ -289,10 +288,10 @@ export const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: stellarColors.darkBlue,
+    backgroundColor: theme.colors.surfaceStrong,
   },
   assetFallbackText: {
-    color: stellarColors.white,
+    color: theme.colors.onSurfaceStrong,
     fontSize: 15,
     lineHeight: 18,
     fontWeight: '800',
@@ -305,12 +304,12 @@ export const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 18,
     fontWeight: '800',
-    color: light.textPrimary,
+    color: theme.colors.textPrimary,
   },
   assetIssuer: {
     fontSize: 11,
     lineHeight: 14,
-    color: stellarColors.silver,
+    color: theme.colors.textTertiary,
   },
   assetBalanceBlock: {
     alignItems: 'flex-end',
@@ -319,19 +318,19 @@ export const styles = StyleSheet.create({
   assetBalance: {
     fontSize: 15,
     lineHeight: 18,
-    color: light.textPrimary,
+    color: theme.colors.textPrimary,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
   assetSymbol: {
     fontSize: 10,
     lineHeight: 13,
-    color: stellarColors.silver,
+    color: theme.colors.textTertiary,
   },
   hiddenAssetsText: {
     fontSize: 10,
     lineHeight: 14,
-    color: stellarColors.silver,
+    color: theme.colors.textTertiary,
     paddingTop: 10,
   },
   refreshLink: {
@@ -343,6 +342,7 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '700',
-    color: stellarColors.primaryActive,
+    color: theme.colors.actionPrimaryPressed,
   },
-});
+  });
+}

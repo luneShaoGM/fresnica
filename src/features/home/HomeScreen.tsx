@@ -3,19 +3,22 @@ import {
   Image,
   type ImageSourcePropType,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   Text,
   View,
 } from 'react-native';
+
+import {Screen} from '@ui/components';
 
 import type {AccountRecord} from '../../capabilities/account/types';
 import {
   loadBalanceSnapshot,
   type BalanceDependencies,
 } from '../../capabilities/balance/loadBalanceSnapshot';
+import type {BalanceAsset} from '../../capabilities/balance/types';
 import {StellarLoadingIndicator, StellarTouchableDebounce} from '../../ui/components/stellar';
-import {stellarColors} from '../../ui/theme/stellar';
+import {useAppTheme, useThemedStyles} from '@ui/theme';
+import {projectFeatureError} from '../featureError';
 import {AccountSwitchElement} from './components/AccountSwitchElement';
 import {AssetsList} from './components/AssetsList';
 import {InactiveAccount} from './components/InactiveAccount';
@@ -24,7 +27,7 @@ import {
   createHomeViewModel,
   type HomeBalanceState,
 } from './homeViewModel';
-import {styles} from './styles';
+import {createStyles} from './styles';
 
 type Props = Readonly<{
   account: AccountRecord;
@@ -35,8 +38,10 @@ type Props = Readonly<{
   onAddAccount: () => void;
   onSend: () => void;
   onManageAssets: () => void;
+  onOpenAsset: (asset: BalanceAsset) => void;
   onSwap?: () => void;
   onRequest?: () => void;
+  active: boolean;
 }>;
 
 const sendIcon = require('../../ui/assets/stellar/icon_send_v2.png');
@@ -59,9 +64,13 @@ export function HomeScreen({
   onAddAccount,
   onSend,
   onManageAssets,
+  onOpenAsset,
   onSwap,
   onRequest,
+  active,
 }: Props) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const [balanceState, setBalanceState] = useState<HomeBalanceState>({kind: 'loading'});
   const requestVersion = useRef(0);
 
@@ -80,18 +89,25 @@ export function HomeScreen({
         if (requestVersion.current === version) {
           setBalanceState({
             kind: 'error',
-            message: error instanceof Error ? error.message : 'Unable to load balances.',
+            message: projectFeatureError(error, {
+              fallbackMessage: 'Unable to load balances.',
+              fallbackRetryable: true,
+            }).message,
           });
         }
       });
   }, [account, balanceDependencies]);
 
   useEffect(() => {
+    if (!active) {
+      return;
+    }
+
     refreshBalances();
     return () => {
       requestVersion.current += 1;
     };
-  }, [refreshBalances]);
+  }, [active, refreshBalances]);
 
   const viewModel = useMemo(
     () =>
@@ -103,14 +119,14 @@ export function HomeScreen({
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen scrollable={false} contentInset="none">
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
             onRefresh={refreshBalances}
             refreshing={balanceState.kind === 'loading'}
-            tintColor={stellarColors.green}
+            tintColor={theme.colors.actionPrimary}
           />
         }
         showsVerticalScrollIndicator={false}>
@@ -184,9 +200,9 @@ export function HomeScreen({
           </StellarTouchableDebounce>
         </View>
 
-        {renderPortfolio(balanceState, viewModel.accountAddress, refreshBalances)}
+        {renderPortfolio(balanceState, viewModel.accountAddress, refreshBalances, onOpenAsset, styles)}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -203,6 +219,7 @@ function HomeAction({
   tone: 'green' | 'dark';
   onPress?: () => void;
 }>) {
+  const styles = useThemedStyles(createStyles);
   return (
     <StellarTouchableDebounce
       accessibilityRole="button"
@@ -225,6 +242,8 @@ function renderPortfolio(
   state: HomeBalanceState,
   address: string,
   onRefresh: () => void,
+  onOpenAsset: (asset: BalanceAsset) => void,
+  styles: ReturnType<typeof createStyles>,
 ): React.ReactNode {
   if (state.kind === 'loading') {
     return (
@@ -271,6 +290,7 @@ function renderPortfolio(
       balances={state.snapshot.balances}
       hiddenLiquidityPoolShareCount={state.snapshot.hiddenLiquidityPoolShareCount}
       onRefresh={onRefresh}
+      onOpenAsset={onOpenAsset}
     />
   );
 }

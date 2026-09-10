@@ -4,7 +4,8 @@ import {Image, Text, View} from 'react-native';
 import type {BalanceLine} from '../../../capabilities/balance/types';
 import {StellarTouchableDebounce} from '../../../ui/components/stellar';
 import {maskAddress} from '../homeViewModel';
-import {styles} from '../styles';
+import {useThemedStyles} from '@ui/theme';
+import {createStyles} from '../styles';
 
 const xlmIcon = require('../../../ui/assets/stellar/icon_xlm.png');
 
@@ -12,6 +13,7 @@ type Props = Readonly<{
   balances: readonly BalanceLine[];
   hiddenLiquidityPoolShareCount: number;
   onRefresh: () => void;
+  onOpenAsset: (asset: BalanceLine['asset']) => void;
 }>;
 
 /**
@@ -25,7 +27,9 @@ export function AssetsList({
   balances,
   hiddenLiquidityPoolShareCount,
   onRefresh,
+  onOpenAsset,
 }: Props) {
+  const styles = useThemedStyles(createStyles);
   if (balances.length === 0) {
     return (
       <View style={styles.stateBox}>
@@ -50,7 +54,12 @@ export function AssetsList({
             : `${line.asset.code}:${line.asset.issuer}`;
 
         return (
-          <View key={assetKey} style={styles.assetRow}>
+          <StellarTouchableDebounce
+            accessibilityRole="button"
+            activeOpacity={0.7}
+            key={assetKey}
+            onPress={() => onOpenAsset(line.asset)}
+            style={styles.assetRow}>
             {line.asset.kind === 'native' ? (
               <Image resizeMode="contain" source={xlmIcon} style={styles.assetIcon} />
             ) : (
@@ -76,7 +85,7 @@ export function AssetsList({
               </Text>
               <Text style={styles.assetSymbol}>{line.asset.code}</Text>
             </View>
-          </View>
+          </StellarTouchableDebounce>
         );
       })}
 

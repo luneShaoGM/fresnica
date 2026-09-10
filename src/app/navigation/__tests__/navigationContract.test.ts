@@ -16,4 +16,14 @@ describe('navigation contract', () => {
     expect(PRODUCT_ROUTES.activity).toEqual(['activity', 'operation-details']);
     expect(PRODUCT_ROUTES.dapps).toEqual(['dapps']);
   });
+
+  it('keeps account detail inside Settings history instead of borrowing the Home stack', () => {
+    expect(PRODUCT_ROUTES.settings).toContain('account-details');
+    expect(PRODUCT_ROUTES.settings).toContain('add-account');
+    expect(PRODUCT_ROUTES.home).not.toContain('account-details');
+  });
+
+  it('keeps asset detail in Home with a stable public route identity', () => {
+    expect(PRODUCT_ROUTES.home).toContain('asset-details');
+  });
 });

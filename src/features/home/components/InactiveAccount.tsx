@@ -2,7 +2,8 @@ import React from 'react';
 import {Text, View} from 'react-native';
 
 import {StellarTouchableDebounce} from '../../../ui/components/stellar';
-import {styles} from '../styles';
+import {useThemedStyles} from '@ui/theme';
+import {createStyles} from '../styles';
 
 type Props = Readonly<{
   address: string;
@@ -18,6 +19,7 @@ type Props = Readonly<{
  * and refresh path without copying donor services.
  */
 export function InactiveAccount({address, onRefresh}: Props) {
+  const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.inactiveContainer} testID="not-activated-account-container">
       <Text style={styles.inactiveTitle}>Your account is not activated</Text>

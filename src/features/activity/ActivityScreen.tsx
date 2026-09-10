@@ -2,12 +2,13 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
   View,
 } from 'react-native';
+
+import {Screen} from '@ui/components';
 
 import type {AccountRecord} from '@capabilities/account/types';
 import {
@@ -44,6 +45,8 @@ type ActivityState =
 type Props = Readonly<{
   account: AccountRecord;
   dependencies: HistoryDependencies;
+  active: boolean;
+  onOpenOperation: (operationId: string) => void;
 }>;
 
 const FILTERS: readonly ActivityFilter[] = ['all', 'payments', 'accounts', 'other'];
@@ -54,7 +57,7 @@ const FILTER_LABEL_KEYS: Readonly<Record<ActivityFilter, string>> = {
   other: 'activity.filter.other',
 };
 
-export function ActivityScreen({account, dependencies}: Props) {
+export function ActivityScreen({account, dependencies, active, onOpenOperation}: Props) {
   const {formatNumber, locale, t} = useLocalization();
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
@@ -113,11 +116,15 @@ export function ActivityScreen({account, dependencies}: Props) {
   );
 
   useEffect(() => {
+    if (!active) {
+      return;
+    }
+
     loadInitial(false);
     return () => {
       requestVersion.current += 1;
     };
-  }, [loadInitial]);
+  }, [active, loadInitial]);
 
   const loadMore = useCallback(() => {
     if (
@@ -218,7 +225,7 @@ export function ActivityScreen({account, dependencies}: Props) {
   const refreshing = state.kind === 'ready' && state.refreshing;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
         <View style={styles.headerIdentity}>
           <Text style={styles.title}>{t('activity.title')}</Text>
@@ -297,6 +304,7 @@ export function ActivityScreen({account, dependencies}: Props) {
           filter={filter}
           formatNumber={formatNumber}
           onLoadMore={loadMore}
+          onOpenOperation={onOpenOperation}
           onRetry={() => loadInitial(true)}
           searchText={searchText}
           state={state}
@@ -306,7 +314,7 @@ export function ActivityScreen({account, dependencies}: Props) {
           indicatorColor={theme.colors.actionPrimaryPressed}
         />
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -321,6 +329,7 @@ type ActivityContentProps = Readonly<{
   searchText: string;
   onRetry: () => void;
   onLoadMore: () => void;
+  onOpenOperation: (operationId: string) => void;
   t: Translate;
   formatNumber: FormatNumber;
   dateFormatter: Intl.DateTimeFormat;
@@ -336,6 +345,7 @@ function ActivityContent({
   searchText,
   onRetry,
   onLoadMore,
+  onOpenOperation,
   t,
   formatNumber,
   dateFormatter,
@@ -406,7 +416,7 @@ function ActivityContent({
 
       return (
         <>
-          {renderEntries(entries, t, formatNumber, dateFormatter, timeFormatter, styles)}
+          {renderEntries(entries, t, formatNumber, dateFormatter, timeFormatter, onOpenOperation, styles)}
           {state.loadMoreFailed ? (
             <Text style={styles.loadMoreError}>{t('activity.loadMoreError')}</Text>
           ) : null}
@@ -437,6 +447,7 @@ function renderEntries(
   formatNumber: FormatNumber,
   dateFormatter: Intl.DateTimeFormat,
   timeFormatter: Intl.DateTimeFormat,
+  onOpenOperation: (operationId: string) => void,
   styles: Styles,
 ) {
   let previousDate = '';
@@ -452,6 +463,7 @@ function renderEntries(
         <ActivityRow
           entry={entry}
           formatNumber={formatNumber}
+          onOpen={() => onOpenOperation(entry.id)}
           styles={styles}
           t={t}
           timeFormatter={timeFormatter}
@@ -464,12 +476,14 @@ function renderEntries(
 function ActivityRow({
   entry,
   formatNumber,
+  onOpen,
   styles,
   t,
   timeFormatter,
 }: Readonly<{
   entry: HistoryEntry;
   formatNumber: FormatNumber;
+  onOpen: () => void;
   styles: Styles;
   t: Translate;
   timeFormatter: Intl.DateTimeFormat;
@@ -478,7 +492,10 @@ function ActivityRow({
   const glyph = presentation.tone === 'positive' ? '↙' : presentation.tone === 'negative' ? '↗' : '•';
 
   return (
-    <View style={styles.activityRow}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onOpen}
+      style={({pressed}) => [styles.activityRow, pressed ? styles.pressed : undefined]}>
       <View style={styles.operationIcon}>
         <Text
           style={[
@@ -505,7 +522,7 @@ function ActivityRow({
         ]}>
         {presentation.primary}
       </Text>
-    </View>
+    </Pressable>
   );
 }
 
