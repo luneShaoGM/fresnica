@@ -8,9 +8,16 @@ import type { PendingSubmissionRecord } from '../../../../capabilities/transacti
 import { reconcilePendingSubmissions } from '../../../../capabilities/transaction/reconcilePendingSubmissions';
 import { runAccountSignerRepositoryContract } from '../../__tests__/repositoryContract';
 import { RealmAccountSignerRepository } from '../RealmAccountSignerRepository';
+import { RealmLocalePreferenceStore } from '../RealmLocalePreferenceStore';
 import { RealmPendingSubmissionRepository } from '../RealmPendingSubmissionRepository';
 import { createRealmRecordId } from '../createRealmRecordId';
 import { openWalletRealm } from '../openWalletRealm';
+import {
+  ACCOUNT_SCHEMA,
+  ACCOUNT_SIGNER_REFERENCE_SCHEMA,
+  LOCALE_PREFERENCE_SCHEMA,
+  SIGNER_SCHEMA,
+} from '../schemas';
 
 const now = new Date('2026-08-28T00:00:00.000Z');
 
@@ -298,6 +305,115 @@ describe('Realm pending-submission reconciliation recovery', () => {
         state: 'rejected',
         resultCode: 'tx_bad_seq',
       });
+    } finally {
+      activeRealm?.close();
+      rmSync(directory, {recursive: true, force: true});
+    }
+  });
+});
+
+
+describe('Realm schema v2 to v3 migration', () => {
+  it('preserves accounts, signers, references and locale while adding pending submissions', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'fresnica-realm-v2-migration-'));
+    const path = join(directory, 'wallet.realm');
+    let activeRealm: Realm | undefined;
+
+    try {
+      activeRealm = await Realm.open({
+        path,
+        schema: [
+          ACCOUNT_SCHEMA,
+          SIGNER_SCHEMA,
+          ACCOUNT_SIGNER_REFERENCE_SCHEMA,
+          LOCALE_PREFERENCE_SCHEMA,
+        ],
+        schemaVersion: 2,
+      });
+      const legacyRepository = new RealmAccountSignerRepository(activeRealm);
+      legacyRepository.createAccount(account('migration-account'));
+      legacyRepository.createSigner(signer('migration-signer'));
+      legacyRepository.attachSigner('migration-account', 'migration-signer', now);
+      new RealmLocalePreferenceStore(activeRealm).setLocale('zh', now);
+      activeRealm.close();
+      activeRealm = undefined;
+
+      activeRealm = await openWalletRealm({path});
+      const migratedRepository = new RealmAccountSignerRepository(activeRealm);
+
+      expect(migratedRepository.getAccount('migration-account')).toEqual(account('migration-account'));
+      expect(migratedRepository.getSigner('migration-signer')).toEqual(signer('migration-signer'));
+      expect(migratedRepository.isWatchOnly('migration-account')).toBe(false);
+      expect(new RealmLocalePreferenceStore(activeRealm).getLocale()).toBe('zh');
+      expect(new RealmPendingSubmissionRepository(activeRealm).listUnresolved()).toEqual([]);
+    } finally {
+      activeRealm?.close();
+      rmSync(directory, {recursive: true, force: true});
+    }
+  });
+});
+
+describe('Realm pre-broadcast crash-window recovery', () => {
+  it('keeps a persisted submitting intent blocked after restart when the hash is still unknown', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'fresnica-realm-pre-broadcast-'));
+    const path = join(directory, 'wallet.realm');
+    let activeRealm: Awaited<ReturnType<typeof openWalletRealm>> | undefined;
+    const checkedAt = new Date('2026-09-10T00:10:00.000Z');
+    const pending: PendingSubmissionRecord = {
+      id: 'stellar-testnet:pre-broadcast-hash',
+      networkId: 'stellar-testnet',
+      accountId: 'account-pre-broadcast',
+      sourceAddress: 'GSOURCE',
+      transactionHash: 'pre-broadcast-hash',
+      intentKind: 'payment',
+      intentKey: '["payment","GDESTINATION","1.0000000"]',
+      state: 'submitting',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    try {
+      activeRealm = await openWalletRealm({path});
+      new RealmPendingSubmissionRepository(activeRealm).create(pending);
+      activeRealm.close();
+      activeRealm = undefined;
+
+      activeRealm = await openWalletRealm({path});
+      const reopened = new RealmPendingSubmissionRepository(activeRealm);
+      const gateway = {
+        loadTransactionOutcome: jest.fn().mockResolvedValue({
+          status: 'still-unknown',
+          transactionHash: pending.transactionHash,
+        }),
+      };
+
+      await expect(
+        reconcilePendingSubmissions({
+          gateway,
+          repository: reopened,
+          readInvalidation: {invalidate: jest.fn()},
+          networkId: pending.networkId,
+          now: () => checkedAt,
+        }),
+      ).resolves.toEqual([
+        {transactionHash: pending.transactionHash, status: 'still-unknown'},
+      ]);
+
+      expect(gateway.loadTransactionOutcome).toHaveBeenCalledWith(pending.transactionHash);
+      expect(reopened.findBlockingIntent(pending.networkId, pending.accountId, pending.intentKey)).toMatchObject({
+        state: 'uncertain',
+        transactionHash: pending.transactionHash,
+        lastCheckedAt: checkedAt,
+      });
+      expect(() =>
+        reopened.create({
+          ...pending,
+          id: 'stellar-testnet:replacement-hash',
+          transactionHash: 'replacement-hash',
+          createdAt: checkedAt,
+          updatedAt: checkedAt,
+        }),
+      ).toThrow('pending-submission-intent-blocked');
     } finally {
       activeRealm?.close();
       rmSync(directory, {recursive: true, force: true});
