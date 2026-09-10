@@ -104,4 +104,61 @@ describe('submitReviewedTrustline', () => {
       88,
     );
   });
+  it('blocks an unresolved matching trustline intent before authorization or signing', async () => {
+    const pending = pendingRepository();
+    pending.findBlockingIntent.mockReturnValue({
+      id: 'stellar-testnet:existing-trustline-hash',
+      networkId: NETWORK.id,
+      accountId: 'account-1',
+      sourceAddress: review.source,
+      transactionHash: 'existing-trustline-hash',
+      intentKind: 'trustline',
+      intentKey: '["trustline","set-limit","USD","GISSUER","100.0000000"]',
+      state: 'uncertain',
+      createdAt: checkedAt,
+      updatedAt: checkedAt,
+    });
+    const gateway = {
+      inspectTrustlineTransaction: jest.fn().mockReturnValue({
+        source: review.source,
+        fee: review.fee,
+        asset: review.asset,
+        limit: review.limit,
+      }),
+      loadAccountAuthorization: jest.fn(),
+      transactionHash: jest.fn(),
+      loadTransactionOutcome: jest.fn(),
+      submitTransaction: jest.fn(),
+    } as unknown as jest.Mocked<TrustlineGatewayPort>;
+    const sdk = {
+      hasSignerSystemAuth: jest.fn(),
+      signWithSystemAuth: jest.fn(),
+    } as unknown as jest.Mocked<FresnicaSdkPort>;
+
+    await expect(
+      submitReviewedTrustline({
+        gateway,
+        sdk,
+        review,
+        accountId: 'account-1',
+        recovery: {repository: pending, now: () => checkedAt},
+        signer,
+        network: NETWORK,
+      }),
+    ).resolves.toEqual({
+      status: 'uncertain',
+      transactionHash: 'existing-trustline-hash',
+      reason: 'pending-reconciliation',
+    });
+
+    expect(pending.findBlockingIntent).toHaveBeenCalledWith(
+      NETWORK.id,
+      'account-1',
+      '["trustline","set-limit","USD","GISSUER","100.0000000"]',
+    );
+    expect(gateway.loadAccountAuthorization).not.toHaveBeenCalled();
+    expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
+    expect(gateway.submitTransaction).not.toHaveBeenCalled();
+  });
+
 });

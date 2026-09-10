@@ -11,6 +11,9 @@ export class InMemoryPendingSubmissionRepository implements PendingSubmissionRep
     if (this.records.has(record.id)) {
       throw new Error('pending-submission-already-exists');
     }
+    if (this.findBlockingIntent(record.networkId, record.accountId, record.intentKey)) {
+      throw new Error('pending-submission-intent-blocked');
+    }
     this.records.set(record.id, record);
   }
 

@@ -151,6 +151,14 @@ describe('RealmPendingSubmissionRepository restart integration', () => {
 
       expect(reopened.findBlockingIntent(pending.networkId, pending.accountId, pending.intentKey)).toEqual(pending);
 
+      expect(() =>
+        reopened.create({
+          ...pending,
+          id: 'stellar-testnet:replacement-hash',
+          transactionHash: 'replacement-hash',
+        }),
+      ).toThrow('pending-submission-intent-blocked');
+
       const checkedAt = new Date('2026-09-10T00:02:00.000Z');
       reopened.markRejected(pending.networkId, pending.transactionHash, checkedAt, 'tx_bad_seq');
       expect(reopened.listUnresolved()).toEqual([]);

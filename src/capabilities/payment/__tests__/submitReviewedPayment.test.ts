@@ -143,6 +143,70 @@ describe('submitReviewedPayment', () => {
     );
   });
 
+  it('blocks the same economic intent before authorization while an earlier submission is unresolved', async () => {
+    const gateway = gatewayWith();
+    const sdk = sdkWith(true);
+    const {pending, input} = submitInput(gateway, sdk);
+    pending.repository.findBlockingIntent.mockReturnValue({
+      id: 'stellar-testnet:existing-hash',
+      networkId: review.networkId,
+      accountId: 'account-1',
+      sourceAddress: review.source,
+      transactionHash: 'existing-hash',
+      intentKind: 'payment',
+      intentKey: '["payment","payment","GDESTINATION","native","1.0000000","memo:none",""]',
+      state: 'uncertain',
+      createdAt: new Date('2026-09-10T01:00:00.000Z'),
+      updatedAt: new Date('2026-09-10T01:00:00.000Z'),
+    });
+
+    await expect(submitReviewedPayment(input)).resolves.toEqual({
+      status: 'uncertain',
+      transactionHash: 'existing-hash',
+      reason: 'pending-reconciliation',
+    });
+
+    expect(pending.repository.findBlockingIntent).toHaveBeenCalledWith(
+      review.networkId,
+      'account-1',
+      '["payment","payment","GDESTINATION","native","1.0000000","memo:none",""]',
+    );
+    expect(gateway.loadAccountAuthorization).not.toHaveBeenCalled();
+    expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
+    expect(gateway.submitTransaction).not.toHaveBeenCalled();
+  });
+
+  it('does not broadcast when another matching intent wins the persistence race', async () => {
+    const gateway = gatewayWith();
+    const sdk = sdkWith(true);
+    const {pending, input} = submitInput(gateway, sdk);
+    const concurrent = {
+      id: 'stellar-testnet:concurrent-hash',
+      networkId: review.networkId,
+      accountId: 'account-1',
+      sourceAddress: review.source,
+      transactionHash: 'concurrent-hash',
+      intentKind: 'payment',
+      intentKey: '["payment","payment","GDESTINATION","native","1.0000000","memo:none",""]',
+      state: 'submitting' as const,
+      createdAt: new Date('2026-09-10T01:00:00.000Z'),
+      updatedAt: new Date('2026-09-10T01:00:00.000Z'),
+    };
+    pending.repository.findBlockingIntent
+      .mockReturnValueOnce(undefined)
+      .mockReturnValueOnce(concurrent);
+    pending.repository.create.mockImplementation(() => {
+      throw new Error('pending-submission-intent-blocked');
+    });
+
+    await expect(submitReviewedPayment(input)).resolves.toEqual({
+      status: 'uncertain',
+      transactionHash: 'concurrent-hash',
+      reason: 'pending-reconciliation',
+    });
+    expect(gateway.submitTransaction).not.toHaveBeenCalled();
+  });
+
   it('blocks before authentication when ledger signer weight is insufficient', async () => {
     const gateway = gatewayWith({ weight: 1, threshold: 2 });
     const sdk = sdkWith(true);

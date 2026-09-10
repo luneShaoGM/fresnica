@@ -28,7 +28,11 @@ export type SubmitReviewedTransactionResult =
       availableWeight: number;
     }
   | { status: 'rejected'; transactionHash: string; resultCode?: string }
-  | { status: 'uncertain'; transactionHash: string };
+  | {
+      status: 'uncertain';
+      transactionHash: string;
+      reason?: 'pending-reconciliation';
+    };
 
 export async function submitReviewedTransaction(input: {
   gateway: TransactionGatewayPort;
@@ -44,6 +48,19 @@ export async function submitReviewedTransaction(input: {
   networkPassphrase: string;
 }): Promise<SubmitReviewedTransactionResult> {
   assertReviewedTransactionFresh(input.review, Math.floor(Date.now() / 1000));
+
+  const blockingSubmission = input.recovery.repository.findBlockingIntent(
+    input.review.networkId,
+    input.accountId,
+    input.intent.key,
+  );
+  if (blockingSubmission) {
+    return {
+      status: 'uncertain',
+      transactionHash: blockingSubmission.transactionHash,
+      reason: 'pending-reconciliation',
+    };
+  }
 
   const authorization = await input.gateway.loadAccountAuthorization(input.review.source);
   const resolution = resolveLocalSigner(authorization, [input.signer.publicKey], input.thresholdLevel);
@@ -72,18 +89,34 @@ export async function submitReviewedTransaction(input: {
 
   const transactionHash = input.gateway.transactionHash(signing.signedTransactionXdrBase64);
   const startedAt = input.recovery.now();
-  input.recovery.repository.create({
-    id: pendingSubmissionId(input.review.networkId, transactionHash),
-    networkId: input.review.networkId,
-    accountId: input.accountId,
-    sourceAddress: input.review.source,
-    transactionHash,
-    intentKind: input.intent.kind,
-    intentKey: input.intent.key,
-    state: 'submitting',
-    createdAt: startedAt,
-    updatedAt: startedAt,
-  });
+  try {
+    input.recovery.repository.create({
+      id: pendingSubmissionId(input.review.networkId, transactionHash),
+      networkId: input.review.networkId,
+      accountId: input.accountId,
+      sourceAddress: input.review.source,
+      transactionHash,
+      intentKind: input.intent.kind,
+      intentKey: input.intent.key,
+      state: 'submitting',
+      createdAt: startedAt,
+      updatedAt: startedAt,
+    });
+  } catch (error) {
+    const concurrentSubmission = input.recovery.repository.findBlockingIntent(
+      input.review.networkId,
+      input.accountId,
+      input.intent.key,
+    );
+    if (concurrentSubmission) {
+      return {
+        status: 'uncertain',
+        transactionHash: concurrentSubmission.transactionHash,
+        reason: 'pending-reconciliation',
+      };
+    }
+    throw error;
+  }
 
   const submission = await input.gateway.submitTransaction(signing.signedTransactionXdrBase64);
   const completedAt = input.recovery.now();

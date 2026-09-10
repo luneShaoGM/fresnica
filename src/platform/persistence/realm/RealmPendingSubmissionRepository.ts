@@ -17,6 +17,9 @@ export class RealmPendingSubmissionRepository implements PendingSubmissionReposi
       if (this.realm.objectForPrimaryKey(PENDING_SUBMISSION_ENTITY, record.id)) {
         throw new Error('pending-submission-already-exists');
       }
+      if (this.findBlockingIntent(record.networkId, record.accountId, record.intentKey)) {
+        throw new Error('pending-submission-intent-blocked');
+      }
       this.realm.create(PENDING_SUBMISSION_ENTITY, this.toPersisted(record));
     });
   }

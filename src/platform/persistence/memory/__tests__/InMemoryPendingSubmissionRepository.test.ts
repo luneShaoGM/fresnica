@@ -37,6 +37,22 @@ describe('InMemoryPendingSubmissionRepository', () => {
     });
   });
 
+  it('rejects a different transaction hash while the same economic intent is unresolved', () => {
+    const repository = new InMemoryPendingSubmissionRepository();
+    const first = record();
+    repository.create(first);
+
+    const replacement = {
+      ...first,
+      id: 'stellar-testnet:replacement-hash',
+      transactionHash: 'replacement-hash',
+    };
+    expect(() => repository.create(replacement)).toThrow('pending-submission-intent-blocked');
+
+    repository.markConfirmed(first.networkId, first.transactionHash, createdAt, 77);
+    expect(() => repository.create(replacement)).not.toThrow();
+  });
+
   it('rejects duplicate records and keeps unknown submissions blocking', () => {
     const repository = new InMemoryPendingSubmissionRepository();
     const pending = record();
