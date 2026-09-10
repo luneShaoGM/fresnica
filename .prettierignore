@@ -1,0 +1,7 @@
+android/
+ios/
+node_modules/
+origin/
+vendor/
+coverage/
+package-lock.json

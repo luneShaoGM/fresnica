@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "exceptions": [
+    {
+      "path": "ios/.xcode.env",
+      "gitBlob": "3d5782c71568d32eec2fe71b034efcde053305f9",
+      "sha256": "3c02dca07775b31ce4e77dfb3bb660d7c6e577474d65a6216f1ea9bef54e1ca6",
+      "source": {
+        "repository": "react-native-community/template",
+        "version": "0.87.0",
+        "path": "template/ios/_xcode.env",
+        "gitBlob": "3d5782c71568d32eec2fe71b034efcde053305f9",
+        "license": "MIT",
+        "licensePath": "LICENSE",
+        "licenseGitBlob": "7042b1f8c786a8881bd37d6d2ce923d43cec4506"
+      },
+      "reason": "Exact React Native Community 0.87.0 template environment file; exception is bound to this path and content only."
+    }
+  ]
+}

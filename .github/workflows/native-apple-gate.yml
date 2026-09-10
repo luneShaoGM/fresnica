@@ -3,7 +3,8 @@ name: Native Apple Gate
 on:
   push:
     branches:
-      - work/rn087-native-shell
+      - main
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -16,17 +17,18 @@ jobs:
       - name: Checkout Fresnica Mobile
         uses: actions/checkout@v4
 
-      - name: Checkout Fresnica SDK source
+      - name: Checkout Fresnica adapter source
         uses: actions/checkout@v4
         with:
           repository: manran/fresnica
-          ref: native-sdk-v0.2.1
+          ref: b1d0427ec5c5398c3bb2e01b886e4e3084e46a73
           path: .fresnica-upstream
 
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 22.13.0
+          cache: npm
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -35,35 +37,28 @@ jobs:
           bundler-cache: true
 
       - name: Install JavaScript dependencies
-        run: npm install
+        run: npm ci
 
       - name: Verify TypeScript and unit tests
         run: npm run check
 
-      - name: Download and verify Fresnica Native SDK 0.2.1
+      - name: Download and verify Fresnica Native SDK 0.3.0
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p vendor/fresnica/native vendor/fresnica/adapter/react-native
-          curl --fail --location --retry 3 \
-            --output "$RUNNER_TEMP/FresnicaSDK-0.2.1-apple.zip" \
-            https://github.com/manran/fresnica/releases/download/native-sdk-v0.2.1/FresnicaSDK-0.2.1-apple.zip
-          curl --fail --location --retry 3 \
-            --output "$RUNNER_TEMP/SHA256SUMS" \
-            https://github.com/manran/fresnica/releases/download/native-sdk-v0.2.1/SHA256SUMS
-          expected="$(grep 'FresnicaSDK-0.2.1-apple.zip' "$RUNNER_TEMP/SHA256SUMS" | awk '{print $1}')"
-          test "$expected" = "dccb756ca034a42df760114031ea2abf7b0e95cabebda6fe536c29f1dcd5a3d2"
-          actual="$(shasum -a 256 "$RUNNER_TEMP/FresnicaSDK-0.2.1-apple.zip" | awk '{print $1}')"
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/FresnicaSDK-0.3.0-apple.zip" https://github.com/manran/fresnica/releases/download/native-sdk-v0.3.0/FresnicaSDK-0.3.0-apple.zip
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/SHA256SUMS" https://github.com/manran/fresnica/releases/download/native-sdk-v0.3.0/SHA256SUMS
+          expected="$(grep 'FresnicaSDK-0.3.0-apple.zip' "$RUNNER_TEMP/SHA256SUMS" | awk '{print $1}')"
+          test "$expected" = "50759efe4bb98243d13ddd735f69631574f9a40c3bc917596cbc7c69992b6464"
+          actual="$(shasum -a 256 "$RUNNER_TEMP/FresnicaSDK-0.3.0-apple.zip" | awk '{print $1}')"
           test "$actual" = "$expected"
-
           extract_dir="$RUNNER_TEMP/fresnica-apple-sdk"
-          rm -rf "$extract_dir"
-          mkdir -p "$extract_dir"
-          unzip -q "$RUNNER_TEMP/FresnicaSDK-0.2.1-apple.zip" -d "$extract_dir"
+          rm -rf "$extract_dir" && mkdir -p "$extract_dir"
+          unzip -q "$RUNNER_TEMP/FresnicaSDK-0.3.0-apple.zip" -d "$extract_dir"
           sdk="$(find "$extract_dir" -type d -name FresnicaSDK.xcframework -print -quit)"
           ffi="$(find "$extract_dir" -type d -name FresnicaSDKFFI.xcframework -print -quit)"
-          test -n "$sdk"
-          test -n "$ffi"
+          test -n "$sdk" && test -n "$ffi"
           rm -rf vendor/fresnica/native/FresnicaSDK.xcframework vendor/fresnica/native/FresnicaSDKFFI.xcframework
           cp -R "$sdk" vendor/fresnica/native/FresnicaSDK.xcframework
           cp -R "$ffi" vendor/fresnica/native/FresnicaSDKFFI.xcframework
@@ -73,6 +68,14 @@ jobs:
         env:
           FRESNICA_ADAPTER_BOOTSTRAP: '1'
         run: bundle exec pod install
+
+      - name: Verify Apple module contract alignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node -p "require('./.fresnica-upstream/adapters/react-native/package.json').version")" = "0.3.0"
+          grep -F '@interface RCT_EXTERN_REMAP_MODULE(FresnicaCore, FresnicaCoreModule, NSObject)' \
+            .fresnica-upstream/adapters/react-native/apple/FresnicaCoreModule.m
 
       - name: Build canonical React Native Apple adapter
         shell: bash
@@ -90,12 +93,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node .fresnica-upstream/adapters/react-native/tooling/adapter-manifest.mjs check \
-            --project "$GITHUB_WORKSPACE" \
-            --manifest "$GITHUB_WORKSPACE/vendor/fresnica/adapter/react-native/adapter-manifest.json"
-          bash .fresnica-upstream/adapters/react-native/apple/validate-consumer.sh \
-            "$GITHUB_WORKSPACE" \
-            "$GITHUB_WORKSPACE/vendor/fresnica/native"
+          node .fresnica-upstream/adapters/react-native/tooling/adapter-manifest.mjs check --project "$GITHUB_WORKSPACE" --manifest "$GITHUB_WORKSPACE/vendor/fresnica/adapter/react-native/adapter-manifest.json"
+          bash .fresnica-upstream/adapters/react-native/apple/validate-consumer.sh "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/vendor/fresnica/native"
 
       - name: Link Fresnica native pod
         working-directory: ios
@@ -105,17 +104,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          xcodebuild \
-            -workspace ios/Fresnica.xcworkspace \
-            -scheme Fresnica \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath "$RUNNER_TEMP/fresnica-derived" \
-            CODE_SIGNING_ALLOWED=NO \
-            build
+          xcodebuild -workspace ios/Fresnica.xcworkspace -scheme Fresnica -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/fresnica-derived" CODE_SIGNING_ALLOWED=NO build
 
-      - name: Run Apple FresnicaCore parseAccount smoke
+      - name: Run Apple FresnicaCore and Realm runtime smoke
         shell: bash
         run: |
           set -euo pipefail
@@ -123,25 +114,25 @@ jobs:
           test -d "$app"
           udid="$(xcrun simctl list devices available | grep -E 'iPhone .*\([0-9A-Fa-f-]{36}\)' | head -1 | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/')"
           test -n "$udid"
+          printf '%s\n' "$udid" > "$RUNNER_TEMP/apple-simulator-udid"
           xcrun simctl boot "$udid" || true
           xcrun simctl bootstatus "$udid" -b
-
           cp scripts/native-runtime-smoke-entry.js index.js
-          FRESNICA_SMOKE_RESULT="$RUNNER_TEMP/apple-native-runtime-smoke.json" node scripts/native-runtime-smoke-server.mjs > "$RUNNER_TEMP/apple-smoke-server.log" 2>&1 &
-          smoke_server_pid=$!
           npx react-native start --port 8081 > "$RUNNER_TEMP/apple-metro.log" 2>&1 &
           metro_pid=$!
-          trap 'kill "$metro_pid" "$smoke_server_pid" 2>/dev/null || true' EXIT
+          trap 'kill "$metro_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 60); do
-            if curl --silent --fail http://127.0.0.1:8081/status | grep -q 'packager-status:running'; then
-              break
-            fi
+            if curl --silent --fail http://127.0.0.1:8081/status | grep -q 'packager-status:running'; then break; fi
             sleep 1
           done
           curl --fail http://127.0.0.1:8081/status | grep -q 'packager-status:running'
           xcrun simctl install "$udid" "$app"
           xcrun simctl terminate "$udid" com.fresnica.mobile || true
-          xcrun simctl launch "$udid" com.fresnica.mobile
+          FRESNICA_SMOKE_RESULT="$RUNNER_TEMP/apple-native-runtime-smoke.json" node scripts/native-runtime-smoke-server.mjs > "$RUNNER_TEMP/apple-smoke-server.log" 2>&1 &
+          smoke_server_pid=$!
+          trap 'kill "$metro_pid" "$smoke_server_pid" 2>/dev/null || true' EXIT
+          xcrun simctl launch "$udid" com.fresnica.mobile > "$RUNNER_TEMP/apple-simctl-launch.log" 2>&1
+          cat "$RUNNER_TEMP/apple-simctl-launch.log"
           set +e
           wait "$smoke_server_pid"
           smoke_status=$?
@@ -153,9 +144,80 @@ jobs:
             xcrun simctl spawn "$udid" log show --last 5m --style compact --predicate 'process == "Fresnica"' || true
             exit "$smoke_status"
           fi
-          grep -F 'FRESNICA_PARSE_ACCOUNT_SMOKE_OK' "$RUNNER_TEMP/apple-native-runtime-smoke.json"
+          node - "$RUNNER_TEMP/apple-native-runtime-smoke.json" <<'NODE'
+          const fs = require('node:fs');
+          const resultPath = process.argv[2];
+          const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+          if (result.marker !== 'FRESNICA_PARSE_ACCOUNT_SMOKE_OK') {
+            throw new Error(`Unexpected Apple runtime smoke marker: ${String(result.marker)}`);
+          }
+          const body = JSON.parse(result.body);
+          if (body.realm !== 'ok') {
+            throw new Error(`Realm runtime smoke failed: ${JSON.stringify(body)}`);
+          }
+          if (
+            body.kind !== 'classic' ||
+            body.address !== 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF' ||
+            body.publicKey !== 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF' ||
+            body.invalidCode !== 'invalid-input'
+          ) {
+            throw new Error(`FresnicaCore runtime smoke returned unexpected data: ${JSON.stringify(body)}`);
+          }
+          NODE
+
+      - name: Collect Apple runtime smoke diagnostics
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          diagnostics="$RUNNER_TEMP/apple-runtime-diagnostics"
+          mkdir -p "$diagnostics"
+
+          for file in \
+            apple-native-runtime-smoke.json \
+            apple-smoke-server.log \
+            apple-metro.log \
+            apple-simctl-launch.log \
+            apple-simulator-udid; do
+            if [ -f "$RUNNER_TEMP/$file" ]; then
+              cp "$RUNNER_TEMP/$file" "$diagnostics/$file"
+            fi
+          done
+
+          app="$RUNNER_TEMP/fresnica-derived/Build/Products/Debug-iphonesimulator/Fresnica.app"
+          if [ -d "$app" ]; then
+            {
+              echo "== App binary =="
+              file "$app/Fresnica"
+              echo
+              echo "== App binary dynamic dependencies =="
+              otool -L "$app/Fresnica"
+              echo
+              echo "== Embedded frameworks =="
+              find "$app/Frameworks" -maxdepth 2 -type f -print 2>/dev/null | sort
+            } > "$diagnostics/app-linkage.txt" 2>&1
+          fi
+
+          if [ -s "$RUNNER_TEMP/apple-simulator-udid" ]; then
+            udid="$(cat "$RUNNER_TEMP/apple-simulator-udid")"
+            xcrun simctl listapps "$udid" > "$diagnostics/simulator-listapps.txt" 2>&1
+            xcrun simctl get_app_container "$udid" com.fresnica.mobile app > "$diagnostics/app-container.txt" 2>&1
+            xcrun simctl spawn "$udid" log show --last 10m --style compact \
+              --predicate 'process == "Fresnica" OR eventMessage CONTAINS[c] "com.fresnica.mobile"' \
+              > "$diagnostics/simulator-runtime.log" 2>&1
+          fi
+
+          if [ -d "$HOME/Library/Logs/DiagnosticReports" ]; then
+            find "$HOME/Library/Logs/DiagnosticReports" -type f -mmin -15 \
+              \( -name 'Fresnica*.crash' -o -name 'Fresnica*.ips' \) \
+              -exec cp '{}' "$diagnostics/" \;
+          fi
+
+          echo "== Persisted Apple runtime diagnostics =="
+          find "$diagnostics" -maxdepth 1 -type f -print | sort
 
       - name: Upload generated Apple native artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: fresnica-apple-native-integration
@@ -166,3 +228,4 @@ jobs:
             vendor/fresnica/adapter/react-native/FresnicaRNAdapter.xcframework
             vendor/fresnica/adapter/react-native/adapter-manifest.json
             ${{ runner.temp }}/apple-native-runtime-smoke.json
+            ${{ runner.temp }}/apple-runtime-diagnostics

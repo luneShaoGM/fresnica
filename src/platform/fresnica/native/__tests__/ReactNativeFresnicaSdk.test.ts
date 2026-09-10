@@ -19,6 +19,8 @@ function createNativeModule(): jest.Mocked<NativeFresnicaModule> {
     hasSignerSystemAuth: jest.fn(),
     removeSignerSystemAuth: jest.fn(),
     removeSystemAuthDomain: jest.fn(),
+    signMessageWithSystemAuth: jest.fn(),
+    signMessageWithPasscode: jest.fn(),
     signWithSystemAuth: jest.fn(),
     signWithPasscode: jest.fn(),
   };
@@ -38,7 +40,7 @@ describe('ReactNativeFresnicaSdk', () => {
       mnemonicPassphrase: 'optional passphrase',
       index: 7,
       language: 'english',
-      appPasscode: '123456',
+      appPassphrase: '123456',
       expectedSignerPublicKey: 'GSIGNER',
     });
 
@@ -52,10 +54,34 @@ describe('ReactNativeFresnicaSdk', () => {
     );
   });
 
-  it('keeps system-auth signing separate from passcode signing', async () => {
+  it('maps SEP-53 message signing without normalizing the message', async () => {
+    const native = createNativeModule();
+    native.signMessageWithSystemAuth.mockResolvedValue('signature-system-auth');
+    native.signMessageWithPasscode.mockResolvedValue('signature-passphrase');
+    const sdk = new ReactNativeFresnicaSdk(native);
+    const message = 'domain.example wants access\nnonce=abc  ';
+
+    await sdk.signMessageWithSystemAuth({
+      envelopeJson: '{"v":1}',
+      expectedSignerPublicKey: 'GSIGNER',
+      message,
+      reason: 'Sign dApp challenge',
+    });
+    await sdk.signMessageWithPassphrase({
+      envelopeJson: '{"v":1}',
+      appPassphrase: '123456',
+      expectedSignerPublicKey: 'GSIGNER',
+      message,
+    });
+
+    expect(native.signMessageWithSystemAuth).toHaveBeenCalledWith('{"v":1}', 'GSIGNER', message, 'Sign dApp challenge');
+    expect(native.signMessageWithPasscode).toHaveBeenCalledWith('{"v":1}', '123456', 'GSIGNER', message);
+  });
+
+  it('keeps system-auth signing separate from passphrase signing', async () => {
     const native = createNativeModule();
     native.signWithSystemAuth.mockResolvedValue('signed-system-auth');
-    native.signWithPasscode.mockResolvedValue('signed-passcode');
+    native.signWithPasscode.mockResolvedValue('signed-passphrase');
     const sdk = new ReactNativeFresnicaSdk(native);
 
     await sdk.signWithSystemAuth({
@@ -66,9 +92,9 @@ describe('ReactNativeFresnicaSdk', () => {
       reason: 'Confirm transaction',
     });
 
-    await sdk.signWithPasscode({
+    await sdk.signWithPassphrase({
       envelopeJson: '{"v":1}',
-      appPasscode: '123456',
+      appPassphrase: '123456',
       expectedSignerPublicKey: 'GSIGNER',
       transactionXdrBase64: 'AAAA',
       networkPassphrase: 'Test SDF Network ; September 2015',
@@ -90,22 +116,18 @@ describe('ReactNativeFresnicaSdk', () => {
     );
   });
 
-  it('uses reveal only for explicit fresh-passcode export', async () => {
+  it('uses reveal only for explicit fresh-passphrase export', async () => {
     const native = createNativeModule();
     native.reveal.mockResolvedValue({ kind: 'secret', secret: 'SSECRET' });
     const sdk = new ReactNativeFresnicaSdk(native);
 
     const result = await sdk.reveal({
       envelopeJson: '{"v":1}',
-      freshAppPasscode: '654321',
+      freshAppPassphrase: '654321',
       expectedSignerPublicKey: 'GSIGNER',
     });
 
-    expect(native.reveal).toHaveBeenCalledWith(
-      '{"v":1}',
-      '654321',
-      'GSIGNER',
-    );
+    expect(native.reveal).toHaveBeenCalledWith('{"v":1}', '654321', 'GSIGNER');
     expect(result).toEqual({ kind: 'secret', secret: 'SSECRET' });
   });
 

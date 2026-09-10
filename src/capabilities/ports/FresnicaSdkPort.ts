@@ -13,11 +13,13 @@ import type {
   ReprotectInput,
   RevealedSigningMaterial,
   RevealInput,
-  SignWithPasscodeInput,
+  SignMessageWithPassphraseInput,
+  SignMessageWithSystemAuthInput,
+  SignWithPassphraseInput,
   SignWithSystemAuthInput,
-} from './types';
+} from './fresnicaTypes';
 
-export interface FresnicaSdk {
+export interface FresnicaSdkPort {
   parseAccount(address: string): Promise<AccountIdentity>;
   protectSecret(input: ProtectSecretInput): Promise<ProtectedSigner>;
   protectMnemonic(input: ProtectMnemonicInput): Promise<ProtectedSigner>;
@@ -25,9 +27,7 @@ export interface FresnicaSdk {
   deriveMnemonicSigner(input: DeriveMnemonicSignerInput): Promise<ProtectedSigner>;
   reprotect(input: ReprotectInput): Promise<ProtectedSigner>;
   reveal(input: RevealInput): Promise<RevealedSigningMaterial>;
-  prepareEd25519Signing(
-    input: PrepareEd25519SigningInput,
-  ): Promise<Ed25519SigningRequest>;
+  prepareEd25519Signing(input: PrepareEd25519SigningInput): Promise<Ed25519SigningRequest>;
   applyEd25519Signature(input: ApplyEd25519SignatureInput): Promise<string>;
   canUseSystemAuth(): Promise<boolean>;
   hasSystemAuthDomain(): Promise<boolean>;
@@ -36,6 +36,8 @@ export interface FresnicaSdk {
   hasSignerSystemAuth(expectedSignerPublicKey: string): Promise<boolean>;
   removeSignerSystemAuth(expectedSignerPublicKey: string): Promise<boolean>;
   removeSystemAuthDomain(): Promise<boolean>;
+  signMessageWithSystemAuth(input: SignMessageWithSystemAuthInput): Promise<string>;
+  signMessageWithPassphrase(input: SignMessageWithPassphraseInput): Promise<string>;
   signWithSystemAuth(input: SignWithSystemAuthInput): Promise<string>;
-  signWithPasscode(input: SignWithPasscodeInput): Promise<string>;
+  signWithPassphrase(input: SignWithPassphraseInput): Promise<string>;
 }

@@ -7,13 +7,32 @@
     "ios": "react-native run-ios",
     "start": "react-native start",
     "test": "jest --runInBand",
+    "test:realm": "jest --runInBand --config jest.realm.config.js",
+    "smoke:ios": "bash scripts/run-native-runtime-smoke.sh ios",
+    "smoke:android": "bash scripts/run-native-runtime-smoke.sh android",
+    "smoke:transaction-recovery:android": "bash scripts/run-transaction-recovery-smoke.sh --rebuild",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm test"
+    "format": "prettier --write eslint.config.js babel.config.js jest.config.js metro.config.js config/moduleAliases.cjs scripts/check-architecture.mjs scripts/check-module-aliases.mjs scripts/check-donor-collisions.mjs scripts/update-donor-blob-index.mjs",
+    "format:check": "prettier --check eslint.config.js babel.config.js jest.config.js metro.config.js config/moduleAliases.cjs scripts/check-architecture.mjs scripts/check-module-aliases.mjs scripts/check-donor-collisions.mjs scripts/update-donor-blob-index.mjs",
+    "lint": "eslint src eslint.config.js babel.config.js jest.config.js metro.config.js config/moduleAliases.cjs scripts/check-architecture.mjs scripts/check-module-aliases.mjs scripts/check-donor-collisions.mjs scripts/update-donor-blob-index.mjs",
+    "alias:check": "node scripts/check-module-aliases.mjs",
+    "architecture:check": "node scripts/check-architecture.mjs",
+    "locale:check": "node scripts/check-locales.mjs",
+    "check": "npm run typecheck && npm run format:check && npm run lint && npm run alias:check && npm run architecture:check && npm run provenance:check && npm run locale:check && npm test",
+    "provenance:check": "node scripts/check-donor-collisions.mjs",
+    "provenance:index": "node scripts/update-donor-blob-index.mjs"
   },
   "dependencies": {
+    "@react-native-community/netinfo": "12.0.1",
+    "@react-navigation/bottom-tabs": "7.18.18",
+    "@react-navigation/native": "7.3.18",
+    "@react-navigation/native-stack": "7.18.10",
     "@stellar/stellar-sdk": "17.0.1",
     "react": "19.2.3",
-    "react-native": "0.87.0"
+    "react-native": "0.87.0",
+    "react-native-safe-area-context": "5.9.1",
+    "react-native-screens": "4.27.0",
+    "realm": "20.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -23,12 +42,15 @@
     "@react-native-community/cli-platform-android": "20.2.0",
     "@react-native-community/cli-platform-ios": "20.2.0",
     "@react-native/babel-preset": "0.87.0",
+    "@react-native/eslint-config": "^0.87.0",
     "@react-native/jest-preset": "0.87.0",
     "@react-native/metro-config": "0.87.0",
     "@react-native/typescript-config": "0.87.0",
     "@types/jest": "^29.5.13",
     "@types/react": "^19.2.0",
+    "eslint": "^9.39.5",
     "jest": "^29.7.0",
+    "prettier": "^3.9.6",
     "typescript": "^6.0.3"
   },
   "engines": {

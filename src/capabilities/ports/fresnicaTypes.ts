@@ -18,7 +18,7 @@ export type GeneratedSigner = {
 
 export type ProtectSecretInput = {
   secret: string;
-  appPasscode: string;
+  appPassphrase: string;
   expectedSignerPublicKey?: string;
 };
 
@@ -27,7 +27,7 @@ export type ProtectMnemonicInput = {
   mnemonicPassphrase: string;
   index: number;
   language?: string;
-  appPasscode: string;
+  appPassphrase: string;
   expectedSignerPublicKey?: string;
 };
 
@@ -36,26 +36,26 @@ export type GenerateMnemonicInput = {
   strength: number;
   mnemonicPassphrase: string;
   index: number;
-  appPasscode: string;
+  appPassphrase: string;
 };
 
 export type DeriveMnemonicSignerInput = {
   sourceEnvelopeJson: string;
-  appPasscode: string;
+  appPassphrase: string;
   expectedSourceSignerPublicKey: string;
   index: number;
 };
 
 export type ReprotectInput = {
   envelopeJson: string;
-  currentPasscode: string;
-  newPasscode: string;
+  currentPassphrase: string;
+  newPassphrase: string;
   expectedSignerPublicKey: string;
 };
 
 export type RevealInput = {
   envelopeJson: string;
-  freshAppPasscode: string;
+  freshAppPassphrase: string;
   expectedSignerPublicKey: string;
 };
 
@@ -92,8 +92,22 @@ export type ApplyEd25519SignatureInput = {
 
 export type RegisterSignerSystemAuthInput = {
   envelopeJson: string;
-  appPasscode: string;
+  appPassphrase: string;
   expectedSignerPublicKey: string;
+};
+
+export type SignMessageWithSystemAuthInput = {
+  envelopeJson: string;
+  expectedSignerPublicKey: string;
+  message: string;
+  reason: string;
+};
+
+export type SignMessageWithPassphraseInput = {
+  envelopeJson: string;
+  appPassphrase: string;
+  expectedSignerPublicKey: string;
+  message: string;
 };
 
 export type SignWithSystemAuthInput = {
@@ -104,9 +118,9 @@ export type SignWithSystemAuthInput = {
   reason: string;
 };
 
-export type SignWithPasscodeInput = {
+export type SignWithPassphraseInput = {
   envelopeJson: string;
-  appPasscode: string;
+  appPassphrase: string;
   expectedSignerPublicKey: string;
   transactionXdrBase64: string;
   networkPassphrase: string;

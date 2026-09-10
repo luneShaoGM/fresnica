@@ -1,23 +1,26 @@
-import { APP_CONFIG } from '../../app/config/appConfig';
-import type { FresnicaSdk } from '../../platform/fresnica/FresnicaSdk';
+import type { FresnicaSdkPort } from '../ports/FresnicaSdkPort';
 import type { SignerRecord } from '../signer/types';
 import type { ReviewedTransaction } from '../transaction/ReviewedTransaction';
+
+export type SigningAuthorizationPolicy = 'routine' | 'passphrase-required';
 
 export type ReviewedTransactionSigningResult =
   | {
       status: 'signed';
-      authorization: 'system-auth' | 'passcode';
+      authorization: 'system-auth' | 'passphrase';
       signedTransactionXdrBase64: string;
     }
-  | { status: 'passcode-required' }
+  | { status: 'passphrase-required' }
   | { status: 'unsupported-signer' };
 
 export async function signReviewedTransaction(input: {
-  sdk: FresnicaSdk;
+  sdk: FresnicaSdkPort;
   review: ReviewedTransaction;
   signer: SignerRecord;
-  appPasscode?: string;
+  appPassphrase?: string;
   systemAuthReason?: string;
+  authorizationPolicy?: SigningAuthorizationPolicy;
+  networkPassphrase: string;
 }): Promise<ReviewedTransactionSigningResult> {
   const { sdk, review, signer } = input;
 
@@ -25,38 +28,41 @@ export async function signReviewedTransaction(input: {
     return { status: 'unsupported-signer' };
   }
 
-  const hasSystemAuth = await sdk.hasSignerSystemAuth(signer.publicKey);
-  if (hasSystemAuth) {
-    const signedTransactionXdrBase64 = await sdk.signWithSystemAuth({
-      envelopeJson: signer.envelopeJson,
-      expectedSignerPublicKey: signer.publicKey,
-      transactionXdrBase64: review.transactionXdrBase64,
-      networkPassphrase: APP_CONFIG.network.networkPassphrase,
-      reason: input.systemAuthReason ?? 'Confirm Fresnica transaction',
-    });
+  const authorizationPolicy = input.authorizationPolicy ?? 'routine';
+  if (authorizationPolicy === 'routine') {
+    const hasSystemAuth = await sdk.hasSignerSystemAuth(signer.publicKey);
+    if (hasSystemAuth) {
+      const signedTransactionXdrBase64 = await sdk.signWithSystemAuth({
+        envelopeJson: signer.envelopeJson,
+        expectedSignerPublicKey: signer.publicKey,
+        transactionXdrBase64: review.transactionXdrBase64,
+        networkPassphrase: input.networkPassphrase,
+        reason: input.systemAuthReason ?? 'Confirm Fresnica transaction',
+      });
 
-    return {
-      status: 'signed',
-      authorization: 'system-auth',
-      signedTransactionXdrBase64,
-    };
+      return {
+        status: 'signed',
+        authorization: 'system-auth',
+        signedTransactionXdrBase64,
+      };
+    }
   }
 
-  if (!input.appPasscode) {
-    return { status: 'passcode-required' };
+  if (!input.appPassphrase) {
+    return { status: 'passphrase-required' };
   }
 
-  const signedTransactionXdrBase64 = await sdk.signWithPasscode({
+  const signedTransactionXdrBase64 = await sdk.signWithPassphrase({
     envelopeJson: signer.envelopeJson,
-    appPasscode: input.appPasscode,
+    appPassphrase: input.appPassphrase,
     expectedSignerPublicKey: signer.publicKey,
     transactionXdrBase64: review.transactionXdrBase64,
-    networkPassphrase: APP_CONFIG.network.networkPassphrase,
+    networkPassphrase: input.networkPassphrase,
   });
 
   return {
     status: 'signed',
-    authorization: 'passcode',
+    authorization: 'passphrase',
     signedTransactionXdrBase64,
   };
 }

@@ -30,7 +30,7 @@ describe('loadNativeFresnicaModule', () => {
   });
 
   it('fails explicitly when a required bridge method is missing', () => {
-    const { signWithSystemAuth: _missing, ...incompleteModule } = validModule;
+    const incompleteModule = { ...validModule, signWithSystemAuth: undefined };
 
     expect(() => loadNativeFresnicaModule({ FresnicaCore: incompleteModule })).toThrow(
       'FresnicaCore native module is incompatible: missing signWithSystemAuth',
