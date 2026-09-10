@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useSyncExternalStore} from 'react';
 import {useIsFocused} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
@@ -32,6 +32,11 @@ export function HomeStackNavigator({
 }: Props) {
   const selectedAccount = resolveVisibleAccount(accounts, selectedAccountId);
   const canSign = !services.onboarding.repository.isWatchOnly(selectedAccount.id);
+  const invalidationRevision = useSyncExternalStore(
+    services.ledgerReadInvalidation.subscribe,
+    () => services.ledgerReadInvalidation.getRevision(selectedAccount.networkId, selectedAccount.id),
+    () => 0,
+  );
 
   return (
     <Stack.Navigator initialRouteName="home" screenOptions={{headerShown: false}}>
@@ -52,6 +57,7 @@ export function HomeStackNavigator({
               navigation.navigate('asset-details', {accountId: selectedAccount.id, asset})
             }
             onManualRefresh={() => services.transactionRecovery.reconcile('manual-refresh')}
+            invalidationRevision={invalidationRevision}
           />
         )}
       </Stack.Screen>
@@ -63,6 +69,7 @@ export function HomeStackNavigator({
               account={account}
               asset={route.params.asset}
               dependencies={services.balance}
+              invalidationRevision={invalidationRevision}
               onBack={() => navigation.goBack()}
             />
           );

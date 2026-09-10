@@ -40,6 +40,7 @@ type Props = Readonly<{
   onManageAssets: () => void;
   onOpenAsset: (asset: BalanceAsset) => void;
   onManualRefresh: () => Promise<unknown>;
+  invalidationRevision: number;
   onSwap?: () => void;
   onRequest?: () => void;
   active: boolean;
@@ -67,6 +68,7 @@ export function HomeScreen({
   onManageAssets,
   onOpenAsset,
   onManualRefresh,
+  invalidationRevision,
   onSwap,
   onRequest,
   active,
@@ -114,7 +116,7 @@ export function HomeScreen({
     return () => {
       requestVersion.current += 1;
     };
-  }, [active, refreshBalances]);
+  }, [active, invalidationRevision, refreshBalances]);
 
   const viewModel = useMemo(
     () =>

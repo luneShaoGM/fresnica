@@ -45,6 +45,7 @@ describe('pending submission reconciliation', () => {
   it('records confirmed, rejected and still-unknown outcomes by exact hash', async () => {
     const records = [record('confirmed-hash'), record('rejected-hash'), record('unknown-hash')];
     const pending = repository(records);
+    const readInvalidation = {invalidate: jest.fn()};
     const gateway = {
       loadTransactionOutcome: jest
         .fn()
@@ -68,6 +69,7 @@ describe('pending submission reconciliation', () => {
       reconcilePendingSubmissions({
         gateway,
         repository: pending,
+        readInvalidation,
         networkId: 'stellar-testnet',
         now: () => checkedAt,
       }),
@@ -78,6 +80,12 @@ describe('pending submission reconciliation', () => {
     ]);
 
     expect(pending.listUnresolved).toHaveBeenCalledWith('stellar-testnet');
+    expect(readInvalidation.invalidate).toHaveBeenCalledTimes(3);
+    expect(readInvalidation.invalidate).toHaveBeenCalledWith({
+      networkId: 'stellar-testnet',
+      accountId: 'account-1',
+      transactionHash: 'unknown-hash',
+    });
     expect(pending.markConfirmed).toHaveBeenCalledWith('stellar-testnet', 'confirmed-hash', checkedAt, 77);
     expect(pending.markRejected).toHaveBeenCalledWith('stellar-testnet', 'rejected-hash', checkedAt, 'tx_bad_seq');
     expect(pending.markStillUnknown).toHaveBeenCalledWith('stellar-testnet', 'unknown-hash', checkedAt);
@@ -91,6 +99,7 @@ describe('pending submission reconciliation', () => {
       reconcilePendingSubmissions({
         gateway: { loadTransactionOutcome: jest.fn().mockRejectedValue(error) },
         repository: pending,
+        readInvalidation: {invalidate: jest.fn()},
         now: () => checkedAt,
       }),
     ).resolves.toEqual([{ transactionHash: 'offline-hash', status: 'check-failed', error }]);

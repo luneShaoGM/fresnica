@@ -2,6 +2,7 @@ import { NativeModules } from 'react-native';
 
 import { APP_CONFIG } from './config/appConfig';
 import { SessionLogger } from './diagnostics/SessionLogger';
+import {createLedgerReadInvalidationStore, type LedgerReadInvalidationStore} from './readModels/LedgerReadInvalidationStore';
 import {createTransactionReconciliationCoordinator, type TransactionReconciliationCoordinator} from './transaction/TransactionReconciliationCoordinator';
 import type { OnboardingProvisioningDependencies } from '../features/onboarding/runOnboardingProvisioning';
 import type { ApplicationSecurityDependencies } from '../capabilities/application-security/systemAuth';
@@ -28,6 +29,7 @@ export type AppServices = Readonly<{
   history: HistoryDependencies;
   trustline: TrustlineProductDependencies;
   transactionRecovery: TransactionReconciliationCoordinator;
+  ledgerReadInvalidation: LedgerReadInvalidationStore;
   localePreferences: RealmLocalePreferenceStore;
   close: () => void;
 }>;
@@ -42,8 +44,10 @@ export async function createAppServices(): Promise<AppServices> {
     const repository = new RealmAccountSignerRepository(realm);
     const localePreferences = new RealmLocalePreferenceStore(realm);
     const pendingSubmissions = new RealmPendingSubmissionRepository(realm);
+    const ledgerReadInvalidation = createLedgerReadInvalidationStore();
     const recovery = Object.freeze({
       repository: pendingSubmissions,
+      readInvalidation: ledgerReadInvalidation,
       now: () => new Date(),
     });
     const network = Object.freeze({
@@ -57,6 +61,7 @@ export async function createAppServices(): Promise<AppServices> {
     const transactionRecovery = createTransactionReconciliationCoordinator({
       gateway: stellarGateway,
       repository: pendingSubmissions,
+      readInvalidation: ledgerReadInvalidation,
       networkId: network.id,
       now: () => new Date(),
       onRunStart: reason =>
@@ -103,6 +108,7 @@ export async function createAppServices(): Promise<AppServices> {
         network,
       },
       transactionRecovery,
+      ledgerReadInvalidation,
       localePreferences,
       close: () => realm.close(),
     };

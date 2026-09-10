@@ -1,3 +1,5 @@
+import type {LedgerReadInvalidationPort} from './LedgerReadInvalidation';
+
 export type TransactionIntentIdentity = Readonly<{
   kind: string;
   key: string;
@@ -33,6 +35,7 @@ export interface PendingSubmissionRepository {
 
 export type PendingSubmissionDependencies = Readonly<{
   repository: PendingSubmissionRepository;
+  readInvalidation: LedgerReadInvalidationPort;
   now: () => Date;
 }>;
 export function createTransactionIntentIdentity(

@@ -43,6 +43,7 @@ describe('TransactionReconciliationCoordinator', () => {
     const coordinator = createTransactionReconciliationCoordinator({
       gateway,
       repository: pending,
+      readInvalidation: {invalidate: jest.fn()},
       networkId: 'stellar-testnet',
       onRunStart,
     });

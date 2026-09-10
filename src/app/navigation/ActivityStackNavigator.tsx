@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useSyncExternalStore} from 'react';
 import {useIsFocused} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
@@ -20,6 +20,11 @@ type Props = Readonly<{
 
 export function ActivityStackNavigator({accounts, selectedAccountId, services}: Props) {
   const account = resolveVisibleAccount(accounts, selectedAccountId);
+  const invalidationRevision = useSyncExternalStore(
+    services.ledgerReadInvalidation.subscribe,
+    () => services.ledgerReadInvalidation.getRevision(account.networkId, account.id),
+    () => 0,
+  );
 
   return (
     <Stack.Navigator initialRouteName="activity" screenOptions={{headerShown: false}}>
@@ -32,6 +37,7 @@ export function ActivityStackNavigator({accounts, selectedAccountId, services}: 
               navigation.navigate('operation-details', {accountId: account.id, operationId})
             }
             onManualRefresh={() => services.transactionRecovery.reconcile('manual-refresh')}
+            invalidationRevision={invalidationRevision}
           />
         )}
       </Stack.Screen>
@@ -41,6 +47,7 @@ export function ActivityStackNavigator({accounts, selectedAccountId, services}: 
             account={requireAccount(accounts, route.params.accountId)}
             dependencies={services.history}
             operationId={route.params.operationId}
+            invalidationRevision={invalidationRevision}
             onBack={() => navigation.goBack()}
           />
         )}

@@ -75,7 +75,11 @@ function recovery() {
     markRejected: jest.fn(),
     markStillUnknown: jest.fn(),
   } satisfies jest.Mocked<PendingSubmissionRepository>;
-  return {repository, now: () => new Date('2026-09-10T02:00:00.000Z')};
+  return {
+    repository,
+    readInvalidation: {invalidate: jest.fn()},
+    now: () => new Date('2026-09-10T02:00:00.000Z'),
+  };
 }
 
 describe('trustlineProductFlow', () => {

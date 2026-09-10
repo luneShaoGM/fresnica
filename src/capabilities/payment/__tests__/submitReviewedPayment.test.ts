@@ -69,10 +69,13 @@ function pendingRecovery() {
     markRejected: jest.fn(),
     markStillUnknown: jest.fn(),
   } satisfies jest.Mocked<PendingSubmissionRepository>;
+  const readInvalidation = {invalidate: jest.fn()};
   return {
     repository,
+    readInvalidation,
     recovery: {
       repository,
+      readInvalidation,
       now: jest.fn().mockReturnValue(new Date('2026-09-10T02:00:00.000Z')),
     },
   };
@@ -122,6 +125,11 @@ describe('submitReviewedPayment', () => {
       expect.objectContaining({ transactionXdrBase64: review.transactionXdrBase64 }),
     );
     expect(gateway.submitTransaction).toHaveBeenCalledWith('AAAA-system-signed');
+    expect(pending.readInvalidation.invalidate).toHaveBeenCalledWith({
+      networkId: review.networkId,
+      accountId: 'account-1',
+      transactionHash: 'tx-hash',
+    });
     expect(pending.repository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         networkId: review.networkId,
@@ -263,14 +271,14 @@ describe('submitReviewedPayment', () => {
       },
     });
     const sdk = sdkWith(true);
+    const {pending, input} = submitInput(gateway, sdk);
 
-    await expect(
-      submitReviewedPayment(submitInput(gateway, sdk).input),
-    ).resolves.toEqual({
+    await expect(submitReviewedPayment(input)).resolves.toEqual({
       status: 'rejected',
       transactionHash: 'deadbeef',
       resultCode: 'tx_bad_seq',
     });
+    expect(pending.readInvalidation.invalidate).not.toHaveBeenCalled();
   });
 
   it('surfaces uncertain submission without retrying', async () => {
@@ -278,13 +286,17 @@ describe('submitReviewedPayment', () => {
       submission: { status: 'uncertain', transactionHash: 'cafebabe' },
     });
     const sdk = sdkWith(true);
+    const {pending, input} = submitInput(gateway, sdk);
 
-    await expect(
-      submitReviewedPayment(submitInput(gateway, sdk).input),
-    ).resolves.toEqual({
+    await expect(submitReviewedPayment(input)).resolves.toEqual({
       status: 'uncertain',
       transactionHash: 'cafebabe',
     });
     expect(gateway.submitTransaction).toHaveBeenCalledTimes(1);
+    expect(pending.readInvalidation.invalidate).toHaveBeenCalledWith({
+      networkId: review.networkId,
+      accountId: 'account-1',
+      transactionHash: 'cafebabe',
+    });
   });
 });

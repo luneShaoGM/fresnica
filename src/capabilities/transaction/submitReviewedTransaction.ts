@@ -55,6 +55,7 @@ export async function submitReviewedTransaction(input: {
     input.intent.key,
   );
   if (blockingSubmission) {
+    invalidateLedgerReads(input, blockingSubmission.transactionHash);
     return {
       status: 'uncertain',
       transactionHash: blockingSubmission.transactionHash,
@@ -109,6 +110,7 @@ export async function submitReviewedTransaction(input: {
       input.intent.key,
     );
     if (concurrentSubmission) {
+      invalidateLedgerReads(input, concurrentSubmission.transactionHash);
       return {
         status: 'uncertain',
         transactionHash: concurrentSubmission.transactionHash,
@@ -123,9 +125,11 @@ export async function submitReviewedTransaction(input: {
 
   if (submission.status === 'accepted') {
     if (submission.hash !== transactionHash) {
+      invalidateLedgerReads(input, transactionHash);
       input.recovery.repository.markUncertain(input.review.networkId, transactionHash, completedAt);
       return {status: 'uncertain', transactionHash};
     }
+    invalidateLedgerReads(input, transactionHash);
     input.recovery.repository.markConfirmed(
       input.review.networkId,
       transactionHash,
@@ -141,6 +145,7 @@ export async function submitReviewedTransaction(input: {
   }
 
   if (submission.transactionHash !== transactionHash) {
+    invalidateLedgerReads(input, transactionHash);
     input.recovery.repository.markUncertain(input.review.networkId, transactionHash, completedAt);
     return {status: 'uncertain', transactionHash};
   }
@@ -155,6 +160,18 @@ export async function submitReviewedTransaction(input: {
     return submission;
   }
 
+  invalidateLedgerReads(input, transactionHash);
   input.recovery.repository.markUncertain(input.review.networkId, transactionHash, completedAt);
   return submission;
+}
+
+function invalidateLedgerReads(
+  input: Pick<Parameters<typeof submitReviewedTransaction>[0], 'accountId' | 'review' | 'recovery'>,
+  transactionHash: string,
+): void {
+  input.recovery.readInvalidation.invalidate({
+    networkId: input.review.networkId,
+    accountId: input.accountId,
+    transactionHash,
+  });
 }

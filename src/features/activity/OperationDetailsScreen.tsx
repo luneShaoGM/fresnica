@@ -26,10 +26,18 @@ type Props = Readonly<{
   operationId: string;
   dependencies: HistoryDependencies;
   active: boolean;
+  invalidationRevision: number;
   onBack: () => void;
 }>;
 
-export function OperationDetailsScreen({account, operationId, dependencies, active, onBack}: Props) {
+export function OperationDetailsScreen({
+  account,
+  operationId,
+  dependencies,
+  active,
+  invalidationRevision,
+  onBack,
+}: Props) {
   const {formatNumber, locale, t} = useLocalization();
   const styles = useThemedStyles(createStyles);
   const [state, setState] = useState<LoadState>({kind: 'loading'});
@@ -67,7 +75,7 @@ export function OperationDetailsScreen({account, operationId, dependencies, acti
     return () => {
       requestVersion.current += 1;
     };
-  }, [active, load]);
+  }, [active, invalidationRevision, load]);
 
   const dateFormatter = useMemo(
     () =>

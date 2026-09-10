@@ -18,10 +18,18 @@ type Props = Readonly<{
   asset: BalanceAsset;
   dependencies: BalanceDependencies;
   active: boolean;
+  invalidationRevision: number;
   onBack: () => void;
 }>;
 
-export function AssetDetailsScreen({account, asset, dependencies, active, onBack}: Props) {
+export function AssetDetailsScreen({
+  account,
+  asset,
+  dependencies,
+  active,
+  invalidationRevision,
+  onBack,
+}: Props) {
   const styles = useThemedStyles(createStyles);
   const [state, setState] = useState<LoadState>({kind: 'loading'});
   const requestVersion = useRef(0);
@@ -59,7 +67,7 @@ export function AssetDetailsScreen({account, asset, dependencies, active, onBack
     return () => {
       requestVersion.current += 1;
     };
-  }, [active, load]);
+  }, [active, invalidationRevision, load]);
 
   return (
     <Screen scrollable={false} contentInset="none">

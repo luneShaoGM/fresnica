@@ -48,6 +48,7 @@ type Props = Readonly<{
   active: boolean;
   onOpenOperation: (operationId: string) => void;
   onManualRefresh: () => Promise<unknown>;
+  invalidationRevision: number;
 }>;
 
 const FILTERS: readonly ActivityFilter[] = ['all', 'payments', 'accounts', 'other'];
@@ -58,7 +59,14 @@ const FILTER_LABEL_KEYS: Readonly<Record<ActivityFilter, string>> = {
   other: 'activity.filter.other',
 };
 
-export function ActivityScreen({account, dependencies, active, onOpenOperation, onManualRefresh}: Props) {
+export function ActivityScreen({
+  account,
+  dependencies,
+  active,
+  onOpenOperation,
+  onManualRefresh,
+  invalidationRevision,
+}: Props) {
   const {formatNumber, locale, t} = useLocalization();
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
@@ -130,7 +138,7 @@ export function ActivityScreen({account, dependencies, active, onOpenOperation, 
     return () => {
       requestVersion.current += 1;
     };
-  }, [active, loadInitial]);
+  }, [active, invalidationRevision, loadInitial]);
 
   const loadMore = useCallback(() => {
     if (

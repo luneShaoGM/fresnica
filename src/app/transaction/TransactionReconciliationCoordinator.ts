@@ -1,3 +1,4 @@
+import type {LedgerReadInvalidationPort} from '@capabilities/transaction/LedgerReadInvalidation';
 import type {PendingSubmissionRepository} from '@capabilities/transaction/pendingSubmission';
 import {
   reconcilePendingSubmissions,
@@ -20,6 +21,7 @@ export type TransactionReconciliationCoordinator = Readonly<{
 type Dependencies = Readonly<{
   gateway: Pick<TransactionGatewayPort, 'loadTransactionOutcome'>;
   repository: PendingSubmissionRepository;
+  readInvalidation: LedgerReadInvalidationPort;
   networkId: string;
   now?: () => Date;
   onRunStart?: (reason: TransactionReconciliationReason) => void;
@@ -40,6 +42,7 @@ export function createTransactionReconciliationCoordinator(
       const run = reconcilePendingSubmissions({
         gateway: dependencies.gateway,
         repository: dependencies.repository,
+        readInvalidation: dependencies.readInvalidation,
         networkId: dependencies.networkId,
         ...(dependencies.now === undefined ? {} : {now: dependencies.now}),
       });
