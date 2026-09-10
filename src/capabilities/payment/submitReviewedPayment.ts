@@ -1,88 +1,55 @@
-import type { FresnicaSdk } from '../../platform/fresnica/FresnicaSdk';
-import type { StellarGateway } from '../../platform/stellar/StellarGateway';
-import { resolveLocalSigner } from '../ledger-authorization/resolveLocalSigner';
+import type { FresnicaSdkPort } from '../ports/FresnicaSdkPort';
+import type { TransactionGatewayPort } from '../transaction/TransactionGateway';
+import {
+  createTransactionIntentIdentity,
+  type PendingSubmissionDependencies,
+} from '../transaction/pendingSubmission';
 import type { SignerRecord } from '../signer/types';
-import { signReviewedTransaction } from '../signing/signReviewedTransaction';
-import { assertReviewedTransactionFresh } from '../transaction/assertReviewedTransactionFresh';
+import {
+  submitReviewedTransaction,
+  type SubmitReviewedTransactionResult,
+} from '../transaction/submitReviewedTransaction';
 import type { PaymentReview } from './buildPaymentReview';
 
-export type SubmitReviewedPaymentResult =
-  | {
-      status: 'submitted';
-      authorization: 'system-auth' | 'passcode';
-      hash: string;
-      ledger?: number;
-    }
-  | { status: 'passcode-required' }
-  | { status: 'unsupported-signer' }
-  | {
-      status: 'authorization-blocked';
-      reason: 'watch-only' | 'insufficient-weight' | 'unsupported-multisig';
-      requiredWeight: number;
-      availableWeight: number;
-    }
-  | { status: 'rejected'; transactionHash: string; resultCode?: string }
-  | { status: 'uncertain'; transactionHash: string };
+export type SubmitReviewedPaymentResult = SubmitReviewedTransactionResult;
 
 export async function submitReviewedPayment(input: {
-  gateway: StellarGateway;
-  sdk: FresnicaSdk;
+  gateway: TransactionGatewayPort;
+  sdk: FresnicaSdkPort;
   review: PaymentReview;
+  accountId: string;
+  recovery: PendingSubmissionDependencies;
   signer: SignerRecord;
-  appPasscode?: string;
+  appPassphrase?: string;
   systemAuthReason?: string;
+  networkPassphrase: string;
 }): Promise<SubmitReviewedPaymentResult> {
-  assertReviewedTransactionFresh(
-    input.review,
-    Math.floor(Date.now() / 1000),
-  );
-
-  const authorization = await input.gateway.loadAccountAuthorization(
-    input.review.source,
-  );
-  const resolution = resolveLocalSigner(
-    authorization,
-    [input.signer.publicKey],
-    'medium',
-  );
-
-  if (resolution.status !== 'ready') {
-    return {
-      status: 'authorization-blocked',
-      reason: resolution.status,
-      requiredWeight: resolution.requiredWeight,
-      availableWeight: resolution.availableWeight,
-    };
-  }
-
-  const signing = await signReviewedTransaction({
+  return submitReviewedTransaction({
+    gateway: input.gateway,
     sdk: input.sdk,
     review: input.review,
+    accountId: input.accountId,
+    intent: paymentSubmissionIntent(input.review),
+    recovery: input.recovery,
     signer: input.signer,
-    ...(input.appPasscode === undefined
-      ? {}
-      : { appPasscode: input.appPasscode }),
-    ...(input.systemAuthReason === undefined
-      ? {}
-      : { systemAuthReason: input.systemAuthReason }),
+    thresholdLevel: 'medium',
+    ...(input.appPassphrase === undefined ? {} : { appPassphrase: input.appPassphrase }),
+    ...(input.systemAuthReason === undefined ? {} : { systemAuthReason: input.systemAuthReason }),
+    networkPassphrase: input.networkPassphrase,
   });
+}
 
-  if (signing.status !== 'signed') {
-    return signing;
-  }
-
-  const submission = await input.gateway.submitTransaction(
-    signing.signedTransactionXdrBase64,
-  );
-
-  if (submission.status === 'accepted') {
-    return {
-      status: 'submitted',
-      authorization: signing.authorization,
-      hash: submission.hash,
-      ...(submission.ledger === undefined ? {} : { ledger: submission.ledger }),
-    };
-  }
-
-  return submission;
+function paymentSubmissionIntent(review: PaymentReview) {
+  const assetComponents =
+    review.asset.kind === 'native'
+      ? ['native']
+      : ['credit', review.asset.code, review.asset.issuer];
+  return createTransactionIntentIdentity('payment', [
+    review.operation,
+    review.destination,
+    ...assetComponents,
+    review.amount,
+    review.memo === undefined ? 'memo:none' : 'memo:text',
+    review.memo ?? '',
+  ]);
 }

@@ -18,6 +18,15 @@ describe('normalizeFresnicaNativeError', () => {
     expect(error.cause).toBe(source);
   });
 
+  it('preserves the SEP-53 signature validation category', () => {
+    const error = normalizeFresnicaNativeError({
+      code: 'invalid-message-signature',
+      message: 'Invalid message signature',
+    });
+
+    expect(error.code).toBe('invalid-message-signature');
+  });
+
   it('normalizes user cancellation without losing the cancellation category', () => {
     const error = normalizeFresnicaNativeError({
       code: 'user-cancel',

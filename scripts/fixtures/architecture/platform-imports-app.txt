@@ -1,0 +1,1 @@
+import {APP_CONFIG} from '../../app/config/appConfig';

@@ -5,6 +5,7 @@ export type FresnicaNativeErrorCode =
   | 'invalid-protected-data'
   | 'identity-mismatch'
   | 'invalid-transaction'
+  | 'invalid-message-signature'
   | 'core-error'
   | 'auth-in-progress'
   | 'user-cancel'
@@ -21,6 +22,7 @@ const KNOWN_CODES = new Set<FresnicaNativeErrorCode>([
   'invalid-protected-data',
   'identity-mismatch',
   'invalid-transaction',
+  'invalid-message-signature',
   'core-error',
   'auth-in-progress',
   'user-cancel',

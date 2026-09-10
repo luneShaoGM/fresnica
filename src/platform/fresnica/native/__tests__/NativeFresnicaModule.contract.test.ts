@@ -1,7 +1,7 @@
 import type { NativeFresnicaModule } from '../NativeFresnicaModule';
 
 describe('NativeFresnicaModule contract', () => {
-  it('contains the canonical v0.2.0 bridge operations and no unlock-key APIs', () => {
+  it('contains the canonical v0.3.0 bridge operations and no unlock-key APIs', () => {
     const methods: Array<keyof NativeFresnicaModule> = [
       'parseAccount',
       'protectSecret',
@@ -19,6 +19,8 @@ describe('NativeFresnicaModule contract', () => {
       'hasSignerSystemAuth',
       'removeSignerSystemAuth',
       'removeSystemAuthDomain',
+      'signMessageWithSystemAuth',
+      'signMessageWithPasscode',
       'signWithSystemAuth',
       'signWithPasscode',
     ];

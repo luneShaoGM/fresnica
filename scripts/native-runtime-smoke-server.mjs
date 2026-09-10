@@ -1,5 +1,5 @@
 import http from 'node:http';
-import {writeFile} from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 
 const port = Number(process.env.FRESNICA_SMOKE_PORT ?? '8765');
 const resultPath = process.env.FRESNICA_SMOKE_RESULT ?? 'native-runtime-smoke-result.json';

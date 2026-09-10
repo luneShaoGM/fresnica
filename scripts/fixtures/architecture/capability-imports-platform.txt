@@ -1,0 +1,1 @@
+import type {FresnicaSdk} from '../../platform/fresnica/FresnicaSdk';
