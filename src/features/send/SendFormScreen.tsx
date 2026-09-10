@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,7 +8,10 @@ import {
   View,
 } from 'react-native';
 
+import {Screen} from '@ui/components';
+
 import type {BalanceAsset, BalanceLine} from '../../capabilities/balance/types';
+import {useAppTheme, useThemedStyles, type AppTheme} from '../../ui/theme';
 import {sendAssetKey} from './sendProductFlow';
 
 type Props = Readonly<{
@@ -45,12 +47,14 @@ export function SendFormScreen({
   onContinue,
   onCancel,
 }: Props) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const selectedBalance = balances.find(
     line => sendAssetKey(line.asset) === sendAssetKey(selectedAsset),
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
         <Pressable accessibilityLabel="Cancel send" onPress={onCancel} style={styles.backButton}>
           <Text style={styles.backGlyph}>‹</Text>
@@ -110,7 +114,7 @@ export function SendFormScreen({
             editable={!building}
             onChangeText={onChangeDestination}
             placeholder="Stellar G... address"
-            placeholderTextColor="#ACB1C1"
+            placeholderTextColor={theme.colors.textTertiary}
             style={styles.fieldInput}
             value={destination}
           />
@@ -125,7 +129,7 @@ export function SendFormScreen({
             keyboardType="decimal-pad"
             onChangeText={onChangeAmount}
             placeholder="0"
-            placeholderTextColor="#ACB1C1"
+            placeholderTextColor={theme.colors.textTertiary}
             style={styles.amountInput}
             value={amount}
           />
@@ -140,7 +144,7 @@ export function SendFormScreen({
             editable={!building}
             onChangeText={onChangeMemo}
             placeholder="Optional text memo"
-            placeholderTextColor="#ACB1C1"
+            placeholderTextColor={theme.colors.textTertiary}
             style={styles.fieldInput}
             value={memo}
           />
@@ -163,44 +167,135 @@ export function SendFormScreen({
           <Text style={styles.reviewButtonText}>{building ? 'Preparing…' : 'Review payment'}</Text>
         </Pressable>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
-  header: {minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E7EAF0'},
-  backButton: {width: 42, height: 42, alignItems: 'center', justifyContent: 'center'},
-  backGlyph: {fontSize: 36, lineHeight: 38, fontWeight: '300', color: '#181D41'},
-  headerTitle: {fontSize: 18, lineHeight: 22, fontWeight: '800', color: '#000000'},
-  headerSpacer: {width: 42},
-  content: {paddingBottom: 28},
-  fromLabel: {paddingHorizontal: 18, paddingTop: 14, fontSize: 11, lineHeight: 15, color: '#ACB1C1'},
-  sectionLabel: {paddingHorizontal: 18, paddingTop: 21, paddingBottom: 8, fontSize: 10, lineHeight: 13, color: '#ACB1C1', fontWeight: '800'},
-  assetList: {paddingHorizontal: 18, gap: 9},
-  assetCard: {width: 94, minHeight: 100, borderWidth: 1, borderColor: '#E7EAF0', borderRadius: 12, padding: 11, backgroundColor: '#FFFFFF', gap: 5},
-  assetCardSelected: {borderColor: '#00CA8A', backgroundColor: 'rgba(0, 202, 138, 0.05)'},
-  assetIcon: {width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F6FA'},
-  assetIconSelected: {backgroundColor: '#00CA8A'},
-  assetIconText: {fontSize: 14, color: '#181D41', fontWeight: '800'},
-  assetIconTextSelected: {color: '#FFFFFF'},
-  assetCode: {fontSize: 13, lineHeight: 16, color: '#000000', fontWeight: '800'},
-  assetBalance: {fontSize: 10, lineHeight: 13, color: '#606885'},
-  balanceLine: {minHeight: 42, marginHorizontal: 18, marginTop: 10, paddingHorizontal: 12, borderRadius: 9, backgroundColor: '#F3F6FA', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-  balanceLabel: {fontSize: 11, color: '#606885'},
-  balanceValue: {fontSize: 11, color: '#181D41', fontWeight: '700'},
-  fieldBox: {minHeight: 52, marginHorizontal: 18, borderRadius: 10, backgroundColor: '#F3F6FA', flexDirection: 'row', alignItems: 'center', paddingLeft: 14},
-  fieldInput: {flex: 1, minHeight: 52, color: '#000000', fontSize: 14, paddingVertical: 0},
-  fieldAction: {width: 45, height: 52, alignItems: 'center', justifyContent: 'center'},
-  fieldActionGlyph: {fontSize: 18, color: '#606885'},
-  fieldHint: {paddingHorizontal: 22, paddingTop: 5, fontSize: 9, lineHeight: 13, color: '#ACB1C1'},
-  amountBox: {minHeight: 70, marginHorizontal: 18, borderRadius: 10, backgroundColor: '#F3F6FA', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, gap: 10},
-  amountInput: {flex: 1, minHeight: 70, color: '#000000', fontSize: 30, lineHeight: 36, fontWeight: '600', paddingVertical: 0},
-  amountAsset: {fontSize: 15, color: '#181D41', fontWeight: '800'},
-  error: {marginHorizontal: 18, marginTop: 16, borderRadius: 9, padding: 12, backgroundColor: 'rgba(255, 91, 91, 0.09)', color: '#FF5B5B', fontSize: 11, lineHeight: 16},
-  bottomBar: {paddingHorizontal: 18, paddingTop: 10, paddingBottom: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E7EAF0', backgroundColor: '#FFFFFF'},
-  reviewButton: {minHeight: 54, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: '#00CA8A'},
-  reviewButtonDisabled: {opacity: 0.5},
-  reviewButtonText: {fontSize: 15, color: '#FFFFFF', fontWeight: '800'},
-  pressed: {opacity: 0.68},
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    safeArea: {flex: 1, backgroundColor: theme.colors.background},
+    header: {
+      minHeight: 58,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.border,
+    },
+    backButton: {width: 42, height: 42, alignItems: 'center', justifyContent: 'center'},
+    backGlyph: {fontSize: 36, lineHeight: 38, fontWeight: '300', color: theme.colors.secondary},
+    headerTitle: {fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary},
+    headerSpacer: {width: 42},
+    content: {paddingBottom: 28},
+    fromLabel: {paddingHorizontal: 18, paddingTop: 14, fontSize: 11, lineHeight: 15, color: theme.colors.textTertiary},
+    sectionLabel: {
+      paddingHorizontal: 18,
+      paddingTop: 21,
+      paddingBottom: 8,
+      fontSize: 10,
+      lineHeight: 13,
+      color: theme.colors.textTertiary,
+      fontWeight: '800',
+    },
+    assetList: {paddingHorizontal: 18, gap: 9},
+    assetCard: {
+      width: 94,
+      minHeight: 100,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: 12,
+      padding: 11,
+      backgroundColor: theme.colors.surface,
+      gap: 5,
+    },
+    assetCardSelected: {borderColor: theme.colors.actionPrimary, backgroundColor: theme.colors.actionPrimarySubtle},
+    assetIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.surfaceMuted,
+    },
+    assetIconSelected: {backgroundColor: theme.colors.actionPrimary},
+    assetIconText: {fontSize: 14, color: theme.colors.secondary, fontWeight: '800'},
+    assetIconTextSelected: {color: theme.colors.onActionPrimary},
+    assetCode: {fontSize: 13, lineHeight: 16, color: theme.colors.textPrimary, fontWeight: '800'},
+    assetBalance: {fontSize: 10, lineHeight: 13, color: theme.colors.textSecondary},
+    balanceLine: {
+      minHeight: 42,
+      marginHorizontal: 18,
+      marginTop: 10,
+      paddingHorizontal: 12,
+      borderRadius: 9,
+      backgroundColor: theme.colors.surfaceMuted,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    balanceLabel: {fontSize: 11, color: theme.colors.textSecondary},
+    balanceValue: {fontSize: 11, color: theme.colors.secondary, fontWeight: '700'},
+    fieldBox: {
+      minHeight: 52,
+      marginHorizontal: 18,
+      borderRadius: 10,
+      backgroundColor: theme.colors.surfaceMuted,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingLeft: 14,
+    },
+    fieldInput: {flex: 1, minHeight: 52, color: theme.colors.textPrimary, fontSize: 14, paddingVertical: 0},
+    fieldAction: {width: 45, height: 52, alignItems: 'center', justifyContent: 'center'},
+    fieldActionGlyph: {fontSize: 18, color: theme.colors.textSecondary},
+    fieldHint: {paddingHorizontal: 22, paddingTop: 5, fontSize: 9, lineHeight: 13, color: theme.colors.textTertiary},
+    amountBox: {
+      minHeight: 70,
+      marginHorizontal: 18,
+      borderRadius: 10,
+      backgroundColor: theme.colors.surfaceMuted,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      gap: 10,
+    },
+    amountInput: {
+      flex: 1,
+      minHeight: 70,
+      color: theme.colors.textPrimary,
+      fontSize: 30,
+      lineHeight: 36,
+      fontWeight: '600',
+      paddingVertical: 0,
+    },
+    amountAsset: {fontSize: 15, color: theme.colors.secondary, fontWeight: '800'},
+    error: {
+      marginHorizontal: 18,
+      marginTop: 16,
+      borderRadius: 9,
+      padding: 12,
+      backgroundColor: theme.colors.negativeMuted,
+      color: theme.colors.negative,
+      fontSize: 11,
+      lineHeight: 16,
+    },
+    bottomBar: {
+      paddingHorizontal: 18,
+      paddingTop: 10,
+      paddingBottom: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: theme.colors.border,
+      backgroundColor: theme.colors.surface,
+    },
+    reviewButton: {
+      minHeight: 54,
+      borderRadius: 11,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.actionPrimary,
+    },
+    reviewButtonDisabled: {opacity: 0.5},
+    reviewButtonText: {fontSize: 15, color: theme.colors.onActionPrimary, fontWeight: '800'},
+    pressed: {opacity: 0.68},
+  });
+}

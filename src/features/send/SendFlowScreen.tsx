@@ -1,28 +1,28 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, Pressable, SafeAreaView, StyleSheet, Text, View} from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type {AccountRecord} from '../../capabilities/account/types';
-import {loadBalanceSnapshot} from '../../capabilities/balance/loadBalanceSnapshot';
-import type {BalanceAsset, BalanceLine} from '../../capabilities/balance/types';
-import type {PaymentReview} from '../../capabilities/payment/buildPaymentReview';
-import {SendFormScreen} from './SendFormScreen';
-import {SendResultScreen, type SendTerminalResult} from './SendResultScreen';
-import {SendReviewScreen} from './SendReviewScreen';
-import {
-  buildSendReview,
-  submitSendReview,
-  type SendProductDependencies,
-} from './sendProductFlow';
+import {Screen} from '@ui/components';
+
+import type { AccountRecord } from '../../capabilities/account/types';
+import { loadBalanceSnapshot } from '../../capabilities/balance/loadBalanceSnapshot';
+import type { BalanceAsset, BalanceLine } from '../../capabilities/balance/types';
+import type { PaymentReview } from '../../capabilities/payment/buildPaymentReview';
+import {useAppTheme, useThemedStyles, type AppTheme} from '../../ui/theme';
+import { SendFormScreen } from './SendFormScreen';
+import { SendResultScreen, type SendTerminalResult } from './SendResultScreen';
+import { SendReviewScreen } from './SendReviewScreen';
+import {projectFeatureError} from '../featureError';
+import { buildSendReview, submitSendReview, type SendProductDependencies } from './sendProductFlow';
 
 type LoadState =
-  | Readonly<{kind: 'loading'}>
-  | Readonly<{kind: 'blocked'; title: string; description: string}>
-  | Readonly<{kind: 'ready'; balances: readonly BalanceLine[]}>;
+  | Readonly<{ kind: 'loading' }>
+  | Readonly<{ kind: 'blocked'; title: string; description: string }>
+  | Readonly<{ kind: 'ready'; balances: readonly BalanceLine[] }>;
 
 type FlowState =
-  | Readonly<{kind: 'form'}>
-  | Readonly<{kind: 'review'; review: PaymentReview}>
-  | Readonly<{kind: 'result'; result: SendTerminalResult}>;
+  | Readonly<{ kind: 'form' }>
+  | Readonly<{ kind: 'review'; review: PaymentReview }>
+  | Readonly<{ kind: 'result'; result: SendTerminalResult }>;
 
 type Props = Readonly<{
   account: AccountRecord;
@@ -30,9 +30,9 @@ type Props = Readonly<{
   onDone: () => void;
 }>;
 
-export function SendFlowScreen({account, dependencies, onDone}: Props) {
-  const [loadState, setLoadState] = useState<LoadState>({kind: 'loading'});
-  const [flow, setFlow] = useState<FlowState>({kind: 'form'});
+export function SendFlowScreen({ account, dependencies, onDone }: Props) {
+  const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
+  const [flow, setFlow] = useState<FlowState>({ kind: 'form' });
   const [selectedAsset, setSelectedAsset] = useState<BalanceAsset | undefined>();
   const [destination, setDestination] = useState('');
   const [amount, setAmount] = useState('');
@@ -47,8 +47,8 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
   useEffect(() => {
     const version = loadVersion.current + 1;
     loadVersion.current = version;
-    setLoadState({kind: 'loading'});
-    setFlow({kind: 'form'});
+    setLoadState({ kind: 'loading' });
+    setFlow({ kind: 'form' });
     setSelectedAsset(undefined);
     setDestination('');
     setAmount('');
@@ -57,7 +57,7 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
     setPassphraseRequired(false);
     setError(undefined);
 
-    void loadBalanceSnapshot({gateway: dependencies.gateway}, account)
+    void loadBalanceSnapshot({ gateway: dependencies.gateway, networkId: dependencies.network.id }, account)
       .then(snapshot => {
         if (loadVersion.current !== version) {
           return;
@@ -88,7 +88,7 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
         }
 
         setSelectedAsset(snapshot.balances[0].asset);
-        setLoadState({kind: 'ready', balances: snapshot.balances});
+        setLoadState({ kind: 'ready', balances: snapshot.balances });
       })
       .catch(caught => {
         if (loadVersion.current === version) {
@@ -103,7 +103,7 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
     return () => {
       loadVersion.current += 1;
     };
-  }, [account, dependencies.gateway]);
+  }, [account, dependencies.gateway, dependencies.network.id]);
 
   const buildReview = useCallback(async () => {
     if (loadState.kind !== 'ready' || !selectedAsset) {
@@ -122,7 +122,7 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
 
       setPassphraseRequired(false);
       setAppPassphrase('');
-      setFlow({kind: 'review', review});
+      setFlow({ kind: 'review', review });
     } catch (caught) {
       setError(readableError(caught));
     } finally {
@@ -143,19 +143,14 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
     setSubmitting(true);
     setError(undefined);
     try {
-      const result = await submitSendReview(
-        dependencies,
-        account,
-        flow.review,
-        passphrase,
-      );
+      const result = await submitSendReview(dependencies, account, flow.review, passphrase);
 
-      if (result.status === 'passcode-required') {
+      if (result.status === 'passphrase-required') {
         setPassphraseRequired(true);
         return;
       }
 
-      setFlow({kind: 'result', result});
+      setFlow({ kind: 'result', result });
     } catch (caught) {
       setError(readableError(caught));
     } finally {
@@ -164,24 +159,11 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
   }, [account, appPassphrase, dependencies, flow, passphraseRequired]);
 
   if (loadState.kind === 'loading') {
-    return (
-      <FlowMessageScreen
-        title="Send"
-        message="Loading current Stellar balances…"
-        loading
-        onBack={onDone}
-      />
-    );
+    return <FlowMessageScreen title="Send" message="Loading current Stellar balances…" loading onBack={onDone} />;
   }
 
   if (loadState.kind === 'blocked') {
-    return (
-      <FlowMessageScreen
-        title={loadState.title}
-        message={loadState.description}
-        onBack={onDone}
-      />
-    );
+    return <FlowMessageScreen title={loadState.title} message={loadState.description} onBack={onDone} />;
   }
 
   if (flow.kind === 'review') {
@@ -198,7 +180,7 @@ export function SendFlowScreen({account, dependencies, onDone}: Props) {
           setAppPassphrase('');
           setPassphraseRequired(false);
           setError(undefined);
-          setFlow({kind: 'form'});
+          setFlow({ kind: 'form' });
         }}
       />
     );
@@ -236,9 +218,12 @@ function FlowMessageScreen({
   message,
   onBack,
   loading = false,
-}: Readonly<{title: string; message: string; onBack: () => void; loading?: boolean}>) {
+}: Readonly<{ title: string; message: string; onBack: () => void; loading?: boolean }>) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
         <Pressable accessibilityLabel="Back" onPress={onBack} style={styles.backButton}>
           <Text style={styles.backGlyph}>‹</Text>
@@ -247,28 +232,57 @@ function FlowMessageScreen({
         <View style={styles.headerSpacer} />
       </View>
       <View style={styles.messageBody}>
-        {loading ? <ActivityIndicator color="#00CA8A" /> : <View style={styles.messageIcon}><Text style={styles.messageGlyph}>!</Text></View>}
+        {loading ? (
+          <ActivityIndicator color={theme.colors.actionPrimary} />
+        ) : (
+          <View style={styles.messageIcon}>
+            <Text style={styles.messageGlyph}>!</Text>
+          </View>
+        )}
         <Text style={styles.messageTitle}>{title}</Text>
         <Text style={styles.messageText}>{message}</Text>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 function readableError(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unknown Send error.';
+  return projectFeatureError(error, {fallbackMessage: 'Unable to complete Send.'}).message;
 }
 
-const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
-  header: {minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E7EAF0'},
-  backButton: {width: 42, height: 42, alignItems: 'center', justifyContent: 'center'},
-  backGlyph: {fontSize: 36, lineHeight: 38, fontWeight: '300', color: '#181D41'},
-  headerTitle: {fontSize: 18, lineHeight: 22, fontWeight: '800', color: '#000000'},
-  headerSpacer: {width: 42},
-  messageBody: {flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 34, gap: 10},
-  messageIcon: {width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F6FA'},
-  messageGlyph: {fontSize: 24, color: '#606885', fontWeight: '800'},
-  messageTitle: {fontSize: 18, lineHeight: 23, color: '#000000', fontWeight: '800', textAlign: 'center'},
-  messageText: {fontSize: 12, lineHeight: 18, color: '#606885', textAlign: 'center'},
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    safeArea: {flex: 1, backgroundColor: theme.colors.background},
+    header: {
+      minHeight: 58,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.border,
+    },
+    backButton: {width: 42, height: 42, alignItems: 'center', justifyContent: 'center'},
+    backGlyph: {fontSize: 36, lineHeight: 38, fontWeight: '300', color: theme.colors.secondary},
+    headerTitle: {fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary},
+    headerSpacer: {width: 42},
+    messageBody: {flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 34, gap: 10},
+    messageIcon: {
+      width: 58,
+      height: 58,
+      borderRadius: 29,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.surfaceMuted,
+    },
+    messageGlyph: {fontSize: 24, color: theme.colors.textSecondary, fontWeight: '800'},
+    messageTitle: {
+      fontSize: 18,
+      lineHeight: 23,
+      color: theme.colors.textPrimary,
+      fontWeight: '800',
+      textAlign: 'center',
+    },
+    messageText: {fontSize: 12, lineHeight: 18, color: theme.colors.textSecondary, textAlign: 'center'},
+  });
+}
