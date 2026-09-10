@@ -35,10 +35,6 @@ function nextPaint() {
   return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 }
 
-function errorMessage(error) {
-  return error instanceof Error ? error.message : String(error);
-}
-
 async function report(marker, payload) {
   await fetch(`${CALLBACK_BASE_URL}/${marker}`, {
     method: 'POST',
@@ -95,16 +91,19 @@ async function waitForConfirmedSubmission(services, submission) {
   throw new Error('testnet-write-did-not-confirm-within-timeout');
 }
 
-async function runProductFlow(setRuntime, onServicesReady) {
+async function runProductFlow(setRuntime, onServicesReady, onStage) {
+  onStage('create-services');
   const services = await createAppServices({ realmPath: PRODUCT_REALM_PATH });
   onServicesReady(services);
 
+  onStage('cold-bootstrap');
   const coldBootstrap = resolveOnboardingBootstrap(services.onboarding);
   if (coldBootstrap.kind !== 'onboarding') {
     throw new Error(`expected-cold-onboarding:${coldBootstrap.kind}`);
   }
   setRuntime({ kind: 'ready', services, bootstrap: coldBootstrap });
   await nextPaint();
+  onStage('generate-account');
   let generated = await runGeneratedMnemonicOnboarding(services.onboarding, {
     language: 'english',
     strength: 128,
@@ -119,13 +118,16 @@ async function runProductFlow(setRuntime, onServicesReady) {
 
   const account = generated.account.account;
   const signerId = generated.account.signer.id;
+  onStage('pending-backup');
   const pendingBootstrap = resolveOnboardingBootstrap(services.onboarding);
   if (pendingBootstrap.kind !== 'pending-mnemonic-backup') {
     throw new Error(`expected-pending-backup:${pendingBootstrap.kind}`);
   }
+  onStage('confirm-backup');
   confirmMnemonicBackup(services.onboarding, signerId);
   generated = undefined;
 
+  onStage('main-shell');
   const readyBootstrap = resolveOnboardingBootstrap(services.onboarding);
   if (readyBootstrap.kind !== 'ready' || readyBootstrap.accounts.length !== 1) {
     throw new Error(`expected-main-shell-ready:${readyBootstrap.kind}`);
@@ -133,18 +135,25 @@ async function runProductFlow(setRuntime, onServicesReady) {
   setRuntime({ kind: 'ready', services, bootstrap: readyBootstrap });
   await nextPaint();
 
+  onStage('fund-testnet');
   await fundSource(account.address);
+  onStage('read-balance-before');
   const before = await waitForActiveBalance(services, account);
 
+  onStage('build-send-review');
   const review = await buildSendReview(services.send, account, {
     destination: DESTINATION,
     amount: '2.0000000',
     asset: { kind: 'native' },
   });
+  onStage('submit-send');
   const submission = await submitSendReview(services.send, account, review, TEST_APP_PASSPHRASE);
+  onStage('reconcile-send');
   const confirmed = await waitForConfirmedSubmission(services, submission);
+  onStage('read-balance-after');
   const after = await waitForActiveBalance(services, account);
 
+  onStage('report-success');
   await report(OK_MARKER, {
     networkId: account.networkId,
     coldBootstrap: coldBootstrap.kind,
@@ -163,6 +172,7 @@ function ProductFlowSmokeApp() {
   const [runtime, setRuntime] = useState({ kind: 'loading' });
   const [status, setStatus] = useState('FRESNICA_PRODUCT_FLOW_SMOKE_RUNNING');
   const servicesRef = useRef();
+  const stageRef = useRef('starting');
 
   const refreshBootstrap = useCallback(() => {
     setRuntime(current => {
@@ -187,21 +197,24 @@ function ProductFlowSmokeApp() {
       services => {
         servicesRef.current = services;
       },
+      stage => {
+        stageRef.current = stage;
+      },
     )
       .then(() => {
         if (mounted) {
           setStatus(OK_MARKER);
         }
       })
-      .catch(async error => {
-        const message = errorMessage(error);
+      .catch(async () => {
+        const stage = stageRef.current;
         if (mounted) {
-          setStatus(`${FAIL_MARKER}: ${message}`);
+          setStatus(FAIL_MARKER + ': ' + stage);
         }
         try {
-          await report(FAIL_MARKER, { message });
-        } catch (reportError) {
-          console.error(FAIL_MARKER, message, errorMessage(reportError));
+          await report(FAIL_MARKER, { stage });
+        } catch {
+          console.error(FAIL_MARKER, stage);
         }
       });
     return () => {

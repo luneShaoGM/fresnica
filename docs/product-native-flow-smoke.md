@@ -34,6 +34,7 @@ A successful run must execute, in order:
 - The runner deletes that dedicated Realm before and after each run.
 - Generated mnemonic, App Passphrase, protected envelope, unlock material, and transaction XDR are never written to the callback result.
 - The callback contains only public execution evidence such as network ID, public source address, balances, transaction hash, and stable stage/status markers.
+- The callback server enforces an exact field allowlist; failure callbacks contain only a fixed stage code, and unexpected fields are rejected without being written to the result file.
 - The test App Passphrase is fixed test-only material and is not a production credential.
 - Friendbot is not a product dependency. It exists only to activate the newly generated Testnet source account for the smoke.
 
