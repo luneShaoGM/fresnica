@@ -19,6 +19,10 @@ const strictPresentationScopes = [
 
 const violations = [];
 
+function isTestFile(relativePath) {
+  return relativePath.includes('/__tests__/') || /\.(?:test|spec)\.[jt]sx?$/.test(relativePath);
+}
+
 function toPosix(value) {
   return value.split(path.sep).join('/');
 }
@@ -82,11 +86,14 @@ function isStrictPresentationFile(relativePath) {
 
 function checkImports(filePath, relativePath, sourceText) {
   const imports = extractImportSources(sourceText);
+  const testFile = isTestFile(relativePath);
   const isFeature = relativePath.startsWith('src/features/');
-  const isStrictFeature = isFeature && isStrictPresentationFile(relativePath);
+  const isProductionFeature = isFeature && !testFile;
   const isCapability = relativePath.startsWith('src/capabilities/');
+  const isProductionCapability = isCapability && !testFile;
   const isUi = relativePath.startsWith('src/ui/');
   const isPlatform = relativePath.startsWith('src/platform/');
+  const isProductionPlatform = isPlatform && !testFile;
 
   for (const importSource of imports) {
     if (importsPackage(importSource, 'react-native-navigation')) {
@@ -97,9 +104,12 @@ function checkImports(filePath, relativePath, sourceText) {
       );
     }
 
-    if (isStrictFeature) {
+    if (isProductionFeature) {
       if (importsLayer(filePath, importSource, 'platform')) {
         addViolation(relativePath, 'feature-platform-boundary', `imports ${importSource}`);
+      }
+      if (importsLayer(filePath, importSource, 'app')) {
+        addViolation(relativePath, 'feature-app-boundary', `imports ${importSource}`);
       }
       if (importsPackage(importSource, 'realm') || importsPackage(importSource, '@stellar/stellar-sdk')) {
         addViolation(relativePath, 'feature-external-mechanism-boundary', `imports ${importSource}`);
@@ -110,8 +120,19 @@ function checkImports(filePath, relativePath, sourceText) {
       if (importsLayer(filePath, importSource, 'features') || importsLayer(filePath, importSource, 'ui')) {
         addViolation(relativePath, 'capability-presentation-boundary', `imports ${importSource}`);
       }
-      if (importSource === 'react' || importSource === 'react-native' || importsPackage(importSource, 'realm')) {
+      if (
+        importSource === 'react' ||
+        importSource === 'react-native' ||
+        importsPackage(importSource, 'realm') ||
+        importsPackage(importSource, '@stellar/stellar-sdk')
+      ) {
         addViolation(relativePath, 'capability-runtime-boundary', `imports ${importSource}`);
+      }
+      if (isProductionCapability && importsLayer(filePath, importSource, 'app')) {
+        addViolation(relativePath, 'capability-app-boundary', `imports ${importSource}`);
+      }
+      if (isProductionCapability && importsLayer(filePath, importSource, 'platform')) {
+        addViolation(relativePath, 'capability-platform-boundary', `imports ${importSource}`);
       }
     }
 
@@ -128,15 +149,19 @@ function checkImports(filePath, relativePath, sourceText) {
       }
     }
 
-    if (isPlatform) {
-      if (importsLayer(filePath, importSource, 'features') || importsLayer(filePath, importSource, 'ui')) {
+    if (isProductionPlatform) {
+      if (
+        importsLayer(filePath, importSource, 'features') ||
+        importsLayer(filePath, importSource, 'ui') ||
+        importsLayer(filePath, importSource, 'app')
+      ) {
         addViolation(relativePath, 'platform-product-boundary', `imports ${importSource}`);
       }
     }
   }
 
   if (
-    (isStrictFeature || isUi) &&
+    (isProductionFeature || isCapability || isUi) &&
     /import\s*\{[^}]*\bNativeModules\b[^}]*\}\s*from\s*['"]react-native['"]/.test(sourceText)
   ) {
     addViolation(relativePath, 'native-modules-boundary', 'imports NativeModules from react-native');
@@ -170,6 +195,21 @@ function checkStrictPresentation(relativePath, sourceText) {
   }
 }
 
+function verifyNegativeFixture({ fixture, relativePath, expectedRule }) {
+  const fixturePath = path.join(root, 'scripts', 'fixtures', 'architecture', fixture);
+  const sourceText = fs.readFileSync(fixturePath, 'utf8');
+  const before = violations.length;
+  checkImports(path.join(root, relativePath), relativePath, sourceText);
+  const produced = violations.splice(before);
+  if (!produced.some(violation => violation.rule === expectedRule)) {
+    addViolation(
+      toPosix(path.relative(root, fixturePath)),
+      'architecture-fixture-failed',
+      `expected rule ${expectedRule} for ${relativePath}`,
+    );
+  }
+}
+
 if (!fs.existsSync(srcRoot)) {
   console.error('Architecture check failed: src/ directory not found.');
   process.exit(1);
@@ -188,6 +228,31 @@ for (const filePath of walk(srcRoot)) {
   const sourceText = fs.readFileSync(filePath, 'utf8');
   checkImports(filePath, relativePath, sourceText);
   checkStrictPresentation(relativePath, sourceText);
+}
+
+for (const fixture of [
+  {
+    fixture: 'feature-imports-platform.txt',
+    relativePath: 'src/features/fixture/BadFeature.ts',
+    expectedRule: 'feature-platform-boundary',
+  },
+  {
+    fixture: 'capability-imports-platform.txt',
+    relativePath: 'src/capabilities/fixture/BadCapability.ts',
+    expectedRule: 'capability-platform-boundary',
+  },
+  {
+    fixture: 'capability-imports-stellar-sdk.txt',
+    relativePath: 'src/capabilities/fixture/BadCapabilitySdk.ts',
+    expectedRule: 'capability-runtime-boundary',
+  },
+  {
+    fixture: 'platform-imports-app.txt',
+    relativePath: 'src/platform/fixture/BadPlatform.ts',
+    expectedRule: 'platform-product-boundary',
+  },
+]) {
+  verifyNegativeFixture(fixture);
 }
 
 if (violations.length > 0) {
