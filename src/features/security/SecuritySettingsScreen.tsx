@@ -1,8 +1,7 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
@@ -10,6 +9,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
+
+import {Screen} from '@ui/components';
+
+import { useAppTheme, useThemedStyles, type AppTheme } from '../../ui/theme';
+import {projectFeatureError} from '../featureError';
 
 import {
   disableSystemAuth,
@@ -24,7 +28,9 @@ type Props = Readonly<{
   onClose: () => void;
 }>;
 
-export function SecuritySettingsScreen({dependencies, onClose}: Props) {
+export function SecuritySettingsScreen({ dependencies, onClose }: Props) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
   const [status, setStatus] = useState<SystemAuthStatus>();
   const [appPassphrase, setAppPassphrase] = useState('');
   const [busy, setBusy] = useState(false);
@@ -87,7 +93,7 @@ export function SecuritySettingsScreen({dependencies, onClose}: Props) {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
         <Pressable accessibilityLabel="Back" disabled={busy} onPress={onClose} style={styles.backButton}>
           <Text style={styles.backGlyph}>‹</Text>
@@ -99,11 +105,12 @@ export function SecuritySettingsScreen({dependencies, onClose}: Props) {
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.sectionLabel}>SYSTEM AUTH</Text>
         {!status ? (
           <View style={styles.loadingBlock}>
-            <ActivityIndicator color="#00CA8A" />
+            <ActivityIndicator color={theme.colors.actionPrimary} />
           </View>
         ) : (
           <View style={styles.rows}>
@@ -120,8 +127,8 @@ export function SecuritySettingsScreen({dependencies, onClose}: Props) {
               </View>
               <Switch
                 disabled
-                trackColor={{false: '#E7EAF0', true: 'rgba(0, 202, 138, 0.35)'}}
-                thumbColor={status.domainInitialized ? '#00CA8A' : '#FFFFFF'}
+                trackColor={{ false: theme.colors.border, true: theme.colors.actionPrimaryTrack }}
+                thumbColor={status.domainInitialized ? theme.colors.actionPrimary : theme.colors.surface}
                 value={status.domainInitialized}
               />
             </View>
@@ -135,7 +142,8 @@ export function SecuritySettingsScreen({dependencies, onClose}: Props) {
             </Text>
             <View style={styles.passphraseBlock}>
               <Text style={styles.passphraseHint}>
-                Enter the same app passphrase used when this protected wallet was created or imported. It is verified only at the Fresnica native boundary and is never persisted.
+                Enter the same app passphrase used when this protected wallet was created or imported. It is verified
+                only at the Fresnica native boundary and is never persisted.
               </Text>
               <TextInput
                 autoCapitalize="none"
@@ -143,7 +151,7 @@ export function SecuritySettingsScreen({dependencies, onClose}: Props) {
                 editable={!busy}
                 onChangeText={setAppPassphrase}
                 placeholder="Current app passphrase"
-                placeholderTextColor="#ACB1C1"
+                placeholderTextColor={theme.colors.textTertiary}
                 secureTextEntry
                 style={styles.input}
                 value={appPassphrase}
@@ -151,11 +159,12 @@ export function SecuritySettingsScreen({dependencies, onClose}: Props) {
               <Pressable
                 disabled={busy || !status.available || appPassphrase.length === 0}
                 onPress={() => void enable()}
-                style={({pressed}) => [
+                style={({ pressed }) => [
                   styles.primaryButton,
                   busy || !status.available || appPassphrase.length === 0 ? styles.disabled : undefined,
                   pressed ? styles.pressed : undefined,
-                ]}>
+                ]}
+              >
                 <Text style={styles.primaryButtonText}>
                   {status.domainInitialized ? 'Register / repair signers' : 'Enable System Auth'}
                 </Text>
@@ -164,7 +173,12 @@ export function SecuritySettingsScreen({dependencies, onClose}: Props) {
                 <Pressable
                   disabled={busy}
                   onPress={() => void disable()}
-                  style={({pressed}) => [styles.dangerButton, busy ? styles.disabled : undefined, pressed ? styles.pressed : undefined]}>
+                  style={({ pressed }) => [
+                    styles.dangerButton,
+                    busy ? styles.disabled : undefined,
+                    pressed ? styles.pressed : undefined,
+                  ]}
+                >
                   <Text style={styles.dangerButtonText}>Disable System Auth</Text>
                 </Pressable>
               ) : null}
@@ -173,11 +187,13 @@ export function SecuritySettingsScreen({dependencies, onClose}: Props) {
         ) : status ? (
           <View style={styles.noticeBlock}>
             <Text style={styles.noticeTitle}>No protected local signer</Text>
-            <Text style={styles.noticeText}>System Auth applies to protected software signers. A watch-only wallet has nothing to register.</Text>
+            <Text style={styles.noticeText}>
+              System Auth applies to protected software signers. A watch-only wallet has nothing to register.
+            </Text>
           </View>
         ) : null}
 
-        {busy ? <ActivityIndicator color="#00CA8A" style={styles.inlineLoader} /> : null}
+        {busy ? <ActivityIndicator color={theme.colors.actionPrimary} style={styles.inlineLoader} /> : null}
         {notice ? <Text style={styles.success}>{notice}</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -185,15 +201,19 @@ export function SecuritySettingsScreen({dependencies, onClose}: Props) {
         <View style={styles.noticeBlock}>
           <Text style={styles.noticeTitle}>Not enabled yet</Text>
           <Text style={styles.noticeText}>
-            The current Fresnica adapter has no safe verification-only passphrase API or generic System Auth challenge for app-session unlock. Mobile will not emulate this with Reveal, dummy signing, or a second JavaScript verifier.
+            The current Fresnica adapter has no safe verification-only passphrase API or generic System Auth challenge
+            for app-session unlock. Mobile will not emulate this with Reveal, dummy signing, or a second JavaScript
+            verifier.
           </Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
-function StatusRow({label, value}: Readonly<{label: string; value: string}>) {
+function StatusRow({ label, value }: Readonly<{ label: string; value: string }>) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.statusRow}>
       <Text style={styles.rowLabel}>{label}</Text>
@@ -203,39 +223,128 @@ function StatusRow({label, value}: Readonly<{label: string; value: string}>) {
 }
 
 function readableError(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unable to update security settings.';
+  return projectFeatureError(error, {
+    fallbackMessage: 'Unable to update security settings.',
+    messages: {
+      'protected-signer-required': 'No protected software signer is available on this device.',
+    },
+  }).message;
 }
 
-const styles = StyleSheet.create({
-  safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
-  header: {minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E7EAF0'},
-  backButton: {width: 42, height: 42, alignItems: 'center', justifyContent: 'center'},
-  backGlyph: {fontSize: 36, lineHeight: 38, fontWeight: '300', color: '#181D41'},
-  headerTitle: {fontSize: 18, lineHeight: 22, fontWeight: '800', color: '#000000'},
-  headerSpacer: {width: 42},
-  content: {paddingBottom: 36},
-  sectionLabel: {paddingHorizontal: 18, paddingTop: 22, paddingBottom: 8, fontSize: 10, lineHeight: 13, color: '#ACB1C1', fontWeight: '800'},
-  rows: {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E7EAF0'},
-  statusRow: {minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 18, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E7EAF0'},
-  switchRow: {minHeight: 70, flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 18, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E7EAF0'},
-  flex: {flex: 1},
-  rowLabel: {fontSize: 13, lineHeight: 17, color: '#000000', fontWeight: '600'},
-  rowDescription: {fontSize: 10, lineHeight: 14, color: '#ACB1C1', marginTop: 3},
-  rowValue: {flex: 1, fontSize: 12, lineHeight: 16, color: '#606885', fontWeight: '600', textAlign: 'right'},
-  loadingBlock: {minHeight: 120, alignItems: 'center', justifyContent: 'center'},
-  passphraseBlock: {paddingHorizontal: 18, gap: 10},
-  passphraseHint: {fontSize: 10, lineHeight: 15, color: '#606885'},
-  input: {minHeight: 52, borderRadius: 10, backgroundColor: '#F3F6FA', paddingHorizontal: 14, color: '#000000', fontSize: 14},
-  primaryButton: {minHeight: 52, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#00CA8A'},
-  primaryButtonText: {fontSize: 14, color: '#FFFFFF', fontWeight: '800'},
-  dangerButton: {minHeight: 50, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255, 91, 91, 0.1)'},
-  dangerButtonText: {fontSize: 13, color: '#FF5B5B', fontWeight: '800'},
-  noticeBlock: {marginHorizontal: 18, borderRadius: 11, backgroundColor: '#F3F6FA', padding: 14, gap: 5},
-  noticeTitle: {fontSize: 12, lineHeight: 16, color: '#181D41', fontWeight: '800'},
-  noticeText: {fontSize: 10, lineHeight: 15, color: '#606885'},
-  inlineLoader: {marginTop: 14},
-  success: {marginHorizontal: 18, marginTop: 14, borderRadius: 9, padding: 12, backgroundColor: 'rgba(0, 202, 138, 0.09)', color: '#00B279', fontSize: 11, lineHeight: 16},
-  error: {marginHorizontal: 18, marginTop: 14, borderRadius: 9, padding: 12, backgroundColor: 'rgba(255, 91, 91, 0.09)', color: '#FF5B5B', fontSize: 11, lineHeight: 16},
-  disabled: {opacity: 0.45},
-  pressed: {opacity: 0.68},
-});
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    safeArea: { flex: 1, backgroundColor: theme.colors.background },
+    header: {
+      minHeight: 58,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.border,
+    },
+    backButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
+    backGlyph: { fontSize: 36, lineHeight: 38, fontWeight: '300', color: theme.colors.secondary },
+    headerTitle: { fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary },
+    headerSpacer: { width: 42 },
+    content: { paddingBottom: 36 },
+    sectionLabel: {
+      paddingHorizontal: 18,
+      paddingTop: 22,
+      paddingBottom: 8,
+      fontSize: 10,
+      lineHeight: 13,
+      color: theme.colors.textTertiary,
+      fontWeight: '800',
+    },
+    rows: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
+    statusRow: {
+      minHeight: 56,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+      paddingHorizontal: 18,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.border,
+    },
+    switchRow: {
+      minHeight: 70,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      paddingHorizontal: 18,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.border,
+    },
+    flex: { flex: 1 },
+    rowLabel: { fontSize: 13, lineHeight: 17, color: theme.colors.textPrimary, fontWeight: '600' },
+    rowDescription: { fontSize: 10, lineHeight: 14, color: theme.colors.textTertiary, marginTop: 3 },
+    rowValue: {
+      flex: 1,
+      fontSize: 12,
+      lineHeight: 16,
+      color: theme.colors.textSecondary,
+      fontWeight: '600',
+      textAlign: 'right',
+    },
+    loadingBlock: { minHeight: 120, alignItems: 'center', justifyContent: 'center' },
+    passphraseBlock: { paddingHorizontal: 18, gap: 10 },
+    passphraseHint: { fontSize: 10, lineHeight: 15, color: theme.colors.textSecondary },
+    input: {
+      minHeight: 52,
+      borderRadius: 10,
+      backgroundColor: theme.colors.surfaceMuted,
+      paddingHorizontal: 14,
+      color: theme.colors.textPrimary,
+      fontSize: 14,
+    },
+    primaryButton: {
+      minHeight: 52,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.actionPrimary,
+    },
+    primaryButtonText: { fontSize: 14, color: theme.colors.onActionPrimary, fontWeight: '800' },
+    dangerButton: {
+      minHeight: 50,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.negativeMuted,
+    },
+    dangerButtonText: { fontSize: 13, color: theme.colors.negative, fontWeight: '800' },
+    noticeBlock: {
+      marginHorizontal: 18,
+      borderRadius: 11,
+      backgroundColor: theme.colors.surfaceMuted,
+      padding: 14,
+      gap: 5,
+    },
+    noticeTitle: { fontSize: 12, lineHeight: 16, color: theme.colors.secondary, fontWeight: '800' },
+    noticeText: { fontSize: 10, lineHeight: 15, color: theme.colors.textSecondary },
+    inlineLoader: { marginTop: 14 },
+    success: {
+      marginHorizontal: 18,
+      marginTop: 14,
+      borderRadius: 9,
+      padding: 12,
+      backgroundColor: theme.colors.positiveMuted,
+      color: theme.colors.actionPrimaryPressed,
+      fontSize: 11,
+      lineHeight: 16,
+    },
+    error: {
+      marginHorizontal: 18,
+      marginTop: 14,
+      borderRadius: 9,
+      padding: 12,
+      backgroundColor: theme.colors.negativeMuted,
+      color: theme.colors.negative,
+      fontSize: 11,
+      lineHeight: 16,
+    },
+    disabled: { opacity: 0.45 },
+    pressed: { opacity: 0.68 },
+  });
+}
