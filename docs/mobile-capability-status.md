@@ -144,7 +144,7 @@ Trustline v1 intentionally does not implement Asset Discovery/catalog/ranking, l
 - After NetInfo integration, current Android and iOS Native runtime smoke both passed; iOS also completed a fresh simulator build on iPhone 15 Pro / iOS 17.2.
 - `6a19346` adds the S04 System Auth disable-confirmation product boundary without changing Native API semantics; capability tests prove a failed `removeSystemAuthDomain` does not report a false disabled state.
 - `50d8653` removes Android release debug-signing fallback. Local fail-closed, root-task-graph and ephemeral release-signing/APK-certificate checks pass; production keystore/CI secret remains intentionally unprovisioned.
-- Code head `50d8653` local baseline before the final milestone rerun: `npm run check` 56 suites / 284 tests, `npm run test:realm` 17/17, ESLint 0 errors / 28 warnings. Remote GitHub Actions evidence for this head has not yet been recorded.
+- Final local milestone validation target `f49dc50`: `npm run check` 56 suites / 284 tests, `npm run test:realm` 17/17, ESLint 0 errors / 28 warnings; fixed-commit provenance regeneration produced zero ledger drift. Android real Testnet recovery, standard Android native smoke, Android independent release-signing checks, iOS fresh simulator build and iOS native smoke all passed. The branch was still 11 commits ahead of origin, so current remote GitHub Actions evidence had not yet been recorded.
 
 ### Historical native-integration PR evidence
 

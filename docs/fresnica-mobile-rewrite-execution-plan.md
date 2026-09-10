@@ -35,6 +35,19 @@
 - Stage 1 已在 Android emulator 与 iOS simulator 使用 0.3.0 fresh build 重新执行 Native runtime smoke，证明 Realm round-trip、`FresnicaCore.parseAccount`、external-signing bridge 与 SEP-53 high-level message-signing bridge 可用；它仍不是完整产品 E2E。
 - 上述证据是里程碑证据，不自动代表当前工作树。每次状态升级必须记录 commit SHA、执行日期、CI run 与准确测试数量。
 
+### Milestone final local validation — 2026-09-10
+
+Validation target: `f49dc50e4052067192b4c6ff007de54eeaf9cd92` (`docs(rewrite): refresh milestone evidence`).
+
+- Provenance manual drift gate: `node scripts/audit-donor-provenance.mjs` regenerated the fixed `Stellar bd0f4540...` / `Xaman 01e2538...` ledger with **1,642 files / 1,048 inherited / 594 modified-unproven**; SHA-256 remained `189b8bb6485f9818f9d7c43f271ccfcc9b5e05067610d22bbc58296854aaf45f`, so the committed ledger diff was zero.
+- `npm run check`: **56/56 suites, 284/284 tests**; TypeScript, format, alias, architecture and locale gates passed; ESLint **0 errors / 28 warnings**; three locale dictionaries share 98 keys.
+- `npm run test:realm`: **17/17** passed, including pending-submission close/reopen, long-unknown blocking, confirmed/rejected reconciliation and cross-restart duplicate protection.
+- Android real Testnet recovery: transaction `fc75bde872216a89d8fa867269a7ee2fd40d652d4a93e58f256d7c33c381fecc` was persisted as `uncertain` for source `GAEYI6MKQTXPVVZ74GYGSBB3SEL3SFOP7GUJ2VD34YRDEOGGC3NBS5ES`; ActivityManager shows PID **8360** was force-stopped and fresh PID **8525** reopened the same `transaction-recovery-smoke.realm`. Final callback preserved exact network/account/source/hash and reconciled to `confirmed` without another sign/broadcast.
+- Android standard native smoke passed at `2026-09-10T04:39:40.999Z`: Realm + `FresnicaCore.parseAccount` + external-signing bridge + SEP-53 bridge all reported `ok`.
+- Android release signing: `:app:assembleRelease` without credentials exited 1; root `assemble --dry-run` also failed closed. A temporary `/tmp` PKCS12 successfully signed `assembleRelease`, and `apksigner` verified `CN=Fresnica Final Release Gate, O=Fresnica, C=US` with no Android Debug certificate. No production key was created or persisted.
+- iOS fresh simulator `xcodebuild` succeeded on iPhone 15 Pro / iOS 17.2 (`DEF9E99C-0D02-4803-B457-CFB631433DFD`). Standard native smoke then passed at `2026-09-10T04:41:29.551Z` with the same Realm/Core/external-signing/SEP-53 assertions.
+- Worktree was clean after all local gates. This is **local milestone evidence only**; the branch was still 11 commits ahead of `origin/rewrite/stellar-source-parity` at validation time, so current remote PR/CI evidence was not yet available and no merge to `main` was performed.
+
 ### 2.2 已存在且可继续演进的底层
 
 - `src/app/createAppServices.ts`
@@ -947,7 +960,7 @@ Backend 交付并完成身份/滥用验证后才可支持：
 2. Stage 2 架构边界收口已完成。
 3. **Stage 0A 基础账本已经建立；所有 donor-derived PR 持续执行 clean-room 规格、来源声明与独立审查，当前没有任何可直接移植文件。**
 4. **S07 Payment + S30 Trustline 的 Stage 2.5 uncertain submission 恢复与防重复已于 2026-09-10 完成首轮证明；以后新增改账本类型必须复用该管线，不能另建恢复路径。**
-5. **当前 `rewrite/stellar-source-parity` 里程碑的 S04 System Auth Disable Confirmation（`6a19346`）与 Android independent release-signing wiring（`50d8653`）已完成本地代码门；先同步当前文档证据，再执行整套 milestone validation。**
+5. **当前 `rewrite/stellar-source-parity` 里程碑的 S04 System Auth Disable Confirmation（`6a19346`）与 Android independent release-signing wiring（`50d8653`）已完成；`f49dc50` 已通过整套本地 milestone validation，下一门是同步远端分支并取得当前 PR/CI 证据。**
 6. 完整验证通过、工作区干净、远端 PR/CI/provenance 状态满足合并门后，再以普通 merge commit 合入 `main`；不 squash/rebase。生产 release keystore、最终 Application ID/iOS identity 仍属于 Stage 9 后续，不因本里程碑合并而宣称完成。
 7. 合并里程碑后从最新 `main` 继续 Stage 3 产品 Shell/E2E harness 与 Stage 4 账户、Send/Trustline/Activity 剩余闭环；之后再按追踪 ID 和依赖推进 Request、Swap、dApps 和扩展产品。“后做”不等于删除。
 8. 同步设计缓存 schema、失效规则和容量，不在页面完成后补做第二套数据层。
