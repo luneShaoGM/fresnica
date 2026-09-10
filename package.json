@@ -10,6 +10,7 @@
     "test:realm": "jest --runInBand --config jest.realm.config.js",
     "smoke:ios": "bash scripts/run-native-runtime-smoke.sh ios",
     "smoke:android": "bash scripts/run-native-runtime-smoke.sh android",
+    "smoke:transaction-recovery:android": "bash scripts/run-transaction-recovery-smoke.sh --rebuild",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write eslint.config.js babel.config.js jest.config.js metro.config.js config/moduleAliases.cjs scripts/check-architecture.mjs scripts/check-module-aliases.mjs",
     "format:check": "prettier --check eslint.config.js babel.config.js jest.config.js metro.config.js config/moduleAliases.cjs scripts/check-architecture.mjs scripts/check-module-aliases.mjs",
