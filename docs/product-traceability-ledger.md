@@ -54,8 +54,9 @@ This map assigns construction order without reducing final scope. An ID is compl
 
 ## Stage 2.5 recovery evidence
 
-- Evidence head: `5db3610` (includes `043c947`, `3651aa7`, `b035037`, `6e50817`, `8f5bffd` and Horizon transport fix `eaa1e8c`).
-- `npm run check`: 55 suites / 278 tests passed; `npm run test:realm`: 17/17; ESLint 0 errors / 29 warnings.
+- Initial recovery evidence head: `5db3610` (includes `043c947`, `3651aa7`, `b035037`, `6e50817`, `8f5bffd` and Horizon transport fix `eaa1e8c`).
+- Merge-review closure: `8a3ff12` queues one trailing reconciliation when a trigger arrives during an active single-flight run; `f1c47c3` rejects any reconciliation outcome whose returned transaction hash differs from the persisted pending hash; `3801415` adds real Realm v2→v3 migration coverage and the pre-broadcast crash-window fail-closed test.
+- Post-review local gate: `npm run check` 56 suites / 288 tests passed; `npm run test:realm`: 19/19; provenance/architecture/locale gates passed.
 - Android real-Testnet process-death smoke: transaction `f4c319cbe5db754888a419af7311901331ebf1b5a9209d2dd7fff8cd057e1417` persisted uncertain under PID 7631, process was force-stopped, PID 7773 reopened the same Realm and reconciled the same network/account/source/hash to confirmed without signing or broadcasting again.
 - Android and iOS current-head native runtime smoke both passed after the NetInfo dependency was integrated; iOS also completed a fresh simulator build.
 - This evidence passes the S07/S30 **shared recovery gate only**. The product rows remain `L3 partial` until their Stage 4 user-flow, failure, localization/accessibility and native/E2E acceptance is complete.

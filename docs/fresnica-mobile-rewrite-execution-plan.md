@@ -541,8 +541,10 @@ UI 执行策略：
 - `8f5bffd` 覆盖 restart、timeout 后实际 confirmed、deterministic rejected、跨网络隔离和 S07/S30 共用 Repository；长期未知测试从 2020 跨到 2036 并再次 reopen，仍保持 duplicate guard。
 - `eaa1e8c` 将 S07/S30 的 Horizon Platform transport 切换为 Stellar SDK 17.0.1 官方 `/axios` variant，并把内部 submit seam 收敛为 signed-XDR string；解决 RN 默认 fetch/feaxios transport 在真实提交时的 400 问题，不改变 Capability 语义。
 - `5db3610` 增加可重复 Android Testnet process-death harness。由已提交 HEAD fresh rebuild 后执行 `npm run smoke:transaction-recovery:android`：真实交易 `f4c319cbe5db754888a419af7311901331ebf1b5a9209d2dd7fff8cd057e1417` 先持久化为 uncertain；PID 7631 被 force-stop；新 PID 7773 从同一 Realm 读取同一 network/account/source/hash，只做 reconciliation，最终 confirmed，没有重新签名或广播。
-- 当前代码门禁：`npm run check` 55 suites / 278 tests 全通过；`npm run test:realm` 17/17；ESLint 0 errors / 29 warnings；format、alias、architecture、locale 全通过。
-- Native gate：Android `npm run smoke:android` 通过；iOS fresh simulator `xcodebuild` 成功，随后 `npm run smoke:ios` 通过，均验证 Realm、`FresnicaCore.parseAccount`、external-signing bridge 与 SEP-53 bridge。iOS simulator 为 iPhone 15 Pro / iOS 17.2。
+- 合并前独立审查发现并闭合两个 P1：`8a3ff12` 保留 single-flight 但为运行期间的新触发登记一个 trailing reconciliation，确保 cold-start 查询期间发生明确 network recovery 时首轮结束后自动补跑；`f1c47c3` 在 Transaction Capability 边界强制 `outcome.transactionHash === pending.transactionHash`，confirmed/rejected/still-unknown 任一 hash mismatch 都返回 `check-failed`、保持原记录 unresolved，且不释放 duplicate guard。
+- `3801415` 补强两个可靠性证据：真正创建 Realm schema v2 后升级到 v3，Account/Signer/reference/Locale 均保持；以及 pre-broadcast `submitting` 已持久化但尚未广播即进程死亡的 crash window，重启查询仍为 unknown 时记录继续阻断相同 intent。这是有意的 fail-closed/liveness 取舍，不引入时间自动放行。
+- Post-review 本地代码门禁：`npm run check` 56 suites / 288 tests 全通过；`npm run test:realm` 19/19；format、lint、alias、architecture、provenance、locale 全通过。
+- Post-review Native gate：Android fresh rebuild + runtime smoke 通过；Android release 缺凭据继续 fail closed，临时独立证书签名验证通过且非 Android Debug；iOS fresh simulator rebuild + Realm/Core/external-signing/SEP-53 runtime smoke 通过。
 - 以上只升级 Transaction recovery 基础切片；S07/S30 的产品成熟度仍保持 L3 partial，等待 Stage 4 各自完整用户闭环/native/E2E。未来 S10–S12、S18 的写账部分必须复用该管线。
 
 ### Stage 3：产品 Shell 与横切能力
