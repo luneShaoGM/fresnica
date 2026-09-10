@@ -135,6 +135,56 @@ jobs:
         working-directory: android
         run: ./gradlew :app:assembleDebug -PreactNativeArchitectures=x86_64 --stacktrace
 
+      - name: Verify Android release signing fails closed without credentials
+        working-directory: android
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          ./gradlew :app:assembleRelease -PreactNativeArchitectures=x86_64 \
+            > "$RUNNER_TEMP/release-without-signing.log" 2>&1
+          status=$?
+          set -e
+          test "$status" -ne 0
+          grep -F \
+            'Fresnica Android release signing credentials are required for release packaging; debug signing fallback is forbidden.' \
+            "$RUNNER_TEMP/release-without-signing.log"
+
+      - name: Build and verify test-signed Android release app
+        working-directory: android
+        shell: bash
+        run: |
+          set -euo pipefail
+          keystore="$RUNNER_TEMP/fresnica-ci-release.jks"
+          signing_password="$(openssl rand -hex 24)"
+          keytool -genkeypair \
+            -keystore "$keystore" \
+            -storetype PKCS12 \
+            -storepass "$signing_password" \
+            -keypass "$signing_password" \
+            -alias fresnica-ci-release \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 2 \
+            -dname 'CN=Fresnica CI Release Gate,O=Fresnica,C=US' \
+            -noprompt
+          FRESNICA_ANDROID_RELEASE_STORE_FILE="$keystore" \
+          FRESNICA_ANDROID_RELEASE_STORE_PASSWORD="$signing_password" \
+          FRESNICA_ANDROID_RELEASE_KEY_ALIAS=fresnica-ci-release \
+          FRESNICA_ANDROID_RELEASE_KEY_PASSWORD="$signing_password" \
+            ./gradlew :app:assembleRelease -PreactNativeArchitectures=x86_64 --stacktrace
+
+          apk="$GITHUB_WORKSPACE/android/app/build/outputs/apk/release/app-release.apk"
+          test -f "$apk"
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$apksigner"
+          cert_output="$("$apksigner" verify --print-certs "$apk")"
+          printf '%s\n' "$cert_output" | grep -F 'CN=Fresnica CI Release Gate'
+          if printf '%s\n' "$cert_output" | grep -F 'CN=Android Debug'; then
+            echo 'Release APK unexpectedly uses the Android debug certificate' >&2
+            exit 1
+          fi
+
       - name: Upload generated native artifacts
         uses: actions/upload-artifact@v4
         with:

@@ -9,6 +9,47 @@ react {
 def enableProguardInReleaseBuilds = false
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+def releaseSigningPropertyNames = [
+    'FRESNICA_ANDROID_RELEASE_STORE_FILE',
+    'FRESNICA_ANDROID_RELEASE_STORE_PASSWORD',
+    'FRESNICA_ANDROID_RELEASE_KEY_ALIAS',
+    'FRESNICA_ANDROID_RELEASE_KEY_PASSWORD',
+]
+def releaseSigningValues = releaseSigningPropertyNames.collectEntries { propertyName ->
+    def value = providers.gradleProperty(propertyName)
+        .orElse(providers.environmentVariable(propertyName))
+        .orNull
+    [(propertyName): value]
+}
+def configuredReleaseSigningProperties = releaseSigningValues.findAll { _, value -> value != null && !value.isEmpty() }
+if (!configuredReleaseSigningProperties.isEmpty() && configuredReleaseSigningProperties.size() != releaseSigningPropertyNames.size()) {
+    def missing = releaseSigningPropertyNames.findAll { !releaseSigningValues[it] }
+    throw new GradleException("Incomplete Fresnica Android release signing configuration. Missing: ${missing.join(', ')}")
+}
+def releaseSigningConfigured = configuredReleaseSigningProperties.size() == releaseSigningPropertyNames.size()
+def appProjectPath = project.path
+gradle.taskGraph.whenReady { graph ->
+    if (releaseSigningConfigured) {
+        return
+    }
+    def releasePackagingTask = graph.allTasks.find { task ->
+        if (task.project.path != appProjectPath) {
+            return false
+        }
+        def normalized = task.name.toLowerCase()
+        normalized.contains('release') && ['assemble', 'bundle', 'package', 'install'].any { normalized.contains(it) }
+    }
+    if (releasePackagingTask != null) {
+        throw new GradleException('Fresnica Android release signing credentials are required for release packaging; debug signing fallback is forbidden.')
+    }
+}
+def releaseStoreFile = releaseSigningConfigured
+    ? rootProject.file(releaseSigningValues.FRESNICA_ANDROID_RELEASE_STORE_FILE)
+    : null
+if (releaseSigningConfigured && !releaseStoreFile.isFile()) {
+    throw new GradleException('Fresnica Android release keystore file does not exist.')
+}
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -29,13 +70,23 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        if (releaseSigningConfigured) {
+            release {
+                storeFile releaseStoreFile
+                storePassword releaseSigningValues.FRESNICA_ANDROID_RELEASE_STORE_PASSWORD
+                keyAlias releaseSigningValues.FRESNICA_ANDROID_RELEASE_KEY_ALIAS
+                keyPassword releaseSigningValues.FRESNICA_ANDROID_RELEASE_KEY_PASSWORD
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            signingConfig signingConfigs.debug
+            if (releaseSigningConfigured) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
