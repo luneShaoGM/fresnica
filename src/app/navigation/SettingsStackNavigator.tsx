@@ -1,6 +1,8 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import {setAccountHidden} from '@capabilities/account/accountVisibility';
+import {deleteLocalAccount} from '@capabilities/account/deleteLocalAccount';
 import { renameAccount } from '@capabilities/account/renameAccount';
 import type { AccountRecord } from '@capabilities/account/types';
 import { AccountDetailsScreen } from '@features/accounts/AccountDetailsScreen';
@@ -33,12 +35,14 @@ export function SettingsStackNavigator({
   onSend,
   onManageAssets,
 }: Props) {
+  const visibleAccountCount = accounts.filter(account => !account.hidden).length;
+
   return (
     <Stack.Navigator initialRouteName="settings-home" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="settings-home">
         {({ navigation }) => (
           <SettingsHomeScreen
-            accountCount={accounts.filter(account => !account.hidden).length}
+            accountCount={accounts.length}
             onOpenAccounts={() => navigation.navigate('accounts-settings')}
             onOpenSecurity={() => navigation.navigate('security-settings')}
             onOpenNetwork={() => navigation.navigate('network-settings')}
@@ -63,9 +67,19 @@ export function SettingsStackNavigator({
           return (
             <AccountDetailsScreen
               account={account}
+              canHide={account.hidden || visibleAccountCount > 1}
               onBack={() => navigation.goBack()}
               onRename={label => {
                 renameAccount(services.accountManagement, account.id, label);
+                onAccountsChanged();
+              }}
+              onToggleHidden={() => {
+                setAccountHidden(services.accountManagement, account.id, !account.hidden);
+                onAccountsChanged();
+              }}
+              onDelete={() => {
+                deleteLocalAccount(services.accountManagement, account.id);
+                navigation.popToTop();
                 onAccountsChanged();
               }}
               onSend={() => onSend(account.id)}
@@ -104,7 +118,7 @@ export function SettingsStackNavigator({
         )}
       </Stack.Screen>
       <Stack.Screen name="language-settings">
-        {({ navigation }) => <LanguageSettingsScreen onBack={() => navigation.goBack()} />}
+        {({navigation}) => <LanguageSettingsScreen onBack={() => navigation.goBack()} />}
       </Stack.Screen>
       <Stack.Screen name="about">
         {({ navigation }) => (

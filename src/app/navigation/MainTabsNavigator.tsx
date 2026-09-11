@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 
 import type {AccountRecord} from '@capabilities/account/types';
@@ -28,14 +28,20 @@ type Props = Readonly<{
 
 export function MainTabsNavigator({accounts, services, onAccountsChanged}: Props) {
   const [selectedAccountId, setSelectedAccountId] = useState(() => firstVisibleAccountId(accounts));
+  const previousAccountsRef = useRef(accounts);
 
-  const effectiveSelectedAccountId = reconcileVisibleAccountId(accounts, selectedAccountId);
+  const effectiveSelectedAccountId = reconcileVisibleAccountId(
+    accounts,
+    selectedAccountId,
+    previousAccountsRef.current,
+  );
 
   useEffect(() => {
     if (effectiveSelectedAccountId !== selectedAccountId) {
       setSelectedAccountId(effectiveSelectedAccountId);
     }
-  }, [effectiveSelectedAccountId, selectedAccountId]);
+    previousAccountsRef.current = accounts;
+  }, [accounts, effectiveSelectedAccountId, selectedAccountId]);
 
   const selectedAccount = resolveVisibleAccount(accounts, effectiveSelectedAccountId);
   const canSign = !services.onboarding.repository.isWatchOnly(selectedAccount.id);

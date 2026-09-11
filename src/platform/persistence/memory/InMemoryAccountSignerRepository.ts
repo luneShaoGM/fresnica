@@ -98,6 +98,14 @@ export class InMemoryAccountSignerRepository implements AccountSignerRepository 
     this.accounts.set(accountId, {...account, label, updatedAt});
   }
 
+  setAccountHidden(accountId: string, hidden: boolean, updatedAt: Date): void {
+    const account = this.accounts.get(accountId);
+    if (!account) {
+      throw new Error('account-not-found');
+    }
+    this.accounts.set(accountId, {...account, hidden, updatedAt});
+  }
+
   listSignersForAccount(accountId: string): SignerRecord[] {
     const signerIds = [...this.references.values()]
       .filter(reference => reference.accountId === accountId)

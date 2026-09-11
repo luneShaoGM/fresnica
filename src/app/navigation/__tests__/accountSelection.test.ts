@@ -24,19 +24,42 @@ function account(id: string, sortOrder: number, hidden = false): AccountRecord {
 const accounts = [account('one', 0), account('two', 1)];
 
 describe('accountSelection', () => {
-  it('uses the first visible account', () => {
-    expect(firstVisibleAccountId([account('hidden', 0, true), ...accounts])).toBe('one');
+  it('uses stable sort order for the first visible account', () => {
+    expect(
+      firstVisibleAccountId([
+        account('two', 20),
+        account('hidden', 0, true),
+        account('one', 10),
+      ]),
+    ).toBe('one');
   });
 
-  it('cycles through visible accounts only', () => {
-    const withHidden = [account('one', 0), account('hidden', 1, true), account('two', 2)];
+  it('cycles through visible accounts in stable sort order only', () => {
+    const withHidden = [
+      account('two', 20),
+      account('hidden', 15, true),
+      account('one', 10),
+    ];
     expect(nextVisibleAccountId(withHidden, 'one')).toBe('two');
     expect(nextVisibleAccountId(withHidden, 'two')).toBe('one');
   });
 
-  it('reconciles removed or hidden selection to the first visible account', () => {
-    expect(reconcileVisibleAccountId([accounts[0]], 'two')).toBe('one');
-    expect(reconcileVisibleAccountId([account('one', 0, true), accounts[1]], 'one')).toBe('two');
+  it('keeps a still-visible selection', () => {
+    expect(reconcileVisibleAccountId(accounts, 'two')).toBe('two');
+  });
+
+  it('selects the next prior-order account after the current account is removed', () => {
+    const previous = [account('one', 0), account('two', 1), account('three', 2)];
+    const current = [account('one', 0), account('three', 2)];
+
+    expect(reconcileVisibleAccountId(current, 'two', previous)).toBe('three');
+  });
+
+  it('selects the next prior-order account after the current account is hidden', () => {
+    const previous = [account('one', 0), account('two', 1), account('three', 2)];
+    const current = [account('one', 0), account('two', 1, true), account('three', 2)];
+
+    expect(reconcileVisibleAccountId(current, 'two', previous)).toBe('three');
   });
 
   it('fails closed when an account is not selectable', () => {

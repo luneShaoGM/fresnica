@@ -140,6 +140,19 @@ export class RealmAccountSignerRepository implements AccountSignerRepository {
     });
   }
 
+  setAccountHidden(accountId: string, hidden: boolean, updatedAt: Date): void {
+    this.realm.write(() => {
+      const account = this.realm.objectForPrimaryKey(ACCOUNT_ENTITY, accountId);
+      if (!account) {
+        throw new Error('account-not-found');
+      }
+
+      const persisted = account as unknown as PersistedAccount;
+      persisted.hidden = hidden;
+      persisted.updatedAt = updatedAt;
+    });
+  }
+
   listSignersForAccount(accountId: string): SignerRecord[] {
     const references = Array.from(
       this.realm
