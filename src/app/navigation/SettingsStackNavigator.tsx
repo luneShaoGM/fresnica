@@ -1,22 +1,22 @@
 import React from 'react';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import {setAccountHidden} from '@capabilities/account/accountVisibility';
 import {deleteLocalAccount} from '@capabilities/account/deleteLocalAccount';
-import {renameAccount} from '@capabilities/account/renameAccount';
-import type {AccountRecord} from '@capabilities/account/types';
-import {AccountDetailsScreen} from '@features/accounts/AccountDetailsScreen';
-import {AccountsScreen} from '@features/accounts/AccountsScreen';
-import {AddWatchOnlyAccountScreen} from '@features/accounts/AddWatchOnlyAccountScreen';
-import {SecuritySettingsScreen} from '@features/security/SecuritySettingsScreen';
-import {AboutScreen} from '@features/settings/AboutScreen';
-import {LanguageSettingsScreen} from '@features/settings/LanguageSettingsScreen';
-import {NetworkSettingsScreen} from '@features/settings/NetworkSettingsScreen';
-import {SettingsHomeScreen} from '@features/settings/SettingsHomeScreen';
+import { renameAccount } from '@capabilities/account/renameAccount';
+import type { AccountRecord } from '@capabilities/account/types';
+import { AccountDetailsScreen } from '@features/accounts/AccountDetailsScreen';
+import { AccountsScreen } from '@features/accounts/AccountsScreen';
+import { AddWatchOnlyAccountScreen } from '@features/accounts/AddWatchOnlyAccountScreen';
+import { SecuritySettingsScreen } from '@features/security/SecuritySettingsScreen';
+import { AboutScreen } from '@features/settings/AboutScreen';
+import { LanguageSettingsScreen } from '@features/settings/LanguageSettingsScreen';
+import { NetworkSettingsScreen } from '@features/settings/NetworkSettingsScreen';
+import { SettingsHomeScreen } from '@features/settings/SettingsHomeScreen';
 
-import {APP_CONFIG} from '../config/appConfig';
-import type {AppServices} from '../createAppServices';
-import type {SettingsStackParamList} from './navigationTypes';
+import { APP_CONFIG } from '../config/appConfig';
+import type { AppServices } from '../createAppServices';
+import type { SettingsStackParamList } from './navigationTypes';
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
@@ -38,9 +38,9 @@ export function SettingsStackNavigator({
   const visibleAccountCount = accounts.filter(account => !account.hidden).length;
 
   return (
-    <Stack.Navigator initialRouteName="settings-home" screenOptions={{headerShown: false}}>
+    <Stack.Navigator initialRouteName="settings-home" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="settings-home">
-        {({navigation}) => (
+        {({ navigation }) => (
           <SettingsHomeScreen
             accountCount={accounts.length}
             onOpenAccounts={() => navigation.navigate('accounts-settings')}
@@ -52,17 +52,17 @@ export function SettingsStackNavigator({
         )}
       </Stack.Screen>
       <Stack.Screen name="accounts-settings">
-        {({navigation}) => (
+        {({ navigation }) => (
           <AccountsScreen
             accounts={accounts}
             onBack={() => navigation.goBack()}
-            onOpenAccount={accountId => navigation.navigate('account-details', {accountId})}
+            onOpenAccount={accountId => navigation.navigate('account-details', { accountId })}
             onAddAccount={() => navigation.navigate('add-account')}
           />
         )}
       </Stack.Screen>
       <Stack.Screen name="account-details">
-        {({navigation, route}) => {
+        {({ navigation, route }) => {
           const account = requireAccount(accounts, route.params.accountId);
           return (
             <AccountDetailsScreen
@@ -89,7 +89,7 @@ export function SettingsStackNavigator({
         }}
       </Stack.Screen>
       <Stack.Screen name="add-account">
-        {({navigation}) => (
+        {({ navigation }) => (
           <AddWatchOnlyAccountScreen
             dependencies={services.onboarding}
             onComplete={() => {
@@ -101,12 +101,12 @@ export function SettingsStackNavigator({
         )}
       </Stack.Screen>
       <Stack.Screen name="security-settings">
-        {({navigation}) => (
+        {({ navigation }) => (
           <SecuritySettingsScreen dependencies={services.security} onClose={() => navigation.goBack()} />
         )}
       </Stack.Screen>
       <Stack.Screen name="network-settings">
-        {({navigation}) => (
+        {({ navigation }) => (
           <NetworkSettingsScreen
             network={{
               id: APP_CONFIG.network.id,
@@ -121,7 +121,7 @@ export function SettingsStackNavigator({
         {({navigation}) => <LanguageSettingsScreen onBack={() => navigation.goBack()} />}
       </Stack.Screen>
       <Stack.Screen name="about">
-        {({navigation}) => (
+        {({ navigation }) => (
           <AboutScreen
             appName={APP_CONFIG.appName}
             projectName={APP_CONFIG.projectName}
