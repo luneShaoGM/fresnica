@@ -3,6 +3,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import Realm from 'realm';
 
+import {moveAccount, orderAccounts} from '../../../../capabilities/account/accountOrder';
 import {setAccountHidden} from '../../../../capabilities/account/accountVisibility';
 import {deleteLocalAccount} from '../../../../capabilities/account/deleteLocalAccount';
 import type {AccountRecord} from '../../../../capabilities/account/types';
@@ -56,6 +57,33 @@ describe('Realm account lifecycle', () => {
 
       setAccountHidden({repository, now: () => updatedAt}, 'account-a', false);
       expect(repository.getAccount('account-a')?.hidden).toBe(false);
+    } finally {
+      activeRealm?.close();
+      rmSync(directory, {recursive: true, force: true});
+    }
+  });
+
+  it('persists stable account order across Realm reopen', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'fresnica-account-order-'));
+    const path = join(directory, 'wallet.realm');
+    let activeRealm: Awaited<ReturnType<typeof openWalletRealm>> | undefined;
+
+    try {
+      activeRealm = await openWalletRealm({path});
+      let repository = new RealmAccountSignerRepository(activeRealm);
+      repository.createAccount({...account('account-a'), sortOrder: 0});
+      repository.createAccount({...account('account-b'), sortOrder: 1});
+      repository.createAccount({...account('account-c'), sortOrder: 2});
+
+      moveAccount({repository, now: () => updatedAt}, 'account-c', 'up');
+      activeRealm.close();
+      activeRealm = undefined;
+
+      activeRealm = await openWalletRealm({path});
+      repository = new RealmAccountSignerRepository(activeRealm);
+      const reopened = orderAccounts(repository.listAccounts());
+      expect(reopened.map(candidate => candidate.id)).toEqual(['account-a', 'account-c', 'account-b']);
+      expect(reopened.map(candidate => candidate.sortOrder)).toEqual([0, 1, 2]);
     } finally {
       activeRealm?.close();
       rmSync(directory, {recursive: true, force: true});

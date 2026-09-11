@@ -108,6 +108,46 @@ export function runAccountSignerRepositoryContract(
     ).toThrow('account-not-found');
   });
 
+  it('updates account sort orders without changing other account fields', () => {
+    const repository = createRepository();
+    const accountA = {...account('account-a'), sortOrder: 0};
+    const accountB = {...account('account-b'), sortOrder: 1};
+    const updatedAt = new Date('2026-09-11T02:00:00.000Z');
+    repository.createAccount(accountA);
+    repository.createAccount(accountB);
+
+    repository.setAccountSortOrders([
+      {accountId: accountA.id, sortOrder: 1, updatedAt},
+      {accountId: accountB.id, sortOrder: 0, updatedAt},
+    ]);
+
+    expect(repository.getAccount(accountA.id)).toEqual({
+      ...accountA,
+      sortOrder: 1,
+      updatedAt,
+    });
+    expect(repository.getAccount(accountB.id)).toEqual({
+      ...accountB,
+      sortOrder: 0,
+      updatedAt,
+    });
+  });
+
+  it('fails account sort updates atomically when any account is missing', () => {
+    const repository = createRepository();
+    const accountA = {...account('account-a'), sortOrder: 0};
+    repository.createAccount(accountA);
+
+    expect(() =>
+      repository.setAccountSortOrders([
+        {accountId: accountA.id, sortOrder: 1, updatedAt: now},
+        {accountId: 'missing', sortOrder: 0, updatedAt: now},
+      ]),
+    ).toThrow('account-not-found');
+
+    expect(repository.getAccount(accountA.id)).toEqual(accountA);
+  });
+
   it('registers an account and signer as one attached wallet state', () => {
     const repository = createRepository();
     const accountRecord = account('account-a');

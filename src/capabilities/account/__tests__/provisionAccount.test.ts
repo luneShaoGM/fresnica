@@ -65,6 +65,22 @@ describe('account provisioning', () => {
     expect(repository.isWatchOnly(account.id)).toBe(true);
   });
 
+  it('appends newly provisioned accounts after the current local sort order', async () => {
+    const { dependencies } = createDependencies();
+
+    const first = await registerWatchOnlyAccount(dependencies, {
+      address: 'GFIRST',
+      networkId: 'stellar-testnet',
+    });
+    const second = await registerWatchOnlyAccount(dependencies, {
+      address: 'GSECOND',
+      networkId: 'stellar-testnet',
+    });
+
+    expect(first.sortOrder).toBe(0);
+    expect(second.sortOrder).toBe(1);
+  });
+
   it('imports a secret through Fresnica and persists only the protected signer', async () => {
     const { dependencies, repository, sdk } = createDependencies();
 
