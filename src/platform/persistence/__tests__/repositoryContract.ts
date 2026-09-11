@@ -86,6 +86,28 @@ export function runAccountSignerRepositoryContract(
     ).toThrow('signer-not-found');
   });
 
+  it('updates an account label without changing account identity metadata', () => {
+    const repository = createRepository();
+    const accountRecord = account('account-a');
+    const updatedAt = new Date('2026-09-11T00:00:00.000Z');
+    repository.createAccount(accountRecord);
+
+    repository.setAccountLabel(accountRecord.id, 'Renamed', updatedAt);
+
+    expect(repository.getAccount(accountRecord.id)).toEqual({
+      ...accountRecord,
+      label: 'Renamed',
+      updatedAt,
+    });
+  });
+
+  it('rejects account label updates for a missing account', () => {
+    const repository = createRepository();
+    expect(() =>
+      repository.setAccountLabel('missing', 'Renamed', now),
+    ).toThrow('account-not-found');
+  });
+
   it('registers an account and signer as one attached wallet state', () => {
     const repository = createRepository();
     const accountRecord = account('account-a');

@@ -19,6 +19,7 @@ export interface AccountSignerRepository {
   listAccounts(): AccountRecord[];
   listSigners(): SignerRecord[];
   listSignersForAccount(accountId: string): SignerRecord[];
+  setAccountLabel(accountId: string, label: string, updatedAt: Date): void;
   setSignerBackupState(
     signerId: string,
     backupState: BackupState,

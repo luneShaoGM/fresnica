@@ -69,6 +69,13 @@ This map assigns construction order without reducing final scope. An ID is compl
 - `npm run check` now validates the harness shell syntax plus its JS Prettier/ESLint gates without performing network writes. Full tap/visual/accessibility/System Auth device E2E remains per-slice acceptance work, so this closes the Stage 3 carrier requirement only.
 - Detailed command, isolation, redaction, and scope notes: `docs/product-native-flow-smoke.md`.
 
+## Stage 4 S02 account-label evidence
+
+- Account label rename is implemented as a clean-room S02 sub-slice. The Account capability trims the requested label, treats an unchanged trimmed value as a no-op, and delegates only `label + updatedAt` persistence to the injected Account repository; account address/network/identity/sort/visibility and signer relationships are not rewritten.
+- Memory and Realm implementations share the same repository contract; Realm integration proves the renamed label survives close/reopen. Missing account fails closed.
+- Settings → Accounts → Account Detail exposes a localized edit-label modal. Save refreshes App bootstrap through the existing `onAccountsChanged()` path; failure remains in the modal with stable localized copy. Android emulator validation on 2026-09-11 proved `BeforeRename → BeforeRenameAfter` in Account Detail, the Accounts list, and again after force-stop/restart.
+- This evidence closes **rename only**. S02 remains `L2/L3 partial`; sort, hide/show and delete/account-lifecycle policy are still pending and must not be inferred from this slice.
+
 ## Current milestone security / release evidence
 
 - S04 `6a19346`: reachable Security Settings now requires an explicit second confirmation before disabling System Auth; cancellation paths do not call Native remove, in-flight confirm is de-duplicated, and Native failure preserves the truthful enabled state. This slice used no donor implementation; provenance is `none / Fresnica security requirement`. S04 is therefore `L3 partial/blocker`, not L4, because app-session unlock and other security/privacy sub-behaviors remain incomplete or upstream-blocked.

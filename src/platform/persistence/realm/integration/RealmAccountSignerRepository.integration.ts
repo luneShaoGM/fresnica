@@ -104,13 +104,19 @@ describe('RealmAccountSignerRepository restart integration', () => {
       firstRepository.createSigner(signer('shared'));
       firstRepository.attachSigner('account-a', 'shared', now);
       firstRepository.attachSigner('account-b', 'shared', now);
+      const renamedAt = new Date('2026-09-11T00:00:00.000Z');
+      firstRepository.setAccountLabel('account-a', 'Primary wallet', renamedAt);
       activeRealm.close();
       activeRealm = undefined;
 
       activeRealm = await openWalletRealm({ path });
       const reopenedRepository = new RealmAccountSignerRepository(activeRealm);
 
-      expect(reopenedRepository.getAccount('account-a')).toEqual(account('account-a'));
+      expect(reopenedRepository.getAccount('account-a')).toEqual({
+        ...account('account-a'),
+        label: 'Primary wallet',
+        updatedAt: renamedAt,
+      });
       expect(reopenedRepository.getAccount('account-b')).toEqual(account('account-b'));
       expect(reopenedRepository.getSigner('shared')).toEqual(signer('shared'));
       expect(reopenedRepository.isWatchOnly('account-a')).toBe(false);

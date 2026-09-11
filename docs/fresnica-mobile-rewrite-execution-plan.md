@@ -645,8 +645,9 @@ UI 执行策略：
 - 成功后不乐观篡改 Realm 余额。
 - 所有新增/重写用户文案进入 locale 字典，金额/日期/分隔符走格式化 helper；Accessibility label、动态字体和屏幕阅读顺序随切片验收，不推迟到发布阶段补齐。
 
-当前执行证据（2026-09-09）：
+当前执行证据（截至 2026-09-11）：
 
+- S02 Account label rename 已在 2026-09-11 闭合为独立子切片：Account Capability 只更新本地 `label + updatedAt`，输入 trim，trim 后未变化则不写；Memory/Realm 共用同一窄 Repository contract，Realm close/reopen 保留名称。Settings → Accounts → Account Detail 使用共享 `AppModal + Field + Button` 编辑，保存失败仅显示稳定本地化错误，成功后经 `onAccountsChanged()` 重新解析同一账户真值。Android emulator 实测 `BeforeRename → BeforeRenameAfter` 在 Detail、Accounts 列表和 force-stop/restart 后 Home 均一致。此证据只完成 rename，S02 仍为 partial；sort/hide/delete 尚未完成。
 - `Settings → Accounts → Account Detail` 已改为同一 Settings native stack 内的本地历史，不再为打开 Detail 先切 Home tab；Back 语义现由 `navigation.goBack()` 返回 Accounts。跨 tab 入场导致的视觉下跳是否完全消失仍待 simulator 人工确认。
 - Settings 与 Home 的 Add Account 复用同一 watch-only Screen，但各自保留自己的 native-stack 返回历史。现有钱包新增 protected software signer 继续 fail closed，因为 Fresnica 0.3.0 尚无 framework-safe `verifySignerPassphrase`。
 - 新保护 App Passphrase 策略已从 Onboarding 抽到 Application Security：至少 15 个 Unicode scalar，不静默 normalize，不增加强制大小写/数字/符号组合规则；Onboarding 已增加最低要求、确认一致和 System Auth / fresh-passphrase 职责提示。新版视觉仍待 simulator 人工确认。

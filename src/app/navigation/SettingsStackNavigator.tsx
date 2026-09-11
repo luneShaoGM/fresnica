@@ -1,6 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import { renameAccount } from '@capabilities/account/renameAccount';
 import type { AccountRecord } from '@capabilities/account/types';
 import { AccountDetailsScreen } from '@features/accounts/AccountDetailsScreen';
 import { AccountsScreen } from '@features/accounts/AccountsScreen';
@@ -63,6 +64,10 @@ export function SettingsStackNavigator({
             <AccountDetailsScreen
               account={account}
               onBack={() => navigation.goBack()}
+              onRename={label => {
+                renameAccount(services.accountManagement, account.id, label);
+                onAccountsChanged();
+              }}
               onSend={() => onSend(account.id)}
               onManageAssets={() => onManageAssets(account.id)}
             />

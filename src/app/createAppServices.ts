@@ -7,6 +7,7 @@ import {createTransactionReconciliationCoordinator, type TransactionReconciliati
 import type { OnboardingProvisioningDependencies } from '../features/onboarding/runOnboardingProvisioning';
 import type { ApplicationSecurityDependencies } from '../capabilities/application-security/systemAuth';
 import type { BalanceDependencies } from '../capabilities/balance/loadBalanceSnapshot';
+import type { RenameAccountDependencies } from '../capabilities/account/renameAccount';
 import type { HistoryDependencies } from '../capabilities/history/loadHistoryPage';
 import type { SendProductDependencies } from '../features/send/sendProductFlow';
 import type { TrustlineProductDependencies } from '../features/trustlines/trustlineProductFlow';
@@ -22,6 +23,7 @@ import { StellarSdkGateway } from '../platform/stellar/StellarSdkGateway';
 
 export type AppServices = Readonly<{
   diagnostics: SessionLogger;
+  accountManagement: RenameAccountDependencies;
   onboarding: OnboardingProvisioningDependencies;
   security: ApplicationSecurityDependencies;
   balance: BalanceDependencies;
@@ -82,6 +84,10 @@ export async function createAppServices(
 
     return {
       diagnostics,
+      accountManagement: {
+        repository,
+        now: () => new Date(),
+      },
       onboarding: {
         sdk,
         repository,

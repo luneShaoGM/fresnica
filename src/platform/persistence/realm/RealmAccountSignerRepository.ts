@@ -127,6 +127,19 @@ export class RealmAccountSignerRepository implements AccountSignerRepository {
     );
   }
 
+  setAccountLabel(accountId: string, label: string, updatedAt: Date): void {
+    this.realm.write(() => {
+      const account = this.realm.objectForPrimaryKey(ACCOUNT_ENTITY, accountId);
+      if (!account) {
+        throw new Error('account-not-found');
+      }
+
+      const persisted = account as unknown as PersistedAccount;
+      persisted.label = label;
+      persisted.updatedAt = updatedAt;
+    });
+  }
+
   listSignersForAccount(accountId: string): SignerRecord[] {
     const references = Array.from(
       this.realm
