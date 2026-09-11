@@ -82,7 +82,6 @@ describe('Realm account lifecycle', () => {
           sdk: {} as never,
           createId: () => 'unused',
           now: () => updatedAt,
-          networkId: 'stellar-testnet',
         }),
       ).toEqual({kind: 'onboarding'});
     } finally {
