@@ -62,6 +62,13 @@ This map assigns construction order without reducing final scope. An ID is compl
 - This evidence passes the S07/S30 **shared recovery gate only**. The product rows remain `L3 partial` until their Stage 4 user-flow, failure, localization/accessibility and native/E2E acceptance is complete.
 - Future ledger-write slices S10–S12 and S18 must consume this recovery path; passing Stage 2.5 is not permission to implement them before their own Stage/Capability gates.
 
+## Stage 3 product native-flow carrier evidence
+
+- `npm run smoke:product-flow:android` is the canonical fresh-build carrier. It uses production `createAppServices` with an isolated Realm path, generated-mnemonic onboarding, production backup confirmation/bootstrap, the production `AppNavigator` main branch, Balance capability, and the Send product flow against Stellar Testnet.
+- Two independent Android runs on 2026-09-10 both reported `onboarding -> pending-mnemonic-backup -> ready`, active Balance reads, and successful Testnet writes. Transaction hashes: `5b606a230dfd30e4a378474b1774599c433778a0344122c752db8b060e5cd1d7` and `f3a2acf2751cee4d787fed3b248c70a4ce20d7bf3833f163c9bafedacf65bd50`. Each fresh source moved from `10000.0000000` to `9997.9999900` XLM.
+- `npm run check` now validates the harness shell syntax plus its JS Prettier/ESLint gates without performing network writes. Full tap/visual/accessibility/System Auth device E2E remains per-slice acceptance work, so this closes the Stage 3 carrier requirement only.
+- Detailed command, isolation, redaction, and scope notes: `docs/product-native-flow-smoke.md`.
+
 ## Current milestone security / release evidence
 
 - S04 `6a19346`: reachable Security Settings now requires an explicit second confirmation before disabling System Auth; cancellation paths do not call Native remove, in-flight confirm is de-duplicated, and Native failure preserves the truthful enabled state. This slice used no donor implementation; provenance is `none / Fresnica security requirement`. S04 is therefore `L3 partial/blocker`, not L4, because app-session unlock and other security/privacy sub-behaviors remain incomplete or upstream-blocked.

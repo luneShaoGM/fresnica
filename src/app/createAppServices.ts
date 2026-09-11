@@ -34,9 +34,17 @@ export type AppServices = Readonly<{
   close: () => void;
 }>;
 
-export async function createAppServices(): Promise<AppServices> {
+export type CreateAppServicesOptions = Readonly<{
+  realmPath?: string;
+}>;
+
+export async function createAppServices(
+  options: CreateAppServicesOptions = {},
+): Promise<AppServices> {
   const diagnostics = new SessionLogger();
-  const realm = await openWalletRealm();
+  const realm = await openWalletRealm(
+    options.realmPath === undefined ? {} : {path: options.realmPath},
+  );
 
   try {
     const nativeModule = loadNativeFresnicaModule(NativeModules);

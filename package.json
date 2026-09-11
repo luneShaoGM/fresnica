@@ -18,9 +18,11 @@
     "alias:check": "node scripts/check-module-aliases.mjs",
     "architecture:check": "node scripts/check-architecture.mjs",
     "locale:check": "node scripts/check-locales.mjs",
-    "check": "npm run typecheck && npm run format:check && npm run lint && npm run alias:check && npm run architecture:check && npm run provenance:check && npm run locale:check && npm test",
+    "check": "npm run typecheck && npm run smoke:product-flow:check && npm run format:check && npm run lint && npm run alias:check && npm run architecture:check && npm run provenance:check && npm run locale:check && npm test",
     "provenance:check": "node scripts/check-donor-collisions.mjs",
-    "provenance:index": "node scripts/update-donor-blob-index.mjs"
+    "provenance:index": "node scripts/update-donor-blob-index.mjs",
+    "smoke:product-flow:android": "bash scripts/run-product-flow-smoke.sh android --rebuild",
+    "smoke:product-flow:check": "bash -n scripts/run-product-flow-smoke.sh && prettier --check scripts/product-flow-smoke-entry.js scripts/product-flow-smoke-server.mjs && eslint scripts/product-flow-smoke-entry.js scripts/product-flow-smoke-server.mjs"
   },
   "dependencies": {
     "@react-native-community/netinfo": "12.0.1",

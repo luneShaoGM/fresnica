@@ -591,6 +591,7 @@ UI 执行策略：
 - App Passphrase 产品策略已冻结：不提供短数字 passcode 保护根；普通签名优先 System Auth，导出/恢复/改密及显式高风险事务要求 fresh strong passphrase。
 - session lock 的纯状态机已覆盖 cold-start、background timeout、foreground resume、cancel 与 verified-unlock transition；但当前 Fresnica 0.3.0 React Native adapter 仍没有通用 `authenticateSystemAuth(reason)`。在上游提供安全 challenge 前，不得用 reveal、dummy XDR、伪 biometric probe 或 JavaScript credential scheme 绕过。
 - Network Settings 保持只读开发壳：当前开发配置仍为 Testnet；首版策略明确为 Mainnet 默认，鉴权开启 Developer Mode 后开放 Testnet/custom Horizon/RPC。
+- Stage 3 最小产品 native-flow harness 已建立：`npm run smoke:product-flow:android` 使用生产 `createAppServices` + 独立 Realm，重复执行 cold onboarding → pending mnemonic backup → `AppNavigator` main shell → 真实 Balance read → `buildSendReview` / `submitSendReview` Testnet 写路径。2026-09-10 两次独立运行均从 `10000.0000000` XLM 变为 `9997.9999900` XLM，交易 `5b606a230dfd30e4a378474b1774599c433778a0344122c752db8b060e5cd1d7` 与 `f3a2acf2751cee4d787fed3b248c70a4ce20d7bf3833f163c9bafedacf65bd50` 均 `submitted`。该证据建立 L4 所需执行载体，不等价于 tap/visual E2E，也不把 S07/S30 或 Stage 3 整体升级 L4。详见 `docs/product-native-flow-smoke.md`。
 - 定向 Stage 3 contract tests：4 suites / 18 tests 通过。
 
 未封板项：
