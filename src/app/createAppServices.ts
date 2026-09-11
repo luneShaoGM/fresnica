@@ -7,6 +7,8 @@ import {createTransactionReconciliationCoordinator, type TransactionReconciliati
 import type { OnboardingProvisioningDependencies } from '../features/onboarding/runOnboardingProvisioning';
 import type { ApplicationSecurityDependencies } from '../capabilities/application-security/systemAuth';
 import type { BalanceDependencies } from '../capabilities/balance/loadBalanceSnapshot';
+import type { AccountVisibilityDependencies } from '../capabilities/account/accountVisibility';
+import type { DeleteLocalAccountDependencies } from '../capabilities/account/deleteLocalAccount';
 import type { RenameAccountDependencies } from '../capabilities/account/renameAccount';
 import type { HistoryDependencies } from '../capabilities/history/loadHistoryPage';
 import type { SendProductDependencies } from '../features/send/sendProductFlow';
@@ -21,9 +23,13 @@ import {
 } from '../platform/persistence/realm';
 import { StellarSdkGateway } from '../platform/stellar/StellarSdkGateway';
 
+export type AccountManagementDependencies = RenameAccountDependencies &
+  AccountVisibilityDependencies &
+  DeleteLocalAccountDependencies;
+
 export type AppServices = Readonly<{
   diagnostics: SessionLogger;
-  accountManagement: RenameAccountDependencies;
+  accountManagement: AccountManagementDependencies;
   onboarding: OnboardingProvisioningDependencies;
   security: ApplicationSecurityDependencies;
   balance: BalanceDependencies;
@@ -86,6 +92,7 @@ export async function createAppServices(
       diagnostics,
       accountManagement: {
         repository,
+        pendingSubmissions,
         now: () => new Date(),
       },
       onboarding: {

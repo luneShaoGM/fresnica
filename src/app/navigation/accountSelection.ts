@@ -1,7 +1,7 @@
 import type {AccountRecord} from '@capabilities/account/types';
 
 export function firstVisibleAccountId(accounts: readonly AccountRecord[]): string {
-  const account = accounts.find(candidate => !candidate.hidden);
+  const account = orderedVisibleAccounts(accounts)[0];
   if (!account) {
     throw new Error('main-navigation-requires-account');
   }
@@ -23,7 +23,7 @@ export function nextVisibleAccountId(
   accounts: readonly AccountRecord[],
   accountId: string,
 ): string {
-  const visibleAccounts = accounts.filter(account => !account.hidden);
+  const visibleAccounts = orderedVisibleAccounts(accounts);
   if (visibleAccounts.length === 0) {
     throw new Error('main-navigation-requires-account');
   }
@@ -36,8 +36,42 @@ export function nextVisibleAccountId(
 export function reconcileVisibleAccountId(
   accounts: readonly AccountRecord[],
   accountId: string,
+  previousAccounts: readonly AccountRecord[] = accounts,
 ): string {
-  return accounts.some(account => account.id === accountId && !account.hidden)
-    ? accountId
-    : firstVisibleAccountId(accounts);
+  if (accounts.some(account => account.id === accountId && !account.hidden)) {
+    return accountId;
+  }
+
+  const previousVisible = orderedVisibleAccounts(previousAccounts);
+  const previousIndex = previousVisible.findIndex(account => account.id === accountId);
+  if (previousIndex >= 0) {
+    for (let offset = 1; offset < previousVisible.length; offset += 1) {
+      const candidate = previousVisible[(previousIndex + offset) % previousVisible.length];
+      if (accounts.some(account => account.id === candidate.id && !account.hidden)) {
+        return candidate.id;
+      }
+    }
+  }
+
+  return firstVisibleAccountId(accounts);
+}
+
+function orderedVisibleAccounts(accounts: readonly AccountRecord[]): AccountRecord[] {
+  return accounts
+    .filter(account => !account.hidden)
+    .slice()
+    .sort(compareAccountOrder);
+}
+
+function compareAccountOrder(left: AccountRecord, right: AccountRecord): number {
+  if (left.sortOrder !== right.sortOrder) {
+    return left.sortOrder - right.sortOrder;
+  }
+
+  const createdAtDelta = left.createdAt.getTime() - right.createdAt.getTime();
+  if (createdAtDelta !== 0) {
+    return createdAtDelta;
+  }
+
+  return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
 }
