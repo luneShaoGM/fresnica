@@ -7,6 +7,12 @@ export type AccountSignerRegistration = {
   attachedAt: Date;
 };
 
+export type AccountSortOrderUpdate = Readonly<{
+  accountId: string;
+  sortOrder: number;
+  updatedAt: Date;
+}>;
+
 export interface AccountSignerRepository {
   createAccount(account: AccountRecord): void;
   createSigner(signer: SignerRecord): void;
@@ -21,6 +27,7 @@ export interface AccountSignerRepository {
   listSignersForAccount(accountId: string): SignerRecord[];
   setAccountLabel(accountId: string, label: string, updatedAt: Date): void;
   setAccountHidden(accountId: string, hidden: boolean, updatedAt: Date): void;
+  setAccountSortOrders(updates: readonly AccountSortOrderUpdate[]): void;
   setSignerBackupState(
     signerId: string,
     backupState: BackupState,

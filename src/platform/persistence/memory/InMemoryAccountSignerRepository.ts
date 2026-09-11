@@ -1,6 +1,7 @@
 import type {
   AccountSignerRegistration,
   AccountSignerRepository,
+  AccountSortOrderUpdate,
 } from '../../../capabilities/account/AccountSignerRepository';
 import {
   findOrphanSignerIds,
@@ -104,6 +105,23 @@ export class InMemoryAccountSignerRepository implements AccountSignerRepository 
       throw new Error('account-not-found');
     }
     this.accounts.set(accountId, {...account, hidden, updatedAt});
+  }
+
+  setAccountSortOrders(updates: readonly AccountSortOrderUpdate[]): void {
+    for (const update of updates) {
+      if (!this.accounts.has(update.accountId)) {
+        throw new Error('account-not-found');
+      }
+    }
+
+    for (const update of updates) {
+      const account = this.accounts.get(update.accountId)!;
+      this.accounts.set(update.accountId, {
+        ...account,
+        sortOrder: update.sortOrder,
+        updatedAt: update.updatedAt,
+      });
+    }
   }
 
   listSignersForAccount(accountId: string): SignerRecord[] {

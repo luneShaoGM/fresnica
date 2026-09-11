@@ -1,5 +1,6 @@
 import type { FresnicaSdkPort } from '../ports/FresnicaSdkPort';
 import type { AccountSignerRepository } from './AccountSignerRepository';
+import { nextAccountSortOrder } from './accountOrder';
 import type { AccountRecord } from './types';
 import type { BackupState, RecoveryKind, SignerRecord } from '../signer/types';
 
@@ -66,7 +67,7 @@ export async function registerWatchOnlyAccount(
     identityKind: identity.kind,
     networkId,
     label: input.label?.trim() ?? '',
-    sortOrder: 0,
+    sortOrder: nextAccountSortOrder(dependencies.repository.listAccounts()),
     hidden: false,
     createdAt: now,
     updatedAt: now,
@@ -164,7 +165,7 @@ async function persistProtectedSigner(
     identityKind: 'classic',
     networkId,
     label: options.label?.trim() ?? '',
-    sortOrder: 0,
+    sortOrder: nextAccountSortOrder(dependencies.repository.listAccounts()),
     hidden: false,
     createdAt: now,
     updatedAt: now,
