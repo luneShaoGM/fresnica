@@ -6,7 +6,6 @@ import Realm from 'realm';
 import {setAccountHidden} from '../../../../capabilities/account/accountVisibility';
 import {deleteLocalAccount} from '../../../../capabilities/account/deleteLocalAccount';
 import type {AccountRecord} from '../../../../capabilities/account/types';
-import {resolveOnboardingBootstrap} from '../../../../features/onboarding/onboardingBootstrap';
 import {RealmAccountSignerRepository} from '../RealmAccountSignerRepository';
 import {RealmPendingSubmissionRepository} from '../RealmPendingSubmissionRepository';
 import {openWalletRealm} from '../openWalletRealm';
@@ -76,14 +75,7 @@ describe('Realm account lifecycle', () => {
 
       deleteLocalAccount({repository, pendingSubmissions}, 'account-a');
 
-      expect(
-        resolveOnboardingBootstrap({
-          repository,
-          sdk: {} as never,
-          createId: () => 'unused',
-          now: () => updatedAt,
-        }),
-      ).toEqual({kind: 'onboarding'});
+      expect(repository.listAccounts()).toEqual([]);
     } finally {
       activeRealm?.close();
       rmSync(directory, {recursive: true, force: true});
