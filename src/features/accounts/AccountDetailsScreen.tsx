@@ -1,20 +1,50 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 
-import {Screen} from '@ui/components';
+import {AppModal, Button, Field, Screen} from '@ui/components';
 
 import type {AccountRecord} from '../../capabilities/account/types';
+import {useLocalization} from '../../locale';
 import {useThemedStyles, type AppTheme} from '@ui/theme';
 
 type Props = Readonly<{
   account: AccountRecord;
   onSend: () => void;
   onManageAssets: () => void;
+  onRename: (label: string) => void | Promise<void>;
   onBack: () => void;
 }>;
 
-export function AccountDetailsScreen({account, onSend, onManageAssets, onBack}: Props) {
+export function AccountDetailsScreen({account, onSend, onManageAssets, onRename, onBack}: Props) {
+  const {t} = useLocalization();
   const styles = useThemedStyles(createStyles);
+  const [renameVisible, setRenameVisible] = useState(false);
+  const [draftLabel, setDraftLabel] = useState(account.label);
+  const [renameState, setRenameState] = useState<'idle' | 'saving' | 'error'>('idle');
+
+  const openRename = () => {
+    setDraftLabel(account.label);
+    setRenameState('idle');
+    setRenameVisible(true);
+  };
+
+  const closeRename = () => {
+    if (renameState === 'saving') return;
+    setRenameVisible(false);
+    setRenameState('idle');
+  };
+
+  const saveRename = async () => {
+    if (renameState === 'saving') return;
+    setRenameState('saving');
+    try {
+      await onRename(draftLabel);
+      setRenameVisible(false);
+      setRenameState('idle');
+    } catch {
+      setRenameState('error');
+    }
+  };
   return (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
@@ -29,6 +59,7 @@ export function AccountDetailsScreen({account, onSend, onManageAssets, onBack}: 
         <View style={styles.identityBlock}>
           <View style={styles.accountIcon}><Text style={styles.accountIconText}>{(account.label || 'S').slice(0, 1).toUpperCase()}</Text></View>
           <Text style={styles.accountLabel}>{account.label || 'Stellar account'}</Text>
+          <Button label={t('accounts.rename.open')} onPress={openRename} variant="ghost" />
           <Text selectable style={styles.address}>{account.address}</Text>
         </View>
 
@@ -52,6 +83,41 @@ export function AccountDetailsScreen({account, onSend, onManageAssets, onBack}: 
           Signer access is derived from Fresnica Account-Signer relationships. Ledger balances and trustlines remain network state and are not stored as account identity truth.
         </Text>
       </ScrollView>
+
+      <AppModal
+        description={t('accounts.rename.description')}
+        onRequestClose={closeRename}
+        title={t('accounts.rename.title')}
+        visible={renameVisible}>
+        <View style={styles.renameContent}>
+          <Field
+            accessibilityLabel={t('accounts.rename.field')}
+            autoCapitalize="sentences"
+            label={t('accounts.rename.field')}
+            onChangeText={setDraftLabel}
+            placeholder={t('accounts.rename.placeholder')}
+            value={draftLabel}
+          />
+          {renameState === 'error' ? (
+            <Text accessibilityLiveRegion="polite" style={styles.renameError}>
+              {t('accounts.rename.error')}
+            </Text>
+          ) : null}
+          <View style={styles.renameActions}>
+            <Button
+              disabled={renameState === 'saving'}
+              label={t('accounts.rename.cancel')}
+              onPress={closeRename}
+              variant="secondary"
+            />
+            <Button
+              disabled={renameState === 'saving'}
+              label={renameState === 'saving' ? t('accounts.rename.saving') : t('accounts.rename.save')}
+              onPress={saveRename}
+            />
+          </View>
+        </View>
+      </AppModal>
     </Screen>
   );
 }
@@ -107,6 +173,9 @@ function createStyles(theme: AppTheme) {
   secondaryAction: {minHeight: 52, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surfaceMuted},
   secondaryActionText: {fontSize: 15, color: theme.colors.surfaceStrong, fontWeight: '800'},
   note: {paddingHorizontal: 22, paddingTop: 18, fontSize: 10, lineHeight: 15, color: theme.colors.textTertiary, textAlign: 'center'},
+  renameContent: {gap: theme.spacing.md},
+  renameActions: {gap: theme.spacing.sm},
+  renameError: {...theme.typography.body, color: theme.colors.negative},
   pressed: {opacity: 0.68},
   });
 }
