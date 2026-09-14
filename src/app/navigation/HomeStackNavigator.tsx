@@ -1,34 +1,36 @@
-import React, {useSyncExternalStore} from 'react';
-import {useIsFocused} from '@react-navigation/native';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import React, { useSyncExternalStore } from 'react';
+import { useIsFocused } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import type {AccountRecord} from '@capabilities/account/types';
-import {AddWatchOnlyAccountScreen} from '@features/accounts/AddWatchOnlyAccountScreen';
-import {AssetDetailsScreen} from '@features/home/AssetDetailsScreen';
-import {HomeScreen} from '@features/home/HomeScreen';
-import {SendFlowScreen} from '@features/send/SendFlowScreen';
-import {ManageAssetsScreen} from '@features/trustlines/ManageAssetsScreen';
+import type { AccountRecord } from '@capabilities/account/types';
+import { AddWatchOnlyAccountScreen } from '@features/accounts/AddWatchOnlyAccountScreen';
+import { AssetDetailsScreen } from '@features/home/AssetDetailsScreen';
+import { HomeScreen } from '@features/home/HomeScreen';
+import { SendFlowScreen } from '@features/send/SendFlowScreen';
+import { ManageAssetsScreen } from '@features/trustlines/ManageAssetsScreen';
 
-import type {AppServices} from '../createAppServices';
-import {resolveVisibleAccount} from './accountSelection';
-import type {HomeStackParamList} from './navigationTypes';
+import type { AppServices } from '../createAppServices';
+import { resolveVisibleAccount } from './accountSelection';
+import type { HomeStackParamList } from './navigationTypes';
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
 
 type Props = Readonly<{
   accounts: readonly AccountRecord[];
   selectedAccountId: string;
+  selectableAccounts: readonly AccountRecord[];
   services: AppServices;
   onAccountsChanged: () => void;
-  onSwitchAccount: () => void;
+  onSelectAccount: (accountId: string) => void | Promise<void>;
 }>;
 
 export function HomeStackNavigator({
   accounts,
   selectedAccountId,
+  selectableAccounts,
   services,
   onAccountsChanged,
-  onSwitchAccount,
+  onSelectAccount,
 }: Props) {
   const selectedAccount = resolveVisibleAccount(accounts, selectedAccountId);
   const canSign = !services.onboarding.repository.isWatchOnly(selectedAccount.id);
@@ -39,30 +41,27 @@ export function HomeStackNavigator({
   );
 
   return (
-    <Stack.Navigator initialRouteName="home" screenOptions={{headerShown: false}}>
+    <Stack.Navigator initialRouteName="home" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="home">
-        {({navigation}) => (
+        {({ navigation }) => (
           <HomeRoute
             account={selectedAccount}
-            accountCount={accounts.filter(account => !account.hidden).length}
+            accountCount={selectableAccounts.length}
+            selectableAccounts={selectableAccounts}
             balanceDependencies={services.balance}
             canSign={canSign}
-            onSwitchAccount={onSwitchAccount}
+            onSelectAccount={onSelectAccount}
             onAddAccount={() => navigation.navigate('add-account')}
-            onSend={() => navigation.navigate('send-form', {accountId: selectedAccount.id})}
-            onManageAssets={() =>
-              navigation.navigate('manage-assets', {accountId: selectedAccount.id})
-            }
-            onOpenAsset={asset =>
-              navigation.navigate('asset-details', {accountId: selectedAccount.id, asset})
-            }
+            onSend={() => navigation.navigate('send-form', { accountId: selectedAccount.id })}
+            onManageAssets={() => navigation.navigate('manage-assets', { accountId: selectedAccount.id })}
+            onOpenAsset={asset => navigation.navigate('asset-details', { accountId: selectedAccount.id, asset })}
             onManualRefresh={() => services.transactionRecovery.reconcile('manual-refresh')}
             invalidationRevision={invalidationRevision}
           />
         )}
       </Stack.Screen>
       <Stack.Screen name="asset-details">
-        {({navigation, route}) => {
+        {({ navigation, route }) => {
           const account = resolveVisibleAccount(accounts, route.params.accountId);
           return (
             <AssetDetailsRoute
@@ -76,7 +75,7 @@ export function HomeStackNavigator({
         }}
       </Stack.Screen>
       <Stack.Screen name="add-account">
-        {({navigation}) => (
+        {({ navigation }) => (
           <AddWatchOnlyAccountScreen
             dependencies={services.onboarding}
             onComplete={() => {
@@ -88,19 +87,13 @@ export function HomeStackNavigator({
         )}
       </Stack.Screen>
       <Stack.Screen name="send-form">
-        {({navigation, route}) => {
+        {({ navigation, route }) => {
           const account = resolveVisibleAccount(accounts, route.params.accountId);
-          return (
-            <SendFlowScreen
-              account={account}
-              dependencies={services.send}
-              onDone={() => navigation.popToTop()}
-            />
-          );
+          return <SendFlowScreen account={account} dependencies={services.send} onDone={() => navigation.popToTop()} />;
         }}
       </Stack.Screen>
       <Stack.Screen name="manage-assets">
-        {({navigation, route}) => {
+        {({ navigation, route }) => {
           const account = resolveVisibleAccount(accounts, route.params.accountId);
           return (
             <ManageAssetsScreen

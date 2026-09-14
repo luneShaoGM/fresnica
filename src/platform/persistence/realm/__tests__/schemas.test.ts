@@ -5,6 +5,8 @@ import {
   ACCOUNT_SIGNER_REFERENCE_SCHEMA,
   LOCALE_PREFERENCE_ENTITY,
   LOCALE_PREFERENCE_SCHEMA,
+  DEFAULT_ACCOUNT_PREFERENCE_ENTITY,
+  DEFAULT_ACCOUNT_PREFERENCE_SCHEMA,
   PENDING_SUBMISSION_ENTITY,
   PENDING_SUBMISSION_SCHEMA,
   SIGNER_ENTITY,
@@ -13,20 +15,22 @@ import {
   WALLET_REALM_SCHEMA_VERSION,
 } from '../schemas';
 
-describe('Realm wallet schema v3', () => {
-  it('adds pending-submission recovery without changing wallet entity identities', () => {
-    expect(WALLET_REALM_SCHEMA_VERSION).toBe(3);
+describe('Realm wallet schema v4', () => {
+  it('adds network-scoped default-account persistence without changing wallet entity identities', () => {
+    expect(WALLET_REALM_SCHEMA_VERSION).toBe(4);
     expect(WALLET_REALM_SCHEMAS).toEqual([
       ACCOUNT_SCHEMA,
       SIGNER_SCHEMA,
       ACCOUNT_SIGNER_REFERENCE_SCHEMA,
       LOCALE_PREFERENCE_SCHEMA,
+      DEFAULT_ACCOUNT_PREFERENCE_SCHEMA,
       PENDING_SUBMISSION_SCHEMA,
     ]);
     expect(ACCOUNT_SCHEMA.name).toBe(ACCOUNT_ENTITY);
     expect(SIGNER_SCHEMA.name).toBe(SIGNER_ENTITY);
     expect(ACCOUNT_SIGNER_REFERENCE_SCHEMA.name).toBe(ACCOUNT_SIGNER_REFERENCE_ENTITY);
     expect(LOCALE_PREFERENCE_SCHEMA.name).toBe(LOCALE_PREFERENCE_ENTITY);
+    expect(DEFAULT_ACCOUNT_PREFERENCE_SCHEMA.name).toBe(DEFAULT_ACCOUNT_PREFERENCE_ENTITY);
     expect(PENDING_SUBMISSION_SCHEMA.name).toBe(PENDING_SUBMISSION_ENTITY);
   });
 
@@ -104,6 +108,19 @@ describe('Realm wallet schema v3', () => {
         updatedAt: 'date',
       },
     });
+  });
+
+  it('persists default-account identity by network instead of on Account records', () => {
+    expect(DEFAULT_ACCOUNT_PREFERENCE_SCHEMA).toEqual({
+      name: 'DefaultAccountPreferenceEntity',
+      primaryKey: 'networkId',
+      properties: {
+        networkId: 'string',
+        accountId: 'string',
+        updatedAt: 'date',
+      },
+    });
+    expect(ACCOUNT_SCHEMA.properties).not.toHaveProperty('defaultAccountId');
   });
 
   it('persists only public pending-submission recovery metadata', () => {

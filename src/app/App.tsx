@@ -1,25 +1,20 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {AppState, StatusBar} from 'react-native';
-import {initialWindowMetrics, SafeAreaProvider} from 'react-native-safe-area-context';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, StatusBar } from 'react-native';
+import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
 
-import {AppThemeProvider, useAppTheme} from '@ui/theme';
+import { AppThemeProvider, useAppTheme } from '@ui/theme';
 
-import {resolveOnboardingBootstrap} from '../features/onboarding/onboardingBootstrap';
-import {
-  getDeviceLocale,
-  LocalizationProvider,
-  resolveLocale,
-  type SupportedLocale,
-} from '../locale';
-import {createAppServices, type AppServices} from './createAppServices';
-import {startTransactionReconciliationLifecycle} from './transaction/startTransactionReconciliationLifecycle';
-import {subscribeToNetworkRecovery} from '../platform/system/networkConnectivity';
-import {AppNavigator} from './navigation/AppNavigator';
-import {OverlayHost} from './OverlayHost';
-import type {AppRuntimeState} from './runtimeState';
+import { getDeviceLocale, LocalizationProvider, resolveLocale, type SupportedLocale } from '../locale';
+import { createAppServices, type AppServices } from './createAppServices';
+import { startTransactionReconciliationLifecycle } from './transaction/startTransactionReconciliationLifecycle';
+import { subscribeToNetworkRecovery } from '../platform/system/networkConnectivity';
+import { AppNavigator } from './navigation/AppNavigator';
+import { OverlayHost } from './OverlayHost';
+import type { AppRuntimeState } from './runtimeState';
+import { resolveAppBootstrap } from './resolveBootstrap';
 
 export function App() {
-  const [runtime, setRuntime] = useState<AppRuntimeState>({kind: 'loading'});
+  const [runtime, setRuntime] = useState<AppRuntimeState>({ kind: 'loading' });
   const [locale, setLocale] = useState<SupportedLocale>(() => getDeviceLocale());
   const servicesRef = useRef<AppServices | undefined>(undefined);
 
@@ -54,12 +49,19 @@ export function App() {
         setRuntime({
           kind: 'ready',
           services: created,
-          bootstrap: resolveOnboardingBootstrap(created.onboarding),
+          bootstrap: resolveAppBootstrap({
+            onboarding: created.onboarding,
+            accountSelectionPreferences: created.accountSelectionPreferences,
+            onPreferenceFailure: (networkId, error) =>
+              created.diagnostics.warn('default-account-clear-failed', {
+                details: { networkId, error },
+              }),
+          }),
         });
       })
       .catch(error => {
         if (mounted) {
-          setRuntime({kind: 'error', message: readableError(error)});
+          setRuntime({ kind: 'error', message: readableError(error) });
         }
       });
 
@@ -79,7 +81,14 @@ export function App() {
 
       return {
         ...current,
-        bootstrap: resolveOnboardingBootstrap(current.services.onboarding),
+        bootstrap: resolveAppBootstrap({
+          onboarding: current.services.onboarding,
+          accountSelectionPreferences: current.services.accountSelectionPreferences,
+          onPreferenceFailure: (networkId, error) =>
+            current.services.diagnostics.warn('default-account-clear-failed', {
+              details: { networkId, error },
+            }),
+        }),
       };
     });
   }, []);
@@ -105,12 +114,7 @@ export function App() {
 
 function ThemeStatusBar() {
   const theme = useAppTheme();
-  return (
-    <StatusBar
-      animated
-      barStyle={theme.statusBarContent === 'dark' ? 'dark-content' : 'light-content'}
-    />
-  );
+  return <StatusBar animated barStyle={theme.statusBarContent === 'dark' ? 'dark-content' : 'light-content'} />;
 }
 
 function readableError(error: unknown): string | undefined {
