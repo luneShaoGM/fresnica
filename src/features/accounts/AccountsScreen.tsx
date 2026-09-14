@@ -1,13 +1,13 @@
-import React, {useState} from 'react';
-import {AccessibilityInfo, Pressable, ScrollView, Text, View} from 'react-native';
+import React, { useState } from 'react';
+import { AccessibilityInfo, Pressable, ScrollView, Text, View } from 'react-native';
 
-import type {AccountMoveDirection} from '@capabilities/account/accountOrder';
-import {Screen} from '@ui/components';
+import type { AccountMoveDirection } from '@capabilities/account/accountOrder';
+import { Screen } from '@ui/components';
 
-import type {AccountRecord} from '../../capabilities/account/types';
-import {useLocalization} from '../../locale';
-import {createStyles} from './styles';
-import {useThemedStyles} from '@ui/theme';
+import type { AccountRecord } from '../../capabilities/account/types';
+import { useLocalization } from '../../locale';
+import { createStyles } from './styles';
+import { useThemedStyles } from '@ui/theme';
 
 type Props = Readonly<{
   accounts: readonly AccountRecord[];
@@ -17,8 +17,8 @@ type Props = Readonly<{
   onBack: () => void;
 }>;
 
-export function AccountsScreen({accounts, onOpenAccount, onAddAccount, onMoveAccount, onBack}: Props) {
-  const {t} = useLocalization();
+export function AccountsScreen({ accounts, onOpenAccount, onAddAccount, onMoveAccount, onBack }: Props) {
+  const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const [movingAccountId, setMovingAccountId] = useState<string | undefined>();
   const [moveError, setMoveError] = useState(false);
@@ -48,21 +48,18 @@ export function AccountsScreen({accounts, onOpenAccount, onAddAccount, onMoveAcc
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.description}>Accounts available on this device</Text>
-        {moveError ? (
-          <Text accessibilityLiveRegion="assertive" style={styles.sortError}>
-            {t('accounts.sort.error')}
-          </Text>
-        ) : null}
+        {moveError ? <Text style={styles.sortError}>{t('accounts.sort.error')}</Text> : null}
         {accounts.map((account, index) => (
           <View key={account.id} style={styles.accountGroup}>
             <Pressable
               accessibilityRole="button"
               onPress={() => onOpenAccount(account.id)}
-              style={({pressed}) => [
+              style={({ pressed }) => [
                 styles.accountCard,
                 account.hidden ? styles.accountCardHidden : undefined,
                 pressed ? styles.pressed : undefined,
-              ]}>
+              ]}
+            >
               <View style={styles.accountTopRow}>
                 <View style={styles.accountIdentity}>
                   <Text numberOfLines={1} style={styles.accountLabel}>
@@ -90,42 +87,46 @@ export function AccountsScreen({accounts, onOpenAccount, onAddAccount, onMoveAcc
               <Pressable
                 accessibilityLabel={t('accounts.sort.moveUp')}
                 accessibilityRole="button"
-                accessibilityState={{disabled: movingAccountId !== undefined || index === 0}}
+                accessibilityState={{ disabled: movingAccountId !== undefined || index === 0 }}
                 disabled={movingAccountId !== undefined || index === 0}
                 onPress={() => reorder(account.id, 'up')}
-                style={({pressed}) => [
+                style={({ pressed }) => [
                   styles.sortButton,
                   movingAccountId !== undefined || index === 0 ? styles.sortButtonDisabled : undefined,
                   pressed ? styles.pressed : undefined,
-                ]}>
+                ]}
+              >
                 <Text
                   style={[
                     styles.sortButtonText,
                     movingAccountId !== undefined || index === 0 ? styles.sortButtonTextDisabled : undefined,
-                  ]}>
+                  ]}
+                >
                   {t('accounts.sort.moveUp')}
                 </Text>
               </Pressable>
               <Pressable
                 accessibilityLabel={t('accounts.sort.moveDown')}
                 accessibilityRole="button"
-                accessibilityState={{disabled: movingAccountId !== undefined || index === accounts.length - 1}}
+                accessibilityState={{ disabled: movingAccountId !== undefined || index === accounts.length - 1 }}
                 disabled={movingAccountId !== undefined || index === accounts.length - 1}
                 onPress={() => reorder(account.id, 'down')}
-                style={({pressed}) => [
+                style={({ pressed }) => [
                   styles.sortButton,
                   movingAccountId !== undefined || index === accounts.length - 1
                     ? styles.sortButtonDisabled
                     : undefined,
                   pressed ? styles.pressed : undefined,
-                ]}>
+                ]}
+              >
                 <Text
                   style={[
                     styles.sortButtonText,
                     movingAccountId !== undefined || index === accounts.length - 1
                       ? styles.sortButtonTextDisabled
                       : undefined,
-                  ]}>
+                  ]}
+                >
                   {t('accounts.sort.moveDown')}
                 </Text>
               </Pressable>
@@ -136,7 +137,8 @@ export function AccountsScreen({accounts, onOpenAccount, onAddAccount, onMoveAcc
         <Pressable
           accessibilityRole="button"
           onPress={onAddAccount}
-          style={({pressed}) => [styles.addButton, pressed ? styles.pressed : undefined]}>
+          style={({ pressed }) => [styles.addButton, pressed ? styles.pressed : undefined]}
+        >
           <Text style={styles.addIcon}>＋</Text>
           <Text style={styles.addText}>Add account</Text>
         </Pressable>
