@@ -1,3 +1,4 @@
+import {orderAccounts} from '@capabilities/account/accountOrder';
 import type {AccountRecord} from '@capabilities/account/types';
 
 export function firstVisibleAccountId(accounts: readonly AccountRecord[]): string {
@@ -57,21 +58,5 @@ export function reconcileVisibleAccountId(
 }
 
 function orderedVisibleAccounts(accounts: readonly AccountRecord[]): AccountRecord[] {
-  return accounts
-    .filter(account => !account.hidden)
-    .slice()
-    .sort(compareAccountOrder);
-}
-
-function compareAccountOrder(left: AccountRecord, right: AccountRecord): number {
-  if (left.sortOrder !== right.sortOrder) {
-    return left.sortOrder - right.sortOrder;
-  }
-
-  const createdAtDelta = left.createdAt.getTime() - right.createdAt.getTime();
-  if (createdAtDelta !== 0) {
-    return createdAtDelta;
-  }
-
-  return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
+  return orderAccounts(accounts.filter(account => !account.hidden));
 }

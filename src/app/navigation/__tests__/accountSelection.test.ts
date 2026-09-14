@@ -48,6 +48,11 @@ describe('accountSelection', () => {
     expect(reconcileVisibleAccountId(accounts, 'two')).toBe('two');
   });
 
+  it('keeps the current visible account when sort order changes', () => {
+    const reordered = [account('one', 1), account('two', 0)];
+    expect(reconcileVisibleAccountId(reordered, 'two', accounts)).toBe('two');
+  });
+
   it('selects the next prior-order account after the current account is removed', () => {
     const previous = [account('one', 0), account('two', 1), account('three', 2)];
     const current = [account('one', 0), account('three', 2)];

@@ -1,6 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import {moveAccount, orderAccounts} from '@capabilities/account/accountOrder';
 import {setAccountHidden} from '@capabilities/account/accountVisibility';
 import {deleteLocalAccount} from '@capabilities/account/deleteLocalAccount';
 import { renameAccount } from '@capabilities/account/renameAccount';
@@ -36,6 +37,7 @@ export function SettingsStackNavigator({
   onManageAssets,
 }: Props) {
   const visibleAccountCount = accounts.filter(account => !account.hidden).length;
+  const orderedAccountList = orderAccounts(accounts);
 
   return (
     <Stack.Navigator initialRouteName="settings-home" screenOptions={{ headerShown: false }}>
@@ -54,10 +56,14 @@ export function SettingsStackNavigator({
       <Stack.Screen name="accounts-settings">
         {({ navigation }) => (
           <AccountsScreen
-            accounts={accounts}
+            accounts={orderedAccountList}
             onBack={() => navigation.goBack()}
             onOpenAccount={accountId => navigation.navigate('account-details', { accountId })}
             onAddAccount={() => navigation.navigate('add-account')}
+            onMoveAccount={(accountId, direction) => {
+              moveAccount(services.accountManagement, accountId, direction);
+              onAccountsChanged();
+            }}
           />
         )}
       </Stack.Screen>

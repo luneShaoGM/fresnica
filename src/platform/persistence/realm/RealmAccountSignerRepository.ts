@@ -2,6 +2,7 @@ import type Realm from 'realm';
 import type {
   AccountSignerRegistration,
   AccountSignerRepository,
+  AccountSortOrderUpdate,
 } from '../../../capabilities/account/AccountSignerRepository';
 import type {AccountRecord} from '../../../capabilities/account/types';
 import type {
@@ -150,6 +151,23 @@ export class RealmAccountSignerRepository implements AccountSignerRepository {
       const persisted = account as unknown as PersistedAccount;
       persisted.hidden = hidden;
       persisted.updatedAt = updatedAt;
+    });
+  }
+
+  setAccountSortOrders(updates: readonly AccountSortOrderUpdate[]): void {
+    this.realm.write(() => {
+      const accounts = updates.map(update => {
+        const account = this.realm.objectForPrimaryKey(ACCOUNT_ENTITY, update.accountId);
+        if (!account) {
+          throw new Error('account-not-found');
+        }
+        return account as unknown as PersistedAccount;
+      });
+
+      updates.forEach((update, index) => {
+        accounts[index].sortOrder = update.sortOrder;
+        accounts[index].updatedAt = update.updatedAt;
+      });
     });
   }
 

@@ -7,6 +7,7 @@ import {createTransactionReconciliationCoordinator, type TransactionReconciliati
 import type { OnboardingProvisioningDependencies } from '../features/onboarding/runOnboardingProvisioning';
 import type { ApplicationSecurityDependencies } from '../capabilities/application-security/systemAuth';
 import type { BalanceDependencies } from '../capabilities/balance/loadBalanceSnapshot';
+import type {AccountOrderDependencies} from '../capabilities/account/accountOrder';
 import type { AccountVisibilityDependencies } from '../capabilities/account/accountVisibility';
 import type { DeleteLocalAccountDependencies } from '../capabilities/account/deleteLocalAccount';
 import type { RenameAccountDependencies } from '../capabilities/account/renameAccount';
@@ -25,6 +26,7 @@ import { StellarSdkGateway } from '../platform/stellar/StellarSdkGateway';
 
 export type AccountManagementDependencies = RenameAccountDependencies &
   AccountVisibilityDependencies &
+  AccountOrderDependencies &
   DeleteLocalAccountDependencies;
 
 export type AppServices = Readonly<{
