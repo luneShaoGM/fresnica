@@ -14,6 +14,7 @@ import {
 import type { OnboardingProvisioningDependencies } from '../features/onboarding/runOnboardingProvisioning';
 import type { ApplicationSecurityDependencies } from '../capabilities/application-security/systemAuth';
 import type { BalanceDependencies } from '../capabilities/balance/loadBalanceSnapshot';
+import type { FriendbotDependencies } from '../capabilities/network/fundTestnetAccountWithFriendbot';
 import type { AccountOrderDependencies } from '../capabilities/account/accountOrder';
 import type { AccountVisibilityDependencies } from '../capabilities/account/accountVisibility';
 import type { DeleteLocalAccountDependencies } from '../capabilities/account/deleteLocalAccount';
@@ -30,6 +31,7 @@ import {
   createRealmRecordId,
   openWalletRealm,
 } from '../platform/persistence/realm';
+import { StellarFriendbotGateway } from '../platform/stellar/StellarFriendbotGateway';
 import { StellarSdkGateway } from '../platform/stellar/StellarSdkGateway';
 
 export type AccountManagementDependencies = RenameAccountDependencies &
@@ -43,6 +45,7 @@ export type AppServices = Readonly<{
   onboarding: OnboardingProvisioningDependencies;
   security: ApplicationSecurityDependencies;
   balance: BalanceDependencies;
+  friendbot: FriendbotDependencies;
   send: SendProductDependencies;
   history: HistoryDependencies;
   trustline: TrustlineProductDependencies;
@@ -82,6 +85,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       network,
       horizonUrl: APP_CONFIG.network.horizonUrl,
     });
+    const friendbotGateway = new StellarFriendbotGateway(APP_CONFIG.network.friendbotUrl);
     const transactionRecovery = createTransactionReconciliationCoordinator({
       gateway: stellarGateway,
       repository: pendingSubmissions,
@@ -116,6 +120,10 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       },
       balance: {
         gateway: stellarGateway,
+        networkId: network.id,
+      },
+      friendbot: {
+        gateway: friendbotGateway,
         networkId: network.id,
       },
       send: {

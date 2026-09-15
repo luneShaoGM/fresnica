@@ -127,5 +127,14 @@
   "language.fallbackNote": "该语言已纳入语言系统。在 Fresnica 专用翻译迁移完成前，尚未翻译的文案将使用英文。",
   "common.back": "返回",
   "activity.detail.asset": "资产",
-  "activity.detail.issuer": "发行方"
+  "activity.detail.issuer": "发行方",
+  "home.inactive.title": "账户尚未激活",
+  "home.inactive.fundTitle": "1. 为这个 Stellar 账户充值",
+  "home.inactive.fundMessage": "向下方公钥地址在当前网络发送 XLM。只有 Horizon 报告账户已存在后，Fresnica 才会显示链上余额。",
+  "home.inactive.refreshTitle": "2. 充值后刷新",
+  "home.inactive.refreshMessage": "账户在链上创建后，刷新首页以加载当前资产。",
+  "home.inactive.refreshAction": "刷新账户",
+  "home.friendbot.action": "使用 Friendbot 充值",
+  "home.friendbot.funding": "Friendbot 充值中…",
+  "home.friendbot.error": "Friendbot 无法为这个测试网账户充值，请重试。"
 }

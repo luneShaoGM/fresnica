@@ -1,10 +1,10 @@
-import type {AccountRecord} from '../../capabilities/account/types';
-import type {BalanceSnapshot} from '../../capabilities/balance/types';
+import type { AccountRecord } from '../../capabilities/account/types';
+import type { BalanceSnapshot } from '../../capabilities/balance/types';
 
 export type HomeBalanceState =
-  | Readonly<{kind: 'loading'}>
-  | Readonly<{kind: 'error'; message: string}>
-  | Readonly<{kind: 'ready'; snapshot: BalanceSnapshot}>;
+  | Readonly<{ kind: 'loading' }>
+  | Readonly<{ kind: 'error'; message: string }>
+  | Readonly<{ kind: 'ready'; snapshot: BalanceSnapshot }>;
 
 export type HomeViewModel = Readonly<{
   accountLabel: string;
@@ -17,6 +17,7 @@ export type HomeViewModel = Readonly<{
   canSwap: boolean;
   canRequest: boolean;
   canManageAssets: boolean;
+  canFundWithFriendbot: boolean;
 }>;
 
 type HomeAvailability = Readonly<{
@@ -32,24 +33,21 @@ export function createHomeViewModel(
 ): HomeViewModel {
   const isClassic = account.identityKind === 'classic';
   const isReadOnly = !canSign || !isClassic;
-  const isActive =
-    balanceState.kind === 'ready' && balanceState.snapshot.status === 'active';
+  const isActive = balanceState.kind === 'ready' && balanceState.snapshot.status === 'active';
+  const isInactive = balanceState.kind === 'ready' && balanceState.snapshot.status === 'inactive';
 
   return {
     accountLabel: account.label.trim() || 'Stellar account',
     accountAddress: account.address,
     maskedAddress: maskAddress(account.address),
-    accountKindLabel: isReadOnly
-      ? isClassic
-        ? 'Read-only classic account'
-        : 'Contract account'
-      : 'Classic account',
+    accountKindLabel: isReadOnly ? (isClassic ? 'Read-only classic account' : 'Contract account') : 'Classic account',
     networkLabel: networkLabel(account.networkId),
     isReadOnly,
     canSend: isActive && !isReadOnly,
     canSwap: isActive && !isReadOnly && availability.swap,
     canRequest: availability.request,
     canManageAssets: isActive && !isReadOnly,
+    canFundWithFriendbot: isClassic && isInactive && account.networkId === 'stellar-testnet',
   };
 }
 

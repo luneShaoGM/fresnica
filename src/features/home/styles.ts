@@ -1,6 +1,6 @@
-import {StyleSheet} from 'react-native';
+import { StyleSheet } from 'react-native';
 
-import type {AppTheme} from '@ui/theme';
+import type { AppTheme } from '@ui/theme';
 
 export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
@@ -199,6 +199,11 @@ export function createStyles(theme: AppTheme) {
     inactiveAddress: {
       ...theme.typography.caption,
       color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
+    inactiveError: {
+      ...theme.typography.caption,
+      color: theme.colors.negativeStrong,
       textAlign: 'center',
     },
     assetList: {

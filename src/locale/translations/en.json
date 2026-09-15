@@ -127,5 +127,14 @@
   "language.fallbackNote": "This locale is supported. Fresnica-specific copy will use English until its translation is migrated.",
   "common.back": "Back",
   "activity.detail.asset": "Asset",
-  "activity.detail.issuer": "Issuer"
+  "activity.detail.issuer": "Issuer",
+  "home.inactive.title": "Your account is not activated",
+  "home.inactive.fundTitle": "1. Fund this Stellar account",
+  "home.inactive.fundMessage": "Send XLM to the public address below on the configured network. Fresnica will not create a local balance until Horizon reports the account.",
+  "home.inactive.refreshTitle": "2. Refresh after funding",
+  "home.inactive.refreshMessage": "Once the account exists on-ledger, refresh Home to load its current assets.",
+  "home.inactive.refreshAction": "Refresh account",
+  "home.friendbot.action": "Fund with Friendbot",
+  "home.friendbot.funding": "Funding with Friendbot…",
+  "home.friendbot.error": "Friendbot could not fund this Testnet account. Try again."
 }
