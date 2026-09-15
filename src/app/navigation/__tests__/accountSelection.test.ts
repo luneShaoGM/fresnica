@@ -51,6 +51,12 @@ describe('accountSelection', () => {
     expect(resolvePreferredVisibleAccountId(accounts, 'stellar-testnet', 'two')).toBe('two');
   });
 
+  it('returns no preferred account when the current network has no visible account', () => {
+    const candidates = [account('hidden', 0, true), account('mainnet', 0, false, 'stellar-mainnet')];
+
+    expect(resolvePreferredVisibleAccountId(candidates, 'stellar-testnet', 'hidden')).toBeUndefined();
+  });
+
   it.each([
     ['missing', 'missing'],
     ['hidden', 'hidden'],

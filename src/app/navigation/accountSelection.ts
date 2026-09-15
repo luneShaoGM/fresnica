@@ -11,17 +11,13 @@ export function resolvePreferredVisibleAccountId(
   accounts: readonly AccountRecord[],
   networkId: string,
   preferredAccountId?: string,
-): string {
+): string | undefined {
   const selectable = selectableAccountsForNetwork(accounts, networkId);
   if (preferredAccountId && selectable.some(account => account.id === preferredAccountId)) {
     return preferredAccountId;
   }
 
-  const fallback = selectable[0];
-  if (!fallback) {
-    throw new Error('main-navigation-requires-account');
-  }
-  return fallback.id;
+  return selectable[0]?.id;
 }
 
 export function firstVisibleAccountId(accounts: readonly AccountRecord[], networkId?: string): string {

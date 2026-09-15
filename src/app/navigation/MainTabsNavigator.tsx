@@ -30,7 +30,48 @@ type Props = Readonly<{
 
 export function MainTabsNavigator({ accounts, services, onAccountsChanged }: Props) {
   const networkId = services.onboarding.networkId;
+  const networkAccounts = useMemo(
+    () => accounts.filter(account => account.networkId === networkId),
+    [accounts, networkId],
+  );
   const selectableAccounts = useMemo(() => selectableAccountsForNetwork(accounts, networkId), [accounts, networkId]);
+
+  if (selectableAccounts.length === 0) {
+    return (
+      <SettingsStackNavigator
+        accounts={networkAccounts}
+        services={services}
+        onAccountsChanged={onAccountsChanged}
+        onSend={() => undefined}
+        onManageAssets={() => undefined}
+      />
+    );
+  }
+
+  return (
+    <MainTabsWithSelection
+      accounts={accounts}
+      networkId={networkId}
+      onAccountsChanged={onAccountsChanged}
+      selectableAccounts={selectableAccounts}
+      services={services}
+    />
+  );
+}
+
+type MainTabsWithSelectionProps = Props &
+  Readonly<{
+    networkId: string;
+    selectableAccounts: readonly AccountRecord[];
+  }>;
+
+function MainTabsWithSelection({
+  accounts,
+  networkId,
+  onAccountsChanged,
+  selectableAccounts,
+  services,
+}: MainTabsWithSelectionProps) {
   const [selectedAccountId, setSelectedAccountId] = useState(() => {
     let preferredAccountId: string | undefined;
     try {
@@ -40,7 +81,7 @@ export function MainTabsNavigator({ accounts, services, onAccountsChanged }: Pro
         details: { networkId, error },
       });
     }
-    return resolvePreferredVisibleAccountId(accounts, networkId, preferredAccountId);
+    return resolvePreferredVisibleAccountId(accounts, networkId, preferredAccountId) ?? selectableAccounts[0].id;
   });
   const previousAccountsRef = useRef(accounts);
 
