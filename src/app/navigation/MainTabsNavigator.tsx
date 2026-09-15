@@ -1,22 +1,24 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
-import type {AccountRecord} from '@capabilities/account/types';
+import type { AccountRecord } from '@capabilities/account/types';
 
-import type {AppServices} from '../createAppServices';
+import type { AppServices } from '../createAppServices';
 import {
-  firstVisibleAccountId,
-  nextVisibleAccountId,
+  persistResolvedDefaultAccountId,
   reconcileVisibleAccountId,
+  resolvePreferredVisibleAccountId,
   resolveVisibleAccount,
+  selectAndPersistDefaultAccountId,
+  selectableAccountsForNetwork,
 } from './accountSelection';
-import {ActivityStackNavigator} from './ActivityStackNavigator';
-import {DAppsStackNavigator} from './DAppsStackNavigator';
-import {HomeStackNavigator} from './HomeStackNavigator';
-import {MainTabBar} from './MainTabBar';
-import type {MainTabParamList} from './navigationTypes';
-import type {ProductAction} from './productRoutes';
-import {SettingsStackNavigator} from './SettingsStackNavigator';
+import { ActivityStackNavigator } from './ActivityStackNavigator';
+import { DAppsStackNavigator } from './DAppsStackNavigator';
+import { HomeStackNavigator } from './HomeStackNavigator';
+import { MainTabBar } from './MainTabBar';
+import type { MainTabParamList } from './navigationTypes';
+import type { ProductAction } from './productRoutes';
+import { SettingsStackNavigator } from './SettingsStackNavigator';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -26,14 +28,68 @@ type Props = Readonly<{
   onAccountsChanged: () => void;
 }>;
 
-export function MainTabsNavigator({accounts, services, onAccountsChanged}: Props) {
-  const [selectedAccountId, setSelectedAccountId] = useState(() => firstVisibleAccountId(accounts));
+export function MainTabsNavigator({ accounts, services, onAccountsChanged }: Props) {
+  const networkId = services.onboarding.networkId;
+  const networkAccounts = useMemo(
+    () => accounts.filter(account => account.networkId === networkId),
+    [accounts, networkId],
+  );
+  const selectableAccounts = useMemo(() => selectableAccountsForNetwork(accounts, networkId), [accounts, networkId]);
+
+  if (selectableAccounts.length === 0) {
+    return (
+      <SettingsStackNavigator
+        accounts={networkAccounts}
+        services={services}
+        onAccountsChanged={onAccountsChanged}
+        onSend={() => undefined}
+        onManageAssets={() => undefined}
+      />
+    );
+  }
+
+  return (
+    <MainTabsWithSelection
+      accounts={accounts}
+      networkId={networkId}
+      onAccountsChanged={onAccountsChanged}
+      selectableAccounts={selectableAccounts}
+      services={services}
+    />
+  );
+}
+
+type MainTabsWithSelectionProps = Props &
+  Readonly<{
+    networkId: string;
+    selectableAccounts: readonly AccountRecord[];
+  }>;
+
+function MainTabsWithSelection({
+  accounts,
+  networkId,
+  onAccountsChanged,
+  selectableAccounts,
+  services,
+}: MainTabsWithSelectionProps) {
+  const [selectedAccountId, setSelectedAccountId] = useState(() => {
+    let preferredAccountId: string | undefined;
+    try {
+      preferredAccountId = services.accountSelectionPreferences.getDefaultAccountId(networkId);
+    } catch (error) {
+      services.diagnostics.warn('default-account-read-failed', {
+        details: { networkId, error },
+      });
+    }
+    return resolvePreferredVisibleAccountId(accounts, networkId, preferredAccountId) ?? selectableAccounts[0].id;
+  });
   const previousAccountsRef = useRef(accounts);
 
   const effectiveSelectedAccountId = reconcileVisibleAccountId(
     accounts,
     selectedAccountId,
     previousAccountsRef.current,
+    networkId,
   );
 
   useEffect(() => {
@@ -41,7 +97,37 @@ export function MainTabsNavigator({accounts, services, onAccountsChanged}: Props
       setSelectedAccountId(effectiveSelectedAccountId);
     }
     previousAccountsRef.current = accounts;
-  }, [accounts, effectiveSelectedAccountId, selectedAccountId]);
+
+    try {
+      persistResolvedDefaultAccountId(services.accountSelectionPreferences, networkId, effectiveSelectedAccountId);
+    } catch (error) {
+      services.diagnostics.warn('default-account-persistence-failed', {
+        details: { networkId, accountId: effectiveSelectedAccountId, error },
+      });
+    }
+  }, [accounts, effectiveSelectedAccountId, networkId, selectedAccountId, services]);
+
+  const selectAccount = useCallback(
+    async (accountId: string) => {
+      try {
+        const persistedAccountId = selectAndPersistDefaultAccountId(
+          accounts,
+          accountId,
+          networkId,
+          services.accountSelectionPreferences,
+        );
+        if (persistedAccountId !== effectiveSelectedAccountId) {
+          setSelectedAccountId(persistedAccountId);
+        }
+      } catch (error) {
+        services.diagnostics.warn('default-account-persistence-failed', {
+          details: { networkId, accountId, error },
+        });
+        throw new Error('default-account-persistence-failed');
+      }
+    },
+    [accounts, effectiveSelectedAccountId, networkId, services],
+  );
 
   const selectedAccount = resolveVisibleAccount(accounts, effectiveSelectedAccountId);
   const canSign = !services.onboarding.repository.isWatchOnly(selectedAccount.id);
@@ -58,22 +144,18 @@ export function MainTabsNavigator({accounts, services, onAccountsChanged}: Props
     <Tab.Navigator
       backBehavior="history"
       initialRouteName="home"
-      screenOptions={{headerShown: false}}
+      screenOptions={{ headerShown: false }}
       tabBar={props => (
-        <MainTabBar
-          {...props}
-          actionAvailability={actionAvailability}
-          selectedAccountId={effectiveSelectedAccountId}
-        />
-      )}>
+        <MainTabBar {...props} actionAvailability={actionAvailability} selectedAccountId={effectiveSelectedAccountId} />
+      )}
+    >
       <Tab.Screen name="home">
         {() => (
           <HomeStackNavigator
             accounts={accounts}
             onAccountsChanged={onAccountsChanged}
-            onSwitchAccount={() =>
-              setSelectedAccountId(current => nextVisibleAccountId(accounts, current))
-            }
+            onSelectAccount={selectAccount}
+            selectableAccounts={selectableAccounts}
             selectedAccountId={effectiveSelectedAccountId}
             services={services}
           />
@@ -90,16 +172,14 @@ export function MainTabsNavigator({accounts, services, onAccountsChanged}: Props
       </Tab.Screen>
       <Tab.Screen name="dapps" component={DAppsStackNavigator} />
       <Tab.Screen name="settings">
-        {({navigation}) => (
+        {({ navigation }) => (
           <SettingsStackNavigator
             accounts={accounts}
             services={services}
             onAccountsChanged={onAccountsChanged}
-            onSend={accountId =>
-              navigation.navigate('home', {screen: 'send-form', params: {accountId}})
-            }
+            onSend={accountId => navigation.navigate('home', { screen: 'send-form', params: { accountId } })}
             onManageAssets={accountId =>
-              navigation.navigate('home', {screen: 'manage-assets', params: {accountId}})
+              navigation.navigate('home', { screen: 'manage-assets', params: { accountId } })
             }
           />
         )}

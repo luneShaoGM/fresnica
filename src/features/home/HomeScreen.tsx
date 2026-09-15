@@ -1,39 +1,28 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
-import {Screen} from '@ui/components';
-import {useAppTheme, useThemedStyles} from '@ui/theme';
+import { Screen } from '@ui/components';
+import { useAppTheme, useThemedStyles } from '@ui/theme';
 
-import type {AccountRecord} from '../../capabilities/account/types';
-import {
-  loadBalanceSnapshot,
-  type BalanceDependencies,
-} from '../../capabilities/balance/loadBalanceSnapshot';
-import type {BalanceAsset} from '../../capabilities/balance/types';
-import {projectFeatureError} from '../featureError';
-import {AccountSummary} from './components/AccountSummary';
-import {AssetList} from './components/AssetList';
-import {InactiveAccountPanel} from './components/InactiveAccountPanel';
-import {NetworkStatus} from './components/NetworkStatus';
-import {
-  createHomeViewModel,
-  type HomeBalanceState,
-} from './homeViewModel';
-import {createStyles} from './styles';
+import type { AccountRecord } from '../../capabilities/account/types';
+import { loadBalanceSnapshot, type BalanceDependencies } from '../../capabilities/balance/loadBalanceSnapshot';
+import type { BalanceAsset } from '../../capabilities/balance/types';
+import { projectFeatureError } from '../featureError';
+import { AccountPickerModal } from './components/AccountPickerModal';
+import { AccountSummary } from './components/AccountSummary';
+import { AssetList } from './components/AssetList';
+import { InactiveAccountPanel } from './components/InactiveAccountPanel';
+import { NetworkStatus } from './components/NetworkStatus';
+import { createHomeViewModel, type HomeBalanceState } from './homeViewModel';
+import { createStyles } from './styles';
 
 type Props = Readonly<{
   account: AccountRecord;
   accountCount: number;
+  selectableAccounts: readonly AccountRecord[];
   balanceDependencies: BalanceDependencies;
   canSign: boolean;
-  onSwitchAccount: () => void;
+  onSelectAccount: (accountId: string) => void | Promise<void>;
   onAddAccount: () => void;
   onSend: () => void;
   onManageAssets: () => void;
@@ -48,9 +37,10 @@ type Props = Readonly<{
 export function HomeScreen({
   account,
   accountCount,
+  selectableAccounts,
   balanceDependencies,
   canSign,
-  onSwitchAccount,
+  onSelectAccount,
   onAddAccount,
   onSend,
   onManageAssets,
@@ -63,37 +53,43 @@ export function HomeScreen({
 }: Props) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const [balanceState, setBalanceState] = useState<HomeBalanceState>({kind: 'loading'});
+  const [balanceState, setBalanceState] = useState<HomeBalanceState>({ kind: 'loading' });
+  const [accountPickerVisible, setAccountPickerVisible] = useState(false);
   const requestVersion = useRef(0);
 
-  const refreshBalances = useCallback((beforeLoad?: () => Promise<unknown>) => {
-    const version = requestVersion.current + 1;
-    requestVersion.current = version;
-    setBalanceState({kind: 'loading'});
+  const refreshBalances = useCallback(
+    (beforeLoad?: () => Promise<unknown>) => {
+      const version = requestVersion.current + 1;
+      requestVersion.current = version;
+      setBalanceState({ kind: 'loading' });
 
-    const before = beforeLoad
-      ? Promise.resolve().then(beforeLoad).catch(() => undefined)
-      : Promise.resolve();
+      const before = beforeLoad
+        ? Promise.resolve()
+            .then(beforeLoad)
+            .catch(() => undefined)
+        : Promise.resolve();
 
-    void before
-      .then(() => loadBalanceSnapshot(balanceDependencies, account))
-      .then(snapshot => {
-        if (requestVersion.current === version) {
-          setBalanceState({kind: 'ready', snapshot});
-        }
-      })
-      .catch(error => {
-        if (requestVersion.current === version) {
-          setBalanceState({
-            kind: 'error',
-            message: projectFeatureError(error, {
-              fallbackMessage: 'Unable to load balances.',
-              fallbackRetryable: true,
-            }).message,
-          });
-        }
-      });
-  }, [account, balanceDependencies]);
+      void before
+        .then(() => loadBalanceSnapshot(balanceDependencies, account))
+        .then(snapshot => {
+          if (requestVersion.current === version) {
+            setBalanceState({ kind: 'ready', snapshot });
+          }
+        })
+        .catch(error => {
+          if (requestVersion.current === version) {
+            setBalanceState({
+              kind: 'error',
+              message: projectFeatureError(error, {
+                fallbackMessage: 'Unable to load balances.',
+                fallbackRetryable: true,
+              }).message,
+            });
+          }
+        });
+    },
+    [account, balanceDependencies],
+  );
 
   useEffect(() => {
     if (!active) {
@@ -126,7 +122,8 @@ export function HomeScreen({
             tintColor={theme.colors.actionPrimary}
           />
         }
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <Text style={styles.brand}>Fresnica</Text>
           <NetworkStatus networkLabel={viewModel.networkLabel} />
@@ -138,7 +135,7 @@ export function HomeScreen({
           label={viewModel.accountLabel}
           maskedAddress={viewModel.maskedAddress}
           onAddAccount={onAddAccount}
-          onSwitchAccount={onSwitchAccount}
+          onOpenAccountPicker={() => setAccountPickerVisible(true)}
         />
 
         <View style={styles.actionsRow}>
@@ -151,8 +148,8 @@ export function HomeScreen({
           <View style={styles.readOnlyNotice}>
             <Text style={styles.readOnlyTitle}>Read-only account</Text>
             <Text style={styles.readOnlyText}>
-              Balances can be viewed, but signing actions stay unavailable because this
-              account has no supported Fresnica signer.
+              Balances can be viewed, but signing actions stay unavailable because this account has no supported
+              Fresnica signer.
             </Text>
           </View>
         ) : null}
@@ -161,18 +158,12 @@ export function HomeScreen({
           <Text style={styles.sectionTitle}>Tokens</Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityState={{disabled: !viewModel.canManageAssets}}
+            accessibilityState={{ disabled: !viewModel.canManageAssets }}
             disabled={!viewModel.canManageAssets}
             onPress={viewModel.canManageAssets ? onManageAssets : undefined}
-            style={({pressed}) => [
-              styles.sectionLinkButton,
-              pressed ? styles.pressed : undefined,
-            ]}>
-            <Text
-              style={[
-                styles.sectionLink,
-                !viewModel.canManageAssets ? styles.sectionLinkDisabled : undefined,
-              ]}>
+            style={({ pressed }) => [styles.sectionLinkButton, pressed ? styles.pressed : undefined]}
+          >
+            <Text style={[styles.sectionLink, !viewModel.canManageAssets ? styles.sectionLinkDisabled : undefined]}>
               Add asset
             </Text>
           </Pressable>
@@ -187,6 +178,13 @@ export function HomeScreen({
           styles,
         )}
       </ScrollView>
+      <AccountPickerModal
+        accounts={selectableAccounts}
+        onRequestClose={() => setAccountPickerVisible(false)}
+        onSelectAccount={onSelectAccount}
+        selectedAccountId={account.id}
+        visible={accountPickerVisible}
+      />
     </Screen>
   );
 }
@@ -205,14 +203,15 @@ function HomeAction({
     <Pressable
       accessibilityLabel={label}
       accessibilityRole="button"
-      accessibilityState={{disabled: !enabled}}
+      accessibilityState={{ disabled: !enabled }}
       disabled={!enabled}
       onPress={enabled ? onPress : undefined}
-      style={({pressed}) => [
+      style={({ pressed }) => [
         styles.action,
         !enabled ? styles.actionDisabled : undefined,
         pressed ? styles.pressed : undefined,
-      ]}>
+      ]}
+    >
       <Text style={styles.actionText}>{label}</Text>
     </Pressable>
   );
@@ -243,7 +242,8 @@ function renderPortfolio(
         <Pressable
           accessibilityRole="button"
           onPress={onRefresh}
-          style={({pressed}) => [styles.retryButton, pressed ? styles.pressed : undefined]}>
+          style={({ pressed }) => [styles.retryButton, pressed ? styles.pressed : undefined]}
+        >
           <Text style={styles.retryText}>Try again</Text>
         </Pressable>
       </View>
@@ -258,9 +258,7 @@ function renderPortfolio(
     return (
       <View style={styles.stateBox}>
         <Text style={styles.stateTitle}>Assets unavailable</Text>
-        <Text style={styles.stateText}>
-          Classic Horizon balance semantics are not applied to contract accounts.
-        </Text>
+        <Text style={styles.stateText}>Classic Horizon balance semantics are not applied to contract accounts.</Text>
       </View>
     );
   }

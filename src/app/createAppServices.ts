@@ -2,12 +2,19 @@ import { NativeModules } from 'react-native';
 
 import { APP_CONFIG } from './config/appConfig';
 import { SessionLogger } from './diagnostics/SessionLogger';
-import {createLedgerReadInvalidationStore, type LedgerReadInvalidationStore} from './readModels/LedgerReadInvalidationStore';
-import {createTransactionReconciliationCoordinator, type TransactionReconciliationCoordinator} from './transaction/TransactionReconciliationCoordinator';
+import type { AccountSelectionPreferenceStore } from './accountSelectionPreferences';
+import {
+  createLedgerReadInvalidationStore,
+  type LedgerReadInvalidationStore,
+} from './readModels/LedgerReadInvalidationStore';
+import {
+  createTransactionReconciliationCoordinator,
+  type TransactionReconciliationCoordinator,
+} from './transaction/TransactionReconciliationCoordinator';
 import type { OnboardingProvisioningDependencies } from '../features/onboarding/runOnboardingProvisioning';
 import type { ApplicationSecurityDependencies } from '../capabilities/application-security/systemAuth';
 import type { BalanceDependencies } from '../capabilities/balance/loadBalanceSnapshot';
-import type {AccountOrderDependencies} from '../capabilities/account/accountOrder';
+import type { AccountOrderDependencies } from '../capabilities/account/accountOrder';
 import type { AccountVisibilityDependencies } from '../capabilities/account/accountVisibility';
 import type { DeleteLocalAccountDependencies } from '../capabilities/account/deleteLocalAccount';
 import type { RenameAccountDependencies } from '../capabilities/account/renameAccount';
@@ -17,6 +24,7 @@ import type { TrustlineProductDependencies } from '../features/trustlines/trustl
 import { ReactNativeFresnicaSdk, loadNativeFresnicaModule } from '../platform/fresnica/native';
 import {
   RealmAccountSignerRepository,
+  RealmDefaultAccountPreferenceStore,
   RealmLocalePreferenceStore,
   RealmPendingSubmissionRepository,
   createRealmRecordId,
@@ -41,6 +49,7 @@ export type AppServices = Readonly<{
   transactionRecovery: TransactionReconciliationCoordinator;
   ledgerReadInvalidation: LedgerReadInvalidationStore;
   localePreferences: RealmLocalePreferenceStore;
+  accountSelectionPreferences: AccountSelectionPreferenceStore;
   close: () => void;
 }>;
 
@@ -48,19 +57,16 @@ export type CreateAppServicesOptions = Readonly<{
   realmPath?: string;
 }>;
 
-export async function createAppServices(
-  options: CreateAppServicesOptions = {},
-): Promise<AppServices> {
+export async function createAppServices(options: CreateAppServicesOptions = {}): Promise<AppServices> {
   const diagnostics = new SessionLogger();
-  const realm = await openWalletRealm(
-    options.realmPath === undefined ? {} : {path: options.realmPath},
-  );
+  const realm = await openWalletRealm(options.realmPath === undefined ? {} : { path: options.realmPath });
 
   try {
     const nativeModule = loadNativeFresnicaModule(NativeModules);
     const sdk = new ReactNativeFresnicaSdk(nativeModule);
     const repository = new RealmAccountSignerRepository(realm);
     const localePreferences = new RealmLocalePreferenceStore(realm);
+    const accountSelectionPreferences = new RealmDefaultAccountPreferenceStore(realm);
     const pendingSubmissions = new RealmPendingSubmissionRepository(realm);
     const ledgerReadInvalidation = createLedgerReadInvalidationStore();
     const recovery = Object.freeze({
@@ -83,12 +89,12 @@ export async function createAppServices(
       networkId: network.id,
       now: () => new Date(),
       onRunStart: reason =>
-        diagnostics.info('transaction-reconciliation-start', {details: {reason, networkId: network.id}}),
+        diagnostics.info('transaction-reconciliation-start', { details: { reason, networkId: network.id } }),
       onRunFailure: (reason, error) =>
-        diagnostics.warn('transaction-reconciliation-failed', {details: {reason, networkId: network.id, error}}),
+        diagnostics.warn('transaction-reconciliation-failed', { details: { reason, networkId: network.id, error } }),
     });
 
-    diagnostics.info('app-services-ready', {details: {networkId: network.id}});
+    diagnostics.info('app-services-ready', { details: { networkId: network.id } });
 
     return {
       diagnostics,
@@ -133,6 +139,7 @@ export async function createAppServices(
       transactionRecovery,
       ledgerReadInvalidation,
       localePreferences,
+      accountSelectionPreferences,
       close: () => realm.close(),
     };
   } catch (error) {
