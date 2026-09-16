@@ -73,6 +73,7 @@ npm run smoke:transaction-recovery:android
 | `command not found: react-native` | `node_modules` 不完整 | `npm ci` |
 | 端口 8765 占用 | 上次回报服务还在 | 停掉后再跑 |
 | iOS smoke 启动 server 后立刻误报失败 | 同一 Metro 下仍运行的 Android Fresnica 可能在 `index.js` reload 后先打到 8765 callback | 先 `adb shell am force-stop com.fresnica.mobile`，再 terminate iOS App 后重跑；不要把抢跑 callback 当 iOS native 失败 |
+| Metro 报 `Got unexpected undefined` / `DeltaBundler/Graph.js`，随后 smoke timeout | 已被 smoke 热切换过 production/smoke `index.js` 的 Metro v0.87 incremental graph 可能失效；错误发生在 JS 执行前 | 停掉该 Metro，让 smoke 命令自己启动 fresh Metro；跨平台连续验收时不要复用已被 smoke 修改过 graph 的进程 |
 
 ## 测什么、不测什么
 

@@ -143,7 +143,9 @@ The callback payload must also contain:
 {"realm":"ok"}
 ```
 
-This result has been manually observed on both Android emulator and Apple simulator for the current feature branch.
+2026-09-16 local validation is anchored to implementation commit `e6f4098bdcfcf1700fc1546120dfce3ff97214bf` plus the smoke-carrier-only follow-up `66b41c67ffe6efdb4b3771efd208e5f425ab5976`. The upstream 0.3.1 manifest verifier accepts the generated RN artifacts as React Native 0.87.0 / Native SDK 0.3.1 / Native Binding API 3 / adapter source 0.3.0. iOS completed a fresh Xcode simulator rebuild before returning `FRESNICA_PARSE_ACCOUNT_SMOKE_OK`; Android completed the standard `npm run smoke:android -- --rebuild` path on a disposable Android 16 / API 36 AVD and returned the same marker. Both callbacks reported Realm `ok`, exact Classic identity, `invalid-input`, external-signing bridge presence and SEP-53 bridge presence.
+
+A Metro v0.87 process that has already hot-swapped between the smoke `index.js` and the production `index.js` can retain a stale incremental graph and fail inside `DeltaBundler/Graph.js` before JavaScript executes. This is a Metro carrier failure, not a Fresnica Native result. For cross-platform smoke runs, let each command own a fresh Metro or restart Metro with `--reset-cache` between runs rather than reusing a previously smoke-mutated process.
 
 ## Normal CI
 

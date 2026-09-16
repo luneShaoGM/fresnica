@@ -18,6 +18,8 @@ Realm                     20.2.0
 Network                   Stellar Testnet
 ```
 
+The 2026-09-16 Native SDK 0.3.1 maintenance is locally validated at implementation commit `e6f4098...` plus deterministic Android smoke carrier `66b41c6...`: full JS/architecture/provenance/locale gates pass at 68/68 suites and 353/353 tests, Realm integration is 28/28, and both iOS and a disposable Android 16 / API 36 AVD return `FRESNICA_PARSE_ACCOUNT_SMOKE_OK` against the 0.3.1 binary + canonical RN adapter. This is dependency/runtime evidence only; it does not promote any Stage 4 product surface or expose the native-only passphrase-verification helper to JavaScript.
+
 ## Capability matrix
 
 | Application Capability | Upstream maturity | Mobile status | Current evidence / scope |
