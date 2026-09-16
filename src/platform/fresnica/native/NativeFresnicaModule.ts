@@ -56,6 +56,11 @@ export interface NativeFresnicaModule {
     appPasscode: string,
     expectedSignerPublicKey: string,
   ): Promise<boolean>;
+  verifyProtectedSignerPassphrase(
+    envelopeJson: string,
+    appPasscode: string,
+    expectedSignerPublicKey: string,
+  ): Promise<boolean>;
   hasSignerSystemAuth(expectedSignerPublicKey: string): Promise<boolean>;
   removeSignerSystemAuth(expectedSignerPublicKey: string): Promise<boolean>;
   removeSystemAuthDomain(): Promise<boolean>;

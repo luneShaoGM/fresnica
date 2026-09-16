@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: manran/fresnica
-          ref: 984a741ab49ed5ca3eeab6da525bcacac5dd5d04
+          ref: c5eae08e84b197d534a05f02ae1a230a1e245f28
           path: .fresnica-upstream
 
       - name: Set up Node
@@ -130,6 +130,7 @@ jobs:
           test -f "$adapter_aar"
           unzip -p "$adapter_aar" classes.jar > "$RUNNER_TEMP/fresnica-rn-adapter-classes.jar"
           jar tf "$RUNNER_TEMP/fresnica-rn-adapter-classes.jar" | grep -F 'com/fresnica/sdk/reactnative/FresnicaCorePackage.class'
+          javap -classpath "$RUNNER_TEMP/fresnica-rn-adapter-classes.jar" com.fresnica.sdk.reactnative.FresnicaCoreModule | grep -F 'verifyProtectedSignerPassphrase'
 
       - name: Build Android debug app for native link verification
         working-directory: android

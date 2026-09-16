@@ -16,6 +16,7 @@ describe('FresnicaSdkPort contract', () => {
       'hasSystemAuthDomain',
       'initializeSystemAuth',
       'registerSignerSystemAuth',
+      'verifyProtectedSignerPassphrase',
       'hasSignerSystemAuth',
       'removeSignerSystemAuth',
       'removeSystemAuthDomain',

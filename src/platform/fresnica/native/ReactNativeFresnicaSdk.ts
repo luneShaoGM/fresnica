@@ -7,6 +7,7 @@ import type {
   ProtectMnemonicInput,
   ProtectSecretInput,
   RegisterSignerSystemAuthInput,
+  VerifyProtectedSignerPassphraseInput,
   ReprotectInput,
   RevealedSigningMaterial,
   RevealInput,
@@ -133,6 +134,16 @@ export class ReactNativeFresnicaSdk implements FresnicaSdkPort {
   ) {
     return this.invoke(() =>
       this.native.registerSignerSystemAuth(
+        input.envelopeJson,
+        this.readAppPassphrase(input),
+        input.expectedSignerPublicKey,
+      ),
+    );
+  }
+
+  verifyProtectedSignerPassphrase(input: VerifyProtectedSignerPassphraseInput) {
+    return this.invoke(() =>
+      this.native.verifyProtectedSignerPassphrase(
         input.envelopeJson,
         this.readAppPassphrase(input),
         input.expectedSignerPublicKey,

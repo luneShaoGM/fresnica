@@ -1,13 +1,17 @@
 # Native runtime smoke（FresnicaCore + Realm）
 
-本地反复验证用：确认模拟器/真机上的 JS 能调到 `NativeModules.FresnicaCore`，Realm 能 open/write/read，并且 Native SDK 0.3.1 的 external-signing 与 SEP-53 高层桥接方法实际存在。
+本地反复验证用：确认模拟器/真机上的 JS 能调到 `NativeModules.FresnicaCore`，Realm 能 open/write/read，并且 Native SDK 0.3.1 的 external-signing、SEP-53 与 protected-signer passphrase verification 高层桥接实际可运行。
 
 成功标记：
 
 ```text
 FRESNICA_PARSE_ACCOUNT_SMOKE_OK
 "realm":"ok"
+"protectedSignerPassphraseVerification":"ok"
+"wrongPassphraseCode":"invalid-passcode"
 ```
+
+当前 verification smoke 还要求 signer mismatch 与 malformed envelope fail closed，并确认返回值不包含敏感材料、Realm/envelope 不发生变化。
 
 结果文件：项目根目录 `native-runtime-smoke-result.json`（不要提交）。
 
@@ -77,6 +81,6 @@ npm run smoke:transaction-recovery:android
 
 ## 测什么、不测什么
 
-测的是运行时链接：Realm 内存库 round-trip + `FresnicaCore.parseAccount`（合法 classic 地址 / 非法输入 `invalid-input`）+ `prepareEd25519Signing` / `applyEd25519Signature` + `signMessageWithSystemAuth` / `signMessageWithPasscode` 的桥接存在性。冒烟不会伪造 signer 或调用真实签名。
+测的是运行时链接：Realm 内存库 round-trip + `FresnicaCore.parseAccount`（合法 classic 地址 / 非法输入 `invalid-input`）+ `prepareEd25519Signing` / `applyEd25519Signature` + `signMessageWithSystemAuth` / `signMessageWithPasscode` 的桥接存在性，以及 `verifyProtectedSignerPassphrase` 的真实行为。Verification smoke 在内存中生成一次性 protected signer，立即丢弃 mnemonic 返回值且不写入 callback/Realm；正确 passphrase 必须只返回 `true`，错误 passphrase 必须为 `invalid-passcode`，signer mismatch 与 malformed envelope 必须 fail closed。测试同时确认 Realm marker 与 protected envelope 不变。System Auth 的无副作用由 Mobile wrapper contract test（不调用 initialize/register/remove）和 Native SDK verification helper 的无 persistent-side-effect contract共同约束，而不是在 smoke 中主动触碰 Keychain/Keystore。冒烟不会调用真实签名。
 
 不测产品 UI，也不替代 `npm run check` 或 `npm run test:realm`。

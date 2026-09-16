@@ -10,6 +10,7 @@ import type {
   ProtectMnemonicInput,
   ProtectSecretInput,
   RegisterSignerSystemAuthInput,
+  VerifyProtectedSignerPassphraseInput,
   ReprotectInput,
   RevealedSigningMaterial,
   RevealInput,
@@ -33,6 +34,7 @@ export interface FresnicaSdkPort {
   hasSystemAuthDomain(): Promise<boolean>;
   initializeSystemAuth(reason: string): Promise<boolean>;
   registerSignerSystemAuth(input: RegisterSignerSystemAuthInput): Promise<boolean>;
+  verifyProtectedSignerPassphrase(input: VerifyProtectedSignerPassphraseInput): Promise<boolean>;
   hasSignerSystemAuth(expectedSignerPublicKey: string): Promise<boolean>;
   removeSignerSystemAuth(expectedSignerPublicKey: string): Promise<boolean>;
   removeSystemAuthDomain(): Promise<boolean>;

@@ -16,6 +16,7 @@ function createNativeModule(): jest.Mocked<NativeFresnicaModule> {
     hasSystemAuthDomain: jest.fn(),
     initializeSystemAuth: jest.fn(),
     registerSignerSystemAuth: jest.fn(),
+    verifyProtectedSignerPassphrase: jest.fn(),
     hasSignerSystemAuth: jest.fn(),
     removeSignerSystemAuth: jest.fn(),
     removeSystemAuthDomain: jest.fn(),
@@ -76,6 +77,50 @@ describe('ReactNativeFresnicaSdk', () => {
 
     expect(native.signMessageWithSystemAuth).toHaveBeenCalledWith('{"v":1}', 'GSIGNER', message, 'Sign dApp challenge');
     expect(native.signMessageWithPasscode).toHaveBeenCalledWith('{"v":1}', '123456', 'GSIGNER', message);
+  });
+
+  it('maps protected-signer passphrase verification without exposing derived material', async () => {
+    const native = createNativeModule();
+    native.verifyProtectedSignerPassphrase.mockResolvedValue(true);
+    const sdk = new ReactNativeFresnicaSdk(native);
+
+    const result = await sdk.verifyProtectedSignerPassphrase({
+      envelopeJson: '{"v":1}',
+      appPassphrase: 'correct horse battery staple',
+      expectedSignerPublicKey: 'GSIGNER',
+    });
+
+    expect(result).toBe(true);
+    expect(native.verifyProtectedSignerPassphrase).toHaveBeenCalledWith(
+      '{"v":1}',
+      'correct horse battery staple',
+      'GSIGNER',
+    );
+    expect(native.initializeSystemAuth).not.toHaveBeenCalled();
+    expect(native.registerSignerSystemAuth).not.toHaveBeenCalled();
+    expect(native.removeSignerSystemAuth).not.toHaveBeenCalled();
+    expect(native.removeSystemAuthDomain).not.toHaveBeenCalled();
+    expect(native.reveal).not.toHaveBeenCalled();
+  });
+
+  it('preserves invalid-passcode from passphrase verification', async () => {
+    const native = createNativeModule();
+    native.verifyProtectedSignerPassphrase.mockRejectedValue({
+      code: 'invalid-passcode',
+      message: 'Invalid passcode',
+    });
+    const sdk = new ReactNativeFresnicaSdk(native);
+
+    await expect(
+      sdk.verifyProtectedSignerPassphrase({
+        envelopeJson: '{"v":1}',
+        appPassphrase: 'wrong passphrase',
+        expectedSignerPublicKey: 'GSIGNER',
+      }),
+    ).rejects.toMatchObject({
+      name: 'FresnicaNativeError',
+      code: 'invalid-passcode',
+    });
   });
 
   it('keeps system-auth signing separate from passphrase signing', async () => {

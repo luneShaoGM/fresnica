@@ -11,7 +11,7 @@ Native Binding API        3
 Universal SDK API         5
 Core Client API           5
 RN adapter source         0.3.0
-RN adapter source commit  984a741ab49ed5ca3eeab6da525bcacac5dd5d04
+RN adapter source commit  c5eae08e84b197d534a05f02ae1a230a1e245f28
 React Native module       FresnicaCore
 ```
 
@@ -21,7 +21,7 @@ The pinned adapter revision includes upstream PR #121, which exports the Apple a
 
 The 0.3.0 bridge also exposes high-level SEP-53 message signing (`signMessageWithSystemAuth` / `signMessageWithPasscode`) while keeping unlock-key material native-only. Android RN 0.87 adapter generation still carries checkout-only compatibility patches tracked by Fresnica issues #128 and #129; do not promote those build patches into Mobile signing semantics.
 
-Native SDK 0.3.1 additionally contains the native-only `verifyProtectedSignerPassphrase` authorization helper. The canonical React Native adapter source package is still 0.3.0 and does not export that helper; Mobile must keep the existing-wallet protected-signer flow fail closed until the canonical adapter contract changes.
+Native SDK 0.3.1 additionally contains `verifyProtectedSignerPassphrase`. Canonical React Native adapter source package 0.3.0 at the pinned `c5eae08...` revision exports this as a boolean-only Promise. The native helper verifies the exact protected envelope + App Passphrase + expected signer identity, wipes the derived `WalletUnlockKey`, has no persistent side effects and does not return signer secret material. Mobile still keeps Existing-wallet Create/Import product paths fail closed until their separate behavior/orchestration slices are implemented.
 
 ## Fresh-clone bootstrap
 
@@ -99,10 +99,12 @@ vendor/fresnica/adapter/react-native/
 The adapter artifacts are generated once from the pinned canonical source revision:
 
 ```text
-984a741ab49ed5ca3eeab6da525bcacac5dd5d04
+c5eae08e84b197d534a05f02ae1a230a1e245f28
 ```
 
-using this Mobile project's own React Native/native toolchain. Follow the upstream canonical build commands in:
+using this Mobile project's own React Native/native toolchain. The currently generated adapter manifest records Android SHA-256 `22b21406d108f23d65e7c2bd67d960c66561b77dbecf53ed5c28fb97bb190268` and Apple SHA-256 `ba13d945aa76e22e135bd603d0c83d5f619cd73d66749db207c58cf8b41692a2`. Regenerate and re-run the canonical manifest verifier whenever the pinned adapter revision or consumer toolchain changes; do not assume these hashes across a toolchain change.
+
+Follow the upstream canonical build commands in:
 
 ```text
 manran/fresnica/docs/platforms/mobile/sdk-usage.md

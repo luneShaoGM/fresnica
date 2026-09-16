@@ -96,6 +96,12 @@ export type RegisterSignerSystemAuthInput = {
   expectedSignerPublicKey: string;
 };
 
+export type VerifyProtectedSignerPassphraseInput = {
+  envelopeJson: string;
+  appPassphrase: string;
+  expectedSignerPublicKey: string;
+};
+
 export type SignMessageWithSystemAuthInput = {
   envelopeJson: string;
   expectedSignerPublicKey: string;

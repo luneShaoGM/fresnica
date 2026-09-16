@@ -14,6 +14,7 @@ const REQUIRED_METHODS = [
   'hasSystemAuthDomain',
   'initializeSystemAuth',
   'registerSignerSystemAuth',
+  'verifyProtectedSignerPassphrase',
   'hasSignerSystemAuth',
   'removeSignerSystemAuth',
   'removeSystemAuthDomain',
