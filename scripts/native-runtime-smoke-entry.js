@@ -7,6 +7,7 @@ const VALID_CLASSIC_ACCOUNT = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 const OK_MARKER = 'FRESNICA_PARSE_ACCOUNT_SMOKE_OK';
 const FAIL_MARKER = 'FRESNICA_PARSE_ACCOUNT_SMOKE_FAIL';
 const CALLBACK_BASE_URL = 'http://127.0.0.1:8765';
+const VERIFICATION_PASSPHRASE = 'Fresnica runtime verification passphrase 2026';
 const REALM_SMOKE_SCHEMA = {
   name: 'RuntimeSmokeRecord',
   primaryKey: 'id',
@@ -46,7 +47,7 @@ function fresnicaNativeModuleDiagnostic() {
   };
 }
 
-async function verifyRealmRuntime() {
+async function verifyRealmRuntime(operation) {
   const realm = await Realm.open({
     schema: [REALM_SMOKE_SCHEMA],
     inMemory: true,
@@ -56,13 +57,96 @@ async function verifyRealmRuntime() {
     realm.write(() => {
       realm.create('RuntimeSmokeRecord', { id: 'smoke', value: 'ok' });
     });
+    const result = await operation();
+    const records = realm.objects('RuntimeSmokeRecord');
     const record = realm.objectForPrimaryKey('RuntimeSmokeRecord', 'smoke');
-    if (record?.value !== 'ok') {
-      throw new Error('Realm runtime smoke did not round-trip the record');
+    if (records.length !== 1 || record?.value !== 'ok') {
+      throw new Error('Passphrase verification unexpectedly changed Realm smoke state');
     }
+    return result;
   } finally {
     realm.close();
   }
+}
+
+async function rejectedCode(operation, label) {
+  try {
+    await operation();
+  } catch (error) {
+    return error?.code ?? 'unknown';
+  }
+  throw new Error(`${label} unexpectedly succeeded`);
+}
+
+async function verifyProtectedSignerPassphraseRuntime(core) {
+  let generated = await core.generateMnemonic(
+    'english',
+    128,
+    '',
+    0,
+    VERIFICATION_PASSPHRASE,
+  );
+  const signer = generated?.signer;
+  generated = undefined;
+  if (
+    signer === null ||
+    typeof signer !== 'object' ||
+    typeof signer.envelopeJson !== 'string' ||
+    typeof signer.signerPublicKey !== 'string'
+  ) {
+    throw new Error('Runtime smoke could not create a protected signer');
+  }
+
+  const envelopeBefore = signer.envelopeJson;
+  const verified = await core.verifyProtectedSignerPassphrase(
+    envelopeBefore,
+    VERIFICATION_PASSPHRASE,
+    signer.signerPublicKey,
+  );
+  if (verified !== true) {
+    throw new Error(`Unexpected verification result: ${JSON.stringify(verified)}`);
+  }
+
+  const wrongPassphraseCode = await rejectedCode(
+    () =>
+      core.verifyProtectedSignerPassphrase(
+        envelopeBefore,
+        `${VERIFICATION_PASSPHRASE} wrong`,
+        signer.signerPublicKey,
+      ),
+    'wrong passphrase verification',
+  );
+  if (wrongPassphraseCode !== 'invalid-passcode') {
+    throw new Error(`Unexpected wrong-passphrase error code: ${String(wrongPassphraseCode)}`);
+  }
+
+  const identityMismatchCode = await rejectedCode(
+    () =>
+      core.verifyProtectedSignerPassphrase(
+        envelopeBefore,
+        VERIFICATION_PASSPHRASE,
+        VALID_CLASSIC_ACCOUNT,
+      ),
+    'identity-mismatch verification',
+  );
+  const malformedEnvelopeCode = await rejectedCode(
+    () =>
+      core.verifyProtectedSignerPassphrase(
+        'not-a-protected-envelope',
+        VERIFICATION_PASSPHRASE,
+        signer.signerPublicKey,
+      ),
+    'malformed-envelope verification',
+  );
+  if (signer.envelopeJson !== envelopeBefore) {
+    throw new Error('Passphrase verification unexpectedly changed the protected envelope');
+  }
+
+  return {
+    wrongPassphraseCode,
+    identityMismatchCode,
+    malformedEnvelopeCode,
+  };
 }
 
 function SmokeApp() {
@@ -72,8 +156,6 @@ function SmokeApp() {
     let active = true;
 
     async function run() {
-      await verifyRealmRuntime();
-
       const core = NativeModules.FresnicaCore;
       if (core === null || typeof core !== 'object') {
         throw new Error(
@@ -82,6 +164,8 @@ function SmokeApp() {
       }
       const requiredMethods = [
         'parseAccount',
+        'generateMnemonic',
+        'verifyProtectedSignerPassphrase',
         'prepareEd25519Signing',
         'applyEd25519Signature',
         'signMessageWithSystemAuth',
@@ -93,6 +177,10 @@ function SmokeApp() {
           `FresnicaCore bridge methods are not linked: ${missingMethods.join(',')}; diagnostic: ${JSON.stringify(fresnicaNativeModuleDiagnostic())}`,
         );
       }
+
+      const passphraseVerification = await verifyRealmRuntime(() =>
+        verifyProtectedSignerPassphraseRuntime(core),
+      );
 
       const identity = await core.parseAccount(VALID_CLASSIC_ACCOUNT);
       if (
@@ -126,6 +214,12 @@ function SmokeApp() {
         invalidCode,
         externalSigningBridge: 'ok',
         sep53MessageSigningBridge: 'ok',
+        protectedSignerPassphraseVerification: 'ok',
+        wrongPassphraseCode: passphraseVerification.wrongPassphraseCode,
+        identityMismatchCode: passphraseVerification.identityMismatchCode,
+        malformedEnvelopeCode: passphraseVerification.malformedEnvelopeCode,
+        verificationReturnedSensitiveMaterial: false,
+        verificationMutatedRealmOrEnvelope: false,
       };
       await report(OK_MARKER, summary);
       console.log(OK_MARKER, summary);

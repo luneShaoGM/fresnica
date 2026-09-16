@@ -4,7 +4,7 @@ export const FRESNICA_SDK_COMPATIBILITY = Object.freeze({
   universalSdkApiVersion: 5,
   coreClientApiVersion: 5,
   adapterSourceVersion: '0.3.0',
-  adapterSourceRevision: '984a741ab49ed5ca3eeab6da525bcacac5dd5d04',
+  adapterSourceRevision: 'c5eae08e84b197d534a05f02ae1a230a1e245f28',
   reactNativeVersion: '0.87.0',
 } as const);
 

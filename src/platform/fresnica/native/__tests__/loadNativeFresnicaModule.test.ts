@@ -14,6 +14,7 @@ const validModule = {
   hasSystemAuthDomain: jest.fn(),
   initializeSystemAuth: jest.fn(),
   registerSignerSystemAuth: jest.fn(),
+  verifyProtectedSignerPassphrase: jest.fn(),
   hasSignerSystemAuth: jest.fn(),
   removeSignerSystemAuth: jest.fn(),
   removeSystemAuthDomain: jest.fn(),
@@ -30,10 +31,10 @@ describe('loadNativeFresnicaModule', () => {
   });
 
   it('fails explicitly when a required bridge method is missing', () => {
-    const incompleteModule = { ...validModule, signWithSystemAuth: undefined };
+    const incompleteModule = { ...validModule, verifyProtectedSignerPassphrase: undefined };
 
     expect(() => loadNativeFresnicaModule({ FresnicaCore: incompleteModule })).toThrow(
-      'FresnicaCore native module is incompatible: missing signWithSystemAuth',
+      'FresnicaCore native module is incompatible: missing verifyProtectedSignerPassphrase',
     );
   });
 });

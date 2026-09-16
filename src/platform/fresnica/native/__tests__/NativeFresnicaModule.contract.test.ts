@@ -16,6 +16,7 @@ describe('NativeFresnicaModule contract', () => {
       'hasSystemAuthDomain',
       'initializeSystemAuth',
       'registerSignerSystemAuth',
+      'verifyProtectedSignerPassphrase',
       'hasSignerSystemAuth',
       'removeSignerSystemAuth',
       'removeSystemAuthDomain',
@@ -28,6 +29,5 @@ describe('NativeFresnicaModule contract', () => {
     expect(methods).not.toContain('deriveUnlockKey' as keyof NativeFresnicaModule);
     expect(methods).not.toContain('validateUnlockKey' as keyof NativeFresnicaModule);
     expect(methods).not.toContain('signTransactionXdr' as keyof NativeFresnicaModule);
-    expect(methods).not.toContain('verifyProtectedSignerPassphrase' as keyof NativeFresnicaModule);
   });
 });
