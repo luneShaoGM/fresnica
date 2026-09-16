@@ -30,6 +30,13 @@ function buttons(root: React.ReactNode): React.ReactElement<TestProps>[] {
   });
   return matches;
 }
+
+function textValues(node: React.ReactNode): string[] {
+  if (typeof node === 'string') return [node];
+  if (!React.isValidElement<TestProps>(node)) return [];
+  return React.Children.toArray(node.props.children).flatMap(textValues);
+}
+
 function visit(node: React.ReactNode, callback: (element: React.ReactElement<TestProps>) => void): void {
   if (!React.isValidElement<TestProps>(node)) return;
   callback(node);
@@ -64,6 +71,15 @@ describe('InactiveAccountPanel', () => {
 
     expect(renderedButtons[0]?.props.label).toBe('home.friendbot.funding');
     expect(renderedButtons[0]?.props.disabled).toBe(true);
+  });
+
+  it('keeps Friendbot retryable and shows localized failure copy', () => {
+    const root = InactiveAccountPanel({ ...baseProps, friendbotState: 'error' });
+    const renderedButtons = buttons(root);
+
+    expect(renderedButtons[0]?.props.label).toBe('home.friendbot.action');
+    expect(renderedButtons[0]?.props.disabled).toBe(false);
+    expect(textValues(root)).toContain('home.friendbot.error');
   });
 
   it('does not render Friendbot outside an eligible network state', () => {
