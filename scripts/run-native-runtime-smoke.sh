@@ -125,7 +125,7 @@ launch_android() {
     adb install -r "$ROOT/android/app/build/outputs/apk/debug/app-debug.apk"
   fi
   adb shell am force-stop "$BUNDLE_ID"
-  adb shell monkey -p "$BUNDLE_ID" -c android.intent.category.LAUNCHER 1 >/dev/null
+  adb shell am start -W -n "$BUNDLE_ID/.MainActivity" >/dev/null
 }
 
 launch_ios() {
