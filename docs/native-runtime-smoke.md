@@ -1,6 +1,6 @@
 # Native runtime smoke（FresnicaCore + Realm）
 
-本地反复验证用：确认模拟器/真机上的 JS 能调到 `NativeModules.FresnicaCore`，Realm 能 open/write/read，并且 Native SDK 0.3.0 的 external-signing 与 SEP-53 高层桥接方法实际存在。
+本地反复验证用：确认模拟器/真机上的 JS 能调到 `NativeModules.FresnicaCore`，Realm 能 open/write/read，并且 Native SDK 0.3.1 的 external-signing 与 SEP-53 高层桥接方法实际存在。
 
 成功标记：
 

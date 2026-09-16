@@ -6,20 +6,22 @@ This directory is Mobile-owned storage for the pinned Fresnica Native SDK binari
 
 ```text
 React Native              0.87.0
-Fresnica Native SDK       0.3.0
+Fresnica Native SDK       0.3.1
 Native Binding API        3
 Universal SDK API         5
 Core Client API           5
 RN adapter source         0.3.0
-RN adapter source commit  b1d0427ec5c5398c3bb2e01b886e4e3084e46a73
+RN adapter source commit  984a741ab49ed5ca3eeab6da525bcacac5dd5d04
 React Native module       FresnicaCore
 ```
 
-The Native SDK and adapter are separate products. The Native SDK remains the published `native-sdk-v0.3.0` binary release. Adapter source 0.3.0 is built once inside this application's React Native/native toolchain and the generated binary is then linked by normal app builds.
+The Native SDK and adapter are separate products. The Native SDK remains the published `native-sdk-v0.3.1` binary release. Adapter source 0.3.0 is built once inside this application's React Native/native toolchain and the generated binary is then linked by normal app builds.
 
 The pinned adapter revision includes upstream PR #121, which exports the Apple adapter as the shared `FresnicaCore` JavaScript module through `RCT_EXTERN_REMAP_MODULE`. Mobile must not patch the Apple module name locally.
 
 The 0.3.0 bridge also exposes high-level SEP-53 message signing (`signMessageWithSystemAuth` / `signMessageWithPasscode`) while keeping unlock-key material native-only. Android RN 0.87 adapter generation still carries checkout-only compatibility patches tracked by Fresnica issues #128 and #129; do not promote those build patches into Mobile signing semantics.
+
+Native SDK 0.3.1 additionally contains the native-only `verifyProtectedSignerPassphrase` authorization helper. The canonical React Native adapter source package is still 0.3.0 and does not export that helper; Mobile must keep the existing-wallet protected-signer flow fail closed until the canonical adapter contract changes.
 
 ## Fresh-clone bootstrap
 
@@ -30,25 +32,25 @@ A fresh clone does not contain the native SDK or generated adapter binaries. Pre
 Use the exact release:
 
 ```text
-https://github.com/manran/fresnica/releases/tag/native-sdk-v0.3.0
+https://github.com/manran/fresnica/releases/tag/native-sdk-v0.3.1
 ```
 
 Download:
 
 ```text
-fresnica-native-sdk-0.3.0.aar
-FresnicaSDK-0.3.0-apple.zip
+fresnica-native-sdk-0.3.1.aar
+FresnicaSDK-0.3.1-apple.zip
 SHA256SUMS
 ```
 
 The current upstream SHA-256 values are:
 
 ```text
-fresnica-native-sdk-0.3.0.aar
-4eada0dcc5e0bd3330572b13eafbb57cfa7dcc6c0adf120992d63d35aee11c6e
+fresnica-native-sdk-0.3.1.aar
+2acbeb065d33abea787b0877674f6f263ea44daa9cc9a032942d46c98e0c88bb
 
-FresnicaSDK-0.3.0-apple.zip
-50759efe4bb98243d13ddd735f69631574f9a40c3bc917596cbc7c69992b6464
+FresnicaSDK-0.3.1-apple.zip
+97545f6b5a3ab8b4fe05f0c8b7e012b4c76e9858500c373eea43fd21daa8d5be
 ```
 
 Prefer verifying against the release `SHA256SUMS` file rather than copying these values by hand when bootstrapping a new checkout.
@@ -64,10 +66,10 @@ vendor/fresnica/native/
 Copy the Android AAR to:
 
 ```text
-vendor/fresnica/native/fresnica-native-sdk-0.3.0.aar
+vendor/fresnica/native/fresnica-native-sdk-0.3.1.aar
 ```
 
-Extract `FresnicaSDK-0.3.0-apple.zip`; it contains exactly:
+Extract `FresnicaSDK-0.3.1-apple.zip`; it contains exactly:
 
 ```text
 FresnicaSDK.xcframework/
@@ -97,7 +99,7 @@ vendor/fresnica/adapter/react-native/
 The adapter artifacts are generated once from the pinned canonical source revision:
 
 ```text
-b1d0427ec5c5398c3bb2e01b886e4e3084e46a73
+984a741ab49ed5ca3eeab6da525bcacac5dd5d04
 ```
 
 using this Mobile project's own React Native/native toolchain. Follow the upstream canonical build commands in:
@@ -123,7 +125,7 @@ vendor/fresnica/
   README.md
   FresnicaNative.podspec
   native/
-    fresnica-native-sdk-0.3.0.aar
+    fresnica-native-sdk-0.3.1.aar
     FresnicaSDK.xcframework/
     FresnicaSDKFFI.xcframework/
   adapter/

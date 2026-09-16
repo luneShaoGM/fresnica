@@ -7,12 +7,12 @@ Target product shell, naming, and completion rules: `docs/stellar-product-inform
 ## Compatibility baseline
 
 ```text
-Fresnica Native SDK       0.3.0
+Fresnica Native SDK       0.3.1
 Native Binding API        3
 Universal SDK API         5
 Core Client API           5
 RN adapter source         0.3.0
-Adapter source revision   b1d0427ec5c5398c3bb2e01b886e4e3084e46a73
+Adapter source revision   984a741ab49ed5ca3eeab6da525bcacac5dd5d04
 React Native              0.87.0
 Realm                     20.2.0
 Network                   Stellar Testnet
@@ -32,7 +32,7 @@ Network                   Stellar Testnet
 | SDEX | Normative | Not implemented | Current shared contract is for `ManageSellOffer` / `ManageBuyOffer`, order books, offers and fills. It is intentionally not used as an implicit Path Payment Swap contract. |
 | Path Payment / Swap | Shared contract missing | Blocked on Fresnica/fresnica#134 | Donor Swap uses `PathPaymentStrictSend` / `PathPaymentStrictReceive`; Mobile will not invent a platform-only semantic authority for quote/path/slippage policy. |
 | Ledger Authorization | Defined | Classic foundation used by Payment and Trustline | Typed Classic signer conditions and threshold resolution are reloaded immediately before signing. Payment and ChangeTrust use medium threshold. Full multisig/provider coordination remains future work. |
-| Signing Coordination | Normative | Shared routine signing used by write Flows | `routine` prefers Native SDK System Auth and falls back to a fresh app passphrase only when required. `passphrase-required` bypasses System Auth for high-assurance operations. Native SDK 0.3.0 also exposes high-level SEP-53 message signing for future dApp flows; product permission/session policy is not implemented yet. |
+| Signing Coordination | Normative | Shared routine signing used by write Flows | `routine` prefers Native SDK System Auth and falls back to a fresh app passphrase only when required. `passphrase-required` bypasses System Auth for high-assurance operations. Native SDK 0.3.1 retains high-level SEP-53 message signing for future dApp flows; product permission/session policy is not implemented yet. |
 | Application Security | Defined | S04 System Auth production settings partial | Strong app-passphrase policy, System Auth status/enable/repair/disable and protected-signer registration exist. `6a19346` adds explicit confirmation before disable, fail-closed Native error handling and duplicate-confirm protection in the reachable Security Settings flow. Generic app-session System Auth challenge remains blocked upstream; all-signer staged `reprotect`/atomic persistence and post-commit registration recovery remain Mobile orchestration work. |
 | Network / Gateway | Defined | Horizon mechanisms + Testnet Friendbot adapter production-wired | `src/platform/stellar`: Horizon balance/authorization/history/account-state/ledger/liquidity-pool reads, Payment/ChangeTrust construction and normalized transaction submission. `StellarFriendbotGateway` is a narrow HTTP mechanism injected by `app/`; Network Capability permits it only for `stellar-testnet` Classic accounts and sends only the public address. S07/S30 Horizon submission uses Stellar SDK 17.0.1 official `/axios` transport after real RN Testnet validation (`eaa1e8c`); Path Payment remains a separate blocked mechanism. |
 | Persistence | Mobile platform mechanism | Realm v4 verified locally with pending recovery + network-scoped default account | Realm v4 retains `PendingSubmissionEntity` public recovery metadata and adds `DefaultAccountPreferenceEntity`, keyed by `networkId`, without adding default state to Account records. The direct v2→v4 migration test preserves Account, Signer, references and Locale while adding the newer top-level entities, and the current v3→v4 migration test also preserves pending-submission recovery data. Selection preferences survive reopen, overwrite the prior default within one network, and remain isolated by network. Current local Realm integration is 28/28 using the arm64 Node runtime required by the installed Realm prebuild. Secrets, app passphrases, unlock keys, signer material and transaction XDR are not stored in either preference or pending records. |
@@ -50,7 +50,7 @@ Network                   Stellar Testnet
 - persist only mnemonic-backup metadata and resume interrupted generated-mnemonic backup with a fresh passphrase through SDK `reveal`;
 - route completed onboarding into the runtime Product Shell.
 
-Existing-wallet protected-signer creation/import remains disabled because Native Binding API 3 still does not expose a framework-safe verification-only current-passphrase primitive. Mobile fails closed rather than creating mixed passphrase state.
+Existing-wallet protected-signer creation/import remains disabled. Native SDK 0.3.1 now provides a native-only `verifyProtectedSignerPassphrase` helper, but the canonical React Native adapter source 0.3.0 at the 0.3.1 release commit does not export it to JavaScript. Mobile therefore still fails closed rather than creating mixed passphrase state or inventing a private bridge contract.
 
 ## Runtime Product Shell / Portfolio evidence
 

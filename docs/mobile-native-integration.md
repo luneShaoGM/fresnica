@@ -19,13 +19,13 @@ Normal Mobile builds link binaries only. They do not compile Rust/Core, run UniF
 ## Version pins
 
 ```text
-Native SDK release/tag    native-sdk-v0.3.0
-Native SDK package        0.3.0
+Native SDK release/tag    native-sdk-v0.3.1
+Native SDK package        0.3.1
 Native Binding API        3
 Universal SDK API         5
 Core Client API           5
 RN adapter source         0.3.0
-Adapter source commit     b1d0427ec5c5398c3bb2e01b886e4e3084e46a73
+Adapter source commit     984a741ab49ed5ca3eeab6da525bcacac5dd5d04
 React Native              0.87.0
 JS module                 FresnicaCore
 Android minSdk            26
@@ -34,7 +34,9 @@ Apple minimum iOS         13.4
 
 The adapter revision includes upstream PR #121 (`Align Apple React Native module name`), so Apple natively exports `FresnicaCore` via `RCT_EXTERN_REMAP_MODULE`. Mobile must not patch the bridge module name locally.
 
-Native SDK 0.3.0 adds the SEP-53 high-level React Native bridge operations `signMessageWithSystemAuth` and `signMessageWithPasscode`. The bridge signs the exact UTF-8 bytes of the JavaScript string and does not expose `WalletUnlockKey`, raw message-signing primitives, or a generic hash signer. `prepareEd25519Signing` / `applyEd25519Signature` remain the external-signer boundary.
+Native SDK 0.3.1 retains the SEP-53 high-level React Native bridge operations introduced with 0.3.0: `signMessageWithSystemAuth` and `signMessageWithPasscode`. The bridge signs the exact UTF-8 bytes of the JavaScript string and does not expose `WalletUnlockKey`, raw message-signing primitives, or a generic hash signer. `prepareEd25519Signing` / `applyEd25519Signature` remain the external-signer boundary.
+
+Native SDK 0.3.1 adds the platform-native `FresnicaSignerAuthorization.verifyProtectedSignerPassphrase(...)` helper. It verifies the exact protected envelope + application passphrase + expected signer identity and wipes the derived `WalletUnlockKey` before returning. The canonical React Native adapter package remains version 0.3.0 at release commit `984a741ab49ed5ca3eeab6da525bcacac5dd5d04`; its only 0.3.1-tag adapter change is the native-SDK compatibility pin, and it does **not** export this verification helper to JavaScript. Mobile therefore keeps existing-wallet protected-signer creation fail closed and must not add a private bridge method while waiting for the canonical adapter contract to expose it.
 
 The exact 0.3.0 adapter source still requires two checkout-only Android compatibility patches in the RN 0.87 / Gradle 9.4.1 consumer build: Fresnica issues #128 (included-build init evaluation) and #129 (JVM target alignment). These patches change adapter build compatibility only; they do not change the Native/SDK contract and must be removed when upstream ships the canonical fixes.
 
@@ -44,7 +46,7 @@ The exact 0.3.0 adapter source still requires two checkout-only Android compatib
 vendor/fresnica/
   FresnicaNative.podspec
   native/
-    fresnica-native-sdk-0.3.0.aar
+    fresnica-native-sdk-0.3.1.aar
     FresnicaSDK.xcframework/
     FresnicaSDKFFI.xcframework/
   adapter/react-native/
@@ -53,14 +55,14 @@ vendor/fresnica/
     adapter-manifest.json
 ```
 
-Native SDK files come from the published `native-sdk-v0.3.0` release and are verified against its SHA256SUMS. Adapter binaries are generated from the pinned canonical adapter source inside the actual Mobile toolchain.
+Native SDK files come from the published `native-sdk-v0.3.1` release and are verified against its SHA256SUMS. Adapter binaries are generated from the pinned canonical adapter source inside the actual Mobile toolchain.
 
 ## Android
 
 Required host dependencies:
 
 ```gradle
-implementation files("../../vendor/fresnica/native/fresnica-native-sdk-0.3.0.aar")
+implementation files("../../vendor/fresnica/native/fresnica-native-sdk-0.3.1.aar")
 implementation files("../../vendor/fresnica/adapter/react-native/fresnica-rn-adapter.aar")
 implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.24"
 implementation "net.java.dev.jna:jna:5.12.1@aar"
@@ -80,7 +82,7 @@ node .fresnica-upstream/adapters/react-native/tooling/fresnica-adapter.mjs \
   build react-native \
   --platform android \
   --project "$PWD" \
-  --native-android-aar "$PWD/vendor/fresnica/native/fresnica-native-sdk-0.3.0.aar" \
+  --native-android-aar "$PWD/vendor/fresnica/native/fresnica-native-sdk-0.3.1.aar" \
   --out "$PWD/vendor/fresnica/adapter/react-native"
 ```
 

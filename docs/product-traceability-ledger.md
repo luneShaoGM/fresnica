@@ -22,7 +22,7 @@
 | S16 | dApp browser/origin/navigation lifecycle | dapps + platform/dapp-browser | Adapt | clean-room | WebView/origin security | L0 |
 | S17 | dApp permissions/session/revoke | dapps/security + permission capability | Adapt | clean-room | permission contract/persistence | L0 |
 | S18 | Freighter account/network/transaction requests | dapps + Transaction/Signing | Adapt | clean-room | permission + arbitrary reviewed transaction contract | L0 |
-| S19 | SEP-53 message signing | dapps + Fresnica native | Adapt | clean-room | Native SDK 0.3.0 bridge available | L2 mechanism |
+| S19 | SEP-53 message signing | dapps + Fresnica native | Adapt | clean-room | Native SDK 0.3.1 bridge available | L2 mechanism |
 | S20 | Soroban auth-entry request | dapps + Fresnica native | Adapt | clean-room | RN secure delivery missing | L0 blocked |
 | S21 | Browser commands/device/share/data bridge | dapps + controlled platform ports | Adapt | clean-room | per-command contract | L0 |
 | S22 | Address book/destination picker | contacts + Contacts capability | Adapt | clean-room | local contacts policy | L0 |
