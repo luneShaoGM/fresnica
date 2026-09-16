@@ -1,8 +1,5 @@
-import type {AccountRecord} from '../../../capabilities/account/types';
-import {
-  createHomeViewModel,
-  type HomeBalanceState,
-} from '../homeViewModel';
+import type { AccountRecord } from '../../../capabilities/account/types';
+import { createHomeViewModel, type HomeBalanceState } from '../homeViewModel';
 
 const account: AccountRecord = {
   id: 'account-1',
@@ -37,6 +34,7 @@ describe('createHomeViewModel', () => {
     expect(model.canSwap).toBe(true);
     expect(model.canRequest).toBe(true);
     expect(model.canManageAssets).toBe(true);
+    expect(model.canFundWithFriendbot).toBe(false);
     expect(model.isReadOnly).toBe(false);
     expect(model.networkLabel).toBe('Testnet');
   });
@@ -50,6 +48,7 @@ describe('createHomeViewModel', () => {
     expect(model.canSend).toBe(false);
     expect(model.canSwap).toBe(false);
     expect(model.canManageAssets).toBe(false);
+    expect(model.canFundWithFriendbot).toBe(false);
     expect(model.canRequest).toBe(true);
     expect(model.isReadOnly).toBe(true);
   });
@@ -57,16 +56,18 @@ describe('createHomeViewModel', () => {
   it('does not enable ledger mutation actions before the account is active', () => {
     const inactive: HomeBalanceState = {
       kind: 'ready',
-      snapshot: {status: 'inactive', address: account.address},
+      snapshot: { status: 'inactive', address: account.address },
     };
     const model = createHomeViewModel(account, true, inactive, {
       swap: true,
       request: false,
+      friendbot: true,
     });
 
     expect(model.canSend).toBe(false);
     expect(model.canSwap).toBe(false);
     expect(model.canManageAssets).toBe(false);
+    expect(model.canFundWithFriendbot).toBe(true);
     expect(model.canRequest).toBe(false);
   });
 
@@ -86,12 +87,27 @@ describe('createHomeViewModel', () => {
           address: contractAccount.address,
         },
       },
-      {swap: true, request: false},
+      { swap: true, request: false },
     );
 
     expect(model.isReadOnly).toBe(true);
     expect(model.canSend).toBe(false);
     expect(model.canSwap).toBe(false);
     expect(model.canManageAssets).toBe(false);
+    expect(model.canFundWithFriendbot).toBe(false);
+  });
+
+  it('does not offer Friendbot when the Network capability does not mark it available', () => {
+    const inactive: HomeBalanceState = {
+      kind: 'ready',
+      snapshot: { status: 'inactive', address: account.address },
+    };
+    const model = createHomeViewModel(account, false, inactive, {
+      swap: false,
+      request: false,
+      friendbot: false,
+    });
+
+    expect(model.canFundWithFriendbot).toBe(false);
   });
 });

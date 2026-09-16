@@ -49,6 +49,7 @@ export function HomeStackNavigator({
             accountCount={selectableAccounts.length}
             selectableAccounts={selectableAccounts}
             balanceDependencies={services.balance}
+            friendbotDependencies={services.friendbot}
             canSign={canSign}
             onSelectAccount={onSelectAccount}
             onAddAccount={() => navigation.navigate('add-account')}

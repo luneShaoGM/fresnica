@@ -5,6 +5,7 @@ export const APP_CONFIG = Object.freeze({
     id: 'stellar-testnet',
     isMainnet: false,
     horizonUrl: 'https://horizon-testnet.stellar.org',
+    friendbotUrl: 'https://friendbot.stellar.org',
     networkPassphrase: 'Test SDF Network ; September 2015',
   }),
 });

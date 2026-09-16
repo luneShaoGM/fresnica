@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { Screen } from '@ui/components';
 import { useAppTheme, useThemedStyles } from '@ui/theme';
@@ -7,11 +7,17 @@ import { useAppTheme, useThemedStyles } from '@ui/theme';
 import type { AccountRecord } from '../../capabilities/account/types';
 import { loadBalanceSnapshot, type BalanceDependencies } from '../../capabilities/balance/loadBalanceSnapshot';
 import type { BalanceAsset } from '../../capabilities/balance/types';
+import {
+  fundTestnetAccountWithFriendbot,
+  isFriendbotFundingAvailable,
+  type FriendbotDependencies,
+} from '../../capabilities/network/fundTestnetAccountWithFriendbot';
+import { useLocalization } from '../../locale';
 import { projectFeatureError } from '../featureError';
 import { AccountPickerModal } from './components/AccountPickerModal';
 import { AccountSummary } from './components/AccountSummary';
 import { AssetList } from './components/AssetList';
-import { InactiveAccountPanel } from './components/InactiveAccountPanel';
+import { InactiveAccountPanel, type FriendbotFundingState } from './components/InactiveAccountPanel';
 import { NetworkStatus } from './components/NetworkStatus';
 import { createHomeViewModel, type HomeBalanceState } from './homeViewModel';
 import { createStyles } from './styles';
@@ -21,6 +27,7 @@ type Props = Readonly<{
   accountCount: number;
   selectableAccounts: readonly AccountRecord[];
   balanceDependencies: BalanceDependencies;
+  friendbotDependencies: FriendbotDependencies;
   canSign: boolean;
   onSelectAccount: (accountId: string) => void | Promise<void>;
   onAddAccount: () => void;
@@ -39,6 +46,7 @@ export function HomeScreen({
   accountCount,
   selectableAccounts,
   balanceDependencies,
+  friendbotDependencies,
   canSign,
   onSelectAccount,
   onAddAccount,
@@ -52,10 +60,15 @@ export function HomeScreen({
   active,
 }: Props) {
   const theme = useAppTheme();
+  const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const [balanceState, setBalanceState] = useState<HomeBalanceState>({ kind: 'loading' });
   const [accountPickerVisible, setAccountPickerVisible] = useState(false);
+  const [friendbotStateByAccount, setFriendbotStateByAccount] = useState<Record<string, FriendbotFundingState>>({});
   const requestVersion = useRef(0);
+  const currentAccountId = useRef(account.id);
+  const friendbotRequestAccountIds = useRef<Set<string>>(new Set());
+  currentAccountId.current = account.id;
 
   const refreshBalances = useCallback(
     (beforeLoad?: () => Promise<unknown>) => {
@@ -102,13 +115,54 @@ export function HomeScreen({
     };
   }, [active, invalidationRevision, refreshBalances]);
 
+  const clearFriendbotState = useCallback((accountId: string) => {
+    setFriendbotStateByAccount(current => {
+      if (current[accountId] === undefined) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[accountId];
+      return next;
+    });
+  }, []);
+
+  const fundWithFriendbot = useCallback(async () => {
+    const accountId = account.id;
+    if (friendbotRequestAccountIds.current.has(accountId)) {
+      return;
+    }
+
+    friendbotRequestAccountIds.current.add(accountId);
+    setFriendbotStateByAccount(current => ({ ...current, [accountId]: 'funding' }));
+    try {
+      await fundTestnetAccountWithFriendbot(friendbotDependencies, account);
+      clearFriendbotState(accountId);
+      if (currentAccountId.current === accountId) {
+        refreshBalances();
+      }
+    } catch {
+      if (currentAccountId.current === accountId) {
+        setFriendbotStateByAccount(current => ({ ...current, [accountId]: 'error' }));
+        AccessibilityInfo.announceForAccessibility(t('home.friendbot.error'));
+      } else {
+        clearFriendbotState(accountId);
+      }
+    } finally {
+      friendbotRequestAccountIds.current.delete(accountId);
+    }
+  }, [account, clearFriendbotState, friendbotDependencies, refreshBalances, t]);
+
+  const visibleFriendbotState: FriendbotFundingState = friendbotStateByAccount[account.id] ?? 'idle';
+  const friendbotAvailable = isFriendbotFundingAvailable(friendbotDependencies, account);
+
   const viewModel = useMemo(
     () =>
       createHomeViewModel(account, canSign, balanceState, {
         swap: typeof onSwap === 'function',
         request: typeof onRequest === 'function',
+        friendbot: friendbotAvailable,
       }),
-    [account, balanceState, canSign, onRequest, onSwap],
+    [account, balanceState, canSign, friendbotAvailable, onRequest, onSwap],
   );
 
   return (
@@ -172,6 +226,9 @@ export function HomeScreen({
         {renderPortfolio(
           balanceState,
           viewModel.accountAddress,
+          viewModel.canFundWithFriendbot,
+          visibleFriendbotState,
+          fundWithFriendbot,
           refreshBalances,
           onOpenAsset,
           theme.colors.actionPrimary,
@@ -220,6 +277,9 @@ function HomeAction({
 function renderPortfolio(
   state: HomeBalanceState,
   address: string,
+  friendbotAvailable: boolean,
+  friendbotState: FriendbotFundingState,
+  onFundWithFriendbot: () => void,
   onRefresh: () => void,
   onOpenAsset: (asset: BalanceAsset) => void,
   loadingColor: string,
@@ -251,7 +311,15 @@ function renderPortfolio(
   }
 
   if (state.snapshot.status === 'inactive') {
-    return <InactiveAccountPanel address={address} onRefresh={onRefresh} />;
+    return (
+      <InactiveAccountPanel
+        address={address}
+        friendbotAvailable={friendbotAvailable}
+        friendbotState={friendbotState}
+        onFundWithFriendbot={onFundWithFriendbot}
+        onRefresh={onRefresh}
+      />
+    );
   }
 
   if (state.snapshot.status === 'unsupported-account') {
