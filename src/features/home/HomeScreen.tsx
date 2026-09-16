@@ -9,6 +9,7 @@ import { loadBalanceSnapshot, type BalanceDependencies } from '../../capabilitie
 import type { BalanceAsset } from '../../capabilities/balance/types';
 import {
   fundTestnetAccountWithFriendbot,
+  isFriendbotFundingAvailable,
   type FriendbotDependencies,
 } from '../../capabilities/network/fundTestnetAccountWithFriendbot';
 import { useLocalization } from '../../locale';
@@ -152,14 +153,16 @@ export function HomeScreen({
   }, [account, clearFriendbotState, friendbotDependencies, refreshBalances, t]);
 
   const visibleFriendbotState: FriendbotFundingState = friendbotStateByAccount[account.id] ?? 'idle';
+  const friendbotAvailable = isFriendbotFundingAvailable(friendbotDependencies, account);
 
   const viewModel = useMemo(
     () =>
       createHomeViewModel(account, canSign, balanceState, {
         swap: typeof onSwap === 'function',
         request: typeof onRequest === 'function',
+        friendbot: friendbotAvailable,
       }),
-    [account, balanceState, canSign, onRequest, onSwap],
+    [account, balanceState, canSign, friendbotAvailable, onRequest, onSwap],
   );
 
   return (

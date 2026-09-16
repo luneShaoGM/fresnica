@@ -23,6 +23,7 @@ export type HomeViewModel = Readonly<{
 type HomeAvailability = Readonly<{
   swap: boolean;
   request: boolean;
+  friendbot?: boolean;
 }>;
 
 export function createHomeViewModel(
@@ -47,7 +48,7 @@ export function createHomeViewModel(
     canSwap: isActive && !isReadOnly && availability.swap,
     canRequest: availability.request,
     canManageAssets: isActive && !isReadOnly,
-    canFundWithFriendbot: isClassic && isInactive && account.networkId === 'stellar-testnet',
+    canFundWithFriendbot: isInactive && availability.friendbot === true,
   };
 }
 

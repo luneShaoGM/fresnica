@@ -61,6 +61,7 @@ describe('createHomeViewModel', () => {
     const model = createHomeViewModel(account, true, inactive, {
       swap: true,
       request: false,
+      friendbot: true,
     });
 
     expect(model.canSend).toBe(false);
@@ -96,14 +97,16 @@ describe('createHomeViewModel', () => {
     expect(model.canFundWithFriendbot).toBe(false);
   });
 
-  it('does not offer Friendbot outside Stellar Testnet', () => {
-    const mainnetAccount = { ...account, networkId: 'stellar-mainnet' };
-    const model = createHomeViewModel(
-      mainnetAccount,
-      false,
-      { kind: 'ready', snapshot: { status: 'inactive', address: mainnetAccount.address } },
-      { swap: false, request: false },
-    );
+  it('does not offer Friendbot when the Network capability does not mark it available', () => {
+    const inactive: HomeBalanceState = {
+      kind: 'ready',
+      snapshot: { status: 'inactive', address: account.address },
+    };
+    const model = createHomeViewModel(account, false, inactive, {
+      swap: false,
+      request: false,
+      friendbot: false,
+    });
 
     expect(model.canFundWithFriendbot).toBe(false);
   });

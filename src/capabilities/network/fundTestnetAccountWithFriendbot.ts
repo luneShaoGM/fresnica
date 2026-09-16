@@ -8,6 +8,14 @@ export type FriendbotDependencies = Readonly<{
   networkId: string;
 }>;
 
+export function isFriendbotFundingAvailable(dependencies: FriendbotDependencies, account: AccountRecord): boolean {
+  return (
+    account.networkId === dependencies.networkId &&
+    dependencies.networkId === STELLAR_TESTNET_ID &&
+    account.identityKind === 'classic'
+  );
+}
+
 export async function fundTestnetAccountWithFriendbot(
   dependencies: FriendbotDependencies,
   account: AccountRecord,

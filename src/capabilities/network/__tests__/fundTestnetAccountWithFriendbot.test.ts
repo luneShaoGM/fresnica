@@ -1,6 +1,6 @@
 import type { AccountRecord } from '../../account/types';
 import type { FriendbotGatewayPort } from '../FriendbotGateway';
-import { fundTestnetAccountWithFriendbot } from '../fundTestnetAccountWithFriendbot';
+import { fundTestnetAccountWithFriendbot, isFriendbotFundingAvailable } from '../fundTestnetAccountWithFriendbot';
 
 const TESTNET = 'stellar-testnet';
 
@@ -23,6 +23,29 @@ function gateway() {
   const fundAccount = jest.fn<Promise<void>, [string]>().mockResolvedValue(undefined);
   return { port: { fundAccount } satisfies FriendbotGatewayPort, fundAccount };
 }
+
+describe('isFriendbotFundingAvailable', () => {
+  it('offers Friendbot only when the active network and Classic account are Testnet', () => {
+    const fake = gateway();
+
+    expect(isFriendbotFundingAvailable({ gateway: fake.port, networkId: TESTNET }, account())).toBe(true);
+    expect(
+      isFriendbotFundingAvailable(
+        { gateway: fake.port, networkId: 'stellar-mainnet' },
+        account({ networkId: 'stellar-mainnet' }),
+      ),
+    ).toBe(false);
+    expect(
+      isFriendbotFundingAvailable(
+        { gateway: fake.port, networkId: TESTNET },
+        account({ networkId: 'stellar-mainnet' }),
+      ),
+    ).toBe(false);
+    expect(
+      isFriendbotFundingAvailable({ gateway: fake.port, networkId: TESTNET }, account({ identityKind: 'contract' })),
+    ).toBe(false);
+  });
+});
 
 describe('fundTestnetAccountWithFriendbot', () => {
   it('funds the exact public address for a Testnet Classic account', async () => {
