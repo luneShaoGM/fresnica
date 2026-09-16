@@ -1,4 +1,5 @@
 import { orderAccounts } from '@capabilities/account/accountOrder';
+import type { AccountSignerRepository } from '@capabilities/account/AccountSignerRepository';
 import type { AccountRecord } from '@capabilities/account/types';
 
 import type { AccountSelectionPreferenceStore } from '../accountSelectionPreferences';
@@ -48,6 +49,15 @@ export function resolveSelectableAccountForNetwork(
     throw new Error('account-not-selectable');
   }
   return account;
+}
+
+export function selectPersistedAccountAndDefault(
+  repository: AccountSignerRepository,
+  accountId: string,
+  networkId: string,
+  preferences: AccountSelectionPreferenceStore,
+): string {
+  return selectAndPersistDefaultAccountId(repository.listAccounts(), accountId, networkId, preferences);
 }
 
 export function selectAndPersistDefaultAccountId(

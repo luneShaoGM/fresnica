@@ -1,4 +1,5 @@
 import type { AccountRecord } from '@capabilities/account/types';
+import { InMemoryAccountSignerRepository } from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
 
 import type { AccountSelectionPreferenceStore } from '../../accountSelectionPreferences';
 import {
@@ -9,6 +10,7 @@ import {
   resolveSelectableAccountForNetwork,
   resolveVisibleAccount,
   selectAndPersistDefaultAccountId,
+  selectPersistedAccountAndDefault,
   selectableAccountsForNetwork,
 } from '../accountSelection';
 
@@ -77,6 +79,38 @@ describe('accountSelection', () => {
 
     expect(selectAndPersistDefaultAccountId(accounts, 'two', 'stellar-testnet', preferences)).toBe('two');
     expect(setDefaultAccountId).toHaveBeenCalledWith('stellar-testnet', 'two');
+  });
+
+  it('selects a newly persisted account from repository state before updating the default', () => {
+    const repository = new InMemoryAccountSignerRepository();
+    repository.createAccount(account('one', 0));
+    repository.createAccount(account('created', 1));
+    const setDefaultAccountId = jest.fn();
+    const preferences: AccountSelectionPreferenceStore = {
+      getDefaultAccountId: jest.fn(),
+      setDefaultAccountId,
+      clearDefaultAccountId: jest.fn(),
+    };
+
+    expect(selectPersistedAccountAndDefault(repository, 'created', 'stellar-testnet', preferences)).toBe('created');
+    expect(setDefaultAccountId).toHaveBeenCalledWith('stellar-testnet', 'created');
+  });
+
+  it('does not report a newly persisted account as selected when the default write fails', () => {
+    const repository = new InMemoryAccountSignerRepository();
+    repository.createAccount(account('created', 0));
+    const error = new Error('write-failed');
+    const preferences: AccountSelectionPreferenceStore = {
+      getDefaultAccountId: jest.fn(),
+      setDefaultAccountId: jest.fn(() => {
+        throw error;
+      }),
+      clearDefaultAccountId: jest.fn(),
+    };
+
+    expect(() => selectPersistedAccountAndDefault(repository, 'created', 'stellar-testnet', preferences)).toThrow(
+      error,
+    );
   });
 
   it('re-persists the already-current account when it is explicitly selected again', () => {

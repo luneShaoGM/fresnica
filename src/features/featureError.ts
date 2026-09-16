@@ -17,6 +17,8 @@ const BUILTIN_MESSAGES: Readonly<Record<string, string>> = {
   'invalid-passphrase': 'The app passphrase is incorrect.',
   'app-passphrase-too-short': 'Use an app passphrase of at least 15 characters.',
   'app-passphrase-confirmation-mismatch': 'The app passphrase confirmation does not match.',
+  'protected-signer-envelope-missing': 'A protected signer is missing its local protection data.',
+  'default-account-persistence-failed': 'Unable to save the default account. Your current account was not changed.',
   'invalid-input': 'The provided wallet information is invalid.',
   'user-cancel': 'Authentication was cancelled.',
   'system-auth-unavailable': 'System authentication is unavailable on this device.',
@@ -46,6 +48,7 @@ const BUILTIN_MESSAGES: Readonly<Record<string, string>> = {
 const BUILTIN_RETRYABLE = new Set([
   'invalid-passcode',
   'invalid-passphrase',
+  'default-account-persistence-failed',
   'user-cancel',
   'system-auth-failed',
   'auth-in-progress',

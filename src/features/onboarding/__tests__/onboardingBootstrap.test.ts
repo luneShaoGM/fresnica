@@ -71,6 +71,7 @@ describe('onboarding bootstrap', () => {
 
     expect(resolveOnboardingBootstrap(dependencies)).toEqual({
       kind: 'pending-mnemonic-backup',
+      accountId: 'account-a',
       signerId: 'signer-a',
       signerPublicKey: 'GSIGNER',
     });

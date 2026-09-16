@@ -10,6 +10,7 @@ import {
   resolvePreferredVisibleAccountId,
   resolveVisibleAccount,
   selectAndPersistDefaultAccountId,
+  selectPersistedAccountAndDefault,
   selectableAccountsForNetwork,
 } from './accountSelection';
 import { ActivityStackNavigator } from './ActivityStackNavigator';
@@ -42,6 +43,22 @@ export function MainTabsNavigator({ accounts, services, onAccountsChanged }: Pro
         accounts={networkAccounts}
         services={services}
         onAccountsChanged={onAccountsChanged}
+        onCreatedAccountReady={async accountId => {
+          try {
+            selectPersistedAccountAndDefault(
+              services.onboarding.repository,
+              accountId,
+              networkId,
+              services.accountSelectionPreferences,
+            );
+          } catch (error) {
+            services.diagnostics.warn('default-account-persistence-failed', {
+              details: { networkId, accountId, error },
+            });
+            throw new Error('default-account-persistence-failed');
+          }
+          onAccountsChanged();
+        }}
         onSend={() => undefined}
         onManageAssets={() => undefined}
       />
@@ -129,6 +146,27 @@ function MainTabsWithSelection({
     [accounts, effectiveSelectedAccountId, networkId, services],
   );
 
+  const completeCreatedAccount = useCallback(
+    async (accountId: string) => {
+      try {
+        const persistedAccountId = selectPersistedAccountAndDefault(
+          services.onboarding.repository,
+          accountId,
+          networkId,
+          services.accountSelectionPreferences,
+        );
+        setSelectedAccountId(persistedAccountId);
+      } catch (error) {
+        services.diagnostics.warn('default-account-persistence-failed', {
+          details: { networkId, accountId, error },
+        });
+        throw new Error('default-account-persistence-failed');
+      }
+      onAccountsChanged();
+    },
+    [networkId, onAccountsChanged, services],
+  );
+
   const selectedAccount = resolveVisibleAccount(accounts, effectiveSelectedAccountId);
   const canSign = !services.onboarding.repository.isWatchOnly(selectedAccount.id);
   const actionAvailability = useMemo<Readonly<Record<ProductAction, boolean>>>(
@@ -154,6 +192,7 @@ function MainTabsWithSelection({
           <HomeStackNavigator
             accounts={accounts}
             onAccountsChanged={onAccountsChanged}
+            onCreatedAccountReady={completeCreatedAccount}
             onSelectAccount={selectAccount}
             selectableAccounts={selectableAccounts}
             selectedAccountId={effectiveSelectedAccountId}
@@ -177,6 +216,7 @@ function MainTabsWithSelection({
             accounts={accounts}
             services={services}
             onAccountsChanged={onAccountsChanged}
+            onCreatedAccountReady={completeCreatedAccount}
             onSend={accountId => navigation.navigate('home', { screen: 'send-form', params: { accountId } })}
             onManageAssets={accountId =>
               navigation.navigate('home', { screen: 'manage-assets', params: { accountId } })

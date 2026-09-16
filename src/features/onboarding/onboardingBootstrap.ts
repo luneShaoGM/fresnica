@@ -6,6 +6,7 @@ export type OnboardingBootstrapState =
   | Readonly<{kind: 'onboarding'}>
   | Readonly<{
       kind: 'pending-mnemonic-backup';
+      accountId: string;
       signerId: string;
       signerPublicKey: string;
     }>
@@ -35,8 +36,17 @@ export function resolveOnboardingBootstrap(
 
   const pending = pendingMnemonicSigners[0];
   if (pending) {
+    const attachedAccounts = accounts.filter(account =>
+      dependencies.repository
+        .listSignersForAccount(account.id)
+        .some(signer => signer.id === pending.id),
+    );
+    if (attachedAccounts.length !== 1) {
+      throw new Error('pending-mnemonic-backup-account-invalid');
+    }
     return {
       kind: 'pending-mnemonic-backup',
+      accountId: attachedAccounts[0].id,
       signerId: pending.id,
       signerPublicKey: pending.publicKey,
     };
@@ -89,6 +99,24 @@ export function confirmMnemonicBackup(
     'confirmed',
     dependencies.now(),
   );
+}
+
+export async function completeMnemonicBackup(
+  dependencies: ProvisionAccountDependencies,
+  signerId: string,
+  onComplete: () => void | Promise<void>,
+): Promise<void> {
+  confirmMnemonicBackup(dependencies, signerId);
+  try {
+    await onComplete();
+  } catch (error) {
+    dependencies.repository.setSignerBackupState(
+      signerId,
+      'pending',
+      dependencies.now(),
+    );
+    throw error;
+  }
 }
 
 function isPendingMnemonicSigner(signer: SignerRecord): boolean {

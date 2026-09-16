@@ -1,0 +1,557 @@
+import React, { useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+
+import {
+  NEW_PROTECTION_PASSPHRASE_MIN_UNICODE_SCALARS,
+  assessNewProtectionPassphrase,
+} from '@capabilities/application-security/newPassphrasePolicy';
+import { requiresExistingAppPassphrase } from '@capabilities/application-security/verifyExistingAppPassphrase';
+import { Screen } from '@ui/components';
+import { useAppTheme, useThemedStyles, type AppTheme } from '@ui/theme';
+
+import { useLocalization } from '../../locale';
+import { projectFeatureError } from '../featureError';
+import { completeMnemonicBackup } from '../onboarding/onboardingBootstrap';
+import {
+  runWatchOnlyOnboarding,
+  type OnboardingProvisioningDependencies,
+} from '../onboarding/runOnboardingProvisioning';
+import { createExistingWalletAccount, type ExistingWalletCreateResult } from './createExistingWalletAccount';
+
+type AddMode = 'create' | 'watch-only';
+
+type Props = Readonly<{
+  dependencies: OnboardingProvisioningDependencies;
+  onCreatedAccountReady: (accountId: string) => void | Promise<void>;
+  onWatchOnlyComplete: () => void;
+  onCancel: () => void;
+}>;
+
+export function AddAccountScreen({ dependencies, onCreatedAccountReady, onWatchOnlyComplete, onCancel }: Props) {
+  const styles = useThemedStyles(createStyles);
+  const { t } = useLocalization();
+  const [mode, setMode] = useState<AddMode>();
+  const [label, setLabel] = useState('');
+  const [address, setAddress] = useState('');
+  const [appPassphrase, setAppPassphrase] = useState('');
+  const [confirmPassphrase, setConfirmPassphrase] = useState('');
+  const [created, setCreated] = useState<ExistingWalletCreateResult>();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const requiresCurrentPassphrase = requiresExistingAppPassphrase(dependencies.repository);
+  const passphraseAssessment = assessNewProtectionPassphrase(appPassphrase);
+  const newPassphraseReady =
+    passphraseAssessment.meetsMinimum && confirmPassphrase.length > 0 && confirmPassphrase === appPassphrase;
+
+  function clearSensitiveInputs() {
+    setAppPassphrase('');
+    setConfirmPassphrase('');
+  }
+
+  function chooseMode(nextMode: AddMode) {
+    clearSensitiveInputs();
+    setAddress('');
+    setError(undefined);
+    setMode(nextMode);
+  }
+
+  function backToChoices() {
+    if (busy) return;
+    clearSensitiveInputs();
+    setAddress('');
+    setError(undefined);
+    setMode(undefined);
+  }
+
+  async function submitCreate() {
+    setBusy(true);
+    setError(undefined);
+    try {
+      const result = await createExistingWalletAccount(dependencies, {
+        appPassphrase,
+        ...(requiresCurrentPassphrase ? {} : { confirmAppPassphrase: confirmPassphrase }),
+        label,
+      });
+      clearSensitiveInputs();
+      setCreated(result);
+    } catch (caught) {
+      setError(readableError(caught, t('accounts.add.error')));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitWatchOnly() {
+    setBusy(true);
+    setError(undefined);
+    try {
+      await runWatchOnlyOnboarding(dependencies, { address, label });
+      onWatchOnlyComplete();
+    } catch (caught) {
+      setError(readableError(caught, t('accounts.add.error')));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmCreatedBackup() {
+    if (!created) return;
+    setBusy(true);
+    setError(undefined);
+    try {
+      await completeMnemonicBackup(dependencies, created.account.signer.id, () =>
+        onCreatedAccountReady(created.account.account.id),
+      );
+      setCreated(undefined);
+    } catch (caught) {
+      setError(readableError(caught, t('accounts.add.defaultError')));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (created) {
+    return (
+      <FlowShell title={t('accounts.add.backup.title')}>
+        <View style={styles.backupHero}>
+          <Text style={styles.heroTitle}>{t('accounts.add.backup.title')}</Text>
+          <Text style={styles.description}>{t('accounts.add.backup.body')}</Text>
+        </View>
+        <RecoveryPhrase mnemonic={created.backup.mnemonic} />
+        {created.systemAuthRegistration === 'repair-required' ? (
+          <View style={styles.notice}>
+            <Text style={styles.noticeText}>{t('accounts.add.systemAuthRepair')}</Text>
+          </View>
+        ) : null}
+        {error ? (
+          <Text accessibilityRole="alert" style={styles.error}>
+            {error}
+          </Text>
+        ) : null}
+        <View style={styles.footer}>
+          <PrimaryButton
+            disabled={busy}
+            label={t('accounts.add.backup.confirm')}
+            busy={busy}
+            onPress={confirmCreatedBackup}
+          />
+        </View>
+      </FlowShell>
+    );
+  }
+
+  if (!mode) {
+    return (
+      <Screen scrollable={false} contentInset="none">
+        <Header title={t('accounts.add.title')} onBack={onCancel} disabled={busy} />
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <Text style={styles.intro}>{t('accounts.add.intro')}</Text>
+          <ChoiceButton
+            glyph="+"
+            title={t('accounts.add.create.title')}
+            subtitle={t('accounts.add.create.subtitle')}
+            onPress={() => chooseMode('create')}
+          />
+          <ChoiceButton
+            glyph="◎"
+            title={t('accounts.add.watchOnly.title')}
+            subtitle={t('accounts.add.watchOnly.subtitle')}
+            onPress={() => chooseMode('watch-only')}
+          />
+        </ScrollView>
+      </Screen>
+    );
+  }
+
+  if (mode === 'watch-only') {
+    return (
+      <FlowShell title={t('accounts.add.watchOnly.title')} onBack={backToChoices} backDisabled={busy}>
+        <View style={styles.formContent}>
+          <Field
+            label={t('accounts.add.label')}
+            value={label}
+            onChangeText={setLabel}
+            placeholder={t('accounts.add.labelPlaceholder')}
+            editable={!busy}
+          />
+          <Field
+            label={t('accounts.add.watchOnly.address')}
+            value={address}
+            onChangeText={setAddress}
+            placeholder={t('accounts.add.watchOnly.addressPlaceholder')}
+            editable={!busy}
+            autoCapitalize="characters"
+            autoCorrect={false}
+          />
+          {error ? (
+            <Text accessibilityRole="alert" style={styles.error}>
+              {error}
+            </Text>
+          ) : null}
+        </View>
+        <View style={styles.footer}>
+          <PrimaryButton
+            disabled={busy || address.trim().length === 0}
+            label={t('accounts.add.watchOnly.action')}
+            busy={busy}
+            onPress={submitWatchOnly}
+          />
+        </View>
+      </FlowShell>
+    );
+  }
+
+  const createReady = requiresCurrentPassphrase ? appPassphrase.length > 0 : newPassphraseReady;
+
+  return (
+    <FlowShell title={t('accounts.add.create.title')} onBack={backToChoices} backDisabled={busy}>
+      <View style={styles.formContent}>
+        <Text style={styles.description}>
+          {requiresCurrentPassphrase
+            ? t('accounts.add.create.existingPassphraseIntro')
+            : t('accounts.add.create.newPassphraseIntro')}
+        </Text>
+        <Field
+          label={t('accounts.add.label')}
+          value={label}
+          onChangeText={setLabel}
+          placeholder={t('accounts.add.labelPlaceholder')}
+          editable={!busy}
+        />
+        <Field
+          label={requiresCurrentPassphrase ? t('accounts.add.currentPassphrase') : t('accounts.add.newPassphrase')}
+          value={appPassphrase}
+          onChangeText={setAppPassphrase}
+          placeholder={
+            requiresCurrentPassphrase
+              ? t('accounts.add.currentPassphrasePlaceholder')
+              : t('accounts.add.newPassphrasePlaceholder')
+          }
+          editable={!busy}
+          secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {!requiresCurrentPassphrase ? (
+          <>
+            <Field
+              label={t('accounts.add.confirmPassphrase')}
+              value={confirmPassphrase}
+              onChangeText={setConfirmPassphrase}
+              placeholder={t('accounts.add.confirmPassphrasePlaceholder')}
+              editable={!busy}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <Text style={styles.passphraseHint}>
+              {t('accounts.add.passphraseMinimum', {
+                count: NEW_PROTECTION_PASSPHRASE_MIN_UNICODE_SCALARS,
+              })}
+            </Text>
+          </>
+        ) : null}
+        {error ? (
+          <Text accessibilityRole="alert" style={styles.error}>
+            {error}
+          </Text>
+        ) : null}
+      </View>
+      <View style={styles.footer}>
+        <PrimaryButton
+          disabled={busy || !createReady}
+          label={t('accounts.add.create.action')}
+          busy={busy}
+          onPress={submitCreate}
+        />
+      </View>
+    </FlowShell>
+  );
+}
+
+function Header({
+  title,
+  onBack,
+  disabled = false,
+}: Readonly<{
+  title: string;
+  onBack: () => void;
+  disabled?: boolean;
+}>) {
+  const styles = useThemedStyles(createStyles);
+  const { t } = useLocalization();
+  return (
+    <View style={styles.header}>
+      <Pressable
+        accessibilityLabel={t('common.back')}
+        accessibilityRole="button"
+        disabled={disabled}
+        onPress={onBack}
+        style={styles.backButton}
+      >
+        <Text style={styles.backGlyph}>‹</Text>
+      </Pressable>
+      <Text style={styles.headerTitle}>{title}</Text>
+      <View style={styles.headerSpacer} />
+    </View>
+  );
+}
+
+function FlowShell({
+  title,
+  onBack,
+  backDisabled = false,
+  children,
+}: React.PropsWithChildren<
+  Readonly<{
+    title: string;
+    onBack?: () => void;
+    backDisabled?: boolean;
+  }>
+>) {
+  const styles = useThemedStyles(createStyles);
+  return (
+    <Screen scrollable={false} contentInset="none">
+      {onBack ? (
+        <Header title={title} onBack={onBack} disabled={backDisabled} />
+      ) : (
+        <View style={styles.header}>
+          <View style={styles.headerSpacer} />
+          <Text style={styles.headerTitle}>{title}</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+      )}
+      <ScrollView
+        contentContainerStyle={styles.flowScroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {children}
+      </ScrollView>
+    </Screen>
+  );
+}
+
+function ChoiceButton({
+  glyph,
+  title,
+  subtitle,
+  onPress,
+}: Readonly<{
+  glyph: string;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+}>) {
+  const styles = useThemedStyles(createStyles);
+  return (
+    <Pressable
+      accessibilityLabel={title}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.choiceButton, pressed ? styles.pressed : undefined]}
+    >
+      <View style={styles.choiceGlyphBox}>
+        <Text style={styles.choiceGlyph}>{glyph}</Text>
+      </View>
+      <View style={styles.flex}>
+        <Text style={styles.choiceTitle}>{title}</Text>
+        <Text style={styles.choiceSubtitle}>{subtitle}</Text>
+      </View>
+      <Text style={styles.chevron}>›</Text>
+    </Pressable>
+  );
+}
+
+function Field(props: React.ComponentProps<typeof TextInput> & { label: string }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+  const { label, ...inputProps } = props;
+  return (
+    <View style={styles.field}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <TextInput
+        {...inputProps}
+        placeholderTextColor={theme.colors.textTertiary}
+        selectionColor={theme.colors.actionPrimary}
+        style={styles.input}
+      />
+    </View>
+  );
+}
+
+function PrimaryButton({
+  disabled,
+  label,
+  busy,
+  onPress,
+}: Readonly<{
+  disabled: boolean;
+  label: string;
+  busy: boolean;
+  onPress: () => void;
+}>) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.primaryButton,
+        disabled ? styles.disabled : undefined,
+        pressed ? styles.pressed : undefined,
+      ]}
+    >
+      {busy ? (
+        <ActivityIndicator color={theme.colors.onActionPrimary} />
+      ) : (
+        <Text style={styles.primaryButtonText}>{label}</Text>
+      )}
+    </Pressable>
+  );
+}
+
+function RecoveryPhrase({ mnemonic }: Readonly<{ mnemonic: string }>) {
+  const styles = useThemedStyles(createStyles);
+  return (
+    <View style={styles.recoveryBox}>
+      {mnemonic
+        .trim()
+        .split(/\s+/u)
+        .map((word, index) => (
+          <View key={`${index}-${word}`} style={styles.recoveryWord}>
+            <Text style={styles.recoveryNumber}>{index + 1}</Text>
+            <Text selectable style={styles.recoveryText}>
+              {word}
+            </Text>
+          </View>
+        ))}
+    </View>
+  );
+}
+
+function readableError(error: unknown, fallbackMessage: string): string {
+  return projectFeatureError(error, { fallbackMessage }).message;
+}
+
+function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    flex: { flex: 1 },
+    header: {
+      minHeight: 58,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.border,
+    },
+    backButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
+    backGlyph: { fontSize: 36, lineHeight: 38, fontWeight: '300', color: theme.colors.surfaceStrong },
+    headerTitle: { fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary },
+    headerSpacer: { width: 42 },
+    content: { paddingHorizontal: 18, paddingTop: 28, paddingBottom: 32, gap: 12 },
+    intro: { color: theme.colors.textSecondary, fontSize: 14, lineHeight: 21, marginBottom: 8 },
+    choiceButton: {
+      minHeight: 78,
+      borderRadius: 12,
+      backgroundColor: theme.colors.surfaceMuted,
+      paddingHorizontal: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    choiceGlyphBox: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.surfaceStrong,
+    },
+    choiceGlyph: { color: theme.colors.actionPrimary, fontSize: 22, fontWeight: '800' },
+    choiceTitle: { color: theme.colors.textPrimary, fontSize: 15, lineHeight: 20, fontWeight: '800' },
+    choiceSubtitle: { color: theme.colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 3 },
+    chevron: { color: theme.colors.textTertiary, fontSize: 28, fontWeight: '300' },
+    flowScroll: { flexGrow: 1, paddingBottom: 18 },
+    formContent: { paddingHorizontal: 18, paddingTop: 22, gap: 14 },
+    description: { color: theme.colors.textSecondary, fontSize: 13, lineHeight: 20 },
+    field: { gap: 7 },
+    fieldLabel: { color: theme.colors.textPrimary, fontSize: 12, lineHeight: 16, fontWeight: '700' },
+    input: {
+      minHeight: 50,
+      borderRadius: 10,
+      backgroundColor: theme.colors.surfaceMuted,
+      paddingHorizontal: 13,
+      color: theme.colors.textPrimary,
+      fontSize: 14,
+    },
+    passphraseHint: { color: theme.colors.textTertiary, fontSize: 11, lineHeight: 17 },
+    error: {
+      marginHorizontal: 18,
+      marginTop: 14,
+      borderRadius: 9,
+      padding: 12,
+      backgroundColor: theme.colors.negativeMuted,
+      color: theme.colors.negative,
+      fontSize: 12,
+      lineHeight: 18,
+    },
+    notice: {
+      marginHorizontal: 18,
+      marginTop: 14,
+      borderRadius: 9,
+      padding: 12,
+      backgroundColor: theme.colors.surfaceMuted,
+    },
+    noticeText: { color: theme.colors.textSecondary, fontSize: 12, lineHeight: 18 },
+    footer: {
+      marginTop: 'auto',
+      paddingHorizontal: 18,
+      paddingTop: 12,
+      paddingBottom: 10,
+    },
+    primaryButton: {
+      minHeight: 52,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.actionPrimary,
+    },
+    primaryButtonText: { color: theme.colors.onActionPrimary, fontSize: 15, lineHeight: 20, fontWeight: '800' },
+    disabled: { opacity: 0.45 },
+    pressed: { opacity: 0.68 },
+    backupHero: { alignItems: 'center', paddingHorizontal: 24, paddingTop: 28, gap: 8 },
+    heroTitle: {
+      color: theme.colors.textPrimary,
+      fontSize: 22,
+      lineHeight: 28,
+      fontWeight: '800',
+      textAlign: 'center',
+    },
+    recoveryBox: {
+      marginHorizontal: 18,
+      marginTop: 20,
+      borderRadius: 12,
+      backgroundColor: theme.colors.surfaceMuted,
+      padding: 12,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    recoveryWord: {
+      width: '47%',
+      minHeight: 38,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderRadius: 8,
+      backgroundColor: theme.colors.surface,
+      paddingHorizontal: 9,
+    },
+    recoveryNumber: { width: 22, color: theme.colors.textTertiary, fontSize: 11, lineHeight: 15 },
+    recoveryText: { flex: 1, color: theme.colors.textPrimary, fontSize: 14, lineHeight: 19, fontWeight: '700' },
+  });
+}
