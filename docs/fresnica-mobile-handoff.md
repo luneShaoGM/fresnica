@@ -148,12 +148,11 @@ passphrase-required
   -> require fresh app passphrase
 ```
 
-Two explicit upstream gaps block safe app-session lock and existing-wallet protected-signer provisioning:
+The framework-safe verification-only current-passphrase gap is now closed by canonical React Native adapter revision `c5eae08...`, which exposes Native SDK 0.3.1 `verifyProtectedSignerPassphrase`. Mobile consumes that primitive without a private bridge, but Existing-wallet Create/Import remains a product-orchestration task and is not complete merely because verification is available.
 
-1. framework-safe verification-only current-passphrase API (conceptually `verifySignerPassphrase`);
-2. generic existing-domain System Auth challenge for app-session authorization (conceptually `authenticateSystemAuth(reason)`).
+One explicit upstream gap still blocks safe app-session lock: generic existing-domain System Auth challenge for app-session authorization (conceptually `authenticateSystemAuth(reason)`).
 
-Do not emulate these with `reveal`, dummy signing/XDR, `reprotect`, or a JavaScript KDF/verifier.
+Do not emulate the remaining gap with `reveal`, dummy signing/XDR, `reprotect`, or a JavaScript KDF/verifier.
 
 ## 7. Transaction architecture
 

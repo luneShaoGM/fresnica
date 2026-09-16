@@ -12,7 +12,7 @@ The existing `luneShaoGM/Stellar` / Xaman-derived application is a product-behav
 | --- | --- | --- |
 | `Home` | Wallet / Portfolio | Retain the information order: active account identity/switching -> primary actions -> assets. Reimplement with Fresnica Account/Signer boundaries. |
 | `Account/List` | Settings / Accounts and Wallet account switcher | Retain account selection/list behavior. Realm AccountRecord remains durable identity truth. |
-| `Account/Add` | Add Account | Retain Create/Import/Add UX concepts. Current existing-wallet protected-signer paths remain blocked until safe current-passphrase verification exists. |
+| `Account/Add` | Add Account | Retain Create/Import/Add UX concepts. Safe current-passphrase verification now exists through the canonical Fresnica RN adapter; Existing-wallet Create/Import/HD still require clean-room product policy and Mobile orchestration before those paths can be exposed. |
 | `Account/Edit` | Account Details / future account lifecycle actions | Retain public metadata/lifecycle concepts only when corresponding Fresnica capability contracts exist. |
 | `Send` + `Steps` | Send Form -> Review -> Result | Retain multi-step product flow. Fresnica Payment/Transaction/Ledger Authorization/Signing Coordination remain behavioral authority. |
 | `Events` + `Details` | Activity / Operation Details | Retain list -> details information architecture. Use Horizon operation history, not donor repositories. |

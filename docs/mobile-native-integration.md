@@ -25,7 +25,7 @@ Native Binding API        3
 Universal SDK API         5
 Core Client API           5
 RN adapter source         0.3.0
-Adapter source commit     984a741ab49ed5ca3eeab6da525bcacac5dd5d04
+Adapter source commit     c5eae08e84b197d534a05f02ae1a230a1e245f28
 React Native              0.87.0
 JS module                 FresnicaCore
 Android minSdk            26
@@ -36,7 +36,7 @@ The adapter revision includes upstream PR #121 (`Align Apple React Native module
 
 Native SDK 0.3.1 retains the SEP-53 high-level React Native bridge operations introduced with 0.3.0: `signMessageWithSystemAuth` and `signMessageWithPasscode`. The bridge signs the exact UTF-8 bytes of the JavaScript string and does not expose `WalletUnlockKey`, raw message-signing primitives, or a generic hash signer. `prepareEd25519Signing` / `applyEd25519Signature` remain the external-signer boundary.
 
-Native SDK 0.3.1 adds the platform-native `FresnicaSignerAuthorization.verifyProtectedSignerPassphrase(...)` helper. It verifies the exact protected envelope + application passphrase + expected signer identity and wipes the derived `WalletUnlockKey` before returning. The canonical React Native adapter package remains version 0.3.0 at release commit `984a741ab49ed5ca3eeab6da525bcacac5dd5d04`; its only 0.3.1-tag adapter change is the native-SDK compatibility pin, and it does **not** export this verification helper to JavaScript. Mobile therefore keeps existing-wallet protected-signer creation fail closed and must not add a private bridge method while waiting for the canonical adapter contract to expose it.
+Native SDK 0.3.1 adds the platform-native `FresnicaSignerAuthorization.verifyProtectedSignerPassphrase(...)` helper. It verifies the exact protected envelope + application passphrase + expected signer identity, wipes the derived `WalletUnlockKey` before returning, has no persistent side effects, and does not expose signer secret material. Canonical React Native adapter source package 0.3.0 at revision `c5eae08e84b197d534a05f02ae1a230a1e245f28` now exports that operation as a boolean-only Promise. Mobile consumes only that canonical method through `FresnicaSdkPort`; no private bridge, unlock-key API, mnemonic return or raw secret API is introduced.
 
 The exact 0.3.0 adapter source still requires two checkout-only Android compatibility patches in the RN 0.87 / Gradle 9.4.1 consumer build: Fresnica issues #128 (included-build init evaluation) and #129 (JVM target alignment). These patches change adapter build compatibility only; they do not change the Native/SDK contract and must be removed when upstream ships the canonical fixes.
 
@@ -144,6 +144,8 @@ The callback payload must also contain:
 ```
 
 2026-09-16 local validation is anchored to implementation commit `e6f4098bdcfcf1700fc1546120dfce3ff97214bf` plus the smoke-carrier-only follow-up `66b41c67ffe6efdb4b3771efd208e5f425ab5976`. The upstream 0.3.1 manifest verifier accepts the generated RN artifacts as React Native 0.87.0 / Native SDK 0.3.1 / Native Binding API 3 / adapter source 0.3.0. iOS completed a fresh Xcode simulator rebuild before returning `FRESNICA_PARSE_ACCOUNT_SMOKE_OK`; Android completed the standard `npm run smoke:android -- --rebuild` path on a disposable Android 16 / API 36 AVD and returned the same marker. Both callbacks reported Realm `ok`, exact Classic identity, `invalid-input`, external-signing bridge presence and SEP-53 bridge presence.
+
+The S01 verification prerequisite at `32c16852d9d57575234ece9119d20297e243e654` pins adapter revision `c5eae08e84b197d534a05f02ae1a230a1e245f28` with the same Native SDK 0.3.1. Fresh canonical generation yields Android adapter SHA-256 `22b21406d108f23d65e7c2bd67d960c66561b77dbecf53ed5c28fb97bb190268` and Apple adapter SHA-256 `ba13d945aa76e22e135bd603d0c83d5f619cd73d66749db207c58cf8b41692a2`, both accepted by the upstream manifest verifier. These are consumer-built artifact digests from this validation run, not Native SDK release pins; the canonical manifest verifier and pinned source revision are the repeatability authority. The extended runtime smoke additionally requires protected-signer verification: correct passphrase succeeds; wrong passphrase is `invalid-passcode`; expected-signer mismatch is `identity-mismatch`; malformed protected data is `invalid-protected-data`; Realm/envelope state stays unchanged and the verification result contains no sensitive material.
 
 A Metro v0.87 process that has already hot-swapped between the smoke `index.js` and the production `index.js` can retain a stale incremental graph and fail inside `DeltaBundler/Graph.js` before JavaScript executes. This is a Metro carrier failure, not a Fresnica Native result. For cross-platform smoke runs, let each command own a fresh Metro or restart Metro with `--reset-cache` between runs rather than reusing a previously smoke-mutated process.
 
