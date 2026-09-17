@@ -100,6 +100,7 @@ export function SettingsStackNavigator({
         {({ navigation }) => (
           <AddAccountScreen
             dependencies={services.onboarding}
+            onAccountPersisted={onAccountsChanged}
             onCreatedAccountReady={async accountId => {
               await onCreatedAccountReady(accountId);
               navigation.goBack();

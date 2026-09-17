@@ -2,6 +2,7 @@ import type {
   AccountSignerRegistration,
   AccountSignerRepository,
   AccountSortOrderUpdate,
+  WatchOnlySignerUpgrade,
 } from '../../../capabilities/account/AccountSignerRepository';
 import {
   findOrphanSignerIds,
@@ -40,6 +41,28 @@ export class InMemoryAccountSignerRepository implements AccountSignerRepository 
     this.references.set(referenceId, {
       id: referenceId,
       accountId: account.id,
+      signerId: signer.id,
+      createdAt: attachedAt,
+    });
+  }
+
+  upgradeWatchOnlyAccountWithSigner(registration: WatchOnlySignerUpgrade): void {
+    const {accountId, signer, attachedAt} = registration;
+    if (!this.accounts.has(accountId)) {
+      throw new Error('account-not-found');
+    }
+    if (!this.isWatchOnly(accountId)) {
+      throw new Error('account-not-watch-only');
+    }
+    if (this.signers.has(signer.id)) {
+      throw new Error('signer-already-exists');
+    }
+
+    const referenceId = this.referenceId(accountId, signer.id);
+    this.signers.set(signer.id, signer);
+    this.references.set(referenceId, {
+      id: referenceId,
+      accountId,
       signerId: signer.id,
       createdAt: attachedAt,
     });

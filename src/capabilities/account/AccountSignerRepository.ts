@@ -7,6 +7,12 @@ export type AccountSignerRegistration = {
   attachedAt: Date;
 };
 
+export type WatchOnlySignerUpgrade = Readonly<{
+  accountId: string;
+  signer: SignerRecord;
+  attachedAt: Date;
+}>;
+
 export type AccountSortOrderUpdate = Readonly<{
   accountId: string;
   sortOrder: number;
@@ -17,6 +23,7 @@ export interface AccountSignerRepository {
   createAccount(account: AccountRecord): void;
   createSigner(signer: SignerRecord): void;
   createAccountWithSigner(registration: AccountSignerRegistration): void;
+  upgradeWatchOnlyAccountWithSigner(registration: WatchOnlySignerUpgrade): void;
   attachSigner(accountId: string, signerId: string, createdAt: Date): void;
   detachSigner(accountId: string, signerId: string): void;
   deleteAccount(accountId: string): void;

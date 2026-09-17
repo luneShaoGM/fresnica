@@ -17,22 +17,35 @@ import {
   type OnboardingProvisioningDependencies,
 } from '../onboarding/runOnboardingProvisioning';
 import { createExistingWalletAccount, type ExistingWalletCreateResult } from './createExistingWalletAccount';
+import { importExistingWalletAccount } from './importExistingWalletAccount';
 
-type AddMode = 'create' | 'watch-only';
+type AddMode = 'create' | 'import-mnemonic' | 'import-secret' | 'watch-only';
 
 type Props = Readonly<{
   dependencies: OnboardingProvisioningDependencies;
   onCreatedAccountReady: (accountId: string) => void | Promise<void>;
+  onAccountPersisted: () => void;
   onWatchOnlyComplete: () => void;
   onCancel: () => void;
 }>;
 
-export function AddAccountScreen({ dependencies, onCreatedAccountReady, onWatchOnlyComplete, onCancel }: Props) {
+export function AddAccountScreen({
+  dependencies,
+  onCreatedAccountReady,
+  onAccountPersisted,
+  onWatchOnlyComplete,
+  onCancel,
+}: Props) {
   const styles = useThemedStyles(createStyles);
   const { t } = useLocalization();
   const [mode, setMode] = useState<AddMode>();
   const [label, setLabel] = useState('');
   const [address, setAddress] = useState('');
+  const [secret, setSecret] = useState('');
+  const [mnemonic, setMnemonic] = useState('');
+  const [mnemonicPassphrase, setMnemonicPassphrase] = useState('');
+  const [mnemonicIndex, setMnemonicIndex] = useState('0');
+  const [mnemonicLanguage, setMnemonicLanguage] = useState('');
   const [appPassphrase, setAppPassphrase] = useState('');
   const [confirmPassphrase, setConfirmPassphrase] = useState('');
   const [created, setCreated] = useState<ExistingWalletCreateResult>();
@@ -44,12 +57,21 @@ export function AddAccountScreen({ dependencies, onCreatedAccountReady, onWatchO
     passphraseAssessment.meetsMinimum && confirmPassphrase.length > 0 && confirmPassphrase === appPassphrase;
 
   function clearSensitiveInputs() {
+    setSecret('');
+    setMnemonic('');
+    setMnemonicPassphrase('');
     setAppPassphrase('');
     setConfirmPassphrase('');
   }
 
+  function resetImportMetadata() {
+    setMnemonicIndex('0');
+    setMnemonicLanguage('');
+  }
+
   function chooseMode(nextMode: AddMode) {
     clearSensitiveInputs();
+    resetImportMetadata();
     setAddress('');
     setError(undefined);
     setMode(nextMode);
@@ -58,6 +80,7 @@ export function AddAccountScreen({ dependencies, onCreatedAccountReady, onWatchO
   function backToChoices() {
     if (busy) return;
     clearSensitiveInputs();
+    resetImportMetadata();
     setAddress('');
     setError(undefined);
     setMode(undefined);
@@ -76,6 +99,40 @@ export function AddAccountScreen({ dependencies, onCreatedAccountReady, onWatchO
       setCreated(result);
     } catch (caught) {
       setError(readableError(caught, t('accounts.add.error')));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitImport() {
+    if (mode !== 'import-mnemonic' && mode !== 'import-secret') return;
+    setBusy(true);
+    setError(undefined);
+    try {
+      const result =
+        mode === 'import-secret'
+          ? await importExistingWalletAccount(dependencies, {
+              kind: 'secret',
+              secret,
+              appPassphrase,
+              ...(requiresCurrentPassphrase ? {} : { confirmAppPassphrase: confirmPassphrase }),
+              label,
+            })
+          : await importExistingWalletAccount(dependencies, {
+              kind: 'mnemonic',
+              mnemonic,
+              mnemonicPassphrase,
+              index: parseDerivationIndex(mnemonicIndex),
+              ...(mnemonicLanguage.trim() ? { language: mnemonicLanguage.trim() } : {}),
+              appPassphrase,
+              ...(requiresCurrentPassphrase ? {} : { confirmAppPassphrase: confirmPassphrase }),
+              label,
+            });
+      clearSensitiveInputs();
+      onAccountPersisted();
+      await onCreatedAccountReady(result.account.account.id);
+    } catch (caught) {
+      setError(readableImportError(caught, t));
     } finally {
       setBusy(false);
     }
@@ -153,6 +210,18 @@ export function AddAccountScreen({ dependencies, onCreatedAccountReady, onWatchO
             onPress={() => chooseMode('create')}
           />
           <ChoiceButton
+            glyph="↘"
+            title={t('accounts.add.importMnemonic.title')}
+            subtitle={t('accounts.add.importMnemonic.subtitle')}
+            onPress={() => chooseMode('import-mnemonic')}
+          />
+          <ChoiceButton
+            glyph="K"
+            title={t('accounts.add.importSecret.title')}
+            subtitle={t('accounts.add.importSecret.subtitle')}
+            onPress={() => chooseMode('import-secret')}
+          />
+          <ChoiceButton
             glyph="◎"
             title={t('accounts.add.watchOnly.title')}
             subtitle={t('accounts.add.watchOnly.subtitle')}
@@ -201,16 +270,26 @@ export function AddAccountScreen({ dependencies, onCreatedAccountReady, onWatchO
     );
   }
 
-  const createReady = requiresCurrentPassphrase ? appPassphrase.length > 0 : newPassphraseReady;
+  const protectionReady = requiresCurrentPassphrase ? appPassphrase.length > 0 : newPassphraseReady;
+  const isMnemonicImport = mode === 'import-mnemonic';
+  const isSecretImport = mode === 'import-secret';
+  const flowTitle = isMnemonicImport
+    ? t('accounts.add.importMnemonic.title')
+    : isSecretImport
+      ? t('accounts.add.importSecret.title')
+      : t('accounts.add.create.title');
+  const flowIntro = isMnemonicImport
+    ? t('accounts.add.importMnemonic.intro')
+    : isSecretImport
+      ? t('accounts.add.importSecret.intro')
+      : requiresCurrentPassphrase
+        ? t('accounts.add.create.existingPassphraseIntro')
+        : t('accounts.add.create.newPassphraseIntro');
 
   return (
-    <FlowShell title={t('accounts.add.create.title')} onBack={backToChoices} backDisabled={busy}>
+    <FlowShell title={flowTitle} onBack={backToChoices} backDisabled={busy}>
       <View style={styles.formContent}>
-        <Text style={styles.description}>
-          {requiresCurrentPassphrase
-            ? t('accounts.add.create.existingPassphraseIntro')
-            : t('accounts.add.create.newPassphraseIntro')}
-        </Text>
+        <Text style={styles.description}>{flowIntro}</Text>
         <Field
           label={t('accounts.add.label')}
           value={label}
@@ -218,6 +297,59 @@ export function AddAccountScreen({ dependencies, onCreatedAccountReady, onWatchO
           placeholder={t('accounts.add.labelPlaceholder')}
           editable={!busy}
         />
+        {isSecretImport ? (
+          <Field
+            label={t('accounts.add.import.secret')}
+            value={secret}
+            onChangeText={setSecret}
+            placeholder={t('accounts.add.import.secretPlaceholder')}
+            editable={!busy}
+            secureTextEntry
+            autoCapitalize="characters"
+            autoCorrect={false}
+          />
+        ) : null}
+        {isMnemonicImport ? (
+          <>
+            <Field
+              label={t('accounts.add.import.mnemonic')}
+              value={mnemonic}
+              onChangeText={setMnemonic}
+              placeholder={t('accounts.add.import.mnemonicPlaceholder')}
+              editable={!busy}
+              multiline
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <Field
+              label={t('accounts.add.import.mnemonicPassphrase')}
+              value={mnemonicPassphrase}
+              onChangeText={setMnemonicPassphrase}
+              placeholder={t('accounts.add.import.mnemonicPassphrasePlaceholder')}
+              editable={!busy}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <Field
+              label={t('accounts.add.import.mnemonicIndex')}
+              value={mnemonicIndex}
+              onChangeText={setMnemonicIndex}
+              placeholder="0"
+              editable={!busy}
+              keyboardType="number-pad"
+            />
+            <Field
+              label={t('accounts.add.import.mnemonicLanguage')}
+              value={mnemonicLanguage}
+              onChangeText={setMnemonicLanguage}
+              placeholder={t('accounts.add.import.mnemonicLanguagePlaceholder')}
+              editable={!busy}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </>
+        ) : null}
         <Field
           label={requiresCurrentPassphrase ? t('accounts.add.currentPassphrase') : t('accounts.add.newPassphrase')}
           value={appPassphrase}
@@ -259,10 +391,21 @@ export function AddAccountScreen({ dependencies, onCreatedAccountReady, onWatchO
       </View>
       <View style={styles.footer}>
         <PrimaryButton
-          disabled={busy || !createReady}
-          label={t('accounts.add.create.action')}
+          disabled={
+            busy ||
+            !protectionReady ||
+            (isSecretImport && secret.trim().length === 0) ||
+            (isMnemonicImport && mnemonic.trim().length === 0)
+          }
+          label={
+            isMnemonicImport
+              ? t('accounts.add.importMnemonic.action')
+              : isSecretImport
+                ? t('accounts.add.importSecret.action')
+                : t('accounts.add.create.action')
+          }
           busy={busy}
-          onPress={submitCreate}
+          onPress={isMnemonicImport || isSecretImport ? submitImport : submitCreate}
         />
       </View>
     </FlowShell>
@@ -372,6 +515,7 @@ function Field(props: React.ComponentProps<typeof TextInput> & { label: string }
       <Text style={styles.fieldLabel}>{label}</Text>
       <TextInput
         {...inputProps}
+        accessibilityLabel={inputProps.accessibilityLabel ?? label}
         placeholderTextColor={theme.colors.textTertiary}
         selectionColor={theme.colors.actionPrimary}
         style={styles.input}
@@ -395,6 +539,7 @@ function PrimaryButton({
   const styles = useThemedStyles(createStyles);
   return (
     <Pressable
+      accessibilityLabel={label}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
@@ -435,6 +580,36 @@ function RecoveryPhrase({ mnemonic }: Readonly<{ mnemonic: string }>) {
 
 function readableError(error: unknown, fallbackMessage: string): string {
   return projectFeatureError(error, { fallbackMessage }).message;
+}
+
+function readableImportError(error: unknown, t: ReturnType<typeof useLocalization>['t']): string {
+  return projectFeatureError(error, {
+    fallbackMessage: t('accounts.add.import.error'),
+    messages: {
+      'invalid-passcode': t('accounts.add.import.invalidPassphrase'),
+      'invalid-passphrase': t('accounts.add.import.invalidPassphrase'),
+      'app-passphrase-too-short': t('accounts.add.import.passphraseTooShort'),
+      'app-passphrase-confirmation-mismatch': t('accounts.add.import.passphraseMismatch'),
+      'protected-signer-envelope-missing': t('accounts.add.import.protectedSignerMissing'),
+      'account-already-exists': t('accounts.add.import.accountExists'),
+      'account-not-selectable': t('accounts.add.import.accountHidden'),
+      'invalid-derivation-index': t('accounts.add.import.invalidIndex'),
+      'invalid-input': t('accounts.add.import.invalidMaterial'),
+      'default-account-persistence-failed': t('accounts.add.defaultError'),
+    },
+  }).message;
+}
+
+function parseDerivationIndex(value: string): number {
+  const normalized = value.trim();
+  if (!/^\d+$/u.test(normalized)) {
+    throw new Error('invalid-derivation-index');
+  }
+  const index = Number(normalized);
+  if (!Number.isSafeInteger(index) || index < 0) {
+    throw new Error('invalid-derivation-index');
+  }
+  return index;
 }
 
 function createStyles(theme: AppTheme) {

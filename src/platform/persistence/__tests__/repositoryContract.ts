@@ -164,6 +164,64 @@ export function runAccountSignerRepositoryContract(
     expect(repository.isWatchOnly(accountRecord.id)).toBe(false);
   });
 
+  it('upgrades a watch-only account by atomically creating and attaching one signer', () => {
+    const repository = createRepository();
+    const accountRecord = {...account('watch-only'), label: 'Keep me', sortOrder: 7};
+    const signerRecord = signer('imported-signer');
+    repository.createAccount(accountRecord);
+
+    repository.upgradeWatchOnlyAccountWithSigner({
+      accountId: accountRecord.id,
+      signer: signerRecord,
+      attachedAt: now,
+    });
+
+    expect(repository.getAccount(accountRecord.id)).toEqual(accountRecord);
+    expect(repository.getSigner(signerRecord.id)).toEqual(signerRecord);
+    expect(repository.listSignersForAccount(accountRecord.id)).toEqual([signerRecord]);
+    expect(repository.isWatchOnly(accountRecord.id)).toBe(false);
+  });
+
+  it('does not persist a new signer when watch-only upgrade targets an account with signing authority', () => {
+    const repository = createRepository();
+    const accountRecord = account('signed-account');
+    repository.createAccountWithSigner({
+      account: accountRecord,
+      signer: signer('existing-signer'),
+      attachedAt: now,
+    });
+
+    expect(() =>
+      repository.upgradeWatchOnlyAccountWithSigner({
+        accountId: accountRecord.id,
+        signer: signer('new-signer'),
+        attachedAt: now,
+      }),
+    ).toThrow('account-not-watch-only');
+
+    expect(repository.getSigner('new-signer')).toBeUndefined();
+    expect(repository.listSignersForAccount(accountRecord.id)).toHaveLength(1);
+  });
+
+  it('does not attach an existing signer id when watch-only upgrade cannot create it', () => {
+    const repository = createRepository();
+    const accountRecord = account('watch-only');
+    const existingSigner = signer('existing-signer');
+    repository.createAccount(accountRecord);
+    repository.createSigner(existingSigner);
+
+    expect(() =>
+      repository.upgradeWatchOnlyAccountWithSigner({
+        accountId: accountRecord.id,
+        signer: existingSigner,
+        attachedAt: now,
+      }),
+    ).toThrow('signer-already-exists');
+
+    expect(repository.isWatchOnly(accountRecord.id)).toBe(true);
+    expect(repository.listSignersForAccount(accountRecord.id)).toEqual([]);
+  });
+
   it('lists only signers attached to the requested account', () => {
     const repository = createRepository();
     const accountA = account('account-a');
