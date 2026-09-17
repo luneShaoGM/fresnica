@@ -239,9 +239,9 @@ export function SecuritySettingsScreen({ dependencies, onClose }: Props) {
         <View style={styles.noticeBlock}>
           <Text style={styles.noticeTitle}>Not enabled yet</Text>
           <Text style={styles.noticeText}>
-            The current Fresnica adapter has no safe verification-only passphrase API or generic System Auth challenge
-            for app-session unlock. Mobile will not emulate this with Reveal, dummy signing, or a second JavaScript
-            verifier.
+            Fresnica now provides verification-only App Passphrase checks for protected signer workflows, but the
+            adapter still has no generic System Auth challenge for app-session unlock. Mobile will not emulate session
+            unlock with Reveal, dummy signing, or a second JavaScript verifier.
           </Text>
         </View>
       </ScrollView>

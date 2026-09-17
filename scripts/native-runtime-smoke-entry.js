@@ -1,7 +1,19 @@
+import './src/app/installRuntimePolyfills';
+
 import React, { useEffect, useState } from 'react';
 import Realm from 'realm';
 import { AppRegistry, NativeModules, Text, View } from 'react-native';
 import { name as appName } from './app.json';
+import { createAppServices } from './src/app/createAppServices';
+import { selectPersistedAccountAndDefault } from './src/app/navigation/accountSelection';
+import { createExistingWalletAccount } from './src/features/accounts/createExistingWalletAccount';
+import {
+  completeMnemonicBackup,
+  confirmMnemonicBackup,
+  recoverPendingMnemonicBackup,
+  resolveOnboardingBootstrap,
+} from './src/features/onboarding/onboardingBootstrap';
+import { runGeneratedMnemonicOnboarding } from './src/features/onboarding/runOnboardingProvisioning';
 
 const VALID_CLASSIC_ACCOUNT = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
 const OK_MARKER = 'FRESNICA_PARSE_ACCOUNT_SMOKE_OK';
@@ -79,13 +91,7 @@ async function rejectedCode(operation, label) {
 }
 
 async function verifyProtectedSignerPassphraseRuntime(core) {
-  let generated = await core.generateMnemonic(
-    'english',
-    128,
-    '',
-    0,
-    VERIFICATION_PASSPHRASE,
-  );
+  let generated = await core.generateMnemonic('english', 128, '', 0, VERIFICATION_PASSPHRASE);
   const signer = generated?.signer;
   generated = undefined;
   if (
@@ -109,11 +115,7 @@ async function verifyProtectedSignerPassphraseRuntime(core) {
 
   const wrongPassphraseCode = await rejectedCode(
     () =>
-      core.verifyProtectedSignerPassphrase(
-        envelopeBefore,
-        `${VERIFICATION_PASSPHRASE} wrong`,
-        signer.signerPublicKey,
-      ),
+      core.verifyProtectedSignerPassphrase(envelopeBefore, `${VERIFICATION_PASSPHRASE} wrong`, signer.signerPublicKey),
     'wrong passphrase verification',
   );
   if (wrongPassphraseCode !== 'invalid-passcode') {
@@ -121,21 +123,12 @@ async function verifyProtectedSignerPassphraseRuntime(core) {
   }
 
   const identityMismatchCode = await rejectedCode(
-    () =>
-      core.verifyProtectedSignerPassphrase(
-        envelopeBefore,
-        VERIFICATION_PASSPHRASE,
-        VALID_CLASSIC_ACCOUNT,
-      ),
+    () => core.verifyProtectedSignerPassphrase(envelopeBefore, VERIFICATION_PASSPHRASE, VALID_CLASSIC_ACCOUNT),
     'identity-mismatch verification',
   );
   const malformedEnvelopeCode = await rejectedCode(
     () =>
-      core.verifyProtectedSignerPassphrase(
-        'not-a-protected-envelope',
-        VERIFICATION_PASSPHRASE,
-        signer.signerPublicKey,
-      ),
+      core.verifyProtectedSignerPassphrase('not-a-protected-envelope', VERIFICATION_PASSPHRASE, signer.signerPublicKey),
     'malformed-envelope verification',
   );
   if (signer.envelopeJson !== envelopeBefore) {
@@ -147,6 +140,124 @@ async function verifyProtectedSignerPassphraseRuntime(core) {
     identityMismatchCode,
     malformedEnvelopeCode,
   };
+}
+
+async function verifyExistingWalletCreateRuntime() {
+  const realmPath = Realm.defaultPath.replace(/[^/]+$/u, `s01-existing-wallet-create-smoke-${Date.now()}.realm`);
+  let services = await createAppServices({ realmPath });
+
+  try {
+    let initial = await runGeneratedMnemonicOnboarding(services.onboarding, {
+      language: 'english',
+      strength: 128,
+      mnemonicPassphrase: '',
+      index: 0,
+      appPassphrase: VERIFICATION_PASSPHRASE,
+      label: 'Existing protected account',
+    });
+    const initialAccountId = initial.account.account.id;
+    confirmMnemonicBackup(services.onboarding, initial.account.signer.id);
+    selectPersistedAccountAndDefault(
+      services.onboarding.repository,
+      initialAccountId,
+      services.onboarding.networkId,
+      services.accountSelectionPreferences,
+    );
+    initial = undefined;
+
+    const beforeWrongPassphrase = {
+      accounts: services.onboarding.repository.listAccounts().length,
+      signers: services.onboarding.repository.listSigners().length,
+      defaultAccountId: services.accountSelectionPreferences.getDefaultAccountId(services.onboarding.networkId),
+    };
+    const wrongPassphraseCode = await rejectedCode(
+      () =>
+        createExistingWalletAccount(services.onboarding, {
+          appPassphrase: `${VERIFICATION_PASSPHRASE} wrong`,
+        }),
+      'existing-wallet Create wrong passphrase',
+    );
+    const afterWrongPassphrase = {
+      accounts: services.onboarding.repository.listAccounts().length,
+      signers: services.onboarding.repository.listSigners().length,
+      defaultAccountId: services.accountSelectionPreferences.getDefaultAccountId(services.onboarding.networkId),
+    };
+    if (
+      wrongPassphraseCode !== 'invalid-passcode' ||
+      JSON.stringify(afterWrongPassphrase) !== JSON.stringify(beforeWrongPassphrase)
+    ) {
+      throw new Error(
+        `Existing-wallet Create wrong-passphrase write leak: ${JSON.stringify({ wrongPassphraseCode, beforeWrongPassphrase, afterWrongPassphrase })}`,
+      );
+    }
+
+    let created = await createExistingWalletAccount(services.onboarding, {
+      appPassphrase: VERIFICATION_PASSPHRASE,
+      label: 'Second protected account',
+    });
+    const createdAccountId = created.account.account.id;
+    const createdSignerId = created.account.signer.id;
+    const createdSignerPublicKey = created.account.signer.publicKey;
+    const systemAuthRegistration = created.systemAuthRegistration;
+    if (
+      created.account.signer.backupState !== 'pending' ||
+      services.onboarding.repository.listAccounts().length !== 2 ||
+      services.accountSelectionPreferences.getDefaultAccountId(services.onboarding.networkId) !== initialAccountId
+    ) {
+      throw new Error('Existing-wallet Create did not preserve pending/default invariants');
+    }
+    created = undefined;
+
+    services.close();
+    services = await createAppServices({ realmPath });
+    const pending = resolveOnboardingBootstrap(services.onboarding);
+    if (
+      pending.kind !== 'pending-mnemonic-backup' ||
+      pending.accountId !== createdAccountId ||
+      pending.signerId !== createdSignerId
+    ) {
+      throw new Error(`Existing-wallet Create restart did not restore pending backup: ${pending.kind}`);
+    }
+
+    const recovered = await recoverPendingMnemonicBackup(services.onboarding, createdSignerId, VERIFICATION_PASSPHRASE);
+    if (!recovered.mnemonic.trim()) {
+      throw new Error('Existing-wallet Create pending backup recovery returned no mnemonic');
+    }
+
+    await completeMnemonicBackup(services.onboarding, createdSignerId, () => {
+      selectPersistedAccountAndDefault(
+        services.onboarding.repository,
+        createdAccountId,
+        services.onboarding.networkId,
+        services.accountSelectionPreferences,
+      );
+    });
+
+    services.close();
+    services = await createAppServices({ realmPath });
+    const ready = resolveOnboardingBootstrap(services.onboarding);
+    const restoredSigner = services.onboarding.repository.getSigner(createdSignerId);
+    const restoredDefault = services.accountSelectionPreferences.getDefaultAccountId(services.onboarding.networkId);
+    if (
+      ready.kind !== 'ready' ||
+      ready.accounts.length !== 2 ||
+      restoredSigner?.backupState !== 'confirmed' ||
+      restoredDefault !== createdAccountId
+    ) {
+      throw new Error('Existing-wallet Create did not restore confirmed backup/default after restart');
+    }
+
+    return {
+      existingWalletCreate: 'ok',
+      wrongPassphraseCode,
+      pendingRestartRecovery: 'ok',
+      restoredDefaultAccountId: restoredDefault,
+      createdSignerPublicKey,
+      systemAuthRegistration,
+    };
+  } finally {
+    services.close();
+  }
 }
 
 function SmokeApp() {
@@ -178,9 +289,8 @@ function SmokeApp() {
         );
       }
 
-      const passphraseVerification = await verifyRealmRuntime(() =>
-        verifyProtectedSignerPassphraseRuntime(core),
-      );
+      const passphraseVerification = await verifyRealmRuntime(() => verifyProtectedSignerPassphraseRuntime(core));
+      const existingWalletCreate = await verifyExistingWalletCreateRuntime();
 
       const identity = await core.parseAccount(VALID_CLASSIC_ACCOUNT);
       if (
@@ -220,6 +330,12 @@ function SmokeApp() {
         malformedEnvelopeCode: passphraseVerification.malformedEnvelopeCode,
         verificationReturnedSensitiveMaterial: false,
         verificationMutatedRealmOrEnvelope: false,
+        existingWalletCreate: existingWalletCreate.existingWalletCreate,
+        existingWalletCreateWrongPassphraseCode: existingWalletCreate.wrongPassphraseCode,
+        existingWalletCreatePendingRestartRecovery: existingWalletCreate.pendingRestartRecovery,
+        existingWalletCreateDefaultRestored: Boolean(existingWalletCreate.restoredDefaultAccountId),
+        existingWalletCreateSignerPublicKey: existingWalletCreate.createdSignerPublicKey,
+        existingWalletCreateSystemAuthRegistration: existingWalletCreate.systemAuthRegistration,
       };
       await report(OK_MARKER, summary);
       console.log(OK_MARKER, summary);

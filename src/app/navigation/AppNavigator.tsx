@@ -11,6 +11,7 @@ import {useLocalization} from '../../locale';
 import type {AppRuntimeState} from '../runtimeState';
 import {createStyles} from './AppNavigator.styles';
 import {MainTabsNavigator} from './MainTabsNavigator';
+import {selectPersistedAccountAndDefault} from './accountSelection';
 import type {RootStackParamList} from './navigationTypes';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -78,8 +79,28 @@ function renderRootScreen(runtime: AppRuntimeState, onRefreshBootstrap: () => vo
         {() => (
           <PendingMnemonicBackupScreen
             dependencies={runtime.services.onboarding}
+            securityDependencies={runtime.services.security}
             signerId={bootstrap.signerId}
-            onComplete={onRefreshBootstrap}
+            onComplete={() => {
+              try {
+                selectPersistedAccountAndDefault(
+                  runtime.services.onboarding.repository,
+                  bootstrap.accountId,
+                  runtime.services.onboarding.networkId,
+                  runtime.services.accountSelectionPreferences,
+                );
+              } catch (error) {
+                runtime.services.diagnostics.warn('default-account-persistence-failed', {
+                  details: {
+                    networkId: runtime.services.onboarding.networkId,
+                    accountId: bootstrap.accountId,
+                    error,
+                  },
+                });
+                throw new Error('default-account-persistence-failed');
+              }
+              onRefreshBootstrap();
+            }}
           />
         )}
       </RootStack.Screen>

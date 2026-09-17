@@ -22,7 +22,7 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'add-account': {
     readiness: 'implemented',
-    note: 'Existing-wallet Add Account reuses the same watch-only screen from Home and Settings while each entry keeps its own native-stack back history.',
+    note: 'Existing-wallet Add Account exposes the accepted Create protected-account slice plus watch-only from both Home and Settings; Import and HD derivation remain separate pending slices.',
   },
   'asset-details': {
     readiness: 'implemented',

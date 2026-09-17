@@ -3,7 +3,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import type { AccountRecord } from '@capabilities/account/types';
-import { AddWatchOnlyAccountScreen } from '@features/accounts/AddWatchOnlyAccountScreen';
+import { AddAccountScreen } from '@features/accounts/AddAccountScreen';
 import { AssetDetailsScreen } from '@features/home/AssetDetailsScreen';
 import { HomeScreen } from '@features/home/HomeScreen';
 import { SendFlowScreen } from '@features/send/SendFlowScreen';
@@ -21,6 +21,7 @@ type Props = Readonly<{
   selectableAccounts: readonly AccountRecord[];
   services: AppServices;
   onAccountsChanged: () => void;
+  onCreatedAccountReady: (accountId: string) => void | Promise<void>;
   onSelectAccount: (accountId: string) => void | Promise<void>;
 }>;
 
@@ -30,6 +31,7 @@ export function HomeStackNavigator({
   selectableAccounts,
   services,
   onAccountsChanged,
+  onCreatedAccountReady,
   onSelectAccount,
 }: Props) {
   const selectedAccount = resolveVisibleAccount(accounts, selectedAccountId);
@@ -77,9 +79,13 @@ export function HomeStackNavigator({
       </Stack.Screen>
       <Stack.Screen name="add-account">
         {({ navigation }) => (
-          <AddWatchOnlyAccountScreen
+          <AddAccountScreen
             dependencies={services.onboarding}
-            onComplete={() => {
+            onCreatedAccountReady={async accountId => {
+              await onCreatedAccountReady(accountId);
+              navigation.popToTop();
+            }}
+            onWatchOnlyComplete={() => {
               onAccountsChanged();
               navigation.popToTop();
             }}

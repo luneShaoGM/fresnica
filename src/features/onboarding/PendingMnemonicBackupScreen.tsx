@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -12,10 +12,15 @@ import {
 import {Screen} from '@ui/components';
 
 import type { ProvisionAccountDependencies } from '../../capabilities/account/provisionAccount';
+import {
+  getSystemAuthStatus,
+  type ApplicationSecurityDependencies,
+} from '../../capabilities/application-security/systemAuth';
 import {projectFeatureError} from '../featureError';
+import {useLocalization} from '../../locale';
 import { useAppTheme, useThemedStyles, type AppTheme } from '../../ui/theme';
 import {
-  confirmMnemonicBackup,
+  completeMnemonicBackup,
   recoverPendingMnemonicBackup,
   type RecoveredMnemonicBackup,
 } from './onboardingBootstrap';
@@ -23,16 +28,41 @@ import {
 type Props = Readonly<{
   dependencies: ProvisionAccountDependencies;
   signerId: string;
-  onComplete: () => void;
+  securityDependencies?: ApplicationSecurityDependencies;
+  onComplete: () => void | Promise<void>;
 }>;
 
-export function PendingMnemonicBackupScreen({ dependencies, signerId, onComplete }: Props) {
+export function PendingMnemonicBackupScreen({
+  dependencies,
+  signerId,
+  securityDependencies,
+  onComplete,
+}: Props) {
   const theme = useAppTheme();
+  const {t} = useLocalization();
   const styles = useThemedStyles(createStyles);
   const [appPassphrase, setAppPassphrase] = useState('');
   const [backup, setBackup] = useState<RecoveredMnemonicBackup>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [systemAuthRepairRequired, setSystemAuthRepairRequired] = useState(false);
+
+  useEffect(() => {
+    if (!securityDependencies) return;
+    let mounted = true;
+    getSystemAuthStatus(securityDependencies)
+      .then(status => {
+        if (mounted) {
+          setSystemAuthRepairRequired(
+            status.domainInitialized && status.enrolledSignerCount < status.protectedSignerCount,
+          );
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      mounted = false;
+    };
+  }, [securityDependencies]);
 
   async function recover() {
     setBusy(true);
@@ -48,13 +78,16 @@ export function PendingMnemonicBackupScreen({ dependencies, signerId, onComplete
     }
   }
 
-  function confirm() {
+  async function confirm() {
+    setBusy(true);
+    setError(undefined);
     try {
-      confirmMnemonicBackup(dependencies, signerId);
+      await completeMnemonicBackup(dependencies, signerId, onComplete);
       setBackup(undefined);
-      onComplete();
     } catch (caught) {
       setError(readableError(caught));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -104,6 +137,12 @@ export function PendingMnemonicBackupScreen({ dependencies, signerId, onComplete
           </View>
         )}
 
+        {systemAuthRepairRequired ? (
+          <View style={styles.noticeBox}>
+            <Text style={styles.noticeText}>{t('accounts.add.systemAuthRepair')}</Text>
+          </View>
+        ) : null}
+
         {error ? (
           <View style={styles.errorBox}>
             <Text style={styles.error}>{error}</Text>
@@ -114,11 +153,11 @@ export function PendingMnemonicBackupScreen({ dependencies, signerId, onComplete
       <View style={styles.footer}>
         <Pressable
           accessibilityRole="button"
-          disabled={backup ? false : busy || appPassphrase.length === 0}
-          onPress={backup ? confirm : () => void recover()}
+          disabled={busy || (!backup && appPassphrase.length === 0)}
+          onPress={backup ? confirm : recover}
           style={({ pressed }) => [
             styles.primaryButton,
-            !backup && (busy || appPassphrase.length === 0) ? styles.disabled : undefined,
+            busy || (!backup && appPassphrase.length === 0) ? styles.disabled : undefined,
             pressed ? styles.primaryButtonPressed : undefined,
           ]}
         >
@@ -239,6 +278,14 @@ function createStyles(theme: AppTheme) {
     },
     recoveryNumber: { width: 22, color: theme.colors.textTertiary, fontSize: 11, lineHeight: 15 },
     recoveryText: { flex: 1, color: theme.colors.textPrimary, fontSize: 14, lineHeight: 19, fontWeight: '700' },
+    noticeBox: {
+      marginHorizontal: 20,
+      marginTop: 14,
+      borderRadius: 9,
+      backgroundColor: theme.colors.surfaceMuted,
+      padding: 11,
+    },
+    noticeText: { color: theme.colors.textSecondary, fontSize: 12, lineHeight: 18, fontWeight: '600' },
     errorBox: {
       marginHorizontal: 20,
       marginTop: 14,

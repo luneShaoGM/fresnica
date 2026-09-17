@@ -20,7 +20,7 @@ Network                   Stellar Testnet
 
 The 2026-09-16 Native SDK 0.3.1 maintenance is locally validated at implementation commit `e6f4098...` plus deterministic Android smoke carrier `66b41c6...`: full JS/architecture/provenance/locale gates pass at 68/68 suites and 353/353 tests, Realm integration is 28/28, and both iOS and a disposable Android 16 / API 36 AVD return `FRESNICA_PARSE_ACCOUNT_SMOKE_OK` against the 0.3.1 binary + canonical RN adapter. This is dependency/runtime evidence only; it does not promote any Stage 4 product surface by itself.
 
-The follow-up S01 prerequisite at `32c16852...` advances only the canonical RN adapter revision to `c5eae08e...` while keeping Native SDK 0.3.1. `verifyProtectedSignerPassphrase` is now present in the required bridge contract and validated on both native platforms for correct/wrong passphrase, signer mismatch and malformed envelope. This removes the upstream verification blocker but does not implement Existing-wallet Add Account or promote S01.
+The follow-up S01 prerequisite at `32c16852...` advances only the canonical RN adapter revision to `c5eae08e...` while keeping Native SDK 0.3.1. `verifyProtectedSignerPassphrase` is present in the required bridge contract and validated on both native platforms for correct/wrong passphrase, signer mismatch and malformed envelope. The subsequent frozen Existing-wallet Add Account specification and Create slice at `0eb20f7...` now consume that primitive for production Create; Import/HD remain pending, so S01 is still `L3 partial`.
 
 ## Capability matrix
 
@@ -54,7 +54,7 @@ The follow-up S01 prerequisite at `32c16852...` advances only the canonical RN a
 - persist only mnemonic-backup metadata and resume interrupted generated-mnemonic backup with a fresh passphrase through SDK `reveal`;
 - route completed onboarding into the runtime Product Shell.
 
-Existing-wallet protected-signer creation/import remains disabled at the product layer, but it is no longer blocked on a safe current-passphrase primitive. Canonical React Native adapter revision `c5eae08...` now exports Native SDK 0.3.1 `verifyProtectedSignerPassphrase` as a boolean-only Promise, and Mobile consumes it through `FresnicaSdkPort` without exposing unlock-key, mnemonic or secret material. The remaining work is the clean-room Existing-wallet Add Account policy/orchestration (Create / Import / HD, duplicate handling, current/default persistence and System Auth repair), so S01 maturity is unchanged.
+Existing-wallet protected-signer **Create** is now production-wired at `0eb20f7...`; Import and HD additional-account remain disabled until their own slices land. Create verifies every unique existing protected signer target before generation, persists Account+Signer atomically with pending backup, leaves the previous current/default unchanged until backup confirmation, compensates a failed default write back to pending for restart retry, and performs existing-domain System Auth registration only after durable persistence. Canonical RN adapter `c5eae08...` remains the only passphrase-verification bridge and still exposes no unlock-key, mnemonic or secret material. S01 maturity remains unchanged at `L3 partial` until Import, HD and aggregate dual-platform acceptance close.
 
 ## Runtime Product Shell / Portfolio evidence
 
@@ -250,7 +250,7 @@ The current execution sequence and acceptance gates are maintained in `docs/fres
 - persistent History cache/search/filter layer;
 - Reveal/Export UI outside interrupted-backup recovery;
 - app lock/session pending upstream authorization API;
-- existing-wallet protected-signer Create/Import/HD product orchestration pending behavior-spec and atomic persistence/default-selection implementation; safe current-passphrase verification is now available;
+- existing-wallet protected-signer Import and HD additional-account remain pending; Create is production-wired with frozen passphrase/pending-backup/default/System Auth ordering, but S01 aggregate acceptance is not yet complete;
 - complete passphrase rotation/recovery flows;
 - Realm database encryption-key lifecycle;
 - full multisig coordination;

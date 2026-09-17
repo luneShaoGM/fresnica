@@ -8,7 +8,7 @@ import { renameAccount } from '@capabilities/account/renameAccount';
 import type { AccountRecord } from '@capabilities/account/types';
 import { AccountDetailsScreen } from '@features/accounts/AccountDetailsScreen';
 import { AccountsScreen } from '@features/accounts/AccountsScreen';
-import { AddWatchOnlyAccountScreen } from '@features/accounts/AddWatchOnlyAccountScreen';
+import { AddAccountScreen } from '@features/accounts/AddAccountScreen';
 import { SecuritySettingsScreen } from '@features/security/SecuritySettingsScreen';
 import { AboutScreen } from '@features/settings/AboutScreen';
 import { LanguageSettingsScreen } from '@features/settings/LanguageSettingsScreen';
@@ -25,6 +25,7 @@ type Props = Readonly<{
   accounts: readonly AccountRecord[];
   services: AppServices;
   onAccountsChanged: () => void;
+  onCreatedAccountReady: (accountId: string) => void | Promise<void>;
   onSend: (accountId: string) => void;
   onManageAssets: (accountId: string) => void;
 }>;
@@ -33,6 +34,7 @@ export function SettingsStackNavigator({
   accounts,
   services,
   onAccountsChanged,
+  onCreatedAccountReady,
   onSend,
   onManageAssets,
 }: Props) {
@@ -96,9 +98,13 @@ export function SettingsStackNavigator({
       </Stack.Screen>
       <Stack.Screen name="add-account">
         {({ navigation }) => (
-          <AddWatchOnlyAccountScreen
+          <AddAccountScreen
             dependencies={services.onboarding}
-            onComplete={() => {
+            onCreatedAccountReady={async accountId => {
+              await onCreatedAccountReady(accountId);
+              navigation.goBack();
+            }}
+            onWatchOnlyComplete={() => {
               navigation.goBack();
               onAccountsChanged();
             }}
