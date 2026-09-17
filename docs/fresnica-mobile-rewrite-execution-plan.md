@@ -524,6 +524,14 @@ UI 执行策略：
 - Android runtime 在一次性 `Fresnica_S01_HD_Acceptance_20260917` / API 36 / `emulator-5556` 上对精确 `b33baae...` 返回 `FRESNICA_PARSE_ACCOUNT_SMOKE_OK`：wrong-pass=`invalid-passcode` 且零写入、derived signer 无 pending-backup、显式选择后 default/restart restore=`true`。临时 AVD 已删除，既有 `Medium_Phone` 未使用或清理。最终 PR HEAD 仍需由 Native Apple Gate 在 simulator 运行同一 carrier；Native Android Gate 仍只作为 adapter/link/release-signing 证据。
 - **S01 继续保持 `L3 partial`。** HD 单切片闭合后只剩 Create + Import + HD 的 Android+iOS aggregate acceptance，再重新判断 S01 是否完成 L3；Reveal/Export、rotation、generic session unlock、hardware wallet 与 S05 不进入 PR C。
 
+#### Stage 4 S01 dual-platform aggregate acceptance（2026-09-17）
+
+- 验收目标是已合并 `main@a2b17eba8285c57b4b56f3c3cec5e817dd184e95`（PR #50 merge；parents 为 `4849fcf98c0ee2301e68d5bde6eb0563150a1683` 与 final reviewed head `44775245c3d087b5194c572fb209b9d4bbb5a0de`）。PR #50 final head 的 CI #388、Realm #191、Native Android #243、Native Apple #238 均成功，其中 Apple gate 已执行 simulator FresnicaCore + Realm runtime smoke。aggregate 验收期间不新增或修改 S01 产品语义。
+- 临时、不提交的 aggregate carrier 在**同一 isolated Realm / 同一钱包生命周期**调用 production `createAppServices` 与现有 S01 Capability：watch-only baseline -> Create -> pending backup -> close/reopen -> recovery/confirm -> System Auth domain -> wrong current passphrase zero-write -> Import secret 原地升级 watch-only -> duplicate rejection -> HD derive -> default persist -> close/reopen -> 主动移除一个 signer enrollment -> 观察 Security 缺口 -> 复用现有 `enableSystemAuth` 修复。carrier 验收后删除，不作为标准 CI gate 冒充 L4。
+- Android 使用一次性 `Fresnica_S01_Aggregate_20260917`（Android 16 / API 36，`emulator-5556`）。该 AVD 真实注册 fingerprint，System Auth 初始化进入 `BiometricPrompt`，单次 fingerprint event 得到 strong-biometric success。最终 callback 为 `FRESNICA_PARSE_ACCOUNT_SMOKE_OK`：`accountCount=4`、`signerCount=3`、原 watch-only 保留、pending-backup restart recovery=`ok`、wrong-pass=`invalid-passcode`、watch-only upgrade=`ok`、duplicate=`account-already-exists`、Import/HD 后无 pending backup、default restart restore=true、post-persistence System Auth registration=`ok`、主动制造 enrollment gap 后 repair=`ok`、最终 enrolled/protected=`3/3`。此前两次 carrier 启动分别因 ADB reverse 在 emulator reconnect 后丢失、以及非标准 host Metro `8082` 与 RN `10.0.2.2:8081` 路由不匹配而在产品断言前失败；最终按仓库既有 host `8081` 路径通过。一次性 AVD 已删除，`Medium_Phone` 未参与也未修改。
+- iOS 使用 iPhone 15 Pro simulator `DEF9E99C-0D02-4803-B457-CFB631433DFD` / iOS 17.2，并从精确 main 重新执行正常签名 Debug simulator build。一个早期 `CODE_SIGNING_ALLOWED=NO` 诊断 build 因缺少 Keychain entitlement 返回 `-34018`，未进入产品验收；改回正常签名后 `codesign --verify`、Native `canUseSystemAuth=true` 和 clean-domain probe 均通过。随后同一 aggregate lifecycle 返回 `FRESNICA_PARSE_ACCOUNT_SMOKE_OK`，关键断言与 Android 一致，最终 System Auth enrollment 为 `3/3`。Simulator 上没有把“可见 Face ID prompt”单独作为已观察证据；只记录成功完成的 Native userPresence/System Auth domain、registration 与 repair 路径。验收后 Native reset probe 明确为 `before=true -> removed=true -> after=false`，aggregate Realm 文件也已清理。
+- **成熟度升级为 `L3 / L4 partial`，不签 L4。** Create / Import / HD 现在既有生产入口、fail-closed 行为和双端同钱包组合证据，满足 L3。L4 仍缺把该 aggregate 变成可重复的标准必过 CI/E2E gate，以及 S01 Add Account / passphrase / backup / System Auth 相关表面的可靠动态字体与 TalkBack/VoiceOver focus-order 验收。Reveal/Export、passphrase rotation、generic app-session unlock、hardware wallet 继续属于独立范围，不反向塞入 S01 aggregate。
+
 ### Stage 2：架构边界收口（已完成 2026-09-08）
 
 目标：让目标依赖图成为全仓强制规则。
@@ -1016,15 +1024,16 @@ Backend 交付并完成身份/滥用验证后才可支持：
 
 ## 11. 当前下一步
 
-立即执行顺序（2026-09-16）：
+立即执行顺序（2026-09-17）：
 
 1. Stage 0A / Stage 1 / Stage 2 / Stage 2.5 与 clean integration 已完成并进入 `main`；后续 PR 继续执行既有 provenance、架构和共享 transaction recovery 门，不重开第二套底层。
-2. S02 已在 `main@cb54987...` 记录为 **L3 已签收、L4 partial**。其三项 L4 债务单独登记：Accounts/Account Detail 硬编码文案清理、TalkBack/VoiceOver 可靠焦点顺序人工验收、S02 aggregate UI flow 纳入标准门禁；不得为补这些债务反向增加账户产品语义。
-3. S05 Testnet Friendbot 先按独立子切片完成：Testnet-only、public-address-only、Horizon-authoritative、失败可重试、账户切换防 stale refresh。代码生产接线已完成；当前 Android AVD 环境故障不作为产品失败，也不得冒充 native pass。
-4. Friendbot 子切片收口后，继续 **Home/Balance 聚合闭环**：inactive/active/read-only、manual/focus invalidation、权威余额刷新、错误恢复与当前已有 asset-details 边界一起复核；只在聚合证据完整后升级 S05 整体成熟度。
-5. 之后依次推进 S07 Send、S30 Trustline、S13 Activity 的 Stage 4 剩余闭环；每一项继续复用 Stage 2.5 transaction recovery，不因功能完整优先而降低 exact-XDR / fail-closed 要求。
-6. UI 最终视觉稿仍不阻塞上述功能施工；但新触及文案必须进入 locale，Accessibility label、动态字体和读屏顺序按切片记录，避免把可预见的 L4 债务继续扩大。
-7. 缓存 schema/失效、Backend 边界、Mainnet/Developer Mode、最终 Application ID/iOS identity 与 release signing 继续按 Stage 8/8B/9 顺序推进，不提前宣称发布成熟。
+2. S02 已记录为 **L3 已签收、L4 partial**。其三项 L4 债务单独登记：Accounts/Account Detail 硬编码文案清理、TalkBack/VoiceOver 可靠焦点顺序人工验收、S02 aggregate UI flow 纳入标准门禁；不得为补这些债务反向增加账户产品语义。
+3. S01 Create + Import + HD 已在 `main@a2b17eba...` 完成双端同钱包 aggregate acceptance，升级为 **`L3 / L4 partial`**。S01 不再新增账户产品语义；剩余仅为 aggregate 标准必过门与动态字体/读屏顺序 L4 债务，Reveal/Export、rotation、generic session unlock、hardware wallet 各自按独立范围推进。
+4. S05 Testnet Friendbot 独立子切片已在一次性 Android API 36 AVD 上完成 L3 native acceptance；旧 `Medium_Phone` 的 resolver 损坏继续只记环境债务，不重复验证 Friendbot 单切片。
+5. 当前下一产品验收单元是 **S05 Home/Balance 聚合闭环**：inactive/active/read-only、manual/focus invalidation、权威余额刷新、错误恢复与已有 asset-details 边界一起复核；只在聚合证据完整后升级 S05 整体成熟度。
+6. 之后依次推进 S07 Send、S30 Trustline、S13 Activity 的 Stage 4 剩余闭环；每一项继续复用 Stage 2.5 transaction recovery，不因功能完整优先而降低 exact-XDR / fail-closed 要求。
+7. UI 最终视觉稿仍不阻塞上述功能施工；但新触及文案必须进入 locale，Accessibility label、动态字体和读屏顺序按切片记录，避免把可预见的 L4 债务继续扩大。
+8. 缓存 schema/失效、Backend 边界、Mainnet/Developer Mode、最终 Application ID/iOS identity 与 release signing 继续按 Stage 8/8B/9 顺序推进，不提前宣称发布成熟。
 
 这条顺序避免两类返工：
 
