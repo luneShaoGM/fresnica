@@ -514,6 +514,15 @@ UI 执行策略：
 - Android runtime 在一次性 `Fresnica_S01_Import_Acceptance_20260917` / API 36 / `emulator-5556` 上对精确 `e8405af...` 返回 `FRESNICA_PARSE_ACCOUNT_SMOKE_OK`：wrong-pass=`invalid-passcode` 且零写入、watch-only 原地升级=`ok`、重复 protected account=`account-already-exists`、两类 Import 均无 pending-backup、default/restart restore=`true`。前两次诊断失败分别是非默认 Metro/callback reverse 路由和 `Keypair.random()` 缺少 RN random source，均发生在 Import 产品断言之前；最终 carrier 使用确定性内存测试 seed，并未引入生产随机源或敏感结果输出。临时 AVD 已删除，既有 `Medium_Phone` 未使用或清理。
 - **S01 仍为 `L3 partial`。** Import 单切片闭合后只剩 HD additional-account 与 Android+iOS aggregate acceptance 再决定 S01 是否完成 L3；Reveal/Export、rotation、generic session unlock、hardware wallet 与 S05 继续不在本切片。
 
+#### Stage 4 S01 HD additional-account slice（2026-09-17）
+
+- HD 行为规格冻结在 `281bdb4c3fc34656971963acd4ffb153fc6de150`；Capability/原子持久化目标 `0be72adcf9ad89580ad9c7a5fefb2fefa2ed6b50`；Add Account UI/localization/default-selection 目标 `ee26c85b24f709fa952e754e6772954b6d67ee4b`；最终代码/native-smoke 目标 `b33baae27c9ff680aaff907566fbeb0ba02772aa`。
+- HD source 只允许当前 network 可见 Account 引用的 mnemonic-backed protected signer，且 source backup state 必须为 `confirmed` 或 `not-required`；`pending`、secret-backed、缺失 envelope 或不可见 source 都 fail closed。UI 只持有公开 `sourceSignerId` / signer public key / explicit index，opaque envelope 由 Capability 在执行时重新从 Repository 读取，不进入 navigation state。
+- Derive 使用 canonical `deriveMnemonicSigner(sourceEnvelope, appPassphrase, expectedSourceSignerPublicKey, index)`；所有唯一 protected target 先通过既有 App Passphrase verification，再执行派生。Mobile 不 Reveal mnemonic，不解析 envelope，也不新增 recovery-source Realm schema。显式 index 限定 `0..2^31-1`，UI 展示并确认 SEP-5 路径 `m/44'/148'/index'`。
+- 新 signer 的恢复状态继承 source：`confirmed -> confirmed`、`not-required -> not-required`，因此 HD 不产生 pending-backup。derived public key 的 same-network visible watch-only identity 继续复用 Import 已闭合的原地 Signer+reference 原子升级；已有 signing authority 返回 `account-already-exists`；hidden watch-only 返回 `account-not-selectable`。System Auth 仍在持久化后注册，失败保持 durable account 并进入既有 repair 路径。
+- 成功后继续复用 `selectPersistedAccountAndDefault`：default 写成功后才切换 current；default 写失败时已持久化 HD account 可保留，但旧 current/default 继续权威。精确代码 HEAD `b33baae...` 的 `npm run check` 为 **76/76 suites、414/414 tests**，ESLint **0 errors / 21 warnings**，provenance **398 files / 0 unapproved exact donor blobs**，locale **206 keys**；Realm 为 **2/2 suites、31/31 tests**。
+- Android runtime 在一次性 `Fresnica_S01_HD_Acceptance_20260917` / API 36 / `emulator-5556` 上对精确 `b33baae...` 返回 `FRESNICA_PARSE_ACCOUNT_SMOKE_OK`：wrong-pass=`invalid-passcode` 且零写入、derived signer 无 pending-backup、显式选择后 default/restart restore=`true`。临时 AVD 已删除，既有 `Medium_Phone` 未使用或清理。最终 PR HEAD 仍需由 Native Apple Gate 在 simulator 运行同一 carrier；Native Android Gate 仍只作为 adapter/link/release-signing 证据。
+- **S01 继续保持 `L3 partial`。** HD 单切片闭合后只剩 Create + Import + HD 的 Android+iOS aggregate acceptance，再重新判断 S01 是否完成 L3；Reveal/Export、rotation、generic session unlock、hardware wallet 与 S05 不进入 PR C。
 
 ### Stage 2：架构边界收口（已完成 2026-09-08）
 

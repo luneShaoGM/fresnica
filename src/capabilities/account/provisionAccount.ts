@@ -43,6 +43,13 @@ export type GenerateMnemonicAccountInput = ProvisionAccountBaseInput & {
   index: number;
 };
 
+export type DeriveMnemonicAccountInput = ProvisionAccountBaseInput & {
+  sourceEnvelopeJson: string;
+  expectedSourceSignerPublicKey: string;
+  index: number;
+  backupState: Extract<BackupState, 'confirmed' | 'not-required'>;
+};
+
 export type ProvisionedAccount = {
   account: AccountRecord;
   signer: SignerRecord;
@@ -141,6 +148,26 @@ export async function generateMnemonicAccount(
     language: generated.language,
     index: generated.index,
   };
+}
+
+export async function deriveMnemonicAccount(
+  dependencies: ProvisionAccountDependencies,
+  input: DeriveMnemonicAccountInput,
+): Promise<ProvisionedAccount> {
+  const protectedSigner = await dependencies.sdk.deriveMnemonicSigner({
+    sourceEnvelopeJson: input.sourceEnvelopeJson,
+    appPassphrase: input.appPassphrase,
+    expectedSourceSignerPublicKey: input.expectedSourceSignerPublicKey,
+    index: input.index,
+  });
+
+  return persistProtectedSigner(dependencies, protectedSigner, {
+    networkId: input.networkId,
+    label: input.label,
+    recoveryKind: 'mnemonic',
+    backupState: input.backupState,
+    duplicatePolicy: 'upgrade-watch-only',
+  });
 }
 
 type PersistProtectedSignerOptions = {
