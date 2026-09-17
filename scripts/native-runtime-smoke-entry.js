@@ -8,6 +8,7 @@ import { name as appName } from './app.json';
 import { createAppServices } from './src/app/createAppServices';
 import { selectPersistedAccountAndDefault } from './src/app/navigation/accountSelection';
 import { createExistingWalletAccount } from './src/features/accounts/createExistingWalletAccount';
+import { deriveExistingWalletAccount } from './src/features/accounts/deriveExistingWalletAccount';
 import { importExistingWalletAccount } from './src/features/accounts/importExistingWalletAccount';
 import {
   completeMnemonicBackup,
@@ -274,6 +275,113 @@ async function verifyExistingWalletCreateRuntime() {
   }
 }
 
+async function verifyExistingWalletHdRuntime() {
+  const realmPath = Realm.defaultPath.replace(/[^/]+$/u, `s01-existing-wallet-hd-smoke-${Date.now()}.realm`);
+  let services = await createAppServices({ realmPath });
+
+  try {
+    let initial = await runGeneratedMnemonicOnboarding(services.onboarding, {
+      language: 'english',
+      strength: 128,
+      mnemonicPassphrase: 'runtime hd extension',
+      index: 0,
+      appPassphrase: VERIFICATION_PASSPHRASE,
+      label: 'HD source account',
+    });
+    const sourceAccountId = initial.account.account.id;
+    const sourceSignerId = initial.account.signer.id;
+    confirmMnemonicBackup(services.onboarding, sourceSignerId);
+    selectPersistedAccountAndDefault(
+      services.onboarding.repository,
+      sourceAccountId,
+      services.onboarding.networkId,
+      services.accountSelectionPreferences,
+    );
+    initial = undefined;
+
+    const beforeWrongPassphrase = {
+      accounts: services.onboarding.repository.listAccounts().length,
+      signers: services.onboarding.repository.listSigners().length,
+      defaultAccountId: services.accountSelectionPreferences.getDefaultAccountId(services.onboarding.networkId),
+    };
+    const wrongPassphraseCode = await rejectedCode(
+      () =>
+        deriveExistingWalletAccount(services.onboarding, {
+          sourceSignerId,
+          index: 1,
+          appPassphrase: `${VERIFICATION_PASSPHRASE} wrong`,
+        }),
+      'existing-wallet HD wrong passphrase',
+    );
+    const afterWrongPassphrase = {
+      accounts: services.onboarding.repository.listAccounts().length,
+      signers: services.onboarding.repository.listSigners().length,
+      defaultAccountId: services.accountSelectionPreferences.getDefaultAccountId(services.onboarding.networkId),
+    };
+    if (
+      wrongPassphraseCode !== 'invalid-passcode' ||
+      JSON.stringify(afterWrongPassphrase) !== JSON.stringify(beforeWrongPassphrase)
+    ) {
+      throw new Error('Existing-wallet HD wrong-passphrase invariants failed');
+    }
+
+    const derived = await deriveExistingWalletAccount(services.onboarding, {
+      sourceSignerId,
+      index: 1,
+      appPassphrase: VERIFICATION_PASSPHRASE,
+      label: 'HD derived account',
+    });
+    const derivedAccountId = derived.account.account.id;
+    const derivedSignerId = derived.account.signer.id;
+    const derivedSignerPublicKey = derived.account.signer.publicKey;
+    const systemAuthRegistration = derived.systemAuthRegistration;
+
+    if (
+      derived.account.signer.recoveryKind !== 'mnemonic' ||
+      derived.account.signer.backupState !== 'confirmed' ||
+      services.onboarding.repository.listAccounts().length !== 2 ||
+      services.onboarding.repository.listSigners().length !== 2 ||
+      services.accountSelectionPreferences.getDefaultAccountId(services.onboarding.networkId) !== sourceAccountId ||
+      resolveOnboardingBootstrap(services.onboarding).kind !== 'ready'
+    ) {
+      throw new Error('Existing-wallet HD persistence/backup invariants failed');
+    }
+
+    selectPersistedAccountAndDefault(
+      services.onboarding.repository,
+      derivedAccountId,
+      services.onboarding.networkId,
+      services.accountSelectionPreferences,
+    );
+
+    services.close();
+    services = await createAppServices({ realmPath });
+    const ready = resolveOnboardingBootstrap(services.onboarding);
+    const restoredDefault = services.accountSelectionPreferences.getDefaultAccountId(services.onboarding.networkId);
+    const restoredSigner = services.onboarding.repository.getSigner(derivedSignerId);
+    if (
+      ready.kind !== 'ready' ||
+      ready.accounts.length !== 2 ||
+      restoredDefault !== derivedAccountId ||
+      restoredSigner?.recoveryKind !== 'mnemonic' ||
+      restoredSigner?.backupState !== 'confirmed'
+    ) {
+      throw new Error('Existing-wallet HD restart/default recovery failed');
+    }
+
+    return {
+      existingWalletHd: 'ok',
+      wrongPassphraseCode,
+      noPendingBackup: true,
+      restartDefaultRestored: true,
+      derivedSignerPublicKey,
+      systemAuthRegistration,
+    };
+  } finally {
+    services.close();
+  }
+}
+
 async function verifyExistingWalletImportRuntime() {
   const realmPath = Realm.defaultPath.replace(/[^/]+$/u, `s01-existing-wallet-import-smoke-${Date.now()}.realm`);
   let services = await createAppServices({ realmPath });
@@ -476,6 +584,7 @@ function SmokeApp() {
       const requiredMethods = [
         'parseAccount',
         'generateMnemonic',
+        'deriveMnemonicSigner',
         'verifyProtectedSignerPassphrase',
         'prepareEd25519Signing',
         'applyEd25519Signature',
@@ -492,6 +601,7 @@ function SmokeApp() {
       const passphraseVerification = await verifyRealmRuntime(() => verifyProtectedSignerPassphraseRuntime(core));
       const existingWalletCreate = await verifyExistingWalletCreateRuntime();
       const existingWalletImport = await verifyExistingWalletImportRuntime();
+      const existingWalletHd = await verifyExistingWalletHdRuntime();
 
       const identity = await core.parseAccount(VALID_CLASSIC_ACCOUNT);
       if (
@@ -547,6 +657,12 @@ function SmokeApp() {
         existingWalletImportMnemonicSignerPublicKey: existingWalletImport.mnemonicSignerPublicKey,
         existingWalletImportSecretSystemAuthRegistration: existingWalletImport.secretSystemAuthRegistration,
         existingWalletImportMnemonicSystemAuthRegistration: existingWalletImport.mnemonicSystemAuthRegistration,
+        existingWalletHd: existingWalletHd.existingWalletHd,
+        existingWalletHdWrongPassphraseCode: existingWalletHd.wrongPassphraseCode,
+        existingWalletHdNoPendingBackup: existingWalletHd.noPendingBackup,
+        existingWalletHdDefaultRestored: existingWalletHd.restartDefaultRestored,
+        existingWalletHdSignerPublicKey: existingWalletHd.derivedSignerPublicKey,
+        existingWalletHdSystemAuthRegistration: existingWalletHd.systemAuthRegistration,
       };
       await report(OK_MARKER, summary);
       console.log(OK_MARKER, summary);
