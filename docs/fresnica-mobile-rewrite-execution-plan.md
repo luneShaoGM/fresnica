@@ -492,7 +492,17 @@ UI 执行策略：
 - `FresnicaSdkPort` / `NativeFresnicaModule` / `ReactNativeFresnicaSdk` 只新增高层 `verifyProtectedSignerPassphrase(envelope + appPassphrase + expectedSignerPublicKey) -> boolean`。Loader 将其列为 required method；Mobile 不暴露 `WalletUnlockKey`、raw key signer、mnemonic 或 secret，也不建立私有 bridge。
 - Canonical adapter 重新生成并由上游 manifest verifier 验真：Android AAR SHA-256 `22b21406d108f23d65e7c2bd67d960c66561b77dbecf53ed5c28fb97bb190268`，Apple XCFramework SHA-256 `ba13d945aa76e22e135bd603d0c83d5f619cd73d66749db207c58cf8b41692a2`；Android class 与 Apple exported selector 都实际包含 `verifyProtectedSignerPassphrase`。Native SDK 0.3.1 release artifacts/digest 不变。
 - 最终本地代码树 `npm run check` 为 **68/68 suites、355/355 tests**、ESLint **0 errors / 23 warnings**、provenance **382 files / 0 unapproved exact donor blobs**、locale **138 keys**；Realm 为 **2/2 suites、28/28 tests**。iOS simulator 与一次性 Android 16 / API 36 AVD 均返回 `FRESNICA_PARSE_ACCOUNT_SMOKE_OK`：正确 passphrase 成功，错误 passphrase=`invalid-passcode`，signer identity mismatch=`identity-mismatch`，malformed envelope=`invalid-protected-data`；verification 仅返回 boolean，Realm/envelope 保持不变。Mobile wrapper tests 还证明该验证路径不调用 System Auth initialize/register/remove 或 Reveal。
-- **成熟度不变。** 这一 prerequisite 只解除 Existing-wallet Create/Import 的安全当前密码验证 blocker；Add Account 仍只开放既有 watch-only 产品路径。下一步必须先冻结 Existing-wallet Add Account 行为规格，再分别实现 Create / Import / HD additional-account，不能把机制可用误写成 S01 产品完成。
+- **成熟度不变。** 这一 prerequisite 只解除 Existing-wallet Create/Import 的安全当前密码验证 blocker。后续行为规格已冻结，Create 已进入独立产品切片；Import 与 HD additional-account 仍必须分别实现和验收，不能把单一 Create 切片误写成 S01 产品完成。
+
+#### Stage 4 S01 Existing-wallet Create slice（2026-09-17）
+
+- 冻结行为规格 commit `8e25f08...`，明确 App Passphrase authority、同网络重复账户策略、pending-backup/default 顺序与 System Auth post-persistence repair；Create / Import / HD 保持独立切片。
+- Create 产品代码精确 commit `0eb20f73bf036b5bcd89bda537308bea136be68d`。Existing-wallet Add Account 现开放 `Create new wallet` 与既有 watch-only；Import / HD 尚未开放。
+- 已有 protected signer 时，Create 在任何生成/持久化前验证所有唯一 `(signerPublicKey, envelopeJson)` target；任一失败后整体失败且不生成 signer、不写 Account/Signer/default。没有 protected signer 时复用首次保护密码强度与确认策略，建立首个 App Passphrase。
+- 生成账户继续复用 canonical `generateMnemonic` 与 Realm `createAccountWithSigner` 原子写入；新 signer 先保持 `backupState=pending`。旧 current/default 在备份确认前保持不变；default 写失败会把 backup state 补偿回 `pending`，从而保留重启恢复入口而不伪造完成。
+- System Auth 调整为真正的 post-persistence best-effort：Account+Signer 成功落盘后才查询现有 domain 并尝试注册新 signer；状态查询/注册失败不回滚账户，而进入 `repair-required`，Security 仍以 Native enrollment status 为唯一修复依据。
+- 本地精确代码树 `npm run check` 为 **72/72 suites、376/376 tests**、ESLint **0 errors / 21 warnings**、provenance **389 files / 0 unapproved exact donor blobs**、locale **165 keys**；Realm 为 **2/2 suites、28/28 tests**。`scripts/native-runtime-smoke-entry.js` 已扩展同一跨平台 carrier，覆盖已有 protected wallet → wrong-pass zero-write → correct Create → pending restart recovery → backup confirm → default restore，并与既有 product-flow carrier 一样先安装 RN runtime polyfills。第一次 Android carrier 尝试在进入 Create 断言前因缺少 polyfill 于 Stellar SDK/Horizon 模块加载阶段失败；这是测试 carrier 初始化缺口，不是产品路径失败。修正后，精确 code commit `0eb20f73bf036b5bcd89bda537308bea136be68d` 在一次性 `Fresnica_S01_Create_Acceptance_20260917` / API 36 / `emulator-5556` 上返回 `FRESNICA_PARSE_ACCOUNT_SMOKE_OK`，其中 wrong-pass=`invalid-passcode`、pending restart recovery=`ok`、default restart restore=`true`。现有 Native Apple Gate 会在 simulator 运行同一 carrier；Native Android Gate 仍只作为 adapter/link/release-signing 证据，不能误记为 emulator evidence。
+- **S01 继续保持 `L3 partial`。** Create 单切片完成后仍需独立 Import、HD additional-account 与 Android+iOS aggregate acceptance；Reveal/Export、passphrase rotation、generic session unlock、hardware wallet 与 S05 不在本切片。
 
 
 ### Stage 2：架构边界收口（已完成 2026-09-08）

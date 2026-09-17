@@ -121,7 +121,7 @@ The current Testnet onboarding flow is real application behavior rather than a m
 - after interruption/restart, use fresh-passphrase SDK `reveal` to recover the pending mnemonic instead of persisting plaintext;
 - route successfully initialized wallets to the wallet landing screen.
 
-Existing-wallet protected-signer Add Account is intentionally disabled until Fresnica exposes a framework-safe way to verify the current product app passphrase without returning `WalletUnlockKey` to JavaScript. Existing-wallet Add Account currently supports watch-only only. This fail-closed restriction prevents a single product wallet from accidentally accumulating protected signers encrypted with unrelated passphrases.
+Existing-wallet Add Account now supports **Create new wallet** plus the existing watch-only path. The Create slice uses canonical `verifyProtectedSignerPassphrase` to verify every unique existing protected signer target before any generation/write, or establishes the first App Passphrase when no protected signer exists. Account+Signer persistence is atomic with generated-mnemonic backup `pending`; the previous current/default stays unchanged until backup confirmation, and a failed default write restores `pending` so restart can retry. Existing System Auth enrollment is attempted only after durable persistence and failures preserve the account while surfacing repair. Import mnemonic / `S...` and HD additional-account remain separate pending slices, so S01 stays `L3 partial`.
 
 ## 6. Application Security / signing state
 
