@@ -3,6 +3,7 @@ import type {
   AccountSignerRegistration,
   AccountSignerRepository,
   AccountSortOrderUpdate,
+  WatchOnlySignerUpgrade,
 } from '../../../capabilities/account/AccountSignerRepository';
 import type {AccountRecord} from '../../../capabilities/account/types';
 import type {
@@ -47,6 +48,31 @@ export class RealmAccountSignerRepository implements AccountSignerRepository {
       this.realm.create(ACCOUNT_SIGNER_REFERENCE_ENTITY, {
         id: referenceId,
         accountId: account.id,
+        signerId: signer.id,
+        createdAt: attachedAt,
+      });
+    });
+  }
+
+  upgradeWatchOnlyAccountWithSigner(registration: WatchOnlySignerUpgrade): void {
+    const {accountId, signer, attachedAt} = registration;
+    const referenceId = this.referenceId(accountId, signer.id);
+
+    this.realm.write(() => {
+      if (!this.realm.objectForPrimaryKey(ACCOUNT_ENTITY, accountId)) {
+        throw new Error('account-not-found');
+      }
+      if (this.realm.objects(ACCOUNT_SIGNER_REFERENCE_ENTITY).filtered('accountId == $0', accountId).length > 0) {
+        throw new Error('account-not-watch-only');
+      }
+      if (this.realm.objectForPrimaryKey(SIGNER_ENTITY, signer.id)) {
+        throw new Error('signer-already-exists');
+      }
+
+      this.realm.create(SIGNER_ENTITY, this.toPersistedSigner(signer));
+      this.realm.create(ACCOUNT_SIGNER_REFERENCE_ENTITY, {
+        id: referenceId,
+        accountId,
         signerId: signer.id,
         createdAt: attachedAt,
       });
