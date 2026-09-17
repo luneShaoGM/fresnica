@@ -17,9 +17,14 @@ import {
   type OnboardingProvisioningDependencies,
 } from '../onboarding/runOnboardingProvisioning';
 import { createExistingWalletAccount, type ExistingWalletCreateResult } from './createExistingWalletAccount';
+import {
+  deriveExistingWalletAccount,
+  listExistingWalletHdSourceCandidates,
+  stellarHdPath,
+} from './deriveExistingWalletAccount';
 import { importExistingWalletAccount } from './importExistingWalletAccount';
 
-type AddMode = 'create' | 'import-mnemonic' | 'import-secret' | 'watch-only';
+type AddMode = 'create' | 'derive-hd' | 'import-mnemonic' | 'import-secret' | 'watch-only';
 
 type Props = Readonly<{
   dependencies: OnboardingProvisioningDependencies;
@@ -46,11 +51,14 @@ export function AddAccountScreen({
   const [mnemonicPassphrase, setMnemonicPassphrase] = useState('');
   const [mnemonicIndex, setMnemonicIndex] = useState('0');
   const [mnemonicLanguage, setMnemonicLanguage] = useState('');
+  const [hdSourceSignerId, setHdSourceSignerId] = useState('');
+  const [hdIndex, setHdIndex] = useState('1');
   const [appPassphrase, setAppPassphrase] = useState('');
   const [confirmPassphrase, setConfirmPassphrase] = useState('');
   const [created, setCreated] = useState<ExistingWalletCreateResult>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const hdSourceCandidates = listExistingWalletHdSourceCandidates(dependencies);
   const requiresCurrentPassphrase = requiresExistingAppPassphrase(dependencies.repository);
   const passphraseAssessment = assessNewProtectionPassphrase(appPassphrase);
   const newPassphraseReady =
@@ -69,9 +77,15 @@ export function AddAccountScreen({
     setMnemonicLanguage('');
   }
 
+  function resetHdMetadata() {
+    setHdSourceSignerId('');
+    setHdIndex('1');
+  }
+
   function chooseMode(nextMode: AddMode) {
     clearSensitiveInputs();
     resetImportMetadata();
+    resetHdMetadata();
     setAddress('');
     setError(undefined);
     setMode(nextMode);
@@ -81,6 +95,7 @@ export function AddAccountScreen({
     if (busy) return;
     clearSensitiveInputs();
     resetImportMetadata();
+    resetHdMetadata();
     setAddress('');
     setError(undefined);
     setMode(undefined);
@@ -133,6 +148,27 @@ export function AddAccountScreen({
       await onCreatedAccountReady(result.account.account.id);
     } catch (caught) {
       setError(readableImportError(caught, t));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitHdDerive() {
+    if (mode !== 'derive-hd') return;
+    setBusy(true);
+    setError(undefined);
+    try {
+      const result = await deriveExistingWalletAccount(dependencies, {
+        sourceSignerId: hdSourceSignerId,
+        index: parseHdDerivationIndex(hdIndex),
+        appPassphrase,
+        label,
+      });
+      clearSensitiveInputs();
+      onAccountPersisted();
+      await onCreatedAccountReady(result.account.account.id);
+    } catch (caught) {
+      setError(readableHdError(caught, t));
     } finally {
       setBusy(false);
     }
@@ -222,6 +258,17 @@ export function AddAccountScreen({
             onPress={() => chooseMode('import-secret')}
           />
           <ChoiceButton
+            glyph="↳"
+            title={t('accounts.add.deriveHd.title')}
+            subtitle={
+              hdSourceCandidates.length > 0
+                ? t('accounts.add.deriveHd.subtitle')
+                : t('accounts.add.deriveHd.unavailableSubtitle')
+            }
+            disabled={hdSourceCandidates.length === 0}
+            onPress={() => chooseMode('derive-hd')}
+          />
+          <ChoiceButton
             glyph="◎"
             title={t('accounts.add.watchOnly.title')}
             subtitle={t('accounts.add.watchOnly.subtitle')}
@@ -273,18 +320,24 @@ export function AddAccountScreen({
   const protectionReady = requiresCurrentPassphrase ? appPassphrase.length > 0 : newPassphraseReady;
   const isMnemonicImport = mode === 'import-mnemonic';
   const isSecretImport = mode === 'import-secret';
+  const isHdDerive = mode === 'derive-hd';
+  const hdPath = isHdDerive ? readHdPath(hdIndex) : undefined;
   const flowTitle = isMnemonicImport
     ? t('accounts.add.importMnemonic.title')
     : isSecretImport
       ? t('accounts.add.importSecret.title')
-      : t('accounts.add.create.title');
+      : isHdDerive
+        ? t('accounts.add.deriveHd.title')
+        : t('accounts.add.create.title');
   const flowIntro = isMnemonicImport
     ? t('accounts.add.importMnemonic.intro')
     : isSecretImport
       ? t('accounts.add.importSecret.intro')
-      : requiresCurrentPassphrase
-        ? t('accounts.add.create.existingPassphraseIntro')
-        : t('accounts.add.create.newPassphraseIntro');
+      : isHdDerive
+        ? t('accounts.add.deriveHd.intro')
+        : requiresCurrentPassphrase
+          ? t('accounts.add.create.existingPassphraseIntro')
+          : t('accounts.add.create.newPassphraseIntro');
 
   return (
     <FlowShell title={flowTitle} onBack={backToChoices} backDisabled={busy}>
@@ -308,6 +361,38 @@ export function AddAccountScreen({
             autoCapitalize="characters"
             autoCorrect={false}
           />
+        ) : null}
+        {isHdDerive ? (
+          <>
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>{t('accounts.add.deriveHd.source')}</Text>
+              <View style={styles.sourceList}>
+                {hdSourceCandidates.map(candidate => (
+                  <HdSourceButton
+                    key={candidate.signerId}
+                    candidate={candidate}
+                    selected={candidate.signerId === hdSourceSignerId}
+                    disabled={busy}
+                    onPress={() => setHdSourceSignerId(candidate.signerId)}
+                  />
+                ))}
+              </View>
+            </View>
+            <Field
+              label={t('accounts.add.deriveHd.index')}
+              value={hdIndex}
+              onChangeText={setHdIndex}
+              placeholder="1"
+              editable={!busy}
+              keyboardType="number-pad"
+            />
+            <View style={styles.pathBox}>
+              <Text style={styles.pathLabel}>{t('accounts.add.deriveHd.path')}</Text>
+              <Text accessibilityLabel={t('accounts.add.deriveHd.path')} selectable style={styles.pathValue}>
+                {hdPath ?? t('accounts.add.deriveHd.invalidPath')}
+              </Text>
+            </View>
+          </>
         ) : null}
         {isMnemonicImport ? (
           <>
@@ -395,17 +480,20 @@ export function AddAccountScreen({
             busy ||
             !protectionReady ||
             (isSecretImport && secret.trim().length === 0) ||
-            (isMnemonicImport && mnemonic.trim().length === 0)
+            (isMnemonicImport && mnemonic.trim().length === 0) ||
+            (isHdDerive && (hdSourceSignerId.length === 0 || hdPath === undefined))
           }
           label={
             isMnemonicImport
               ? t('accounts.add.importMnemonic.action')
               : isSecretImport
                 ? t('accounts.add.importSecret.action')
-                : t('accounts.add.create.action')
+                : isHdDerive
+                  ? t('accounts.add.deriveHd.action')
+                  : t('accounts.add.create.action')
           }
           busy={busy}
-          onPress={isMnemonicImport || isSecretImport ? submitImport : submitCreate}
+          onPress={isMnemonicImport || isSecretImport ? submitImport : isHdDerive ? submitHdDerive : submitCreate}
         />
       </View>
     </FlowShell>
@@ -479,11 +567,13 @@ function ChoiceButton({
   glyph,
   title,
   subtitle,
+  disabled = false,
   onPress,
 }: Readonly<{
   glyph: string;
   title: string;
   subtitle: string;
+  disabled?: boolean;
   onPress: () => void;
 }>) {
   const styles = useThemedStyles(createStyles);
@@ -491,8 +581,14 @@ function ChoiceButton({
     <Pressable
       accessibilityLabel={title}
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [styles.choiceButton, pressed ? styles.pressed : undefined]}
+      style={({ pressed }) => [
+        styles.choiceButton,
+        disabled ? styles.disabled : undefined,
+        pressed ? styles.pressed : undefined,
+      ]}
     >
       <View style={styles.choiceGlyphBox}>
         <Text style={styles.choiceGlyph}>{glyph}</Text>
@@ -502,6 +598,42 @@ function ChoiceButton({
         <Text style={styles.choiceSubtitle}>{subtitle}</Text>
       </View>
       <Text style={styles.chevron}>›</Text>
+    </Pressable>
+  );
+}
+
+function HdSourceButton({
+  candidate,
+  selected,
+  disabled,
+  onPress,
+}: Readonly<{
+  candidate: ReturnType<typeof listExistingWalletHdSourceCandidates>[number];
+  selected: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}>) {
+  const styles = useThemedStyles(createStyles);
+  return (
+    <Pressable
+      accessibilityLabel={candidate.signerPublicKey}
+      accessibilityRole="radio"
+      accessibilityState={{ selected, disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.sourceButton,
+        selected ? styles.sourceButtonSelected : undefined,
+        pressed ? styles.pressed : undefined,
+      ]}
+    >
+      <View style={styles.sourceRadio}>{selected ? <View style={styles.sourceRadioDot} /> : null}</View>
+      <View style={styles.flex}>
+        <Text style={styles.sourceLabel}>{candidate.accountLabel}</Text>
+        <Text selectable style={styles.sourceKey}>
+          {candidate.signerPublicKey}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -582,6 +714,23 @@ function readableError(error: unknown, fallbackMessage: string): string {
   return projectFeatureError(error, { fallbackMessage }).message;
 }
 
+function readableHdError(error: unknown, t: ReturnType<typeof useLocalization>['t']): string {
+  return projectFeatureError(error, {
+    fallbackMessage: t('accounts.add.deriveHd.error'),
+    messages: {
+      'invalid-passcode': t('accounts.add.deriveHd.invalidPassphrase'),
+      'invalid-passphrase': t('accounts.add.deriveHd.invalidPassphrase'),
+      'protected-signer-envelope-missing': t('accounts.add.deriveHd.sourceUnavailable'),
+      'hd-source-not-eligible': t('accounts.add.deriveHd.sourceUnavailable'),
+      'account-already-exists': t('accounts.add.deriveHd.accountExists'),
+      'account-not-selectable': t('accounts.add.deriveHd.accountHidden'),
+      'invalid-derivation-index': t('accounts.add.deriveHd.invalidIndex'),
+      'invalid-input': t('accounts.add.deriveHd.sourceUnavailable'),
+      'default-account-persistence-failed': t('accounts.add.defaultError'),
+    },
+  }).message;
+}
+
 function readableImportError(error: unknown, t: ReturnType<typeof useLocalization>['t']): string {
   return projectFeatureError(error, {
     fallbackMessage: t('accounts.add.import.error'),
@@ -610,6 +759,20 @@ function parseDerivationIndex(value: string): number {
     throw new Error('invalid-derivation-index');
   }
   return index;
+}
+
+function parseHdDerivationIndex(value: string): number {
+  const index = parseDerivationIndex(value);
+  stellarHdPath(index);
+  return index;
+}
+
+function readHdPath(value: string): string | undefined {
+  try {
+    return stellarHdPath(parseDerivationIndex(value));
+  } catch {
+    return undefined;
+  }
 }
 
 function createStyles(theme: AppTheme) {
@@ -656,6 +819,33 @@ function createStyles(theme: AppTheme) {
     description: { color: theme.colors.textSecondary, fontSize: 13, lineHeight: 20 },
     field: { gap: 7 },
     fieldLabel: { color: theme.colors.textPrimary, fontSize: 12, lineHeight: 16, fontWeight: '700' },
+    sourceList: { gap: 8 },
+    sourceButton: {
+      minHeight: 62,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      paddingHorizontal: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    sourceButtonSelected: { borderColor: theme.colors.actionPrimary },
+    sourceRadio: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      borderWidth: 1,
+      borderColor: theme.colors.textTertiary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sourceRadioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: theme.colors.actionPrimary },
+    sourceLabel: { color: theme.colors.textPrimary, fontSize: 13, lineHeight: 18, fontWeight: '700' },
+    sourceKey: { color: theme.colors.textSecondary, fontSize: 10, lineHeight: 15 },
+    pathBox: { borderRadius: 10, backgroundColor: theme.colors.surfaceMuted, padding: 12, gap: 4 },
+    pathLabel: { color: theme.colors.textSecondary, fontSize: 11, lineHeight: 15, fontWeight: '700' },
+    pathValue: { color: theme.colors.textPrimary, fontSize: 14, lineHeight: 19, fontWeight: '700' },
     input: {
       minHeight: 50,
       borderRadius: 10,
