@@ -1,14 +1,14 @@
-import { assertNewProtectionPassphrase } from '../../capabilities/application-security/newPassphrasePolicy';
-import {
-  requiresExistingAppPassphrase,
-  verifyExistingAppPassphrase,
-} from '../../capabilities/application-security/verifyExistingAppPassphrase';
 import {
   runGeneratedMnemonicOnboarding,
   type GeneratedMnemonicBackup,
   type OnboardingProvisioningDependencies,
 } from '../onboarding/runOnboardingProvisioning';
 import type { ProvisionedAccount } from '../../capabilities/account/provisionAccount';
+import {
+  authorizeExistingWalletProtection,
+  registerPersistedSignerSystemAuth,
+  type ExistingWalletSystemAuthRegistration,
+} from './existingWalletProtection';
 
 export type ExistingWalletCreateInput = Readonly<{
   appPassphrase: string;
@@ -19,23 +19,14 @@ export type ExistingWalletCreateInput = Readonly<{
 export type ExistingWalletCreateResult = Readonly<{
   account: ProvisionedAccount;
   backup: GeneratedMnemonicBackup;
-  systemAuthRegistration: 'not-configured' | 'registered' | 'repair-required';
+  systemAuthRegistration: ExistingWalletSystemAuthRegistration;
 }>;
 
 export async function createExistingWalletAccount(
   dependencies: OnboardingProvisioningDependencies,
   input: ExistingWalletCreateInput,
 ): Promise<ExistingWalletCreateResult> {
-  const requiresExisting = requiresExistingAppPassphrase(dependencies.repository);
-
-  if (requiresExisting) {
-    await verifyExistingAppPassphrase(dependencies, input.appPassphrase);
-  } else {
-    assertNewProtectionPassphrase(input.appPassphrase);
-    if (input.appPassphrase !== input.confirmAppPassphrase) {
-      throw new Error('app-passphrase-confirmation-mismatch');
-    }
-  }
+  await authorizeExistingWalletProtection(dependencies, input.appPassphrase, input.confirmAppPassphrase);
 
   const generated = await runGeneratedMnemonicOnboarding(dependencies, {
     language: 'english',
@@ -46,20 +37,11 @@ export async function createExistingWalletAccount(
     label: input.label,
   });
 
-  let systemAuthRegistration: ExistingWalletCreateResult['systemAuthRegistration'] = 'not-configured';
-
-  try {
-    if (await dependencies.sdk.hasSystemAuthDomain()) {
-      const registered = await dependencies.sdk.registerSignerSystemAuth({
-        envelopeJson: generated.account.signer.envelopeJson!,
-        appPassphrase: input.appPassphrase,
-        expectedSignerPublicKey: generated.account.signer.publicKey,
-      });
-      systemAuthRegistration = registered ? 'registered' : 'repair-required';
-    }
-  } catch {
-    systemAuthRegistration = 'repair-required';
-  }
+  const systemAuthRegistration = await registerPersistedSignerSystemAuth(
+    dependencies,
+    generated.account.signer,
+    input.appPassphrase,
+  );
 
   return {
     account: generated.account,

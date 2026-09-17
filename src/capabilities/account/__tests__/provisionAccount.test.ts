@@ -97,7 +97,7 @@ describe('account provisioning', () => {
     expect(result.account.address).toBe('GSECRET');
     expect(result.signer.envelopeJson).toBe('{secret-envelope}');
     expect(result.signer.recoveryKind).toBe('secret');
-    expect(result.signer.backupState).toBeUndefined();
+    expect(result.signer.backupState).toBe('not-required');
     expect(repository.isWatchOnly(result.account.id)).toBe(false);
     expect(JSON.stringify(result)).not.toContain('SPLAINTEXT');
   });
@@ -123,9 +123,87 @@ describe('account provisioning', () => {
     });
     expect(result.account.address).toBe('GMNEMONIC');
     expect(result.signer.recoveryKind).toBe('mnemonic');
-    expect(result.signer.backupState).toBeUndefined();
+    expect(result.signer.backupState).toBe('not-required');
     expect(repository.isWatchOnly(result.account.id)).toBe(false);
     expect(JSON.stringify(result)).not.toContain('one two three');
+  });
+
+  it('upgrades a visible same-network watch-only account in place during secret import', async () => {
+    const { dependencies, repository } = createDependencies();
+    const existing = await registerWatchOnlyAccount(dependencies, {
+      address: 'GSECRET',
+      networkId: 'stellar-testnet',
+      label: 'Existing watch',
+    });
+
+    const result = await importSecretAccount(dependencies, {
+      secret: 'SPLAINTEXT',
+      appPassphrase: 'a strong app passphrase',
+      networkId: 'stellar-testnet',
+      label: 'Ignored import label',
+    });
+
+    expect(result.account).toEqual(existing);
+    expect(repository.listAccounts()).toEqual([existing]);
+    expect(repository.listSignersForAccount(existing.id)).toEqual([result.signer]);
+    expect(repository.isWatchOnly(existing.id)).toBe(false);
+  });
+
+  it('rejects same-network import when that account already has signing authority', async () => {
+    const { dependencies, repository } = createDependencies();
+    await importSecretAccount(dependencies, {
+      secret: 'SPLAINTEXT',
+      appPassphrase: 'a strong app passphrase',
+      networkId: 'stellar-testnet',
+    });
+
+    await expect(
+      importSecretAccount(dependencies, {
+        secret: 'SPLAINTEXT',
+        appPassphrase: 'a strong app passphrase',
+        networkId: 'stellar-testnet',
+      }),
+    ).rejects.toThrow('account-already-exists');
+
+    expect(repository.listAccounts()).toHaveLength(1);
+    expect(repository.listSigners()).toHaveLength(1);
+  });
+
+  it('does not implicitly restore a hidden watch-only account during import', async () => {
+    const { dependencies, repository } = createDependencies();
+    const existing = await registerWatchOnlyAccount(dependencies, {
+      address: 'GSECRET',
+      networkId: 'stellar-testnet',
+    });
+    repository.setAccountHidden(existing.id, true, now);
+
+    await expect(
+      importSecretAccount(dependencies, {
+        secret: 'SPLAINTEXT',
+        appPassphrase: 'a strong app passphrase',
+        networkId: 'stellar-testnet',
+      }),
+    ).rejects.toThrow('account-not-selectable');
+
+    expect(repository.isWatchOnly(existing.id)).toBe(true);
+    expect(repository.listSigners()).toEqual([]);
+  });
+
+  it('allows the same imported public key to create an account on another network', async () => {
+    const { dependencies, repository } = createDependencies();
+    await registerWatchOnlyAccount(dependencies, {
+      address: 'GSECRET',
+      networkId: 'stellar-mainnet',
+    });
+
+    const result = await importSecretAccount(dependencies, {
+      secret: 'SPLAINTEXT',
+      appPassphrase: 'a strong app passphrase',
+      networkId: 'stellar-testnet',
+    });
+
+    expect(result.account.networkId).toBe('stellar-testnet');
+    expect(repository.listAccounts()).toHaveLength(2);
   });
 
   it('returns generated mnemonic only as one-time result and marks backup pending', async () => {

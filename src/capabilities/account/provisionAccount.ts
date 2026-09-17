@@ -90,6 +90,8 @@ export async function importSecretAccount(
     networkId: input.networkId,
     label: input.label,
     recoveryKind: 'secret',
+    backupState: 'not-required',
+    duplicatePolicy: 'upgrade-watch-only',
   });
 }
 
@@ -109,6 +111,8 @@ export async function importMnemonicAccount(
     networkId: input.networkId,
     label: input.label,
     recoveryKind: 'mnemonic',
+    backupState: 'not-required',
+    duplicatePolicy: 'upgrade-watch-only',
   });
 }
 
@@ -144,6 +148,7 @@ type PersistProtectedSignerOptions = {
   label?: string;
   recoveryKind: RecoveryKind;
   backupState?: BackupState;
+  duplicatePolicy?: 'reject' | 'upgrade-watch-only';
 };
 
 async function persistProtectedSigner(
@@ -158,8 +163,22 @@ async function persistProtectedSigner(
     throw new Error('unsupported-account-kind');
   }
 
+  const existingAccount =
+    options.duplicatePolicy === 'upgrade-watch-only'
+      ? dependencies.repository
+          .listAccounts()
+          .find(account => account.networkId === networkId && account.address === identity.address)
+      : undefined;
+
+  if (existingAccount && !dependencies.repository.isWatchOnly(existingAccount.id)) {
+    throw new Error('account-already-exists');
+  }
+  if (existingAccount?.hidden) {
+    throw new Error('account-not-selectable');
+  }
+
   const now = dependencies.now();
-  const account: AccountRecord = {
+  const account: AccountRecord = existingAccount ?? {
     id: requireRecordId(dependencies.createId('account'), 'account'),
     address: identity.address,
     identityKind: 'classic',
@@ -181,11 +200,26 @@ async function persistProtectedSigner(
     updatedAt: now,
   };
 
-  dependencies.repository.createAccountWithSigner({
-    account,
-    signer,
-    attachedAt: now,
-  });
+  if (existingAccount) {
+    try {
+      dependencies.repository.upgradeWatchOnlyAccountWithSigner({
+        accountId: existingAccount.id,
+        signer,
+        attachedAt: now,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'account-not-watch-only') {
+        throw new Error('account-already-exists');
+      }
+      throw error;
+    }
+  } else {
+    dependencies.repository.createAccountWithSigner({
+      account,
+      signer,
+      attachedAt: now,
+    });
+  }
 
   return { account, signer };
 }
