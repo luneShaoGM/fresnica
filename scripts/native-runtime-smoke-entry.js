@@ -3,17 +3,22 @@ import './src/app/installRuntimePolyfills';
 import React, { useEffect, useState } from 'react';
 import Realm from 'realm';
 import { AppRegistry, NativeModules, Text, View } from 'react-native';
+import { Keypair } from '@stellar/stellar-sdk/axios';
 import { name as appName } from './app.json';
 import { createAppServices } from './src/app/createAppServices';
 import { selectPersistedAccountAndDefault } from './src/app/navigation/accountSelection';
 import { createExistingWalletAccount } from './src/features/accounts/createExistingWalletAccount';
+import { importExistingWalletAccount } from './src/features/accounts/importExistingWalletAccount';
 import {
   completeMnemonicBackup,
   confirmMnemonicBackup,
   recoverPendingMnemonicBackup,
   resolveOnboardingBootstrap,
 } from './src/features/onboarding/onboardingBootstrap';
-import { runGeneratedMnemonicOnboarding } from './src/features/onboarding/runOnboardingProvisioning';
+import {
+  runGeneratedMnemonicOnboarding,
+  runWatchOnlyOnboarding,
+} from './src/features/onboarding/runOnboardingProvisioning';
 
 const VALID_CLASSIC_ACCOUNT = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
 const OK_MARKER = 'FRESNICA_PARSE_ACCOUNT_SMOKE_OK';
@@ -86,6 +91,15 @@ async function rejectedCode(operation, label) {
     await operation();
   } catch (error) {
     return error?.code ?? 'unknown';
+  }
+  throw new Error(`${label} unexpectedly succeeded`);
+}
+
+async function rejectedReason(operation, label) {
+  try {
+    await operation();
+  } catch (error) {
+    return error?.code ?? error?.message ?? 'unknown';
   }
   throw new Error(`${label} unexpectedly succeeded`);
 }
@@ -260,6 +274,192 @@ async function verifyExistingWalletCreateRuntime() {
   }
 }
 
+async function verifyExistingWalletImportRuntime() {
+  const realmPath = Realm.defaultPath.replace(/[^/]+$/u, `s01-existing-wallet-import-smoke-${Date.now()}.realm`);
+  let services = await createAppServices({ realmPath });
+
+  try {
+    let initial = await runGeneratedMnemonicOnboarding(services.onboarding, {
+      language: 'english',
+      strength: 128,
+      mnemonicPassphrase: '',
+      index: 0,
+      appPassphrase: VERIFICATION_PASSPHRASE,
+      label: 'Existing protected account',
+    });
+    const initialAccountId = initial.account.account.id;
+    confirmMnemonicBackup(services.onboarding, initial.account.signer.id);
+    selectPersistedAccountAndDefault(
+      services.onboarding.repository,
+      initialAccountId,
+      services.onboarding.networkId,
+      services.accountSelectionPreferences,
+    );
+    initial = undefined;
+
+    const secretFixtureSeed = Uint8Array.from({ length: 32 }, (_value, index) => index + 1);
+    const secretFixture = Keypair.fromRawEd25519Seed(secretFixtureSeed);
+    secretFixtureSeed.fill(0);
+    let importedSecret = secretFixture.secret();
+    const secretPublicKey = secretFixture.publicKey();
+    const beforeWrongPassphrase = {
+      accounts: services.onboarding.repository.listAccounts().length,
+      signers: services.onboarding.repository.listSigners().length,
+      defaultAccountId: services.accountSelectionPreferences.getDefaultAccountId(services.onboarding.networkId),
+    };
+    const wrongPassphraseCode = await rejectedCode(
+      () =>
+        importExistingWalletAccount(services.onboarding, {
+          kind: 'secret',
+          secret: importedSecret,
+          appPassphrase: `${VERIFICATION_PASSPHRASE} wrong`,
+        }),
+      'existing-wallet Import wrong passphrase',
+    );
+    const afterWrongPassphrase = {
+      accounts: services.onboarding.repository.listAccounts().length,
+      signers: services.onboarding.repository.listSigners().length,
+      defaultAccountId: services.accountSelectionPreferences.getDefaultAccountId(services.onboarding.networkId),
+    };
+    if (
+      wrongPassphraseCode !== 'invalid-passcode' ||
+      JSON.stringify(afterWrongPassphrase) !== JSON.stringify(beforeWrongPassphrase)
+    ) {
+      throw new Error('Existing-wallet Import wrong-passphrase invariants failed');
+    }
+
+    const watchOnly = await runWatchOnlyOnboarding(services.onboarding, {
+      address: secretPublicKey,
+      label: 'Import upgrade target',
+    });
+    const watchOnlyAccountId = watchOnly.account.id;
+    const importedSecretResult = await importExistingWalletAccount(services.onboarding, {
+      kind: 'secret',
+      secret: importedSecret,
+      appPassphrase: VERIFICATION_PASSPHRASE,
+      label: 'Ignored import label',
+    });
+    importedSecret = undefined;
+
+    if (
+      importedSecretResult.account.account.id !== watchOnlyAccountId ||
+      importedSecretResult.account.account.label !== 'Import upgrade target' ||
+      importedSecretResult.account.signer.backupState !== 'not-required' ||
+      services.onboarding.repository.isWatchOnly(watchOnlyAccountId) ||
+      services.onboarding.repository.listAccounts().length !== 2 ||
+      services.onboarding.repository.listSigners().length !== 2 ||
+      services.accountSelectionPreferences.getDefaultAccountId(services.onboarding.networkId) !== initialAccountId
+    ) {
+      throw new Error('Existing-wallet Import watch-only upgrade invariants failed');
+    }
+
+    selectPersistedAccountAndDefault(
+      services.onboarding.repository,
+      watchOnlyAccountId,
+      services.onboarding.networkId,
+      services.accountSelectionPreferences,
+    );
+
+    const duplicateSnapshot = {
+      accounts: services.onboarding.repository.listAccounts().length,
+      signers: services.onboarding.repository.listSigners().length,
+      defaultAccountId: services.accountSelectionPreferences.getDefaultAccountId(services.onboarding.networkId),
+    };
+    const duplicateFixture = secretFixture.secret();
+    const duplicateReason = await rejectedReason(
+      () =>
+        importExistingWalletAccount(services.onboarding, {
+          kind: 'secret',
+          secret: duplicateFixture,
+          appPassphrase: VERIFICATION_PASSPHRASE,
+        }),
+      'existing-wallet duplicate Import',
+    );
+    const duplicateAfter = {
+      accounts: services.onboarding.repository.listAccounts().length,
+      signers: services.onboarding.repository.listSigners().length,
+      defaultAccountId: services.accountSelectionPreferences.getDefaultAccountId(services.onboarding.networkId),
+    };
+    if (
+      duplicateReason !== 'account-already-exists' ||
+      JSON.stringify(duplicateAfter) !== JSON.stringify(duplicateSnapshot)
+    ) {
+      throw new Error('Existing-wallet Import duplicate rejection invariants failed');
+    }
+
+    let mnemonicFixture = await services.onboarding.sdk.generateMnemonic({
+      language: 'english',
+      strength: 128,
+      mnemonicPassphrase: 'runtime mnemonic extension',
+      index: 4,
+      appPassphrase: VERIFICATION_PASSPHRASE,
+    });
+    const expectedMnemonicPublicKey = mnemonicFixture.signer.signerPublicKey;
+    let importedMnemonic = mnemonicFixture.mnemonic;
+    mnemonicFixture = undefined;
+    const importedMnemonicResult = await importExistingWalletAccount(services.onboarding, {
+      kind: 'mnemonic',
+      mnemonic: importedMnemonic,
+      mnemonicPassphrase: 'runtime mnemonic extension',
+      index: 4,
+      language: 'english',
+      appPassphrase: VERIFICATION_PASSPHRASE,
+    });
+    importedMnemonic = undefined;
+    const mnemonicAccountId = importedMnemonicResult.account.account.id;
+    const mnemonicSignerId = importedMnemonicResult.account.signer.id;
+
+    if (
+      importedMnemonicResult.account.signer.publicKey !== expectedMnemonicPublicKey ||
+      importedMnemonicResult.account.signer.backupState !== 'not-required' ||
+      services.onboarding.repository.listAccounts().length !== 3 ||
+      services.onboarding.repository.listSigners().length !== 3 ||
+      resolveOnboardingBootstrap(services.onboarding).kind !== 'ready'
+    ) {
+      throw new Error('Existing-wallet mnemonic Import invariants failed');
+    }
+
+    selectPersistedAccountAndDefault(
+      services.onboarding.repository,
+      mnemonicAccountId,
+      services.onboarding.networkId,
+      services.accountSelectionPreferences,
+    );
+
+    services.close();
+    services = await createAppServices({ realmPath });
+    const ready = resolveOnboardingBootstrap(services.onboarding);
+    const restoredDefault = services.accountSelectionPreferences.getDefaultAccountId(services.onboarding.networkId);
+    const restoredMnemonicSigner = services.onboarding.repository.getSigner(mnemonicSignerId);
+    const restoredSecretAccount = services.onboarding.repository.getAccount(watchOnlyAccountId);
+    if (
+      ready.kind !== 'ready' ||
+      ready.accounts.length !== 3 ||
+      restoredDefault !== mnemonicAccountId ||
+      restoredMnemonicSigner?.backupState !== 'not-required' ||
+      !restoredSecretAccount ||
+      services.onboarding.repository.isWatchOnly(watchOnlyAccountId)
+    ) {
+      throw new Error('Existing-wallet Import restart/default recovery failed');
+    }
+
+    return {
+      existingWalletImport: 'ok',
+      wrongPassphraseCode,
+      watchOnlyUpgrade: 'ok',
+      duplicateReason,
+      noPendingBackup: true,
+      restartDefaultRestored: true,
+      secretSignerPublicKey: secretPublicKey,
+      mnemonicSignerPublicKey: expectedMnemonicPublicKey,
+      secretSystemAuthRegistration: importedSecretResult.systemAuthRegistration,
+      mnemonicSystemAuthRegistration: importedMnemonicResult.systemAuthRegistration,
+    };
+  } finally {
+    services.close();
+  }
+}
+
 function SmokeApp() {
   const [status, setStatus] = useState('FRESNICA_PARSE_ACCOUNT_SMOKE_RUNNING');
 
@@ -291,6 +491,7 @@ function SmokeApp() {
 
       const passphraseVerification = await verifyRealmRuntime(() => verifyProtectedSignerPassphraseRuntime(core));
       const existingWalletCreate = await verifyExistingWalletCreateRuntime();
+      const existingWalletImport = await verifyExistingWalletImportRuntime();
 
       const identity = await core.parseAccount(VALID_CLASSIC_ACCOUNT);
       if (
@@ -336,6 +537,16 @@ function SmokeApp() {
         existingWalletCreateDefaultRestored: Boolean(existingWalletCreate.restoredDefaultAccountId),
         existingWalletCreateSignerPublicKey: existingWalletCreate.createdSignerPublicKey,
         existingWalletCreateSystemAuthRegistration: existingWalletCreate.systemAuthRegistration,
+        existingWalletImport: existingWalletImport.existingWalletImport,
+        existingWalletImportWrongPassphraseCode: existingWalletImport.wrongPassphraseCode,
+        existingWalletImportWatchOnlyUpgrade: existingWalletImport.watchOnlyUpgrade,
+        existingWalletImportDuplicateReason: existingWalletImport.duplicateReason,
+        existingWalletImportNoPendingBackup: existingWalletImport.noPendingBackup,
+        existingWalletImportDefaultRestored: existingWalletImport.restartDefaultRestored,
+        existingWalletImportSecretSignerPublicKey: existingWalletImport.secretSignerPublicKey,
+        existingWalletImportMnemonicSignerPublicKey: existingWalletImport.mnemonicSignerPublicKey,
+        existingWalletImportSecretSystemAuthRegistration: existingWalletImport.secretSystemAuthRegistration,
+        existingWalletImportMnemonicSystemAuthRegistration: existingWalletImport.mnemonicSystemAuthRegistration,
       };
       await report(OK_MARKER, summary);
       console.log(OK_MARKER, summary);
