@@ -4,7 +4,7 @@
 
 | ID | Product behavior | Target owner | Decision | Provenance path | External/upstream dependency | Current maturity |
 | --- | --- | --- | --- | --- | --- | --- |
-| S01 | Create/import/watch-only/HD account entry | accounts/onboarding + Account/Signer | Adapt | clean-room | Canonical passphrase verification available; Existing-wallet Create implemented, Import/HD and aggregate acceptance pending | L3 partial |
+| S01 | Create/import/watch-only/HD account entry | accounts/onboarding + Account/Signer | Adapt | clean-room | Canonical passphrase verification available; Existing-wallet Create + Import implemented, HD and aggregate acceptance pending | L3 partial |
 | S02 | Account list/select/label/sort/hide/delete | accounts + Account | Adapt | clean-room | persistence lifecycle | L3 / L4 partial |
 | S03 | Reveal mnemonic/secret/change passphrase | accounts/security + Signer/Backup | Adapt | clean-room | Fresnica reveal/reprotect/System Auth | L1/L2 partial |
 | S04 | App lock/auth/security/privacy controls | security + Application Security | Adapt | clean-room / Fresnica security requirement for disable confirmation | generic System Auth challenge still missing | L3 partial/blocker |
@@ -154,6 +154,15 @@ This map assigns construction order without reducing final scope. An ID is compl
 - Existing System Auth is post-persistence only. Status lookup or signer registration failure preserves the durable account and surfaces `repair-required`; Mobile does not create a second security truth.
 - Local code gates on the exact tree are 72/72 suites, 376/376 tests, ESLint 0 errors / 21 warnings, provenance 389/0, locale 165 keys, plus Realm 28/28. The shared native runtime smoke now includes the Create/restart/default chain and installs the same RN runtime polyfills as the established product-flow carrier before constructing AppServices. The first Android attempt exposed that missing carrier initialization before any Create assertion (`Horizon` module load); after the carrier-only fix, exact code commit `0eb20f73bf036b5bcd89bda537308bea136be68d` passed on disposable `Fresnica_S01_Create_Acceptance_20260917` / API 36 / `emulator-5556` with wrong-pass=`invalid-passcode`, pending restart recovery=`ok` and default restart restore=true. Native Apple Gate executes the same carrier on a simulator; Native Android Gate remains adapter/link/release-signing evidence only and is not counted as emulator evidence.
 - This closes only the Create slice. Import, HD additional-account and aggregate S01 acceptance remain pending, therefore maturity stays `L3 partial`.
+
+## Stage 4 S01 Existing-wallet Import slice — 2026-09-17
+
+- Frozen Import behavior target is `2867dce96d22c2cddf597346913f660c799d1e2a`; atomic watch-only repository target is `c49b576a44f3a6ad1a70ad0cf7b6061652bab215`; Import Capability/shared protection orchestration is `260b10717e84be1aa59e0aa388bee303ce4ed1f7`; reachable UI/navigation/localization is `2824313894c8bd97d57db0343459c8c086d7c44e`; exact code/runtime target is `e8405af9a1c500787f45a2c99599934deba35b20`.
+- Mnemonic and Stellar `S...` Import reuse the Create current-passphrase and post-persistence System Auth helpers. All unique protected targets verify before protection/write; imported mnemonic forwards language/passphrase/index; both imported signer kinds persist `backupState=not-required`.
+- Same-network visible watch-only identity is upgraded in place by one repository transaction that creates only Signer + reference and preserves Account metadata. Already-signed duplicate is `account-already-exists`; hidden watch-only is `account-not-selectable` rather than an implicit S02 visibility mutation; cross-network Account identity remains independent.
+- Default/current uses the existing network preference flow: durable Import is visible to the account list first, then default persistence gates current selection. A default write failure keeps the previous current/default authoritative. Sensitive recovery material stays component/Capability-local and is absent from navigation/log/error/default metadata.
+- Exact code-head gates are 74/74 suites, 397/397 tests, ESLint 0 errors / 21 warnings, provenance 394/0 and locale 191 keys. Realm is 31/31 on the same product tree before the deterministic native-smoke-fixture-only amend. Disposable Android API 36 acceptance on exact `e8405af...` returns `FRESNICA_PARSE_ACCOUNT_SMOKE_OK` with wrong-pass zero-write, watch-only upgrade, duplicate rejection, no pending-backup and restart/default restore. The disposable AVD was removed and `Medium_Phone` remained untouched. Final exact-PR-head Apple runtime evidence is supplied by Native Apple Gate; Native Android Gate remains build/link/signing evidence, not emulator evidence.
+- This closes only Import. HD additional-account and aggregate dual-platform S01 acceptance remain pending, so maturity stays `L3 partial`.
 
 ## Current milestone security / release evidence
 

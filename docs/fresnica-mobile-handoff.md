@@ -121,7 +121,7 @@ The current Testnet onboarding flow is real application behavior rather than a m
 - after interruption/restart, use fresh-passphrase SDK `reveal` to recover the pending mnemonic instead of persisting plaintext;
 - route successfully initialized wallets to the wallet landing screen.
 
-Existing-wallet Add Account now supports **Create new wallet** plus the existing watch-only path. The Create slice uses canonical `verifyProtectedSignerPassphrase` to verify every unique existing protected signer target before any generation/write, or establishes the first App Passphrase when no protected signer exists. Account+Signer persistence is atomic with generated-mnemonic backup `pending`; the previous current/default stays unchanged until backup confirmation, and a failed default write restores `pending` so restart can retry. Existing System Auth enrollment is attempted only after durable persistence and failures preserve the account while surfacing repair. Import mnemonic / `S...` and HD additional-account remain separate pending slices, so S01 stays `L3 partial`.
+Existing-wallet Add Account now supports **Create new wallet**, **Import recovery phrase**, **Import Stellar `S...` secret**, and the existing watch-only path. Create remains unchanged: all unique protected targets verify before generation/write, generated mnemonic backup stays `pending`, and default/current changes only after confirmation. Import reuses the same App Passphrase and post-persistence System Auth orchestration, persists imported signers as `backupState=not-required`, upgrades a same-network visible watch-only Account in place without replacing its metadata, rejects already-signed duplicates, and keeps the old current/default authoritative when default persistence fails. Sensitive recovery material remains local to the UI/Capability call path and is not placed in navigation or logs. Exact Import code/runtime target `e8405af9a1c500787f45a2c99599934deba35b20` passes 74/397 full checks and disposable Android API 36 native+Realm acceptance; HD additional-account and aggregate dual-platform S01 acceptance remain pending, so S01 stays `L3 partial`.
 
 ## 6. Application Security / signing state
 
@@ -148,7 +148,7 @@ passphrase-required
   -> require fresh app passphrase
 ```
 
-The framework-safe verification-only current-passphrase gap is now closed by canonical React Native adapter revision `c5eae08...`, which exposes Native SDK 0.3.1 `verifyProtectedSignerPassphrase`. Mobile consumes that primitive without a private bridge, but Existing-wallet Create/Import remains a product-orchestration task and is not complete merely because verification is available.
+The framework-safe verification-only current-passphrase gap is closed by canonical React Native adapter revision `c5eae08...`, which exposes Native SDK 0.3.1 `verifyProtectedSignerPassphrase`. Existing-wallet Create and Import now consume that primitive through shared Mobile orchestration without a private bridge; this does not complete S01 because HD additional-account and aggregate dual-platform acceptance still remain.
 
 One explicit upstream gap still blocks safe app-session lock: generic existing-domain System Auth challenge for app-session authorization (conceptually `authenticateSystemAuth(reason)`).
 
