@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
 import { useLocalization } from '../../locale';
-import { useAppTheme, useThemedStyles, type AppTheme } from '../../ui/theme';
+import { useAppTheme, useThemedStyles } from '../../ui/theme';
 import {
   beginMnemonicBackupVerification,
   evaluateMnemonicBackupVerification,
@@ -11,6 +11,7 @@ import {
   updateMnemonicBackupAnswer,
   type MnemonicBackupVerificationState,
 } from './mnemonicBackupVerificationState';
+import { createStyles } from './styles';
 
 type Props = Readonly<{
   mnemonic: string;
@@ -84,8 +85,10 @@ export function MnemonicBackupVerification({ mnemonic, disabled = false, onVerif
                 position: position + 1,
               })}
               autoCapitalize="none"
+              autoComplete="off"
               autoCorrect={false}
               editable={!blocked}
+              importantForAutofill="no"
               onChangeText={value => changeAnswer(answerIndex, value)}
               placeholder={t('backup.verify.wordPlaceholder')}
               placeholderTextColor={theme.colors.textTertiary}
@@ -182,119 +185,4 @@ function PrimaryAction({
       )}
     </Pressable>
   );
-}
-
-function createStyles(theme: AppTheme) {
-  return StyleSheet.create({
-    container: { gap: 16 },
-    recoveryBox: {
-      marginHorizontal: 20,
-      borderRadius: 12,
-      backgroundColor: theme.colors.surfaceMuted,
-      padding: 12,
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-    },
-    recoveryWord: {
-      width: '47%',
-      minHeight: 38,
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderRadius: 8,
-      backgroundColor: theme.colors.surface,
-      paddingHorizontal: 9,
-    },
-    recoveryNumber: {
-      width: 22,
-      color: theme.colors.textTertiary,
-      fontSize: 11,
-      lineHeight: 15,
-    },
-    recoveryText: {
-      flex: 1,
-      color: theme.colors.textPrimary,
-      fontSize: 14,
-      lineHeight: 19,
-      fontWeight: '700',
-    },
-    actionBlock: { marginHorizontal: 20, gap: 12 },
-    guidance: {
-      color: theme.colors.textSecondary,
-      fontSize: 12,
-      lineHeight: 18,
-      textAlign: 'center',
-    },
-    challengeHeader: { marginHorizontal: 20, gap: 7 },
-    challengeTitle: {
-      color: theme.colors.textPrimary,
-      fontSize: 18,
-      lineHeight: 23,
-      fontWeight: '800',
-      textAlign: 'center',
-    },
-    challengeBody: {
-      color: theme.colors.textSecondary,
-      fontSize: 12,
-      lineHeight: 18,
-      textAlign: 'center',
-    },
-    challengeFields: { marginHorizontal: 20, gap: 12 },
-    field: { gap: 6 },
-    fieldLabel: {
-      color: theme.colors.textPrimary,
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: '700',
-    },
-    input: {
-      minHeight: 48,
-      borderRadius: 9,
-      backgroundColor: theme.colors.surfaceMuted,
-      color: theme.colors.textPrimary,
-      paddingHorizontal: 13,
-      fontSize: 15,
-    },
-    mismatch: {
-      marginHorizontal: 20,
-      borderRadius: 9,
-      padding: 11,
-      backgroundColor: theme.colors.negativeMuted,
-      color: theme.colors.negativeStrong,
-      fontSize: 12,
-      lineHeight: 18,
-      fontWeight: '600',
-    },
-    actions: { marginHorizontal: 20, gap: 10, paddingBottom: 8 },
-    primaryButton: {
-      minHeight: 50,
-      borderRadius: 9,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.colors.actionPrimary,
-      paddingHorizontal: 18,
-    },
-    primaryText: {
-      color: theme.colors.onActionPrimary,
-      fontSize: 15,
-      lineHeight: 20,
-      fontWeight: '800',
-    },
-    secondaryButton: {
-      minHeight: 46,
-      borderRadius: 9,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-    },
-    secondaryText: {
-      color: theme.colors.textSecondary,
-      fontSize: 14,
-      lineHeight: 18,
-      fontWeight: '700',
-    },
-    disabled: { opacity: 0.45 },
-    pressed: { opacity: 0.68 },
-  });
 }

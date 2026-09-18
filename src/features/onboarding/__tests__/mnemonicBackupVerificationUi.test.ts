@@ -48,7 +48,10 @@ type NodeProps = Readonly<{
   children?: React.ReactNode;
   accessibilityLabel?: string;
   accessibilityLiveRegion?: string;
+  autoComplete?: string;
+  importantForAutofill?: string;
   label?: string;
+  placeholder?: string;
   onPress?: () => void;
   value?: string;
 }>;
@@ -89,12 +92,24 @@ describe('MnemonicBackupVerification UI gate', () => {
     });
     let submit: React.ReactElement<NodeProps> | undefined;
     const labels: string[] = [];
+    const fieldLabels: string[] = [];
+    const placeholders: string[] = [];
+    const autofillSettings: Array<[string | undefined, string | undefined]> = [];
     const inputValues: string[] = [];
 
     visit(root, element => {
       if (element.props.label === 'Verify recovery phrase') submit = element;
+      if (
+        element.type === Text &&
+        typeof element.props.children === 'string' &&
+        element.props.children.startsWith('Word ')
+      ) {
+        fieldLabels.push(element.props.children);
+      }
       if (element.type === TextInput) {
         labels.push(element.props.accessibilityLabel ?? '');
+        placeholders.push(element.props.placeholder ?? '');
+        autofillSettings.push([element.props.autoComplete, element.props.importantForAutofill]);
         inputValues.push(element.props.value ?? '');
       }
     });
@@ -103,10 +118,23 @@ describe('MnemonicBackupVerification UI gate', () => {
 
     expect(onVerified).not.toHaveBeenCalled();
     expect(setState).toHaveBeenCalledWith(expect.objectContaining({ kind: 'challenge', mismatch: true }));
+    expect(fieldLabels).toEqual(['Word 1', 'Word 7', 'Word 12']);
     expect(labels).toEqual(['Recovery phrase word 1', 'Recovery phrase word 7', 'Recovery phrase word 12']);
     expect(labels.join(' ')).not.toContain('alpha');
     expect(labels.join(' ')).not.toContain('golf');
     expect(labels.join(' ')).not.toContain('lima');
+    expect(fieldLabels.join(' ')).not.toContain('alpha');
+    expect(fieldLabels.join(' ')).not.toContain('golf');
+    expect(fieldLabels.join(' ')).not.toContain('lima');
+    expect(placeholders).toEqual(['Enter this word', 'Enter this word', 'Enter this word']);
+    expect(placeholders.join(' ')).not.toContain('alpha');
+    expect(placeholders.join(' ')).not.toContain('golf');
+    expect(placeholders.join(' ')).not.toContain('lima');
+    expect(autofillSettings).toEqual([
+      ['off', 'no'],
+      ['off', 'no'],
+      ['off', 'no'],
+    ]);
     expect(inputValues).toEqual(['alpha', 'wrong', 'lima']);
   });
 
