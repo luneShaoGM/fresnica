@@ -11,6 +11,7 @@ import { useAppTheme, useThemedStyles, type AppTheme } from '@ui/theme';
 
 import { useLocalization } from '../../locale';
 import { projectFeatureError } from '../featureError';
+import { MnemonicBackupVerification } from '../onboarding/MnemonicBackupVerification';
 import { completeMnemonicBackup } from '../onboarding/onboardingBootstrap';
 import {
   runWatchOnlyOnboarding,
@@ -210,7 +211,11 @@ export function AddAccountScreen({
           <Text style={styles.heroTitle}>{t('accounts.add.backup.title')}</Text>
           <Text style={styles.description}>{t('accounts.add.backup.body')}</Text>
         </View>
-        <RecoveryPhrase mnemonic={created.backup.mnemonic} />
+        <MnemonicBackupVerification
+          disabled={busy}
+          mnemonic={created.backup.mnemonic}
+          onVerified={confirmCreatedBackup}
+        />
         {created.systemAuthRegistration === 'repair-required' ? (
           <View style={styles.notice}>
             <Text style={styles.noticeText}>{t('accounts.add.systemAuthRepair')}</Text>
@@ -221,14 +226,6 @@ export function AddAccountScreen({
             {error}
           </Text>
         ) : null}
-        <View style={styles.footer}>
-          <PrimaryButton
-            disabled={busy}
-            label={t('accounts.add.backup.confirm')}
-            busy={busy}
-            onPress={confirmCreatedBackup}
-          />
-        </View>
       </FlowShell>
     );
   }
@@ -691,25 +688,6 @@ function PrimaryButton({
   );
 }
 
-function RecoveryPhrase({ mnemonic }: Readonly<{ mnemonic: string }>) {
-  const styles = useThemedStyles(createStyles);
-  return (
-    <View style={styles.recoveryBox}>
-      {mnemonic
-        .trim()
-        .split(/\s+/u)
-        .map((word, index) => (
-          <View key={`${index}-${word}`} style={styles.recoveryWord}>
-            <Text style={styles.recoveryNumber}>{index + 1}</Text>
-            <Text selectable style={styles.recoveryText}>
-              {word}
-            </Text>
-          </View>
-        ))}
-    </View>
-  );
-}
-
 function readableError(error: unknown, fallbackMessage: string): string {
   return projectFeatureError(error, { fallbackMessage }).message;
 }
@@ -897,26 +875,5 @@ function createStyles(theme: AppTheme) {
       fontWeight: '800',
       textAlign: 'center',
     },
-    recoveryBox: {
-      marginHorizontal: 18,
-      marginTop: 20,
-      borderRadius: 12,
-      backgroundColor: theme.colors.surfaceMuted,
-      padding: 12,
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-    },
-    recoveryWord: {
-      width: '47%',
-      minHeight: 38,
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderRadius: 8,
-      backgroundColor: theme.colors.surface,
-      paddingHorizontal: 9,
-    },
-    recoveryNumber: { width: 22, color: theme.colors.textTertiary, fontSize: 11, lineHeight: 15 },
-    recoveryText: { flex: 1, color: theme.colors.textPrimary, fontSize: 14, lineHeight: 19, fontWeight: '700' },
   });
 }
