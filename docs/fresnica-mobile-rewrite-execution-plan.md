@@ -1025,14 +1025,14 @@ Backend 交付并完成身份/滥用验证后才可支持：
 
 ## 11. 当前下一步
 
-立即执行顺序（2026-09-17）：
+立即执行顺序（2026-09-18）：
 
 1. Stage 0A / Stage 1 / Stage 2 / Stage 2.5 与 clean integration 已完成并进入 `main`；后续 PR 继续执行既有 provenance、架构和共享 transaction recovery 门，不重开第二套底层。
 2. S02 已记录为 **L3 已签收、L4 partial**。其三项 L4 债务单独登记：Accounts/Account Detail 硬编码文案清理、TalkBack/VoiceOver 可靠焦点顺序人工验收、S02 aggregate UI flow 纳入标准门禁；不得为补这些债务反向增加账户产品语义。
-3. S01 Create + Import + HD 已在 `main@a2b17eba...` 完成双端同钱包 aggregate acceptance，升级为 **`L3 / L4 partial`**。S01 不再新增账户产品语义；剩余仅为 aggregate 标准必过门与动态字体/读屏顺序 L4 债务，Reveal/Export、rotation、generic session unlock、hardware wallet 各自按独立范围推进。
+3. S01 Create + Import + HD 已在 `main@a2b17eba...` 完成双端同钱包 aggregate acceptance，并在 PR #54 / `main@52bd547...` 合并 generated-mnemonic verification hardening，关闭“仅确认已看到助记词、未证明备份”的已知产品语义缺口；S01 保持 **`L3 / L4 partial`**。当前剩余为 aggregate 标准必过门与动态字体/读屏顺序 L4 债务；Reveal/Export、rotation、generic session unlock、hardware wallet 各自按独立范围推进。
 4. S05 Testnet Friendbot 单切片与 Home/Balance 双端 aggregate 已在 `main@ab794fa...` 完成，整体升级为 **`L3 / L4 partial`**；旧 `Medium_Phone` resolver 损坏继续只记环境债务，不重复验证 Friendbot。S05 剩余债务仅是标准必过 aggregate gate、iOS focus-return fault 的独立平台深度，以及动态字体/读屏顺序 L4 验收。
-5. 当前下一产品验收单元是 **S07 Send 的 Stage 4 剩余闭环**；保持现有 Payment / Transaction / Ledger Authorization / Signing / Stage 2.5 recovery 权威，不为补产品表面新建第二套写账或恢复路径。
-6. S07 之后依次推进 S30 Trustline、S13 Activity 的 Stage 4 剩余闭环；每一项继续复用 Stage 2.5 transaction recovery，不因功能完整优先而降低 exact-XDR / fail-closed 要求。
+5. **S07 Send aggregate 已在 `main@a921635...` 上完成双端主体路径验收，但成熟度暂不升级。** Android 已覆盖 Text/ID/Hash、App Passphrase fallback、System Auth success/cancel→retry、submitted/rejected/uncertain 与 process restart recovery；iOS fresh current-tree Debug build 覆盖同一矩阵中的全部项目，唯独 Simulator 无法提供可信的 Native System Auth cancel 窗口。下一步只补这一项 iOS native cancellation/retry 证据，优先真实 iPhone；不得为验收缺口修改 Payment/Transaction/Signing 语义或新建恢复路径。
+6. S07 只有在上述 iOS cancel 证据独立闭合并重新判断成熟度后，才进入 S30 Trustline、S13 Activity 的 Stage 4 剩余闭环；每一项继续复用 Stage 2.5 transaction recovery，不因功能完整优先而降低 exact-XDR / fail-closed 要求。
 7. UI 最终视觉稿仍不阻塞上述功能施工；但新触及文案必须进入 locale，Accessibility label、动态字体和读屏顺序按切片记录，避免把可预见的 L4 债务继续扩大。
 8. 缓存 schema/失效、Backend 边界、Mainnet/Developer Mode、最终 Application ID/iOS identity 与 release signing 继续按 Stage 8/8B/9 顺序推进，不提前宣称发布成熟。
 
