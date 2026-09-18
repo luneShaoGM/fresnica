@@ -202,6 +202,7 @@ Foundation implemented and exercised:
 - Add Account watch-only path;
 - typed Classic Ledger Authorization;
 - exact-XDR Payment review and transaction freshness checking;
+- 2026-09-18 S07 aggregate on merged `main@a921635...`: Android+iOS both prove current Text/ID/Hash memo review/canonicalization, App Passphrase fallback, System Auth success, real submitted plus deterministic rejected results, test-induced uncertain-after-real-acceptance, and same-hash restart reconciliation to confirmed. Android additionally proves Native `user-cancel` -> retry. iOS Simulator did not expose a stable cancellable LocalAuthentication window, so iOS native cancel remains an explicit evidence gap and S07 stays `L3 partial`; no Payment/Transaction/Signing semantics changed for acceptance.
 - shared Signing Coordination;
 - System Auth enable/repair/disable and signer registration;
 - Stellar/Horizon gateway mechanisms;
