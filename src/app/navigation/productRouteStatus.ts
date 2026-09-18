@@ -30,7 +30,7 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'send-form': {
     readiness: 'implemented',
-    note: 'Send validates destination, exact decimal amount, selected balance asset and text memo before building an unsigned payment.',
+    note: 'Send validates destination, exact decimal amount, selected balance asset and none/text/ID/hash memo before building an unsigned payment.',
   },
   'send-review': {
     readiness: 'implemented',

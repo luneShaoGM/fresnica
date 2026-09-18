@@ -11,6 +11,8 @@ import {
 import {Screen} from '@ui/components';
 
 import type {BalanceAsset, BalanceLine} from '../../capabilities/balance/types';
+import type {StellarPaymentMemo} from '../../capabilities/stellar/types';
+import {useLocalization} from '../../locale';
 import {useAppTheme, useThemedStyles, type AppTheme} from '../../ui/theme';
 import {sendAssetKey} from './sendProductFlow';
 
@@ -20,13 +22,15 @@ type Props = Readonly<{
   selectedAsset: BalanceAsset;
   destination: string;
   amount: string;
-  memo: string;
+  memoType: 'none' | StellarPaymentMemo['type'];
+  memoValue: string;
   building: boolean;
   error?: string;
   onSelectAsset: (asset: BalanceAsset) => void;
   onChangeDestination: (value: string) => void;
   onChangeAmount: (value: string) => void;
-  onChangeMemo: (value: string) => void;
+  onSelectMemoType: (type: 'none' | StellarPaymentMemo['type']) => void;
+  onChangeMemoValue: (value: string) => void;
   onContinue: () => void;
   onCancel: () => void;
 }>;
@@ -37,17 +41,20 @@ export function SendFormScreen({
   selectedAsset,
   destination,
   amount,
-  memo,
+  memoType,
+  memoValue,
   building,
   error,
   onSelectAsset,
   onChangeDestination,
   onChangeAmount,
-  onChangeMemo,
+  onSelectMemoType,
+  onChangeMemoValue,
   onContinue,
   onCancel,
 }: Props) {
   const theme = useAppTheme();
+  const {t} = useLocalization();
   const styles = useThemedStyles(createStyles);
   const selectedBalance = balances.find(
     line => sendAssetKey(line.asset) === sendAssetKey(selectedAsset),
@@ -138,18 +145,54 @@ export function SendFormScreen({
         <Text style={styles.fieldHint}>Up to 7 decimal places.</Text>
 
         <Text style={styles.sectionLabel}>MEMO</Text>
-        <View style={styles.fieldBox}>
-          <TextInput
-            autoCorrect={false}
-            editable={!building}
-            onChangeText={onChangeMemo}
-            placeholder="Optional text memo"
-            placeholderTextColor={theme.colors.textTertiary}
-            style={styles.fieldInput}
-            value={memo}
-          />
+        <View style={styles.memoTypeRow}>
+          {(['none', 'text', 'id', 'hash'] as const).map(type => {
+            const selected = memoType === type;
+            return (
+              <Pressable
+                accessibilityLabel={t(`send.memo.type.${type}`)}
+                accessibilityRole="button"
+                accessibilityState={{selected}}
+                disabled={building}
+                key={type}
+                onPress={() => {
+                  if (!selected) {
+                    onSelectMemoType(type);
+                  }
+                }}
+                style={({pressed}) => [
+                  styles.memoTypeButton,
+                  selected ? styles.memoTypeButtonSelected : undefined,
+                  pressed ? styles.pressed : undefined,
+                ]}>
+                <Text style={[styles.memoTypeText, selected ? styles.memoTypeTextSelected : undefined]}>
+                  {t(`send.memo.type.${type}`)}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
-        <Text style={styles.fieldHint}>Maximum 28 UTF-8 bytes. Text is preserved exactly.</Text>
+        {memoType === 'none' ? (
+          <Text style={styles.fieldHint}>{t('send.memo.hint.none')}</Text>
+        ) : (
+          <>
+            <View style={styles.fieldBox}>
+              <TextInput
+                accessibilityLabel={t(`send.memo.input.${memoType}`)}
+                autoCapitalize={memoType === 'hash' ? 'characters' : 'none'}
+                autoCorrect={false}
+                editable={!building}
+                keyboardType={memoType === 'id' ? 'number-pad' : 'default'}
+                onChangeText={onChangeMemoValue}
+                placeholder={t(`send.memo.placeholder.${memoType}`)}
+                placeholderTextColor={theme.colors.textTertiary}
+                style={styles.fieldInput}
+                value={memoValue}
+              />
+            </View>
+            <Text style={styles.fieldHint}>{t(`send.memo.hint.${memoType}`)}</Text>
+          </>
+        )}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </ScrollView>
@@ -249,6 +292,24 @@ function createStyles(theme: AppTheme) {
     fieldAction: {width: 45, height: 52, alignItems: 'center', justifyContent: 'center'},
     fieldActionGlyph: {fontSize: 18, color: theme.colors.textSecondary},
     fieldHint: {paddingHorizontal: 22, paddingTop: 5, fontSize: 9, lineHeight: 13, color: theme.colors.textTertiary},
+    memoTypeRow: {flexDirection: 'row', gap: 8, paddingHorizontal: 18, paddingBottom: 8},
+    memoTypeButton: {
+      minHeight: 36,
+      minWidth: 64,
+      paddingHorizontal: 12,
+      borderRadius: 9,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.surface,
+    },
+    memoTypeButtonSelected: {
+      borderColor: theme.colors.actionPrimary,
+      backgroundColor: theme.colors.actionPrimarySubtle,
+    },
+    memoTypeText: {fontSize: 11, color: theme.colors.textSecondary, fontWeight: '700'},
+    memoTypeTextSelected: {color: theme.colors.actionPrimary},
     amountBox: {
       minHeight: 70,
       marginHorizontal: 18,

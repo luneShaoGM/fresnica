@@ -73,6 +73,17 @@ describe('projectFeatureError', () => {
     });
   });
 
+  it('projects System Auth failure as a retryable stable product error', () => {
+    expect(
+      projectFeatureError({code: 'system-auth-failed'}, {fallbackMessage: 'Unable to authenticate.'}),
+    ).toMatchObject({
+      message: 'System authentication failed. Try again.',
+      retryable: true,
+      cancelled: false,
+      code: 'system-auth-failed',
+    });
+  });
+
   it('marks explicit authentication cancellation separately from failure', () => {
     expect(
       projectFeatureError({code: 'user-cancel'}, {fallbackMessage: 'Unable to authenticate.'}),

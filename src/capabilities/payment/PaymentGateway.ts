@@ -4,6 +4,7 @@ import type {
   StellarAccountStateResult,
   StellarLedgerParameters,
   StellarPaymentAsset,
+  StellarPaymentMemo,
 } from '../stellar/types';
 import type { TransactionGatewayPort } from '../transaction/TransactionGateway';
 
@@ -15,7 +16,7 @@ export type PaymentTransactionProjection = Readonly<{
   destination: string;
   amount: string;
   asset: StellarPaymentAsset;
-  memo?: string;
+  memo?: StellarPaymentMemo;
 }>;
 
 export interface PaymentGatewayPort extends TransactionGatewayPort {

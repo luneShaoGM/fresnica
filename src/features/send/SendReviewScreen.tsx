@@ -11,6 +11,7 @@ import {
 import {Screen} from '@ui/components';
 
 import type {PaymentReview} from '../../capabilities/payment/buildPaymentReview';
+import {useLocalization} from '../../locale';
 import {useAppTheme, useThemedStyles, type AppTheme} from '../../ui/theme';
 import {SlideToConfirm} from '../../ui/SlideToConfirm';
 
@@ -36,7 +37,12 @@ export function SendReviewScreen({
   onBack,
 }: Props) {
   const theme = useAppTheme();
+  const {t} = useLocalization();
   const styles = useThemedStyles(createStyles);
+  const memoLabel =
+    review.memo === undefined
+      ? t('send.memo.type.none')
+      : `${t(`send.memo.type.${review.memo.type}`)} · ${review.memo.value}`;
   const assetLabel =
     review.asset.kind === 'native'
       ? 'XLM'
@@ -75,7 +81,7 @@ export function SendReviewScreen({
           />
           <ReviewRow label="From" value={review.source} mono />
           <ReviewRow label="To" value={review.destination} mono />
-          <ReviewRow label="Memo" value={review.memo ?? 'None'} />
+          <ReviewRow label="Memo" value={memoLabel} mono={review.memo?.type === 'hash'} />
           <ReviewRow label="Fee" value={`${review.fee} stroops`} />
           {review.expiresAtUnixSeconds === undefined ? null : (
             <ReviewRow
@@ -92,30 +98,41 @@ export function SendReviewScreen({
           </Text>
         </View>
 
-        {passphraseRequired ? (
-          <View style={styles.passphraseBlock}>
-            <Text style={styles.passphraseLabel}>APP PASSPHRASE</Text>
-            <TextInput
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!submitting}
-              onChangeText={onChangePassphrase}
-              placeholder="Enter current app passphrase"
-              placeholderTextColor={theme.colors.textTertiary}
-              secureTextEntry
-              style={styles.passphraseInput}
-              value={appPassphrase}
-            />
-          </View>
-        ) : null}
-
-        {error ? <Text style={styles.error}>{error}</Text> : null}
       </ScrollView>
+
+      {error ? (
+        <Text accessibilityLiveRegion="assertive" style={styles.error}>
+          {error}
+        </Text>
+      ) : null}
+
+      {passphraseRequired ? (
+        <View style={styles.passphraseBlock}>
+          <Text accessibilityLiveRegion="assertive" style={styles.passphrasePrompt}>
+            App Passphrase required. Enter it below, then slide again to authorize and send.
+          </Text>
+          <Text style={styles.passphraseLabel}>APP PASSPHRASE</Text>
+          <TextInput
+            accessibilityHint="Enter the current App Passphrase to authorize this transaction."
+            accessibilityLabel="App Passphrase"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoFocus
+            editable={!submitting}
+            onChangeText={onChangePassphrase}
+            placeholder="Enter current app passphrase"
+            placeholderTextColor={theme.colors.textTertiary}
+            secureTextEntry
+            style={styles.passphraseInput}
+            value={appPassphrase}
+          />
+        </View>
+      ) : null}
 
       <View style={styles.bottomBar}>
         <SlideToConfirm
           disabled={submitting || (passphraseRequired && appPassphrase.length === 0)}
-          label="Slide to send"
+          label={passphraseRequired ? 'Slide to authorize and send' : 'Slide to send'}
           loading={submitting}
           onComplete={onConfirm}
         />
@@ -208,7 +225,13 @@ function createStyles(theme: AppTheme) {
     },
     authorizationTitle: {fontSize: 12, lineHeight: 16, color: theme.colors.secondary, fontWeight: '800'},
     authorizationText: {fontSize: 10, lineHeight: 15, color: theme.colors.textSecondary},
-    passphraseBlock: {marginHorizontal: 18, marginTop: 18, gap: 7},
+    passphraseBlock: {
+      marginHorizontal: 18,
+      paddingTop: 12,
+      paddingBottom: 2,
+      gap: 7,
+    },
+    passphrasePrompt: {fontSize: 11, lineHeight: 16, color: theme.colors.textSecondary},
     passphraseLabel: {fontSize: 10, lineHeight: 13, color: theme.colors.textTertiary, fontWeight: '800'},
     passphraseInput: {
       minHeight: 52,

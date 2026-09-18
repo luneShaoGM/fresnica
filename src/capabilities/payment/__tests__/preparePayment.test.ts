@@ -6,6 +6,7 @@ import {
   preparePayment,
   validateClassicDestination,
   validatePaymentAsset,
+  validatePaymentMemo,
   validatePaymentTextMemo,
 } from '../preparePayment';
 
@@ -387,11 +388,56 @@ describe('preparePayment', () => {
       destination: destinationAddress,
       amount: '1',
       asset: { kind: 'native' },
-      memo: ' memo ',
+      memo: { type: 'text', value: ' memo ' },
     });
 
-    expect(stellar.buildPayment).toHaveBeenCalledWith(expect.objectContaining({ memo: ' memo ' }));
-    expect(review.memo).toBe(' memo ');
+    expect(stellar.buildPayment).toHaveBeenCalledWith(expect.objectContaining({ memo: { type: 'text', value: ' memo ' } }));
+    expect(review.memo).toEqual({ type: 'text', value: ' memo ' });
+  });
+
+
+  it('canonicalizes ID memo input and enforces unsigned uint64 bounds', () => {
+    expect(validatePaymentMemo({ type: 'id', value: ' 0007 ' })).toEqual({ type: 'id', value: '7' });
+    expect(validatePaymentMemo({ type: 'id', value: '18446744073709551615' })).toEqual({
+      type: 'id',
+      value: '18446744073709551615',
+    });
+    expect(() => validatePaymentMemo({ type: 'id', value: '' })).toThrow('payment-memo-id-invalid');
+    expect(() => validatePaymentMemo({ type: 'id', value: '7.1' })).toThrow('payment-memo-id-invalid');
+    expect(() => validatePaymentMemo({ type: 'id', value: '18446744073709551616' })).toThrow(
+      'payment-memo-id-invalid',
+    );
+  });
+
+  it('canonicalizes a 32-byte hash memo and rejects malformed hash input', () => {
+    const uppercase = 'AB'.repeat(32);
+    expect(validatePaymentMemo({ type: 'hash', value: ` ${uppercase} ` })).toEqual({
+      type: 'hash',
+      value: 'ab'.repeat(32),
+    });
+    expect(() => validatePaymentMemo({ type: 'hash', value: 'ab'.repeat(31) })).toThrow(
+      'payment-memo-hash-invalid',
+    );
+    expect(() => validatePaymentMemo({ type: 'hash', value: 'zz'.repeat(32) })).toThrow(
+      'payment-memo-hash-invalid',
+    );
+  });
+
+  it.each([
+    { type: 'text' as const, value: 'required' },
+    { type: 'id' as const, value: '0007' },
+    { type: 'hash' as const, value: 'AB'.repeat(32) },
+  ])('accepts $type memo for a SEP-29 memo-required destination', async memo => {
+    const stellar = gateway({ destination: activeAccount(destinationAddress, { memoRequired: true }) });
+
+    await expect(
+      preparePayment(dependencies(stellar), account(), {
+        destination: destinationAddress,
+        amount: '1',
+        asset: { kind: 'native' },
+        memo,
+      }),
+    ).resolves.toMatchObject({ operation: 'payment', memo: expect.objectContaining({ type: memo.type }) });
   });
 
   it('rejects a platform projection that drops the preflighted memo', async () => {
@@ -410,7 +456,7 @@ describe('preparePayment', () => {
         destination: destinationAddress,
         amount: '1',
         asset: { kind: 'native' },
-        memo: 'required semantics',
+        memo: { type: 'text', value: 'required semantics' },
       }),
     ).rejects.toThrow('payment-review-context-mismatch');
   });

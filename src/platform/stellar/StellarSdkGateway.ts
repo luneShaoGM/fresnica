@@ -426,11 +426,20 @@ export class StellarSdkGateway implements StellarGateway {
               issuer: operation.asset.issuer!,
             } as const);
     const memo = transaction.memo;
-    let memoText: string | undefined;
+    let projectedMemo: PaymentTransactionProjection['memo'];
     if (memo.type === 'text') {
-      memoText = decodeUtf8(memo.value as Uint8Array);
+      projectedMemo = { type: 'text', value: decodeUtf8(memo.value as Uint8Array) };
+    } else if (memo.type === 'id') {
+      projectedMemo = { type: 'id', value: String(memo.value) };
+    } else if (memo.type === 'hash') {
+      projectedMemo = {
+        type: 'hash',
+        value: Array.from(memo.value as Uint8Array)
+          .map(byte => byte.toString(16).padStart(2, '0'))
+          .join(''),
+      };
     } else if (memo.type !== 'none') {
-      throw new Error('Payment review supports only none or text memo');
+      throw new Error('Payment review supports only none, text, id, or hash memo');
     }
 
     const maxTime = transaction.timeBounds?.maxTime;
@@ -444,7 +453,7 @@ export class StellarSdkGateway implements StellarGateway {
       destination: operation.destination,
       amount: operation.type === 'createAccount' ? operation.startingBalance : operation.amount,
       asset: Object.freeze(asset),
-      ...(memoText === undefined ? {} : { memo: memoText }),
+      ...(projectedMemo === undefined ? {} : { memo: Object.freeze(projectedMemo) }),
     });
   }
 
@@ -508,8 +517,14 @@ export class StellarSdkGateway implements StellarGateway {
       networkPassphrase: this.config.network.networkPassphrase,
     }).addOperation(operation);
 
-    if (input.memo !== undefined && input.memo.length > 0) {
-      builder = builder.addMemo(Memo.text(input.memo));
+    if (input.memo !== undefined) {
+      const memo =
+        input.memo.type === 'text'
+          ? Memo.text(input.memo.value)
+          : input.memo.type === 'id'
+            ? Memo.id(input.memo.value)
+            : Memo.hash(input.memo.value);
+      builder = builder.addMemo(memo);
     }
 
     const transaction = builder.setTimeout(180).build();

@@ -49,7 +49,7 @@ function paymentSubmissionIntent(review: PaymentReview) {
     review.destination,
     ...assetComponents,
     review.amount,
-    review.memo === undefined ? 'memo:none' : 'memo:text',
-    review.memo ?? '',
+    review.memo === undefined ? 'memo:none' : `memo:${review.memo.type}`,
+    review.memo?.value ?? '',
   ]);
 }
