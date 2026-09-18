@@ -2,7 +2,6 @@ import React from 'react';
 import {
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -12,8 +11,9 @@ import {Screen} from '@ui/components';
 
 import type {PaymentReview} from '../../capabilities/payment/buildPaymentReview';
 import {useLocalization} from '../../locale';
-import {useAppTheme, useThemedStyles, type AppTheme} from '../../ui/theme';
+import {useAppTheme, useThemedStyles} from '../../ui/theme';
 import {SlideToConfirm} from '../../ui/SlideToConfirm';
+import {createSendReviewStyles} from './styles';
 
 type Props = Readonly<{
   review: PaymentReview;
@@ -38,7 +38,7 @@ export function SendReviewScreen({
 }: Props) {
   const theme = useAppTheme();
   const {t} = useLocalization();
-  const styles = useThemedStyles(createStyles);
+  const styles = useThemedStyles(createSendReviewStyles);
   const memoLabel =
     review.memo === undefined
       ? t('send.memo.type.none')
@@ -109,12 +109,12 @@ export function SendReviewScreen({
       {passphraseRequired ? (
         <View style={styles.passphraseBlock}>
           <Text accessibilityLiveRegion="assertive" style={styles.passphrasePrompt}>
-            App Passphrase required. Enter it below, then slide again to authorize and send.
+            {t('send.authorization.passphraseRequired')}
           </Text>
-          <Text style={styles.passphraseLabel}>APP PASSPHRASE</Text>
+          <Text style={styles.passphraseLabel}>{t('send.authorization.appPassphrase')}</Text>
           <TextInput
-            accessibilityHint="Enter the current App Passphrase to authorize this transaction."
-            accessibilityLabel="App Passphrase"
+            accessibilityHint={t('send.authorization.passphraseHint')}
+            accessibilityLabel={t('send.authorization.appPassphrase')}
             autoCapitalize="none"
             autoCorrect={false}
             autoFocus
@@ -132,7 +132,7 @@ export function SendReviewScreen({
       <View style={styles.bottomBar}>
         <SlideToConfirm
           disabled={submitting || (passphraseRequired && appPassphrase.length === 0)}
-          label={passphraseRequired ? 'Slide to authorize and send' : 'Slide to send'}
+          label={passphraseRequired ? t('send.authorization.slideToAuthorize') : 'Slide to send'}
           loading={submitting}
           onComplete={onConfirm}
         />
@@ -146,7 +146,7 @@ function ReviewRow({
   value,
   mono = false,
 }: Readonly<{label: string; value: string; mono?: boolean}>) {
-  const styles = useThemedStyles(createStyles);
+  const styles = useThemedStyles(createSendReviewStyles);
 
   return (
     <View style={styles.reviewRow}>
@@ -159,105 +159,4 @@ function ReviewRow({
       </Text>
     </View>
   );
-}
-
-function createStyles(theme: AppTheme) {
-  return StyleSheet.create({
-    safeArea: {flex: 1, backgroundColor: theme.colors.background},
-    header: {
-      minHeight: 58,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 12,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.border,
-    },
-    backButton: {width: 42, height: 42, alignItems: 'center', justifyContent: 'center'},
-    backGlyph: {fontSize: 36, lineHeight: 38, fontWeight: '300', color: theme.colors.secondary},
-    headerTitle: {fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary},
-    headerSpacer: {width: 42},
-    content: {paddingBottom: 28},
-    summaryHero: {alignItems: 'center', paddingHorizontal: 20, paddingTop: 28, paddingBottom: 24},
-    summaryEyebrow: {
-      fontSize: 10,
-      lineHeight: 13,
-      color: theme.colors.textTertiary,
-      fontWeight: '800',
-      letterSpacing: 0.8,
-    },
-    summaryAmount: {fontSize: 36, lineHeight: 44, color: theme.colors.textPrimary, fontWeight: '700', marginTop: 5},
-    summaryAsset: {
-      fontSize: 13,
-      lineHeight: 17,
-      color: theme.colors.textSecondary,
-      fontWeight: '700',
-      marginTop: 2,
-      textAlign: 'center',
-    },
-    rows: {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border},
-    reviewRow: {
-      minHeight: 56,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 18,
-      paddingHorizontal: 18,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.border,
-    },
-    label: {fontSize: 12, lineHeight: 16, color: theme.colors.textSecondary, fontWeight: '600'},
-    value: {
-      flex: 1,
-      fontSize: 12,
-      lineHeight: 16,
-      color: theme.colors.textPrimary,
-      fontWeight: '600',
-      textAlign: 'right',
-    },
-    mono: {fontSize: 10, lineHeight: 14, color: theme.colors.textSecondary, fontWeight: '400'},
-    authorizationNote: {
-      marginHorizontal: 18,
-      marginTop: 20,
-      borderRadius: 11,
-      padding: 14,
-      backgroundColor: theme.colors.surfaceMuted,
-      gap: 5,
-    },
-    authorizationTitle: {fontSize: 12, lineHeight: 16, color: theme.colors.secondary, fontWeight: '800'},
-    authorizationText: {fontSize: 10, lineHeight: 15, color: theme.colors.textSecondary},
-    passphraseBlock: {
-      marginHorizontal: 18,
-      paddingTop: 12,
-      paddingBottom: 2,
-      gap: 7,
-    },
-    passphrasePrompt: {fontSize: 11, lineHeight: 16, color: theme.colors.textSecondary},
-    passphraseLabel: {fontSize: 10, lineHeight: 13, color: theme.colors.textTertiary, fontWeight: '800'},
-    passphraseInput: {
-      minHeight: 52,
-      borderRadius: 10,
-      backgroundColor: theme.colors.surfaceMuted,
-      paddingHorizontal: 14,
-      color: theme.colors.textPrimary,
-      fontSize: 14,
-    },
-    error: {
-      marginHorizontal: 18,
-      marginTop: 14,
-      borderRadius: 9,
-      padding: 12,
-      backgroundColor: theme.colors.negativeMuted,
-      color: theme.colors.negative,
-      fontSize: 11,
-      lineHeight: 16,
-    },
-    bottomBar: {
-      paddingHorizontal: 18,
-      paddingTop: 10,
-      paddingBottom: 12,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: theme.colors.border,
-      backgroundColor: theme.colors.surface,
-    },
-  });
 }

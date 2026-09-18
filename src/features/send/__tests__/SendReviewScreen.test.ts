@@ -20,6 +20,10 @@ jest.mock('../../../locale', () => ({
       ({
         'send.memo.type.none': 'None',
         'send.memo.type.text': 'Text',
+        'send.authorization.passphraseRequired': 'localized:passphrase-required',
+        'send.authorization.passphraseHint': 'localized:passphrase-hint',
+        'send.authorization.slideToAuthorize': 'localized:slide-to-authorize',
+        'send.authorization.appPassphrase': 'localized:app-passphrase',
       })[key] ?? key,
   }),
 }));
@@ -70,14 +74,16 @@ describe('SendReviewScreen authorization stages', () => {
   it('shows and focuses the App Passphrase stage after passphrase-required', () => {
     const root = renderReview({ passphraseRequired: true });
     let input: React.ReactElement<NodeProps> | undefined;
+    let label: React.ReactElement<NodeProps> | undefined;
     let prompt: React.ReactElement<NodeProps> | undefined;
     let slider: React.ReactElement<NodeProps> | undefined;
 
     visit(root, element => {
-      if (element.type === TextInput && element.props.accessibilityLabel === 'App Passphrase') input = element;
+      if (element.type === TextInput && element.props.accessibilityLabel === 'localized:app-passphrase') input = element;
+      if (element.type === Text && element.props.children === 'localized:app-passphrase') label = element;
       if (
         element.type === Text &&
-        element.props.children === 'App Passphrase required. Enter it below, then slide again to authorize and send.'
+        element.props.children === 'localized:passphrase-required'
       ) {
         prompt = element;
       }
@@ -85,9 +91,10 @@ describe('SendReviewScreen authorization stages', () => {
     });
 
     expect(input?.props.autoFocus).toBe(true);
-    expect(input?.props.accessibilityHint).toBe('Enter the current App Passphrase to authorize this transaction.');
+    expect(label).toBeDefined();
+    expect(input?.props.accessibilityHint).toBe('localized:passphrase-hint');
     expect(prompt?.props.accessibilityLiveRegion).toBe('assertive');
-    expect(slider?.props.label).toBe('Slide to authorize and send');
+    expect(slider?.props.label).toBe('localized:slide-to-authorize');
     expect(slider?.props.disabled).toBe(true);
   });
 
@@ -97,12 +104,12 @@ describe('SendReviewScreen authorization stages', () => {
     let slider: React.ReactElement<NodeProps> | undefined;
 
     visit(root, element => {
-      if (element.type === TextInput && element.props.accessibilityLabel === 'App Passphrase') input = element;
+      if (element.type === TextInput && element.props.accessibilityLabel === 'localized:app-passphrase') input = element;
       if (element.type === SlideToConfirm) slider = element;
     });
 
     expect(input?.props.value).toBe('test-passphrase');
-    expect(slider?.props.label).toBe('Slide to authorize and send');
+    expect(slider?.props.label).toBe('localized:slide-to-authorize');
     expect(slider?.props.disabled).toBe(false);
   });
 
@@ -131,7 +138,7 @@ describe('SendReviewScreen authorization stages', () => {
     let slider: React.ReactElement<NodeProps> | undefined;
 
     visit(root, element => {
-      if (element.type === TextInput && element.props.accessibilityLabel === 'App Passphrase') input = element;
+      if (element.type === TextInput && element.props.accessibilityLabel === 'localized:app-passphrase') input = element;
       if (element.type === SlideToConfirm) slider = element;
     });
 
