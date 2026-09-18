@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -14,6 +14,7 @@ type Props = Readonly<{
   onComplete: () => void;
   disabled?: boolean;
   loading?: boolean;
+  loadingLabel?: string;
   color?: string;
 }>;
 
@@ -25,6 +26,7 @@ export function SlideToConfirm({
   onComplete,
   disabled = false,
   loading = false,
+  loadingLabel = 'Submitting…',
   color = '#00CA8A',
 }: Props) {
   const translateX = useRef(new Animated.Value(0)).current;
@@ -73,7 +75,7 @@ export function SlideToConfirm({
               toValue: destination,
               duration: 110,
               useNativeDriver: true,
-            }).start(({finished}) => {
+            }).start(({ finished }) => {
               if (finished) {
                 onCompleteRef.current();
               }
@@ -113,23 +115,14 @@ export function SlideToConfirm({
     <View
       accessibilityLabel={label}
       accessibilityRole="button"
-      accessibilityState={{disabled: disabled || loading, busy: loading}}
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
       onAccessibilityTap={triggerAccessibleComplete}
       onLayout={onLayout}
-      style={[
-        styles.track,
-        {backgroundColor: color},
-        disabled || loading ? styles.disabled : undefined,
-      ]}>
-      <Text style={styles.label}>{loading ? 'Submitting…' : label}</Text>
-      <Animated.View
-        {...panResponder.panHandlers}
-        style={[styles.knob, {transform: [{translateX}]}]}>
-        {loading ? (
-          <ActivityIndicator color={color} size="small" />
-        ) : (
-          <Text style={[styles.arrow, {color}]}>››</Text>
-        )}
+      style={[styles.track, { backgroundColor: color }, disabled || loading ? styles.disabled : undefined]}
+    >
+      <Text style={styles.label}>{loading ? loadingLabel : label}</Text>
+      <Animated.View {...panResponder.panHandlers} style={[styles.knob, { transform: [{ translateX }] }]}>
+        {loading ? <ActivityIndicator color={color} size="small" /> : <Text style={[styles.arrow, { color }]}>››</Text>}
       </Animated.View>
     </View>
   );
@@ -143,7 +136,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     paddingHorizontal: TRACK_PADDING,
   },
-  disabled: {opacity: 0.46},
+  disabled: { opacity: 0.46 },
   label: {
     position: 'absolute',
     left: 64,
@@ -164,8 +157,8 @@ const styles = StyleSheet.create({
     shadowColor: '#000000',
     shadowOpacity: 0.1,
     shadowRadius: 5,
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  arrow: {fontSize: 20, lineHeight: 22, fontWeight: '900', letterSpacing: -3},
+  arrow: { fontSize: 20, lineHeight: 22, fontWeight: '900', letterSpacing: -3 },
 });
