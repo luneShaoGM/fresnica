@@ -17,7 +17,7 @@ function gateway(): Pick<PaymentGatewayPort, 'inspectPaymentTransaction'> {
       destination: 'GDESTINATION',
       amount: '2.5000000',
       asset: {kind: 'credit', code: 'usd', issuer: 'GISSUER'},
-      memo: 'review-me',
+      memo: {type: 'text', value: 'review-me'},
     }),
   };
 }
@@ -47,7 +47,7 @@ describe('buildPaymentReview', () => {
       destination: 'GDESTINATION',
       amount: '2.5000000',
       asset: {kind: 'credit', code: 'usd', issuer: 'GISSUER'},
-      memo: 'review-me',
+      memo: {type: 'text', value: 'review-me'},
     });
   });
   it('freezes review and nested asset data', () => {
@@ -58,6 +58,7 @@ describe('buildPaymentReview', () => {
 
     expect(Object.isFrozen(review)).toBe(true);
     expect(Object.isFrozen(review.asset)).toBe(true);
+    expect(Object.isFrozen(review.memo)).toBe(true);
   });
 
   it('rejects a network mismatch before asking the platform to inspect XDR', () => {

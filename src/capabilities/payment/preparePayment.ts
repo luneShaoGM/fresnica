@@ -1,11 +1,17 @@
 import type { AccountRecord } from '../account/types';
 import type { NetworkContext } from '../network/types';
-import type { StellarAccountState, StellarNativeBalance, StellarTrustlineBalance } from '../stellar/types';
+import type {
+  StellarAccountState,
+  StellarNativeBalance,
+  StellarPaymentMemo,
+  StellarTrustlineBalance,
+} from '../stellar/types';
 import type { PaymentGatewayPort } from './PaymentGateway';
 import { buildPaymentReview, type PaymentReview, type PaymentReviewAsset } from './buildPaymentReview';
 
 const MAX_STELLAR_AMOUNT_STROOPS = 9_223_372_036_854_775_807n;
 const MAX_TEXT_MEMO_BYTES = 28;
+const MAX_MEMO_ID = 18_446_744_073_709_551_615n;
 
 export type PreparePaymentDependencies = Readonly<{
   gateway: PaymentGatewayPort;
@@ -16,7 +22,7 @@ export type PaymentRequest = Readonly<{
   destination: string;
   amount: string;
   asset: PaymentReviewAsset;
-  memo?: string;
+  memo?: StellarPaymentMemo;
 }>;
 
 export async function preparePayment(
@@ -31,7 +37,7 @@ export async function preparePayment(
   const amount = validatePaymentAmount(request.amount);
   const amountStroops = parsePositiveStroops(amount);
   const asset = validatePaymentAsset(request.asset, address => dependencies.gateway.isClassicAccountAddress(address));
-  const memo = validatePaymentTextMemo(request.memo ?? '');
+  const memo = validatePaymentMemo(request.memo);
 
   const sourceResult = await dependencies.gateway.loadAccountState(account.address);
   if (sourceResult.status !== 'active') {
@@ -98,7 +104,7 @@ export async function preparePayment(
     review.operation !== operation ||
     review.amount !== canonicalAmount(amountStroops) ||
     !sameAsset(review.asset, asset) ||
-    review.memo !== memo ||
+    !sameMemo(review.memo, memo) ||
     review.fee !== String(ledger.baseFeeStroops)
   ) {
     throw new Error('payment-review-context-mismatch');
@@ -147,6 +153,44 @@ export function validatePaymentTextMemo(value: string): string | undefined {
     throw new Error('payment-memo-too-long');
   }
   return value;
+}
+
+export function validatePaymentMemo(memo?: StellarPaymentMemo): StellarPaymentMemo | undefined {
+  if (memo === undefined) {
+    return undefined;
+  }
+
+  switch (memo.type) {
+    case 'text': {
+      const value = validatePaymentTextMemo(memo.value);
+      return value === undefined ? undefined : Object.freeze({ type: 'text', value });
+    }
+    case 'id': {
+      const value = memo.value.trim();
+      if (!/^[0-9]+$/.test(value)) {
+        throw new Error('payment-memo-id-invalid');
+      }
+      const canonical = BigInt(value);
+      if (canonical > MAX_MEMO_ID) {
+        throw new Error('payment-memo-id-invalid');
+      }
+      return Object.freeze({ type: 'id', value: canonical.toString() });
+    }
+    case 'hash': {
+      const value = memo.value.trim();
+      if (!/^[0-9a-fA-F]{64}$/.test(value)) {
+        throw new Error('payment-memo-hash-invalid');
+      }
+      return Object.freeze({ type: 'hash', value: value.toLowerCase() });
+    }
+  }
+}
+
+function sameMemo(left?: StellarPaymentMemo, right?: StellarPaymentMemo): boolean {
+  if (left === undefined || right === undefined) {
+    return left === right;
+  }
+  return left.type === right.type && left.value === right.value;
 }
 
 function assertClassicSource(account: AccountRecord, networkId: string): void {

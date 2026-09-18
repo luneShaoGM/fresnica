@@ -105,7 +105,7 @@ async function paymentXdr(gateway: StellarSdkGateway): Promise<string> {
     destination: destinationAddress,
     asset: { kind: 'native' },
     amount: '1.2500000',
-    memo: 'hello',
+    memo: { type: 'text', value: 'hello' },
     baseFee: '100',
   });
   return built.transactionXdrBase64;
@@ -411,7 +411,7 @@ describe('StellarSdkGateway', () => {
       destination: destinationAddress,
       asset: { kind: 'credit', code: 'usd', issuer: signerAddress },
       amount: '2.5000000',
-      memo: '测试 memo',
+      memo: { type: 'text', value: '测试 memo' },
       baseFee: '100',
     });
     const paymentProjection = gateway.inspectPaymentTransaction({
@@ -426,7 +426,7 @@ describe('StellarSdkGateway', () => {
       destination: destinationAddress,
       amount: '2.5000000',
       asset: { kind: 'credit', code: 'usd', issuer: signerAddress },
-      memo: '测试 memo',
+      memo: { type: 'text', value: '测试 memo' },
     });
 
     const created = await gateway.buildPayment({
@@ -509,7 +509,30 @@ describe('StellarSdkGateway', () => {
     ).toThrow('Payment review does not support an operation source override');
   });
 
-  it('rejects Payment review XDR with a non-text memo', () => {
+  it.each([
+    { memo: { type: 'id' as const, value: '7' }, expectedType: 'id', expectedValue: '7' },
+    { memo: { type: 'hash' as const, value: 'AB'.repeat(32) }, expectedType: 'hash', expectedValue: 'ab'.repeat(32) },
+  ])('builds and inspects exact $expectedType memo XDR', async ({ memo, expectedType, expectedValue }) => {
+    const gateway = new StellarSdkGateway(TEST_GATEWAY_CONFIG, server());
+    const built = await gateway.buildPayment({
+      operation: 'payment',
+      source: sourceAddress,
+      destination: destinationAddress,
+      asset: { kind: 'native' },
+      amount: '1.0000000',
+      memo,
+      baseFee: '100',
+    });
+
+    expect(
+      gateway.inspectPaymentTransaction({
+        transactionXdrBase64: built.transactionXdrBase64,
+        networkPassphrase: Networks.TESTNET,
+      }).memo,
+    ).toEqual({ type: expectedType, value: expectedValue });
+  });
+
+  it('rejects Payment review XDR with MEMO_RETURN', () => {
     const gateway = new StellarSdkGateway(TEST_GATEWAY_CONFIG, server());
     const unsupportedMemo = new TransactionBuilder(new Account(sourceAddress, '50'), {
       fee: '100',
@@ -522,7 +545,7 @@ describe('StellarSdkGateway', () => {
           amount: '1.0000000',
         }),
       )
-      .addMemo(Memo.id('7'))
+      .addMemo(Memo.return('ab'.repeat(32)))
       .setTimeout(180)
       .build()
       .toXdr();
@@ -532,7 +555,7 @@ describe('StellarSdkGateway', () => {
         transactionXdrBase64: unsupportedMemo,
         networkPassphrase: Networks.TESTNET,
       }),
-    ).toThrow('Payment review supports only none or text memo');
+    ).toThrow('Payment review supports only none, text, id, or hash memo');
   });
 
   it('builds an unsigned ordinary ChangeTrust transaction with the requested limit', async () => {

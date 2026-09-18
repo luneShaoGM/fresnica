@@ -57,6 +57,28 @@ describe('signReviewedTransaction', () => {
     });
   });
 
+  it.each(['user-cancel', 'system-auth-failed'])(
+    'propagates %s from native System Auth without falling back to passphrase',
+    async code => {
+      const sdk = sdkWith({
+        hasSignerSystemAuth: jest.fn().mockResolvedValue(true),
+        signWithSystemAuth: jest.fn().mockRejectedValue({ code }),
+      });
+
+      await expect(
+        signReviewedTransaction({
+          sdk,
+          review,
+          signer,
+          systemAuthReason: 'Confirm transaction',
+          networkPassphrase: NETWORK_PASSPHRASE,
+        }),
+      ).rejects.toMatchObject({ code });
+
+      expect(sdk.signWithPassphrase).not.toHaveBeenCalled();
+    },
+  );
+
   it('requires passphrase without inventing a feature-local fallback', async () => {
     const sdk = sdkWith();
     await expect(

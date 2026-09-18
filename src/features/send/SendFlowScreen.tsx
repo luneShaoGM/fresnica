@@ -7,6 +7,8 @@ import type { AccountRecord } from '../../capabilities/account/types';
 import { loadBalanceSnapshot } from '../../capabilities/balance/loadBalanceSnapshot';
 import type { BalanceAsset, BalanceLine } from '../../capabilities/balance/types';
 import type { PaymentReview } from '../../capabilities/payment/buildPaymentReview';
+import type { StellarPaymentMemo } from '../../capabilities/stellar/types';
+import {useLocalization} from '../../locale';
 import {useAppTheme, useThemedStyles, type AppTheme} from '../../ui/theme';
 import { SendFormScreen } from './SendFormScreen';
 import { SendResultScreen, type SendTerminalResult } from './SendResultScreen';
@@ -36,12 +38,14 @@ export function SendFlowScreen({ account, dependencies, onDone }: Props) {
   const [selectedAsset, setSelectedAsset] = useState<BalanceAsset | undefined>();
   const [destination, setDestination] = useState('');
   const [amount, setAmount] = useState('');
-  const [memo, setMemo] = useState('');
+  const [memoType, setMemoType] = useState<'none' | StellarPaymentMemo['type']>('none');
+  const [memoValue, setMemoValue] = useState('');
   const [building, setBuilding] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [passphraseRequired, setPassphraseRequired] = useState(false);
   const [appPassphrase, setAppPassphrase] = useState('');
   const [error, setError] = useState<string | undefined>();
+  const {t} = useLocalization();
   const loadVersion = useRef(0);
 
   useEffect(() => {
@@ -52,7 +56,8 @@ export function SendFlowScreen({ account, dependencies, onDone }: Props) {
     setSelectedAsset(undefined);
     setDestination('');
     setAmount('');
-    setMemo('');
+    setMemoType('none');
+    setMemoValue('');
     setAppPassphrase('');
     setPassphraseRequired(false);
     setError(undefined);
@@ -95,7 +100,7 @@ export function SendFlowScreen({ account, dependencies, onDone }: Props) {
           setLoadState({
             kind: 'blocked',
             title: 'Unable to load account balances',
-            description: readableError(caught),
+            description: readableError(caught, t),
           });
         }
       });
@@ -103,7 +108,7 @@ export function SendFlowScreen({ account, dependencies, onDone }: Props) {
     return () => {
       loadVersion.current += 1;
     };
-  }, [account, dependencies.gateway, dependencies.network.id]);
+  }, [account, dependencies.gateway, dependencies.network.id, t]);
 
   const buildReview = useCallback(async () => {
     if (loadState.kind !== 'ready' || !selectedAsset) {
@@ -117,18 +122,18 @@ export function SendFlowScreen({ account, dependencies, onDone }: Props) {
         destination,
         amount,
         asset: selectedAsset,
-        memo,
+        ...(memoType === 'none' ? {} : {memo: {type: memoType, value: memoValue}}),
       });
 
       setPassphraseRequired(false);
       setAppPassphrase('');
       setFlow({ kind: 'review', review });
     } catch (caught) {
-      setError(readableError(caught));
+      setError(readableError(caught, t));
     } finally {
       setBuilding(false);
     }
-  }, [account, amount, dependencies, destination, loadState.kind, memo, selectedAsset]);
+  }, [account, amount, dependencies, destination, loadState.kind, memoType, memoValue, selectedAsset, t]);
 
   const submitReview = useCallback(async () => {
     if (flow.kind !== 'review') {
@@ -152,11 +157,11 @@ export function SendFlowScreen({ account, dependencies, onDone }: Props) {
 
       setFlow({ kind: 'result', result });
     } catch (caught) {
-      setError(readableError(caught));
+      setError(readableError(caught, t));
     } finally {
       setSubmitting(false);
     }
-  }, [account, appPassphrase, dependencies, flow, passphraseRequired]);
+  }, [account, appPassphrase, dependencies, flow, passphraseRequired, t]);
 
   if (loadState.kind === 'loading') {
     return <FlowMessageScreen title="Send" message="Loading current Stellar balances…" loading onBack={onDone} />;
@@ -197,7 +202,8 @@ export function SendFlowScreen({ account, dependencies, onDone }: Props) {
       selectedAsset={selectedAsset ?? loadState.balances[0].asset}
       destination={destination}
       amount={amount}
-      memo={memo}
+      memoType={memoType}
+      memoValue={memoValue}
       building={building}
       error={error}
       onSelectAsset={asset => {
@@ -206,7 +212,15 @@ export function SendFlowScreen({ account, dependencies, onDone }: Props) {
       }}
       onChangeDestination={setDestination}
       onChangeAmount={setAmount}
-      onChangeMemo={setMemo}
+      onSelectMemoType={nextType => {
+        if (nextType === memoType) {
+          return;
+        }
+        setMemoType(nextType);
+        setMemoValue('');
+        setError(undefined);
+      }}
+      onChangeMemoValue={setMemoValue}
       onContinue={() => void buildReview()}
       onCancel={onDone}
     />
@@ -246,8 +260,16 @@ function FlowMessageScreen({
   );
 }
 
-function readableError(error: unknown): string {
-  return projectFeatureError(error, {fallbackMessage: 'Unable to complete Send.'}).message;
+function readableError(error: unknown, t: (key: string) => string): string {
+  return projectFeatureError(error, {
+    fallbackMessage: 'Unable to complete Send.',
+    messages: {
+      'payment-memo-too-long': t('send.memo.error.textTooLong'),
+      'payment-memo-id-invalid': t('send.memo.error.idInvalid'),
+      'payment-memo-hash-invalid': t('send.memo.error.hashInvalid'),
+      'payment-destination-requires-memo': t('send.memo.error.required'),
+    },
+  }).message;
 }
 
 function createStyles(theme: AppTheme) {

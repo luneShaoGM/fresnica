@@ -153,6 +153,32 @@ describe('submitReviewedPayment', () => {
     );
   });
 
+  it.each([
+    { memo: { type: 'text' as const, value: '7' }, expected: 'memo:text' },
+    { memo: { type: 'id' as const, value: '7' }, expected: 'memo:id' },
+    { memo: { type: 'hash' as const, value: 'ab'.repeat(32) }, expected: 'memo:hash' },
+  ])('separates $expected in the pending economic intent identity', async ({ memo, expected }) => {
+    const gateway = gatewayWith();
+    const sdk = sdkWith(true);
+    const { pending, input } = submitInput(gateway, sdk);
+
+    await submitReviewedPayment({ ...input, review: { ...review, memo } });
+
+    expect(pending.repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intentKey: JSON.stringify([
+          'payment',
+          'payment',
+          'GDESTINATION',
+          'native',
+          '1.0000000',
+          expected,
+          memo.value,
+        ]),
+      }),
+    );
+  });
+
   it('blocks the same economic intent before authorization while an earlier submission is unresolved', async () => {
     const gateway = gatewayWith();
     const sdk = sdkWith(true);

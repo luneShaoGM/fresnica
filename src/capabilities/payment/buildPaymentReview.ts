@@ -1,5 +1,5 @@
 import type { NetworkContext } from '../network/types';
-import type { StellarPaymentAsset } from '../stellar/types';
+import type { StellarPaymentAsset, StellarPaymentMemo } from '../stellar/types';
 import type { ReviewedTransaction } from '../transaction/ReviewedTransaction';
 import type { PaymentGatewayPort } from './PaymentGateway';
 
@@ -11,7 +11,7 @@ export type PaymentReview = ReviewedTransaction &
     destination: string;
     amount: string;
     asset: Readonly<PaymentReviewAsset>;
-    memo?: string;
+    memo?: Readonly<StellarPaymentMemo>;
   }>;
 
 export type BuildPaymentReviewDependencies = Readonly<{
@@ -40,5 +40,6 @@ export function buildPaymentReview(
     networkId: input.networkId,
     ...projection,
     asset: Object.freeze(projection.asset),
+    ...(projection.memo === undefined ? {} : { memo: Object.freeze({ ...projection.memo }) }),
   });
 }

@@ -70,13 +70,19 @@ export type StellarLiquidityPoolState = Readonly<{
 export type StellarPaymentAsset =
   Readonly<{ kind: 'native' }> | Readonly<{ kind: 'credit'; code: string; issuer: string }>;
 
+export type StellarPaymentMemo = Readonly<
+  | { type: 'text'; value: string }
+  | { type: 'id'; value: string }
+  | { type: 'hash'; value: string }
+>;
+
 export type BuildPaymentInput = Readonly<{
   operation: 'payment' | 'create-account';
   source: string;
   destination: string;
   asset: StellarPaymentAsset;
   amount: string;
-  memo?: string;
+  memo?: StellarPaymentMemo;
   baseFee: string;
 }>;
 

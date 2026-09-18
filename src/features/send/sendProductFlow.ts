@@ -3,6 +3,7 @@ import type { AccountRecord } from '../../capabilities/account/types';
 import type { BalanceGatewayPort } from '../../capabilities/balance/BalanceGateway';
 import type { BalanceAsset } from '../../capabilities/balance/types';
 import type { NetworkContext } from '../../capabilities/network/types';
+import type { StellarPaymentMemo } from '../../capabilities/stellar/types';
 import type { PaymentGatewayPort } from '../../capabilities/payment/PaymentGateway';
 import {
   buildPaymentReview,
@@ -35,7 +36,7 @@ export type SendDraft = Readonly<{
   destination: string;
   amount: string;
   asset: PaymentReviewAsset;
-  memo?: string;
+  memo?: StellarPaymentMemo;
 }>;
 
 export type SendSubmissionResult =
