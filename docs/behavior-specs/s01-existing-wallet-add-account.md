@@ -45,11 +45,11 @@ Import-specific duplicate upgrade behavior is implemented in the Import slice, n
 
 A successful new protected account must become both the current account and the network-scoped default account.
 
-Create has an additional backup gate: Account + Signer persistence occurs first with mnemonic backup `pending`; current/default does not change until the user confirms the generated recovery phrase backup. After confirmation, persist the new account as the default and then refresh runtime account state so the same account becomes current.
+Create has an additional backup gate: Account + Signer persistence occurs first with mnemonic backup `pending`; current/default does not change until the user successfully verifies the generated recovery phrase backup. The verification behavior is frozen separately in `s01-mnemonic-backup-verification.md`. After verified completion, persist the new account as the default and then refresh runtime account state so the same account becomes current.
 
-If passphrase verification, generation, persistence, backup confirmation, or default persistence fails, Mobile must not switch the current account and must not replace the previous default preference. A created account may remain only in the explicitly allowed partial-success states described below.
+If passphrase verification, generation, persistence, mnemonic backup verification/completion, or default persistence fails, Mobile must not switch the current account and must not replace the previous default preference. A created account may remain only in the explicitly allowed partial-success states described below.
 
-A process death before Create backup confirmation must recover through the existing pending-mnemonic bootstrap using the persisted protected signer envelope. The pre-existing current/default remains unchanged until recovered backup confirmation succeeds.
+A process death before Create backup verification/completion must recover through the existing pending-mnemonic bootstrap using the persisted protected signer envelope. The pre-existing current/default remains unchanged until the recovered phrase is verified and backup completion succeeds.
 
 ## System Auth ordering and repair
 
@@ -70,7 +70,7 @@ Security repair is derived from real Native enrollment status (`domainInitialize
 
 Required production flow:
 
-`Existing wallet → Add Account → Create new wallet → verify/establish App Passphrase → generate mnemonic → atomic Account+Signer(pending backup) → optional existing-domain signer registration → backup confirm → persist network default → refresh → new account current`
+`Existing wallet → Add Account → Create new wallet → verify/establish App Passphrase → generate mnemonic → atomic Account+Signer(pending backup) → optional existing-domain signer registration → verify mnemonic backup → complete backup → persist network default → refresh → new account current`
 
 Create must reuse Fresnica Core mnemonic generation and the existing atomic Account+Signer repository write. Plaintext mnemonic exists only in the one-time backup presentation or an explicit Fresnica `reveal` recovery of a persisted pending backup.
 
@@ -81,8 +81,8 @@ Acceptance requirements:
 - all existing unique protected verification targets are checked before `generateMnemonic`;
 - generated Account + Signer are one atomic persistence operation and signer backup state is `pending`;
 - persistence failure does not change current/default and leaves no orphan signer;
-- process death before backup confirmation resumes the pending backup without changing the previous default;
-- backup confirmation precedes default/current switch;
+- process death before backup verification resumes the pending backup without changing the previous default;
+- successful mnemonic backup verification and completion precede default/current switch;
 - default write failure leaves the previous current/default unchanged and remains retryable without fabricating success;
 - existing System Auth domain registers the new signer only after persistence;
 - System Auth registration failure preserves the account and leaves an observable Security repair/retry state;
