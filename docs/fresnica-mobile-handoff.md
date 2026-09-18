@@ -117,8 +117,8 @@ The current Testnet onboarding flow is real application behavior rather than a m
 - atomically persist protected Account + Signer + reference through Realm;
 - establish the app passphrase on the first protected signer;
 - keep generated mnemonic plaintext only in the explicit one-time backup UI;
-- persist generated-mnemonic backup state as `pending` until explicit confirmation;
-- after interruption/restart, use fresh-passphrase SDK `reveal` to recover the pending mnemonic instead of persisting plaintext;
+- persist generated-mnemonic backup state as `pending` until the displayed phrase is successfully verified through the in-memory word-position challenge;
+- after interruption/restart, use fresh-passphrase SDK `reveal` to recover the pending mnemonic instead of persisting plaintext, then require the same in-memory verification before completion;
 - route successfully initialized wallets to the wallet landing screen.
 
 Existing-wallet Add Account now supports **Create new wallet**, **Import recovery phrase**, **Import Stellar `S...` secret**, **Derive from recovery phrase**, and the existing watch-only path. Create remains unchanged: all unique protected targets verify before generation/write, generated mnemonic backup stays `pending`, and default/current changes only after confirmation. Import reuses the same App Passphrase and post-persistence System Auth orchestration. HD accepts only eligible visible current-network mnemonic-backed protected sources with `backupState=confirmed|not-required`, verifies the current App Passphrase across all unique protected targets, then calls canonical `deriveMnemonicSigner` for an explicit SEP-5 index/path without Reveal or envelope parsing. Derived backup state inherits the source; duplicate/watch-only upgrade, System Auth repair and default-before-current selection reuse the existing orchestration. Exact HD code/runtime target `b33baae27c9ff680aaff907566fbeb0ba02772aa` passes 76/414 full checks, Realm 31/31 and disposable Android API 36 native+Realm acceptance; PR #50 final head `44775245...` also passed all four remote gates including Apple simulator runtime. Merged `main@a2b17eba...` subsequently passed one-wallet Android+iOS aggregate acceptance across Create + Import + HD, restart/default recovery and Native System Auth registration/repair, so S01 is now `L3 / L4 partial`. L4 still requires a repeatable required aggregate gate plus trustworthy dynamic-font and screen-reader focus-order acceptance.
@@ -150,7 +150,7 @@ passphrase-required
   -> require fresh app passphrase
 ```
 
-The framework-safe verification-only current-passphrase gap is closed by canonical React Native adapter revision `c5eae08...`, which exposes Native SDK 0.3.1 `verifyProtectedSignerPassphrase`. Existing-wallet Create, Import and HD additional-account consume that primitive through shared Mobile orchestration without a private bridge. PR #50 exact-head Apple runtime and merged-main dual-platform aggregate acceptance are now complete; S01 is `L3 / L4 partial`, with the remaining S01 debt limited to repeatable required aggregate gating and accessibility/dynamic-font closure.
+The framework-safe verification-only current-passphrase gap is closed by canonical React Native adapter revision `c5eae08...`, which exposes Native SDK 0.3.1 `verifyProtectedSignerPassphrase`. Existing-wallet Create, Import and HD additional-account consume that primitive through shared Mobile orchestration without a private bridge. PR #50 exact-head Apple runtime and merged-main dual-platform aggregate acceptance are complete, but the 2026-09-18 review found that generated-mnemonic backup used acknowledgement rather than proof-of-backup verification. The dedicated hardening slice adds one shared in-memory verification gate across first-run Create, Existing-wallet Create and pending-backup recovery without persisting mnemonic/challenge state. S01 remains `L3 / L4 partial`; once this hardening is merged, remaining S01 debt is again limited to repeatable required aggregate gating and accessibility/dynamic-font closure.
 
 One explicit upstream gap still blocks safe app-session lock: generic existing-domain System Auth challenge for app-session authorization (conceptually `authenticateSystemAuth(reason)`).
 
@@ -198,7 +198,7 @@ Foundation implemented and exercised:
 - Realm schema v1 and strict detached mappers;
 - production app composition using Realm + `NativeModules.FresnicaCore`;
 - first-run Create/Import/Watch-only onboarding;
-- generated mnemonic backup confirmation and restart recovery;
+- generated mnemonic backup verification and restart recovery;
 - Add Account watch-only path;
 - typed Classic Ledger Authorization;
 - exact-XDR Payment review and transaction freshness checking;

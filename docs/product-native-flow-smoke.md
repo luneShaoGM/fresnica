@@ -22,7 +22,7 @@ A successful run must execute, in order:
 
 1. Open a dedicated empty Realm through production `createAppServices` and prove bootstrap is `onboarding`.
 2. Run generated-mnemonic onboarding through Fresnica SDK/Core and the production Account/Signer repository.
-3. Observe `pending-mnemonic-backup`, confirm the backup through the production onboarding contract, and prove bootstrap becomes `ready`.
+3. Observe `pending-mnemonic-backup`, complete the backup through the low-level production onboarding contract, and prove bootstrap becomes `ready`. This programmatic carrier does not claim user mnemonic-verification proof.
 4. Render the production `AppNavigator` with the ready bootstrap so the main shell branch is active.
 5. Activate the fresh test account with Friendbot as test infrastructure only.
 6. Read the account through the production Balance capability and require an active native XLM balance.
@@ -40,7 +40,7 @@ A successful run must execute, in order:
 
 ## Scope boundary
 
-This harness proves a product **native-flow carrier**, not full visual/tap automation. In particular it does not prove:
+This harness proves a product **native-flow carrier**, not full visual/tap automation. Its direct backup-state completion is test infrastructure and does **not** substitute for the S01 generated-mnemonic verification UI/state tests. In particular it does not prove:
 
 - pixel/layout correctness;
 - accessibility focus order or dynamic type;

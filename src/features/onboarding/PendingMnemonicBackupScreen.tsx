@@ -1,24 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import {Screen} from '@ui/components';
+import { Screen } from '@ui/components';
 
 import type { ProvisionAccountDependencies } from '../../capabilities/account/provisionAccount';
 import {
   getSystemAuthStatus,
   type ApplicationSecurityDependencies,
 } from '../../capabilities/application-security/systemAuth';
-import {projectFeatureError} from '../featureError';
-import {useLocalization} from '../../locale';
+import { projectFeatureError } from '../featureError';
+import { useLocalization } from '../../locale';
 import { useAppTheme, useThemedStyles, type AppTheme } from '../../ui/theme';
+import { MnemonicBackupVerification } from './MnemonicBackupVerification';
 import {
   completeMnemonicBackup,
   recoverPendingMnemonicBackup,
@@ -32,14 +25,9 @@ type Props = Readonly<{
   onComplete: () => void | Promise<void>;
 }>;
 
-export function PendingMnemonicBackupScreen({
-  dependencies,
-  signerId,
-  securityDependencies,
-  onComplete,
-}: Props) {
+export function PendingMnemonicBackupScreen({ dependencies, signerId, securityDependencies, onComplete }: Props) {
   const theme = useAppTheme();
-  const {t} = useLocalization();
+  const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const [appPassphrase, setAppPassphrase] = useState('');
   const [backup, setBackup] = useState<RecoveredMnemonicBackup>();
@@ -114,7 +102,7 @@ export function PendingMnemonicBackupScreen({
         </View>
 
         {backup ? (
-          <RecoveryPhrase mnemonic={backup.mnemonic} />
+          <MnemonicBackupVerification disabled={busy} mnemonic={backup.mnemonic} onVerified={confirm} />
         ) : (
           <View style={styles.formCard}>
             <Text style={styles.label}>App passphrase</Text>
@@ -150,50 +138,32 @@ export function PendingMnemonicBackupScreen({
         ) : null}
       </ScrollView>
 
-      <View style={styles.footer}>
-        <Pressable
-          accessibilityRole="button"
-          disabled={busy || (!backup && appPassphrase.length === 0)}
-          onPress={backup ? confirm : recover}
-          style={({ pressed }) => [
-            styles.primaryButton,
-            busy || (!backup && appPassphrase.length === 0) ? styles.disabled : undefined,
-            pressed ? styles.primaryButtonPressed : undefined,
-          ]}
-        >
-          {busy && !backup ? (
-            <ActivityIndicator color={theme.colors.onActionPrimary} />
-          ) : (
-            <Text style={styles.primaryButtonText}>{backup ? 'I have backed it up' : 'Reveal recovery phrase'}</Text>
-          )}
-        </Pressable>
-      </View>
+      {backup ? null : (
+        <View style={styles.footer}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy || appPassphrase.length === 0}
+            onPress={recover}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              busy || appPassphrase.length === 0 ? styles.disabled : undefined,
+              pressed ? styles.primaryButtonPressed : undefined,
+            ]}
+          >
+            {busy ? (
+              <ActivityIndicator color={theme.colors.onActionPrimary} />
+            ) : (
+              <Text style={styles.primaryButtonText}>Reveal recovery phrase</Text>
+            )}
+          </Pressable>
+        </View>
+      )}
     </Screen>
   );
 }
 
-function RecoveryPhrase({ mnemonic }: Readonly<{ mnemonic: string }>) {
-  const styles = useThemedStyles(createStyles);
-
-  return (
-    <View style={styles.recoveryBox}>
-      {mnemonic
-        .trim()
-        .split(/\s+/u)
-        .map((word, index) => (
-          <View key={`${index}-${word}`} style={styles.recoveryWord}>
-            <Text style={styles.recoveryNumber}>{index + 1}</Text>
-            <Text selectable style={styles.recoveryText}>
-              {word}
-            </Text>
-          </View>
-        ))}
-    </View>
-  );
-}
-
 function readableError(error: unknown): string {
-  return projectFeatureError(error, {fallbackMessage: 'Unable to continue.'}).message;
+  return projectFeatureError(error, { fallbackMessage: 'Unable to continue.' }).message;
 }
 
 function createStyles(theme: AppTheme) {
@@ -258,26 +228,6 @@ function createStyles(theme: AppTheme) {
       fontWeight: '800',
     },
     infoText: { flex: 1, color: theme.colors.textSecondary, fontSize: 11, lineHeight: 17 },
-    recoveryBox: {
-      marginHorizontal: 20,
-      borderRadius: 12,
-      backgroundColor: theme.colors.surfaceMuted,
-      padding: 12,
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-    },
-    recoveryWord: {
-      width: '47%',
-      minHeight: 38,
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderRadius: 8,
-      backgroundColor: theme.colors.surface,
-      paddingHorizontal: 9,
-    },
-    recoveryNumber: { width: 22, color: theme.colors.textTertiary, fontSize: 11, lineHeight: 15 },
-    recoveryText: { flex: 1, color: theme.colors.textPrimary, fontSize: 14, lineHeight: 19, fontWeight: '700' },
     noticeBox: {
       marginHorizontal: 20,
       marginTop: 14,

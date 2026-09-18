@@ -1,15 +1,7 @@
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import {Screen} from '@ui/components';
+import { Screen } from '@ui/components';
 
 import {
   NEW_PROTECTION_PASSPHRASE_MIN_UNICODE_SCALARS,
@@ -18,7 +10,8 @@ import {
 } from '../../capabilities/application-security/newPassphrasePolicy';
 import { useAppTheme, useThemedStyles, type AppTheme } from '../../ui/theme';
 import { confirmMnemonicBackup, type RecoveredMnemonicBackup } from './onboardingBootstrap';
-import {projectFeatureError} from '../featureError';
+import { MnemonicBackupVerification } from './MnemonicBackupVerification';
+import { projectFeatureError } from '../featureError';
 import type { OnboardingMethod } from './onboardingState';
 import {
   runGeneratedMnemonicOnboarding,
@@ -52,8 +45,7 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const passphraseAssessment = assessNewProtectionPassphrase(appPassphrase);
-  const passphraseConfirmationMatches =
-    confirmPassphrase.length > 0 && appPassphrase === confirmPassphrase;
+  const passphraseConfirmationMatches = confirmPassphrase.length > 0 && appPassphrase === confirmPassphrase;
   const passphraseReady = passphraseAssessment.meetsMinimum && passphraseConfirmationMatches;
 
   function chooseMethod(nextMethod: OnboardingMethod) {
@@ -172,11 +164,8 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
             Write these words down in order and store them offline. Fresnica does not persist this plaintext phrase.
           </Text>
         </View>
-        <RecoveryPhrase mnemonic={generatedBackup.mnemonic} />
+        <MnemonicBackupVerification mnemonic={generatedBackup.mnemonic} onVerified={confirmGeneratedBackup} />
         {error ? <ErrorText message={error} /> : null}
-        <View style={styles.footer}>
-          <PrimaryButton label="I have backed it up" onPress={confirmGeneratedBackup} />
-        </View>
       </FlowShell>
     );
   }
@@ -401,9 +390,7 @@ function PassphraseRequirements({
         uppercase/lowercase/digit/symbol mixtures.
       </Text>
       <View style={styles.requirementRow}>
-        <Text style={meetsMinimum ? styles.requirementMet : styles.requirementPending}>
-          {meetsMinimum ? '✓' : '○'}
-        </Text>
+        <Text style={meetsMinimum ? styles.requirementMet : styles.requirementPending}>{meetsMinimum ? '✓' : '○'}</Text>
         <Text style={styles.requirementText}>
           {unicodeScalarCount}/{NEW_PROTECTION_PASSPHRASE_MIN_UNICODE_SCALARS} characters minimum
         </Text>
@@ -474,26 +461,6 @@ function PrimaryButton(props: { label: string; onPress: () => void; disabled?: b
   );
 }
 
-function RecoveryPhrase({ mnemonic }: Readonly<{ mnemonic: string }>) {
-  const styles = useThemedStyles(createStyles);
-
-  return (
-    <View style={styles.recoveryBox}>
-      {mnemonic
-        .trim()
-        .split(/\s+/u)
-        .map((word, index) => (
-          <View key={`${index}-${word}`} style={styles.recoveryWord}>
-            <Text style={styles.recoveryNumber}>{index + 1}</Text>
-            <Text selectable style={styles.recoveryText}>
-              {word}
-            </Text>
-          </View>
-        ))}
-    </View>
-  );
-}
-
 function ErrorText({ message }: Readonly<{ message: string }>) {
   const styles = useThemedStyles(createStyles);
 
@@ -535,7 +502,7 @@ function submitLabel(method: OnboardingMethod): string {
 }
 
 function readableError(error: unknown): string {
-  return projectFeatureError(error, {fallbackMessage: 'Unable to continue.'}).message;
+  return projectFeatureError(error, { fallbackMessage: 'Unable to continue.' }).message;
 }
 
 function createStyles(theme: AppTheme) {
@@ -680,11 +647,11 @@ function createStyles(theme: AppTheme) {
       lineHeight: 17,
       fontWeight: '800',
     },
-    passphraseGuideText: {color: theme.colors.textSecondary, fontSize: 11, lineHeight: 17},
-    requirementRow: {flexDirection: 'row', alignItems: 'center', gap: 8},
-    requirementMet: {color: theme.colors.positive, fontSize: 14, lineHeight: 18, fontWeight: '800'},
-    requirementPending: {color: theme.colors.textTertiary, fontSize: 14, lineHeight: 18, fontWeight: '800'},
-    requirementText: {flex: 1, color: theme.colors.textSecondary, fontSize: 11, lineHeight: 16},
+    passphraseGuideText: { color: theme.colors.textSecondary, fontSize: 11, lineHeight: 17 },
+    requirementRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    requirementMet: { color: theme.colors.positive, fontSize: 14, lineHeight: 18, fontWeight: '800' },
+    requirementPending: { color: theme.colors.textTertiary, fontSize: 14, lineHeight: 18, fontWeight: '800' },
+    requirementText: { flex: 1, color: theme.colors.textSecondary, fontSize: 11, lineHeight: 16 },
     passphrasePolicyText: {
       color: theme.colors.textSecondary,
       fontSize: 10,
@@ -743,26 +710,6 @@ function createStyles(theme: AppTheme) {
       textAlign: 'center',
     },
     heroBody: { color: theme.colors.textSecondary, fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 8 },
-    recoveryBox: {
-      marginHorizontal: 20,
-      borderRadius: 12,
-      backgroundColor: theme.colors.surfaceMuted,
-      padding: 12,
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-    },
-    recoveryWord: {
-      width: '47%',
-      minHeight: 38,
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderRadius: 8,
-      backgroundColor: theme.colors.surface,
-      paddingHorizontal: 9,
-    },
-    recoveryNumber: { width: 22, color: theme.colors.textTertiary, fontSize: 11, lineHeight: 15 },
-    recoveryText: { flex: 1, color: theme.colors.textPrimary, fontSize: 14, lineHeight: 19, fontWeight: '700' },
     errorBox: {
       marginHorizontal: 20,
       marginTop: 14,
