@@ -59,7 +59,7 @@ This map assigns construction order without reducing final scope. An ID is compl
 - Post-review local gate: `npm run check` 56 suites / 288 tests passed; `npm run test:realm`: 19/19; provenance/architecture/locale gates passed.
 - Android real-Testnet process-death smoke: transaction `f4c319cbe5db754888a419af7311901331ebf1b5a9209d2dd7fff8cd057e1417` persisted uncertain under PID 7631, process was force-stopped, PID 7773 reopened the same Realm and reconciled the same network/account/source/hash to confirmed without signing or broadcasting again.
 - Android and iOS current-head native runtime smoke both passed after the NetInfo dependency was integrated; iOS also completed a fresh simulator build.
-- This evidence passes the S07/S30 **shared recovery gate only**. The product rows remain `L3 partial` until their Stage 4 user-flow, failure, localization/accessibility and native/E2E acceptance is complete.
+- This evidence passed the S07/S30 **shared recovery gate only**. At the time of this Stage 2.5 evidence, both product rows remained `L3 partial` pending their later Stage 4 user-flow, failure, localization/accessibility and native/E2E acceptance; current maturity is recorded in the delivery map and the later per-slice aggregate evidence below.
 - Future ledger-write slices S10–S12 and S18 must consume this recovery path; passing Stage 2.5 is not permission to implement them before their own Stage/Capability gates.
 
 ## Stage 3 product native-flow carrier evidence
