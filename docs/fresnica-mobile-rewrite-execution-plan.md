@@ -600,7 +600,7 @@ UI 执行策略：
 - `3801415` 补强两个可靠性证据：真正创建 Realm schema v2 后升级到 v3，Account/Signer/reference/Locale 均保持；以及 pre-broadcast `submitting` 已持久化但尚未广播即进程死亡的 crash window，重启查询仍为 unknown 时记录继续阻断相同 intent。这是有意的 fail-closed/liveness 取舍，不引入时间自动放行。
 - Post-review 本地代码门禁：`npm run check` 56 suites / 288 tests 全通过；`npm run test:realm` 19/19；format、lint、alias、architecture、provenance、locale 全通过。
 - Post-review Native gate：Android fresh rebuild + runtime smoke 通过；Android release 缺凭据继续 fail closed，临时独立证书签名验证通过且非 Android Debug；iOS fresh simulator rebuild + Realm/Core/external-signing/SEP-53 runtime smoke 通过。
-- 以上只升级 Transaction recovery 基础切片；S07/S30 的产品成熟度仍保持 L3 partial，等待 Stage 4 各自完整用户闭环/native/E2E。未来 S10–S12、S18 的写账部分必须复用该管线。
+- 以上只升级 Transaction recovery 基础切片；在该 Stage 2.5 切片完成时，S07/S30 的产品成熟度仍保持 L3 partial，等待 Stage 4 各自完整用户闭环/native/E2E。未来 S10–S12、S18 的写账部分必须复用该管线。
 
 ### Stage 3：产品 Shell 与横切能力
 
@@ -717,8 +717,8 @@ UI 执行策略：
 - Home 与 Activity 的 focus revalidation 由 App navigator wrapper 触发，Feature 不导入 React Navigation；交易返回 Home 或后续切回 Activity 时重新读取权威数据，不对 Realm 余额做乐观修改。
 - Home `asset-details` 已接通：导航只携带 `accountId + BalanceAsset identity`，详情页重新读取 Balance capability，覆盖 loading / ready / inactive / unsupported / missing / error 与手动 refresh；Asset Metadata / Stellar TOML 保持 Stage 8。
 - Activity `operation-details` 已接通：导航只携带 `accountId + operationId`；History Capability 使用单 operation Horizon 查询，验证 operation id 与账户关联，区分 404 / gateway failure，并只向 Feature 暴露稳定 DTO。
-- S30 Trustline 已闭合 Add / Set Limit / Remove 的产品语义：Set Limit 要求现有 trustline、正 limit 不低于 `balance + buying liabilities`、非零结果要求 issuer 仍存在，并在签名前重新验证 intent、limit、authorization/clawback 与 ledger state；Manage Assets 复用同一 exact-XDR review / System Auth / sign / submit 管线。Stage 2.5 shared recovery 已与 S07 一起通过，但 S30 的完整 Stage 4 产品/native/E2E 仍未全部验收，因此继续标记 L3 partial。
-- Stage 2.5 已在 2026-09-10 从该临时失败状态闭合；其冻结证据仍是 `5db3610` 上的 55 suites / 278 tests 与 Realm 17/17。后续安全/发布收口到代码 head `50d8653` 时，`npm run check` 为 56 suites / 284 tests、`npm run test:realm` 17/17、ESLint 0 errors / 28 warnings；这组较新数字不回写覆盖 Stage 2.5 历史快照。Stage 4 尚未完成的账户/Send/Trustline/Activity 产品验收仍按各 Sxx 独立保留。
+- S30 Trustline 已闭合 Add / Set Limit / Remove 的产品语义：Set Limit 要求现有 trustline、正 limit 不低于 `balance + buying liabilities`、非零结果要求 issuer 仍存在，并在签名前重新验证 intent、limit、authorization/clawback 与 ledger state；Manage Assets 复用同一 exact-XDR review / System Auth / sign / submit 管线。2026-09-20 在 PR #59 合并后的 `main@0e84fd5...` 已完成 fresh Android+iOS Testnet aggregate acceptance，覆盖 App Passphrase fallback、System Auth success、真实 Horizon Add/Set Limit/Remove、liability/LP fail-closed、deterministic rejected、uncertain/restart same-hash reconciliation、Home 权威重读，以及 Android Retry/简中/1.5x dynamic type/basic TalkBack。S30 因此提升为 `L3 / L4 partial`；L4 仍缺可重复 required gate 与可信的平台级 screen-reader focus-order 深度，尤其 iOS VoiceOver。
+- Stage 2.5 已在 2026-09-10 从该临时失败状态闭合；其冻结证据仍是 `5db3610` 上的 55 suites / 278 tests 与 Realm 17/17。后续安全/发布收口到代码 head `50d8653` 时，`npm run check` 为 56 suites / 284 tests、`npm run test:realm` 17/17、ESLint 0 errors / 28 warnings；这组较新数字不回写覆盖 Stage 2.5 历史快照。Stage 4 尚未完成的账户/Send/Activity 产品验收仍按各 Sxx 独立保留；Trustline S30 已按上文 aggregate 结论进入 `L3 / L4 partial`。
 
 ### Stage 5：Request 与 Stellar URI
 
@@ -1032,7 +1032,7 @@ Backend 交付并完成身份/滥用验证后才可支持：
 3. S01 Create + Import + HD 已在 `main@a2b17eba...` 完成双端同钱包 aggregate acceptance，并在 PR #54 / `main@52bd547...` 合并 generated-mnemonic verification hardening，关闭“仅确认已看到助记词、未证明备份”的已知产品语义缺口；S01 保持 **`L3 / L4 partial`**。当前剩余为 aggregate 标准必过门与动态字体/读屏顺序 L4 债务；Reveal/Export、rotation、generic session unlock、hardware wallet 各自按独立范围推进。
 4. S05 Testnet Friendbot 单切片与 Home/Balance 双端 aggregate 已在 `main@ab794fa...` 完成，整体升级为 **`L3 / L4 partial`**；旧 `Medium_Phone` resolver 损坏继续只记环境债务，不重复验证 Friendbot。S05 剩余债务仅是标准必过 aggregate gate、iOS focus-return fault 的独立平台深度，以及动态字体/读屏顺序 L4 验收。
 5. **S07 Send aggregate 已在 `main@a921635...` 上完成双端主体路径验收，但成熟度保持 `L3 partial`。** Android 已覆盖 Text/ID/Hash、App Passphrase fallback、System Auth success/cancel→retry、submitted/rejected/uncertain 与 process restart recovery；iOS fresh current-tree Debug build 覆盖同一矩阵中的全部项目，唯独 Simulator 无法提供可信的 Native System Auth cancel 窗口。2026-09-18 已确认当前无可用真实 iPhone，因此该实机验收显式延期到 Stage 9 / release acceptance；不得为证据缺口修改 Payment、Signing、Transaction、XDR 或 recovery 语义来绕过验收。
-6. 上述 S07 iOS cancel 缺口只阻止 S07 成熟度升级和最终发布签收，不再阻塞 S30 Trustline 或 S13 Activity。主线顺序保持 **S30 → S13 → 其他 Stage 4 功能 → Stage 9 / release candidate 前真实 iPhone S07 cancel acceptance**；S30 内部先完成窄产品 hardening（load retry、locale、accessibility/UI regression、同目录 `styles.ts`），独立 review/merge 后再做 aggregate evidence。release candidate 前必须实机闭合 `cancel → user-cancel → pending=0 → retry → submitted`；S30/S13 继续复用 Stage 2.5 transaction recovery，不因该证据延期降低 exact-XDR / fail-closed 要求。
+6. 上述 S07 iOS cancel 缺口只阻止 S07 成熟度升级和最终发布签收，不再阻塞已完成 aggregate acceptance 的 S30 Trustline 或 S13 Activity。S30 已完成窄产品 hardening、独立 review/merge 与 post-#59 双端 aggregate evidence；当前主线顺序为 **S13 → 其他 Stage 4 功能 → Stage 9 / release candidate 前真实 iPhone S07 cancel acceptance**。release candidate 前必须实机闭合 `cancel → user-cancel → pending=0 → retry → submitted`；S13 与后续写账切片继续复用 Stage 2.5 transaction recovery，不因该证据延期降低 exact-XDR / fail-closed 要求。
 7. UI 最终视觉稿仍不阻塞上述功能施工；但新触及文案必须进入 locale，Accessibility label、动态字体和读屏顺序按切片记录，避免把可预见的 L4 债务继续扩大。
 8. 缓存 schema/失效、Backend 边界、Mainnet/Developer Mode、最终 Application ID/iOS identity 与 release signing 继续按 Stage 8/8B/9 顺序推进，不提前宣称发布成熟。
 
