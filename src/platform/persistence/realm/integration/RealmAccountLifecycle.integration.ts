@@ -7,7 +7,9 @@ import {moveAccount, orderAccounts} from '../../../../capabilities/account/accou
 import {setAccountHidden} from '../../../../capabilities/account/accountVisibility';
 import {deleteLocalAccount} from '../../../../capabilities/account/deleteLocalAccount';
 import type {AccountRecord} from '../../../../capabilities/account/types';
+import {historySnapshot, payment} from '../../__tests__/historyCacheRepositoryContract';
 import {RealmAccountSignerRepository} from '../RealmAccountSignerRepository';
+import {RealmHistoryCacheRepository} from '../RealmHistoryCacheRepository';
 import {RealmPendingSubmissionRepository} from '../RealmPendingSubmissionRepository';
 import {openWalletRealm} from '../openWalletRealm';
 
@@ -99,11 +101,23 @@ describe('Realm account lifecycle', () => {
       activeRealm = await openWalletRealm({path});
       const repository = new RealmAccountSignerRepository(activeRealm);
       const pendingSubmissions = new RealmPendingSubmissionRepository(activeRealm);
-      repository.createAccount(account('account-a'));
+      const historyCache = new RealmHistoryCacheRepository(activeRealm);
+      const deletedAccount = account('account-a');
+      repository.createAccount(deletedAccount);
+      historyCache.replaceSnapshot(
+        {networkId: deletedAccount.networkId, accountAddress: deletedAccount.address},
+        historySnapshot([payment('history-before-delete')]),
+      );
 
-      deleteLocalAccount({repository, pendingSubmissions}, 'account-a');
+      deleteLocalAccount({repository, pendingSubmissions, historyCache}, deletedAccount.id);
 
       expect(repository.listAccounts()).toEqual([]);
+      expect(
+        historyCache.getSnapshot({
+          networkId: deletedAccount.networkId,
+          accountAddress: deletedAccount.address,
+        }),
+      ).toBeUndefined();
     } finally {
       activeRealm?.close();
       rmSync(directory, {recursive: true, force: true});

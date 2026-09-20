@@ -7,6 +7,8 @@ import {
   LOCALE_PREFERENCE_SCHEMA,
   DEFAULT_ACCOUNT_PREFERENCE_ENTITY,
   DEFAULT_ACCOUNT_PREFERENCE_SCHEMA,
+  HISTORY_CACHE_SNAPSHOT_ENTITY,
+  HISTORY_CACHE_SNAPSHOT_SCHEMA,
   PENDING_SUBMISSION_ENTITY,
   PENDING_SUBMISSION_SCHEMA,
   SIGNER_ENTITY,
@@ -15,9 +17,9 @@ import {
   WALLET_REALM_SCHEMA_VERSION,
 } from '../schemas';
 
-describe('Realm wallet schema v4', () => {
-  it('adds network-scoped default-account persistence without changing wallet entity identities', () => {
-    expect(WALLET_REALM_SCHEMA_VERSION).toBe(4);
+describe('Realm wallet schema v5', () => {
+  it('adds replaceable History cache persistence without changing wallet entity identities', () => {
+    expect(WALLET_REALM_SCHEMA_VERSION).toBe(5);
     expect(WALLET_REALM_SCHEMAS).toEqual([
       ACCOUNT_SCHEMA,
       SIGNER_SCHEMA,
@@ -25,6 +27,7 @@ describe('Realm wallet schema v4', () => {
       LOCALE_PREFERENCE_SCHEMA,
       DEFAULT_ACCOUNT_PREFERENCE_SCHEMA,
       PENDING_SUBMISSION_SCHEMA,
+      HISTORY_CACHE_SNAPSHOT_SCHEMA,
     ]);
     expect(ACCOUNT_SCHEMA.name).toBe(ACCOUNT_ENTITY);
     expect(SIGNER_SCHEMA.name).toBe(SIGNER_ENTITY);
@@ -32,6 +35,7 @@ describe('Realm wallet schema v4', () => {
     expect(LOCALE_PREFERENCE_SCHEMA.name).toBe(LOCALE_PREFERENCE_ENTITY);
     expect(DEFAULT_ACCOUNT_PREFERENCE_SCHEMA.name).toBe(DEFAULT_ACCOUNT_PREFERENCE_ENTITY);
     expect(PENDING_SUBMISSION_SCHEMA.name).toBe(PENDING_SUBMISSION_ENTITY);
+    expect(HISTORY_CACHE_SNAPSHOT_SCHEMA.name).toBe(HISTORY_CACHE_SNAPSHOT_ENTITY);
   });
 
   it('stores Account fields one-to-one without persisting derived watch-only state', () => {
@@ -121,6 +125,25 @@ describe('Realm wallet schema v4', () => {
       },
     });
     expect(ACCOUNT_SCHEMA.properties).not.toHaveProperty('defaultAccountId');
+  });
+
+  it('persists History cache as a replaceable normalized snapshot blob', () => {
+    expect(HISTORY_CACHE_SNAPSHOT_SCHEMA).toEqual({
+      name: 'HistoryCacheSnapshotEntity',
+      primaryKey: 'id',
+      properties: {
+        id: 'string',
+        networkId: 'string',
+        accountAddress: 'string',
+        schemaVersion: 'int',
+        lastSuccessfulHorizonUpdateAt: 'date',
+        entriesJson: 'string',
+        detailsJson: 'string',
+      },
+    });
+    expect(HISTORY_CACHE_SNAPSHOT_SCHEMA.properties).not.toHaveProperty('cursor');
+    expect(HISTORY_CACHE_SNAPSHOT_SCHEMA.properties).not.toHaveProperty('acceptedCursors');
+    expect(HISTORY_CACHE_SNAPSHOT_SCHEMA.properties).not.toHaveProperty('rawHorizon');
   });
 
   it('persists only public pending-submission recovery metadata', () => {

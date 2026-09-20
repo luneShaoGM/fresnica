@@ -1,5 +1,7 @@
 import {InMemoryAccountSignerRepository} from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
+import {InMemoryHistoryCacheRepository} from '../../../platform/persistence/memory/InMemoryHistoryCacheRepository';
 import {InMemoryPendingSubmissionRepository} from '../../../platform/persistence/memory/InMemoryPendingSubmissionRepository';
+import {HISTORY_CACHE_SCHEMA_VERSION} from '../../history/HistoryCacheRepository';
 import type {SignerRecord} from '../../signer/types';
 import type {PendingSubmissionRecord} from '../../transaction/pendingSubmission';
 import {deleteLocalAccount} from '../deleteLocalAccount';
@@ -58,6 +60,7 @@ function dependencies() {
   return {
     repository: new InMemoryAccountSignerRepository(),
     pendingSubmissions: new InMemoryPendingSubmissionRepository(),
+    historyCache: new InMemoryHistoryCacheRepository(),
   };
 }
 
@@ -117,6 +120,53 @@ describe('deleteLocalAccount', () => {
 
     deleteLocalAccount(deps, 'account-b');
     expect(deps.repository.getSigner('shared')).toBeUndefined();
+  });
+
+  it('clears the matching History cache partition before deleting a classic account', () => {
+    const deps = dependencies();
+    const record = account('account-a');
+    deps.repository.createAccount(record);
+    deps.historyCache.replaceSnapshot(
+      {networkId: record.networkId, accountAddress: record.address},
+      {
+        schemaVersion: HISTORY_CACHE_SCHEMA_VERSION,
+        lastSuccessfulHorizonUpdateAt: now,
+        entries: [
+          {
+            id: 'history-1',
+            pagingToken: 'history-1',
+            operationType: 'future_operation',
+            occurredAt: '2026-09-20T08:00:00Z',
+            transactionHash: 'tx-history-1',
+            sourceAccount: record.address,
+            kind: 'unsupported',
+            reason: 'operation-type',
+          },
+        ],
+        details: [],
+      },
+    );
+
+    deleteLocalAccount(deps, record.id);
+
+    expect(
+      deps.historyCache.getSnapshot({
+        networkId: record.networkId,
+        accountAddress: record.address,
+      }),
+    ).toBeUndefined();
+    expect(deps.repository.getAccount(record.id)).toBeUndefined();
+  });
+
+  it('keeps the account when History cache cleanup fails', () => {
+    const deps = dependencies();
+    deps.repository.createAccount(account('account-a'));
+    deps.historyCache.clearPartition = () => {
+      throw new Error('history-cache-clear-failed');
+    };
+
+    expect(() => deleteLocalAccount(deps, 'account-a')).toThrow('history-cache-clear-failed');
+    expect(deps.repository.getAccount('account-a')).toBeDefined();
   });
 
   it('allows deleting the final total account', () => {

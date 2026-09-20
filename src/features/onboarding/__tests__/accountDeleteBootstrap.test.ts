@@ -1,6 +1,7 @@
 import {deleteLocalAccount} from '../../../capabilities/account/deleteLocalAccount';
 import type {AccountRecord} from '../../../capabilities/account/types';
 import {InMemoryAccountSignerRepository} from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
+import {InMemoryHistoryCacheRepository} from '../../../platform/persistence/memory/InMemoryHistoryCacheRepository';
 import {InMemoryPendingSubmissionRepository} from '../../../platform/persistence/memory/InMemoryPendingSubmissionRepository';
 import {resolveOnboardingBootstrap} from '../onboardingBootstrap';
 
@@ -26,7 +27,14 @@ describe('account delete bootstrap', () => {
     const pendingSubmissions = new InMemoryPendingSubmissionRepository();
     repository.createAccount(account());
 
-    deleteLocalAccount({repository, pendingSubmissions}, 'account-a');
+    deleteLocalAccount(
+      {
+        repository,
+        pendingSubmissions,
+        historyCache: new InMemoryHistoryCacheRepository(),
+      },
+      'account-a',
+    );
 
     expect(
       resolveOnboardingBootstrap({

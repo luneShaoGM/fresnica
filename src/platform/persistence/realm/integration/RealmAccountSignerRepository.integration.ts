@@ -322,8 +322,8 @@ describe('Realm pending-submission reconciliation recovery', () => {
   });
 });
 
-describe('Realm schema v2 to v4 migration', () => {
-  it('preserves existing wallet records while adding pending and default-account preferences', async () => {
+describe('Realm schema v2 to v5 migration', () => {
+  it('preserves existing wallet records while adding newer top-level persistence entities', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'fresnica-realm-v2-migration-'));
     const path = join(directory, 'wallet.realm');
     let activeRealm: Realm | undefined;
@@ -360,8 +360,8 @@ describe('Realm schema v2 to v4 migration', () => {
   });
 });
 
-describe('Realm schema v3 to v4 migration', () => {
-  it('preserves current v3 pending recovery while adding empty default-account preferences', async () => {
+describe('Realm schema v3 to v5 migration', () => {
+  it('preserves current v3 pending recovery while adding newer empty persistence entities', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'fresnica-realm-v3-migration-'));
     const path = join(directory, 'wallet.realm');
     let activeRealm: Realm | undefined;
