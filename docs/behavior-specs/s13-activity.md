@@ -41,10 +41,12 @@ Merging a later page follows these rules:
 2. append incoming entries in gateway order;
 3. deduplicate by stable operation `id`;
 4. keep the first loaded copy of a duplicate because ledger operations are immutable;
-5. retain the gateway's next cursor even when an overlapping page contributes no new rows, provided the cursor advances;
-6. a repeated/non-advancing cursor must fail closed as a load-more error instead of creating an infinite pagination loop.
+5. retain the gateway's next cursor even when an overlapping page contributes no new rows, provided the cursor is new to the current accepted pagination chain;
+6. treat cursors as opaque tokens: never parse, numerically compare or lexicographically order them;
+7. after a successful page response, a defined `nextCursor` advances only when it differs from the cursor used for that request and is absent from the set of cursors already accepted for the current loaded page set; equality with the request cursor or any previously accepted cursor is a pagination cycle and must fail closed as a load-more error;
+8. add a cursor to the accepted set only after that page response is successfully accepted, so a transport/load failure can retry the same request cursor without being misclassified as a cycle.
 
-A short page has no next cursor. Reaching the end leaves the loaded entries visible and removes the load-more affordance.
+The accepted cursor set is reset when page 1 replaces the page set, including account changes and successful refresh. A short page has no next cursor. Reaching the end leaves the loaded entries visible and removes the load-more affordance.
 
 ## Initial load, refresh and error recovery
 
@@ -178,16 +180,21 @@ Warnings are descriptive read-model warnings only. They are not transaction-secu
 
 The detail surface may offer one read-only **View transaction in explorer** action when the current network and transaction hash are supported.
 
-Explorer URL construction is outside Feature/History DTO mapping. It consumes `networkId + transactionHash` and returns an optional HTTPS URL.
+Ownership is explicit:
 
-Frozen network mapping:
+- **History Capability** owns only the normalized public ledger fields, including `transactionHash`; History DTOs never contain explorer URLs or invoke external navigation.
+- **Network Capability** owns explorer policy. Given `networkId + transactionHash`, it validates the public transaction hash, applies the configured network-to-explorer mapping and returns either a trusted HTTPS URL or no action. Activity must not duplicate this mapping.
+- **Activity Feature** consumes that optional projection and decides only whether to render the localized explorer action; it does not build URLs and does not call React Native `Linking` directly.
+- **Platform** owns the external-navigation side effect behind an injected external-URL port. App composition wires the Network Capability projection and Platform opener into the Activity surface. The Platform opener does not reinterpret network policy or rewrite the URL.
+
+Frozen Network Capability mapping:
 
 - `stellar-testnet` → `https://stellar.expert/explorer/testnet/tx/<transactionHash>`;
 - `stellar-mainnet` → `https://stellar.expert/explorer/public/tx/<transactionHash>`.
 
-Unknown/custom networks expose no explorer action until their explorer policy is configured. The Feature must not guess a public-network URL.
+Unknown/custom networks return no explorer projection until their explorer policy is configured. The Feature and Platform layers must not guess a public-network URL.
 
-The hash must be a valid 64-character hexadecimal transaction hash before an external URL is offered. Opening the explorer sends only the public network selection and transaction hash.
+The Network Capability offers an explorer URL only for a valid 64-character hexadecimal transaction hash and an allowlisted HTTPS explorer origin/path for the selected network. Opening the explorer sends only public network context encoded in that URL and the public transaction hash.
 
 This action is read-only. “Send again”, “remove trustline”, “claim”, “cancel offer” or any other ledger mutation is outside S13.
 
