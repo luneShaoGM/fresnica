@@ -53,6 +53,9 @@ function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryOperatio
     ...(input.funder === undefined ? {} : { funder: input.funder }),
     ...(input.account === undefined ? {} : { account: input.account }),
     ...(input.starting_balance === undefined ? {} : { startingBalance: input.starting_balance }),
+    ...(input.trustor === undefined ? {} : { trustor: input.trustor }),
+    ...(input.trustee === undefined ? {} : { trustee: input.trustee }),
+    ...(input.limit === undefined ? {} : { limit: input.limit }),
   });
 }
 

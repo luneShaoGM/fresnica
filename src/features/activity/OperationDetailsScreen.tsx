@@ -7,7 +7,12 @@ import {
   type HistoryOperationDetails,
 } from '@capabilities/history/loadHistoryOperationDetails';
 import type {HistoryDependencies} from '@capabilities/history/loadHistoryPage';
-import type {HistoryDirection, HistoryEntry} from '@capabilities/history/types';
+import type {
+  HistoryDirection,
+  HistoryEntry,
+  HistoryParticipant,
+  HistoryParticipantRole,
+} from '@capabilities/history/types';
 import {Header, Screen, StateView} from '@ui/components';
 import {useThemedStyles} from '@ui/theme';
 
@@ -200,6 +205,7 @@ function renderEntry(
             <DetailRow label={t('activity.detail.asset')} value={entry.asset.code} styles={styles} />
             {entry.asset.kind === 'credit' ? <DetailRow label={t('activity.detail.issuer')} value={entry.asset.issuer} mono styles={styles} /> : null}
             <DetailRow label={t('activity.detail.counterparty')} value={entry.counterparty} mono styles={styles} />
+            <ParticipantRows participants={entry.participants} t={t} styles={styles} />
           </>
         ) : null}
         {entry.kind === 'create-account' ? (
@@ -207,11 +213,40 @@ function renderEntry(
             <DetailRow label={t('activity.detail.direction')} value={directionLabel(entry.direction, t)} styles={styles} />
             <DetailRow label={t('activity.detail.startingBalance')} value={`${formatNumber(entry.startingBalance)} XLM`} styles={styles} />
             <DetailRow label={t('activity.detail.counterparty')} value={entry.counterparty} mono styles={styles} />
+            <ParticipantRows participants={entry.participants} t={t} styles={styles} />
+          </>
+        ) : null}
+        {entry.kind === 'change-trust' ? (
+          <>
+            <DetailRow label={t('activity.detail.asset')} value={entry.asset.code} styles={styles} />
+            <DetailRow label={t('activity.detail.issuer')} value={entry.asset.issuer} mono styles={styles} />
+            <DetailRow label={t('activity.detail.limit')} value={formatNumber(entry.limit)} styles={styles} />
+            <ParticipantRows participants={entry.participants} t={t} styles={styles} />
           </>
         ) : null}
       </View>
     </View>
   );
+}
+
+function ParticipantRows({
+  participants,
+  t,
+  styles,
+}: Readonly<{
+  participants: readonly HistoryParticipant[];
+  t: Translate;
+  styles: Styles;
+}>) {
+  return participants.map((participant, index) => (
+    <DetailRow
+      key={`${participant.role}:${index}`}
+      label={participantRoleLabel(participant.role, t)}
+      value={participant.identity}
+      mono
+      styles={styles}
+    />
+  ));
 }
 
 function DetailRow({label, value, mono = false, styles}: Readonly<{label: string; value: string; mono?: boolean; styles: Styles}>) {
@@ -223,6 +258,10 @@ function DetailRow({label, value, mono = false, styles}: Readonly<{label: string
       </Text>
     </View>
   );
+}
+
+function participantRoleLabel(role: HistoryParticipantRole, t: Translate): string {
+  return t(`activity.detail.participant.${role}`);
 }
 
 function directionLabel(direction: HistoryDirection, t: Translate): string {

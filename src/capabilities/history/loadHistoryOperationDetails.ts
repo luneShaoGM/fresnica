@@ -44,7 +44,18 @@ export async function loadHistoryOperationDetails(
 }
 
 function isOperationAssociatedWithAccount(record: HistoryOperationRecord, address: string): boolean {
-  return [record.sourceAccount, record.from, record.to, record.funder, record.account].some(
-    candidate => candidate === address,
-  );
+  if (
+    [record.sourceAccount, record.from, record.to, record.funder, record.account].some(
+      candidate => candidate === address,
+    )
+  ) {
+    return true;
+  }
+
+  if (record.type !== 'change_trust') {
+    return false;
+  }
+
+  const issuer = record.asset?.kind === 'credit' ? record.asset.issuer : undefined;
+  return [record.trustor, record.trustee, issuer].some(candidate => candidate === address);
 }

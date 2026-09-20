@@ -58,6 +58,14 @@ export function activityEntryPresentation(
         tone: directionTone(entry.direction),
         filter: 'accounts',
       };
+    case 'change-trust':
+      return {
+        title: t('activity.entry.trustlineChanged'),
+        primary: `${formatNumber(entry.limit)} ${entry.asset.code}`,
+        secondary: entry.asset.issuer,
+        tone: 'neutral',
+        filter: 'other',
+      };
     case 'unsupported':
       return {
         title: t('activity.entry.operation', {operationType: entry.operationType}),
@@ -82,6 +90,7 @@ export function matchesActivityFilter(
       return filter === 'payments';
     case 'create-account':
       return filter === 'accounts';
+    case 'change-trust':
     case 'unsupported':
       return filter === 'other';
   }

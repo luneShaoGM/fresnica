@@ -4,6 +4,7 @@ import {loadHistoryOperationDetails} from '../loadHistoryOperationDetails';
 
 const accountAddress = 'GACCOUNT';
 const otherAddress = 'GOTHER';
+const issuerAddress = 'GISSUER';
 
 function account(overrides?: Partial<AccountRecord>): AccountRecord {
   const now = new Date('2026-09-09T00:00:00.000Z');
@@ -80,6 +81,63 @@ describe('loadHistoryOperationDetails', () => {
     });
 
     await expect(loadHistoryOperationDetails(gateway.dependencies, account(), '900')).resolves.toEqual({
+      status: 'not-associated',
+    });
+  });
+
+  it('allows change-trust detail association through the issuer participant', async () => {
+    const gateway = dependencies({
+      status: 'found',
+      record: operation({
+        type: 'change_trust',
+        sourceAccount: otherAddress,
+        from: undefined,
+        to: undefined,
+        asset: {kind: 'credit', code: 'USD', issuer: issuerAddress},
+        trustor: otherAddress,
+        trustee: issuerAddress,
+        limit: '50.0000000',
+      }),
+    });
+
+    await expect(
+      loadHistoryOperationDetails(
+        gateway.dependencies,
+        account({address: issuerAddress}),
+        '900',
+      ),
+    ).resolves.toMatchObject({
+      status: 'ready',
+      entry: {
+        kind: 'change-trust',
+        asset: {kind: 'credit', code: 'USD', issuer: issuerAddress},
+        participants: [
+          {role: 'trustor', identity: otherAddress},
+          {role: 'issuer', identity: issuerAddress},
+        ],
+      },
+    });
+  });
+
+  it('does not infer unknown-operation association from an asset issuer field', async () => {
+    const gateway = dependencies({
+      status: 'found',
+      record: operation({
+        type: 'future_operation',
+        sourceAccount: otherAddress,
+        from: undefined,
+        to: undefined,
+        asset: {kind: 'credit', code: 'USD', issuer: issuerAddress},
+      }),
+    });
+
+    await expect(
+      loadHistoryOperationDetails(
+        gateway.dependencies,
+        account({address: issuerAddress}),
+        '900',
+      ),
+    ).resolves.toEqual({
       status: 'not-associated',
     });
   });
