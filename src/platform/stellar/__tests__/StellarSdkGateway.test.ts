@@ -319,6 +319,44 @@ describe('StellarSdkGateway', () => {
     expect(horizon.loadOperation).toHaveBeenCalledWith('777');
   });
 
+  it('preserves change-trust fields through the stable History gateway record', async () => {
+    const horizon = server();
+    horizon.loadOperation.mockResolvedValue({
+      id: '778',
+      paging_token: '778',
+      type: 'change_trust',
+      type_i: 6,
+      created_at: '2026-08-31T00:00:00Z',
+      transaction_hash: 'tx-778',
+      transaction_successful: true,
+      source_account: sourceAddress,
+      asset_type: 'credit_alphanum12',
+      asset_code: 'MiXeD',
+      asset_issuer: signerAddress,
+      trustor: sourceAddress,
+      trustee: signerAddress,
+      limit: '100.0000000',
+    });
+
+    await expect(
+      new StellarSdkGateway(TEST_GATEWAY_CONFIG, horizon).loadOperation({ operationId: '778' }),
+    ).resolves.toEqual({
+      status: 'found',
+      record: {
+        id: '778',
+        pagingToken: '778',
+        type: 'change_trust',
+        occurredAt: '2026-08-31T00:00:00Z',
+        transactionHash: 'tx-778',
+        sourceAccount: sourceAddress,
+        asset: {kind: 'credit', code: 'MiXeD', issuer: signerAddress},
+        trustor: sourceAddress,
+        trustee: signerAddress,
+        limit: '100.0000000',
+      },
+    });
+  });
+
   it('keeps operation not-found distinct from transport errors', async () => {
     const horizon = server();
     horizon.loadOperation.mockRejectedValue({ response: { status: 404 } });

@@ -19,6 +19,9 @@ export type HistoryOperationRecord = Readonly<{
   funder?: string;
   account?: string;
   startingBalance?: string;
+  trustor?: string;
+  trustee?: string;
+  limit?: string;
 }>;
 
 export type HistoryOperationLookupResult =

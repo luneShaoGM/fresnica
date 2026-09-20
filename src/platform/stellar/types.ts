@@ -74,6 +74,9 @@ export type HorizonOperationLike = {
   funder?: string;
   account?: string;
   starting_balance?: string;
+  trustor?: string;
+  trustee?: string;
+  limit?: string;
 };
 
 export type HorizonOperationPageLike = Readonly<{

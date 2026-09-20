@@ -66,6 +66,10 @@ describe('History capability', () => {
       amount: '1.2500000',
       asset: { kind: 'native', code: 'XLM' },
       counterparty: otherAddress,
+      participants: [
+        {role: 'sender', identity: accountAddress},
+        {role: 'recipient', identity: otherAddress},
+      ],
     });
   });
 
@@ -87,6 +91,10 @@ describe('History capability', () => {
       amount: '7.0000001',
       asset: { kind: 'credit', code: 'USD', issuer: issuerAddress },
       counterparty: otherAddress,
+      participants: [
+        {role: 'sender', identity: otherAddress},
+        {role: 'recipient', identity: accountAddress},
+      ],
     });
   });
 
@@ -106,6 +114,10 @@ describe('History capability', () => {
       kind: 'payment',
       direction: 'incoming',
       counterparty: otherAddress,
+      participants: [
+        {role: 'sender', identity: otherAddress},
+        {role: 'recipient', identity: muxed, baseAccount: accountAddress},
+      ],
     });
   });
 
@@ -125,6 +137,91 @@ describe('History capability', () => {
       direction: 'outgoing',
       startingBalance: '3.5000000',
       counterparty: otherAddress,
+      participants: [
+        {role: 'funder', identity: accountAddress},
+        {role: 'created-account', identity: otherAddress},
+      ],
+    });
+  });
+
+  it('maps issued-asset change-trust with exact limit and semantic participants', () => {
+    expect(
+      mapHistoryEntry(
+        operation({
+          type: 'change_trust',
+          sourceAccount: accountAddress,
+          asset: {kind: 'credit', code: 'MiXeD', issuer: issuerAddress},
+          trustor: accountAddress,
+          trustee: issuerAddress,
+          limit: '100.0000000',
+        }),
+        accountAddress,
+      ),
+    ).toMatchObject({
+      kind: 'change-trust',
+      asset: {kind: 'credit', code: 'MiXeD', issuer: issuerAddress},
+      limit: '100.0000000',
+      participants: [
+        {role: 'trustor', identity: accountAddress},
+        {role: 'issuer', identity: issuerAddress},
+      ],
+    });
+  });
+
+  it('keeps liquidity-pool change-trust as an unsupported known-family shape', () => {
+    expect(
+      mapHistoryEntry(
+        operation({
+          type: 'change_trust',
+          sourceAccount: accountAddress,
+          asset: {kind: 'unsupported'},
+          trustor: accountAddress,
+          limit: '5.0000000',
+        }),
+        accountAddress,
+      ),
+    ).toMatchObject({
+      kind: 'unsupported',
+      operationType: 'change_trust',
+      reason: 'operation-shape',
+    });
+  });
+
+  it('fails closed when change-trust participant fields contradict the operation source or issuer', () => {
+    expect(
+      mapHistoryEntry(
+        operation({
+          type: 'change_trust',
+          sourceAccount: accountAddress,
+          asset: {kind: 'credit', code: 'USD', issuer: issuerAddress},
+          trustor: otherAddress,
+          trustee: issuerAddress,
+          limit: '10.0000000',
+        }),
+        accountAddress,
+      ),
+    ).toMatchObject({
+      kind: 'unsupported',
+      operationType: 'change_trust',
+      reason: 'operation-shape',
+    });
+
+    expect(
+      mapHistoryEntry(
+        operation({
+          type: 'change_trust',
+          sourceAccount: accountAddress,
+          asset: {kind: 'credit', code: 'USD', issuer: issuerAddress},
+          trustor: accountAddress,
+          trustee: otherAddress,
+          limit: '10.0000000',
+        }),
+        accountAddress,
+      ),
+    ).toMatchObject({
+      kind: 'unsupported',
+      operationType: 'change_trust',
+      reason: 'operation-shape',
     });
   });
 
