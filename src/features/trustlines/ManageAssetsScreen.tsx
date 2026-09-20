@@ -147,7 +147,13 @@ export function ManageAssetsScreen({ account, dependencies, onDone }: Props) {
     setSubmitting(true);
     setError(undefined);
     try {
-      const result = await submitTrustlineProductReview(dependencies, account, flow.review, passphrase);
+      const result = await submitTrustlineProductReview(
+        dependencies,
+        account,
+        flow.review,
+        systemAuthReason(flow.review, t),
+        passphrase,
+      );
       if (result.status === 'passphrase-required') {
         setPassphraseRequired(true);
         AccessibilityInfo.announceForAccessibility(t('trustlines.authorization.passphraseRequired'));
@@ -256,7 +262,10 @@ export function ManageAssetsScreen({ account, dependencies, onDone }: Props) {
               value={t('trustlines.review.feeValue', { fee: review.fee })}
             />
             {review.expectedAuthorization ? (
-              <ReviewRow label={t('trustlines.review.expectedAuthorization')} value={review.expectedAuthorization} />
+              <ReviewRow
+                label={t('trustlines.review.expectedAuthorization')}
+                value={authorizationLabel(review.expectedAuthorization, t)}
+              />
             ) : null}
             {review.expectedClawbackEnabled === undefined ? null : (
               <ReviewRow
@@ -279,9 +288,12 @@ export function ManageAssetsScreen({ account, dependencies, onDone }: Props) {
                 accessibilityHint={t('trustlines.authorization.passphraseHint')}
                 accessibilityLabel={t('trustlines.authorization.appPassphrase')}
                 autoCapitalize="none"
+                autoComplete="off"
                 autoCorrect={false}
                 autoFocus
                 editable={!submitting}
+                importantForAutofill="no"
+                spellCheck={false}
                 onChangeText={setAppPassphrase}
                 placeholder={t('trustlines.authorization.appPassphrasePlaceholder')}
                 placeholderTextColor={theme.colors.textTertiary}
@@ -661,6 +673,31 @@ function reviewActionLabel(operation: TrustlineReview['operation'], t: Translate
       return t('trustlines.review.action.setLimit');
     case 'remove':
       return t('trustlines.review.action.remove');
+  }
+}
+
+function authorizationLabel(
+  authorization: NonNullable<TrustlineReview['expectedAuthorization']>,
+  t: Translate,
+): string {
+  switch (authorization) {
+    case 'full':
+      return t('trustlines.authorization.status.full');
+    case 'maintain-liabilities':
+      return t('trustlines.authorization.status.maintainLiabilities');
+    case 'unauthorized':
+      return t('trustlines.authorization.status.unauthorized');
+  }
+}
+
+function systemAuthReason(review: TrustlineReview, t: Translate): string {
+  switch (review.operation) {
+    case 'add':
+      return t('trustlines.authorization.systemAuthReason.add', { code: review.asset.code });
+    case 'set-limit':
+      return t('trustlines.authorization.systemAuthReason.setLimit', { code: review.asset.code });
+    case 'remove':
+      return t('trustlines.authorization.systemAuthReason.remove', { code: review.asset.code });
   }
 }
 

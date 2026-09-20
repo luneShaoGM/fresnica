@@ -8,7 +8,11 @@ import { SlideToConfirm } from '../../../ui/SlideToConfirm';
 import { defaultTheme } from '../../../ui/theme';
 import { ManageAssetsScreen } from '../ManageAssetsScreen';
 import { createManageAssetsStyles } from '../styles';
-import type { TrustlineProductDependencies, TrustlineSubmissionResult } from '../trustlineProductFlow';
+import {
+  submitTrustlineProductReview,
+  type TrustlineProductDependencies,
+  type TrustlineSubmissionResult,
+} from '../trustlineProductFlow';
 
 jest.mock('react', () => {
   const actual = jest.requireActual('react') as typeof import('react');
@@ -41,8 +45,19 @@ jest.mock('../../../capabilities/balance/loadBalanceSnapshot', () => ({
   loadBalanceSnapshot: jest.fn(),
 }));
 
+jest.mock('../trustlineProductFlow', () => {
+  const actual = jest.requireActual('../trustlineProductFlow') as typeof import('../trustlineProductFlow');
+  return {
+    ...actual,
+    submitTrustlineProductReview: jest.fn(),
+  };
+});
+
 const mockedUseState = useState as unknown as jest.Mock;
 const mockedLoadBalanceSnapshot = loadBalanceSnapshot as jest.MockedFunction<typeof loadBalanceSnapshot>;
+const mockedSubmitTrustlineProductReview = submitTrustlineProductReview as jest.MockedFunction<
+  typeof submitTrustlineProductReview
+>;
 
 const now = new Date('2026-09-18T00:00:00.000Z');
 const account: AccountRecord = {
@@ -112,14 +127,18 @@ type NodeProps = Readonly<{
   accessibilityRole?: string;
   accessibilityState?: Readonly<{ disabled?: boolean }>;
   actionLabel?: string;
+  autoComplete?: string;
   autoFocus?: boolean;
   disabled?: boolean;
+  importantForAutofill?: string;
   label?: string;
   loading?: boolean;
   loadingLabel?: string;
   onAction?: () => void;
+  onComplete?: () => void;
   onPress?: () => void;
   placeholder?: string;
+  spellCheck?: boolean;
   value?: string;
 }>;
 
@@ -187,6 +206,7 @@ describe('ManageAssetsScreen Stage 4 hardening', () => {
   beforeEach(() => {
     mockedUseState.mockReset();
     mockedLoadBalanceSnapshot.mockReset();
+    mockedSubmitTrustlineProductReview.mockReset();
     jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
   });
 
@@ -276,8 +296,11 @@ describe('ManageAssetsScreen Stage 4 hardening', () => {
 
     expect(passphraseInput?.props).toMatchObject({
       accessibilityHint: 'Enter the current App Passphrase to authorize this asset change.',
+      autoComplete: 'off',
       autoFocus: true,
+      importantForAutofill: 'no',
       placeholder: 'Current App Passphrase',
+      spellCheck: false,
     });
     expect(slider?.props).toMatchObject({
       label: 'Slide to authorize change',
@@ -287,6 +310,31 @@ describe('ManageAssetsScreen Stage 4 hardening', () => {
     });
     expect(renderedText(root)).toContain(
       'App Passphrase required. Enter it below, then slide again to authorize this asset change.',
+    );
+  });
+
+  it('localizes the authorization value and Native System Auth reason', async () => {
+    mockedSubmitTrustlineProductReview.mockResolvedValue({ status: 'watch-only' });
+    const { root } = renderWithState({ flow: { kind: 'review', review } });
+    let authorizationRow: React.ReactElement<NodeProps> | undefined;
+    let slider: React.ReactElement<NodeProps> | undefined;
+
+    visit(root, element => {
+      if (element.props.label === 'Expected authorization') authorizationRow = element;
+      if (element.type === SlideToConfirm) slider = element;
+    });
+
+    expect(authorizationRow?.props.value).toBe('Authorized');
+
+    slider?.props.onComplete?.();
+    await Promise.resolve();
+
+    expect(mockedSubmitTrustlineProductReview).toHaveBeenCalledWith(
+      dependencies,
+      account,
+      review,
+      'Set USD trustline limit',
+      undefined,
     );
   });
 
