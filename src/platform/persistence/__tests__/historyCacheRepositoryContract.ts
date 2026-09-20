@@ -31,7 +31,10 @@ export function runHistoryCacheRepositoryContract(createRepository: () => Histor
     } as unknown as HistoryEntry;
     const snapshot = historySnapshot(
       [pollutedPayment, unsupported('2', 'future_operation'), changeTrust('1')],
-      [{ operationId: '2', entry: unsupported('2', 'future_operation') }],
+      [
+        { operationId: '3', entry: payment('3') },
+        { operationId: '2', entry: unsupported('2', 'future_operation') },
+      ],
     );
 
     repository.replaceSnapshot(partitionA, snapshot);
@@ -41,7 +44,12 @@ export function runHistoryCacheRepositoryContract(createRepository: () => Histor
       ...snapshot,
       entries: [payment('3'), unsupported('2', 'future_operation'), changeTrust('1')],
     });
+    expect(restored?.details).toEqual([
+      { operationId: '3', entry: payment('3') },
+      { operationId: '2', entry: unsupported('2', 'future_operation') },
+    ]);
     expect(JSON.stringify(restored)).not.toContain('cursor');
+    expect(JSON.stringify(restored)).not.toContain('acceptedCursors');
     expect(JSON.stringify(restored)).not.toContain('raw-horizon-link');
     expect(JSON.stringify(restored)).not.toContain('rawHorizonOnly');
   });

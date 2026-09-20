@@ -26,6 +26,19 @@ export interface HistoryCacheRepository {
   clearPartition(partition: HistoryCachePartition): void;
 }
 
+export function replaceHistoryCacheSnapshotBestEffort(
+  repository: Pick<HistoryCacheRepository, 'replaceSnapshot'>,
+  partition: HistoryCachePartition,
+  snapshot: HistoryCacheSnapshot,
+): boolean {
+  try {
+    repository.replaceSnapshot(partition, snapshot);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function normalizeHistoryCacheSnapshot(snapshot: HistoryCacheSnapshot): HistoryCacheSnapshot {
   if (snapshot.schemaVersion !== HISTORY_CACHE_SCHEMA_VERSION) {
     throw new Error('history-cache-schema-incompatible');
