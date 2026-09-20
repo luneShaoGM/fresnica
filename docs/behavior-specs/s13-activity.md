@@ -1,8 +1,8 @@
 # S13 Activity behavior specification
 
-Status: frozen for the Stage 4 S13 Activity closure starting from `main@883cf4667e7246fd88a9718ef4695a92db68ce2f`.
+Status: frozen for the Stage 4 S13 Activity closure starting from `main@883cf4667e7246fd88a9718ef4695a92db68ce2f`; amended after operation projection/participants merged at `main@8d3aba7f5aa5875364402e9a87d828dfd66f9345` to bring the previously deferred persistent UX cache into the S13 construction sequence.
 
-Trace ID: `S13` — Activity list/filter/search/detail/participants.
+Trace ID: `S13` — Activity list/filter/search/detail/participants/offline UX cache.
 
 Provenance: clean-room behavior rewrite. Donor Activity/Events surfaces are product-role references only; donor source, repositories, helpers, tests, component structure and resources are not implementation templates.
 
@@ -60,20 +60,50 @@ If refresh fails after a successful list has already been loaded, the last succe
 
 Load-more failure also preserves the current entries and the cursor that failed. Retrying uses that same cursor. A load-more failure must not silently advance pagination.
 
-Changing the selected account invalidates the loaded page set and resets filter/search to their defaults. Opening details and returning, or refreshing the same account, preserves the current filter/search. Process restart resets filter/search because S13 does not introduce persistent presentation preferences.
+Changing the selected account replaces the in-memory loaded page set with that account/network partition's cached snapshot, when one exists, and resets filter/search to their defaults. Opening details and returning, or refreshing the same account, preserves the current filter/search. Process restart resets filter/search because S13 does not persist presentation preferences even though it may restore cached ledger entries.
+
+## Persistent UX cache and offline contract
+
+The Activity cache is a replaceable public-ledger UX snapshot. Horizon remains authoritative. Cached data must never be described as complete account history, gap recovery or proof of the latest ledger state.
+
+Ownership remains layered:
+
+- History Capability defines the cache port and normalized snapshot contract without importing Realm;
+- `platform/persistence` implements the port, schema, migration/clear policy and atomic storage;
+- App composition injects the cache into the History/Activity read model;
+- Activity Feature renders cache provenance/freshness state but never imports Realm or interprets persistence records.
+
+Cache partitions are isolated by `networkId + classic account address`. A cached detail is further keyed by exact operation ID. Local account label, secret, signer material, App Passphrase, mnemonic, envelope/XDR and pending-transaction private workflow state never enter the History cache.
+
+A list snapshot contains only normalized History DTOs in accepted gateway order plus its schema version and last successful Horizon update time. A successful specialized detail may be cached only after exact operation-ID and selected-account association validation. Cache writes occur only after a Horizon page/detail result has been successfully accepted. A cache write failure does not turn a valid Horizon result into a product failure; the live result remains usable but is not represented as durably available offline.
+
+The product uses stale-while-revalidate behavior:
+
+1. on mount, focus or process restart, a matching cached snapshot may be displayed immediately;
+2. cached content is visibly marked as cached/stale and exposes a localized last-updated value until current Horizon revalidation succeeds;
+3. online revalidation requests a fresh page 1; success replaces the loaded page set, resets the cursor chain and atomically replaces the cache snapshot;
+4. revalidation failure preserves cached/previously loaded entries and shows a retryable degraded state without presenting them as current;
+5. when no matching cache exists, an initial Horizon failure continues to use the full error state;
+6. offline mode permits reading matching cached list/detail projections but never fabricates unavailable operations or silently falls back across network/account partitions.
+
+Persisted cache is display-only until a successful page-1 revalidation establishes a new in-memory pagination chain. The product must not resume load-more from a persisted cursor or accepted-cursor set. Load-more is therefore unavailable while showing an unrevalidated restored snapshot. This preserves the opaque-cursor/cycle rules and prevents a stale cursor from being presented as continuous history.
+
+Each `networkId + account` partition retains at most the newest 500 accepted entries. Trimming preserves gateway order and removes older entries/details outside that bound. Cache schema incompatibility or corrupt data clears only the affected replaceable cache partition and falls back to Horizon; it must not affect Account, Signer, Account-Signer Reference or Transaction/pending records.
+
+There is no age-based rule that silently promotes cached data to fresh or deletes the only offline-readable snapshot. Age is always derived from the last successful Horizon update and presented honestly; capacity/schema/account-deletion policies, not a fabricated freshness TTL, control removal.
+
+Submitting or reconciling a transaction marks the matching Activity partition stale and triggers the existing read invalidation path; it does not delete the last usable cache snapshot or mutate a cached operation optimistically. Manual refresh, focus/foreground revalidation and definite offline-to-online recovery may refresh the partition through the same History authority. Deleting a local account removes its History cache partitions. Switching account or network never reuses another partition.
 
 ## Search and filter boundary
 
-Search and filter operate only over the pages currently loaded in the Activity session.
+Search and filter operate only over the current loaded set. Before successful revalidation, that set may be the matching restored cache snapshot; after successful page-1 revalidation it is the newly accepted Horizon page set plus pages loaded in the current session.
 
 They do **not**:
 
 - issue a Horizon search query;
 - claim to search the account's full ledger history;
 - auto-page until a match is found;
-- use a local UX cache as authoritative history.
-
-If a replaceable UX cache is added later, cached entries may feed the same loaded-page presentation contract while a refresh runs, but cache/gap recovery is outside this S13 closure.
+- use a local UX cache as authoritative or complete history.
 
 The frozen filters are:
 
@@ -216,14 +246,16 @@ After this spec PR, implementation remains split:
 
 1. **History/read-model integrity:** cursor progression guard, stable merge/order tests, refresh-preserves-data failure state, load-more retry behavior.
 2. **Operation-family projection:** stable participant DTO plus `change_trust`; existing payment/create-account remain compatible; unsupported fallback stays explicit.
-3. **Filter/search closure:** add trustline filter and test loaded-page-only search/filter across pagination, clearing conditions and refresh.
-4. **Product hardening:** detail warnings, network-aware explorer, screen-level retry/error regression coverage, three-language copy, dynamic-font/accessibility fixes.
-5. **Aggregate evidence:** fresh Android+iOS `list → pagination → filter/search → detail → participants → refresh/retry → restart`.
+3. **Cache/repository integrity:** Capability-owned cache port, Realm schema/repository, network/account isolation, atomic accepted-snapshot writes, 500-entry trimming, reopen/corruption/account-deletion coverage.
+4. **Cache hydration/offline product state:** cached list/detail hydration, stale/last-updated presentation, background page-1 revalidation, no-cache and cache-write failure behavior, offline/read-retry/restart coverage; persisted cursors never resume pagination.
+5. **Filter/search closure:** add trustline filter and test current-loaded-set search/filter across cached hydration, successful revalidation, pagination, clearing conditions and refresh.
+6. **Product hardening:** detail warnings, network-aware explorer, screen-level retry/error regression coverage, three-language copy, dynamic-font/accessibility fixes.
+7. **Aggregate evidence:** fresh Android+iOS `online load → restart/cache hydrate → offline list/detail → reconnect/revalidate → pagination → filter/search → detail → participants → refresh/retry`.
 
 Each implementation PR must preserve the read-only S13 boundary and must not modify Payment, Trustline write semantics, Signing, Transaction, XDR or recovery.
 
 ## Aggregate acceptance boundary
 
-S13 may be considered for promotion from `L3 partial` to `L3 / L4 partial` only after both Android and iOS prove the frozen aggregate sequence against production History/Horizon wiring.
+S13 may be considered for promotion from `L3 partial` to `L3 / L4 partial` only after both Android and iOS prove the frozen aggregate sequence against production History/Horizon/Realm wiring, including honest cached/offline presentation and successful revalidation.
 
 A successful aggregate does not by itself establish L4. Required repeatable aggregate gating and trustworthy platform-level screen-reader focus-order depth remain separate L4 evidence.
