@@ -245,6 +245,41 @@ describe('StellarSdkGateway', () => {
     });
   });
 
+  it('treats an omitted Horizon trustline clawback flag as disabled', async () => {
+    const account = horizonAccount();
+    account.balances = [
+      {
+        asset_type: 'credit_alphanum12',
+        balance: '0.0000000',
+        limit: '708269837873.6765000',
+        buying_liabilities: '0.0000000',
+        selling_liabilities: '0.0000000',
+        asset_code: 'MiXeD',
+        asset_issuer: signerAddress,
+        is_authorized: true,
+        is_authorized_to_maintain_liabilities: true,
+      },
+    ];
+
+    await expect(
+      new StellarSdkGateway(TEST_GATEWAY_CONFIG, server(account)).loadAccountState(sourceAddress),
+    ).resolves.toMatchObject({
+      status: 'active',
+      account: {
+        balances: [
+          {
+            kind: 'credit',
+            code: 'MiXeD',
+            issuer: signerAddress,
+            isAuthorized: true,
+            isAuthorizedToMaintainLiabilities: true,
+            isClawbackEnabled: false,
+          },
+        ],
+      },
+    });
+  });
+
   it('returns inactive when Horizon reports the account does not exist', async () => {
     const horizon = server();
     horizon.loadAccount.mockRejectedValue({ response: { status: 404 } });

@@ -189,8 +189,7 @@ function mapAccountState(account: HorizonAccountLike): StellarAccountState {
             !balance.asset_code ||
             !balance.asset_issuer ||
             balance.is_authorized === undefined ||
-            balance.is_authorized_to_maintain_liabilities === undefined ||
-            balance.is_clawback_enabled === undefined
+            balance.is_authorized_to_maintain_liabilities === undefined
           ) {
             throw new Error(`invalid-horizon-trustline-balance:${balance.asset_type}`);
           }
@@ -204,7 +203,7 @@ function mapAccountState(account: HorizonAccountLike): StellarAccountState {
             issuer: balance.asset_issuer,
             isAuthorized: balance.is_authorized,
             isAuthorizedToMaintainLiabilities: balance.is_authorized_to_maintain_liabilities,
-            isClawbackEnabled: balance.is_clawback_enabled,
+            isClawbackEnabled: balance.is_clawback_enabled ?? false,
           };
         case 'liquidity_pool_shares':
           if (!balance.liquidity_pool_id) {
