@@ -22,10 +22,18 @@ import {useLocalization} from '../../locale';
 import {
   activityEntryPresentation,
   matchesActivityFilter,
-  mergeActivityEntries,
   type ActivityFilter,
   type ActivityTone,
 } from './activityList';
+import {
+  appendActivityHistoryPage,
+  createActivityReadyState,
+  failActivityLoadMore,
+  failActivityRefresh,
+  startActivityLoadMore,
+  startActivityRefresh,
+  type ActivityReadyState,
+} from './activityReadModel';
 import {createStyles} from './styles';
 
 type ActivityState =
@@ -33,14 +41,7 @@ type ActivityState =
   | Readonly<{kind: 'inactive'}>
   | Readonly<{kind: 'unsupported-account'}>
   | Readonly<{kind: 'error'}>
-  | Readonly<{
-      kind: 'ready';
-      entries: readonly HistoryEntry[];
-      nextCursor?: string;
-      refreshing: boolean;
-      loadingMore: boolean;
-      loadMoreFailed: boolean;
-    }>;
+  | Readonly<{kind: 'ready'} & ActivityReadyState>;
 
 type Props = Readonly<{
   account: AccountRecord;
@@ -83,7 +84,7 @@ export function ActivityScreen({
       if (refreshing) {
         setState(current =>
           current.kind === 'ready'
-            ? {...current, refreshing: true, loadMoreFailed: false}
+            ? {kind: 'ready', ...startActivityRefresh(current)}
             : {kind: 'loading'},
         );
       } else {
@@ -111,19 +112,20 @@ export function ActivityScreen({
             case 'active':
               setState({
                 kind: 'ready',
-                entries: page.entries,
-                ...(page.nextCursor === undefined ? {} : {nextCursor: page.nextCursor}),
-                refreshing: false,
-                loadingMore: false,
-                loadMoreFailed: false,
+                ...createActivityReadyState(page),
               });
               return;
           }
         })
         .catch(() => {
-          if (requestVersion.current === version) {
-            setState({kind: 'error'});
+          if (requestVersion.current !== version) {
+            return;
           }
+          setState(current =>
+            refreshing && current.kind === 'ready'
+              ? {kind: 'ready', ...failActivityRefresh(current)}
+              : {kind: 'error'},
+          );
         });
     },
     [account, dependencies],
@@ -152,7 +154,7 @@ export function ActivityScreen({
 
     const version = requestVersion.current;
     const cursor = state.nextCursor;
-    setState({...state, loadingMore: true, loadMoreFailed: false});
+    setState({kind: 'ready', ...startActivityLoadMore(state)});
 
     void loadHistoryPage(dependencies, account, {cursor})
       .then(page => {
@@ -163,31 +165,26 @@ export function ActivityScreen({
         if (page.status !== 'active') {
           setState(current =>
             current.kind === 'ready'
-              ? {...current, loadingMore: false, loadMoreFailed: true}
+              ? {kind: 'ready', ...failActivityLoadMore(current)}
               : current,
           );
           return;
         }
 
-        setState(current => {
-          if (current.kind !== 'ready') {
-            return current;
-          }
-          return {
-            kind: 'ready',
-            entries: mergeActivityEntries(current.entries, page.entries),
-            ...(page.nextCursor === undefined ? {} : {nextCursor: page.nextCursor}),
-            refreshing: false,
-            loadingMore: false,
-            loadMoreFailed: false,
-          };
-        });
+        setState(current =>
+          current.kind === 'ready'
+            ? {
+                kind: 'ready',
+                ...appendActivityHistoryPage(current, cursor, page),
+              }
+            : current,
+        );
       })
       .catch(() => {
         if (requestVersion.current === version) {
           setState(current =>
             current.kind === 'ready'
-              ? {...current, loadingMore: false, loadMoreFailed: true}
+              ? {kind: 'ready', ...failActivityLoadMore(current)}
               : current,
           );
         }
@@ -409,27 +406,43 @@ function ActivityContent({
           indicatorColor={indicatorColor}
         />
       );
-    case 'ready':
+    case 'ready': {
+      const refreshFailure = state.refreshFailed ? (
+        <>
+          <Text style={styles.loadMoreError}>{t('activity.state.errorMessage')}</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onRetry}
+            style={({pressed}) => [styles.stateAction, pressed ? styles.pressed : undefined]}>
+            <Text style={styles.stateActionText}>{t('activity.retry')}</Text>
+          </Pressable>
+        </>
+      ) : null;
+
       if (entries.length === 0) {
         const constrained = filter !== 'all' || searchText.trim().length > 0;
         return (
-          <StatePanel
-            message={
-              constrained
-                ? t('activity.state.noMatchMessage')
-                : t('activity.state.emptyMessage')
-            }
-            styles={styles}
-            title={
-              constrained ? t('activity.state.noMatchTitle') : t('activity.state.emptyTitle')
-            }
-            indicatorColor={indicatorColor}
-          />
+          <>
+            {refreshFailure}
+            <StatePanel
+              message={
+                constrained
+                  ? t('activity.state.noMatchMessage')
+                  : t('activity.state.emptyMessage')
+              }
+              styles={styles}
+              title={
+                constrained ? t('activity.state.noMatchTitle') : t('activity.state.emptyTitle')
+              }
+              indicatorColor={indicatorColor}
+            />
+          </>
         );
       }
 
       return (
         <>
+          {refreshFailure}
           {renderEntries(entries, t, formatNumber, dateFormatter, timeFormatter, onOpenOperation, styles)}
           {state.loadMoreFailed ? (
             <Text style={styles.loadMoreError}>{t('activity.loadMoreError')}</Text>
@@ -452,6 +465,7 @@ function ActivityContent({
           ) : null}
         </>
       );
+    }
   }
 }
 
