@@ -42,6 +42,7 @@ export async function submitTrustlineProductReview(
   dependencies: TrustlineProductDependencies,
   account: AccountRecord,
   review: TrustlineReview,
+  systemAuthReason: string,
   appPassphrase?: string,
 ): Promise<TrustlineSubmissionResult> {
   const exactReview = buildTrustlineReview(
@@ -84,18 +85,7 @@ export async function submitTrustlineProductReview(
     recovery: dependencies.recovery,
     signer: signers[0],
     ...(appPassphrase === undefined ? {} : { appPassphrase }),
-    systemAuthReason: `${trustlineActionLabel(exactReview.operation)} ${exactReview.asset.code} trustline`,
+    systemAuthReason,
     network: dependencies.network,
   });
-}
-
-function trustlineActionLabel(action: TrustlineAction): string {
-  switch (action) {
-    case 'add':
-      return 'Add';
-    case 'set-limit':
-      return 'Set limit for';
-    case 'remove':
-      return 'Remove';
-  }
 }

@@ -88,7 +88,9 @@ describe('trustlineProductFlow', () => {
     const source = account();
     repository.createAccount(source);
 
-    await expect(submitTrustlineProductReview(dependencies(repository), source, review())).resolves.toEqual({
+    await expect(
+      submitTrustlineProductReview(dependencies(repository), source, review(), 'Authorize asset change'),
+    ).resolves.toEqual({
       status: 'watch-only',
     });
   });
@@ -111,7 +113,9 @@ describe('trustlineProductFlow', () => {
       repository.attachSigner(source.id, id, now);
     }
 
-    await expect(submitTrustlineProductReview(dependencies(repository), source, review())).resolves.toEqual({
+    await expect(
+      submitTrustlineProductReview(dependencies(repository), source, review(), 'Authorize asset change'),
+    ).resolves.toEqual({
       status: 'unsupported-account-signers',
     });
   });
@@ -123,12 +127,17 @@ describe('trustlineProductFlow', () => {
     const exactReview = review();
 
     await expect(
-      submitTrustlineProductReview(dependencies(repository), source, {
-        ...exactReview,
-        source: otherSourceAddress,
-        operation: 'remove',
-        asset: { code: 'FAKE', issuer: otherSourceAddress },
-      }),
+      submitTrustlineProductReview(
+        dependencies(repository),
+        source,
+        {
+          ...exactReview,
+          source: otherSourceAddress,
+          operation: 'remove',
+          asset: { code: 'FAKE', issuer: otherSourceAddress },
+        },
+        'Authorize asset change',
+      ),
     ).rejects.toThrow('trustline-review-operation-xdr-mismatch');
   });
 
@@ -138,7 +147,12 @@ describe('trustlineProductFlow', () => {
     repository.createAccount(source);
 
     await expect(
-      submitTrustlineProductReview(dependencies(repository), source, review(otherSourceAddress)),
+      submitTrustlineProductReview(
+        dependencies(repository),
+        source,
+        review(otherSourceAddress),
+        'Authorize asset change',
+      ),
     ).rejects.toThrow('trustline-review-account-mismatch');
   });
 });
