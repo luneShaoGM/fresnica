@@ -75,18 +75,26 @@ Ownership remains layered:
 
 Cache partitions are isolated by `networkId + classic account address`. A cached detail is further keyed by exact operation ID. Local account label, secret, signer material, App Passphrase, mnemonic, envelope/XDR and pending-transaction private workflow state never enter the History cache.
 
-A list snapshot contains only normalized History DTOs in accepted gateway order plus its schema version and last successful Horizon update time. A successful specialized detail may be cached only after exact operation-ID and selected-account association validation. Cache writes occur only after a Horizon page/detail result has been successfully accepted. A cache write failure does not turn a valid Horizon result into a product failure; the live result remains usable but is not represented as durably available offline.
+A list snapshot contains only normalized History DTOs in accepted gateway order plus its schema version and last successful Horizon update time. Any ready detail projection may be cached only after exact operation-ID and selected-account association validation. This includes specialized entries and explicit unknown-operation or malformed-known-family `unsupported` entries; transport errors, not-found, not-associated and other non-ready outcomes are never cached. Cache writes occur only after a Horizon page/detail result has been successfully accepted. A cache write failure does not turn a valid Horizon result into a product failure; the live result remains usable but is not represented as durably available offline.
 
 The product uses stale-while-revalidate behavior:
 
 1. on mount, focus or process restart, a matching cached snapshot may be displayed immediately;
 2. cached content is visibly marked as cached/stale and exposes a localized last-updated value until current Horizon revalidation succeeds;
-3. online revalidation requests a fresh page 1; success replaces the loaded page set, resets the cursor chain and atomically replaces the cache snapshot;
+3. online revalidation requests a fresh page 1; success replaces the in-memory loaded page set, resets the cursor chain and atomically updates the durable cache using the continuity rule below;
 4. revalidation failure preserves cached/previously loaded entries and shows a retryable degraded state without presenting them as current;
 5. when no matching cache exists, an initial Horizon failure continues to use the full error state;
 6. offline mode permits reading matching cached list/detail projections but never fabricates unavailable operations or silently falls back across network/account partitions.
 
 Persisted cache is display-only until a successful page-1 revalidation establishes a new in-memory pagination chain. The product must not resume load-more from a persisted cursor or accepted-cursor set. Load-more is therefore unavailable while showing an unrevalidated restored snapshot. This preserves the opaque-cursor/cycle rules and prevents a stale cursor from being presented as continuous history.
+
+Page-1 revalidation does not unconditionally discard a longer durable snapshot. Continuity is established only by stable operation-ID overlap, never by parsing or ordering cursors:
+
+1. the in-memory online page set always starts from the newly accepted page 1 and its new cursor chain;
+2. when the fresh page and prior durable snapshot share at least one operation ID, the durable snapshot becomes the fresh page followed by the prior cached suffix after the oldest overlapping fresh-page operation, with operation-ID deduplication and the existing gateway order preserved;
+3. when there is no overlap, continuity is unproven, so the durable snapshot fail-closes to the fresh page only rather than retaining a possibly gapped tail;
+4. accepted load-more pages extend both the current in-memory page set and durable snapshot only after the existing cursor/cycle checks pass;
+5. the final durable snapshot is atomically written and trimmed to the retention bound.
 
 Each `networkId + account` partition retains at most the newest 500 accepted entries. Trimming preserves gateway order and removes older entries/details outside that bound. Cache schema incompatibility or corrupt data clears only the affected replaceable cache partition and falls back to Horizon; it must not affect Account, Signer, Account-Signer Reference or Transaction/pending records.
 
