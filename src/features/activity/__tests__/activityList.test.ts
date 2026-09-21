@@ -1,8 +1,9 @@
-import type {HistoryEntry} from '@capabilities/history/types';
+import type { HistoryEntry } from '@capabilities/history/types';
 
 import {
   activityEntryPresentation,
   matchesActivityFilter,
+  matchesActivitySearch,
   mergeActivityEntries,
 } from '../activityList';
 
@@ -19,6 +20,24 @@ function unsupported(id: string): HistoryEntry {
   };
 }
 
+function trustlineEntry(): HistoryEntry {
+  return {
+    id: 'trustline',
+    pagingToken: 'trustline',
+    operationType: 'change_trust',
+    occurredAt: '2026-08-31T00:00:00Z',
+    transactionHash: 'tx-trustline',
+    sourceAccount: 'GSOURCE',
+    kind: 'change-trust',
+    asset: { kind: 'credit', code: 'MiXeD', issuer: 'GISSUER' },
+    limit: '100.0000000',
+    participants: [
+      { role: 'trustor', identity: 'GSOURCE' },
+      { role: 'issuer', identity: 'GISSUER' },
+    ],
+  };
+}
+
 const t = (key: string, params?: Readonly<Record<string, string | number>>) =>
   params?.operationType ? `${key}:${params.operationType}` : key;
 const formatNumber = (value: string | number) => `formatted:${value}`;
@@ -26,10 +45,9 @@ const formatNumber = (value: string | number) => `formatted:${value}`;
 describe('activityList', () => {
   it('appends later pages without duplicating operation ids', () => {
     expect(
-      mergeActivityEntries(
-        [unsupported('3'), unsupported('2')],
-        [unsupported('2'), unsupported('1')],
-      ).map(entry => entry.id),
+      mergeActivityEntries([unsupported('3'), unsupported('2')], [unsupported('2'), unsupported('1')]).map(
+        entry => entry.id,
+      ),
     ).toEqual(['3', '2', '1']);
   });
 
@@ -54,11 +72,11 @@ describe('activityList', () => {
       kind: 'payment',
       direction: 'incoming',
       amount: '12.5',
-      asset: {kind: 'native', code: 'XLM'},
+      asset: { kind: 'native', code: 'XLM' },
       counterparty: 'GCOUNTERPARTY',
       participants: [
-        {role: 'sender', identity: 'GSOURCE'},
-        {role: 'recipient', identity: 'GCOUNTERPARTY'},
+        { role: 'sender', identity: 'GSOURCE' },
+        { role: 'recipient', identity: 'GCOUNTERPARTY' },
       ],
     };
 
@@ -73,31 +91,35 @@ describe('activityList', () => {
     });
   });
 
-  it('keeps change-trust in other until the dedicated filter slice', () => {
-    const changeTrust: HistoryEntry = {
-      id: 'trustline',
-      pagingToken: 'trustline',
-      operationType: 'change_trust',
-      occurredAt: '2026-08-31T00:00:00Z',
-      transactionHash: 'tx-trustline',
-      sourceAccount: 'GSOURCE',
-      kind: 'change-trust',
-      asset: {kind: 'credit', code: 'MiXeD', issuer: 'GISSUER'},
-      limit: '100.0000000',
-      participants: [
-        {role: 'trustor', identity: 'GSOURCE'},
-        {role: 'issuer', identity: 'GISSUER'},
-      ],
-    };
+  it('classifies change-trust under the dedicated trustline filter', () => {
+    const changeTrust = trustlineEntry();
 
-    expect(matchesActivityFilter(changeTrust, 'other')).toBe(true);
+    expect(matchesActivityFilter(changeTrust, 'trustlines')).toBe(true);
+    expect(matchesActivityFilter(changeTrust, 'other')).toBe(false);
     expect(matchesActivityFilter(changeTrust, 'payments')).toBe(false);
     expect(activityEntryPresentation(changeTrust, t, formatNumber)).toEqual({
       title: 'activity.entry.trustlineChanged',
       primary: 'formatted:100.0000000 MiXeD',
       secondary: 'GISSUER',
       tone: 'neutral',
-      filter: 'other',
+      filter: 'trustlines',
     });
+  });
+
+  it('searches the current entry by display copy and stable history fields', () => {
+    const changeTrust = trustlineEntry();
+
+    for (const query of [
+      'trustlinechanged',
+      'formatted:100.0000000 mixed',
+      'tx-trustline',
+      'trustline',
+      'gsource',
+      'gissuer',
+      'mixed',
+    ]) {
+      expect(matchesActivitySearch(changeTrust, query, t, formatNumber)).toBe(true);
+    }
+    expect(matchesActivitySearch(changeTrust, 'not-present', t, formatNumber)).toBe(false);
   });
 });
