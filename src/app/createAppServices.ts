@@ -34,6 +34,7 @@ import {
 } from '../platform/persistence/realm';
 import { StellarFriendbotGateway } from '../platform/stellar/StellarFriendbotGateway';
 import { StellarSdkGateway } from '../platform/stellar/StellarSdkGateway';
+import { reactNativeExternalUrlOpener, type ExternalUrlOpener } from '../platform/system/externalUrl';
 
 export type AccountManagementDependencies = RenameAccountDependencies &
   AccountVisibilityDependencies &
@@ -54,6 +55,7 @@ export type AppServices = Readonly<{
   ledgerReadInvalidation: LedgerReadInvalidationStore;
   localePreferences: RealmLocalePreferenceStore;
   accountSelectionPreferences: AccountSelectionPreferenceStore;
+  externalUrl: ExternalUrlOpener;
   close: () => void;
 }>;
 
@@ -153,6 +155,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       ledgerReadInvalidation,
       localePreferences,
       accountSelectionPreferences,
+      externalUrl: reactNativeExternalUrlOpener,
       close: () => realm.close(),
     };
   } catch (error) {

@@ -615,7 +615,7 @@ function toneStyle(tone: ActivityTone, styles: Styles, target: 'glyph' | 'amount
   return undefined;
 }
 
-function StatePanel({
+export function StatePanel({
   title,
   message,
   action,
@@ -645,6 +645,8 @@ function StatePanel({
       <Text style={styles.stateMessage}>{message}</Text>
       {action && onAction ? (
         <Pressable
+          accessibilityLabel={action}
+          accessibilityRole="button"
           onPress={onAction}
           style={({ pressed }) => [styles.stateAction, pressed ? styles.pressed : undefined]}
         >

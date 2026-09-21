@@ -232,7 +232,17 @@ Frozen Network Capability mapping:
 
 Unknown/custom networks return no explorer projection until their explorer policy is configured. The Feature and Platform layers must not guess a public-network URL.
 
-The Network Capability offers an explorer URL only for a valid 64-character hexadecimal transaction hash and an allowlisted HTTPS explorer origin/path for the selected network. Opening the explorer sends only public network context encoded in that URL and the public transaction hash.
+The Network Capability offers an explorer URL only for a valid 64-character hexadecimal transaction hash and an allowlisted HTTPS explorer origin/path for the selected network. Callers never pass a prebuilt explorer URL into this policy, and History DTOs never persist one. The returned URL must use the exact frozen origin/path prefix for the selected network, contain no caller-controlled query or fragment, and append only the validated public transaction hash. Opening the explorer sends only public network context encoded in that URL and the public transaction hash.
+
+Frozen external-open behavior:
+
+- the Platform boundary is an injected asynchronous external-URL opener. It receives only a Network-Capability-projected trusted URL, performs the OS external-navigation attempt and either resolves or rejects; it does not call another explorer, rewrite the URL, copy it to the clipboard or silently fall back to an embedded browser;
+- unknown/custom network or invalid transaction hash means **no explorer action**. This is an unsupported projection, not a user-visible open failure;
+- while one open attempt is in flight, the Activity action is disabled/busy so repeated taps cannot launch duplicate external intents;
+- a successful open needs no success toast and does not mutate Activity/History state;
+- an open rejection is non-blocking: remain on the same operation detail, preserve the loaded/cached detail and explorer action, surface localized inline failure copy and allow the user to retry the same trusted URL;
+- external-open failure never becomes a History load/refresh error, never clears cache, never changes cursor state and never triggers Payment, Trustline, Signing, Transaction or recovery behavior;
+- Activity may announce the localized open failure through the existing React Native accessibility-announcement pattern, but it must not expose raw platform error text to the user.
 
 This action is read-only. “Send again”, “remove trustline”, “claim”, “cancel offer” or any other ledger mutation is outside S13.
 
@@ -242,9 +252,11 @@ History DTOs retain exact ledger strings. Formatting belongs to the product surf
 
 All new titles, family names, participant roles, warnings, filters, retry states and explorer copy enter all three locale dictionaries.
 
+For the explorer surface, the Feature owns localized visible action copy, opening/busy copy when needed, and open-failure copy in `en`, `zh` and `zh-TW`. The Network Capability and Platform opener return no user-facing prose. Raw URLs and raw platform errors are not used as localized labels or failure messages.
+
 Dates use the active locale. Amounts/limits use the existing localization/number-formatting boundary without floating-point policy in History.
 
-Interactive rows, filter controls, search, retry/load-more and explorer actions require explicit accessibility roles/labels/states where the native primitive does not already expose sufficient semantics.
+Interactive rows, filter controls, search, retry/load-more and explorer actions require explicit accessibility roles/labels/states where the native primitive does not already expose sufficient semantics. The explorer action is one button with a localized accessibility label and exposes disabled/busy state while opening. Open failure remains visible inline and is announced using the existing accessibility announcement pattern; the failure message must not wrap the explorer action inside one parent accessibility element or remove the action from focus order. No fixed-height container may truncate explorer action/failure copy under dynamic font.
 
 Dynamic-font layout and TalkBack/VoiceOver traversal are aggregate acceptance items. Exact focus order is not claimed closed without trustworthy platform evidence.
 

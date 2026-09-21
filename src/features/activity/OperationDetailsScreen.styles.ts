@@ -68,6 +68,16 @@ export function createStyles(theme: AppTheme) {
     heroGlyph: { fontSize: 24, lineHeight: 29, fontWeight: '800', color: theme.colors.onSurfaceStrong },
     heroTitle: { ...theme.typography.sectionTitle, color: theme.colors.textPrimary, textAlign: 'center' },
     heroPrimary: { ...theme.typography.body, color: theme.colors.textSecondary, textAlign: 'center' },
+    warning: {
+      marginHorizontal: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+      borderRadius: theme.radii.md,
+      backgroundColor: theme.colors.surfaceMuted,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      ...theme.typography.caption,
+      color: theme.colors.textSecondary,
+    },
     rows: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
     row: {
       minHeight: 58,
@@ -82,5 +92,32 @@ export function createStyles(theme: AppTheme) {
     rowLabel: { ...theme.typography.caption, fontWeight: '700', color: theme.colors.textSecondary },
     rowValue: { flex: 1, ...theme.typography.caption, color: theme.colors.textPrimary, textAlign: 'right' },
     mono: { fontSize: 10, lineHeight: 14, color: theme.colors.textSecondary, fontVariant: ['tabular-nums'] },
+    explorerSection: {
+      marginHorizontal: theme.spacing.md,
+      paddingTop: theme.spacing.md,
+      gap: theme.spacing.sm,
+    },
+    explorerButton: {
+      minHeight: 44,
+      borderRadius: theme.radii.pill,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.surfaceMuted,
+    },
+    explorerButtonPressed: { opacity: 0.68 },
+    explorerButtonDisabled: { opacity: 0.56 },
+    explorerButtonText: {
+      ...theme.typography.label,
+      fontWeight: '700',
+      color: theme.colors.actionPrimaryPressed,
+      textAlign: 'center',
+    },
+    explorerError: {
+      ...theme.typography.caption,
+      color: theme.colors.negative,
+      textAlign: 'center',
+    },
   });
 }

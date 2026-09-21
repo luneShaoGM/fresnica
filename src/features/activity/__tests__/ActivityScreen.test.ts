@@ -7,7 +7,7 @@ import { loadHistoryPage } from '../../../capabilities/history/loadHistoryPage';
 import type { HistoryEntry } from '../../../capabilities/history/types';
 import { createLocalization } from '../../../locale/localization';
 import { defaultTheme } from '../../../ui/theme';
-import { ActivityContent, ActivityScreen } from '../ActivityScreen';
+import { ActivityContent, ActivityScreen, StatePanel } from '../ActivityScreen';
 import { createActivityReadyState } from '../activityReadModel';
 import { createStyles } from '../styles';
 
@@ -203,6 +203,24 @@ describe('ActivityScreen filter/search closure', () => {
 
     expect(setters[1]).toHaveBeenCalledWith('all');
     expect(setters[2]).toHaveBeenCalledWith('');
+  });
+
+  it('exposes retry actions as independently accessible buttons', () => {
+    const onAction = jest.fn();
+    const panel = StatePanel({
+      title: 'Unable to load activity',
+      message: 'Activity could not be loaded.',
+      action: 'Try again',
+      onAction,
+      indicatorColor: defaultTheme.colors.actionPrimaryPressed,
+      styles: createStyles(defaultTheme),
+    });
+    const retry = findElement(panel, element => element.props.accessibilityLabel === 'Try again');
+
+    expect(retry?.type).toBe(Pressable);
+    expect(retry?.props.accessibilityRole).toBe('button');
+    retry?.props.onPress?.();
+    expect(onAction).toHaveBeenCalledTimes(1);
   });
 
   it('distinguishes no-match from empty history and preserves manual load-more', () => {
