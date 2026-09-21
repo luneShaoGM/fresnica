@@ -503,11 +503,7 @@ export function OperationExplorerAction({
       >
         <Text style={styles.explorerButtonText}>{label}</Text>
       </Pressable>
-      {failed ? (
-        <Text accessibilityLiveRegion="polite" style={styles.explorerError}>
-          {t('activity.detail.explorer.error')}
-        </Text>
-      ) : null}
+      {failed ? <Text style={styles.explorerError}>{t('activity.detail.explorer.error')}</Text> : null}
     </View>
   );
 }

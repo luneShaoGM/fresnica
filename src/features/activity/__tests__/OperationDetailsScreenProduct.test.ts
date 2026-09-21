@@ -317,7 +317,7 @@ describe('OperationDetailsScreen product hardening', () => {
       disabled: false,
     });
     expect(failureText?.type).toBe(Text);
-    expect(failureText?.props.accessibilityLiveRegion).toBe('polite');
+    expect(failureText?.props.accessibilityLiveRegion).toBeUndefined();
     expect(failureText?.props.children).toBe('Couldn’t open the explorer. Try again.');
   });
 });
