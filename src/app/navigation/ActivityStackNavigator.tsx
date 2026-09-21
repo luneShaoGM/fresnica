@@ -3,6 +3,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import type { AccountRecord } from '@capabilities/account/types';
+import { transactionExplorerUrl } from '@capabilities/network/transactionExplorer';
 import { ActivityScreen } from '@features/activity/ActivityScreen';
 import { OperationDetailsScreen } from '@features/activity/OperationDetailsScreen';
 
@@ -52,6 +53,8 @@ export function ActivityStackNavigator({ accounts, selectedAccountId, services }
             operationId={route.params.operationId}
             invalidationRevision={invalidationRevision}
             onBack={() => navigation.goBack()}
+            openExternalUrl={services.externalUrl.open}
+            projectExplorerUrl={transactionHash => transactionExplorerUrl(account.networkId, transactionHash)}
           />
         )}
       </Stack.Screen>

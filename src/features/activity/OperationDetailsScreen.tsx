@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { AccessibilityInfo, Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { AccountRecord } from '@capabilities/account/types';
 import {
@@ -47,6 +47,8 @@ type Props = Readonly<{
   active: boolean;
   invalidationRevision: number;
   onBack: () => void;
+  openExternalUrl: (url: string) => Promise<void>;
+  projectExplorerUrl: (transactionHash: string) => string | undefined;
 }>;
 
 export function OperationDetailsScreen({
@@ -56,10 +58,13 @@ export function OperationDetailsScreen({
   active,
   invalidationRevision,
   onBack,
+  openExternalUrl,
+  projectExplorerUrl,
 }: Props) {
   const { formatNumber, locale, t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
+  const [explorerOpenState, setExplorerOpenState] = useState<'idle' | 'opening' | 'failed'>('idle');
   const requestVersion = useRef(0);
 
   const load = useCallback(() => {
@@ -164,6 +169,33 @@ export function OperationDetailsScreen({
     [locale],
   );
 
+  const explorerUrl = useMemo(
+    () =>
+      state.kind === 'loaded' && state.result.status === 'ready'
+        ? projectExplorerUrl(state.result.entry.transactionHash)
+        : undefined,
+    [projectExplorerUrl, state],
+  );
+
+  useEffect(() => {
+    setExplorerOpenState('idle');
+  }, [explorerUrl]);
+
+  const openExplorer = useCallback(async () => {
+    if (explorerUrl === undefined || explorerOpenState === 'opening') {
+      return;
+    }
+
+    setExplorerOpenState('opening');
+    try {
+      await openExternalUrl(explorerUrl);
+      setExplorerOpenState('idle');
+    } catch {
+      setExplorerOpenState('failed');
+      AccessibilityInfo.announceForAccessibility(t('activity.detail.explorer.error'));
+    }
+  }, [explorerOpenState, explorerUrl, openExternalUrl, t]);
+
   return (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.headerBar}>
@@ -183,7 +215,17 @@ export function OperationDetailsScreen({
         />
       </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {renderContent(state, load, dateFormatter, formatNumber, t, styles)}
+        {renderContent(
+          state,
+          load,
+          dateFormatter,
+          formatNumber,
+          t,
+          styles,
+          explorerUrl,
+          explorerOpenState,
+          openExplorer,
+        )}
       </ScrollView>
     </Screen>
   );
@@ -200,6 +242,9 @@ function renderContent(
   formatNumber: FormatNumber,
   t: Translate,
   styles: Styles,
+  explorerUrl: string | undefined,
+  explorerOpenState: 'idle' | 'opening' | 'failed',
+  onOpenExplorer: () => void,
 ) {
   if (state.kind === 'loading') {
     return (
@@ -260,7 +305,16 @@ function renderContent(
               updatedAt={state.lastSuccessfulHorizonUpdateAt}
             />
           ) : null}
-          {renderEntry(state.result.entry, dateFormatter, formatNumber, t, styles)}
+          {renderEntry(
+            state.result.entry,
+            dateFormatter,
+            formatNumber,
+            t,
+            styles,
+            explorerUrl,
+            explorerOpenState,
+            onOpenExplorer,
+          )}
         </>
       );
   }
@@ -317,6 +371,9 @@ function renderEntry(
   formatNumber: FormatNumber,
   t: Translate,
   styles: Styles,
+  explorerUrl: string | undefined,
+  explorerOpenState: 'idle' | 'opening' | 'failed',
+  onOpenExplorer: () => void,
 ) {
   const presentation = activityEntryPresentation(entry, t, formatNumber);
   return (
@@ -330,6 +387,16 @@ function renderEntry(
         <Text style={styles.heroTitle}>{presentation.title}</Text>
         <Text style={styles.heroPrimary}>{presentation.primary}</Text>
       </View>
+
+      {entry.kind === 'unsupported' ? (
+        <Text style={styles.warning}>
+          {t(
+            entry.reason === 'operation-shape'
+              ? 'activity.detail.warning.unsupportedShape'
+              : 'activity.detail.warning.unsupportedType',
+          )}
+        </Text>
+      ) : null}
 
       <View style={styles.rows}>
         <DetailRow label={t('activity.detail.operationId')} value={entry.id} mono styles={styles} />
@@ -386,6 +453,61 @@ function renderEntry(
           </>
         ) : null}
       </View>
+
+      <OperationExplorerAction
+        failed={explorerOpenState === 'failed'}
+        opening={explorerOpenState === 'opening'}
+        onOpen={onOpenExplorer}
+        styles={styles}
+        t={t}
+        visible={explorerUrl !== undefined}
+      />
+    </View>
+  );
+}
+
+export function OperationExplorerAction({
+  visible,
+  opening,
+  failed,
+  onOpen,
+  t,
+  styles,
+}: Readonly<{
+  visible: boolean;
+  opening: boolean;
+  failed: boolean;
+  onOpen: () => void;
+  t: Translate;
+  styles: Styles;
+}>) {
+  if (!visible) {
+    return null;
+  }
+
+  const label = opening ? t('activity.detail.explorer.opening') : t('activity.detail.explorer.open');
+
+  return (
+    <View style={styles.explorerSection}>
+      <Pressable
+        accessibilityLabel={label}
+        accessibilityRole="button"
+        accessibilityState={{ busy: opening, disabled: opening }}
+        disabled={opening}
+        onPress={onOpen}
+        style={({ pressed }) => [
+          styles.explorerButton,
+          pressed && !opening ? styles.explorerButtonPressed : undefined,
+          opening ? styles.explorerButtonDisabled : undefined,
+        ]}
+      >
+        <Text style={styles.explorerButtonText}>{label}</Text>
+      </Pressable>
+      {failed ? (
+        <Text accessibilityLiveRegion="polite" style={styles.explorerError}>
+          {t('activity.detail.explorer.error')}
+        </Text>
+      ) : null}
     </View>
   );
 }
