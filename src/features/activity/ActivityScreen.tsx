@@ -18,6 +18,7 @@ import { useLocalization } from '../../locale';
 import {
   activityEntryPresentation,
   matchesActivityFilter,
+  matchesActivitySearch,
   type ActivityFilter,
   type ActivityTone,
 } from './activityList';
@@ -52,11 +53,12 @@ type Props = Readonly<{
   invalidationRevision: number;
 }>;
 
-const FILTERS: readonly ActivityFilter[] = ['all', 'payments', 'accounts', 'other'];
+const FILTERS: readonly ActivityFilter[] = ['all', 'payments', 'accounts', 'trustlines', 'other'];
 const FILTER_LABEL_KEYS: Readonly<Record<ActivityFilter, string>> = {
   all: 'activity.filter.all',
   payments: 'activity.filter.payments',
   accounts: 'activity.filter.accounts',
+  trustlines: 'activity.filter.trustlines',
   other: 'activity.filter.other',
 };
 
@@ -76,6 +78,11 @@ export function ActivityScreen({
   const [searchText, setSearchText] = useState('');
   const requestVersion = useRef(0);
   const hasHydrated = useRef(false);
+
+  useEffect(() => {
+    setFilter('all');
+    setSearchText('');
+  }, [account.address, account.networkId]);
 
   const loadInitial = useCallback(
     (mode: ActivityLoadMode, beforeLoad?: () => Promise<unknown>) => {
@@ -203,20 +210,9 @@ export function ActivityScreen({
       return [];
     }
 
-    const query = searchText.trim().toLowerCase();
-    return state.entries.filter(entry => {
-      if (!matchesActivityFilter(entry, filter)) {
-        return false;
-      }
-      if (!query) {
-        return true;
-      }
-
-      const presentation = activityEntryPresentation(entry, t, formatNumber);
-      return [presentation.title, presentation.primary, presentation.secondary, entry.transactionHash].some(value =>
-        value.toLowerCase().includes(query),
-      );
-    });
+    return state.entries.filter(
+      entry => matchesActivityFilter(entry, filter) && matchesActivitySearch(entry, searchText, t, formatNumber),
+    );
   }, [filter, formatNumber, searchText, state, t]);
 
   const dateFormatter = useMemo(
@@ -271,6 +267,8 @@ export function ActivityScreen({
         <View style={styles.searchBox}>
           <Text style={styles.searchGlyph}>⌕</Text>
           <TextInput
+            accessibilityHint={t('activity.searchHint')}
+            accessibilityLabel={t('activity.searchLabel')}
             autoCapitalize="none"
             autoCorrect={false}
             onChangeText={setSearchText}
@@ -286,6 +284,7 @@ export function ActivityScreen({
             const selected = filter === item;
             return (
               <Pressable
+                accessibilityLabel={t(FILTER_LABEL_KEYS[item])}
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
                 key={item}
@@ -309,12 +308,10 @@ export function ActivityScreen({
         <ActivityContent
           dateFormatter={dateFormatter}
           entries={visibleEntries}
-          filter={filter}
           formatNumber={formatNumber}
           onLoadMore={loadMore}
           onOpenOperation={onOpenOperation}
           onRetry={() => loadInitial('refresh', onManualRefresh)}
-          searchText={searchText}
           state={state}
           styles={styles}
           t={t}
@@ -333,8 +330,6 @@ type FormatNumber = ReturnType<typeof useLocalization>['formatNumber'];
 type ActivityContentProps = Readonly<{
   state: ActivityState;
   entries: readonly HistoryEntry[];
-  filter: ActivityFilter;
-  searchText: string;
   onRetry: () => void;
   onLoadMore: () => void;
   onOpenOperation: (operationId: string) => void;
@@ -346,11 +341,9 @@ type ActivityContentProps = Readonly<{
   styles: Styles;
 }>;
 
-function ActivityContent({
+export function ActivityContent({
   state,
   entries,
-  filter,
-  searchText,
   onRetry,
   onLoadMore,
   onOpenOperation,
@@ -431,18 +424,55 @@ function ActivityContent({
         </>
       ) : null;
 
-      if (entries.length === 0) {
-        const constrained = filter !== 'all' || searchText.trim().length > 0;
+      const loadMoreAction =
+        state.nextCursor !== undefined ? (
+          <Pressable
+            accessibilityLabel={t('activity.loadOlder')}
+            accessibilityRole="button"
+            disabled={state.loadingMore || state.refreshing || state.stale}
+            onPress={onLoadMore}
+            style={({ pressed }) => [
+              styles.loadMoreButton,
+              pressed ? styles.pressed : undefined,
+              state.loadingMore || state.refreshing || state.stale ? styles.disabled : undefined,
+            ]}
+          >
+            {state.loadingMore ? (
+              <ActivityIndicator color={indicatorColor} />
+            ) : (
+              <Text style={styles.loadMoreText}>{t('activity.loadOlder')}</Text>
+            )}
+          </Pressable>
+        ) : null;
+
+      if (state.entries.length === 0) {
         return (
           <>
             {cacheStatus}
             {refreshFailure}
             <StatePanel
-              message={constrained ? t('activity.state.noMatchMessage') : t('activity.state.emptyMessage')}
+              message={t('activity.state.emptyMessage')}
               styles={styles}
-              title={constrained ? t('activity.state.noMatchTitle') : t('activity.state.emptyTitle')}
+              title={t('activity.state.emptyTitle')}
               indicatorColor={indicatorColor}
             />
+          </>
+        );
+      }
+
+      if (entries.length === 0) {
+        return (
+          <>
+            {cacheStatus}
+            {refreshFailure}
+            <StatePanel
+              message={t('activity.state.noMatchMessage')}
+              styles={styles}
+              title={t('activity.state.noMatchTitle')}
+              indicatorColor={indicatorColor}
+            />
+            {state.loadMoreFailed ? <Text style={styles.loadMoreError}>{t('activity.loadMoreError')}</Text> : null}
+            {loadMoreAction}
           </>
         );
       }
@@ -453,23 +483,7 @@ function ActivityContent({
           {refreshFailure}
           {renderEntries(entries, t, formatNumber, dateFormatter, timeFormatter, onOpenOperation, styles)}
           {state.loadMoreFailed ? <Text style={styles.loadMoreError}>{t('activity.loadMoreError')}</Text> : null}
-          {state.nextCursor !== undefined ? (
-            <Pressable
-              disabled={state.loadingMore || state.refreshing || state.stale}
-              onPress={onLoadMore}
-              style={({ pressed }) => [
-                styles.loadMoreButton,
-                pressed ? styles.pressed : undefined,
-                state.loadingMore || state.refreshing || state.stale ? styles.disabled : undefined,
-              ]}
-            >
-              {state.loadingMore ? (
-                <ActivityIndicator color={indicatorColor} />
-              ) : (
-                <Text style={styles.loadMoreText}>{t('activity.loadOlder')}</Text>
-              )}
-            </Pressable>
-          ) : null}
+          {loadMoreAction}
         </>
       );
     }

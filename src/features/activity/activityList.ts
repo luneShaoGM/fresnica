@@ -1,6 +1,6 @@
 import type {HistoryDirection, HistoryEntry} from '@capabilities/history/types';
 
-export type ActivityFilter = 'all' | 'payments' | 'accounts' | 'other';
+export type ActivityFilter = 'all' | 'payments' | 'accounts' | 'trustlines' | 'other';
 
 export type ActivityTone = 'positive' | 'negative' | 'neutral';
 
@@ -64,7 +64,7 @@ export function activityEntryPresentation(
         primary: `${formatNumber(entry.limit)} ${entry.asset.code}`,
         secondary: entry.asset.issuer,
         tone: 'neutral',
-        filter: 'other',
+        filter: 'trustlines',
       };
     case 'unsupported':
       return {
@@ -91,9 +91,49 @@ export function matchesActivityFilter(
     case 'create-account':
       return filter === 'accounts';
     case 'change-trust':
+      return filter === 'trustlines';
     case 'unsupported':
       return filter === 'other';
   }
+}
+
+export function matchesActivitySearch(
+  entry: HistoryEntry,
+  searchText: string,
+  t: Translate,
+  formatNumber: FormatNumber,
+): boolean {
+  const query = searchText.trim().toLowerCase();
+  if (!query) {
+    return true;
+  }
+
+  const presentation = activityEntryPresentation(entry, t, formatNumber);
+  const values = [
+    presentation.title,
+    presentation.primary,
+    presentation.secondary,
+    entry.transactionHash,
+    entry.id,
+  ];
+
+  if ('participants' in entry) {
+    for (const participant of entry.participants) {
+      values.push(participant.identity);
+      if (participant.baseAccount) {
+        values.push(participant.baseAccount);
+      }
+    }
+  }
+
+  if ('asset' in entry) {
+    values.push(entry.asset.code);
+    if (entry.asset.kind === 'credit') {
+      values.push(entry.asset.issuer);
+    }
+  }
+
+  return values.some(value => value.toLowerCase().includes(query));
 }
 
 function paymentTitle(direction: HistoryDirection, t: Translate): string {
