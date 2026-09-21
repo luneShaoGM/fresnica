@@ -1,24 +1,20 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+
+import { Screen } from '@ui/components';
+
+import type { AccountRecord } from '@capabilities/account/types';
 import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+  cacheHistoryOnlineEntriesBestEffort,
+  clearHistoryCacheBestEffort,
+  readHistoryCacheSnapshotBestEffort,
+  type HistoryProductDependencies,
+} from '@capabilities/history/HistoryCacheHydration';
+import { loadHistoryPage } from '@capabilities/history/loadHistoryPage';
+import type { HistoryEntry } from '@capabilities/history/types';
+import { useAppTheme, useThemedStyles } from '@ui/theme';
 
-import {Screen} from '@ui/components';
-
-import type {AccountRecord} from '@capabilities/account/types';
-import {
-  loadHistoryPage,
-  type HistoryDependencies,
-} from '@capabilities/history/loadHistoryPage';
-import type {HistoryEntry} from '@capabilities/history/types';
-import {useAppTheme, useThemedStyles} from '@ui/theme';
-
-import {useLocalization} from '../../locale';
+import { useLocalization } from '../../locale';
 import {
   activityEntryPresentation,
   matchesActivityFilter,
@@ -28,24 +24,28 @@ import {
 import {
   appendActivityHistoryPage,
   createActivityReadyState,
+  createCachedActivityReadyState,
   failActivityLoadMore,
   failActivityRefresh,
+  markActivityStaleForRevalidation,
   startActivityLoadMore,
   startActivityRefresh,
   type ActivityReadyState,
 } from './activityReadModel';
-import {createStyles} from './styles';
+import { createStyles } from './styles';
+
+type ActivityLoadMode = 'hydrate' | 'refresh' | 'revalidate';
 
 type ActivityState =
-  | Readonly<{kind: 'loading'}>
-  | Readonly<{kind: 'inactive'}>
-  | Readonly<{kind: 'unsupported-account'}>
-  | Readonly<{kind: 'error'}>
-  | Readonly<{kind: 'ready'} & ActivityReadyState>;
+  | Readonly<{ kind: 'loading' }>
+  | Readonly<{ kind: 'inactive' }>
+  | Readonly<{ kind: 'unsupported-account' }>
+  | Readonly<{ kind: 'offline-empty' }>
+  | Readonly<{ kind: 'ready' } & ActivityReadyState>;
 
 type Props = Readonly<{
   account: AccountRecord;
-  dependencies: HistoryDependencies;
+  dependencies: HistoryProductDependencies;
   active: boolean;
   onOpenOperation: (operationId: string) => void;
   onManualRefresh: () => Promise<unknown>;
@@ -68,31 +68,38 @@ export function ActivityScreen({
   onManualRefresh,
   invalidationRevision,
 }: Props) {
-  const {formatNumber, locale, t} = useLocalization();
+  const { formatNumber, locale, t } = useLocalization();
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
-  const [state, setState] = useState<ActivityState>({kind: 'loading'});
+  const [state, setState] = useState<ActivityState>({ kind: 'loading' });
   const [filter, setFilter] = useState<ActivityFilter>('all');
   const [searchText, setSearchText] = useState('');
   const requestVersion = useRef(0);
+  const hasHydrated = useRef(false);
 
   const loadInitial = useCallback(
-    (refreshing: boolean, beforeLoad?: () => Promise<unknown>) => {
+    (mode: ActivityLoadMode, beforeLoad?: () => Promise<unknown>) => {
       const version = requestVersion.current + 1;
       requestVersion.current = version;
 
-      if (refreshing) {
+      if (mode === 'hydrate') {
+        const snapshot = readHistoryCacheSnapshotBestEffort(dependencies, account);
+        setState(snapshot ? { kind: 'ready', ...createCachedActivityReadyState(snapshot) } : { kind: 'loading' });
+      } else {
         setState(current =>
           current.kind === 'ready'
-            ? {kind: 'ready', ...startActivityRefresh(current)}
-            : {kind: 'loading'},
+            ? {
+                kind: 'ready',
+                ...(mode === 'revalidate' ? markActivityStaleForRevalidation(current) : startActivityRefresh(current)),
+              }
+            : { kind: 'loading' },
         );
-      } else {
-        setState({kind: 'loading'});
       }
 
       const before = beforeLoad
-        ? Promise.resolve().then(beforeLoad).catch(() => undefined)
+        ? Promise.resolve()
+            .then(beforeLoad)
+            .catch(() => undefined)
         : Promise.resolve();
 
       void before
@@ -104,17 +111,21 @@ export function ActivityScreen({
 
           switch (page.status) {
             case 'inactive':
-              setState({kind: 'inactive'});
+              clearHistoryCacheBestEffort(dependencies, account);
+              setState({ kind: 'inactive' });
               return;
             case 'unsupported-account':
-              setState({kind: 'unsupported-account'});
+              setState({ kind: 'unsupported-account' });
               return;
-            case 'active':
+            case 'active': {
+              const updatedAt = dependencies.now();
+              cacheHistoryOnlineEntriesBestEffort(dependencies, account, page.entries, updatedAt);
               setState({
                 kind: 'ready',
-                ...createActivityReadyState(page),
+                ...createActivityReadyState(page, updatedAt),
               });
               return;
+            }
           }
         })
         .catch(() => {
@@ -122,9 +133,7 @@ export function ActivityScreen({
             return;
           }
           setState(current =>
-            refreshing && current.kind === 'ready'
-              ? {kind: 'ready', ...failActivityRefresh(current)}
-              : {kind: 'error'},
+            current.kind === 'ready' ? { kind: 'ready', ...failActivityRefresh(current) } : { kind: 'offline-empty' },
           );
         });
     },
@@ -136,7 +145,9 @@ export function ActivityScreen({
       return;
     }
 
-    loadInitial(false);
+    const mode: ActivityLoadMode = hasHydrated.current ? 'revalidate' : 'hydrate';
+    hasHydrated.current = true;
+    loadInitial(mode);
     return () => {
       requestVersion.current += 1;
     };
@@ -145,6 +156,8 @@ export function ActivityScreen({
   const loadMore = useCallback(() => {
     if (
       state.kind !== 'ready' ||
+      state.source !== 'online' ||
+      state.stale ||
       state.loadingMore ||
       state.refreshing ||
       state.nextCursor === undefined
@@ -154,9 +167,9 @@ export function ActivityScreen({
 
     const version = requestVersion.current;
     const cursor = state.nextCursor;
-    setState({kind: 'ready', ...startActivityLoadMore(state)});
+    setState({ kind: 'ready', ...startActivityLoadMore(state) });
 
-    void loadHistoryPage(dependencies, account, {cursor})
+    void loadHistoryPage(dependencies, account, { cursor })
       .then(page => {
         if (requestVersion.current !== version) {
           return;
@@ -164,28 +177,22 @@ export function ActivityScreen({
 
         if (page.status !== 'active') {
           setState(current =>
-            current.kind === 'ready'
-              ? {kind: 'ready', ...failActivityLoadMore(current)}
-              : current,
+            current.kind === 'ready' ? { kind: 'ready', ...failActivityLoadMore(current) } : current,
           );
           return;
         }
 
-        setState(current =>
-          current.kind === 'ready'
-            ? {
-                kind: 'ready',
-                ...appendActivityHistoryPage(current, cursor, page),
-              }
-            : current,
-        );
+        const updatedAt = dependencies.now();
+        const next = appendActivityHistoryPage(state, cursor, page, updatedAt);
+        if (!next.loadMoreFailed) {
+          cacheHistoryOnlineEntriesBestEffort(dependencies, account, next.entries, updatedAt);
+        }
+        setState({ kind: 'ready', ...next });
       })
       .catch(() => {
         if (requestVersion.current === version) {
           setState(current =>
-            current.kind === 'ready'
-              ? {kind: 'ready', ...failActivityLoadMore(current)}
-              : current,
+            current.kind === 'ready' ? { kind: 'ready', ...failActivityLoadMore(current) } : current,
           );
         }
       });
@@ -206,12 +213,9 @@ export function ActivityScreen({
       }
 
       const presentation = activityEntryPresentation(entry, t, formatNumber);
-      return [
-        presentation.title,
-        presentation.primary,
-        presentation.secondary,
-        entry.transactionHash,
-      ].some(value => value.toLowerCase().includes(query));
+      return [presentation.title, presentation.primary, presentation.secondary, entry.transactionHash].some(value =>
+        value.toLowerCase().includes(query),
+      );
     });
   }, [filter, formatNumber, searchText, state, t]);
 
@@ -248,12 +252,13 @@ export function ActivityScreen({
           accessibilityLabel={t('activity.refresh')}
           accessibilityRole="button"
           disabled={state.kind === 'loading' || refreshing}
-          onPress={() => loadInitial(true, onManualRefresh)}
-          style={({pressed}) => [
+          onPress={() => loadInitial('refresh', onManualRefresh)}
+          style={({ pressed }) => [
             styles.headerButton,
             pressed ? styles.pressed : undefined,
             state.kind === 'loading' || refreshing ? styles.disabled : undefined,
-          ]}>
+          ]}
+        >
           {refreshing ? (
             <ActivityIndicator color={theme.colors.actionPrimaryPressed} />
           ) : (
@@ -276,28 +281,22 @@ export function ActivityScreen({
             value={searchText}
           />
         </View>
-        <ScrollView
-          contentContainerStyle={styles.filters}
-          horizontal
-          showsHorizontalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.filters} horizontal showsHorizontalScrollIndicator={false}>
           {FILTERS.map(item => {
             const selected = filter === item;
             return (
               <Pressable
                 accessibilityRole="button"
-                accessibilityState={{selected}}
+                accessibilityState={{ selected }}
                 key={item}
                 onPress={() => setFilter(item)}
-                style={({pressed}) => [
+                style={({ pressed }) => [
                   styles.filterChip,
                   selected ? styles.filterChipSelected : undefined,
                   pressed ? styles.pressed : undefined,
-                ]}>
-                <Text
-                  style={[
-                    styles.filterText,
-                    selected ? styles.filterTextSelected : undefined,
-                  ]}>
+                ]}
+              >
+                <Text style={[styles.filterText, selected ? styles.filterTextSelected : undefined]}>
                   {t(FILTER_LABEL_KEYS[item])}
                 </Text>
               </Pressable>
@@ -306,9 +305,7 @@ export function ActivityScreen({
         </ScrollView>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
         <ActivityContent
           dateFormatter={dateFormatter}
           entries={visibleEntries}
@@ -316,7 +313,7 @@ export function ActivityScreen({
           formatNumber={formatNumber}
           onLoadMore={loadMore}
           onOpenOperation={onOpenOperation}
-          onRetry={() => loadInitial(true, onManualRefresh)}
+          onRetry={() => loadInitial('refresh', onManualRefresh)}
           searchText={searchText}
           state={state}
           styles={styles}
@@ -395,25 +392,40 @@ function ActivityContent({
           indicatorColor={indicatorColor}
         />
       );
-    case 'error':
+    case 'offline-empty':
       return (
         <StatePanel
           action={t('activity.retry')}
-          message={t('activity.state.errorMessage')}
+          message={t('activity.state.offlineEmptyMessage')}
           onAction={onRetry}
           styles={styles}
-          title={t('activity.state.errorTitle')}
+          title={t('activity.state.offlineEmptyTitle')}
           indicatorColor={indicatorColor}
         />
       );
     case 'ready': {
+      const cacheStatus = state.stale ? (
+        <CacheStatus
+          dateFormatter={dateFormatter}
+          refreshing={state.refreshing}
+          refreshFailed={state.refreshFailed}
+          source={state.source}
+          styles={styles}
+          t={t}
+          timeFormatter={timeFormatter}
+          updatedAt={state.lastSuccessfulHorizonUpdateAt}
+        />
+      ) : null;
       const refreshFailure = state.refreshFailed ? (
         <>
-          <Text style={styles.loadMoreError}>{t('activity.state.errorMessage')}</Text>
+          <Text style={styles.loadMoreError}>
+            {state.stale ? t('activity.cache.refreshFailed') : t('activity.state.errorMessage')}
+          </Text>
           <Pressable
             accessibilityRole="button"
             onPress={onRetry}
-            style={({pressed}) => [styles.stateAction, pressed ? styles.pressed : undefined]}>
+            style={({ pressed }) => [styles.stateAction, pressed ? styles.pressed : undefined]}
+          >
             <Text style={styles.stateActionText}>{t('activity.retry')}</Text>
           </Pressable>
         </>
@@ -423,17 +435,12 @@ function ActivityContent({
         const constrained = filter !== 'all' || searchText.trim().length > 0;
         return (
           <>
+            {cacheStatus}
             {refreshFailure}
             <StatePanel
-              message={
-                constrained
-                  ? t('activity.state.noMatchMessage')
-                  : t('activity.state.emptyMessage')
-              }
+              message={constrained ? t('activity.state.noMatchMessage') : t('activity.state.emptyMessage')}
               styles={styles}
-              title={
-                constrained ? t('activity.state.noMatchTitle') : t('activity.state.emptyTitle')
-              }
+              title={constrained ? t('activity.state.noMatchTitle') : t('activity.state.emptyTitle')}
               indicatorColor={indicatorColor}
             />
           </>
@@ -442,20 +449,20 @@ function ActivityContent({
 
       return (
         <>
+          {cacheStatus}
           {refreshFailure}
           {renderEntries(entries, t, formatNumber, dateFormatter, timeFormatter, onOpenOperation, styles)}
-          {state.loadMoreFailed ? (
-            <Text style={styles.loadMoreError}>{t('activity.loadMoreError')}</Text>
-          ) : null}
+          {state.loadMoreFailed ? <Text style={styles.loadMoreError}>{t('activity.loadMoreError')}</Text> : null}
           {state.nextCursor !== undefined ? (
             <Pressable
-              disabled={state.loadingMore || state.refreshing}
+              disabled={state.loadingMore || state.refreshing || state.stale}
               onPress={onLoadMore}
-              style={({pressed}) => [
+              style={({ pressed }) => [
                 styles.loadMoreButton,
                 pressed ? styles.pressed : undefined,
-                state.loadingMore || state.refreshing ? styles.disabled : undefined,
-              ]}>
+                state.loadingMore || state.refreshing || state.stale ? styles.disabled : undefined,
+              ]}
+            >
               {state.loadingMore ? (
                 <ActivityIndicator color={indicatorColor} />
               ) : (
@@ -467,6 +474,48 @@ function ActivityContent({
       );
     }
   }
+}
+
+function CacheStatus({
+  source,
+  refreshing,
+  refreshFailed,
+  updatedAt,
+  dateFormatter,
+  timeFormatter,
+  t,
+  styles,
+}: Readonly<{
+  source: ActivityReadyState['source'];
+  refreshing: boolean;
+  refreshFailed: boolean;
+  updatedAt?: Date;
+  dateFormatter: Intl.DateTimeFormat;
+  timeFormatter: Intl.DateTimeFormat;
+  t: Translate;
+  styles: Styles;
+}>) {
+  const title = source === 'cache' ? t('activity.cache.cachedTitle') : t('activity.cache.staleTitle');
+  const message = refreshing
+    ? t('activity.cache.revalidating')
+    : refreshFailed
+      ? t('activity.cache.degraded')
+      : t('activity.cache.staleMessage');
+  const lastUpdated =
+    updatedAt === undefined
+      ? undefined
+      : t('activity.cache.lastUpdated', {
+          time: `${dateFormatter.format(updatedAt)} ${timeFormatter.format(updatedAt)}`,
+        });
+  const accessibilityLabel = [title, message, lastUpdated].filter(Boolean).join('. ');
+
+  return (
+    <View accessible accessibilityLabel={accessibilityLabel} style={styles.cacheStatus}>
+      <Text style={styles.cacheStatusTitle}>{title}</Text>
+      <Text style={styles.cacheStatusMessage}>{message}</Text>
+      {lastUpdated ? <Text style={styles.cacheStatusTimestamp}>{lastUpdated}</Text> : null}
+    </View>
+  );
 }
 
 function renderEntries(
@@ -523,31 +572,19 @@ function ActivityRow({
     <Pressable
       accessibilityRole="button"
       onPress={onOpen}
-      style={({pressed}) => [styles.activityRow, pressed ? styles.pressed : undefined]}>
+      style={({ pressed }) => [styles.activityRow, pressed ? styles.pressed : undefined]}
+    >
       <View style={styles.operationIcon}>
-        <Text
-          style={[
-            styles.operationGlyph,
-            toneStyle(presentation.tone, styles, 'glyph'),
-          ]}>
-          {glyph}
-        </Text>
+        <Text style={[styles.operationGlyph, toneStyle(presentation.tone, styles, 'glyph')]}>{glyph}</Text>
       </View>
       <View style={styles.activityIdentity}>
         <Text style={styles.activityTitle}>{presentation.title}</Text>
         <Text numberOfLines={1} style={styles.activitySecondary}>
           {shortAddress(presentation.secondary)}
         </Text>
-        <Text style={styles.activityTime}>
-          {timeFormatter.format(new Date(entry.occurredAt))}
-        </Text>
+        <Text style={styles.activityTime}>{timeFormatter.format(new Date(entry.occurredAt))}</Text>
       </View>
-      <Text
-        numberOfLines={1}
-        style={[
-          styles.activityAmount,
-          toneStyle(presentation.tone, styles, 'amount'),
-        ]}>
+      <Text numberOfLines={1} style={[styles.activityAmount, toneStyle(presentation.tone, styles, 'amount')]}>
         {presentation.primary}
       </Text>
     </Pressable>
@@ -595,7 +632,8 @@ function StatePanel({
       {action && onAction ? (
         <Pressable
           onPress={onAction}
-          style={({pressed}) => [styles.stateAction, pressed ? styles.pressed : undefined]}>
+          style={({ pressed }) => [styles.stateAction, pressed ? styles.pressed : undefined]}
+        >
           <Text style={styles.stateActionText}>{action}</Text>
         </Pressable>
       ) : null}

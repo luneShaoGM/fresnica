@@ -6,9 +6,17 @@ import Realm from 'realm';
 
 import type { AccountRecord } from '../../../../capabilities/account/types';
 import {
+  cacheHistoryOnlineEntriesBestEffort,
+  cacheHistoryReadyDetailBestEffort,
+  readCachedHistoryDetail,
+  readHistoryCacheSnapshotBestEffort,
+  type HistoryProductDependencies,
+} from '../../../../capabilities/history/HistoryCacheHydration';
+import {
   HISTORY_CACHE_SCHEMA_VERSION,
   type HistoryCachePartition,
 } from '../../../../capabilities/history/HistoryCacheRepository';
+import type { HistoryEntry } from '../../../../capabilities/history/types';
 import type { SignerRecord } from '../../../../capabilities/signer/types';
 import type { PendingSubmissionRecord } from '../../../../capabilities/transaction/pendingSubmission';
 import {
@@ -86,6 +94,35 @@ describe('RealmHistoryCacheRepository persistence', () => {
 
       realm = await openWalletRealm({ path });
       expect(new RealmHistoryCacheRepository(realm).getSnapshot(partitionA)).toEqual(snapshot);
+    } finally {
+      realm?.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('hydrates list and ready detail through product helpers after Realm close and reopen', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'fresnica-history-cache-product-reopen-'));
+    const path = join(directory, 'wallet.realm');
+    let realm: Awaited<ReturnType<typeof openWalletRealm>> | undefined;
+    const currentAccount = historyAccount();
+    const currentEntry = historyEntry('42', currentAccount.address);
+    const updatedAt = new Date('2026-09-21T01:00:00.000Z');
+
+    try {
+      realm = await openWalletRealm({ path });
+      let dependencies = historyProductDependencies(new RealmHistoryCacheRepository(realm), updatedAt);
+      expect(cacheHistoryOnlineEntriesBestEffort(dependencies, currentAccount, [currentEntry], updatedAt)).toBe(true);
+      expect(cacheHistoryReadyDetailBestEffort(dependencies, currentAccount, currentEntry)).toBe(true);
+
+      realm.close();
+      realm = undefined;
+
+      realm = await openWalletRealm({ path });
+      dependencies = historyProductDependencies(new RealmHistoryCacheRepository(realm), updatedAt);
+      const restored = readHistoryCacheSnapshotBestEffort(dependencies, currentAccount);
+      expect(restored?.entries).toEqual([currentEntry]);
+      expect(restored?.lastSuccessfulHorizonUpdateAt).toEqual(updatedAt);
+      expect(readCachedHistoryDetail(restored, currentEntry.id)).toEqual(currentEntry);
     } finally {
       realm?.close();
       rmSync(directory, { recursive: true, force: true });
@@ -295,3 +332,43 @@ describe('RealmHistoryCacheRepository persistence', () => {
     }
   });
 });
+
+function historyProductDependencies(cache: RealmHistoryCacheRepository, now: Date): HistoryProductDependencies {
+  return {
+    gateway: {
+      loadAccountOperations: jest.fn(),
+      loadOperation: jest.fn(),
+    },
+    networkId: 'stellar-testnet',
+    cache,
+    now: () => now,
+  };
+}
+
+function historyAccount(): AccountRecord {
+  const timestamp = new Date('2026-09-21T00:00:00.000Z');
+  return {
+    id: 'history-account',
+    address: 'GACCOUNT-A',
+    identityKind: 'classic',
+    networkId: 'stellar-testnet',
+    label: 'History account',
+    sortOrder: 0,
+    hidden: false,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
+function historyEntry(id: string, sourceAccount: string): HistoryEntry {
+  return {
+    id,
+    pagingToken: id,
+    operationType: 'future_operation',
+    occurredAt: '2026-09-20T23:00:00.000Z',
+    transactionHash: `tx-${id}`,
+    sourceAccount,
+    kind: 'unsupported',
+    reason: 'operation-type',
+  };
+}

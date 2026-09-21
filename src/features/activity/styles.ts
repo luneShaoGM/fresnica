@@ -1,6 +1,6 @@
-import {StyleSheet} from 'react-native';
+import { StyleSheet } from 'react-native';
 
-import type {AppTheme} from '@ui/theme';
+import type { AppTheme } from '@ui/theme';
 
 export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
@@ -202,6 +202,27 @@ export function createStyles(theme: AppTheme) {
       ...theme.typography.caption,
       fontWeight: '700',
       color: theme.colors.actionPrimaryPressed,
+    },
+    cacheStatus: {
+      marginTop: theme.spacing.sm,
+      borderRadius: theme.radii.md,
+      backgroundColor: theme.colors.surfaceMuted,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      gap: theme.spacing.xs,
+    },
+    cacheStatusTitle: {
+      ...theme.typography.caption,
+      fontWeight: '700',
+      color: theme.colors.textPrimary,
+    },
+    cacheStatusMessage: {
+      ...theme.typography.caption,
+      color: theme.colors.textSecondary,
+    },
+    cacheStatusTimestamp: {
+      ...theme.typography.caption,
+      color: theme.colors.textTertiary,
     },
     loadMoreButton: {
       minHeight: 52,

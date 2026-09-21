@@ -1,35 +1,49 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Pressable, ScrollView, Text, View} from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import type {AccountRecord} from '@capabilities/account/types';
+import type { AccountRecord } from '@capabilities/account/types';
 import {
   loadHistoryOperationDetails,
   type HistoryOperationDetails,
 } from '@capabilities/history/loadHistoryOperationDetails';
-import type {HistoryDependencies} from '@capabilities/history/loadHistoryPage';
+import {
+  cacheHistoryReadyDetailBestEffort,
+  readCachedHistoryDetail,
+  readHistoryCacheSnapshotBestEffort,
+  removeCachedHistoryDetailBestEffort,
+  type HistoryProductDependencies,
+} from '@capabilities/history/HistoryCacheHydration';
 import type {
   HistoryDirection,
   HistoryEntry,
   HistoryParticipant,
   HistoryParticipantRole,
 } from '@capabilities/history/types';
-import {Header, Screen, StateView} from '@ui/components';
-import {useThemedStyles} from '@ui/theme';
+import { Header, Screen, StateView } from '@ui/components';
+import { useThemedStyles } from '@ui/theme';
 
-import {useLocalization} from '../../locale';
-import {projectFeatureError} from '../featureError';
-import {activityEntryPresentation} from './activityList';
-import {createStyles} from './OperationDetailsScreen.styles';
+import { useLocalization } from '../../locale';
+import { projectFeatureError } from '../featureError';
+import { activityEntryPresentation } from './activityList';
+import { createStyles } from './OperationDetailsScreen.styles';
 
 type LoadState =
-  | Readonly<{kind: 'loading'}>
-  | Readonly<{kind: 'error'; message: string}>
-  | Readonly<{kind: 'loaded'; result: HistoryOperationDetails}>;
+  | Readonly<{ kind: 'loading' }>
+  | Readonly<{ kind: 'error'; message: string }>
+  | Readonly<{
+      kind: 'loaded';
+      result: HistoryOperationDetails;
+      source: 'cache' | 'online';
+      stale: boolean;
+      refreshing: boolean;
+      refreshFailed: boolean;
+      lastSuccessfulHorizonUpdateAt?: Date;
+    }>;
 
 type Props = Readonly<{
   account: AccountRecord;
   operationId: string;
-  dependencies: HistoryDependencies;
+  dependencies: HistoryProductDependencies;
   active: boolean;
   invalidationRevision: number;
   onBack: () => void;
@@ -43,32 +57,87 @@ export function OperationDetailsScreen({
   invalidationRevision,
   onBack,
 }: Props) {
-  const {formatNumber, locale, t} = useLocalization();
+  const { formatNumber, locale, t } = useLocalization();
   const styles = useThemedStyles(createStyles);
-  const [state, setState] = useState<LoadState>({kind: 'loading'});
+  const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const requestVersion = useRef(0);
 
   const load = useCallback(() => {
     const version = requestVersion.current + 1;
     requestVersion.current = version;
-    setState({kind: 'loading'});
+
+    const snapshot = readHistoryCacheSnapshotBestEffort(dependencies, account);
+    const cachedEntry = readCachedHistoryDetail(snapshot, operationId);
+    setState(current => {
+      if (cachedEntry) {
+        return {
+          kind: 'loaded',
+          result: { status: 'ready', entry: cachedEntry },
+          source: 'cache',
+          stale: true,
+          refreshing: true,
+          refreshFailed: false,
+          ...(snapshot === undefined
+            ? {}
+            : {
+                lastSuccessfulHorizonUpdateAt: new Date(snapshot.lastSuccessfulHorizonUpdateAt),
+              }),
+        };
+      }
+      if (current.kind === 'loaded' && current.result.status === 'ready') {
+        return {
+          ...current,
+          stale: true,
+          refreshing: true,
+          refreshFailed: false,
+        };
+      }
+      return { kind: 'loading' };
+    });
 
     void loadHistoryOperationDetails(dependencies, account, operationId)
       .then(result => {
-        if (requestVersion.current === version) {
-          setState({kind: 'loaded', result});
+        if (requestVersion.current !== version) {
+          return;
         }
+
+        if (result.status === 'ready') {
+          cacheHistoryReadyDetailBestEffort(dependencies, account, result.entry);
+        } else if (result.status === 'not-found' || result.status === 'not-associated') {
+          removeCachedHistoryDetailBestEffort(dependencies, account, operationId);
+        }
+
+        setState({
+          kind: 'loaded',
+          result,
+          source: 'online',
+          stale: false,
+          refreshing: false,
+          refreshFailed: false,
+        });
       })
       .catch(error => {
-        if (requestVersion.current === version) {
-          setState({
+        if (requestVersion.current !== version) {
+          return;
+        }
+
+        setState(current => {
+          if (current.kind === 'loaded' && current.result.status === 'ready') {
+            return {
+              ...current,
+              stale: true,
+              refreshing: false,
+              refreshFailed: true,
+            };
+          }
+          return {
             kind: 'error',
             message: projectFeatureError(error, {
               fallbackMessage: t('activity.detail.errorMessage'),
               fallbackRetryable: true,
             }).message,
-          });
-        }
+          };
+        });
       });
   }, [account, dependencies, operationId, t]);
 
@@ -102,7 +171,12 @@ export function OperationDetailsScreen({
           title={t('activity.detail.title')}
           subtitle={account.label || shortAddress(account.address)}
           leading={
-            <Pressable accessibilityLabel={t('common.back')} accessibilityRole="button" onPress={onBack} style={styles.backButton}>
+            <Pressable
+              accessibilityLabel={t('common.back')}
+              accessibilityRole="button"
+              onPress={onBack}
+              style={styles.backButton}
+            >
               <Text style={styles.backGlyph}>‹</Text>
             </Pressable>
           }
@@ -128,7 +202,9 @@ function renderContent(
   styles: Styles,
 ) {
   if (state.kind === 'loading') {
-    return <StateView kind="loading" title={t('activity.detail.title')} message={t('activity.detail.loadingMessage')} />;
+    return (
+      <StateView kind="loading" title={t('activity.detail.title')} message={t('activity.detail.loadingMessage')} />
+    );
   }
   if (state.kind === 'error') {
     return (
@@ -170,8 +246,67 @@ function renderContent(
         />
       );
     case 'ready':
-      return renderEntry(state.result.entry, dateFormatter, formatNumber, t, styles);
+      return (
+        <>
+          {state.stale ? (
+            <DetailCacheStatus
+              dateFormatter={dateFormatter}
+              onRefresh={onRefresh}
+              refreshFailed={state.refreshFailed}
+              refreshing={state.refreshing}
+              source={state.source}
+              styles={styles}
+              t={t}
+              updatedAt={state.lastSuccessfulHorizonUpdateAt}
+            />
+          ) : null}
+          {renderEntry(state.result.entry, dateFormatter, formatNumber, t, styles)}
+        </>
+      );
   }
+}
+
+function DetailCacheStatus({
+  source,
+  refreshing,
+  refreshFailed,
+  updatedAt,
+  dateFormatter,
+  onRefresh,
+  t,
+  styles,
+}: Readonly<{
+  source: 'cache' | 'online';
+  refreshing: boolean;
+  refreshFailed: boolean;
+  updatedAt?: Date;
+  dateFormatter: Intl.DateTimeFormat;
+  onRefresh: () => void;
+  t: Translate;
+  styles: Styles;
+}>) {
+  const title = source === 'cache' ? t('activity.detail.cache.cachedTitle') : t('activity.detail.cache.staleTitle');
+  const message = refreshing ? t('activity.detail.cache.revalidating') : t('activity.detail.cache.degraded');
+  const lastUpdated =
+    updatedAt === undefined ? undefined : t('activity.cache.lastUpdated', { time: dateFormatter.format(updatedAt) });
+  const accessibilityLabel = [title, message, lastUpdated].filter(Boolean).join('. ');
+
+  return (
+    <View accessible accessibilityLabel={accessibilityLabel} style={styles.cacheStatus}>
+      <Text style={styles.cacheStatusTitle}>{title}</Text>
+      <Text style={styles.cacheStatusMessage}>{message}</Text>
+      {lastUpdated ? <Text style={styles.cacheStatusTimestamp}>{lastUpdated}</Text> : null}
+      {refreshFailed ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onRefresh}
+          style={({ pressed }) => [styles.cacheRetry, pressed ? styles.cacheRetryPressed : undefined]}
+        >
+          <Text style={styles.cacheRetryText}>{t('activity.retry')}</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
 }
 
 function renderEntry(
@@ -186,7 +321,9 @@ function renderEntry(
     <View style={styles.ready}>
       <View style={styles.hero}>
         <View style={styles.heroIcon}>
-          <Text style={styles.heroGlyph}>{entry.kind === 'payment' ? '↔' : entry.kind === 'create-account' ? '+' : '•'}</Text>
+          <Text style={styles.heroGlyph}>
+            {entry.kind === 'payment' ? '↔' : entry.kind === 'create-account' ? '+' : '•'}
+          </Text>
         </View>
         <Text style={styles.heroTitle}>{presentation.title}</Text>
         <Text style={styles.heroPrimary}>{presentation.primary}</Text>
@@ -195,23 +332,45 @@ function renderEntry(
       <View style={styles.rows}>
         <DetailRow label={t('activity.detail.operationId')} value={entry.id} mono styles={styles} />
         <DetailRow label={t('activity.detail.operationType')} value={entry.operationType} styles={styles} />
-        <DetailRow label={t('activity.detail.occurredAt')} value={dateFormatter.format(new Date(entry.occurredAt))} styles={styles} />
+        <DetailRow
+          label={t('activity.detail.occurredAt')}
+          value={dateFormatter.format(new Date(entry.occurredAt))}
+          styles={styles}
+        />
         <DetailRow label={t('activity.detail.transactionHash')} value={entry.transactionHash} mono styles={styles} />
         <DetailRow label={t('activity.detail.sourceAccount')} value={entry.sourceAccount} mono styles={styles} />
         {entry.kind === 'payment' ? (
           <>
-            <DetailRow label={t('activity.detail.direction')} value={directionLabel(entry.direction, t)} styles={styles} />
-            <DetailRow label={t('activity.detail.amount')} value={`${formatNumber(entry.amount)} ${entry.asset.code}`} styles={styles} />
+            <DetailRow
+              label={t('activity.detail.direction')}
+              value={directionLabel(entry.direction, t)}
+              styles={styles}
+            />
+            <DetailRow
+              label={t('activity.detail.amount')}
+              value={`${formatNumber(entry.amount)} ${entry.asset.code}`}
+              styles={styles}
+            />
             <DetailRow label={t('activity.detail.asset')} value={entry.asset.code} styles={styles} />
-            {entry.asset.kind === 'credit' ? <DetailRow label={t('activity.detail.issuer')} value={entry.asset.issuer} mono styles={styles} /> : null}
+            {entry.asset.kind === 'credit' ? (
+              <DetailRow label={t('activity.detail.issuer')} value={entry.asset.issuer} mono styles={styles} />
+            ) : null}
             <DetailRow label={t('activity.detail.counterparty')} value={entry.counterparty} mono styles={styles} />
             <ParticipantRows participants={entry.participants} t={t} styles={styles} />
           </>
         ) : null}
         {entry.kind === 'create-account' ? (
           <>
-            <DetailRow label={t('activity.detail.direction')} value={directionLabel(entry.direction, t)} styles={styles} />
-            <DetailRow label={t('activity.detail.startingBalance')} value={`${formatNumber(entry.startingBalance)} XLM`} styles={styles} />
+            <DetailRow
+              label={t('activity.detail.direction')}
+              value={directionLabel(entry.direction, t)}
+              styles={styles}
+            />
+            <DetailRow
+              label={t('activity.detail.startingBalance')}
+              value={`${formatNumber(entry.startingBalance)} XLM`}
+              styles={styles}
+            />
             <DetailRow label={t('activity.detail.counterparty')} value={entry.counterparty} mono styles={styles} />
             <ParticipantRows participants={entry.participants} t={t} styles={styles} />
           </>
@@ -249,7 +408,12 @@ function ParticipantRows({
   ));
 }
 
-function DetailRow({label, value, mono = false, styles}: Readonly<{label: string; value: string; mono?: boolean; styles: Styles}>) {
+function DetailRow({
+  label,
+  value,
+  mono = false,
+  styles,
+}: Readonly<{ label: string; value: string; mono?: boolean; styles: Styles }>) {
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>

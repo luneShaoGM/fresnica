@@ -1,10 +1,13 @@
+import { HISTORY_CACHE_SCHEMA_VERSION } from '@capabilities/history/HistoryCacheRepository';
 import type { HistoryEntry } from '@capabilities/history/types';
 
 import {
   appendActivityHistoryPage,
   createActivityReadyState,
+  createCachedActivityReadyState,
   failActivityLoadMore,
   failActivityRefresh,
+  markActivityStaleForRevalidation,
   startActivityLoadMore,
   startActivityRefresh,
 } from '../activityReadModel';
@@ -23,6 +26,65 @@ function unsupported(id: string): HistoryEntry {
 }
 
 describe('activityReadModel', () => {
+  it('hydrates a cached snapshot as stale without restoring any persisted cursor', () => {
+    const updatedAt = new Date('2026-09-20T03:00:00.000Z');
+    const cached = createCachedActivityReadyState({
+      schemaVersion: HISTORY_CACHE_SCHEMA_VERSION,
+      lastSuccessfulHorizonUpdateAt: updatedAt,
+      entries: [unsupported('3'), unsupported('2')],
+      details: [],
+    });
+
+    expect(cached).toMatchObject({
+      entries: [unsupported('3'), unsupported('2')],
+      acceptedCursors: [],
+      refreshing: true,
+      refreshFailed: false,
+      loadingMore: false,
+      loadMoreFailed: false,
+      source: 'cache',
+      stale: true,
+      lastSuccessfulHorizonUpdateAt: updatedAt,
+    });
+    expect(cached.nextCursor).toBeUndefined();
+  });
+
+  it('does not start load-more from a cached or stale page set', () => {
+    const cached = createCachedActivityReadyState({
+      schemaVersion: HISTORY_CACHE_SCHEMA_VERSION,
+      lastSuccessfulHorizonUpdateAt: new Date('2026-09-20T03:00:00.000Z'),
+      entries: [unsupported('3')],
+      details: [],
+    });
+    const staleOnline = markActivityStaleForRevalidation(
+      createActivityReadyState({
+        entries: [unsupported('3')],
+        nextCursor: 'opaque-A',
+      }),
+    );
+
+    expect(startActivityLoadMore(cached)).toBe(cached);
+    expect(startActivityLoadMore(staleOnline)).toBe(staleOnline);
+  });
+
+  it('marks an online page set stale for invalidation revalidation without changing rows', () => {
+    const current = createActivityReadyState(
+      {
+        entries: [unsupported('3'), unsupported('2')],
+        nextCursor: 'opaque-A',
+      },
+      new Date('2026-09-20T03:00:00.000Z'),
+    );
+
+    const stale = markActivityStaleForRevalidation(current);
+
+    expect(stale.entries).toEqual(current.entries);
+    expect(stale.nextCursor).toBe('opaque-A');
+    expect(stale.refreshing).toBe(true);
+    expect(stale.stale).toBe(true);
+    expect(stale.loadingMore).toBe(false);
+  });
+
   it('rebuilds the accepted cursor chain from page 1', () => {
     const first = createActivityReadyState({
       entries: [unsupported('3'), unsupported('2')],

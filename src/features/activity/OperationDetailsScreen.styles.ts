@@ -1,6 +1,6 @@
-import {StyleSheet} from 'react-native';
+import { StyleSheet } from 'react-native';
 
-import type {AppTheme} from '@ui/theme';
+import type { AppTheme } from '@ui/theme';
 
 export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
@@ -9,11 +9,53 @@ export function createStyles(theme: AppTheme) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.colors.border,
     },
-    backButton: {width: 40, height: 40, alignItems: 'center', justifyContent: 'center'},
-    backGlyph: {fontSize: 36, lineHeight: 38, fontWeight: '300', color: theme.colors.secondary},
-    content: {flexGrow: 1, paddingBottom: theme.spacing.xl},
-    ready: {flex: 1},
-    hero: {alignItems: 'center', paddingHorizontal: theme.spacing.lg, paddingVertical: theme.spacing.xl, gap: theme.spacing.xs},
+    backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+    backGlyph: { fontSize: 36, lineHeight: 38, fontWeight: '300', color: theme.colors.secondary },
+    content: { flexGrow: 1, paddingBottom: theme.spacing.xl },
+    cacheStatus: {
+      marginHorizontal: theme.spacing.md,
+      marginTop: theme.spacing.md,
+      borderRadius: theme.radii.md,
+      backgroundColor: theme.colors.surfaceMuted,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      gap: theme.spacing.xs,
+    },
+    cacheStatusTitle: {
+      ...theme.typography.caption,
+      fontWeight: '700',
+      color: theme.colors.textPrimary,
+    },
+    cacheStatusMessage: {
+      ...theme.typography.caption,
+      color: theme.colors.textSecondary,
+    },
+    cacheStatusTimestamp: {
+      ...theme.typography.caption,
+      color: theme.colors.textTertiary,
+    },
+    cacheRetry: {
+      alignSelf: 'flex-start',
+      minHeight: 36,
+      borderRadius: theme.radii.pill,
+      paddingHorizontal: theme.spacing.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.background,
+    },
+    cacheRetryText: {
+      ...theme.typography.caption,
+      fontWeight: '700',
+      color: theme.colors.actionPrimaryPressed,
+    },
+    cacheRetryPressed: { opacity: 0.68 },
+    ready: { flex: 1 },
+    hero: {
+      alignItems: 'center',
+      paddingHorizontal: theme.spacing.lg,
+      paddingVertical: theme.spacing.xl,
+      gap: theme.spacing.xs,
+    },
     heroIcon: {
       width: 60,
       height: 60,
@@ -23,10 +65,10 @@ export function createStyles(theme: AppTheme) {
       backgroundColor: theme.colors.surfaceStrong,
       marginBottom: theme.spacing.xs,
     },
-    heroGlyph: {fontSize: 24, lineHeight: 29, fontWeight: '800', color: theme.colors.onSurfaceStrong},
-    heroTitle: {...theme.typography.sectionTitle, color: theme.colors.textPrimary, textAlign: 'center'},
-    heroPrimary: {...theme.typography.body, color: theme.colors.textSecondary, textAlign: 'center'},
-    rows: {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border},
+    heroGlyph: { fontSize: 24, lineHeight: 29, fontWeight: '800', color: theme.colors.onSurfaceStrong },
+    heroTitle: { ...theme.typography.sectionTitle, color: theme.colors.textPrimary, textAlign: 'center' },
+    heroPrimary: { ...theme.typography.body, color: theme.colors.textSecondary, textAlign: 'center' },
+    rows: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
     row: {
       minHeight: 58,
       flexDirection: 'row',
@@ -37,8 +79,8 @@ export function createStyles(theme: AppTheme) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.colors.border,
     },
-    rowLabel: {...theme.typography.caption, fontWeight: '700', color: theme.colors.textSecondary},
-    rowValue: {flex: 1, ...theme.typography.caption, color: theme.colors.textPrimary, textAlign: 'right'},
-    mono: {fontSize: 10, lineHeight: 14, color: theme.colors.textSecondary, fontVariant: ['tabular-nums']},
+    rowLabel: { ...theme.typography.caption, fontWeight: '700', color: theme.colors.textSecondary },
+    rowValue: { flex: 1, ...theme.typography.caption, color: theme.colors.textPrimary, textAlign: 'right' },
+    mono: { fontSize: 10, lineHeight: 14, color: theme.colors.textSecondary, fontVariant: ['tabular-nums'] },
   });
 }

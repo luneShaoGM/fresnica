@@ -1,6 +1,9 @@
+import type { HistoryCacheSnapshot } from '@capabilities/history/HistoryCacheRepository';
 import type { HistoryEntry } from '@capabilities/history/types';
 
 import { mergeActivityEntries } from './activityList';
+
+export type ActivityReadySource = 'cache' | 'online';
 
 export type ActivityReadyState = Readonly<{
   entries: readonly HistoryEntry[];
@@ -10,6 +13,9 @@ export type ActivityReadyState = Readonly<{
   refreshFailed: boolean;
   loadingMore: boolean;
   loadMoreFailed: boolean;
+  source: ActivityReadySource;
+  stale: boolean;
+  lastSuccessfulHorizonUpdateAt?: Date;
 }>;
 
 type ActiveHistoryPage = Readonly<{
@@ -17,7 +23,7 @@ type ActiveHistoryPage = Readonly<{
   nextCursor?: string;
 }>;
 
-export function createActivityReadyState(page: ActiveHistoryPage): ActivityReadyState {
+export function createActivityReadyState(page: ActiveHistoryPage, updatedAt?: Date): ActivityReadyState {
   return {
     entries: page.entries,
     ...(page.nextCursor === undefined ? {} : { nextCursor: page.nextCursor }),
@@ -26,6 +32,23 @@ export function createActivityReadyState(page: ActiveHistoryPage): ActivityReady
     refreshFailed: false,
     loadingMore: false,
     loadMoreFailed: false,
+    source: 'online',
+    stale: false,
+    ...(updatedAt === undefined ? {} : { lastSuccessfulHorizonUpdateAt: new Date(updatedAt) }),
+  };
+}
+
+export function createCachedActivityReadyState(snapshot: HistoryCacheSnapshot): ActivityReadyState {
+  return {
+    entries: snapshot.entries,
+    acceptedCursors: [],
+    refreshing: true,
+    refreshFailed: false,
+    loadingMore: false,
+    loadMoreFailed: false,
+    source: 'cache',
+    stale: true,
+    lastSuccessfulHorizonUpdateAt: new Date(snapshot.lastSuccessfulHorizonUpdateAt),
   };
 }
 
@@ -39,6 +62,13 @@ export function startActivityRefresh(state: ActivityReadyState): ActivityReadySt
   };
 }
 
+export function markActivityStaleForRevalidation(state: ActivityReadyState): ActivityReadyState {
+  return {
+    ...startActivityRefresh(state),
+    stale: true,
+  };
+}
+
 export function failActivityRefresh(state: ActivityReadyState): ActivityReadyState {
   return {
     ...state,
@@ -48,6 +78,9 @@ export function failActivityRefresh(state: ActivityReadyState): ActivityReadySta
 }
 
 export function startActivityLoadMore(state: ActivityReadyState): ActivityReadyState {
+  if (state.source !== 'online' || state.stale) {
+    return state;
+  }
   return {
     ...state,
     loadingMore: true,
@@ -67,6 +100,7 @@ export function appendActivityHistoryPage(
   state: ActivityReadyState,
   requestCursor: string,
   page: ActiveHistoryPage,
+  updatedAt?: Date,
 ): ActivityReadyState {
   if (
     page.nextCursor !== undefined &&
@@ -84,5 +118,12 @@ export function appendActivityHistoryPage(
     refreshFailed: false,
     loadingMore: false,
     loadMoreFailed: false,
+    source: 'online',
+    stale: false,
+    ...(updatedAt === undefined
+      ? state.lastSuccessfulHorizonUpdateAt === undefined
+        ? {}
+        : { lastSuccessfulHorizonUpdateAt: state.lastSuccessfulHorizonUpdateAt }
+      : { lastSuccessfulHorizonUpdateAt: new Date(updatedAt) }),
   };
 }
