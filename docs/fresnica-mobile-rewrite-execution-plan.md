@@ -1027,16 +1027,16 @@ Backend 交付并完成身份/滥用验证后才可支持：
 
 ## 11. 当前下一步
 
-立即执行顺序（2026-09-18）：
+立即执行顺序（2026-09-20）：
 
 1. Stage 0A / Stage 1 / Stage 2 / Stage 2.5 与 clean integration 已完成并进入 `main`；后续 PR 继续执行既有 provenance、架构和共享 transaction recovery 门，不重开第二套底层。
 2. S02 已记录为 **L3 已签收、L4 partial**。其三项 L4 债务单独登记：Accounts/Account Detail 硬编码文案清理、TalkBack/VoiceOver 可靠焦点顺序人工验收、S02 aggregate UI flow 纳入标准门禁；不得为补这些债务反向增加账户产品语义。
 3. S01 Create + Import + HD 已在 `main@a2b17eba...` 完成双端同钱包 aggregate acceptance，并在 PR #54 / `main@52bd547...` 合并 generated-mnemonic verification hardening，关闭“仅确认已看到助记词、未证明备份”的已知产品语义缺口；S01 保持 **`L3 / L4 partial`**。当前剩余为 aggregate 标准必过门与动态字体/读屏顺序 L4 债务；Reveal/Export、rotation、generic session unlock、hardware wallet 各自按独立范围推进。
 4. S05 Testnet Friendbot 单切片与 Home/Balance 双端 aggregate 已在 `main@ab794fa...` 完成，整体升级为 **`L3 / L4 partial`**；旧 `Medium_Phone` resolver 损坏继续只记环境债务，不重复验证 Friendbot。S05 剩余债务仅是标准必过 aggregate gate、iOS focus-return fault 的独立平台深度，以及动态字体/读屏顺序 L4 验收。
 5. **S07 Send aggregate 已在 `main@a921635...` 上完成双端主体路径验收，但成熟度保持 `L3 partial`。** Android 已覆盖 Text/ID/Hash、App Passphrase fallback、System Auth success/cancel→retry、submitted/rejected/uncertain 与 process restart recovery；iOS fresh current-tree Debug build 覆盖同一矩阵中的全部项目，唯独 Simulator 无法提供可信的 Native System Auth cancel 窗口。2026-09-18 已确认当前无可用真实 iPhone，因此该实机验收显式延期到 Stage 9 / release acceptance；不得为证据缺口修改 Payment、Signing、Transaction、XDR 或 recovery 语义来绕过验收。
-6. 上述 S07 iOS cancel 缺口只阻止 S07 成熟度升级和最终发布签收，不再阻塞已完成 aggregate acceptance 的 S30 Trustline 或 S13 Activity。S30 已完成窄产品 hardening、独立 review/merge 与 post-#59 双端 aggregate evidence；S13 read-model integrity 与 operation-family/participants 已进入 `main@8d3aba7f...`，后续顺序冻结为 **History cache contract → cache/repository integrity → cache hydration/offline state → filter/search → explorer/product hardening → 双端 aggregate → 其他 Stage 4 功能 → Stage 9 / release candidate 前真实 iPhone S07 cancel acceptance**。release candidate 前必须实机闭合 `cancel → user-cancel → pending=0 → retry → submitted`；S13 与后续写账切片继续复用 Stage 2.5 transaction recovery，不因该证据延期降低 exact-XDR / fail-closed 要求。
+6. 上述 S07 iOS cancel 缺口只阻止 S07 成熟度升级和最终发布签收，不再阻塞已完成 aggregate acceptance 的 S30 Trustline 或 S13 Activity。S30 已完成窄产品 hardening、独立 review/merge 与 post-#59 双端 aggregate evidence；S13 read-model integrity 与 operation-family/participants 已进入 `main@8d3aba7f...`，History cache contract 已在 PR #64 合并为 `main@b05a8757...`。当前 cache/repository integrity 切片依次以 `8553fe07...` 完成 contract hardening、`837a4eb...` 闭合首轮 review-fix，并以 `f3978c35...` 闭合 detail/list canonical equality 与 `occurredAt` 有效时间校验；Capability cache port、Realm v5/Memory repository contract、500 条 retention、分区损坏清理与账户删除清理均保持不接 Activity；本切片合并后的主线顺序为 **cache hydration/offline state → filter/search → explorer/product hardening → 双端 aggregate → 其他 Stage 4 功能 → Stage 9 / release candidate 前真实 iPhone S07 cancel acceptance**。release candidate 前必须实机闭合 `cancel → user-cancel → pending=0 → retry → submitted`；S13 与后续写账切片继续复用 Stage 2.5 transaction recovery，不因该证据延期降低 exact-XDR / fail-closed 要求。
 7. UI 最终视觉稿仍不阻塞上述功能施工；但新触及文案必须进入 locale，Accessibility label、动态字体和读屏顺序按切片记录，避免把可预见的 L4 债务继续扩大。
-8. Activity/Operation Detail 的公开账本 UX cache 已提升为当前 S13 Stage 4 前置切片，按 §4.2 与 S13 behavior spec 实施；其他缓存 schema/失效、Backend 边界、Mainnet/Developer Mode、最终 Application ID/iOS identity 与 release signing 继续按 Stage 8/8B/9 顺序推进，不提前宣称发布成熟。
+8. Activity/Operation Detail 的公开账本 UX cache 继续按 §4.2 与 S13 behavior spec 分层实施：repository integrity 已在当前切片闭合，下一切片才允许接入 cache hydration/offline product state；filter/search 必须继续排在 hydration 合并之后。其他缓存 schema/失效、Backend 边界、Mainnet/Developer Mode、最终 Application ID/iOS identity 与 release signing 继续按 Stage 8/8B/9 顺序推进，不提前宣称发布成熟。
 
 这条顺序避免两类返工：
 

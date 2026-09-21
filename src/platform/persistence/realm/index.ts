@@ -2,6 +2,7 @@ export { RealmAccountSignerRepository } from './RealmAccountSignerRepository';
 export { RealmLocalePreferenceStore } from './RealmLocalePreferenceStore';
 export { RealmDefaultAccountPreferenceStore } from './RealmDefaultAccountPreferenceStore';
 export { RealmPendingSubmissionRepository } from './RealmPendingSubmissionRepository';
+export { RealmHistoryCacheRepository } from './RealmHistoryCacheRepository';
 export { createRealmRecordId } from './createRealmRecordId';
 export { openWalletRealm, walletRealmConfiguration, type OpenWalletRealmOptions } from './openWalletRealm';
 export {
@@ -15,6 +16,8 @@ export {
   DEFAULT_ACCOUNT_PREFERENCE_SCHEMA,
   PENDING_SUBMISSION_ENTITY,
   PENDING_SUBMISSION_SCHEMA,
+  HISTORY_CACHE_SNAPSHOT_ENTITY,
+  HISTORY_CACHE_SNAPSHOT_SCHEMA,
   SIGNER_ENTITY,
   SIGNER_SCHEMA,
   WALLET_REALM_SCHEMAS,

@@ -26,6 +26,7 @@ import { ReactNativeFresnicaSdk, loadNativeFresnicaModule } from '../platform/fr
 import {
   RealmAccountSignerRepository,
   RealmDefaultAccountPreferenceStore,
+  RealmHistoryCacheRepository,
   RealmLocalePreferenceStore,
   RealmPendingSubmissionRepository,
   createRealmRecordId,
@@ -71,6 +72,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const localePreferences = new RealmLocalePreferenceStore(realm);
     const accountSelectionPreferences = new RealmDefaultAccountPreferenceStore(realm);
     const pendingSubmissions = new RealmPendingSubmissionRepository(realm);
+    const historyCache = new RealmHistoryCacheRepository(realm);
     const ledgerReadInvalidation = createLedgerReadInvalidationStore();
     const recovery = Object.freeze({
       repository: pendingSubmissions,
@@ -105,6 +107,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       accountManagement: {
         repository,
         pendingSubmissions,
+        historyCache,
         now: () => new Date(),
       },
       onboarding: {

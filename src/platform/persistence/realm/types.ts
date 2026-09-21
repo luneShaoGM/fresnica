@@ -46,3 +46,13 @@ export type PersistedPendingSubmission = {
   ledger?: number | null;
   resultCode?: string | null;
 };
+
+export type PersistedHistoryCacheSnapshot = {
+  id: string;
+  networkId: string;
+  accountAddress: string;
+  schemaVersion: number;
+  lastSuccessfulHorizonUpdateAt: Date;
+  entriesJson: string;
+  detailsJson: string;
+};
