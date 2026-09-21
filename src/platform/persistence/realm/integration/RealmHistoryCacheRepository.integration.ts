@@ -146,6 +146,42 @@ describe('RealmHistoryCacheRepository persistence', () => {
     }
   });
 
+  it('clears only a partition whose persisted entry has an invalid occurredAt timestamp', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'fresnica-history-cache-invalid-time-'));
+    const path = join(directory, 'wallet.realm');
+    let realm: Awaited<ReturnType<typeof openWalletRealm>> | undefined;
+
+    try {
+      realm = await openWalletRealm({ path });
+      const repository = new RealmHistoryCacheRepository(realm);
+      repository.replaceSnapshot(partitionA, historySnapshot([payment('a')]));
+      repository.replaceSnapshot(partitionB, historySnapshot([payment('b')]));
+
+      realm.write(() => {
+        const record = realm!
+          .objects(HISTORY_CACHE_SNAPSHOT_ENTITY)
+          .filtered(
+            'networkId == $0 AND accountAddress == $1',
+            partitionA.networkId,
+            partitionA.accountAddress,
+          )[0] as unknown as { entriesJson: string };
+        record.entriesJson = JSON.stringify([
+          {
+            ...payment('a'),
+            occurredAt: 'not-a-date',
+          },
+        ]);
+      });
+
+      expect(repository.getSnapshot(partitionA)).toBeUndefined();
+      expect(repository.getSnapshot(partitionB)?.entries.map(entry => entry.id)).toEqual(['b']);
+      expect(realm.objects(HISTORY_CACHE_SNAPSHOT_ENTITY)).toHaveLength(1);
+    } finally {
+      realm?.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it('clears only a partition with an incompatible History cache schema version', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'fresnica-history-cache-schema-'));
     const path = join(directory, 'wallet.realm');

@@ -69,7 +69,7 @@ export function runHistoryCacheRepositoryContract(createRepository: () => Histor
   });
 
   it.each(semanticallyInvalidEntries())(
-    'rejects semantically inconsistent %s entries without replacing the valid partition',
+    'rejects invalid %s entries without replacing the valid partition',
     (_caseName, invalidEntry) => {
       const repository = createRepository();
       const valid = historySnapshot([payment('valid')]);
@@ -137,6 +137,25 @@ export function runHistoryCacheRepositoryContract(createRepository: () => Histor
     } as unknown as HistoryCacheSnapshot;
 
     expect(() => repository.replaceSnapshot(partitionA, invalid)).toThrow('history-cache-invalid-detail');
+    expect(repository.getSnapshot(partitionA)).toEqual(valid);
+  });
+
+  it('rejects a ready detail that contradicts the retained list entry with the same operation id', () => {
+    const repository = createRepository();
+    const valid = historySnapshot([payment('1')]);
+    repository.replaceSnapshot(partitionA, valid);
+
+    const contradictoryDetail = {
+      ...payment('1'),
+      amount: '9.9999999',
+    } as HistoryEntry;
+
+    expect(() =>
+      repository.replaceSnapshot(
+        partitionA,
+        historySnapshot([payment('1')], [{ operationId: '1', entry: contradictoryDetail }]),
+      ),
+    ).toThrow('history-cache-detail-mismatch');
     expect(repository.getSnapshot(partitionA)).toEqual(valid);
   });
 
@@ -298,5 +317,12 @@ function semanticallyInvalidEntries(): readonly (readonly [string, HistoryEntry]
       } as HistoryEntry,
     ],
     ['unsupported reason/family mismatch', unsupported('invalid-unsupported-reason', 'payment')],
+    [
+      'occurredAt timestamp',
+      {
+        ...payment('invalid-occurred-at'),
+        occurredAt: 'not-a-date',
+      } as HistoryEntry,
+    ],
   ];
 }

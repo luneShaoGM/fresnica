@@ -62,7 +62,7 @@ export function normalizeHistoryCacheSnapshot(snapshot: HistoryCacheSnapshot): H
     }
   }
 
-  const retainedEntryIds = new Set(entries.map(entry => entry.id));
+  const retainedEntriesById = new Map(entries.map(entry => [entry.id, entry] as const));
   const details: HistoryCachedDetail[] = [];
   const seenDetailIds = new Set<string>();
   for (const detail of snapshot.details) {
@@ -70,8 +70,12 @@ export function normalizeHistoryCacheSnapshot(snapshot: HistoryCacheSnapshot): H
       throw new Error('history-cache-invalid-detail');
     }
     const normalizedEntry = normalizeHistoryEntry(detail.entry);
-    if (!retainedEntryIds.has(detail.operationId) || seenDetailIds.has(detail.operationId)) {
+    const retainedEntry = retainedEntriesById.get(detail.operationId);
+    if (!retainedEntry || seenDetailIds.has(detail.operationId)) {
       continue;
+    }
+    if (!historyEntriesEqual(retainedEntry, normalizedEntry)) {
+      throw new Error('history-cache-detail-mismatch');
     }
     seenDetailIds.add(detail.operationId);
     details.push(Object.freeze({ operationId: detail.operationId, entry: normalizedEntry }));
@@ -176,6 +180,7 @@ function assertHistoryEntry(entry: HistoryEntry): void {
     !isNonEmptyString(entry.pagingToken) ||
     !isNonEmptyString(entry.operationType) ||
     !isNonEmptyString(entry.occurredAt) ||
+    !Number.isFinite(Date.parse(entry.occurredAt)) ||
     !isNonEmptyString(entry.transactionHash) ||
     !isNonEmptyString(entry.sourceAccount)
   ) {
@@ -235,6 +240,10 @@ function assertHistoryEntry(entry: HistoryEntry): void {
     default:
       throw new Error('history-cache-invalid-entry');
   }
+}
+
+function historyEntriesEqual(left: HistoryEntry, right: HistoryEntry): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function assertOperationFamily(
