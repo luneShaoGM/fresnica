@@ -1,4 +1,4 @@
-import type {HistoryEntry} from '@capabilities/history/types';
+import type { HistoryEntry } from '@capabilities/history/types';
 
 import {
   activityEntryPresentation,
@@ -29,11 +29,11 @@ function trustlineEntry(): HistoryEntry {
     transactionHash: 'tx-trustline',
     sourceAccount: 'GSOURCE',
     kind: 'change-trust',
-    asset: {kind: 'credit', code: 'MiXeD', issuer: 'GISSUER'},
+    asset: { kind: 'credit', code: 'MiXeD', issuer: 'GISSUER' },
     limit: '100.0000000',
     participants: [
-      {role: 'trustor', identity: 'GSOURCE'},
-      {role: 'issuer', identity: 'GISSUER'},
+      { role: 'trustor', identity: 'GSOURCE' },
+      { role: 'issuer', identity: 'GISSUER' },
     ],
   };
 }
@@ -45,10 +45,9 @@ const formatNumber = (value: string | number) => `formatted:${value}`;
 describe('activityList', () => {
   it('appends later pages without duplicating operation ids', () => {
     expect(
-      mergeActivityEntries(
-        [unsupported('3'), unsupported('2')],
-        [unsupported('2'), unsupported('1')],
-      ).map(entry => entry.id),
+      mergeActivityEntries([unsupported('3'), unsupported('2')], [unsupported('2'), unsupported('1')]).map(
+        entry => entry.id,
+      ),
     ).toEqual(['3', '2', '1']);
   });
 
@@ -73,11 +72,11 @@ describe('activityList', () => {
       kind: 'payment',
       direction: 'incoming',
       amount: '12.5',
-      asset: {kind: 'native', code: 'XLM'},
+      asset: { kind: 'native', code: 'XLM' },
       counterparty: 'GCOUNTERPARTY',
       participants: [
-        {role: 'sender', identity: 'GSOURCE'},
-        {role: 'recipient', identity: 'GCOUNTERPARTY'},
+        { role: 'sender', identity: 'GSOURCE' },
+        { role: 'recipient', identity: 'GCOUNTERPARTY' },
       ],
     };
 

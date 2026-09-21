@@ -1,4 +1,4 @@
-import type {HistoryDirection, HistoryEntry} from '@capabilities/history/types';
+import type { HistoryDirection, HistoryEntry } from '@capabilities/history/types';
 
 export type ActivityFilter = 'all' | 'payments' | 'accounts' | 'trustlines' | 'other';
 
@@ -49,10 +49,7 @@ export function activityEntryPresentation(
       };
     case 'create-account':
       return {
-        title:
-          entry.direction === 'incoming'
-            ? t('activity.entry.accountFunded')
-            : t('activity.entry.fundedAccount'),
+        title: entry.direction === 'incoming' ? t('activity.entry.accountFunded') : t('activity.entry.fundedAccount'),
         primary: `${formatNumber(entry.startingBalance)} XLM`,
         secondary: entry.counterparty,
         tone: directionTone(entry.direction),
@@ -68,7 +65,7 @@ export function activityEntryPresentation(
       };
     case 'unsupported':
       return {
-        title: t('activity.entry.operation', {operationType: entry.operationType}),
+        title: t('activity.entry.operation', { operationType: entry.operationType }),
         primary: t('activity.entry.unsupported'),
         secondary: entry.transactionHash,
         tone: 'neutral',
@@ -77,10 +74,7 @@ export function activityEntryPresentation(
   }
 }
 
-export function matchesActivityFilter(
-  entry: HistoryEntry,
-  filter: ActivityFilter,
-): boolean {
+export function matchesActivityFilter(entry: HistoryEntry, filter: ActivityFilter): boolean {
   if (filter === 'all') {
     return true;
   }
@@ -109,13 +103,7 @@ export function matchesActivitySearch(
   }
 
   const presentation = activityEntryPresentation(entry, t, formatNumber);
-  const values = [
-    presentation.title,
-    presentation.primary,
-    presentation.secondary,
-    entry.transactionHash,
-    entry.id,
-  ];
+  const values = [presentation.title, presentation.primary, presentation.secondary, entry.transactionHash, entry.id];
 
   if ('participants' in entry) {
     for (const participant of entry.participants) {
