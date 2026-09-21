@@ -266,7 +266,7 @@ function renderContent(
   }
 }
 
-function DetailCacheStatus({
+export function DetailCacheStatus({
   source,
   refreshing,
   refreshFailed,
@@ -292,10 +292,12 @@ function DetailCacheStatus({
   const accessibilityLabel = [title, message, lastUpdated].filter(Boolean).join('. ');
 
   return (
-    <View accessible accessibilityLabel={accessibilityLabel} style={styles.cacheStatus}>
-      <Text style={styles.cacheStatusTitle}>{title}</Text>
-      <Text style={styles.cacheStatusMessage}>{message}</Text>
-      {lastUpdated ? <Text style={styles.cacheStatusTimestamp}>{lastUpdated}</Text> : null}
+    <View style={styles.cacheStatus}>
+      <View accessible accessibilityLabel={accessibilityLabel}>
+        <Text style={styles.cacheStatusTitle}>{title}</Text>
+        <Text style={styles.cacheStatusMessage}>{message}</Text>
+        {lastUpdated ? <Text style={styles.cacheStatusTimestamp}>{lastUpdated}</Text> : null}
+      </View>
       {refreshFailed ? (
         <Pressable
           accessibilityRole="button"
