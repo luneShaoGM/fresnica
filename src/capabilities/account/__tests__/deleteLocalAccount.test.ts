@@ -1,11 +1,11 @@
-import {InMemoryAccountSignerRepository} from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
-import {InMemoryHistoryCacheRepository} from '../../../platform/persistence/memory/InMemoryHistoryCacheRepository';
-import {InMemoryPendingSubmissionRepository} from '../../../platform/persistence/memory/InMemoryPendingSubmissionRepository';
-import {HISTORY_CACHE_SCHEMA_VERSION} from '../../history/HistoryCacheRepository';
-import type {SignerRecord} from '../../signer/types';
-import type {PendingSubmissionRecord} from '../../transaction/pendingSubmission';
-import {deleteLocalAccount} from '../deleteLocalAccount';
-import type {AccountRecord} from '../types';
+import { InMemoryAccountSignerRepository } from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
+import { InMemoryHistoryCacheRepository } from '../../../platform/persistence/memory/InMemoryHistoryCacheRepository';
+import { InMemoryPendingSubmissionRepository } from '../../../platform/persistence/memory/InMemoryPendingSubmissionRepository';
+import { HISTORY_CACHE_SCHEMA_VERSION } from '../../history/HistoryCacheRepository';
+import type { SignerRecord } from '../../signer/types';
+import type { PendingSubmissionRecord } from '../../transaction/pendingSubmission';
+import { deleteLocalAccount } from '../deleteLocalAccount';
+import type { AccountRecord } from '../types';
 
 const now = new Date('2026-09-11T01:00:00.000Z');
 
@@ -37,10 +37,7 @@ function signer(id: string): SignerRecord {
   };
 }
 
-function pending(
-  accountId: string,
-  state: 'submitting' | 'uncertain',
-): PendingSubmissionRecord {
+function pending(accountId: string, state: 'submitting' | 'uncertain'): PendingSubmissionRecord {
   const hash = `${accountId}-${state}`;
   return {
     id: `stellar-testnet:${hash}`,
@@ -65,31 +62,21 @@ function dependencies() {
 }
 
 describe('deleteLocalAccount', () => {
-  it.each(['submitting', 'uncertain'] as const)(
-    'blocks deletion while a %s submission is unresolved',
-    state => {
-      const deps = dependencies();
-      deps.repository.createAccount(account('account-a'));
-      deps.pendingSubmissions.create(pending('account-a', state));
+  it.each(['submitting', 'uncertain'] as const)('blocks deletion while a %s submission is unresolved', state => {
+    const deps = dependencies();
+    deps.repository.createAccount(account('account-a'));
+    deps.pendingSubmissions.create(pending('account-a', state));
 
-      expect(() => deleteLocalAccount(deps, 'account-a')).toThrow(
-        'account-delete-blocked-by-pending-submission',
-      );
-      expect(deps.repository.getAccount('account-a')).toBeDefined();
-    },
-  );
+    expect(() => deleteLocalAccount(deps, 'account-a')).toThrow('account-delete-blocked-by-pending-submission');
+    expect(deps.repository.getAccount('account-a')).toBeDefined();
+  });
 
   it('allows deletion after the pending submission is resolved', () => {
     const deps = dependencies();
     deps.repository.createAccount(account('account-a'));
     const record = pending('account-a', 'uncertain');
     deps.pendingSubmissions.create(record);
-    deps.pendingSubmissions.markConfirmed(
-      record.networkId,
-      record.transactionHash,
-      now,
-      123,
-    );
+    deps.pendingSubmissions.markConfirmed(record.networkId, record.transactionHash, now, 123);
 
     deleteLocalAccount(deps, 'account-a');
 
@@ -101,9 +88,7 @@ describe('deleteLocalAccount', () => {
     deps.repository.createAccount(account('account-a'));
     deps.repository.createAccount(account('account-b', true));
 
-    expect(() => deleteLocalAccount(deps, 'account-a')).toThrow(
-      'account-delete-requires-visible-account',
-    );
+    expect(() => deleteLocalAccount(deps, 'account-a')).toThrow('account-delete-requires-visible-account');
     expect(deps.repository.getAccount('account-a')).toBeDefined();
   });
 
@@ -127,7 +112,7 @@ describe('deleteLocalAccount', () => {
     const record = account('account-a');
     deps.repository.createAccount(record);
     deps.historyCache.replaceSnapshot(
-      {networkId: record.networkId, accountAddress: record.address},
+      { networkId: record.networkId, accountAddress: record.address },
       {
         schemaVersion: HISTORY_CACHE_SCHEMA_VERSION,
         lastSuccessfulHorizonUpdateAt: now,

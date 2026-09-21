@@ -25,15 +25,22 @@ export function runHistoryCacheRepositoryContract(createRepository: () => Histor
   it('stores only canonical normalized History DTO fields', () => {
     const repository = createRepository();
     const pollutedPayment = {
-      ...payment('3'),
+      ...payment('5'),
       _links: { self: { href: 'raw-horizon-link' } },
       rawHorizonOnly: 'must-not-persist',
     } as unknown as HistoryEntry;
     const snapshot = historySnapshot(
-      [pollutedPayment, unsupported('2', 'future_operation'), changeTrust('1')],
       [
-        { operationId: '3', entry: payment('3') },
-        { operationId: '2', entry: unsupported('2', 'future_operation') },
+        pollutedPayment,
+        createAccount('4'),
+        changeTrust('3'),
+        unsupportedShape('2', 'payment'),
+        unsupported('1', 'future_operation'),
+      ],
+      [
+        { operationId: '5', entry: payment('5') },
+        { operationId: '2', entry: unsupportedShape('2', 'payment') },
+        { operationId: '1', entry: unsupported('1', 'future_operation') },
       ],
     );
 
@@ -42,17 +49,38 @@ export function runHistoryCacheRepositoryContract(createRepository: () => Histor
     const restored = repository.getSnapshot(partitionA);
     expect(restored).toEqual({
       ...snapshot,
-      entries: [payment('3'), unsupported('2', 'future_operation'), changeTrust('1')],
+      entries: [
+        payment('5'),
+        createAccount('4'),
+        changeTrust('3'),
+        unsupportedShape('2', 'payment'),
+        unsupported('1', 'future_operation'),
+      ],
     });
     expect(restored?.details).toEqual([
-      { operationId: '3', entry: payment('3') },
-      { operationId: '2', entry: unsupported('2', 'future_operation') },
+      { operationId: '5', entry: payment('5') },
+      { operationId: '2', entry: unsupportedShape('2', 'payment') },
+      { operationId: '1', entry: unsupported('1', 'future_operation') },
     ]);
     expect(JSON.stringify(restored)).not.toContain('cursor');
     expect(JSON.stringify(restored)).not.toContain('acceptedCursors');
     expect(JSON.stringify(restored)).not.toContain('raw-horizon-link');
     expect(JSON.stringify(restored)).not.toContain('rawHorizonOnly');
   });
+
+  it.each(semanticallyInvalidEntries())(
+    'rejects semantically inconsistent %s entries without replacing the valid partition',
+    (_caseName, invalidEntry) => {
+      const repository = createRepository();
+      const valid = historySnapshot([payment('valid')]);
+      repository.replaceSnapshot(partitionA, valid);
+
+      expect(() => repository.replaceSnapshot(partitionA, historySnapshot([invalidEntry]))).toThrow(
+        'history-cache-invalid-entry',
+      );
+      expect(repository.getSnapshot(partitionA)).toEqual(valid);
+    },
+  );
 
   it('strictly isolates snapshots by network and classic account address', () => {
     const repository = createRepository();
@@ -170,6 +198,25 @@ export function payment(id: string): HistoryEntry {
   };
 }
 
+function createAccount(id: string): HistoryEntry {
+  return {
+    id,
+    pagingToken: `paging-${id}`,
+    operationType: 'create_account',
+    occurredAt: '2026-09-20T08:00:00Z',
+    transactionHash: `tx-${id}`,
+    sourceAccount: 'GFUNDER',
+    kind: 'create-account',
+    direction: 'outgoing',
+    startingBalance: '3.5000000',
+    counterparty: 'GCREATED',
+    participants: [
+      { role: 'funder', identity: 'GFUNDER' },
+      { role: 'created-account', identity: 'GCREATED' },
+    ],
+  };
+}
+
 export function unsupported(id: string, operationType: string): HistoryEntry {
   return {
     id,
@@ -180,6 +227,19 @@ export function unsupported(id: string, operationType: string): HistoryEntry {
     sourceAccount: 'GSOURCE',
     kind: 'unsupported',
     reason: 'operation-type',
+  };
+}
+
+function unsupportedShape(id: string, operationType: 'payment' | 'create_account' | 'change_trust'): HistoryEntry {
+  return {
+    id,
+    pagingToken: `paging-${id}`,
+    operationType,
+    occurredAt: '2026-09-20T08:00:00Z',
+    transactionHash: `tx-${id}`,
+    sourceAccount: 'GSOURCE',
+    kind: 'unsupported',
+    reason: 'operation-shape',
   };
 }
 
@@ -199,4 +259,44 @@ function changeTrust(id: string): HistoryEntry {
       { role: 'issuer', identity: 'GISSUER' },
     ],
   };
+}
+
+function semanticallyInvalidEntries(): readonly (readonly [string, HistoryEntry])[] {
+  return [
+    [
+      'payment kind/type mismatch',
+      {
+        ...payment('invalid-payment-type'),
+        operationType: 'create_account',
+      } as HistoryEntry,
+    ],
+    [
+      'payment participant roles',
+      {
+        ...payment('invalid-payment-roles'),
+        participants: [
+          { role: 'recipient', identity: 'GSOURCE' },
+          { role: 'sender', identity: 'GDESTINATION' },
+        ],
+      } as HistoryEntry,
+    ],
+    [
+      'create-account kind/type mismatch',
+      {
+        ...createAccount('invalid-create-type'),
+        operationType: 'payment',
+      } as HistoryEntry,
+    ],
+    [
+      'change-trust participant identity',
+      {
+        ...changeTrust('invalid-change-trust-issuer'),
+        participants: [
+          { role: 'trustor', identity: 'GSOURCE' },
+          { role: 'issuer', identity: 'GOTHERISSUER' },
+        ],
+      } as HistoryEntry,
+    ],
+    ['unsupported reason/family mismatch', unsupported('invalid-unsupported-reason', 'payment')],
+  ];
 }

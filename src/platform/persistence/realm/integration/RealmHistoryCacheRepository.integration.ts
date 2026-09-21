@@ -4,16 +4,23 @@ import { join } from 'node:path';
 
 import Realm from 'realm';
 
+import type { AccountRecord } from '../../../../capabilities/account/types';
 import {
   HISTORY_CACHE_SCHEMA_VERSION,
   type HistoryCachePartition,
 } from '../../../../capabilities/history/HistoryCacheRepository';
+import type { SignerRecord } from '../../../../capabilities/signer/types';
+import type { PendingSubmissionRecord } from '../../../../capabilities/transaction/pendingSubmission';
 import {
   historySnapshot,
   payment,
   runHistoryCacheRepositoryContract,
 } from '../../__tests__/historyCacheRepositoryContract';
+import { RealmAccountSignerRepository } from '../RealmAccountSignerRepository';
+import { RealmDefaultAccountPreferenceStore } from '../RealmDefaultAccountPreferenceStore';
 import { RealmHistoryCacheRepository } from '../RealmHistoryCacheRepository';
+import { RealmLocalePreferenceStore } from '../RealmLocalePreferenceStore';
+import { RealmPendingSubmissionRepository } from '../RealmPendingSubmissionRepository';
 import {
   ACCOUNT_SCHEMA,
   ACCOUNT_SIGNER_REFERENCE_SCHEMA,
@@ -169,10 +176,46 @@ describe('RealmHistoryCacheRepository persistence', () => {
     }
   });
 
-  it('migrates Realm v4 to v5 without touching existing wallet entities', async () => {
+  it('migrates every Realm v4 wallet entity to v5 while History starts empty', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'fresnica-history-cache-v4-migration-'));
     const path = join(directory, 'wallet.realm');
     let realm: Realm | undefined;
+    const migratedAt = new Date('2026-09-20T08:00:00Z');
+    const account: AccountRecord = {
+      id: 'existing-account',
+      address: 'GEXISTING',
+      identityKind: 'classic',
+      networkId: 'stellar-testnet',
+      label: 'Existing',
+      sortOrder: 0,
+      hidden: false,
+      createdAt: migratedAt,
+      updatedAt: migratedAt,
+    };
+    const signer: SignerRecord = {
+      id: 'existing-signer',
+      publicKey: 'GEXISTINGSIGNER',
+      kind: 'protected-software',
+      envelopeJson: '{"opaque":"envelope"}',
+      envelopeRevision: 'rev-1',
+      recoveryKind: 'secret',
+      backupState: 'confirmed',
+      createdAt: migratedAt,
+      updatedAt: migratedAt,
+    };
+    const pending: PendingSubmissionRecord = {
+      id: 'stellar-testnet:existing-hash',
+      networkId: 'stellar-testnet',
+      accountId: account.id,
+      sourceAddress: account.address,
+      transactionHash: 'existing-hash',
+      intentKind: 'payment',
+      intentKey: '["payment","existing-account"]',
+      state: 'uncertain',
+      createdAt: migratedAt,
+      updatedAt: migratedAt,
+      lastCheckedAt: migratedAt,
+    };
 
     try {
       realm = await Realm.open({
@@ -187,24 +230,28 @@ describe('RealmHistoryCacheRepository persistence', () => {
         ],
         schemaVersion: 4,
       });
-      realm.write(() => {
-        realm!.create(ACCOUNT_SCHEMA.name, {
-          id: 'existing-account',
-          address: 'GEXISTING',
-          identityKind: 'classic',
-          networkId: 'stellar-testnet',
-          label: 'Existing',
-          sortOrder: 0,
-          hidden: false,
-          createdAt: new Date('2026-09-20T08:00:00Z'),
-          updatedAt: new Date('2026-09-20T08:00:00Z'),
-        });
+      const accountRepository = new RealmAccountSignerRepository(realm);
+      accountRepository.createAccountWithSigner({
+        account,
+        signer,
+        attachedAt: migratedAt,
       });
+      new RealmLocalePreferenceStore(realm).setLocale('zh-TW', migratedAt);
+      new RealmDefaultAccountPreferenceStore(realm).setDefaultAccountId(account.networkId, account.id, migratedAt);
+      new RealmPendingSubmissionRepository(realm).create(pending);
       realm.close();
       realm = undefined;
 
       realm = await openWalletRealm({ path });
-      expect(realm.objectForPrimaryKey(ACCOUNT_SCHEMA.name, 'existing-account')).toBeDefined();
+      const migratedAccounts = new RealmAccountSignerRepository(realm);
+      expect(migratedAccounts.getAccount(account.id)).toEqual(account);
+      expect(migratedAccounts.getSigner(signer.id)).toEqual(signer);
+      expect(migratedAccounts.listSignersForAccount(account.id)).toEqual([signer]);
+      expect(new RealmLocalePreferenceStore(realm).getLocale()).toBe('zh-TW');
+      expect(new RealmDefaultAccountPreferenceStore(realm).getDefaultAccountId(account.networkId)).toBe(account.id);
+      expect(new RealmPendingSubmissionRepository(realm).get(pending.networkId, pending.transactionHash)).toEqual(
+        pending,
+      );
       expect(realm.objects(HISTORY_CACHE_SNAPSHOT_ENTITY)).toHaveLength(0);
     } finally {
       realm?.close();

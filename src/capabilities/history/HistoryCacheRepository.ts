@@ -184,24 +184,50 @@ function assertHistoryEntry(entry: HistoryEntry): void {
 
   switch (entry.kind) {
     case 'payment':
+      assertOperationFamily(entry.operationType, 'payment', entry.participants, 'sender', 'recipient');
       assertDirection(entry.direction);
       assertNonEmpty(entry.amount);
       assertAsset(entry.asset);
       assertNonEmpty(entry.counterparty);
       assertParticipantPair(entry.participants);
+      assertNoBaseAccount(entry.participants[0]);
+      if (
+        entry.participants[1].baseAccount !== undefined &&
+        entry.participants[1].baseAccount === entry.participants[1].identity
+      ) {
+        throw new Error('history-cache-invalid-entry');
+      }
       return;
     case 'create-account':
+      assertOperationFamily(entry.operationType, 'create_account', entry.participants, 'funder', 'created-account');
       assertDirection(entry.direction);
       assertNonEmpty(entry.startingBalance);
       assertNonEmpty(entry.counterparty);
       assertParticipantPair(entry.participants);
+      assertNoBaseAccount(entry.participants[0]);
+      assertNoBaseAccount(entry.participants[1]);
       return;
     case 'change-trust':
+      assertOperationFamily(entry.operationType, 'change_trust', entry.participants, 'trustor', 'issuer');
       assertCreditAsset(entry.asset);
       assertNonEmpty(entry.limit);
       assertParticipantPair(entry.participants);
+      assertNoBaseAccount(entry.participants[0]);
+      assertNoBaseAccount(entry.participants[1]);
+      if (
+        entry.participants[0].identity !== entry.sourceAccount ||
+        entry.participants[1].identity !== entry.asset.issuer
+      ) {
+        throw new Error('history-cache-invalid-entry');
+      }
       return;
     case 'unsupported':
+      if (
+        (entry.reason === 'operation-type' && isSpecializedOperationType(entry.operationType)) ||
+        (entry.reason === 'operation-shape' && !isSpecializedOperationType(entry.operationType))
+      ) {
+        throw new Error('history-cache-invalid-entry');
+      }
       if (entry.reason !== 'operation-type' && entry.reason !== 'operation-shape') {
         throw new Error('history-cache-invalid-entry');
       }
@@ -209,6 +235,33 @@ function assertHistoryEntry(entry: HistoryEntry): void {
     default:
       throw new Error('history-cache-invalid-entry');
   }
+}
+
+function assertOperationFamily(
+  operationType: string,
+  expectedOperationType: string,
+  participants: readonly [HistoryParticipant, HistoryParticipant],
+  firstRole: HistoryParticipantRole,
+  secondRole: HistoryParticipantRole,
+): void {
+  assertParticipantPair(participants);
+  if (
+    operationType !== expectedOperationType ||
+    participants[0].role !== firstRole ||
+    participants[1].role !== secondRole
+  ) {
+    throw new Error('history-cache-invalid-entry');
+  }
+}
+
+function assertNoBaseAccount(participant: HistoryParticipant): void {
+  if (participant.baseAccount !== undefined) {
+    throw new Error('history-cache-invalid-entry');
+  }
+}
+
+function isSpecializedOperationType(value: string): boolean {
+  return value === 'payment' || value === 'create_account' || value === 'change_trust';
 }
 
 function assertDirection(value: string): void {
