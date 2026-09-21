@@ -1,14 +1,15 @@
-import React, {useSyncExternalStore} from 'react';
-import {useIsFocused} from '@react-navigation/native';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import React, { useSyncExternalStore } from 'react';
+import { useIsFocused } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import type {AccountRecord} from '@capabilities/account/types';
-import {ActivityScreen} from '@features/activity/ActivityScreen';
-import {OperationDetailsScreen} from '@features/activity/OperationDetailsScreen';
+import type { AccountRecord } from '@capabilities/account/types';
+import { ActivityScreen } from '@features/activity/ActivityScreen';
+import { OperationDetailsScreen } from '@features/activity/OperationDetailsScreen';
 
-import type {AppServices} from '../createAppServices';
-import {resolveVisibleAccount} from './accountSelection';
-import type {ActivityStackParamList} from './navigationTypes';
+import type { AppServices } from '../createAppServices';
+import { resolveVisibleAccount } from './accountSelection';
+import { activityHistoryPartitionKey } from './activityHistoryPartition';
+import type { ActivityStackParamList } from './navigationTypes';
 
 const Stack = createNativeStackNavigator<ActivityStackParamList>();
 
@@ -18,7 +19,7 @@ type Props = Readonly<{
   services: AppServices;
 }>;
 
-export function ActivityStackNavigator({accounts, selectedAccountId, services}: Props) {
+export function ActivityStackNavigator({ accounts, selectedAccountId, services }: Props) {
   const account = resolveVisibleAccount(accounts, selectedAccountId);
   const invalidationRevision = useSyncExternalStore(
     services.ledgerReadInvalidation.subscribe,
@@ -26,15 +27,17 @@ export function ActivityStackNavigator({accounts, selectedAccountId, services}: 
     () => 0,
   );
 
+  const partitionKey = activityHistoryPartitionKey(account);
+
   return (
-    <Stack.Navigator initialRouteName="activity" screenOptions={{headerShown: false}}>
+    <Stack.Navigator key={partitionKey} initialRouteName="activity" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="activity">
-        {({navigation}) => (
+        {({ navigation }) => (
           <ActivityRoute
             account={account}
             dependencies={services.history}
             onOpenOperation={operationId =>
-              navigation.navigate('operation-details', {accountId: account.id, operationId})
+              navigation.navigate('operation-details', { accountId: account.id, operationId })
             }
             onManualRefresh={() => services.transactionRecovery.reconcile('manual-refresh')}
             invalidationRevision={invalidationRevision}
@@ -42,7 +45,7 @@ export function ActivityStackNavigator({accounts, selectedAccountId, services}: 
         )}
       </Stack.Screen>
       <Stack.Screen name="operation-details">
-        {({navigation, route}) => (
+        {({ navigation, route }) => (
           <OperationDetailsRoute
             account={requireAccount(accounts, route.params.accountId)}
             dependencies={services.history}
@@ -61,9 +64,7 @@ function ActivityRoute(props: Omit<React.ComponentProps<typeof ActivityScreen>, 
   return <ActivityScreen {...props} active={active} />;
 }
 
-function OperationDetailsRoute(
-  props: Omit<React.ComponentProps<typeof OperationDetailsScreen>, 'active'>,
-) {
+function OperationDetailsRoute(props: Omit<React.ComponentProps<typeof OperationDetailsScreen>, 'active'>) {
   const active = useIsFocused();
   return <OperationDetailsScreen {...props} active={active} />;
 }

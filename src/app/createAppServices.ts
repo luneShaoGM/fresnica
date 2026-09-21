@@ -19,7 +19,7 @@ import type { AccountOrderDependencies } from '../capabilities/account/accountOr
 import type { AccountVisibilityDependencies } from '../capabilities/account/accountVisibility';
 import type { DeleteLocalAccountDependencies } from '../capabilities/account/deleteLocalAccount';
 import type { RenameAccountDependencies } from '../capabilities/account/renameAccount';
-import type { HistoryDependencies } from '../capabilities/history/loadHistoryPage';
+import type { HistoryProductDependencies } from '../capabilities/history/HistoryCacheHydration';
 import type { SendProductDependencies } from '../features/send/sendProductFlow';
 import type { TrustlineProductDependencies } from '../features/trustlines/trustlineProductFlow';
 import { ReactNativeFresnicaSdk, loadNativeFresnicaModule } from '../platform/fresnica/native';
@@ -48,7 +48,7 @@ export type AppServices = Readonly<{
   balance: BalanceDependencies;
   friendbot: FriendbotDependencies;
   send: SendProductDependencies;
-  history: HistoryDependencies;
+  history: HistoryProductDependencies;
   trustline: TrustlineProductDependencies;
   transactionRecovery: TransactionReconciliationCoordinator;
   ledgerReadInvalidation: LedgerReadInvalidationStore;
@@ -139,6 +139,8 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       history: {
         gateway: stellarGateway,
         networkId: network.id,
+        cache: historyCache,
+        now: () => new Date(),
       },
       trustline: {
         gateway: stellarGateway,
