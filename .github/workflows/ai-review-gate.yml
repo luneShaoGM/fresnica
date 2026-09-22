@@ -1,0 +1,232 @@
+name: AI Review Gate
+
+on:
+  pull_request:
+    types:
+      - labeled
+      - unlabeled
+      - synchronize
+      - reopened
+      - ready_for_review
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+jobs:
+  review-gate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Verify Work review state
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pr = context.payload.pull_request;
+            const headSha = pr.head.sha.toLowerCase();
+
+            const labels = (pr.labels || []).map(label => label.name);
+
+            const hasNeedsFix = labels.includes('ai:needs-fix');
+            const hasApproved = labels.includes('ai:approved');
+
+            // Exactly one review-result state is allowed.
+            if (hasNeedsFix && hasApproved) {
+              core.setFailed(
+                'PR cannot have both ai:needs-fix and ai:approved.'
+              );
+              return;
+            }
+
+            // Review gate is not applicable in other development states.
+            if (!hasNeedsFix && !hasApproved) {
+              core.info(
+                'AI Review Gate not applicable: PR is not ' +
+                'ai:needs-fix or ai:approved.'
+              );
+              return;
+            }
+
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner,
+                repo,
+                issue_number: pr.number,
+                per_page: 100,
+              }
+            );
+
+            const marker = '<!-- FRESNICA_WORK_REVIEW -->';
+
+            const reviews = comments
+              .filter(comment => (comment.body || '').includes(marker))
+              .sort(
+                (a, b) =>
+                  new Date(a.created_at).getTime() -
+                  new Date(b.created_at).getTime()
+              );
+
+            if (reviews.length === 0) {
+              core.setFailed(
+                `PR #${pr.number} has review-state label but no ` +
+                'FRESNICA_WORK_REVIEW comment.'
+              );
+              return;
+            }
+
+            const latest = reviews[reviews.length - 1];
+            const body = latest.body || '';
+
+            const shaMatch = body.match(
+              /reviewed_head_sha:\s*`?([0-9a-f]{40})`?/i
+            );
+
+            if (!shaMatch) {
+              core.setFailed(
+                'Latest FRESNICA_WORK_REVIEW does not contain a valid ' +
+                '40-character reviewed_head_sha.'
+              );
+              return;
+            }
+
+            const reviewedSha = shaMatch[1].toLowerCase();
+
+            if (reviewedSha !== headSha) {
+              core.setFailed(
+                `Work review is stale. ` +
+                `reviewed_head_sha=${reviewedSha}, ` +
+                `current PR HEAD=${headSha}.`
+              );
+              return;
+            }
+
+            const statusMatch = body.match(
+              /status:\s*`?(NEEDS_FIX|APPROVED)`?/i
+            );
+
+            if (!statusMatch) {
+              core.setFailed(
+                'Latest FRESNICA_WORK_REVIEW does not contain a valid status.'
+              );
+              return;
+            }
+
+            const status = statusMatch[1].toUpperCase();
+
+            function getSection(name, nextSections) {
+              const escapedName = name.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                '\\$&'
+              );
+
+              const escapedNext = nextSections
+                .map(section =>
+                  section.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+                )
+                .join('|');
+
+              const pattern = escapedNext
+                ? new RegExp(
+                    `(?:^|\\n)${escapedName}:\\s*\\n([\\s\\S]*?)` +
+                    `(?=\\n(?:${escapedNext}):|$)`,
+                    'i'
+                  )
+                : new RegExp(
+                    `(?:^|\\n)${escapedName}:\\s*\\n([\\s\\S]*)$`,
+                    'i'
+                  );
+
+              const match = body.match(pattern);
+              return match ? match[1].trim() : null;
+            }
+
+            const p1 = getSection('P1', [
+              'P2',
+              'P3',
+              'VALIDATION_CHECKED',
+              'EVIDENCE_BOUNDARIES',
+              'DEFERRED',
+              'NEXT_ACTION',
+            ]);
+
+            const p2 = getSection('P2', [
+              'P3',
+              'VALIDATION_CHECKED',
+              'EVIDENCE_BOUNDARIES',
+              'DEFERRED',
+              'NEXT_ACTION',
+            ]);
+
+            if (p1 === null || p2 === null) {
+              core.setFailed(
+                'Latest FRESNICA_WORK_REVIEW must contain P1 and P2 sections.'
+              );
+              return;
+            }
+
+            function hasFinding(section) {
+              const normalized = section
+                .replace(/^[\s*-]+/gm, '')
+                .trim()
+                .toLowerCase();
+
+              return !(
+                normalized === '' ||
+                normalized === 'none' ||
+                normalized === 'none.' ||
+                normalized === '0'
+              );
+            }
+
+            const hasP1 = hasFinding(p1);
+            const hasP2 = hasFinding(p2);
+            const hasBlockingFinding = hasP1 || hasP2;
+
+            if (hasNeedsFix) {
+              if (status !== 'NEEDS_FIX') {
+                core.setFailed(
+                  `Label ai:needs-fix requires review status NEEDS_FIX, ` +
+                  `but latest review status is ${status}.`
+                );
+                return;
+              }
+
+              if (!hasBlockingFinding) {
+                core.setFailed(
+                  'ai:needs-fix requires at least one P1 or P2 finding.'
+                );
+                return;
+              }
+
+              core.info(
+                `Valid NEEDS_FIX review for PR #${pr.number} ` +
+                `at HEAD ${headSha}.`
+              );
+              return;
+            }
+
+            if (hasApproved) {
+              if (status !== 'APPROVED') {
+                core.setFailed(
+                  `Label ai:approved requires review status APPROVED, ` +
+                  `but latest review status is ${status}.`
+                );
+                return;
+              }
+
+              if (hasBlockingFinding) {
+                core.setFailed(
+                  'ai:approved is invalid while P1 or P2 findings remain.'
+                );
+                return;
+              }
+
+              core.info(
+                `Valid APPROVED review for PR #${pr.number} ` +
+                `at HEAD ${headSha}.`
+              );
+            }
