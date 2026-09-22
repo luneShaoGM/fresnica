@@ -1,4 +1,4 @@
-import {TextDecoder as ExodusTextDecoder} from '@exodus/bytes/encoding-lite.js';
+import { TextDecoder as ExodusTextDecoder } from '@exodus/bytes/encoding-lite.js';
 
 type RuntimeArrayPrototype = {
   flatMap?: unknown;
@@ -25,22 +25,15 @@ type RuntimeGlobal = {
   URL?: UrlConstructor;
 };
 
-type FlatMapCallback = (
-  value: unknown,
-  index: number,
-  array: unknown[],
-) => unknown;
+type FlatMapCallback = (value: unknown, index: number, array: unknown[]) => unknown;
 
 type MutableHrefUrl = {
   _url?: unknown;
   _searchParamsInstance?: unknown;
+  href?: unknown;
 };
 
-function flatMapFallback(
-  this: unknown[],
-  callback: FlatMapCallback,
-  thisArg?: unknown,
-): unknown[] {
+function flatMapFallback(this: unknown[], callback: FlatMapCallback, thisArg?: unknown): unknown[] {
   if (typeof callback !== 'function') {
     throw new TypeError('flatMap callback must be a function');
   }
@@ -69,7 +62,7 @@ function coerceUrlInput(value: unknown, URLCtor: UrlConstructor): string {
     return value.toString();
   }
   if (value !== null && typeof value === 'object' && 'href' in value) {
-    const href = (value as {href: unknown}).href;
+    const href = (value as { href: unknown }).href;
     if (typeof href === 'string') {
       return href;
     }
@@ -124,7 +117,7 @@ function defineUrlSetter(
     enumerable: descriptor.enumerable,
     get: descriptor.get,
     set(this: object, value: string) {
-      const current = (this as MutableHrefUrl)._url;
+      const current = (this as MutableHrefUrl).href;
       if (typeof current !== 'string') {
         return;
       }
@@ -163,7 +156,7 @@ function wrapUrlConstructor(OriginalURL: UrlConstructor): UrlConstructor {
 
   Object.setPrototypeOf(CompatibleURL, OriginalURL);
   CompatibleURL.prototype = OriginalURL.prototype;
-  Object.defineProperty(CompatibleURL, 'name', {value: 'URL'});
+  Object.defineProperty(CompatibleURL, 'name', { value: 'URL' });
   return CompatibleURL as unknown as UrlConstructor;
 }
 
@@ -187,9 +180,7 @@ function installUrlCompat(runtimeGlobal: RuntimeGlobal): void {
   }
 }
 
-export function installRuntimePolyfills(
-  runtimeGlobal: RuntimeGlobal = globalThis,
-): void {
+export function installRuntimePolyfills(runtimeGlobal: RuntimeGlobal = globalThis): void {
   if (typeof runtimeGlobal.TextDecoder !== 'function') {
     runtimeGlobal.TextDecoder = ExodusTextDecoder;
   }
