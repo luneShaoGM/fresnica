@@ -29,26 +29,26 @@ jobs:
             const headSha = pr.head.sha.toLowerCase();
 
             const labels = (pr.labels || []).map(label => label.name);
+            const aiStates = [
+              'ai:developing',
+              'ai:ready-review',
+              'ai:needs-fix',
+              'ai:approved',
+              'ai:ready-merge',
+            ];
+            const activeAiStates = labels.filter(label =>
+              aiStates.includes(label)
+            );
 
-            const hasNeedsFix = labels.includes('ai:needs-fix');
-            const hasApproved = labels.includes('ai:approved');
-
-            // Exactly one review-result state is allowed.
-            if (hasNeedsFix && hasApproved) {
+            if (activeAiStates.length !== 1) {
               core.setFailed(
-                'PR cannot have both ai:needs-fix and ai:approved.'
+                'PR must have exactly one ai:* state label. Found: ' +
+                (activeAiStates.join(', ') || 'none') + '.'
               );
               return;
             }
 
-            // Review gate is not applicable in other development states.
-            if (!hasNeedsFix && !hasApproved) {
-              core.info(
-                'AI Review Gate not applicable: PR is not ' +
-                'ai:needs-fix or ai:approved.'
-              );
-              return;
-            }
+            const aiState = activeAiStates[0];
 
             const comments = await github.paginate(
               github.rest.issues.listComments,
@@ -61,9 +61,18 @@ jobs:
             );
 
             const marker = '<!-- FRESNICA_WORK_REVIEW -->';
+            const trustedReviewerLogin = owner.toLowerCase();
 
             const reviews = comments
-              .filter(comment => (comment.body || '').includes(marker))
+              .filter(comment => {
+                const login = (comment.user?.login || '').toLowerCase();
+
+                return (
+                  (comment.body || '').includes(marker) &&
+                  login === trustedReviewerLogin &&
+                  comment.author_association === 'OWNER'
+                );
+              })
               .sort(
                 (a, b) =>
                   new Date(a.created_at).getTime() -
@@ -72,8 +81,8 @@ jobs:
 
             if (reviews.length === 0) {
               core.setFailed(
-                `PR #${pr.number} has review-state label but no ` +
-                'FRESNICA_WORK_REVIEW comment.'
+                `PR #${pr.number} has no trusted FRESNICA_WORK_REVIEW ` +
+                `comment from repository owner ${owner}.`
               );
               return;
             }
@@ -186,47 +195,34 @@ jobs:
             const hasP2 = hasFinding(p2);
             const hasBlockingFinding = hasP1 || hasP2;
 
-            if (hasNeedsFix) {
-              if (status !== 'NEEDS_FIX') {
-                core.setFailed(
-                  `Label ai:needs-fix requires review status NEEDS_FIX, ` +
-                  `but latest review status is ${status}.`
-                );
-                return;
-              }
+            const canPassReviewGate =
+              aiState === 'ai:approved' || aiState === 'ai:ready-merge';
 
-              if (!hasBlockingFinding) {
-                core.setFailed(
-                  'ai:needs-fix requires at least one P1 or P2 finding.'
-                );
-                return;
-              }
-
-              core.info(
-                `Valid NEEDS_FIX review for PR #${pr.number} ` +
-                `at HEAD ${headSha}.`
+            if (!canPassReviewGate) {
+              core.setFailed(
+                `AI Review Gate is closed while PR is ${aiState}. ` +
+                'An exact-HEAD APPROVED Work review with no P1/P2 ' +
+                'findings is required.'
               );
               return;
             }
 
-            if (hasApproved) {
-              if (status !== 'APPROVED') {
-                core.setFailed(
-                  `Label ai:approved requires review status APPROVED, ` +
-                  `but latest review status is ${status}.`
-                );
-                return;
-              }
-
-              if (hasBlockingFinding) {
-                core.setFailed(
-                  'ai:approved is invalid while P1 or P2 findings remain.'
-                );
-                return;
-              }
-
-              core.info(
-                `Valid APPROVED review for PR #${pr.number} ` +
-                `at HEAD ${headSha}.`
+            if (status !== 'APPROVED') {
+              core.setFailed(
+                `${aiState} requires review status APPROVED, ` +
+                `but latest trusted review status is ${status}.`
               );
+              return;
             }
+
+            if (hasBlockingFinding) {
+              core.setFailed(
+                `${aiState} is invalid while P1 or P2 findings remain.`
+              );
+              return;
+            }
+
+            core.info(
+              `Valid trusted APPROVED review for PR #${pr.number} ` +
+              `at HEAD ${headSha}; state=${aiState}.`
+            );
