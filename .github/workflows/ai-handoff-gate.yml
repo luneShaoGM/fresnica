@@ -1,0 +1,90 @@
+name: AI Handoff Gate
+
+on:
+  pull_request:
+    types:
+      - labeled
+      - synchronize
+      - reopened
+      - ready_for_review
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+jobs:
+  development-handoff:
+    if: contains(github.event.pull_request.labels.*.name, 'ai:ready-review')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Verify development handoff
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pr = context.payload.pull_request;
+            const headSha = pr.head.sha;
+
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner,
+                repo,
+                issue_number: pr.number,
+                per_page: 100,
+              }
+            );
+
+            const marker = '<!-- FRESNICA_DEV_HANDOFF -->';
+
+            const handoffs = comments.filter(comment =>
+              (comment.body || '').includes(marker)
+            );
+
+            if (handoffs.length === 0) {
+              core.setFailed(
+                `PR #${pr.number} is ai:ready-review but has no ` +
+                `FRESNICA_DEV_HANDOFF comment.`
+              );
+              return;
+            }
+
+            const latest = handoffs[handoffs.length - 1];
+            const body = latest.body || '';
+
+            const shaMatch = body.match(
+              /HEAD:\s*`?([0-9a-f]{40})`?/i
+            );
+
+            if (!shaMatch) {
+              core.setFailed(
+                'Latest development handoff does not contain a valid ' +
+                '40-character HEAD SHA.'
+              );
+              return;
+            }
+
+            const handoffSha = shaMatch[1].toLowerCase();
+
+            if (handoffSha !== headSha.toLowerCase()) {
+              core.setFailed(
+                `Development handoff is stale. ` +
+                `Handoff HEAD=${handoffSha}, current PR HEAD=${headSha}.`
+              );
+              return;
+            }
+
+            if (!/State:\s*READY_FOR_REVIEW/i.test(body)) {
+              core.setFailed(
+                'Latest development handoff is not marked READY_FOR_REVIEW.'
+              );
+              return;
+            }
+
+            core.info(
+              `Valid Fresnica development handoff for PR #${pr.number} ` +
+              `at HEAD ${headSha}.`
+            );
