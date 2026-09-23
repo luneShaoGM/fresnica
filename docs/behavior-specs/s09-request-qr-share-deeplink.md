@@ -83,9 +83,18 @@ Failure to load the asset choices does not make the public address unavailable; 
 
 ## Memo and message rules
 
-S09 supports no memo, Text, ID and Hash memo using the same canonical rules frozen by S07.
+S09 supports no memo, Text, ID and Hash memo using the same canonical domain rules frozen by S07.
 
-`MEMO_RETURN` is not supported because the current Normative Payment contract does not support it. It must fail explicitly rather than being reinterpreted as Hash.
+SEP-7 wire encoding is explicit and does not redefine those domain values:
+
+- Text uses the canonical UTF-8 text value and URI percent-encoding;
+- ID uses the canonical unsigned decimal string and URI percent-encoding;
+- Hash starts from the S07 canonical 32-byte value represented internally as 64 lowercase hexadecimal characters; the SEP-7 `memo` parameter carries those exact 32 bytes as base64 and then URI percent-encoding;
+- inbound `MEMO_HASH` must decode from base64 to exactly 32 bytes and is projected back to the S07 canonical lowercase hexadecimal value before it reaches Send/Payment.
+
+Invalid base64, a decoded Hash length other than 32 bytes, or any non-canonical domain value fails closed. The builder/parser must never serialize the 64-character hexadecimal display form directly as the SEP-7 Hash wire value.
+
+`MEMO_RETURN` is not supported because the current Normative Payment contract does not support it. It must fail explicitly rather than being reinterpreted as Hash, even though SEP-7 defines a wire representation for it.
 
 A request message is not a transaction memo and is never placed on-chain by Request itself. It is public, untrusted text carried in the URI and must not be rendered as verified merchant identity or executable content.
 
@@ -222,6 +231,7 @@ No implementation PR may add S08 muxed semantics, SEP-7 `tx`, callback/signed-or
 Domain tests must prove at minimum:
 
 - outbound address-only, amount, issued asset, Text/ID/Hash memo, message and Testnet network-passphrase round trips;
+- Hash memo wire encoding from canonical lowercase hex → exact 32 bytes → base64 → URI encoding, plus inbound base64 → exact 32 bytes → canonical lowercase hex and rejection of malformed/non-32-byte payloads;
 - Public Network omission versus non-Public exact network-passphrase behavior;
 - invalid/zero/over-precision amount rejection;
 - asset code/issuer pair integrity and exact identity preservation;
