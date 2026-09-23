@@ -54,7 +54,7 @@ Required:
 
 Optional:
 
-- `amount` — positive decimal, at most seven fractional digits, preserved as an exact decimal string;
+- `amount` — positive decimal, at most seven fractional digits, no greater than `922337203685.4775807` XLM/asset units (the signed-int64 Stellar amount ceiling of `9223372036854775807` stroops), preserved as an exact decimal string;
 - `asset_code` + `asset_issuer` — always present together for an issued asset;
 - `memo` + `memo_type` — always present together for a selected memo;
 - `msg` — untrusted human-readable request context, maximum 300 characters before URL encoding;
@@ -68,7 +68,7 @@ The builder never emits `callback`, `origin_domain`, `signature`, `xdr`, `replac
 
 Amount is optional. Selecting “no fixed amount” removes the amount field entirely; it must not serialize as zero or an empty parameter.
 
-A fixed amount must satisfy Stellar seven-decimal precision and be greater than zero. Binary floating point must not determine the canonical value.
+A fixed amount must satisfy Stellar seven-decimal precision, be greater than zero and be no greater than `922337203685.4775807`. This is the same signed-int64 stroop ceiling enforced by the authoritative Payment validator (`9223372036854775807` stroops). Builder and parser validation must derive the bound with exact decimal-to-stroop arithmetic; binary floating point must not determine either precision or range.
 
 The first implementation may offer only:
 
@@ -110,7 +110,9 @@ Clipboard writes contain only the canonical public request URI. Request never re
 
 QR rendering is presentation only. The QR component receives an already validated canonical public URI and must not reconstruct request semantics.
 
-No analytics, logs or diagnostics may record the full request URI when it contains memo/message text. Stable diagnostics may record only non-sensitive categories such as operation kind and failure class.
+No analytics, logs or diagnostics may record the full outbound request URI when it contains memo/message text.
+
+For inbound paste, scan or deep-link input, the privacy rule is stricter: no analytics, logs or diagnostics may record the full raw URI/content for any parser outcome, including accepted, malformed, unsupported or unknown input. This blanket rule applies even when the parser sees unknown query parameters, an arbitrary URL, a Stellar secret seed, a mnemonic or plain text. Stable diagnostics may record only non-sensitive category data such as carrier (`paste` / `scan` / `deep-link`), parser outcome kind, supported/unsupported feature category and failure class; raw input, raw query values and secret-like substrings are never diagnostic fields.
 
 ## One inbound parser for paste, scan and deep link
 
@@ -233,14 +235,14 @@ Domain tests must prove at minimum:
 - outbound address-only, amount, issued asset, Text/ID/Hash memo, message and Testnet network-passphrase round trips;
 - Hash memo wire encoding from canonical lowercase hex → exact 32 bytes → base64 → URI encoding, plus inbound base64 → exact 32 bytes → canonical lowercase hex and rejection of malformed/non-32-byte payloads;
 - Public Network omission versus non-Public exact network-passphrase behavior;
-- invalid/zero/over-precision amount rejection;
+- amount boundary behavior in both outbound build and inbound parse: `922337203685.4775807` is accepted, `922337203685.4775808` is rejected, and zero/invalid/over-precision values are rejected;
 - asset code/issuer pair integrity and exact identity preservation;
 - invalid memo and `MEMO_RETURN` rejection;
 - muxed destination rejection under the current S08 boundary;
 - callback, signed-origin and SEP-7 `tx` explicit unsupported classification;
 - duplicate recognized parameter rejection;
 - identical parser output for paste/scan/deep-link carriers;
-- no secret/mnemonic value in accepted S09 intent or diagnostics.
+- category-only/redacted diagnostics for accepted and rejected inbound content, including unknown-parameter SEP-7, malformed SEP-7, arbitrary URL, Stellar secret seed and mnemonic inputs; tests must prove the full raw inbound URI/content and secret-like substrings are never emitted to diagnostics.
 
 Product/native acceptance must prove canonical Copy/Share/QR equivalence, account/network stability, denied-camera recovery, successful scanner/paste round trip and cold/warm deep-link routing without auto-signing.
 
