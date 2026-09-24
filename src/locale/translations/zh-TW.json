@@ -420,5 +420,6 @@
   "request.error.network": "此帳戶與目前網路不相符。",
   "request.error.account": "僅可為可見的 Classic Stellar 帳戶建立請求。",
   "request.error.invalid": "請檢查請求欄位後重試。",
-  "request.error.asset": "目前帳戶目前無法接收所選資產。"
+  "request.error.asset": "目前帳戶目前無法接收所選資產。",
+  "request.assetChoiceIssued": "{{code}}，發行方 {{issuer}}"
 }

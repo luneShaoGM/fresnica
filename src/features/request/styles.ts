@@ -25,8 +25,8 @@ export function createRequestStyles(theme: AppTheme) {
     sectionLabel: { marginTop: 10, fontSize: 10, lineHeight: 13, color: theme.colors.textTertiary, fontWeight: '800' },
     assetList: { gap: 8, paddingVertical: 2 },
     assetButton: {
-      minHeight: 38,
-      minWidth: 68,
+      minHeight: 48,
+      minWidth: 104,
       borderRadius: 9,
       borderWidth: 1,
       borderColor: theme.colors.border,
@@ -38,6 +38,8 @@ export function createRequestStyles(theme: AppTheme) {
     assetButtonSelected: { borderColor: theme.colors.actionPrimary, backgroundColor: theme.colors.actionPrimarySubtle },
     assetText: { fontSize: 11, lineHeight: 15, color: theme.colors.textSecondary, fontWeight: '700' },
     assetTextSelected: { color: theme.colors.actionPrimary },
+    assetIssuer: { fontSize: 9, lineHeight: 12, color: theme.colors.textTertiary },
+    assetIssuerSelected: { color: theme.colors.actionPrimary },
     warning: { fontSize: 10, lineHeight: 15, color: theme.colors.warning },
     optionRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
     optionButton: {

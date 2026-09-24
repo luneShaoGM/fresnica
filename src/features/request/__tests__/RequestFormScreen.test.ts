@@ -2,7 +2,7 @@ import React from 'react';
 import { TextInput } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
-import { RequestFormScreen } from '../RequestFormScreen';
+import { maskRequestIssuer, RequestFormScreen } from '../RequestFormScreen';
 
 jest.mock('react-native-qrcode-svg', () => ({
   __esModule: true,
@@ -24,6 +24,7 @@ jest.mock('../../../locale', () => ({
   useLocalization: () => ({
     t: (key: string, params?: Record<string, string>) => {
       if (key === 'request.qr.accessibility') return `qr:${params?.address}:${params?.uri}`;
+      if (key === 'request.assetChoiceIssued') return `issued:${params?.code}:${params?.issuer}`;
       return key;
     },
   }),
@@ -93,6 +94,35 @@ describe('RequestFormScreen', () => {
     ]);
     expect(inputs[0]?.props.keyboardType).toBe('decimal-pad');
     expect(inputs[1]?.props.keyboardType).toBe('number-pad');
+  });
+
+  it('distinguishes duplicate issued-asset codes visually and announces each exact issuer identity', () => {
+    const issuerA = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    const issuerB = 'GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
+    const { root } = renderForm({
+      assets: [
+        { kind: 'native' },
+        { kind: 'credit', code: 'USD', issuer: issuerA },
+        { kind: 'credit', code: 'USD', issuer: issuerB },
+      ],
+      selectedAsset: { kind: 'credit', code: 'USD', issuer: issuerA },
+    });
+    const issuedLabels: string[] = [];
+    const visibleText: string[] = [];
+
+    visit(root, element => {
+      if (element.props.accessibilityLabel?.startsWith('issued:USD:')) {
+        issuedLabels.push(element.props.accessibilityLabel);
+      }
+      if (typeof element.props.children === 'string') {
+        visibleText.push(element.props.children);
+      }
+    });
+
+    expect(issuedLabels).toEqual([`issued:USD:${issuerA}`, `issued:USD:${issuerB}`]);
+    expect(maskRequestIssuer(issuerA)).not.toBe(maskRequestIssuer(issuerB));
+    expect(visibleText).toContain(maskRequestIssuer(issuerA));
+    expect(visibleText).toContain(maskRequestIssuer(issuerB));
   });
 
   it('routes Copy, Share and QR actions without rebuilding request semantics', () => {

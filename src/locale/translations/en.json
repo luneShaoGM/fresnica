@@ -420,5 +420,6 @@
   "request.error.network": "This account does not match the active network.",
   "request.error.account": "Request is available only for a visible Classic Stellar account.",
   "request.error.invalid": "Check the request fields and try again.",
-  "request.error.asset": "The selected asset cannot currently be received by this account."
+  "request.error.asset": "The selected asset cannot currently be received by this account.",
+  "request.assetChoiceIssued": "{{code}} issued by {{issuer}}"
 }

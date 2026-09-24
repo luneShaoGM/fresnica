@@ -75,9 +75,13 @@ export function RequestFormScreen(props: Props) {
           {props.assets.map(asset => {
             const selected = requestAssetKey(asset) === requestAssetKey(props.selectedAsset);
             const label = asset.kind === 'native' ? 'XLM' : asset.code;
+            const accessibilityLabel =
+              asset.kind === 'native'
+                ? t('request.assetChoice', { asset: label })
+                : t('request.assetChoiceIssued', { code: asset.code, issuer: asset.issuer });
             return (
               <Pressable
-                accessibilityLabel={t('request.assetChoice', { asset: label })}
+                accessibilityLabel={accessibilityLabel}
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
                 disabled={props.busy}
@@ -90,6 +94,15 @@ export function RequestFormScreen(props: Props) {
                 ]}
               >
                 <Text style={[styles.assetText, selected ? styles.assetTextSelected : undefined]}>{label}</Text>
+                {asset.kind === 'credit' ? (
+                  <Text
+                    accessibilityElementsHidden
+                    numberOfLines={1}
+                    style={[styles.assetIssuer, selected ? styles.assetIssuerSelected : undefined]}
+                  >
+                    {maskRequestIssuer(asset.issuer)}
+                  </Text>
+                ) : null}
               </Pressable>
             );
           })}
@@ -253,6 +266,11 @@ export function RequestFormScreen(props: Props) {
       </ScrollView>
     </Screen>
   );
+}
+
+export function maskRequestIssuer(value: string): string {
+  if (value.length <= 16) return value;
+  return `${value.slice(0, 8)}…${value.slice(-6)}`;
 }
 
 type ActionStyles = ReturnType<typeof createRequestStyles>;

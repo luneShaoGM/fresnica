@@ -420,5 +420,6 @@
   "request.error.network": "此账户与当前网络不匹配。",
   "request.error.account": "仅可为可见的 Classic Stellar 账户创建请求。",
   "request.error.invalid": "请检查请求字段后重试。",
-  "request.error.asset": "当前账户目前不能接收所选资产。"
+  "request.error.asset": "当前账户目前不能接收所选资产。",
+  "request.assetChoiceIssued": "{{code}}，发行方 {{issuer}}"
 }
