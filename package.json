@@ -25,6 +25,7 @@
     "smoke:product-flow:check": "bash -n scripts/run-product-flow-smoke.sh && prettier --check scripts/product-flow-smoke-entry.js scripts/product-flow-smoke-server.mjs && eslint scripts/product-flow-smoke-entry.js scripts/product-flow-smoke-server.mjs"
   },
   "dependencies": {
+    "@react-native-clipboard/clipboard": "1.16.3",
     "@react-native-community/netinfo": "12.0.1",
     "@react-navigation/bottom-tabs": "7.18.18",
     "@react-navigation/native": "7.3.18",
@@ -32,8 +33,10 @@
     "@stellar/stellar-sdk": "17.0.1",
     "react": "19.2.3",
     "react-native": "0.87.0",
+    "react-native-qrcode-svg": "6.3.26",
     "react-native-safe-area-context": "5.9.1",
     "react-native-screens": "4.27.0",
+    "react-native-svg": "15.15.5",
     "realm": "20.2.0"
   },
   "devDependencies": {

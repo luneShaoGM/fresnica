@@ -106,6 +106,12 @@ export function MainTabBar({
         params: {accountId: selectedAccountId},
       });
     }
+    if (action === 'request') {
+      navigation.navigate('home', {
+        screen: 'request',
+        params: {accountId: selectedAccountId},
+      });
+    }
   };
 
   const openActions = () => {

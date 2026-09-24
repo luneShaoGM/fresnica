@@ -22,6 +22,7 @@ import type { RenameAccountDependencies } from '../capabilities/account/renameAc
 import type { HistoryProductDependencies } from '../capabilities/history/HistoryCacheHydration';
 import type { SendProductDependencies } from '../features/send/sendProductFlow';
 import type { TrustlineProductDependencies } from '../features/trustlines/trustlineProductFlow';
+import type { RequestProductDependencies } from '../features/request/requestProductFlow';
 import { ReactNativeFresnicaSdk, loadNativeFresnicaModule } from '../platform/fresnica/native';
 import {
   RealmAccountSignerRepository,
@@ -35,6 +36,7 @@ import {
 import { StellarFriendbotGateway } from '../platform/stellar/StellarFriendbotGateway';
 import { StellarSdkGateway } from '../platform/stellar/StellarSdkGateway';
 import { reactNativeExternalUrlOpener, type ExternalUrlOpener } from '../platform/system/externalUrl';
+import { reactNativeRequestOutput } from '../platform/system/requestOutput';
 
 export type AccountManagementDependencies = RenameAccountDependencies &
   AccountVisibilityDependencies &
@@ -51,6 +53,7 @@ export type AppServices = Readonly<{
   send: SendProductDependencies;
   history: HistoryProductDependencies;
   trustline: TrustlineProductDependencies;
+  request: RequestProductDependencies;
   transactionRecovery: TransactionReconciliationCoordinator;
   ledgerReadInvalidation: LedgerReadInvalidationStore;
   localePreferences: RealmLocalePreferenceStore;
@@ -150,6 +153,11 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         repository,
         recovery,
         network,
+      },
+      request: {
+        gateway: stellarGateway,
+        network,
+        output: reactNativeRequestOutput,
       },
       transactionRecovery,
       ledgerReadInvalidation,
