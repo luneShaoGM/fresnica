@@ -7,6 +7,7 @@ export type RootStackParamList = {
   onboarding: undefined;
   locked: undefined;
   main: undefined;
+  'request-deep-link': undefined;
 };
 
 export type HomeStackParamList = {
