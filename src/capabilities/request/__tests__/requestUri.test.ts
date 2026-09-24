@@ -241,6 +241,39 @@ describe('Request URI domain', () => {
     });
   });
 
+  it('rejects seed and mnemonic content in outbound and inbound public text fields', () => {
+    const deps = dependencies(PUBLIC_NETWORK);
+    const secret = `S${'A'.repeat(55)}`;
+    const mnemonic = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima';
+
+    for (const sensitive of [secret, mnemonic]) {
+      expect(() =>
+        buildRequestUri(deps, {
+          destination,
+          message: sensitive,
+          network: PUBLIC_NETWORK,
+        }),
+      ).toThrow('request-sensitive-input');
+      expect(() =>
+        buildRequestUri(deps, {
+          destination,
+          memo: { type: 'text', value: sensitive },
+          network: PUBLIC_NETWORK,
+        }),
+      ).toThrow('request-sensitive-input');
+
+      expect(
+        parseRequestInput(deps, `web+stellar:pay?destination=${destination}&msg=${encodeURIComponent(sensitive)}`),
+      ).toMatchObject({ status: 'rejected', reason: 'sensitive-input' });
+      expect(
+        parseRequestInput(
+          deps,
+          `web+stellar:pay?destination=${destination}&memo=${encodeURIComponent(sensitive)}&memo_type=MEMO_TEXT`,
+        ),
+      ).toMatchObject({ status: 'rejected', reason: 'sensitive-input' });
+    }
+  });
+
   it('never returns raw untrusted input in parser diagnostics or failures', () => {
     const deps = dependencies(PUBLIC_NETWORK);
     const secret = `S${'A'.repeat(55)}`;

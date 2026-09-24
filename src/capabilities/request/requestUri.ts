@@ -180,9 +180,12 @@ function parsePayIntent(
 
   const memoResult = parseMemo(entries);
   if (memoResult.status === 'unsupported') return unsupported('memo-return');
+  if (memoResult.status === 'sensitive') return rejected('sensitive-input');
   if (memoResult.status === 'invalid') return rejected('invalid-memo');
 
   const messageValue = firstValue(entries, 'msg');
+  if (messageValue !== undefined && looksSensitive(messageValue)) return rejected('sensitive-input');
+
   let message: string | undefined;
   try {
     message = validateRequestMessage(messageValue);
@@ -224,12 +227,14 @@ function parseMemo(
 ):
   | Readonly<{ status: 'ok'; memo?: StellarPaymentMemo }>
   | Readonly<{ status: 'invalid' }>
+  | Readonly<{ status: 'sensitive' }>
   | Readonly<{ status: 'unsupported' }> {
   const value = firstValue(entries, 'memo');
   const type = firstValue(entries, 'memo_type');
   if ((value === undefined) !== (type === undefined)) return { status: 'invalid' };
   if (value === undefined || type === undefined) return { status: 'ok' };
   if (type === 'MEMO_RETURN') return { status: 'unsupported' };
+  if (type === 'MEMO_TEXT' && looksSensitive(value)) return { status: 'sensitive' };
 
   try {
     switch (type) {
@@ -282,6 +287,9 @@ function validateRequestAsset(
 }
 function validateRequestMemo(memo?: StellarPaymentMemo): StellarPaymentMemo | undefined {
   if (memo === undefined) return undefined;
+  if (memo.type === 'text' && looksSensitive(memo.value)) {
+    throw new Error('request-sensitive-input');
+  }
   try {
     return requireMemo(validatePaymentMemo(memo));
   } catch {
@@ -291,6 +299,7 @@ function validateRequestMemo(memo?: StellarPaymentMemo): StellarPaymentMemo | un
 
 function validateRequestMessage(message?: string): string | undefined {
   if (message === undefined) return undefined;
+  if (looksSensitive(message)) throw new Error('request-sensitive-input');
   if (Array.from(message).length > 300) throw new Error('request-message-too-long');
   return message;
 }
@@ -367,8 +376,9 @@ function isMuxedCandidate(value: string): boolean {
 }
 
 function looksSensitive(value: string): boolean {
-  if (/^S[A-Z2-7]{55}$/.test(value)) return true;
-  const words = value.split(/\s+/);
+  const candidate = value.trim();
+  if (/(^|[^A-Z2-7])S[A-Z2-7]{55}($|[^A-Z2-7])/.test(candidate)) return true;
+  const words = candidate.split(/\s+/);
   return [12, 15, 18, 21, 24].includes(words.length) && words.every(word => /^[A-Za-z]+$/.test(word));
 }
 function accepted(intent: RequestPaymentIntent): RequestParseResult {
