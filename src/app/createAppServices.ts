@@ -36,6 +36,7 @@ import {
 import { StellarFriendbotGateway } from '../platform/stellar/StellarFriendbotGateway';
 import { StellarSdkGateway } from '../platform/stellar/StellarSdkGateway';
 import { reactNativeExternalUrlOpener, type ExternalUrlOpener } from '../platform/system/externalUrl';
+import { reactNativeRequestIngress } from '../platform/system/requestIngress';
 import { reactNativeRequestOutput } from '../platform/system/requestOutput';
 
 export type AccountManagementDependencies = RenameAccountDependencies &
@@ -158,6 +159,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         gateway: stellarGateway,
         network,
         output: reactNativeRequestOutput,
+        ingress: reactNativeRequestIngress,
       },
       transactionRecovery,
       ledgerReadInvalidation,

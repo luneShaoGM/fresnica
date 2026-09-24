@@ -1,6 +1,7 @@
 import type { AccountRecord } from '../../capabilities/account/types';
 import type { NetworkContext } from '../../capabilities/network/types';
 import type { PaymentGatewayPort } from '../../capabilities/payment/PaymentGateway';
+import type { RequestIngressPort } from '../../capabilities/request/RequestIngressPort';
 import type { RequestOutputPort, RequestShareResult } from '../../capabilities/request/RequestOutputPort';
 import { buildRequestUri } from '../../capabilities/request/requestUri';
 import type {
@@ -13,6 +14,7 @@ export type RequestProductDependencies = Readonly<{
   gateway: Pick<PaymentGatewayPort, 'isClassicAccountAddress' | 'loadAccountState'>;
   network: NetworkContext;
   output: RequestOutputPort;
+  ingress: RequestIngressPort;
 }>;
 
 export type RequestDraft = Readonly<{
