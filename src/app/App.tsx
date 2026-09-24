@@ -8,15 +8,58 @@ import { getDeviceLocale, LocalizationProvider, resolveLocale, type SupportedLoc
 import { createAppServices, type AppServices } from './createAppServices';
 import { startTransactionReconciliationLifecycle } from './transaction/startTransactionReconciliationLifecycle';
 import { subscribeToNetworkRecovery } from '../platform/system/networkConnectivity';
+import { reactNativeRequestDeepLink } from '../platform/system/requestDeepLink';
 import { AppNavigator } from './navigation/AppNavigator';
 import { OverlayHost } from './OverlayHost';
 import type { AppRuntimeState } from './runtimeState';
 import { resolveAppBootstrap } from './resolveBootstrap';
+import {
+  parseRequestDeepLink,
+  resolveRequestDeepLink,
+  type RequestDeepLinkParsed,
+  type RequestDeepLinkResolved,
+} from './requestDeepLinkRouting';
 
 export function App() {
   const [runtime, setRuntime] = useState<AppRuntimeState>({ kind: 'loading' });
   const [locale, setLocale] = useState<SupportedLocale>(() => getDeviceLocale());
   const servicesRef = useRef<AppServices | undefined>(undefined);
+  const pendingRawDeepLinkRef = useRef<string | undefined>(undefined);
+  const [parsedDeepLink, setParsedDeepLink] = useState<RequestDeepLinkParsed>();
+  const [resolvedDeepLink, setResolvedDeepLink] = useState<RequestDeepLinkResolved>();
+
+  const captureDeepLink = useCallback((rawUrl: string) => {
+    const services = servicesRef.current;
+    if (!services) {
+      pendingRawDeepLinkRef.current = rawUrl;
+      return;
+    }
+    const parsed = parseRequestDeepLink(services.request, rawUrl);
+    services.diagnostics.info('request-deep-link-received', { details: parsed.diagnostics });
+    setParsedDeepLink(parsed);
+    setResolvedDeepLink(undefined);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    let receivedWarmUrl = false;
+    const unsubscribe = reactNativeRequestDeepLink.subscribe(url => {
+      receivedWarmUrl = true;
+      if (active) captureDeepLink(url);
+    });
+    reactNativeRequestDeepLink
+      .getInitialUrl()
+      .then(url => {
+        if (active && !receivedWarmUrl && url !== undefined) captureDeepLink(url);
+      })
+      .catch(() => {
+        servicesRef.current?.diagnostics.warn('request-deep-link-initial-read-failed');
+      });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [captureDeepLink]);
 
   useEffect(() => {
     let mounted = true;
@@ -30,6 +73,8 @@ export function App() {
         }
 
         servicesRef.current = created;
+        const pendingRawDeepLink = pendingRawDeepLinkRef.current;
+        pendingRawDeepLinkRef.current = undefined;
         stopTransactionLifecycle = startTransactionReconciliationLifecycle({
           coordinator: created.transactionRecovery,
           currentAppState: AppState.currentState,
@@ -58,6 +103,9 @@ export function App() {
               }),
           }),
         });
+        if (pendingRawDeepLink !== undefined) {
+          captureDeepLink(pendingRawDeepLink);
+        }
       })
       .catch(error => {
         if (mounted) {
@@ -71,7 +119,30 @@ export function App() {
       servicesRef.current?.close();
       servicesRef.current = undefined;
     };
-  }, []);
+  }, [captureDeepLink]);
+
+  useEffect(() => {
+    if (parsedDeepLink === undefined || runtime.kind !== 'ready' || runtime.bootstrap.kind !== 'ready') return;
+    let defaultAccountId: string | undefined;
+    try {
+      defaultAccountId = runtime.services.accountSelectionPreferences.getDefaultAccountId(
+        runtime.services.onboarding.networkId,
+      );
+    } catch (error) {
+      runtime.services.diagnostics.warn('default-account-read-failed', {
+        details: { networkId: runtime.services.onboarding.networkId, error },
+      });
+    }
+    setResolvedDeepLink(
+      resolveRequestDeepLink(
+        parsedDeepLink,
+        runtime.bootstrap.accounts,
+        runtime.services.onboarding.networkId,
+        defaultAccountId,
+        accountId => runtime.services.onboarding.repository.isWatchOnly(accountId),
+      ),
+    );
+  }, [parsedDeepLink, runtime]);
 
   const refreshBootstrap = useCallback(() => {
     setRuntime(current => {
@@ -104,7 +175,15 @@ export function App() {
         <ThemeStatusBar />
         <LocalizationProvider locale={locale} onChangeLocale={handleChangeLocale}>
           <OverlayHost>
-            <AppNavigator runtime={runtime} onRefreshBootstrap={refreshBootstrap} />
+            <AppNavigator
+              runtime={runtime}
+              onRefreshBootstrap={refreshBootstrap}
+              deepLink={resolvedDeepLink}
+              onDismissDeepLink={() => {
+                setParsedDeepLink(undefined);
+                setResolvedDeepLink(undefined);
+              }}
+            />
           </OverlayHost>
         </LocalizationProvider>
       </AppThemeProvider>
