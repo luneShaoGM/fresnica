@@ -34,6 +34,8 @@ type Props = Readonly<{
   onCopy: () => void;
   onShare: () => void;
   onToggleQr: () => void;
+  onPasteRequest: () => void;
+  onScanRequest: () => void;
   onCancel: () => void;
 }>;
 
@@ -263,6 +265,24 @@ export function RequestFormScreen(props: Props) {
             <Text style={styles.qrText}>{props.canonicalUri}</Text>
           </View>
         ) : null}
+
+        <Text style={styles.sectionLabel}>{t('request.ingress.section')}</Text>
+        <Text style={styles.fieldHint}>{t('request.ingress.helper')}</Text>
+        <View style={styles.actions}>
+          <RequestAction
+            label={t('request.ingress.paste')}
+            disabled={props.busy}
+            onPress={props.onPasteRequest}
+            styles={styles}
+          />
+          <RequestAction
+            label={t('request.ingress.scan')}
+            disabled={props.busy}
+            onPress={props.onScanRequest}
+            secondary
+            styles={styles}
+          />
+        </View>
       </ScrollView>
     </Screen>
   );

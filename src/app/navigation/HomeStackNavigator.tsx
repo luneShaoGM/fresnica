@@ -9,6 +9,7 @@ import { HomeScreen } from '@features/home/HomeScreen';
 import { SendFlowScreen } from '@features/send/SendFlowScreen';
 import { RequestFlowScreen } from '@features/request/RequestFlowScreen';
 import { ManageAssetsScreen } from '@features/trustlines/ManageAssetsScreen';
+import { ReactNativeRequestQrScannerView } from '@platform/system/RequestQrScannerView';
 
 import type { AppServices } from '../createAppServices';
 import { resolveVisibleAccount } from './accountSelection';
@@ -110,7 +111,12 @@ export function HomeStackNavigator({
         {({ navigation, route }) => {
           const account = resolveVisibleAccount(accounts, route.params.accountId);
           return (
-            <RequestFlowScreen account={account} dependencies={services.request} onDone={() => navigation.popToTop()} />
+            <RequestFlowScreen
+              account={account}
+              dependencies={services.request}
+              onDone={() => navigation.popToTop()}
+              ScannerView={ReactNativeRequestQrScannerView}
+            />
           );
         }}
       </Stack.Screen>

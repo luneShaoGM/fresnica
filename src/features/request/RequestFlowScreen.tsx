@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { AccountRecord } from '../../capabilities/account/types';
 import type { StellarPaymentAsset, StellarPaymentMemo } from '../../capabilities/stellar/types';
@@ -11,6 +11,19 @@ import {
   shareRequestUri,
   type RequestProductDependencies,
 } from './requestProductFlow';
+import {
+  createRequestScanFrameGate,
+  parseRequestIngress,
+  resolveRequestCameraAccess,
+  type RequestIngressCarrier,
+  type RequestIngressResult,
+} from './requestIngressFlow';
+import {
+  RequestIngressScreen,
+  type RequestIngressPermissionViewState,
+  type RequestIngressPlatformError,
+  type RequestScannerViewComponent,
+} from './RequestIngressScreen';
 import { RequestFormScreen } from './RequestFormScreen';
 
 const NATIVE_ASSET: StellarPaymentAsset = Object.freeze({ kind: 'native' });
@@ -18,10 +31,11 @@ const NATIVE_ASSET: StellarPaymentAsset = Object.freeze({ kind: 'native' });
 type Props = Readonly<{
   account: AccountRecord;
   dependencies: RequestProductDependencies;
+  ScannerView: RequestScannerViewComponent;
   onDone: () => void;
 }>;
 
-export function RequestFlowScreen({ account, dependencies, onDone }: Props) {
+export function RequestFlowScreen({ account, dependencies, ScannerView, onDone }: Props) {
   const { t } = useLocalization();
   const [assets, setAssets] = useState<readonly StellarPaymentAsset[]>([NATIVE_ASSET]);
   const [selectedAsset, setSelectedAsset] = useState<StellarPaymentAsset>(NATIVE_ASSET);
@@ -35,6 +49,13 @@ export function RequestFlowScreen({ account, dependencies, onDone }: Props) {
   const [busy, setBusy] = useState(false);
   const [outputError, setOutputError] = useState<string>();
   const [status, setStatus] = useState<string>();
+  const [ingressCarrier, setIngressCarrier] = useState<RequestIngressCarrier>();
+  const [ingressResult, setIngressResult] = useState<RequestIngressResult>();
+  const [ingressPermission, setIngressPermission] = useState<RequestIngressPermissionViewState>();
+  const [ingressPlatformError, setIngressPlatformError] = useState<RequestIngressPlatformError>();
+  const [torchEnabled, setTorchEnabled] = useState(false);
+  const scanFrameGate = useRef(createRequestScanFrameGate());
+  const ingressSession = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +124,113 @@ export function RequestFlowScreen({ account, dependencies, onDone }: Props) {
     }
   };
 
+  const parseIngress = (carrier: RequestIngressCarrier, rawInput: string) =>
+    parseRequestIngress(
+      {
+        currentNetwork: dependencies.network,
+        isClassicAccountAddress: address => dependencies.gateway.isClassicAccountAddress(address),
+      },
+      carrier,
+      rawInput,
+    );
+
+  const closeIngress = () => {
+    ingressSession.current += 1;
+    scanFrameGate.current.reset();
+    setIngressCarrier(undefined);
+    setIngressResult(undefined);
+    setIngressPermission(undefined);
+    setIngressPlatformError(undefined);
+    setTorchEnabled(false);
+  };
+
+  const runPasteIngress = async () => {
+    const session = ingressSession.current + 1;
+    ingressSession.current = session;
+    setIngressCarrier('paste');
+    setIngressResult(undefined);
+    setIngressPermission(undefined);
+    setIngressPlatformError(undefined);
+    scanFrameGate.current.reset();
+    try {
+      const rawInput = await dependencies.ingress.readClipboardText();
+      if (ingressSession.current !== session) return;
+      setIngressResult(parseIngress('paste', rawInput));
+    } catch {
+      if (ingressSession.current !== session) return;
+      setIngressPlatformError('clipboard');
+    }
+  };
+
+  const beginScanIngress = async () => {
+    const session = ingressSession.current + 1;
+    ingressSession.current = session;
+    setIngressCarrier('scan');
+    setIngressResult(undefined);
+    setIngressPermission('checking');
+    setIngressPlatformError(undefined);
+    setTorchEnabled(false);
+    scanFrameGate.current.reset();
+    try {
+      const permission = await resolveRequestCameraAccess(dependencies.ingress);
+      if (ingressSession.current !== session) return;
+      setIngressPermission(permission);
+    } catch {
+      if (ingressSession.current !== session) return;
+      setIngressPermission('error');
+    }
+  };
+
+  const handleScanCode = (rawInput: string) => {
+    if (!scanFrameGate.current.accept()) return;
+    setIngressResult(parseIngress('scan', rawInput));
+  };
+
+  const handleScannerError = () => {
+    if (!scanFrameGate.current.accept()) return;
+    setIngressPlatformError('camera');
+  };
+
+  const retryIngress = () => {
+    if (ingressCarrier === 'paste') return runPasteIngress();
+    return beginScanIngress();
+  };
+
+  const openCameraSettings = async () => {
+    const session = ingressSession.current;
+    try {
+      await dependencies.ingress.openCameraSettings();
+    } catch {
+      if (ingressSession.current !== session) return;
+      setIngressPlatformError('settings');
+    }
+  };
+
+  if (ingressCarrier !== undefined) {
+    return (
+      <RequestIngressScreen
+        carrier={ingressCarrier}
+        onClose={closeIngress}
+        onCode={handleScanCode}
+        onOpenSettings={() => openCameraSettings()}
+        onRetry={() => retryIngress()}
+        onScannerError={handleScannerError}
+        onToggleTorch={() => setTorchEnabled(current => !current)}
+        permissionState={ingressPermission}
+        platformError={ingressPlatformError}
+        result={ingressResult}
+        scannerActive={
+          ingressCarrier === 'scan' &&
+          ingressPermission === 'granted' &&
+          ingressResult === undefined &&
+          ingressPlatformError === undefined
+        }
+        ScannerView={ScannerView}
+        torchEnabled={torchEnabled}
+      />
+    );
+  }
+
   return (
     <RequestFormScreen
       accountAddress={account.address}
@@ -131,6 +259,8 @@ export function RequestFlowScreen({ account, dependencies, onDone }: Props) {
         clearOutputFeedback();
       }}
       onCopy={() => runOutput('copy')}
+      onPasteRequest={() => runPasteIngress()}
+      onScanRequest={() => beginScanIngress()}
       onSelectAsset={asset => {
         setSelectedAsset(asset);
         clearOutputFeedback();

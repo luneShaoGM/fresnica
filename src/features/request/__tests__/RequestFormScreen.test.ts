@@ -51,6 +51,8 @@ function renderForm(overrides: Partial<React.ComponentProps<typeof RequestFormSc
   const onCopy = jest.fn();
   const onShare = jest.fn();
   const onToggleQr = jest.fn();
+  const onPasteRequest = jest.fn();
+  const onScanRequest = jest.fn();
   const canonicalUri = 'web+stellar:pay?destination=GDESTINATION&amount=1';
   const root = RequestFormScreen({
     accountLabel: 'Primary',
@@ -74,10 +76,12 @@ function renderForm(overrides: Partial<React.ComponentProps<typeof RequestFormSc
     onCopy,
     onShare,
     onToggleQr,
+    onPasteRequest,
+    onScanRequest,
     onCancel: jest.fn(),
     ...overrides,
   });
-  return { root, onCopy, onShare, onToggleQr, canonicalUri };
+  return { root, onCopy, onShare, onToggleQr, onPasteRequest, onScanRequest, canonicalUri };
 }
 
 describe('RequestFormScreen', () => {
@@ -139,6 +143,23 @@ describe('RequestFormScreen', () => {
     expect(onCopy).toHaveBeenCalledTimes(1);
     expect(onShare).toHaveBeenCalledTimes(1);
     expect(onToggleQr).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps paste and scan as explicit user actions', () => {
+    const { root, onPasteRequest, onScanRequest } = renderForm();
+    const actions = new Map<string, React.ReactElement<NodeProps>>();
+    visit(root, element => {
+      if (['request.ingress.paste', 'request.ingress.scan'].includes(element.props.label ?? '')) {
+        actions.set(element.props.label ?? '', element);
+      }
+    });
+
+    expect(onPasteRequest).not.toHaveBeenCalled();
+    expect(onScanRequest).not.toHaveBeenCalled();
+    actions.get('request.ingress.paste')?.props.onPress?.();
+    actions.get('request.ingress.scan')?.props.onPress?.();
+    expect(onPasteRequest).toHaveBeenCalledTimes(1);
+    expect(onScanRequest).toHaveBeenCalledTimes(1);
   });
 
   it('feeds the exact canonical URI to QR and exposes a textual accessibility alternative', () => {

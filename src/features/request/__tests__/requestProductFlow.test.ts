@@ -46,7 +46,13 @@ function dependencies(state: StellarAccountState | 'inactive'): RequestProductDe
     copyRequestUri: jest.fn().mockResolvedValue(undefined),
     shareRequestUri: jest.fn().mockResolvedValue('shared'),
   };
-  return { gateway, network: NETWORK, output };
+  const ingress = {
+    readClipboardText: jest.fn().mockResolvedValue(''),
+    checkCameraPermission: jest.fn().mockResolvedValue('granted'),
+    requestCameraPermission: jest.fn().mockResolvedValue('granted'),
+    openCameraSettings: jest.fn().mockResolvedValue(undefined),
+  } as const;
+  return { gateway, network: NETWORK, output, ingress };
 }
 
 function activeState(): StellarAccountState {
