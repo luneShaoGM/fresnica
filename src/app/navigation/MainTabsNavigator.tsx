@@ -173,7 +173,7 @@ function MainTabsWithSelection({
     () => ({
       send: selectedAccount.identityKind === 'classic' && canSign,
       swap: false,
-      request: false,
+      request: selectedAccount.identityKind === 'classic',
     }),
     [canSign, selectedAccount.identityKind],
   );

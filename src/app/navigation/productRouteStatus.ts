@@ -41,8 +41,8 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
     note: 'Send renders submitted, deterministic rejected, uncertain, authorization-blocked, unsupported signer, watch-only and unsupported-multisig outcomes without collapsing them.',
   },
   request: {
-    readiness: 'structure-only',
-    note: 'Request is part of the Stellar product route inventory, but no Fresnica Request/share/QR product flow is wired yet.',
+    readiness: 'implemented',
+    note: 'Request is user-reachable for visible Classic accounts, builds one canonical SEP-7 pay URI, and projects that exact URI through Copy, system Share and QR; paste/scan/deep-link ingress remains later S09 work.',
   },
   exchange: {
     readiness: 'blocked',

@@ -23,7 +23,8 @@ describe('navigation contract', () => {
     expect(PRODUCT_ROUTES.home).not.toContain('account-details');
   });
 
-  it('keeps asset detail in Home with a stable public route identity', () => {
+  it('keeps asset detail and Request in Home with stable public route identities', () => {
     expect(PRODUCT_ROUTES.home).toContain('asset-details');
+    expect(PRODUCT_ROUTES.home).toContain('request');
   });
 });

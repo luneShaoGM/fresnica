@@ -7,6 +7,7 @@ import { AddAccountScreen } from '@features/accounts/AddAccountScreen';
 import { AssetDetailsScreen } from '@features/home/AssetDetailsScreen';
 import { HomeScreen } from '@features/home/HomeScreen';
 import { SendFlowScreen } from '@features/send/SendFlowScreen';
+import { RequestFlowScreen } from '@features/request/RequestFlowScreen';
 import { ManageAssetsScreen } from '@features/trustlines/ManageAssetsScreen';
 
 import type { AppServices } from '../createAppServices';
@@ -56,6 +57,11 @@ export function HomeStackNavigator({
             onSelectAccount={onSelectAccount}
             onAddAccount={() => navigation.navigate('add-account')}
             onSend={() => navigation.navigate('send-form', { accountId: selectedAccount.id })}
+            onRequest={
+              selectedAccount.identityKind === 'classic'
+                ? () => navigation.navigate('request', { accountId: selectedAccount.id })
+                : undefined
+            }
             onManageAssets={() => navigation.navigate('manage-assets', { accountId: selectedAccount.id })}
             onOpenAsset={asset => navigation.navigate('asset-details', { accountId: selectedAccount.id, asset })}
             onManualRefresh={() => services.transactionRecovery.reconcile('manual-refresh')}
@@ -98,6 +104,14 @@ export function HomeStackNavigator({
         {({ navigation, route }) => {
           const account = resolveVisibleAccount(accounts, route.params.accountId);
           return <SendFlowScreen account={account} dependencies={services.send} onDone={() => navigation.popToTop()} />;
+        }}
+      </Stack.Screen>
+      <Stack.Screen name="request">
+        {({ navigation, route }) => {
+          const account = resolveVisibleAccount(accounts, route.params.accountId);
+          return (
+            <RequestFlowScreen account={account} dependencies={services.request} onDone={() => navigation.popToTop()} />
+          );
         }}
       </Stack.Screen>
       <Stack.Screen name="manage-assets">
