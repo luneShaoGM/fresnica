@@ -462,5 +462,15 @@
   "request.ingress.platformError.title": "暂时无法导入请求",
   "request.ingress.platformError.clipboard": "无法读取剪贴板，没有导入任何内容。",
   "request.ingress.platformError.camera": "摄像头扫描无法继续。请重试或关闭扫描器。",
-  "request.ingress.platformError.settings": "无法打开系统设置。你可以手动打开应用设置后再重试。"
+  "request.ingress.platformError.settings": "无法打开系统设置。你可以手动打开应用设置后再重试。",
+  "request.deepLink.title": "付款请求",
+  "request.deepLink.close": "关闭",
+  "request.deepLink.ready.title": "付款请求已就绪",
+  "request.deepLink.ready.body": "这个公开请求对当前账户有效。只有继续进入正常的发送审查流程后，才会开始发送。",
+  "request.deepLink.blocked.title": "无法继续此付款请求",
+  "request.deepLink.blocked.invalid": "此链接不是有效且受支持的 Stellar 付款请求。",
+  "request.deepLink.blocked.unsupported": "此链接使用了 Fresnica 当前不支持的 Stellar 请求功能。",
+  "request.deepLink.blocked.network-mismatch": "此请求属于另一个 Stellar 网络。Fresnica 没有切换网络。",
+  "request.deepLink.blocked.no-account": "当前网络没有可见账户。Fresnica 没有自动创建或选择账户。",
+  "request.deepLink.blocked.account-ineligible": "当前账户无法发送此请求。Fresnica 没有自动切换到其他账户。"
 }

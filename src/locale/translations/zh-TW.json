@@ -462,5 +462,15 @@
   "request.ingress.platformError.title": "暫時無法匯入請求",
   "request.ingress.platformError.clipboard": "無法讀取剪貼簿，沒有匯入任何內容。",
   "request.ingress.platformError.camera": "相機掃描無法繼續。請重試或關閉掃描器。",
-  "request.ingress.platformError.settings": "無法開啟系統設定。你可以手動開啟 App 設定後再重試。"
+  "request.ingress.platformError.settings": "無法開啟系統設定。你可以手動開啟 App 設定後再重試。",
+  "request.deepLink.title": "付款請求",
+  "request.deepLink.close": "關閉",
+  "request.deepLink.ready.title": "付款請求已就緒",
+  "request.deepLink.ready.body": "這個公開請求對目前帳戶有效。只有繼續進入正常的傳送審查流程後，才會開始傳送。",
+  "request.deepLink.blocked.title": "無法繼續此付款請求",
+  "request.deepLink.blocked.invalid": "此連結不是有效且受支援的 Stellar 付款請求。",
+  "request.deepLink.blocked.unsupported": "此連結使用了 Fresnica 目前不支援的 Stellar 請求功能。",
+  "request.deepLink.blocked.network-mismatch": "此請求屬於另一個 Stellar 網路。Fresnica 沒有切換網路。",
+  "request.deepLink.blocked.no-account": "目前網路沒有可見帳戶。Fresnica 沒有自動建立或選擇帳戶。",
+  "request.deepLink.blocked.account-ineligible": "目前帳戶無法傳送此請求。Fresnica 沒有自動切換到其他帳戶。"
 }

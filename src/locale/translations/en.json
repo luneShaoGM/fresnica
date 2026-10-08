@@ -462,5 +462,15 @@
   "request.ingress.platformError.title": "Request import unavailable",
   "request.ingress.platformError.clipboard": "The clipboard could not be read. Nothing was imported.",
   "request.ingress.platformError.camera": "The camera scanner could not continue. Try again or close the scanner.",
-  "request.ingress.platformError.settings": "System settings could not be opened. You can open app settings manually and then retry."
+  "request.ingress.platformError.settings": "System settings could not be opened. You can open app settings manually and then retry.",
+  "request.deepLink.title": "Payment request",
+  "request.deepLink.close": "Close",
+  "request.deepLink.ready.title": "Payment request ready",
+  "request.deepLink.ready.body": "This public request is valid for the current account. Sending is not started until you continue through the normal Send review flow.",
+  "request.deepLink.blocked.title": "Unable to continue this payment request",
+  "request.deepLink.blocked.invalid": "This link is not a valid supported Stellar payment request.",
+  "request.deepLink.blocked.unsupported": "This link uses a Stellar request feature Fresnica does not support here.",
+  "request.deepLink.blocked.network-mismatch": "This request belongs to a different Stellar network. Fresnica did not switch networks.",
+  "request.deepLink.blocked.no-account": "No visible account is available on the current network. No account was created or selected automatically.",
+  "request.deepLink.blocked.account-ineligible": "The current account cannot send this request. Fresnica did not switch to another account."
 }

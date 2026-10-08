@@ -5,10 +5,12 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
 import {OnboardingScreen} from '@features/onboarding/OnboardingScreen';
 import {PendingMnemonicBackupScreen} from '@features/onboarding/PendingMnemonicBackupScreen';
+import {RequestDeepLinkScreen} from '@features/request/RequestDeepLinkScreen';
 import {useAppTheme, useThemedStyles, type AppTheme} from '@ui/theme';
 
 import {useLocalization} from '../../locale';
 import type {AppRuntimeState} from '../runtimeState';
+import type {RequestDeepLinkResolved} from '../requestDeepLinkRouting';
 import {createStyles} from './AppNavigator.styles';
 import {MainTabsNavigator} from './MainTabsNavigator';
 import {selectPersistedAccountAndDefault} from './accountSelection';
@@ -19,16 +21,18 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 type Props = Readonly<{
   runtime: AppRuntimeState;
   onRefreshBootstrap: () => void;
+  deepLink?: RequestDeepLinkResolved;
+  onDismissDeepLink: () => void;
 }>;
 
-export function AppNavigator({runtime, onRefreshBootstrap}: Props) {
+export function AppNavigator({runtime, onRefreshBootstrap, deepLink, onDismissDeepLink}: Props) {
   const appTheme = useAppTheme();
   const navigationTheme = useMemo(() => createNavigationTheme(appTheme), [appTheme]);
 
   return (
     <NavigationContainer theme={navigationTheme}>
       <RootStack.Navigator screenOptions={{headerShown: false}}>
-        {renderRootScreen(runtime, onRefreshBootstrap)}
+        {renderRootScreen(runtime, onRefreshBootstrap, deepLink, onDismissDeepLink)}
         <RootStack.Screen name="locked" component={LockedPlaceholderScreen} />
       </RootStack.Navigator>
     </NavigationContainer>
@@ -50,7 +54,12 @@ function createNavigationTheme(theme: AppTheme) {
   };
 }
 
-function renderRootScreen(runtime: AppRuntimeState, onRefreshBootstrap: () => void) {
+function renderRootScreen(
+  runtime: AppRuntimeState,
+  onRefreshBootstrap: () => void,
+  deepLink: RequestDeepLinkResolved | undefined,
+  onDismissDeepLink: () => void,
+) {
   if (runtime.kind !== 'ready') {
     return (
       <RootStack.Screen name="bootstrap">
@@ -60,6 +69,13 @@ function renderRootScreen(runtime: AppRuntimeState, onRefreshBootstrap: () => vo
   }
 
   const {bootstrap} = runtime;
+  if (bootstrap.kind === 'ready' && deepLink !== undefined) {
+    return (
+      <RootStack.Screen name="request-deep-link">
+        {() => <RequestDeepLinkScreen state={deepLink} onClose={onDismissDeepLink} />}
+      </RootStack.Screen>
+    );
+  }
   if (bootstrap.kind === 'onboarding') {
     return (
       <RootStack.Screen name="onboarding">
