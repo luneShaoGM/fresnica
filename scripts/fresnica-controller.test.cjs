@@ -9,6 +9,7 @@ const {
   parseWorkReview,
   targetForReview,
   requiredChecksSatisfied,
+  reviewGateDecision,
   trustedOwnerComment,
 } = require('./fresnica-controller.cjs');
 
@@ -69,6 +70,16 @@ test('requires all exact-head gate names successful and review-gate after approv
     ).missing,
     ['apple'],
   );
+});
+
+test('review gate stays green before approval and fails closed after approval', () => {
+  assert.deepEqual(reviewGateDecision('ai:ready-review', undefined, HEAD), { ok: true, requiresReview: false });
+  assert.equal(reviewGateDecision('ai:approved', undefined, HEAD).ok, false);
+  assert.deepEqual(reviewGateDecision('ai:approved', parseWorkReview(review('APPROVED')), HEAD), {
+    ok: true,
+    requiresReview: true,
+  });
+  assert.equal(reviewGateDecision('ai:ready-merge', parseWorkReview(review('NEEDS_FIX')), HEAD).ok, false);
 });
 
 test('trusts only repository owner OWNER comments', () => {

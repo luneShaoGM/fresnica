@@ -118,6 +118,31 @@ function requiredChecksSatisfied(checkRuns, approvedAt) {
   };
 }
 
+function reviewGateDecision(aiState, review, headSha) {
+  if (['ai:developing', 'ai:ready-review', 'ai:needs-fix'].includes(aiState)) {
+    return { ok: true, requiresReview: false };
+  }
+  if (!['ai:approved', 'ai:ready-merge'].includes(aiState)) {
+    return { ok: false, reason: `Unsupported ai state ${aiState}` };
+  }
+  if (!review) {
+    return { ok: false, reason: 'No trusted FRESNICA_WORK_REVIEW is available.' };
+  }
+  if (review.reviewedHeadSha !== headSha.toLowerCase()) {
+    return {
+      ok: false,
+      reason: `Work review is stale: reviewed_head_sha=${review.reviewedHeadSha}, current HEAD=${headSha}.`,
+    };
+  }
+  if (review.status !== 'APPROVED') {
+    return { ok: false, reason: `${aiState} requires review status APPROVED.` };
+  }
+  if (review.hasP1 || review.hasP2) {
+    return { ok: false, reason: `${aiState} is invalid while P1 or P2 findings remain.` };
+  }
+  return { ok: true, requiresReview: true };
+}
+
 function trustedOwnerComment(comment, owner) {
   return (comment.user?.login || '').toLowerCase() === owner.toLowerCase() && comment.author_association === 'OWNER';
 }
@@ -173,13 +198,14 @@ async function reconcileApproved(github, owner, repo, pr, core) {
   const state = currentAiState(pr.labels || []);
   if (!state.ok || state.state !== 'ai:approved') return;
 
-  const checks = await github.paginate(github.rest.checks.listForRef, {
+  const checksResponse = await github.rest.checks.listForRef({
     owner,
     repo,
     ref: pr.head.sha,
     per_page: 100,
     filter: 'latest',
   });
+  const checks = checksResponse.data.check_runs;
   const approvedAt = await approvedLabelTime(github, owner, repo, pr.number);
   const gates = requiredChecksSatisfied(checks, approvedAt);
   if (!gates.ok) {
@@ -301,6 +327,7 @@ module.exports = {
   parseWorkReview,
   targetForReview,
   requiredChecksSatisfied,
+  reviewGateDecision,
   trustedOwnerComment,
   run,
 };
