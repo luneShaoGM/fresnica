@@ -84,6 +84,8 @@ Gate applicability is recomputed for current PR files by Controller from trusted
 
 No applicable Heavy Gate may reuse a successful heavy check that predates the current HEAD's latest `ai:approved` transition.
 
+During the target-first `ai:approved` to `ai:ready-merge` transition, later Heavy checks skipped because the PR is leaving `ai:approved` do not invalidate an earlier successful post-approval Heavy result for the same HEAD. Controller reads all current-HEAD check runs, ignores only skipped Heavy entries, and still lets any later failed, cancelled, queued, or in-progress Heavy result block progression. AI Review Gate accepts only the exact `ai:approved` plus `ai:ready-merge` pair as a recoverable transition snapshot, while continuing to fail closed for every other multiple-state combination.
+
 ## Safety invariants unchanged
 
 V2.1 does not weaken:

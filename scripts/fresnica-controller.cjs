@@ -85,9 +85,11 @@ function targetForReview(review) {
 
 function latestChecksByName(checkRuns) {
   const latest = new Map();
-  const trackedChecks = new Set([...REQUIRED_CHECKS, ...Object.values(HEAVY_CHECKS)]);
+  const heavyChecks = new Set(Object.values(HEAVY_CHECKS));
+  const trackedChecks = new Set([...REQUIRED_CHECKS, ...heavyChecks]);
   for (const check of checkRuns) {
     if (!trackedChecks.has(check.name)) continue;
+    if (heavyChecks.has(check.name) && (check.conclusion || '').toLowerCase() === 'skipped') continue;
     const timestamp = Date.parse(check.started_at || check.created_at || 0);
     const current = latest.get(check.name);
     if (!current || timestamp >= current.timestamp) latest.set(check.name, { check, timestamp });
@@ -181,16 +183,22 @@ async function runReviewGate({ github, context, core }) {
   const eventPr = context.payload.pull_request;
   const pr = await getPr(github, owner, repo, eventPr.number);
   const state = currentAiState(pr.labels || []);
+  const recoveringReadyMerge =
+    !state.ok &&
+    state.active.length === 2 &&
+    state.active.includes('ai:approved') &&
+    state.active.includes('ai:ready-merge');
 
-  if (!state.ok) {
+  if (!state.ok && !recoveringReadyMerge) {
     core.setFailed(
       `PR #${pr.number} must have exactly one known ai:* state; ` + `found ${state.active.join(', ') || 'none'}.`,
     );
     return;
   }
 
-  if (['ai:developing', 'ai:ready-review', 'ai:needs-fix'].includes(state.state)) {
-    core.info(`AI Review Gate is informational while PR is ${state.state}.`);
+  const gateState = state.ok ? state.state : 'ai:approved';
+  if (['ai:developing', 'ai:ready-review', 'ai:needs-fix'].includes(gateState)) {
+    core.info(`AI Review Gate is informational while PR is ${gateState}.`);
     return;
   }
 
@@ -205,7 +213,7 @@ async function runReviewGate({ github, context, core }) {
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   const latest = trustedReviews[trustedReviews.length - 1];
   const parsed = latest ? parseWorkReview(latest.body || '') : undefined;
-  const decision = reviewGateDecision(state.state, parsed, pr.head.sha);
+  const decision = reviewGateDecision(gateState, parsed, pr.head.sha);
 
   if (!decision.ok) {
     core.setFailed(decision.reason);
@@ -385,7 +393,7 @@ async function reconcileApproved(github, owner, repo, pr, core) {
     repo,
     ref: pr.head.sha,
     per_page: 100,
-    filter: 'latest',
+    filter: 'all',
   });
   const checks = checksResponse.data.check_runs;
   const approvedAt = await approvedLabelTime(github, owner, repo, pr.number);

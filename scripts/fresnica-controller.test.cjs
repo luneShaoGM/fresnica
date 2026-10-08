@@ -101,10 +101,22 @@ test('applicable heavy gates require fresh post-approval heavy and fixed success
   );
   assert.deepEqual(requiredChecksSatisfied(fresh, approvedAt, plan), { ok: true, missing: [], notSuccessful: [] });
 
+  fresh.push(
+    { name: 'android-heavy', conclusion: 'skipped', started_at: '2026-10-08T01:03:00Z' },
+    { name: 'apple-heavy', conclusion: 'skipped', started_at: '2026-10-08T01:03:30Z' },
+  );
+  assert.deepEqual(requiredChecksSatisfied(fresh, approvedAt, plan), { ok: true, missing: [], notSuccessful: [] });
+
   fresh[6] = { ...fresh[6], started_at: '2026-10-08T00:58:00Z' };
   assert.ok(
     requiredChecksSatisfied(fresh, approvedAt, plan).notSuccessful.includes('android-heavy:predates-ai-approved'),
   );
+
+  const laterFailure = [
+    ...fresh,
+    { name: 'android-heavy', conclusion: 'failure', started_at: '2026-10-08T01:04:00Z' },
+  ];
+  assert.ok(requiredChecksSatisfied(laterFailure, approvedAt, plan).notSuccessful.includes('android-heavy:failure'));
 });
 
 test('review gate stays green before approval and fails closed after approval', () => {
@@ -117,18 +129,19 @@ test('review gate stays green before approval and fails closed after approval', 
   assert.equal(reviewGateDecision('ai:ready-merge', parseWorkReview(review('NEEDS_FIX')), HEAD).ok, false);
 });
 
-test('review gate reloads durable labels and reruns after target-first label removal', async () => {
+test('review gate reloads durable labels and accepts the exact ready-merge recovery pair', async () => {
   const workflow = fs.readFileSync(require.resolve('../.github/workflows/ai-review-gate.yml'), 'utf8');
   assert.match(workflow, /- labeled\s+- unlabeled/);
   assert.match(workflow, /runReviewGate\(\{ github, context, core \}\)/);
 
   let pullsGet = 0;
+  let durableLabels = ['ai:approved'];
   const github = {
     rest: {
       pulls: {
         get: async () => {
           pullsGet += 1;
-          return { data: pullRequest({ labels: [{ name: 'ai:approved' }] }) };
+          return { data: pullRequest({ labels: durableLabels.map(name => ({ name })) }) };
         },
       },
       issues: { listComments: async () => undefined },
@@ -163,6 +176,16 @@ test('review gate reloads durable labels and reruns after target-first label rem
   assert.equal(pullsGet, 1);
   assert.deepEqual(failures, []);
   assert.deepEqual(info, ['Valid exact-HEAD APPROVED Work review for PR #76.']);
+
+  durableLabels = ['ai:approved', 'ai:ready-merge'];
+  await runReviewGate({ github, context, core });
+
+  assert.equal(pullsGet, 2);
+  assert.deepEqual(failures, []);
+  assert.deepEqual(info, [
+    'Valid exact-HEAD APPROVED Work review for PR #76.',
+    'Valid exact-HEAD APPROVED Work review for PR #76.',
+  ]);
 });
 
 test('trusts only repository owner OWNER comments', () => {
@@ -329,6 +352,74 @@ test('replays a target-first transition after source-label removal failure', asy
     ['documentation', 'ai:ready-review'],
   );
   assert.equal(harness.pr.draft, false);
+});
+
+test('replays ready-merge after source removal failure despite newer skipped Heavy runs', async () => {
+  const harness = controllerHarness({
+    labels: ['ai:approved'],
+    draft: false,
+    body: '',
+    failRemoveLabel: 1,
+  });
+  const approvedAt = '2026-10-08T01:00:00Z';
+  const checks = [
+    { name: 'test', conclusion: 'success', started_at: '2026-10-08T00:59:00Z' },
+    { name: 'realm', conclusion: 'success', started_at: '2026-10-08T00:59:00Z' },
+    { name: 'android', conclusion: 'success', started_at: '2026-10-08T01:02:00Z' },
+    { name: 'apple', conclusion: 'success', started_at: '2026-10-08T01:02:00Z' },
+    { name: 'development-handoff', conclusion: 'success', started_at: '2026-10-08T00:59:00Z' },
+    { name: 'review-gate', conclusion: 'success', started_at: '2026-10-08T01:01:00Z' },
+    { name: 'android-heavy', conclusion: 'success', started_at: '2026-10-08T01:01:15Z' },
+    { name: 'apple-heavy', conclusion: 'success', started_at: '2026-10-08T01:01:30Z' },
+  ];
+  const checkFilters = [];
+  const listFiles = async () => undefined;
+  const listEventsForTimeline = async () => undefined;
+  harness.github.rest.pulls.listFiles = listFiles;
+  harness.github.rest.issues.listEventsForTimeline = listEventsForTimeline;
+  harness.github.rest.checks = {
+    listForRef: async options => {
+      checkFilters.push(options.filter);
+      return { data: { check_runs: checks } };
+    },
+  };
+  harness.github.paginate = async operation => {
+    if (operation === listFiles) return [{ filename: 'src/features/send/SendScreen.tsx' }];
+    if (operation === listEventsForTimeline) {
+      return [{ event: 'labeled', label: { name: 'ai:approved' }, created_at: approvedAt }];
+    }
+    throw new Error('unexpected pagination target');
+  };
+  harness.context.eventName = 'workflow_run';
+  harness.context.payload = {
+    action: 'completed',
+    workflow_run: {
+      conclusion: 'success',
+      pull_requests: [{ number: 76 }],
+      head_sha: HEAD,
+    },
+  };
+
+  await assert.rejects(run(harness), /injected label remove failure/);
+  assert.deepEqual(
+    harness.pr.labels.map(label => label.name),
+    ['ai:approved', 'ai:ready-merge'],
+  );
+
+  checks.push(
+    { name: 'android', conclusion: 'success', started_at: '2026-10-08T01:03:00Z' },
+    { name: 'apple', conclusion: 'success', started_at: '2026-10-08T01:03:00Z' },
+    { name: 'review-gate', conclusion: 'success', started_at: '2026-10-08T01:03:00Z' },
+    { name: 'android-heavy', conclusion: 'skipped', started_at: '2026-10-08T01:03:15Z' },
+    { name: 'apple-heavy', conclusion: 'skipped', started_at: '2026-10-08T01:03:30Z' },
+  );
+
+  await run(harness);
+
+  assert.deepEqual(checkFilters, ['all', 'all']);
+  assert.equal(harness.calls.addLabels, 1);
+  assert.equal(harness.calls.removeLabel, 2);
+  assert.deepEqual(harness.pr.labels, [{ name: 'ai:ready-merge' }]);
 });
 
 test('does not overwrite concurrent non-ai label additions or removals', async () => {
