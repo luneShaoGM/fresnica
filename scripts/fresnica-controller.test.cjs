@@ -11,6 +11,7 @@ const {
   requiredChecksSatisfied,
   reviewGateDecision,
   trustedOwnerComment,
+  runReviewGate,
   validateTransitionSnapshot,
   run,
 } = require('./fresnica-controller.cjs');
@@ -95,6 +96,54 @@ test('review gate stays green before approval and fails closed after approval', 
     requiresReview: true,
   });
   assert.equal(reviewGateDecision('ai:ready-merge', parseWorkReview(review('NEEDS_FIX')), HEAD).ok, false);
+});
+
+test('review gate reloads durable labels and reruns after target-first label removal', async () => {
+  const workflow = fs.readFileSync(require.resolve('../.github/workflows/ai-review-gate.yml'), 'utf8');
+  assert.match(workflow, /- labeled\s+- unlabeled/);
+  assert.match(workflow, /runReviewGate\(\{ github, context, core \}\)/);
+
+  let pullsGet = 0;
+  const github = {
+    rest: {
+      pulls: {
+        get: async () => {
+          pullsGet += 1;
+          return { data: pullRequest({ labels: [{ name: 'ai:approved' }] }) };
+        },
+      },
+      issues: { listComments: async () => undefined },
+    },
+    paginate: async () => [
+      {
+        body: review('APPROVED'),
+        user: { login: 'luneShaoGM' },
+        author_association: 'OWNER',
+        created_at: '2026-10-08T01:00:00Z',
+      },
+    ],
+  };
+  const context = {
+    repo: { owner: 'luneShaoGM', repo: 'fresnica' },
+    payload: {
+      action: 'labeled',
+      pull_request: pullRequest({
+        labels: [{ name: 'ai:ready-review' }, { name: 'ai:approved' }],
+      }),
+    },
+  };
+  const failures = [];
+  const info = [];
+  const core = {
+    setFailed: message => failures.push(message),
+    info: message => info.push(message),
+  };
+
+  await runReviewGate({ github, context, core });
+
+  assert.equal(pullsGet, 1);
+  assert.deepEqual(failures, []);
+  assert.deepEqual(info, ['Valid exact-HEAD APPROVED Work review for PR #76.']);
 });
 
 test('trusts only repository owner OWNER comments', () => {

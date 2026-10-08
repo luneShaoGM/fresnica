@@ -160,6 +160,7 @@ V2 review gate is a validator, not an orchestrator.
 - For `ai:developing`, `ai:ready-review`, and `ai:needs-fix`, the gate reports success after validating that exactly one known `ai:*` state exists. It does not require an APPROVED review yet.
 - For `ai:approved` and `ai:ready-merge`, it requires a trusted exact-HEAD `APPROVED` Work review with no P1/P2 findings.
 - It never mutates labels, Draft/Ready state, or merge state.
+- It runs on both `labeled` and `unlabeled`, then reloads the durable PR before evaluating state. The target-first transition's final old-label removal therefore guarantees a post-transition gate run against the unique final state instead of relying on the intermediate webhook payload.
 
 This removes expected/red gate noise before approval while preserving fail-closed merge readiness.
 

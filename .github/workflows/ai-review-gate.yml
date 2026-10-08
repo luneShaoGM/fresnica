@@ -4,6 +4,7 @@ on:
   pull_request:
     types:
       - labeled
+      - unlabeled
 
 permissions:
   contents: read
@@ -22,42 +23,4 @@ jobs:
         with:
           script: |
             const controller = require('./scripts/fresnica-controller.cjs');
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const pr = context.payload.pull_request;
-            const state = controller.currentAiState(pr.labels || []);
-
-            if (!state.ok) {
-              core.setFailed(
-                `PR #${pr.number} must have exactly one known ai:* state; ` +
-                  `found ${state.active.join(', ') || 'none'}.`,
-              );
-              return;
-            }
-
-            if (['ai:developing', 'ai:ready-review', 'ai:needs-fix'].includes(state.state)) {
-              core.info(`AI Review Gate is informational while PR is ${state.state}.`);
-              return;
-            }
-
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner,
-              repo,
-              issue_number: pr.number,
-              per_page: 100,
-            });
-            const trustedReviews = comments
-              .filter(comment =>
-                (comment.body || '').includes('<!-- FRESNICA_WORK_REVIEW -->') &&
-                controller.trustedOwnerComment(comment, owner),
-              )
-              .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-            const latest = trustedReviews[trustedReviews.length - 1];
-            const parsed = latest ? controller.parseWorkReview(latest.body || '') : undefined;
-            const decision = controller.reviewGateDecision(state.state, parsed, pr.head.sha);
-
-            if (!decision.ok) {
-              core.setFailed(decision.reason);
-              return;
-            }
-            core.info(`Valid exact-HEAD APPROVED Work review for PR #${pr.number}.`);
+            await controller.runReviewGate({ github, context, core });

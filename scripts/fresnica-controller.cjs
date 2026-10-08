@@ -147,6 +147,45 @@ function trustedOwnerComment(comment, owner) {
   return (comment.user?.login || '').toLowerCase() === owner.toLowerCase() && comment.author_association === 'OWNER';
 }
 
+async function runReviewGate({ github, context, core }) {
+  const owner = context.repo.owner;
+  const repo = context.repo.repo;
+  const eventPr = context.payload.pull_request;
+  const pr = await getPr(github, owner, repo, eventPr.number);
+  const state = currentAiState(pr.labels || []);
+
+  if (!state.ok) {
+    core.setFailed(
+      `PR #${pr.number} must have exactly one known ai:* state; ` + `found ${state.active.join(', ') || 'none'}.`,
+    );
+    return;
+  }
+
+  if (['ai:developing', 'ai:ready-review', 'ai:needs-fix'].includes(state.state)) {
+    core.info(`AI Review Gate is informational while PR is ${state.state}.`);
+    return;
+  }
+
+  const comments = await github.paginate(github.rest.issues.listComments, {
+    owner,
+    repo,
+    issue_number: pr.number,
+    per_page: 100,
+  });
+  const trustedReviews = comments
+    .filter(comment => (comment.body || '').includes(WORK_REVIEW_MARKER) && trustedOwnerComment(comment, owner))
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const latest = trustedReviews[trustedReviews.length - 1];
+  const parsed = latest ? parseWorkReview(latest.body || '') : undefined;
+  const decision = reviewGateDecision(state.state, parsed, pr.head.sha);
+
+  if (!decision.ok) {
+    core.setFailed(decision.reason);
+    return;
+  }
+  core.info(`Valid exact-HEAD APPROVED Work review for PR #${pr.number}.`);
+}
+
 function validateTransitionSnapshot(
   pr,
   expectedHeadSha,
@@ -452,6 +491,7 @@ module.exports = {
   requiredChecksSatisfied,
   reviewGateDecision,
   trustedOwnerComment,
+  runReviewGate,
   validateTransitionSnapshot,
   run,
 };
