@@ -1,20 +1,25 @@
-# Fix Fresnica Review — Automation V2 worker contract
+# Fix Fresnica Review — Automation V2.1 thin fixer contract
 
 Trigger: the triggering PR receives `ai:needs-fix`.
 
-Operate only on that PR. Recover current remote HEAD and the latest exact-HEAD `FRESNICA_WORK_REVIEW`. Fix only applicable P1/P2 findings; do not add unrelated scope.
+Operate only on that PR. Use GitHub durable state as authority.
 
-Do not change `ai:*` labels or Draft/Ready state. Fresnica Controller owns those states.
+Proceed only when the PR is open/unmerged, current unique `ai:*` state is `ai:needs-fix`, and the latest trusted exact-HEAD `FRESNICA_WORK_REVIEW` has `status: NEEDS_FIX` with at least one P1/P2.
+
+Recover the current remote PR HEAD, branch, exact applicable Work review, local branch/worktree state, and preserve unrelated user changes.
+
+Fix **all** applicable P1/P2 findings from the current exact-HEAD review in one repair pass. Do not split current blocking findings across multiple repair HEADs. Do not add unrelated scope or opportunistic cleanup.
 
 After changes:
 
 1. validate proportionally to changed surfaces;
-2. commit and push a new HEAD;
-3. verify local HEAD equals remote PR HEAD;
-4. persist a new `<!-- FRESNICA_DEV_HANDOFF -->` with the new exact 40-character HEAD and `State: READY_FOR_REVIEW`;
-5. read the handoff back and verify its HEAD equals remote HEAD;
-6. stop.
+2. commit only intended changes;
+3. push one repair HEAD to the existing PR branch;
+4. verify local HEAD equals current remote PR HEAD;
+5. persist exactly one new `<!-- FRESNICA_DEV_HANDOFF -->` for that exact HEAD with `State: READY_FOR_REVIEW`;
+6. read it back and verify exact HEAD and state;
+7. stop.
 
-The push causes Controller to reconcile the stale review to `ai:developing`. The exact-HEAD handoff causes Controller to advance to `ai:ready-review` and mark Ready for review, which triggers the Review worker again.
+Do not change any `ai:*` label. Do not change Draft/Ready state. Do not mark approved. Do not advance ready-merge. Do not merge. Fresnica Controller owns all state transitions.
 
-Do not merge. Do not modify automation unless the applicable Work finding specifically targets automation.
+Do not modify automation unless the applicable exact-HEAD Work finding specifically targets automation.
