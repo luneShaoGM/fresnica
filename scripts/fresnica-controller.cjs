@@ -147,7 +147,13 @@ function trustedOwnerComment(comment, owner) {
   return (comment.user?.login || '').toLowerCase() === owner.toLowerCase() && comment.author_association === 'OWNER';
 }
 
-function validateTransitionSnapshot(pr, expectedHeadSha, expectedStates, requireMergeable = false) {
+function validateTransitionSnapshot(
+  pr,
+  expectedHeadSha,
+  expectedStates,
+  requireMergeable = false,
+  allowMissingState = false,
+) {
   if (pr.state !== 'open' || pr.merged === true || pr.merged_at) {
     return { ok: false, reason: `PR #${pr.number} is not open and unmerged.` };
   }
@@ -158,13 +164,13 @@ function validateTransitionSnapshot(pr, expectedHeadSha, expectedStates, require
     };
   }
   const state = currentAiState(pr.labels || []);
-  if (!state.ok) {
+  if (!state.ok && !(allowMissingState && state.active.length === 0)) {
     return {
       ok: false,
       reason: `PR #${pr.number} must have exactly one known ai:* state; found ${state.active.join(', ') || 'none'}.`,
     };
   }
-  if (!expectedStates.includes(state.state)) {
+  if (state.ok && !expectedStates.includes(state.state)) {
     return {
       ok: false,
       reason: `PR #${pr.number} state changed: expected ${expectedStates.join(' or ')}, current ${state.state}.`,
@@ -173,14 +179,20 @@ function validateTransitionSnapshot(pr, expectedHeadSha, expectedStates, require
   if (requireMergeable && pr.mergeable !== true) {
     return { ok: false, reason: `PR #${pr.number} is not currently mergeable without conflicts.` };
   }
-  return { ok: true, state: state.state };
+  return { ok: true, state: state.ok ? state.state : undefined };
 }
 
 async function setAiState(github, owner, repo, pr, target, core, options) {
   const expectedHeadSha = options.expectedHeadSha;
   const requireMergeable = options.requireMergeable === true;
   const current = await getPr(github, owner, repo, pr.number);
-  const before = validateTransitionSnapshot(current, expectedHeadSha, options.expectedStates, requireMergeable);
+  const before = validateTransitionSnapshot(
+    current,
+    expectedHeadSha,
+    options.expectedStates,
+    requireMergeable,
+    options.allowMissingState === true,
+  );
   if (!before.ok) {
     core.info(`Skipping ai:* transition: ${before.reason}`);
     return { ok: false, reason: before.reason };
@@ -190,20 +202,11 @@ async function setAiState(github, owner, repo, pr, target, core, options) {
     return { ok: true, pr: current };
   }
 
-  const active = (current.labels || [])
+  const nextLabels = (current.labels || [])
     .map(label => (typeof label === 'string' ? label : label.name))
-    .filter(name => AI_STATES.includes(name));
-  for (const label of active) {
-    if (label === target) continue;
-    try {
-      await github.rest.issues.removeLabel({ owner, repo, issue_number: pr.number, name: label });
-    } catch (error) {
-      if (error.status !== 404) throw error;
-    }
-  }
-  if (!active.includes(target)) {
-    await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: [target] });
-  }
+    .filter(name => name && !AI_STATES.includes(name));
+  nextLabels.push(target);
+  await github.rest.issues.setLabels({ owner, repo, issue_number: pr.number, labels: nextLabels });
 
   const refreshed = await getPr(github, owner, repo, pr.number);
   const after = validateTransitionSnapshot(refreshed, expectedHeadSha, [target], requireMergeable);
@@ -211,7 +214,7 @@ async function setAiState(github, owner, repo, pr, target, core, options) {
     core.setFailed(`ai:* transition verification failed: ${after.reason}`);
     return { ok: false, reason: after.reason };
   }
-  core.info(`PR #${pr.number}: ${before.state} -> ${target}.`);
+  core.info(`PR #${pr.number}: ${before.state || 'missing'} -> ${target}.`);
   return { ok: true, pr: refreshed };
 }
 
@@ -286,20 +289,25 @@ async function reconcileApproved(github, owner, repo, pr, core) {
   core.notice(`PR #${pr.number} is ai:ready-merge. Automation V2 v1 does not merge.`);
 }
 
-async function handleSynchronize(github, owner, repo, prNumber, core) {
-  const pr = await getPr(github, owner, repo, prNumber);
+async function handleSynchronize(github, owner, repo, eventPr, core) {
+  const pr = await getPr(github, owner, repo, eventPr.number);
   const state = currentAiState(pr.labels || []);
   if (!state.ok) {
-    if (state.active.length === 0) {
+    const eventState = currentAiState(eventPr.labels || []);
+    const eventMatchesHead = eventPr.head.sha.toLowerCase() === pr.head.sha.toLowerCase();
+    if (state.active.length === 0 && (!eventMatchesHead || !eventState.ok)) {
       core.info(`PR #${pr.number} is not enrolled in Fresnica AI state; ignoring synchronize.`);
       return;
     }
-    core.setFailed(`PR #${pr.number} has invalid ai:* labels: ${state.active.join(', ')}.`);
-    return;
+    if (state.active.length > 0) {
+      core.setFailed(`PR #${pr.number} has invalid ai:* labels: ${state.active.join(', ')}.`);
+      return;
+    }
   }
   const transition = await setAiState(github, owner, repo, pr, 'ai:developing', core, {
     expectedHeadSha: pr.head.sha,
     expectedStates: AI_STATES,
+    allowMissingState: !state.ok,
   });
   if (!transition.ok) return;
   await setDraftState(github, owner, repo, transition.pr, true, core, {
@@ -320,10 +328,8 @@ async function handleIssueComment(github, owner, repo, issue, comment, core) {
   const pr = await getPr(github, owner, repo, issue.number);
   if (pr.state !== 'open') return;
   const state = currentAiState(pr.labels || []);
-  if (!state.ok) {
-    core.setFailed(
-      `PR #${pr.number} must have exactly one known ai:* state; found ${state.active.join(', ') || 'none'}.`,
-    );
+  if (!state.ok && state.active.length > 0) {
+    core.setFailed(`PR #${pr.number} has invalid ai:* labels: ${state.active.join(', ')}.`);
     return;
   }
 
@@ -334,13 +340,14 @@ async function handleIssueComment(github, owner, repo, issue, comment, core) {
       core.info(`Ignoring stale development handoff ${handoff.head}; current HEAD=${pr.head.sha}.`);
       return;
     }
-    if (!['ai:developing', 'ai:needs-fix'].includes(state.state)) {
+    if (state.ok && !['ai:developing', 'ai:needs-fix', 'ai:ready-review'].includes(state.state)) {
       core.info(`Ignoring development handoff while state=${state.state}.`);
       return;
     }
     const transition = await setAiState(github, owner, repo, pr, 'ai:ready-review', core, {
       expectedHeadSha: pr.head.sha,
-      expectedStates: ['ai:developing', 'ai:needs-fix'],
+      expectedStates: ['ai:developing', 'ai:needs-fix', 'ai:ready-review'],
+      allowMissingState: !state.ok,
     });
     if (!transition.ok) return;
     await setDraftState(github, owner, repo, transition.pr, false, core, {
@@ -356,19 +363,19 @@ async function handleIssueComment(github, owner, repo, issue, comment, core) {
     core.info(`Ignoring stale Work review ${review.reviewedHeadSha}; current HEAD=${pr.head.sha}.`);
     return;
   }
-  if (state.state !== 'ai:ready-review') {
-    core.info(`Ignoring exact-HEAD Work review while state=${state.state}.`);
-    return;
-  }
-
   const target = targetForReview(review);
   if (!target.ok) {
     core.setFailed(target.reason);
     return;
   }
+  if (state.ok && !['ai:ready-review', target.state].includes(state.state)) {
+    core.info(`Ignoring exact-HEAD Work review while state=${state.state}.`);
+    return;
+  }
   const transition = await setAiState(github, owner, repo, pr, target.state, core, {
     expectedHeadSha: pr.head.sha,
-    expectedStates: ['ai:ready-review'],
+    expectedStates: ['ai:ready-review', target.state],
+    allowMissingState: !state.ok,
   });
   if (!transition.ok) return;
   await setDraftState(github, owner, repo, transition.pr, target.draft, core, {
@@ -393,7 +400,7 @@ async function run({ github, context, core }) {
   const event = context.eventName;
 
   if (event === 'pull_request_target' && context.payload.action === 'synchronize') {
-    await handleSynchronize(github, owner, repo, context.payload.pull_request.number, core);
+    await handleSynchronize(github, owner, repo, context.payload.pull_request, core);
     return;
   }
   if (event === 'issue_comment' && ['created', 'edited'].includes(context.payload.action)) {

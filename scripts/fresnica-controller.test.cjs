@@ -12,6 +12,7 @@ const {
   reviewGateDecision,
   trustedOwnerComment,
   validateTransitionSnapshot,
+  run,
 } = require('./fresnica-controller.cjs');
 
 const HEAD = 'a'.repeat(40);
@@ -130,4 +131,129 @@ test('controller v1 contains no merge API call', () => {
   const source = fs.readFileSync(require.resolve('./fresnica-controller.cjs'), 'utf8');
   assert.equal(source.includes('.merge('), false);
   assert.equal(source.includes('mergePullRequest'), false);
+});
+
+function controllerHarness({ labels, draft, body, failSetLabels = 0, failGraphql = 0 }) {
+  const pr = pullRequest({
+    labels: labels.map(name => ({ name })),
+    draft,
+    node_id: 'PR_76',
+  });
+  const calls = { setLabels: 0, graphql: 0 };
+  const github = {
+    rest: {
+      pulls: {
+        get: async () => ({ data: JSON.parse(JSON.stringify(pr)) }),
+      },
+      issues: {
+        setLabels: async ({ labels: nextLabels }) => {
+          calls.setLabels += 1;
+          if (failSetLabels > 0) {
+            failSetLabels -= 1;
+            throw new Error('injected label failure');
+          }
+          pr.labels = nextLabels.map(name => ({ name }));
+        },
+      },
+    },
+    graphql: async mutation => {
+      calls.graphql += 1;
+      if (failGraphql > 0) {
+        failGraphql -= 1;
+        throw new Error('injected GraphQL failure');
+      }
+      pr.draft = mutation.includes('convertPullRequestToDraft');
+    },
+  };
+  const context = {
+    repo: { owner: 'luneShaoGM', repo: 'fresnica' },
+    eventName: 'issue_comment',
+    payload: {
+      action: 'created',
+      issue: { number: 76, pull_request: {} },
+      comment: {
+        id: 1,
+        body,
+        user: { login: 'luneShaoGM' },
+        author_association: 'OWNER',
+      },
+    },
+  };
+  const core = { info() {}, notice() {}, setFailed() {} };
+  return { pr, calls, github, context, core };
+}
+
+const handoff = `<!-- FRESNICA_DEV_HANDOFF -->\nHEAD: ${HEAD}\nState: READY_FOR_REVIEW`;
+
+test('retries an atomic label failure without losing the source state', async () => {
+  const harness = controllerHarness({
+    labels: ['documentation', 'ai:developing'],
+    draft: true,
+    body: handoff,
+    failSetLabels: 1,
+  });
+
+  await assert.rejects(run(harness), /injected label failure/);
+  assert.deepEqual(
+    harness.pr.labels.map(label => label.name),
+    ['documentation', 'ai:developing'],
+  );
+
+  await run(harness);
+  assert.deepEqual(
+    harness.pr.labels.map(label => label.name),
+    ['documentation', 'ai:ready-review'],
+  );
+  assert.equal(harness.pr.draft, false);
+});
+
+test('replays a handoff from the target label after Ready mutation failure', async () => {
+  const harness = controllerHarness({
+    labels: ['ai:developing'],
+    draft: true,
+    body: handoff,
+    failGraphql: 1,
+  });
+
+  await assert.rejects(run(harness), /injected GraphQL failure/);
+  assert.deepEqual(harness.pr.labels, [{ name: 'ai:ready-review' }]);
+  assert.equal(harness.pr.draft, true);
+
+  await run(harness);
+  assert.equal(harness.calls.setLabels, 1);
+  assert.equal(harness.calls.graphql, 2);
+  assert.equal(harness.pr.draft, false);
+});
+
+test('replays a NEEDS_FIX review from its target label after Draft mutation failure', async () => {
+  const harness = controllerHarness({
+    labels: ['ai:ready-review'],
+    draft: false,
+    body: review('NEEDS_FIX', 'None', 'blocking finding'),
+    failGraphql: 1,
+  });
+
+  await assert.rejects(run(harness), /injected GraphQL failure/);
+  assert.deepEqual(harness.pr.labels, [{ name: 'ai:needs-fix' }]);
+  assert.equal(harness.pr.draft, false);
+
+  await run(harness);
+  assert.equal(harness.calls.setLabels, 1);
+  assert.equal(harness.calls.graphql, 2);
+  assert.equal(harness.pr.draft, true);
+});
+
+test('trusted exact-head handoff recovers a missing ai state without dropping other labels', async () => {
+  const harness = controllerHarness({
+    labels: ['documentation'],
+    draft: true,
+    body: handoff,
+  });
+
+  await run(harness);
+  assert.deepEqual(
+    harness.pr.labels.map(label => label.name),
+    ['documentation', 'ai:ready-review'],
+  );
+  assert.equal(harness.pr.draft, false);
 });
