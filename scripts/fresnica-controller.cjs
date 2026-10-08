@@ -147,14 +147,52 @@ function trustedOwnerComment(comment, owner) {
   return (comment.user?.login || '').toLowerCase() === owner.toLowerCase() && comment.author_association === 'OWNER';
 }
 
-async function setAiState(github, owner, repo, pr, target, core) {
-  const labels = (await github.rest.issues.listLabelsOnIssue({ owner, repo, issue_number: pr.number, per_page: 100 }))
-    .data;
-  const active = labels.map(label => label.name).filter(name => AI_STATES.includes(name));
-  if (active.length === 1 && active[0] === target) {
-    core.info(`PR #${pr.number} already ${target}.`);
-    return;
+function validateTransitionSnapshot(pr, expectedHeadSha, expectedStates, requireMergeable = false) {
+  if (pr.state !== 'open' || pr.merged === true || pr.merged_at) {
+    return { ok: false, reason: `PR #${pr.number} is not open and unmerged.` };
   }
+  if (pr.head.sha.toLowerCase() !== expectedHeadSha.toLowerCase()) {
+    return {
+      ok: false,
+      reason: `PR #${pr.number} HEAD changed: expected ${expectedHeadSha}, current ${pr.head.sha}.`,
+    };
+  }
+  const state = currentAiState(pr.labels || []);
+  if (!state.ok) {
+    return {
+      ok: false,
+      reason: `PR #${pr.number} must have exactly one known ai:* state; found ${state.active.join(', ') || 'none'}.`,
+    };
+  }
+  if (!expectedStates.includes(state.state)) {
+    return {
+      ok: false,
+      reason: `PR #${pr.number} state changed: expected ${expectedStates.join(' or ')}, current ${state.state}.`,
+    };
+  }
+  if (requireMergeable && pr.mergeable !== true) {
+    return { ok: false, reason: `PR #${pr.number} is not currently mergeable without conflicts.` };
+  }
+  return { ok: true, state: state.state };
+}
+
+async function setAiState(github, owner, repo, pr, target, core, options) {
+  const expectedHeadSha = options.expectedHeadSha;
+  const requireMergeable = options.requireMergeable === true;
+  const current = await getPr(github, owner, repo, pr.number);
+  const before = validateTransitionSnapshot(current, expectedHeadSha, options.expectedStates, requireMergeable);
+  if (!before.ok) {
+    core.info(`Skipping ai:* transition: ${before.reason}`);
+    return { ok: false, reason: before.reason };
+  }
+  if (before.state === target) {
+    core.info(`PR #${pr.number} already ${target}.`);
+    return { ok: true, pr: current };
+  }
+
+  const active = (current.labels || [])
+    .map(label => (typeof label === 'string' ? label : label.name))
+    .filter(name => AI_STATES.includes(name));
   for (const label of active) {
     if (label === target) continue;
     try {
@@ -166,16 +204,40 @@ async function setAiState(github, owner, repo, pr, target, core) {
   if (!active.includes(target)) {
     await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: [target] });
   }
-  core.info(`PR #${pr.number}: ${active.join(', ') || 'no ai state'} -> ${target}.`);
+
+  const refreshed = await getPr(github, owner, repo, pr.number);
+  const after = validateTransitionSnapshot(refreshed, expectedHeadSha, [target], requireMergeable);
+  if (!after.ok) {
+    core.setFailed(`ai:* transition verification failed: ${after.reason}`);
+    return { ok: false, reason: after.reason };
+  }
+  core.info(`PR #${pr.number}: ${before.state} -> ${target}.`);
+  return { ok: true, pr: refreshed };
 }
 
-async function setDraftState(github, pr, draft, core) {
-  if (pr.draft === draft) return;
+async function setDraftState(github, owner, repo, pr, draft, core, options) {
+  const current = await getPr(github, owner, repo, pr.number);
+  const before = validateTransitionSnapshot(current, options.expectedHeadSha, options.expectedStates);
+  if (!before.ok) {
+    core.info(`Skipping Draft/Ready transition: ${before.reason}`);
+    return { ok: false, reason: before.reason };
+  }
+  if (current.draft === draft) return { ok: true, pr: current };
+
   const mutation = draft
     ? `mutation($id:ID!){convertPullRequestToDraft(input:{pullRequestId:$id}){pullRequest{isDraft}}}`
     : `mutation($id:ID!){markPullRequestReadyForReview(input:{pullRequestId:$id}){pullRequest{isDraft}}}`;
-  await github.graphql(mutation, { id: pr.node_id });
+  await github.graphql(mutation, { id: current.node_id });
+
+  const refreshed = await getPr(github, owner, repo, pr.number);
+  const after = validateTransitionSnapshot(refreshed, options.expectedHeadSha, options.expectedStates);
+  if (!after.ok || refreshed.draft !== draft) {
+    const reason = after.ok ? `PR #${pr.number} draft=${refreshed.draft}, expected ${draft}.` : after.reason;
+    core.setFailed(`Draft/Ready transition verification failed: ${reason}`);
+    return { ok: false, reason };
+  }
   core.info(`PR #${pr.number}: draft=${draft}.`);
+  return { ok: true, pr: refreshed };
 }
 
 async function getPr(github, owner, repo, number) {
@@ -215,7 +277,12 @@ async function reconcileApproved(github, owner, repo, pr, core) {
     );
     return;
   }
-  await setAiState(github, owner, repo, pr, 'ai:ready-merge', core);
+  const transition = await setAiState(github, owner, repo, pr, 'ai:ready-merge', core, {
+    expectedHeadSha: pr.head.sha,
+    expectedStates: ['ai:approved'],
+    requireMergeable: true,
+  });
+  if (!transition.ok) return;
   core.notice(`PR #${pr.number} is ai:ready-merge. Automation V2 v1 does not merge.`);
 }
 
@@ -230,8 +297,15 @@ async function handleSynchronize(github, owner, repo, prNumber, core) {
     core.setFailed(`PR #${pr.number} has invalid ai:* labels: ${state.active.join(', ')}.`);
     return;
   }
-  await setAiState(github, owner, repo, pr, 'ai:developing', core);
-  await setDraftState(github, pr, true, core);
+  const transition = await setAiState(github, owner, repo, pr, 'ai:developing', core, {
+    expectedHeadSha: pr.head.sha,
+    expectedStates: AI_STATES,
+  });
+  if (!transition.ok) return;
+  await setDraftState(github, owner, repo, transition.pr, true, core, {
+    expectedHeadSha: pr.head.sha,
+    expectedStates: ['ai:developing'],
+  });
 }
 
 async function handleIssueComment(github, owner, repo, issue, comment, core) {
@@ -264,9 +338,15 @@ async function handleIssueComment(github, owner, repo, issue, comment, core) {
       core.info(`Ignoring development handoff while state=${state.state}.`);
       return;
     }
-    await setAiState(github, owner, repo, pr, 'ai:ready-review', core);
-    const refreshed = await getPr(github, owner, repo, pr.number);
-    await setDraftState(github, refreshed, false, core);
+    const transition = await setAiState(github, owner, repo, pr, 'ai:ready-review', core, {
+      expectedHeadSha: pr.head.sha,
+      expectedStates: ['ai:developing', 'ai:needs-fix'],
+    });
+    if (!transition.ok) return;
+    await setDraftState(github, owner, repo, transition.pr, false, core, {
+      expectedHeadSha: pr.head.sha,
+      expectedStates: ['ai:ready-review'],
+    });
     return;
   }
 
@@ -286,9 +366,15 @@ async function handleIssueComment(github, owner, repo, issue, comment, core) {
     core.setFailed(target.reason);
     return;
   }
-  await setAiState(github, owner, repo, pr, target.state, core);
-  const refreshed = await getPr(github, owner, repo, pr.number);
-  await setDraftState(github, refreshed, target.draft, core);
+  const transition = await setAiState(github, owner, repo, pr, target.state, core, {
+    expectedHeadSha: pr.head.sha,
+    expectedStates: ['ai:ready-review'],
+  });
+  if (!transition.ok) return;
+  await setDraftState(github, owner, repo, transition.pr, target.draft, core, {
+    expectedHeadSha: pr.head.sha,
+    expectedStates: [target.state],
+  });
 }
 
 async function handleWorkflowRun(github, owner, repo, workflowRun, core) {
@@ -306,7 +392,7 @@ async function run({ github, context, core }) {
   const repo = context.repo.repo;
   const event = context.eventName;
 
-  if (event === 'pull_request' && context.payload.action === 'synchronize') {
+  if (event === 'pull_request_target' && context.payload.action === 'synchronize') {
     await handleSynchronize(github, owner, repo, context.payload.pull_request.number, core);
     return;
   }
@@ -329,5 +415,6 @@ module.exports = {
   requiredChecksSatisfied,
   reviewGateDecision,
   trustedOwnerComment,
+  validateTransitionSnapshot,
   run,
 };

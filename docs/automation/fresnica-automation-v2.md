@@ -34,6 +34,8 @@ ai:ready-merge
 
 Every state decision is recomputed from current GitHub state. Events are hints to reconcile, not proof that a transition is valid.
 
+Privileged HEAD-change reconciliation uses `pull_request_target`, and Controller execution loads its module and contract tests only from the repository's trusted default branch. It never executes workflow or Controller code from a pull-request checkout.
+
 A persisted artifact applies only when its embedded 40-character SHA equals current remote PR HEAD.
 
 ## State machine
@@ -171,9 +173,11 @@ Every transition is idempotent. Replayed events must converge to the same state 
 
 Controller never advances based on event order alone. It reloads the PR, current HEAD, labels, comments, and checks before deciding.
 
+Immediately before every label or Draft/Ready mutation, Controller re-reads the PR and requires the expected exact HEAD, unique source state, OPEN/unmerged state, and—when creating `ai:ready-merge`—current conflict-free mergeability. It re-reads again after mutation and verifies the exact HEAD, unique target state, and intended Draft/Ready result.
+
 If the current state already equals the target, Controller performs no label churn. Draft/Ready changes are likewise performed only when needed.
 
-Unknown/malformed artifacts or inconsistent state fail closed and leave the PR recoverable by a later valid event.
+Unknown/malformed artifacts, stale snapshots, closed/merged PRs, merge conflicts, or inconsistent state fail closed and leave the PR recoverable by a later valid event.
 
 ## V2 v1 acceptance
 

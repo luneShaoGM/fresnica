@@ -11,9 +11,23 @@ const {
   requiredChecksSatisfied,
   reviewGateDecision,
   trustedOwnerComment,
+  validateTransitionSnapshot,
 } = require('./fresnica-controller.cjs');
 
 const HEAD = 'a'.repeat(40);
+
+function pullRequest(overrides = {}) {
+  return {
+    number: 76,
+    state: 'open',
+    merged: false,
+    merged_at: null,
+    mergeable: true,
+    head: { sha: HEAD },
+    labels: [{ name: 'ai:approved' }],
+    ...overrides,
+  };
+}
 
 function review(status, p1 = 'None', p2 = 'None', head = HEAD) {
   return `<!-- FRESNICA_WORK_REVIEW -->\nreviewed_head_sha: ${head}\nstatus: ${status}\n\nP1:\n- ${p1}\n\nP2:\n- ${p2}\n\nP3:\n- None\n\nVALIDATION_CHECKED:\n- checked`;
@@ -85,6 +99,31 @@ test('review gate stays green before approval and fails closed after approval', 
 test('trusts only repository owner OWNER comments', () => {
   assert.equal(trustedOwnerComment({ user: { login: 'luneShaoGM' }, author_association: 'OWNER' }, 'luneShaoGM'), true);
   assert.equal(trustedOwnerComment({ user: { login: 'bot' }, author_association: 'MEMBER' }, 'luneShaoGM'), false);
+});
+
+test('transition snapshots require exact HEAD, unique expected state and open unmerged PR', () => {
+  assert.deepEqual(validateTransitionSnapshot(pullRequest(), HEAD, ['ai:approved'], true), {
+    ok: true,
+    state: 'ai:approved',
+  });
+  assert.equal(
+    validateTransitionSnapshot(pullRequest({ head: { sha: 'b'.repeat(40) } }), HEAD, ['ai:approved']).ok,
+    false,
+  );
+  assert.equal(validateTransitionSnapshot(pullRequest({ state: 'closed' }), HEAD, ['ai:approved']).ok, false);
+  assert.equal(validateTransitionSnapshot(pullRequest({ merged: true }), HEAD, ['ai:approved']).ok, false);
+  assert.equal(
+    validateTransitionSnapshot(pullRequest({ labels: [{ name: 'ai:developing' }] }), HEAD, ['ai:approved']).ok,
+    false,
+  );
+  assert.equal(validateTransitionSnapshot(pullRequest({ mergeable: false }), HEAD, ['ai:approved'], true).ok, false);
+});
+
+test('privileged controller loads code only from the trusted default branch', () => {
+  const workflow = fs.readFileSync(require.resolve('../.github/workflows/fresnica-controller.yml'), 'utf8');
+  assert.equal(workflow.includes('pull_request_target:'), true);
+  assert.equal(workflow.includes('ref: ${{ github.event.repository.default_branch }}'), true);
+  assert.equal(workflow.includes('persist-credentials: false'), true);
 });
 
 test('controller v1 contains no merge API call', () => {

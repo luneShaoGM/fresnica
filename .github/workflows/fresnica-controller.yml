@@ -1,7 +1,7 @@
 name: Fresnica Controller
 
 on:
-  pull_request:
+  pull_request_target:
     types:
       - synchronize
   issue_comment:
@@ -34,8 +34,11 @@ jobs:
   reconcile:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out controller source
+      - name: Check out trusted controller source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
 
       - name: Verify controller contract
         run: node --test scripts/fresnica-controller.test.cjs
