@@ -133,26 +133,58 @@ test('controller v1 contains no merge API call', () => {
   assert.equal(source.includes('mergePullRequest'), false);
 });
 
-function controllerHarness({ labels, draft, body, failSetLabels = 0, failGraphql = 0 }) {
+function controllerHarness({
+  labels,
+  draft,
+  body,
+  failAddLabels = 0,
+  failRemoveLabel = 0,
+  failGraphql = 0,
+  concurrentAddLabel,
+  concurrentRemoveLabel,
+}) {
   const pr = pullRequest({
     labels: labels.map(name => ({ name })),
     draft,
     node_id: 'PR_76',
   });
-  const calls = { setLabels: 0, graphql: 0 };
+  const calls = { addLabels: 0, removeLabel: 0, graphql: 0 };
   const github = {
     rest: {
       pulls: {
         get: async () => ({ data: JSON.parse(JSON.stringify(pr)) }),
       },
       issues: {
-        setLabels: async ({ labels: nextLabels }) => {
-          calls.setLabels += 1;
-          if (failSetLabels > 0) {
-            failSetLabels -= 1;
-            throw new Error('injected label failure');
+        addLabels: async ({ labels: addedLabels }) => {
+          calls.addLabels += 1;
+          if (failAddLabels > 0) {
+            failAddLabels -= 1;
+            throw new Error('injected label add failure');
           }
-          pr.labels = nextLabels.map(name => ({ name }));
+          if (concurrentRemoveLabel) {
+            pr.labels = pr.labels.filter(label => label.name !== concurrentRemoveLabel);
+            concurrentRemoveLabel = undefined;
+          }
+          if (concurrentAddLabel && !pr.labels.some(label => label.name === concurrentAddLabel)) {
+            pr.labels.push({ name: concurrentAddLabel });
+            concurrentAddLabel = undefined;
+          }
+          for (const name of addedLabels) {
+            if (!pr.labels.some(label => label.name === name)) pr.labels.push({ name });
+          }
+        },
+        removeLabel: async ({ name }) => {
+          calls.removeLabel += 1;
+          if (failRemoveLabel > 0) {
+            failRemoveLabel -= 1;
+            throw new Error('injected label remove failure');
+          }
+          if (!pr.labels.some(label => label.name === name)) {
+            const error = new Error('missing label');
+            error.status = 404;
+            throw error;
+          }
+          pr.labels = pr.labels.filter(label => label.name !== name);
         },
       },
     },
@@ -185,15 +217,15 @@ function controllerHarness({ labels, draft, body, failSetLabels = 0, failGraphql
 
 const handoff = `<!-- FRESNICA_DEV_HANDOFF -->\nHEAD: ${HEAD}\nState: READY_FOR_REVIEW`;
 
-test('retries an atomic label failure without losing the source state', async () => {
+test('retries a target-label add failure without losing the source state', async () => {
   const harness = controllerHarness({
     labels: ['documentation', 'ai:developing'],
     draft: true,
     body: handoff,
-    failSetLabels: 1,
+    failAddLabels: 1,
   });
 
-  await assert.rejects(run(harness), /injected label failure/);
+  await assert.rejects(run(harness), /injected label add failure/);
   assert.deepEqual(
     harness.pr.labels.map(label => label.name),
     ['documentation', 'ai:developing'],
@@ -203,6 +235,47 @@ test('retries an atomic label failure without losing the source state', async ()
   assert.deepEqual(
     harness.pr.labels.map(label => label.name),
     ['documentation', 'ai:ready-review'],
+  );
+  assert.equal(harness.pr.draft, false);
+});
+
+test('replays a target-first transition after source-label removal failure', async () => {
+  const harness = controllerHarness({
+    labels: ['documentation', 'ai:developing'],
+    draft: true,
+    body: handoff,
+    failRemoveLabel: 1,
+  });
+
+  await assert.rejects(run(harness), /injected label remove failure/);
+  assert.deepEqual(
+    harness.pr.labels.map(label => label.name),
+    ['documentation', 'ai:developing', 'ai:ready-review'],
+  );
+
+  await run(harness);
+  assert.equal(harness.calls.addLabels, 1);
+  assert.equal(harness.calls.removeLabel, 2);
+  assert.deepEqual(
+    harness.pr.labels.map(label => label.name),
+    ['documentation', 'ai:ready-review'],
+  );
+  assert.equal(harness.pr.draft, false);
+});
+
+test('does not overwrite concurrent non-ai label additions or removals', async () => {
+  const harness = controllerHarness({
+    labels: ['documentation', 'ai:developing'],
+    draft: true,
+    body: handoff,
+    concurrentAddLabel: 'priority',
+    concurrentRemoveLabel: 'documentation',
+  });
+
+  await run(harness);
+  assert.deepEqual(
+    harness.pr.labels.map(label => label.name),
+    ['priority', 'ai:ready-review'],
   );
   assert.equal(harness.pr.draft, false);
 });
@@ -220,7 +293,8 @@ test('replays a handoff from the target label after Ready mutation failure', asy
   assert.equal(harness.pr.draft, true);
 
   await run(harness);
-  assert.equal(harness.calls.setLabels, 1);
+  assert.equal(harness.calls.addLabels, 1);
+  assert.equal(harness.calls.removeLabel, 1);
   assert.equal(harness.calls.graphql, 2);
   assert.equal(harness.pr.draft, false);
 });
@@ -238,7 +312,8 @@ test('replays a NEEDS_FIX review from its target label after Draft mutation fail
   assert.equal(harness.pr.draft, false);
 
   await run(harness);
-  assert.equal(harness.calls.setLabels, 1);
+  assert.equal(harness.calls.addLabels, 1);
+  assert.equal(harness.calls.removeLabel, 1);
   assert.equal(harness.calls.graphql, 2);
   assert.equal(harness.pr.draft, true);
 });

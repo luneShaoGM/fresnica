@@ -175,11 +175,11 @@ Controller never advances based on event order alone. It reloads the PR, current
 
 Immediately before every label or Draft/Ready mutation, Controller re-reads the PR and requires the expected exact HEAD, an allowed source-or-target state, OPEN/unmerged state, and—when creating `ai:ready-merge`—current conflict-free mergeability. It re-reads again after mutation and verifies the exact HEAD, unique target state, and intended Draft/Ready result.
 
-AI state changes use one full-label-set mutation that preserves non-AI labels and replaces the AI state atomically, avoiding a remove/add gap with zero known state. If that request fails, the source label remains available for replay.
+AI state changes add the target AI label first and then remove only the previous AI label. These targeted label operations never replace the full label set, so concurrent non-AI label additions or removals are preserved. If target addition fails, the source label remains available for replay. If source removal fails, replay accepts only the exact source-plus-target pair for that transition and finishes the removal.
 
 If the current state already equals the target, Controller performs no label churn and continues any unfinished Draft/Ready reconciliation. A trusted exact-HEAD handoff or Work review may also recover a missing AI state left by an interrupted earlier transition. Synchronize recovery from a missing state additionally requires the exact event snapshot to prove that the same HEAD was already enrolled with one known AI state.
 
-Unknown/malformed artifacts, stale snapshots, closed/merged PRs, merge conflicts, multiple AI states, or an unproven missing state fail closed. Retryable source, target, and proven missing-state snapshots converge when the same valid event is replayed.
+Unknown/malformed artifacts, stale snapshots, closed/merged PRs, merge conflicts, unrelated or larger multiple-AI-state sets, or an unproven missing state fail closed. Retryable source, target, exact source-plus-target, and proven missing-state snapshots converge when the same valid event is replayed.
 
 ## V2 v1 acceptance
 

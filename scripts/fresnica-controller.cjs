@@ -153,6 +153,7 @@ function validateTransitionSnapshot(
   expectedStates,
   requireMergeable = false,
   allowMissingState = false,
+  recoverableTarget,
 ) {
   if (pr.state !== 'open' || pr.merged === true || pr.merged_at) {
     return { ok: false, reason: `PR #${pr.number} is not open and unmerged.` };
@@ -164,10 +165,15 @@ function validateTransitionSnapshot(
     };
   }
   const state = currentAiState(pr.labels || []);
-  if (!state.ok && !(allowMissingState && state.active.length === 0)) {
+  const recoverablePair =
+    !state.ok &&
+    state.active.length === 2 &&
+    state.active.includes(recoverableTarget) &&
+    state.active.every(activeState => expectedStates.includes(activeState));
+  if (!state.ok && !(allowMissingState && state.active.length === 0) && !recoverablePair) {
     return {
       ok: false,
-      reason: `PR #${pr.number} must have exactly one known ai:* state; found ${state.active.join(', ') || 'none'}.`,
+      reason: `PR #${pr.number} must have an allowed ai:* transition state; found ${state.active.join(', ') || 'none'}.`,
     };
   }
   if (state.ok && !expectedStates.includes(state.state)) {
@@ -192,6 +198,7 @@ async function setAiState(github, owner, repo, pr, target, core, options) {
     options.expectedStates,
     requireMergeable,
     options.allowMissingState === true,
+    target,
   );
   if (!before.ok) {
     core.info(`Skipping ai:* transition: ${before.reason}`);
@@ -202,11 +209,39 @@ async function setAiState(github, owner, repo, pr, target, core, options) {
     return { ok: true, pr: current };
   }
 
-  const nextLabels = (current.labels || [])
+  let active = (current.labels || [])
     .map(label => (typeof label === 'string' ? label : label.name))
-    .filter(name => name && !AI_STATES.includes(name));
-  nextLabels.push(target);
-  await github.rest.issues.setLabels({ owner, repo, issue_number: pr.number, labels: nextLabels });
+    .filter(name => AI_STATES.includes(name));
+  if (!active.includes(target)) {
+    await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: [target] });
+  }
+
+  const withTarget = await getPr(github, owner, repo, pr.number);
+  const targetPersisted = validateTransitionSnapshot(
+    withTarget,
+    expectedHeadSha,
+    options.expectedStates,
+    requireMergeable,
+    false,
+    target,
+  );
+  active = (withTarget.labels || [])
+    .map(label => (typeof label === 'string' ? label : label.name))
+    .filter(name => AI_STATES.includes(name));
+  if (!targetPersisted.ok || !active.includes(target)) {
+    const reason = targetPersisted.ok ? `PR #${pr.number} is missing target state ${target}.` : targetPersisted.reason;
+    core.setFailed(`ai:* target persistence verification failed: ${reason}`);
+    return { ok: false, reason };
+  }
+
+  for (const label of active) {
+    if (label === target) continue;
+    try {
+      await github.rest.issues.removeLabel({ owner, repo, issue_number: pr.number, name: label });
+    } catch (error) {
+      if (error.status !== 404) throw error;
+    }
+  }
 
   const refreshed = await getPr(github, owner, repo, pr.number);
   const after = validateTransitionSnapshot(refreshed, expectedHeadSha, [target], requireMergeable);
@@ -214,7 +249,7 @@ async function setAiState(github, owner, repo, pr, target, core, options) {
     core.setFailed(`ai:* transition verification failed: ${after.reason}`);
     return { ok: false, reason: after.reason };
   }
-  core.info(`PR #${pr.number}: ${before.state || 'missing'} -> ${target}.`);
+  core.info(`PR #${pr.number}: ${before.state || 'recovering'} -> ${target}.`);
   return { ok: true, pr: refreshed };
 }
 
@@ -261,7 +296,12 @@ async function approvedLabelTime(github, owner, repo, prNumber) {
 
 async function reconcileApproved(github, owner, repo, pr, core) {
   const state = currentAiState(pr.labels || []);
-  if (!state.ok || state.state !== 'ai:approved') return;
+  const recoveringReadyMerge =
+    !state.ok &&
+    state.active.length === 2 &&
+    state.active.includes('ai:approved') &&
+    state.active.includes('ai:ready-merge');
+  if (!recoveringReadyMerge && (!state.ok || state.state !== 'ai:approved')) return;
 
   const checksResponse = await github.rest.checks.listForRef({
     owner,
@@ -282,7 +322,7 @@ async function reconcileApproved(github, owner, repo, pr, core) {
   }
   const transition = await setAiState(github, owner, repo, pr, 'ai:ready-merge', core, {
     expectedHeadSha: pr.head.sha,
-    expectedStates: ['ai:approved'],
+    expectedStates: ['ai:approved', 'ai:ready-merge'],
     requireMergeable: true,
   });
   if (!transition.ok) return;
@@ -295,11 +335,15 @@ async function handleSynchronize(github, owner, repo, eventPr, core) {
   if (!state.ok) {
     const eventState = currentAiState(eventPr.labels || []);
     const eventMatchesHead = eventPr.head.sha.toLowerCase() === pr.head.sha.toLowerCase();
+    const recoveringDeveloping =
+      state.active.length === 2 &&
+      state.active.includes('ai:developing') &&
+      state.active.every(activeState => AI_STATES.includes(activeState));
     if (state.active.length === 0 && (!eventMatchesHead || !eventState.ok)) {
       core.info(`PR #${pr.number} is not enrolled in Fresnica AI state; ignoring synchronize.`);
       return;
     }
-    if (state.active.length > 0) {
+    if (state.active.length > 0 && !recoveringDeveloping) {
       core.setFailed(`PR #${pr.number} has invalid ai:* labels: ${state.active.join(', ')}.`);
       return;
     }
@@ -327,12 +371,6 @@ async function handleIssueComment(github, owner, repo, issue, comment, core) {
 
   const pr = await getPr(github, owner, repo, issue.number);
   if (pr.state !== 'open') return;
-  const state = currentAiState(pr.labels || []);
-  if (!state.ok && state.active.length > 0) {
-    core.setFailed(`PR #${pr.number} has invalid ai:* labels: ${state.active.join(', ')}.`);
-    return;
-  }
-
   const body = comment.body || '';
   const handoff = parseDevelopmentHandoff(body);
   if (handoff) {
@@ -340,14 +378,10 @@ async function handleIssueComment(github, owner, repo, issue, comment, core) {
       core.info(`Ignoring stale development handoff ${handoff.head}; current HEAD=${pr.head.sha}.`);
       return;
     }
-    if (state.ok && !['ai:developing', 'ai:needs-fix', 'ai:ready-review'].includes(state.state)) {
-      core.info(`Ignoring development handoff while state=${state.state}.`);
-      return;
-    }
     const transition = await setAiState(github, owner, repo, pr, 'ai:ready-review', core, {
       expectedHeadSha: pr.head.sha,
       expectedStates: ['ai:developing', 'ai:needs-fix', 'ai:ready-review'],
-      allowMissingState: !state.ok,
+      allowMissingState: true,
     });
     if (!transition.ok) return;
     await setDraftState(github, owner, repo, transition.pr, false, core, {
@@ -368,14 +402,10 @@ async function handleIssueComment(github, owner, repo, issue, comment, core) {
     core.setFailed(target.reason);
     return;
   }
-  if (state.ok && !['ai:ready-review', target.state].includes(state.state)) {
-    core.info(`Ignoring exact-HEAD Work review while state=${state.state}.`);
-    return;
-  }
   const transition = await setAiState(github, owner, repo, pr, target.state, core, {
     expectedHeadSha: pr.head.sha,
     expectedStates: ['ai:ready-review', target.state],
-    allowMissingState: !state.ok,
+    allowMissingState: true,
   });
   if (!transition.ok) return;
   await setDraftState(github, owner, repo, transition.pr, target.draft, core, {
