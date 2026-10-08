@@ -25,6 +25,11 @@ export type PaymentRequest = Readonly<{
   memo?: StellarPaymentMemo;
 }>;
 
+export type PaymentSourceAssetRequest = Readonly<{
+  asset: PaymentReviewAsset;
+  amount?: string;
+}>;
+
 export async function preparePayment(
   dependencies: PreparePaymentDependencies,
   account: AccountRecord,
@@ -110,6 +115,32 @@ export async function preparePayment(
     throw new Error('payment-review-context-mismatch');
   }
   return review;
+}
+
+export async function assertPaymentSourceCanSendAsset(
+  dependencies: Pick<PreparePaymentDependencies, 'gateway' | 'network'>,
+  account: AccountRecord,
+  request: PaymentSourceAssetRequest,
+): Promise<void> {
+  assertClassicSource(account, dependencies.network.id);
+  const asset = validatePaymentAsset(request.asset, address => dependencies.gateway.isClassicAccountAddress(address));
+  const amountStroops = request.amount === undefined ? 1n : parsePositiveStroops(validatePaymentAmount(request.amount));
+  const sourceResult = await dependencies.gateway.loadAccountState(account.address);
+  if (sourceResult.status !== 'active') {
+    throw new Error('payment-source-account-inactive');
+  }
+  if (sourceResult.account.address !== account.address) {
+    throw new Error('payment-source-account-mismatch');
+  }
+  const ledger = await dependencies.gateway.loadLedgerParameters();
+  validateSourceAvailability(
+    sourceResult.account,
+    account.address,
+    asset,
+    amountStroops,
+    ledger.baseReserveStroops,
+    ledger.baseFeeStroops,
+  );
 }
 
 export function validateClassicDestination(

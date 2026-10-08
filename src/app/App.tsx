@@ -123,6 +123,7 @@ export function App() {
 
   useEffect(() => {
     if (parsedDeepLink === undefined || runtime.kind !== 'ready' || runtime.bootstrap.kind !== 'ready') return;
+    let active = true;
     let defaultAccountId: string | undefined;
     try {
       defaultAccountId = runtime.services.accountSelectionPreferences.getDefaultAccountId(
@@ -133,15 +134,25 @@ export function App() {
         details: { networkId: runtime.services.onboarding.networkId, error },
       });
     }
-    setResolvedDeepLink(
-      resolveRequestDeepLink(
-        parsedDeepLink,
-        runtime.bootstrap.accounts,
-        runtime.services.onboarding.networkId,
-        defaultAccountId,
-        accountId => runtime.services.onboarding.repository.isWatchOnly(accountId),
-      ),
-    );
+    resolveRequestDeepLink(
+      runtime.services.send,
+      parsedDeepLink,
+      runtime.bootstrap.accounts,
+      defaultAccountId,
+      accountId => runtime.services.onboarding.repository.isWatchOnly(accountId),
+    )
+      .then(resolved => {
+        if (active) setResolvedDeepLink(resolved);
+      })
+      .catch(error => {
+        runtime.services.diagnostics.warn('request-deep-link-resolution-failed', {
+          details: { category: parsedDeepLink.diagnostics.category, error },
+        });
+        if (active) setResolvedDeepLink({ kind: 'blocked', reason: 'account-ineligible' });
+      });
+    return () => {
+      active = false;
+    };
   }, [parsedDeepLink, runtime]);
 
   const refreshBootstrap = useCallback(() => {
