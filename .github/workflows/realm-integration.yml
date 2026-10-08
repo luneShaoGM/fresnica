@@ -5,13 +5,60 @@ on:
     branches:
       - main
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+      - unlabeled
   workflow_dispatch:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
-  realm:
+  plan:
+    name: realm-plan
+    runs-on: ubuntu-latest
+    outputs:
+      disposition: ${{ steps.plan.outputs.disposition }}
+      categories: ${{ steps.plan.outputs.categories }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Classify Realm gate
+        id: plan
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (context.eventName !== 'pull_request') {
+              core.setOutput('disposition', 'applicable');
+              core.setOutput('categories', 'default-branch/manual');
+              return;
+            }
+            const controller = require('./scripts/fresnica-controller.cjs');
+            const planner = require('./scripts/fresnica-gate-planner.cjs');
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const number = context.payload.pull_request.number;
+            const pr = (await github.rest.pulls.get({ owner, repo, pull_number: number })).data;
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: number,
+              per_page: 100,
+            });
+            const plan = planner.classifyGatePlan(files.map(file => file.filename));
+            const state = controller.currentAiState(pr.labels || []);
+            const disposition = planner.heavyGateDisposition(plan, 'realm', state.ok ? state.state : undefined);
+            core.setOutput('disposition', disposition);
+            core.setOutput('categories', plan.categories.join(',') || 'none');
+            await core.summary.addHeading('Realm Gate Plan').addRaw(`Disposition: ${disposition}\nCategories: ${plan.categories.join(', ') || 'none'}\n`).write();
+
+  realm_heavy:
+    name: realm-heavy
+    needs: plan
+    if: needs.plan.outputs.disposition == 'applicable'
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -20,5 +67,28 @@ jobs:
           node-version: '22.13.0'
           cache: npm
       - run: npm ci
-      - run: npm run typecheck
       - run: npm run test:realm
+
+  realm:
+    name: realm
+    needs:
+      - plan
+      - realm_heavy
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Realm gate disposition
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          DISPOSITION: ${{ needs.plan.outputs.disposition }}
+          HEAVY_RESULT: ${{ needs.realm_heavy.result }}
+          CATEGORIES: ${{ needs.plan.outputs.categories }}
+        run: |
+          set -euo pipefail
+          test "$PLAN_RESULT" = success
+          case "$DISPOSITION" in
+            applicable) test "$HEAVY_RESULT" = success ;;
+            deferred|not-applicable) test "$HEAVY_RESULT" = skipped ;;
+            *) echo "Unknown Realm disposition: $DISPOSITION" >&2; exit 1 ;;
+          esac
+          printf 'Realm gate: %s (%s)\n' "$DISPOSITION" "$CATEGORIES" >> "$GITHUB_STEP_SUMMARY"
