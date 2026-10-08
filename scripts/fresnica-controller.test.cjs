@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const fs = require('node:fs');
+const { classifyGatePlan } = require('./fresnica-gate-planner.cjs');
 const {
   currentAiState,
   parseDevelopmentHandoff,
@@ -66,25 +67,43 @@ test('rejects contradictory APPROVED review containing P1/P2', () => {
   });
 });
 
-test('requires all exact-head gate names successful and review-gate after approval', () => {
+test('not-applicable heavy gates keep fixed required checks without heavy evidence', () => {
   const approvedAt = Date.parse('2026-10-08T01:00:00Z');
   const checks = ['test', 'realm', 'android', 'apple', 'development-handoff', 'review-gate'].map((name, index) => ({
     name,
     conclusion: 'success',
     started_at: index === 5 ? '2026-10-08T01:00:01Z' : '2026-10-08T00:59:00Z',
   }));
-  assert.deepEqual(requiredChecksSatisfied(checks, approvedAt), { ok: true, missing: [], notSuccessful: [] });
+  const plan = classifyGatePlan(['.github/workflows/fresnica-controller.yml']);
+  assert.deepEqual(requiredChecksSatisfied(checks, approvedAt, plan), { ok: true, missing: [], notSuccessful: [] });
+});
 
-  const staleReviewGate = checks.map(check =>
-    check.name === 'review-gate' ? { ...check, started_at: '2026-10-08T00:59:59Z' } : check,
+test('applicable heavy gates require fresh post-approval heavy and fixed successes', () => {
+  const approvedAt = Date.parse('2026-10-08T01:00:00Z');
+  const plan = classifyGatePlan(['src/features/send/SendScreen.tsx']);
+  const base = ['test', 'realm', 'android', 'apple', 'development-handoff', 'review-gate'].map(name => ({
+    name,
+    conclusion: 'success',
+    started_at: name === 'review-gate' ? '2026-10-08T01:00:01Z' : '2026-10-08T00:59:00Z',
+  }));
+
+  const missingHeavy = requiredChecksSatisfied(base, approvedAt, plan);
+  assert.deepEqual(missingHeavy.missing.sort(), ['android-heavy', 'apple-heavy']);
+  assert.ok(missingHeavy.notSuccessful.includes('android:predates-ai-approved'));
+  assert.ok(missingHeavy.notSuccessful.includes('apple:predates-ai-approved'));
+
+  const fresh = base.map(check =>
+    ['android', 'apple'].includes(check.name) ? { ...check, started_at: '2026-10-08T01:02:00Z' } : check,
   );
-  assert.equal(requiredChecksSatisfied(staleReviewGate, approvedAt).ok, false);
-  assert.deepEqual(
-    requiredChecksSatisfied(
-      checks.filter(check => check.name !== 'apple'),
-      approvedAt,
-    ).missing,
-    ['apple'],
+  fresh.push(
+    { name: 'android-heavy', conclusion: 'success', started_at: '2026-10-08T01:01:00Z' },
+    { name: 'apple-heavy', conclusion: 'success', started_at: '2026-10-08T01:01:30Z' },
+  );
+  assert.deepEqual(requiredChecksSatisfied(fresh, approvedAt, plan), { ok: true, missing: [], notSuccessful: [] });
+
+  fresh[6] = { ...fresh[6], started_at: '2026-10-08T00:58:00Z' };
+  assert.ok(
+    requiredChecksSatisfied(fresh, approvedAt, plan).notSuccessful.includes('android-heavy:predates-ai-approved'),
   );
 });
 

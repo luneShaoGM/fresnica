@@ -61,4 +61,22 @@ test('heavy disposition is not-applicable, deferred, or applicable by trusted pl
   const productPlan = classifyGatePlan(['src/features/send/SendScreen.tsx']);
   assert.equal(heavyGateDisposition(productPlan, 'android', 'ai:ready-review'), 'deferred');
   assert.equal(heavyGateDisposition(productPlan, 'android', 'ai:approved'), 'applicable');
+  assert.equal(heavyGateDisposition(productPlan, 'android', 'ai:ready-merge'), 'deferred');
+});
+
+const fs = require('node:fs');
+
+test('heavy workflows preserve fixed checks and expose conditional heavy sub-checks', () => {
+  const workflows = [
+    ['realm', '../.github/workflows/realm-integration.yml'],
+    ['android', '../.github/workflows/native-android-gate.yml'],
+    ['apple', '../.github/workflows/native-apple-gate.yml'],
+  ];
+  for (const [gate, relative] of workflows) {
+    const workflow = fs.readFileSync(require.resolve(relative), 'utf8');
+    assert.match(workflow, /- labeled\s+- unlabeled/);
+    assert.match(workflow, new RegExp(`name: ${gate}-heavy`));
+    assert.match(workflow, new RegExp(`name: ${gate}\n`));
+    assert.match(workflow, /deferred\|not-applicable/);
+  }
 });

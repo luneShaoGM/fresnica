@@ -1,8 +1,11 @@
 'use strict';
 
+const { classifyGatePlan } = require('./fresnica-gate-planner.cjs');
+
 const AI_STATES = Object.freeze(['ai:developing', 'ai:ready-review', 'ai:needs-fix', 'ai:approved', 'ai:ready-merge']);
 
 const REQUIRED_CHECKS = Object.freeze(['test', 'realm', 'android', 'apple', 'development-handoff', 'review-gate']);
+const HEAVY_CHECKS = Object.freeze({ realm: 'realm-heavy', android: 'android-heavy', apple: 'apple-heavy' });
 
 const DEV_HANDOFF_MARKER = '<!-- FRESNICA_DEV_HANDOFF -->';
 const WORK_REVIEW_MARKER = '<!-- FRESNICA_WORK_REVIEW -->';
@@ -82,8 +85,9 @@ function targetForReview(review) {
 
 function latestChecksByName(checkRuns) {
   const latest = new Map();
+  const trackedChecks = new Set([...REQUIRED_CHECKS, ...Object.values(HEAVY_CHECKS)]);
   for (const check of checkRuns) {
-    if (!REQUIRED_CHECKS.includes(check.name)) continue;
+    if (!trackedChecks.has(check.name)) continue;
     const timestamp = Date.parse(check.started_at || check.created_at || 0);
     const current = latest.get(check.name);
     if (!current || timestamp >= current.timestamp) latest.set(check.name, { check, timestamp });
@@ -91,7 +95,7 @@ function latestChecksByName(checkRuns) {
   return latest;
 }
 
-function requiredChecksSatisfied(checkRuns, approvedAt) {
+function requiredChecksSatisfied(checkRuns, approvedAt, gatePlan) {
   const latest = latestChecksByName(checkRuns);
   const missing = [];
   const notSuccessful = [];
@@ -106,9 +110,33 @@ function requiredChecksSatisfied(checkRuns, approvedAt) {
     }
   }
 
+  if (approvedAt === undefined) {
+    notSuccessful.push('ai-approved-timestamp:missing');
+  }
   const reviewGate = latest.get('review-gate');
   if (reviewGate && approvedAt !== undefined && reviewGate.timestamp < approvedAt) {
     notSuccessful.push('review-gate:predates-ai-approved');
+  }
+
+  const heavyPlan = gatePlan?.heavy ?? { realm: true, android: true, apple: true };
+  for (const [gate, heavyCheckName] of Object.entries(HEAVY_CHECKS)) {
+    if (!heavyPlan[gate]) continue;
+    const fixedGate = latest.get(gate);
+    if (fixedGate && approvedAt !== undefined && fixedGate.timestamp < approvedAt) {
+      notSuccessful.push(`${gate}:predates-ai-approved`);
+    }
+    const heavy = latest.get(heavyCheckName);
+    if (!heavy) {
+      missing.push(heavyCheckName);
+      continue;
+    }
+    if ((heavy.check.conclusion || '').toLowerCase() !== 'success') {
+      notSuccessful.push(`${heavyCheckName}:${heavy.check.conclusion || heavy.check.status || 'unknown'}`);
+      continue;
+    }
+    if (approvedAt !== undefined && heavy.timestamp < approvedAt) {
+      notSuccessful.push(`${heavyCheckName}:predates-ai-approved`);
+    }
   }
 
   return {
@@ -321,6 +349,16 @@ async function getPr(github, owner, repo, number) {
   return (await github.rest.pulls.get({ owner, repo, pull_number: number })).data;
 }
 
+async function getChangedFiles(github, owner, repo, prNumber) {
+  const files = await github.paginate(github.rest.pulls.listFiles, {
+    owner,
+    repo,
+    pull_number: prNumber,
+    per_page: 100,
+  });
+  return files.map(file => file.filename);
+}
+
 async function approvedLabelTime(github, owner, repo, prNumber) {
   const events = await github.paginate(github.rest.issues.listEventsForTimeline, {
     owner,
@@ -351,7 +389,10 @@ async function reconcileApproved(github, owner, repo, pr, core) {
   });
   const checks = checksResponse.data.check_runs;
   const approvedAt = await approvedLabelTime(github, owner, repo, pr.number);
-  const gates = requiredChecksSatisfied(checks, approvedAt);
+  const changedFiles = await getChangedFiles(github, owner, repo, pr.number);
+  const gatePlan = classifyGatePlan(changedFiles);
+  core.info(`Gate plan for PR #${pr.number}: ${gatePlan.categories.join(', ') || 'none'}.`);
+  const gates = requiredChecksSatisfied(checks, approvedAt, gatePlan);
   if (!gates.ok) {
     core.info(
       `PR #${pr.number} remains ai:approved; missing=[${gates.missing.join(', ')}], ` +
@@ -484,6 +525,7 @@ async function run({ github, context, core }) {
 module.exports = {
   AI_STATES,
   REQUIRED_CHECKS,
+  HEAVY_CHECKS,
   currentAiState,
   parseDevelopmentHandoff,
   parseWorkReview,

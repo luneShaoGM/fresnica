@@ -5,13 +5,60 @@ on:
     branches:
       - main
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+      - unlabeled
   workflow_dispatch:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
-  android:
+  plan:
+    name: android-plan
+    runs-on: ubuntu-latest
+    outputs:
+      disposition: ${{ steps.plan.outputs.disposition }}
+      categories: ${{ steps.plan.outputs.categories }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Classify Android gate
+        id: plan
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (context.eventName !== 'pull_request') {
+              core.setOutput('disposition', 'applicable');
+              core.setOutput('categories', 'default-branch/manual');
+              return;
+            }
+            const controller = require('./scripts/fresnica-controller.cjs');
+            const planner = require('./scripts/fresnica-gate-planner.cjs');
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const number = context.payload.pull_request.number;
+            const pr = (await github.rest.pulls.get({ owner, repo, pull_number: number })).data;
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: number,
+              per_page: 100,
+            });
+            const plan = planner.classifyGatePlan(files.map(file => file.filename));
+            const state = controller.currentAiState(pr.labels || []);
+            const disposition = planner.heavyGateDisposition(plan, 'android', state.ok ? state.state : undefined);
+            core.setOutput('disposition', disposition);
+            core.setOutput('categories', plan.categories.join(',') || 'none');
+            await core.summary.addHeading('Android Gate Plan').addRaw(`Disposition: ${disposition}\nCategories: ${plan.categories.join(', ') || 'none'}\n`).write();
+
+  android_heavy:
+    name: android-heavy
+    needs: plan
+    if: needs.plan.outputs.disposition == 'applicable'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout Fresnica Mobile
@@ -38,9 +85,6 @@ jobs:
 
       - name: Install JavaScript dependencies
         run: npm ci
-
-      - name: Verify TypeScript and unit tests
-        run: npm run check
 
       - name: Download and verify Fresnica Native SDK 0.3.1
         shell: bash
@@ -196,3 +240,27 @@ jobs:
             vendor/fresnica/adapter/react-native/fresnica-rn-adapter.aar
             vendor/fresnica/adapter/react-native/adapter-manifest.json
             android/app/build/outputs/apk/debug/app-debug.apk
+
+  android:
+    name: android
+    needs:
+      - plan
+      - android_heavy
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Android gate disposition
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          DISPOSITION: ${{ needs.plan.outputs.disposition }}
+          HEAVY_RESULT: ${{ needs.android_heavy.result }}
+          CATEGORIES: ${{ needs.plan.outputs.categories }}
+        run: |
+          set -euo pipefail
+          test "$PLAN_RESULT" = success
+          case "$DISPOSITION" in
+            applicable) test "$HEAVY_RESULT" = success ;;
+            deferred|not-applicable) test "$HEAVY_RESULT" = skipped ;;
+            *) echo "Unknown Android disposition: $DISPOSITION" >&2; exit 1 ;;
+          esac
+          printf 'Android gate: %s (%s)\n' "$DISPOSITION" "$CATEGORIES" >> "$GITHUB_STEP_SUMMARY"

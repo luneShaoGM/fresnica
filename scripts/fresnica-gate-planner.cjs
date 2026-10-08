@@ -109,7 +109,7 @@ function classifyGatePlan(files) {
 function heavyGateDisposition(plan, gate, aiState) {
   if (!HEAVY_GATES.includes(gate)) throw new Error(`Unknown heavy gate: ${gate}`);
   if (!plan.heavy[gate]) return 'not-applicable';
-  if (aiState === 'ai:approved' || aiState === 'ai:ready-merge') return 'applicable';
+  if (aiState === 'ai:approved') return 'applicable';
   return 'deferred';
 }
 

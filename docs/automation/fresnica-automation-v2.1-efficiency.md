@@ -71,7 +71,7 @@ Fast Gates remain exact-HEAD and run during development/repair loops:
 Realm, Native Android, and Native Apple remain fixed required check names for every PR HEAD. Their workflows always produce a terminal check for the HEAD, but Heavy work is conditional:
 
 - if planner says not applicable, the fixed gate succeeds with an explicit not-applicable disposition;
-- if applicable but the durable PR state is not yet `ai:approved`/`ai:ready-merge`, the fixed gate succeeds as deferred and the heavy sub-check is skipped;
+- if applicable but the durable PR state is not exactly `ai:approved`, the fixed gate succeeds as deferred and the heavy sub-check is skipped;
 - when exact-HEAD Work review is APPROVED and Controller reaches `ai:approved`, label events rerun the workflow; applicable Heavy work executes then.
 
 Heavy validation is never inferred from a pre-approval deferred success. For every applicable Heavy Gate, Controller requires a corresponding `*-heavy` success on the same HEAD with a start time at or after the latest `ai:approved` transition.
