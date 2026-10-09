@@ -21,3 +21,26 @@ export async function continueRequestToSendIfCurrent({
 
   navigate();
 }
+
+/**
+ * Monotonic focus epoch. A previously focused Request route can become focused
+ * again before a slow eligibility promise settles; its earlier attempt must not revive.
+ */
+export function createRequestRouteFocusLifetime() {
+  let generation = 0;
+  let focused = false;
+  return {
+    focus(): void {
+      generation += 1;
+      focused = true;
+    },
+    blur(): void {
+      generation += 1;
+      focused = false;
+    },
+    capture(): () => boolean {
+      const captured = generation;
+      return () => focused && generation === captured;
+    },
+  };
+}

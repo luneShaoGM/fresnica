@@ -1,4 +1,4 @@
-import { continueRequestToSendIfCurrent } from '../requestContinueRouting';
+import { continueRequestToSendIfCurrent, createRequestRouteFocusLifetime } from '../requestContinueRouting';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -109,5 +109,67 @@ describe('Request Continue to Send async navigation', () => {
     ).rejects.toThrow('request-send-ineligible');
 
     expect(navigate).not.toHaveBeenCalled();
+  });
+});
+
+describe('Request route focus lifetime', () => {
+  it('cancels the old Continue when the route blurs and refocuses while eligibility is pending', async () => {
+    const eligibility = deferred<boolean>();
+    const lifetime = createRequestRouteFocusLifetime();
+    const navigate = jest.fn();
+    lifetime.focus();
+
+    const pending = continueRequestToSendIfCurrent({
+      isCurrentAttempt: () => true,
+      isCurrentRoute: lifetime.capture(),
+      checkEligibility: () => eligibility.promise,
+      navigate,
+    });
+
+    lifetime.blur();
+    lifetime.focus();
+    eligibility.resolve(true);
+    await pending;
+
+    expect(navigate).not.toHaveBeenCalled();
+    expect(lifetime.capture()()).toBe(true);
+  });
+
+  it('invalidates attempts immediately upon losing Request focus', async () => {
+    const lifetime = createRequestRouteFocusLifetime();
+    lifetime.focus();
+    const staleFocus = lifetime.capture();
+    lifetime.blur();
+
+    expect(staleFocus()).toBe(false);
+    const eligibility = jest.fn(async () => true);
+    const navigate = jest.fn();
+    await continueRequestToSendIfCurrent({
+      isCurrentAttempt: () => true,
+      isCurrentRoute: staleFocus,
+      checkEligibility: eligibility,
+      navigate,
+    });
+    expect(eligibility).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('allows an explicit new Continue attempt after focus is regained', async () => {
+    const lifetime = createRequestRouteFocusLifetime();
+    lifetime.focus();
+    const previous = lifetime.capture();
+    lifetime.blur();
+    lifetime.focus();
+    const fresh = lifetime.capture();
+    const navigate = jest.fn();
+
+    expect(previous()).toBe(false);
+    await continueRequestToSendIfCurrent({
+      isCurrentAttempt: () => true,
+      isCurrentRoute: fresh,
+      checkEligibility: async () => true,
+      navigate,
+    });
+    expect(navigate).toHaveBeenCalledTimes(1);
   });
 });

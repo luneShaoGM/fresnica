@@ -1,10 +1,11 @@
-import React, { useRef, useSyncExternalStore } from 'react';
-import { useIsFocused } from '@react-navigation/native';
+import React, { useCallback, useRef, useSyncExternalStore } from 'react';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import type { AccountRecord } from '@capabilities/account/types';
 import { canContinueRequestToSend } from '../requestDeepLinkRouting';
-import { continueRequestToSendIfCurrent } from './requestContinueRouting';
+import { continueRequestToSendIfCurrent, createRequestRouteFocusLifetime } from './requestContinueRouting';
 import { AddAccountScreen } from '@features/accounts/AddAccountScreen';
 import { AssetDetailsScreen } from '@features/home/AssetDetailsScreen';
 import { HomeScreen } from '@features/home/HomeScreen';
@@ -120,48 +121,16 @@ export function HomeStackNavigator({
         }}
       </Stack.Screen>
       <Stack.Screen name="request">
-        {({ navigation, route }) => {
-          const account = resolveVisibleAccount(accounts, route.params.accountId);
-          return (
-            <RequestFlowScreen
-              account={account}
-              activeAccountId={selectedAccountId}
-              dependencies={services.request}
-              onDone={() => navigation.popToTop()}
-              onContinueSend={async (intent, isCurrent) => {
-                const isCurrentRoute = () => {
-                  const latest = selectionRef.current;
-                  if (
-                    !navigation.isFocused() ||
-                    latest.selectedAccountId !== account.id ||
-                    !latest.accounts.some(
-                      candidate =>
-                        candidate.id === account.id &&
-                        candidate.networkId === services.send.network.id &&
-                        candidate.identityKind === 'classic' &&
-                        !candidate.hidden,
-                    )
-                  ) {
-                    return false;
-                  }
-                  try {
-                    return !services.onboarding.repository.isWatchOnly(account.id);
-                  } catch {
-                    return false;
-                  }
-                };
-
-                await continueRequestToSendIfCurrent({
-                  isCurrentAttempt: isCurrent,
-                  isCurrentRoute,
-                  checkEligibility: () => canContinueRequestToSend(services.send, intent, account, !canSign),
-                  navigate: () => navigation.navigate('send-form', { accountId: account.id, requestIntent: intent }),
-                });
-              }}
-              ScannerView={ReactNativeRequestQrScannerView}
-            />
-          );
-        }}
+        {({ navigation, route }) => (
+          <RequestRoute
+            account={resolveVisibleAccount(accounts, route.params.accountId)}
+            activeAccountId={selectedAccountId}
+            canSign={canSign}
+            services={services}
+            navigation={navigation}
+            getCurrentSelection={() => selectionRef.current}
+          />
+        )}
       </Stack.Screen>
       <Stack.Screen name="manage-assets">
         {({ navigation, route }) => {
@@ -176,6 +145,81 @@ export function HomeStackNavigator({
         }}
       </Stack.Screen>
     </Stack.Navigator>
+  );
+}
+
+type RequestRouteProps = Readonly<{
+  account: AccountRecord;
+  activeAccountId: string;
+  canSign: boolean;
+  services: AppServices;
+  navigation: NativeStackNavigationProp<HomeStackParamList, 'request'>;
+  getCurrentSelection: () => Readonly<{ selectedAccountId: string; accounts: readonly AccountRecord[] }>;
+}>;
+
+function RequestRoute({
+  account,
+  activeAccountId,
+  canSign,
+  services,
+  navigation,
+  getCurrentSelection,
+}: RequestRouteProps) {
+  const focusLifetimeRef = useRef<ReturnType<typeof createRequestRouteFocusLifetime> | undefined>(undefined);
+  if (focusLifetimeRef.current === undefined) {
+    focusLifetimeRef.current = createRequestRouteFocusLifetime();
+  }
+  const focusLifetime = focusLifetimeRef.current;
+
+  // A blur permanently invalidates attempts from the previous focus epoch,
+  // even when the user returns to this still-mounted Request screen.
+  useFocusEffect(
+    useCallback(() => {
+      focusLifetime.focus();
+      return () => focusLifetime.blur();
+    }, [focusLifetime]),
+  );
+
+  return (
+    <RequestFlowScreen
+      account={account}
+      activeAccountId={activeAccountId}
+      dependencies={services.request}
+      onDone={() => navigation.popToTop()}
+      onContinueSend={async (intent, isCurrent) => {
+        const isSameFocusLifetime = focusLifetime.capture();
+        const isCurrentRoute = () => {
+          const latest = getCurrentSelection();
+          if (
+            !isSameFocusLifetime() ||
+            !navigation.isFocused() ||
+            latest.selectedAccountId !== account.id ||
+            !latest.accounts.some(
+              candidate =>
+                candidate.id === account.id &&
+                candidate.networkId === services.send.network.id &&
+                candidate.identityKind === 'classic' &&
+                !candidate.hidden,
+            )
+          ) {
+            return false;
+          }
+          try {
+            return !services.onboarding.repository.isWatchOnly(account.id);
+          } catch {
+            return false;
+          }
+        };
+
+        await continueRequestToSendIfCurrent({
+          isCurrentAttempt: isCurrent,
+          isCurrentRoute,
+          checkEligibility: () => canContinueRequestToSend(services.send, intent, account, !canSign),
+          navigate: () => navigation.navigate('send-form', { accountId: account.id, requestIntent: intent }),
+        });
+      }}
+      ScannerView={ReactNativeRequestQrScannerView}
+    />
   );
 }
 
