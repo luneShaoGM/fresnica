@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { AccountRecord } from '../../capabilities/account/types';
 import type { StellarPaymentAsset, StellarPaymentMemo } from '../../capabilities/stellar/types';
+import type { RequestPaymentIntent } from '../../capabilities/request/requestUri';
 import { useLocalization } from '../../locale';
 import {
   buildRequestDraftUri,
@@ -33,9 +34,10 @@ type Props = Readonly<{
   dependencies: RequestProductDependencies;
   ScannerView: RequestScannerViewComponent;
   onDone: () => void;
+  onContinueSend: (intent: RequestPaymentIntent, isCurrent: () => boolean) => Promise<void>;
 }>;
 
-export function RequestFlowScreen({ account, dependencies, ScannerView, onDone }: Props) {
+export function RequestFlowScreen({ account, dependencies, ScannerView, onDone, onContinueSend }: Props) {
   const { t } = useLocalization();
   const [assets, setAssets] = useState<readonly StellarPaymentAsset[]>([NATIVE_ASSET]);
   const [selectedAsset, setSelectedAsset] = useState<StellarPaymentAsset>(NATIVE_ASSET);
@@ -54,6 +56,9 @@ export function RequestFlowScreen({ account, dependencies, ScannerView, onDone }
   const [ingressPermission, setIngressPermission] = useState<RequestIngressPermissionViewState>();
   const [ingressPlatformError, setIngressPlatformError] = useState<RequestIngressPlatformError>();
   const [torchEnabled, setTorchEnabled] = useState(false);
+  const [continueBusy, setContinueBusy] = useState(false);
+  const [continueError, setContinueError] = useState<string>();
+  const continueGate = useRef(false);
   const scanFrameGate = useRef(createRequestScanFrameGate());
   const ingressSession = useRef(0);
 
@@ -136,6 +141,9 @@ export function RequestFlowScreen({ account, dependencies, ScannerView, onDone }
 
   const closeIngress = () => {
     ingressSession.current += 1;
+    continueGate.current = false;
+    setContinueBusy(false);
+    setContinueError(undefined);
     scanFrameGate.current.reset();
     setIngressCarrier(undefined);
     setIngressResult(undefined);
@@ -148,6 +156,9 @@ export function RequestFlowScreen({ account, dependencies, ScannerView, onDone }
     const session = ingressSession.current + 1;
     ingressSession.current = session;
     setIngressCarrier('paste');
+    continueGate.current = false;
+    setContinueBusy(false);
+    setContinueError(undefined);
     setIngressResult(undefined);
     setIngressPermission(undefined);
     setIngressPlatformError(undefined);
@@ -166,6 +177,9 @@ export function RequestFlowScreen({ account, dependencies, ScannerView, onDone }
     const session = ingressSession.current + 1;
     ingressSession.current = session;
     setIngressCarrier('scan');
+    continueGate.current = false;
+    setContinueBusy(false);
+    setContinueError(undefined);
     setIngressResult(undefined);
     setIngressPermission('checking');
     setIngressPlatformError(undefined);
@@ -206,11 +220,33 @@ export function RequestFlowScreen({ account, dependencies, ScannerView, onDone }
     }
   };
 
+  const continueToSend = async () => {
+    if (continueGate.current || ingressResult?.result.status !== 'accepted') return;
+    const session = ingressSession.current;
+    const intent = ingressResult.result.intent;
+    continueGate.current = true;
+    setContinueBusy(true);
+    setContinueError(undefined);
+    try {
+      await onContinueSend(intent, () => ingressSession.current === session && continueGate.current);
+    } catch {
+      if (ingressSession.current === session) setContinueError(t('request.ingress.continueBlocked'));
+    } finally {
+      if (ingressSession.current === session) {
+        continueGate.current = false;
+        setContinueBusy(false);
+      }
+    }
+  };
+
   if (ingressCarrier !== undefined) {
     return (
       <RequestIngressScreen
         carrier={ingressCarrier}
         onClose={closeIngress}
+        onContinue={() => void continueToSend()}
+        continueBusy={continueBusy}
+        continueError={continueError}
         onCode={handleScanCode}
         onOpenSettings={() => openCameraSettings()}
         onRetry={() => retryIngress()}

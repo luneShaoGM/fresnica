@@ -1,4 +1,5 @@
 import type {BalanceAsset} from '@capabilities/balance/types';
+import type {RequestPaymentIntent} from '@capabilities/request/requestUri';
 
 export type RootFlow =
   | 'bootstrap'
@@ -57,7 +58,7 @@ export type ProductRouteParams = Readonly<{
   'add-account': undefined;
   // Public domain identity only. Current balance is reloaded by the destination.
   'asset-details': Readonly<{accountId: string; asset: BalanceAsset}>;
-  'send-form': Readonly<{accountId: string}>;
+  'send-form': Readonly<{accountId: string; requestIntent?: RequestPaymentIntent}>;
   // Review/result state stays in the Send flow. Exact XDR and reviewed
   // transaction data must not be transported as navigation parameters.
   'send-review': undefined;

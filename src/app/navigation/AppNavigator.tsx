@@ -1,4 +1,4 @@
-import React, {useMemo} from 'react';
+import React, {useMemo, useState} from 'react';
 import {ActivityIndicator, Text, View} from 'react-native';
 import {DefaultTheme, NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
@@ -6,6 +6,7 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {OnboardingScreen} from '@features/onboarding/OnboardingScreen';
 import {PendingMnemonicBackupScreen} from '@features/onboarding/PendingMnemonicBackupScreen';
 import {RequestDeepLinkScreen} from '@features/request/RequestDeepLinkScreen';
+import {SendFlowScreen} from '@features/send/SendFlowScreen';
 import {useAppTheme, useThemedStyles, type AppTheme} from '@ui/theme';
 
 import {useLocalization} from '../../locale';
@@ -28,11 +29,25 @@ type Props = Readonly<{
 export function AppNavigator({runtime, onRefreshBootstrap, deepLink, onDismissDeepLink}: Props) {
   const appTheme = useAppTheme();
   const navigationTheme = useMemo(() => createNavigationTheme(appTheme), [appTheme]);
+  const [continuedDeepLink, setContinuedDeepLink] = useState<RequestDeepLinkResolved>();
+  const dismissDeepLink = () => {
+    setContinuedDeepLink(undefined);
+    onDismissDeepLink();
+  };
 
   return (
     <NavigationContainer theme={navigationTheme}>
       <RootStack.Navigator screenOptions={{headerShown: false}}>
-        {renderRootScreen(runtime, onRefreshBootstrap, deepLink, onDismissDeepLink)}
+        {renderRootScreen(
+          runtime,
+          onRefreshBootstrap,
+          deepLink,
+          dismissDeepLink,
+          () => {
+            if (deepLink?.kind === 'ready') setContinuedDeepLink(deepLink);
+          },
+          continuedDeepLink === deepLink,
+        )}
         <RootStack.Screen name="locked" component={LockedPlaceholderScreen} />
       </RootStack.Navigator>
     </NavigationContainer>
@@ -59,6 +74,8 @@ function renderRootScreen(
   onRefreshBootstrap: () => void,
   deepLink: RequestDeepLinkResolved | undefined,
   onDismissDeepLink: () => void,
+  onContinueDeepLink: () => void,
+  isContinuing: boolean,
 ) {
   if (runtime.kind !== 'ready') {
     return (
@@ -70,9 +87,39 @@ function renderRootScreen(
 
   const {bootstrap} = runtime;
   if (bootstrap.kind === 'ready' && deepLink !== undefined) {
+    const source =
+      isContinuing && deepLink.kind === 'ready'
+        ? bootstrap.accounts.find(
+            account =>
+              account.id === deepLink.accountId &&
+              account.networkId === runtime.services.send.network.id &&
+              account.identityKind === 'classic' &&
+              !account.hidden &&
+              !runtime.services.send.repository.isWatchOnly(account.id),
+          )
+        : undefined;
     return (
       <RootStack.Screen name="request-deep-link">
-        {() => <RequestDeepLinkScreen state={deepLink} onClose={onDismissDeepLink} />}
+        {() =>
+          deepLink.kind === 'ready' && isContinuing && source !== undefined ? (
+            <SendFlowScreen
+              account={source}
+              dependencies={runtime.services.send}
+              requestIntent={deepLink.intent}
+              onDone={onDismissDeepLink}
+            />
+          ) : (
+            <RequestDeepLinkScreen
+              state={
+                isContinuing && deepLink.kind === 'ready'
+                  ? {kind: 'blocked', reason: 'account-ineligible'}
+                  : deepLink
+              }
+              onClose={onDismissDeepLink}
+              onContinue={onContinueDeepLink}
+            />
+          )
+        }
       </RootStack.Screen>
     );
   }

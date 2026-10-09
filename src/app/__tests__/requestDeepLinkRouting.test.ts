@@ -1,5 +1,5 @@
 import type { AccountRecord } from '../../capabilities/account/types';
-import { parseRequestDeepLink, resolveRequestDeepLink } from '../requestDeepLinkRouting';
+import { canContinueRequestToSend, parseRequestDeepLink, resolveRequestDeepLink } from '../requestDeepLinkRouting';
 
 const network = {
   id: 'stellar-testnet',
@@ -177,6 +177,27 @@ describe('request deep-link routing', () => {
         id => id === 'watch-only',
       ),
     ).toEqual({ kind: 'blocked', reason: 'account-ineligible' });
+  });
+
+  it('enforces the same current-source validation for explicit paste and scan Continue', async () => {
+    const parsed = parseIssuedDeepLink();
+    expect(parsed.result.status).toBe('accepted');
+    if (parsed.result.status !== 'accepted') return;
+    const valid = sourceEligibilityDependencies([{ code: 'USD', issuer, balance: '5' }]);
+    await expect(canContinueRequestToSend(valid as never, parsed.result.intent, account(), false)).resolves.toBe(true);
+    await expect(canContinueRequestToSend(valid as never, parsed.result.intent, account(), true)).resolves.toBe(false);
+    await expect(canContinueRequestToSend(valid as never, parsed.result.intent, account({ hidden: true }), false)).resolves.toBe(false);
+    await expect(canContinueRequestToSend(valid as never, parsed.result.intent, account({ networkId: 'other' }), false)).resolves.toBe(false);
+    await expect(
+      canContinueRequestToSend(
+        valid as never,
+        { ...parsed.result.intent, networkPassphrase: 'different network' },
+        account(),
+        false,
+      ),
+    ).resolves.toBe(false);
+    const wrong = sourceEligibilityDependencies([{ code: 'USD', issuer: wrongIssuer, balance: '5' }]);
+    await expect(canContinueRequestToSend(wrong as never, parsed.result.intent, account(), false)).resolves.toBe(false);
   });
 
   it('does not expose raw malformed content in stable routing output', async () => {

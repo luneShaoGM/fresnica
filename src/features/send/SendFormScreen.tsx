@@ -18,6 +18,7 @@ import {createSendFormStyles} from './styles';
 
 type Props = Readonly<{
   accountLabel: string;
+  requestMessage?: string;
   balances: readonly BalanceLine[];
   selectedAsset: BalanceAsset;
   destination: string;
@@ -37,6 +38,7 @@ type Props = Readonly<{
 
 export function SendFormScreen({
   accountLabel,
+  requestMessage,
   balances,
   selectedAsset,
   destination,
@@ -193,6 +195,14 @@ export function SendFormScreen({
             <Text style={styles.fieldHint}>{t(`send.memo.hint.${memoType}`)}</Text>
           </>
         )}
+
+        {requestMessage ? (
+          <View>
+            <Text style={styles.sectionLabel}>{t('send.request.context')}</Text>
+            <Text style={styles.fieldHint}>{t('send.request.untrusted')}</Text>
+            <Text selectable style={styles.fieldHint}>{requestMessage}</Text>
+          </View>
+        ) : null}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </ScrollView>

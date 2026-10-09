@@ -30,6 +30,9 @@ type Props = Readonly<{
   onRetry: () => void;
   onOpenSettings: () => void;
   onClose: () => void;
+  onContinue: () => void;
+  continueBusy: boolean;
+  continueError?: string;
 }>;
 
 export function RequestIngressScreen(props: Props) {
@@ -49,7 +52,14 @@ export function RequestIngressScreen(props: Props) {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {props.result ? (
-          <IngressResultCard carrier={props.carrier} parsed={props.result.result} onRetry={props.onRetry} />
+          <IngressResultCard
+            carrier={props.carrier}
+            parsed={props.result.result}
+            onRetry={props.onRetry}
+            onContinue={props.onContinue}
+            continueBusy={props.continueBusy}
+            continueError={props.continueError}
+          />
         ) : props.platformError ? (
           <IngressPlatformErrorCard
             error={props.platformError}
@@ -127,7 +137,17 @@ function IngressResultCard({
   carrier,
   parsed,
   onRetry,
-}: Readonly<{ carrier: RequestIngressCarrier; parsed: RequestParseResult; onRetry: () => void }>) {
+  onContinue,
+  continueBusy,
+  continueError,
+}: Readonly<{
+  carrier: RequestIngressCarrier;
+  parsed: RequestParseResult;
+  onRetry: () => void;
+  onContinue: () => void;
+  continueBusy: boolean;
+  continueError?: string;
+}>) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createRequestIngressStyles);
 
@@ -141,8 +161,12 @@ function IngressResultCard({
           {t('request.ingress.accepted.body', { carrier: t(`request.ingress.carrier.${carrier}`) })}
         </Text>
         <IntentDetails intent={parsed.intent} />
+        {continueError ? (
+          <Text accessibilityLiveRegion="assertive" style={styles.errorBody}>{continueError}</Text>
+        ) : null}
         <View style={styles.actions}>
-          <IngressAction label={t('request.ingress.retry')} onPress={onRetry} />
+          <IngressAction label={t('request.continueToSend')} disabled={continueBusy} onPress={onContinue} />
+          <IngressAction label={t('request.ingress.retry')} disabled={continueBusy} onPress={onRetry} />
         </View>
       </View>
     );
@@ -234,12 +258,15 @@ function IngressAction({
   label,
   onPress,
   secondary = false,
-}: Readonly<{ label: string; onPress: () => void; secondary?: boolean }>) {
+  disabled = false,
+}: Readonly<{ label: string; onPress: () => void; secondary?: boolean; disabled?: boolean }>) {
   const styles = useThemedStyles(createRequestIngressStyles);
   return (
     <Pressable
       accessibilityLabel={label}
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.action,

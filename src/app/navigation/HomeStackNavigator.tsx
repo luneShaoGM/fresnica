@@ -3,6 +3,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import type { AccountRecord } from '@capabilities/account/types';
+import { canContinueRequestToSend } from '../requestDeepLinkRouting';
 import { AddAccountScreen } from '@features/accounts/AddAccountScreen';
 import { AssetDetailsScreen } from '@features/home/AssetDetailsScreen';
 import { HomeScreen } from '@features/home/HomeScreen';
@@ -104,7 +105,14 @@ export function HomeStackNavigator({
       <Stack.Screen name="send-form">
         {({ navigation, route }) => {
           const account = resolveVisibleAccount(accounts, route.params.accountId);
-          return <SendFlowScreen account={account} dependencies={services.send} onDone={() => navigation.popToTop()} />;
+          return (
+            <SendFlowScreen
+              account={account}
+              dependencies={services.send}
+              requestIntent={route.params.requestIntent}
+              onDone={() => navigation.popToTop()}
+            />
+          );
         }}
       </Stack.Screen>
       <Stack.Screen name="request">
@@ -115,6 +123,15 @@ export function HomeStackNavigator({
               account={account}
               dependencies={services.request}
               onDone={() => navigation.popToTop()}
+              onContinueSend={async (intent, isCurrent) => {
+                if (
+                  account.id !== selectedAccountId ||
+                  !(await canContinueRequestToSend(services.send, intent, account, !canSign))
+                ) {
+                  throw new Error('request-send-ineligible');
+                }
+                if (isCurrent()) navigation.navigate('send-form', { accountId: account.id, requestIntent: intent });
+              }}
               ScannerView={ReactNativeRequestQrScannerView}
             />
           );
