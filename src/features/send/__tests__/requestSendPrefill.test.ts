@@ -5,8 +5,8 @@ import { resolveRequestSendPrefill } from '../requestSendPrefill';
 
 const network = Object.freeze({ id: 'stellar-testnet', networkPassphrase: 'Test SDF Network ; September 2015' });
 const issuer = 'GISSUER';
-const nativeBalance: BalanceLine = Object.freeze({ asset: { kind: 'native', code: 'XLM' }, balance: '10' });
-const creditBalance: BalanceLine = Object.freeze({ asset: { kind: 'credit', code: 'USD', issuer }, balance: '4' });
+const nativeBalance: BalanceLine = { asset: { kind: 'native', code: 'XLM' }, balance: '10' };
+const creditBalance: BalanceLine = { asset: { kind: 'credit', code: 'USD', issuer }, balance: '4' };
 const balances = [nativeBalance, creditBalance];
 
 function account(overrides: Partial<AccountRecord> = {}): AccountRecord {
