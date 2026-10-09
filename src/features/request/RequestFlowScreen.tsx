@@ -244,7 +244,7 @@ export function RequestFlowScreen({ account, dependencies, ScannerView, onDone, 
       <RequestIngressScreen
         carrier={ingressCarrier}
         onClose={closeIngress}
-        onContinue={() => void continueToSend()}
+        onContinue={() => continueToSend()}
         continueBusy={continueBusy}
         continueError={continueError}
         onCode={handleScanCode}
