@@ -31,13 +31,14 @@ const NATIVE_ASSET: StellarPaymentAsset = Object.freeze({ kind: 'native' });
 
 type Props = Readonly<{
   account: AccountRecord;
+  activeAccountId: string;
   dependencies: RequestProductDependencies;
   ScannerView: RequestScannerViewComponent;
   onDone: () => void;
   onContinueSend: (intent: RequestPaymentIntent, isCurrent: () => boolean) => Promise<void>;
 }>;
 
-export function RequestFlowScreen({ account, dependencies, ScannerView, onDone, onContinueSend }: Props) {
+export function RequestFlowScreen({ account, activeAccountId, dependencies, ScannerView, onDone, onContinueSend }: Props) {
   const { t } = useLocalization();
   const [assets, setAssets] = useState<readonly StellarPaymentAsset[]>([NATIVE_ASSET]);
   const [selectedAsset, setSelectedAsset] = useState<StellarPaymentAsset>(NATIVE_ASSET);
@@ -61,6 +62,14 @@ export function RequestFlowScreen({ account, dependencies, ScannerView, onDone, 
   const continueGate = useRef(false);
   const scanFrameGate = useRef(createRequestScanFrameGate());
   const ingressSession = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      // Unmount or source-account context change cancels pending Continue attempts.
+      ingressSession.current += 1;
+      continueGate.current = false;
+    };
+  }, [account.id, account.networkId, activeAccountId, dependencies.network.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -228,7 +237,10 @@ export function RequestFlowScreen({ account, dependencies, ScannerView, onDone, 
     setContinueBusy(true);
     setContinueError(undefined);
     try {
-      await onContinueSend(intent, () => ingressSession.current === session && continueGate.current);
+      await onContinueSend(
+        intent,
+        () => ingressSession.current === session && continueGate.current && account.id === activeAccountId,
+      );
     } catch {
       if (ingressSession.current === session) setContinueError(t('request.ingress.continueBlocked'));
     } finally {

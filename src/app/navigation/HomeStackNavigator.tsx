@@ -1,9 +1,10 @@
-import React, { useSyncExternalStore } from 'react';
+import React, { useRef, useSyncExternalStore } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import type { AccountRecord } from '@capabilities/account/types';
 import { canContinueRequestToSend } from '../requestDeepLinkRouting';
+import { continueRequestToSendIfCurrent } from './requestContinueRouting';
 import { AddAccountScreen } from '@features/accounts/AddAccountScreen';
 import { AssetDetailsScreen } from '@features/home/AssetDetailsScreen';
 import { HomeScreen } from '@features/home/HomeScreen';
@@ -39,6 +40,9 @@ export function HomeStackNavigator({
 }: Props) {
   const selectedAccount = resolveVisibleAccount(accounts, selectedAccountId);
   const canSign = !services.onboarding.repository.isWatchOnly(selectedAccount.id);
+  // Async Continue callbacks must read the latest account selection, not their render's captured value.
+  const selectionRef = useRef({ selectedAccountId, accounts });
+  selectionRef.current = { selectedAccountId, accounts };
   const invalidationRevision = useSyncExternalStore(
     services.ledgerReadInvalidation.subscribe,
     () => services.ledgerReadInvalidation.getRevision(selectedAccount.networkId, selectedAccount.id),
@@ -121,16 +125,38 @@ export function HomeStackNavigator({
           return (
             <RequestFlowScreen
               account={account}
+              activeAccountId={selectedAccountId}
               dependencies={services.request}
               onDone={() => navigation.popToTop()}
               onContinueSend={async (intent, isCurrent) => {
-                if (
-                  account.id !== selectedAccountId ||
-                  !(await canContinueRequestToSend(services.send, intent, account, !canSign))
-                ) {
-                  throw new Error('request-send-ineligible');
-                }
-                if (isCurrent()) navigation.navigate('send-form', { accountId: account.id, requestIntent: intent });
+                const isCurrentRoute = () => {
+                  const latest = selectionRef.current;
+                  if (
+                    !navigation.isFocused() ||
+                    latest.selectedAccountId !== account.id ||
+                    !latest.accounts.some(
+                      candidate =>
+                        candidate.id === account.id &&
+                        candidate.networkId === services.send.network.id &&
+                        candidate.identityKind === 'classic' &&
+                        !candidate.hidden,
+                    )
+                  ) {
+                    return false;
+                  }
+                  try {
+                    return !services.onboarding.repository.isWatchOnly(account.id);
+                  } catch {
+                    return false;
+                  }
+                };
+
+                await continueRequestToSendIfCurrent({
+                  isCurrentAttempt: isCurrent,
+                  isCurrentRoute,
+                  checkEligibility: () => canContinueRequestToSend(services.send, intent, account, !canSign),
+                  navigate: () => navigation.navigate('send-form', { accountId: account.id, requestIntent: intent }),
+                });
               }}
               ScannerView={ReactNativeRequestQrScannerView}
             />
