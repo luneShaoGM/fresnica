@@ -72,6 +72,8 @@ const baseProps = {
   onRetry: jest.fn(),
   onOpenSettings: jest.fn(),
   onClose: jest.fn(),
+  onContinue: jest.fn(),
+  continueBusy: false,
 };
 
 describe('RequestIngressScreen', () => {
@@ -139,6 +141,11 @@ describe('RequestIngressScreen', () => {
     expect(rendered).toContain('1');
     expect(rendered).not.toContain(raw);
     expect(rendered).not.toContain('web+stellar:pay');
+    const labels: string[] = [];
+    walk(root, element => {
+      if (element.props.accessibilityLabel) labels.push(element.props.accessibilityLabel);
+    });
+    expect(labels).toContain('request.continueToSend');
   });
 
   it('does not echo sensitive rejected input into UI copy', () => {
@@ -155,5 +162,10 @@ describe('RequestIngressScreen', () => {
     const serialized: string[] = [];
     walk(root, element => serialized.push(JSON.stringify(element.props)));
     expect(serialized.join(' ')).not.toContain(secret);
+    const labels: string[] = [];
+    walk(root, element => {
+      if (element.props.accessibilityLabel) labels.push(element.props.accessibilityLabel);
+    });
+    expect(labels).not.toContain('request.continueToSend');
   });
 });

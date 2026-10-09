@@ -472,5 +472,10 @@
   "request.deepLink.blocked.unsupported": "此連結使用了 Fresnica 目前不支援的 Stellar 請求功能。",
   "request.deepLink.blocked.network-mismatch": "此請求屬於另一個 Stellar 網路。Fresnica 沒有切換網路。",
   "request.deepLink.blocked.no-account": "目前網路沒有可見帳戶。Fresnica 沒有自動建立或選擇帳戶。",
-  "request.deepLink.blocked.account-ineligible": "目前帳戶無法傳送此請求。Fresnica 沒有自動切換到其他帳戶。"
+  "request.deepLink.blocked.account-ineligible": "目前帳戶無法傳送此請求。Fresnica 沒有自動切換到其他帳戶。",
+  "request.continueToSend": "繼續傳送",
+  "request.ingress.continueBlocked": "目前帳戶無法傳送此請求。未進行任何變更，請檢查帳戶後重試。",
+  "send.request.assetUnavailable": "目前帳戶沒有請求的資產。Fresnica 沒有替換成其他資產。",
+  "send.request.context": "請求訊息",
+  "send.request.untrusted": "公開、未經驗證的請求內容；它不是交易備註。"
 }

@@ -472,5 +472,10 @@
   "request.deepLink.blocked.unsupported": "This link uses a Stellar request feature Fresnica does not support here.",
   "request.deepLink.blocked.network-mismatch": "This request belongs to a different Stellar network. Fresnica did not switch networks.",
   "request.deepLink.blocked.no-account": "No visible account is available on the current network. No account was created or selected automatically.",
-  "request.deepLink.blocked.account-ineligible": "The current account cannot send this request. Fresnica did not switch to another account."
+  "request.deepLink.blocked.account-ineligible": "The current account cannot send this request. Fresnica did not switch to another account.",
+  "request.continueToSend": "Continue to Send",
+  "request.ingress.continueBlocked": "The current account cannot send this request. Nothing was changed; review the account and retry.",
+  "send.request.assetUnavailable": "The requested asset is no longer available in this account. Fresnica did not substitute another asset.",
+  "send.request.context": "REQUEST MESSAGE",
+  "send.request.untrusted": "Public, unverified request context. This is not a transaction memo."
 }

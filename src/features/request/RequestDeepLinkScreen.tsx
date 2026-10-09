@@ -18,9 +18,10 @@ export type RequestDeepLinkViewState =
 type Props = Readonly<{
   state: RequestDeepLinkViewState;
   onClose: () => void;
+  onContinue: () => void;
 }>;
 
-export function RequestDeepLinkScreen({ state, onClose }: Props) {
+export function RequestDeepLinkScreen({ state, onClose, onContinue }: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createRequestIngressStyles);
 
@@ -34,13 +35,13 @@ export function RequestDeepLinkScreen({ state, onClose }: Props) {
         <View style={styles.spacer} />
       </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {state.kind === 'ready' ? <ReadyCard intent={state.intent} /> : <BlockedCard reason={state.reason} />}
+        {state.kind === 'ready' ? <ReadyCard intent={state.intent} onContinue={onContinue} /> : <BlockedCard reason={state.reason} />}
       </ScrollView>
     </Screen>
   );
 }
 
-function ReadyCard({ intent }: Readonly<{ intent: RequestPaymentIntent }>) {
+function ReadyCard({ intent, onContinue }: Readonly<{ intent: RequestPaymentIntent; onContinue: () => void }>) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createRequestIngressStyles);
   const asset =
@@ -58,6 +59,11 @@ function ReadyCard({ intent }: Readonly<{ intent: RequestPaymentIntent }>) {
         label={t('request.ingress.accepted.amount')}
         value={intent.amount ?? t('request.ingress.accepted.openAmount')}
       />
+      <View style={styles.actions}>
+        <Pressable accessibilityLabel={t('request.continueToSend')} accessibilityRole="button" onPress={onContinue} style={styles.action}>
+          <Text style={styles.actionText}>{t('request.continueToSend')}</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }

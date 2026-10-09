@@ -7,6 +7,7 @@ import type { AccountRecord } from '../../capabilities/account/types';
 import { loadBalanceSnapshot } from '../../capabilities/balance/loadBalanceSnapshot';
 import type { BalanceAsset, BalanceLine } from '../../capabilities/balance/types';
 import type { PaymentReview } from '../../capabilities/payment/buildPaymentReview';
+import type { RequestPaymentIntent } from '../../capabilities/request/requestUri';
 import type { StellarPaymentMemo } from '../../capabilities/stellar/types';
 import {useLocalization} from '../../locale';
 import {useAppTheme, useThemedStyles, type AppTheme} from '../../ui/theme';
@@ -15,6 +16,7 @@ import { SendResultScreen, type SendTerminalResult } from './SendResultScreen';
 import { SendReviewScreen } from './SendReviewScreen';
 import {projectFeatureError} from '../featureError';
 import { buildSendReview, submitSendReview, type SendProductDependencies } from './sendProductFlow';
+import { resolveRequestSendPrefill } from './requestSendPrefill';
 
 type LoadState =
   | Readonly<{ kind: 'loading' }>
@@ -30,9 +32,10 @@ type Props = Readonly<{
   account: AccountRecord;
   dependencies: SendProductDependencies;
   onDone: () => void;
+  requestIntent?: RequestPaymentIntent;
 }>;
 
-export function SendFlowScreen({ account, dependencies, onDone }: Props) {
+export function SendFlowScreen({ account, dependencies, onDone, requestIntent }: Props) {
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [flow, setFlow] = useState<FlowState>({ kind: 'form' });
   const [selectedAsset, setSelectedAsset] = useState<BalanceAsset | undefined>();
@@ -92,7 +95,34 @@ export function SendFlowScreen({ account, dependencies, onDone }: Props) {
           return;
         }
 
-        setSelectedAsset(snapshot.balances[0].asset);
+        if (requestIntent !== undefined) {
+          const prefill = resolveRequestSendPrefill(
+            requestIntent,
+            account,
+            dependencies.network,
+            snapshot.balances,
+            dependencies.repository.isWatchOnly(account.id),
+          );
+          if (prefill.kind === 'blocked') {
+            setLoadState({
+              kind: 'blocked',
+              title: t('request.deepLink.blocked.title'),
+              description: t(
+                prefill.reason === 'asset-unavailable'
+                  ? 'send.request.assetUnavailable'
+                  : 'request.deepLink.blocked.account-ineligible',
+              ),
+            });
+            return;
+          }
+          setSelectedAsset(prefill.asset);
+          setDestination(prefill.destination);
+          setAmount(prefill.amount);
+          setMemoType(prefill.memoType);
+          setMemoValue(prefill.memoValue);
+        } else {
+          setSelectedAsset(snapshot.balances[0].asset);
+        }
         setLoadState({ kind: 'ready', balances: snapshot.balances });
       })
       .catch(caught => {
@@ -108,7 +138,7 @@ export function SendFlowScreen({ account, dependencies, onDone }: Props) {
     return () => {
       loadVersion.current += 1;
     };
-  }, [account, dependencies.gateway, dependencies.network.id, t]);
+  }, [account, dependencies.gateway, dependencies.network, dependencies.repository, requestIntent, t]);
 
   const buildReview = useCallback(async () => {
     if (loadState.kind !== 'ready' || !selectedAsset) {
@@ -198,6 +228,7 @@ export function SendFlowScreen({ account, dependencies, onDone }: Props) {
   return (
     <SendFormScreen
       accountLabel={account.label || account.address}
+      requestMessage={requestIntent?.message}
       balances={loadState.balances}
       selectedAsset={selectedAsset ?? loadState.balances[0].asset}
       destination={destination}

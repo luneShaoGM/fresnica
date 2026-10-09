@@ -71,20 +71,40 @@ export async function resolveRequestDeepLink(
   }
 
   const account = resolveVisibleAccount(accounts, accountId);
-  if (account.networkId !== dependencies.network.id || account.identityKind !== 'classic' || isWatchOnly(account.id)) {
+  if (!(await canContinueRequestToSend(dependencies, parsed.result.intent, account, isWatchOnly(account.id)))) {
     return { kind: 'blocked', reason: 'account-ineligible' };
   }
 
-  if (parsed.result.intent.asset.kind === 'credit') {
+  return { kind: 'ready', intent: parsed.result.intent, accountId: account.id };
+}
+
+export async function canContinueRequestToSend(
+  dependencies: Pick<PreparePaymentDependencies, 'gateway' | 'network'>,
+  intent: RequestPaymentIntent,
+  account: AccountRecord,
+  isWatchOnly: boolean,
+): Promise<boolean> {
+  if (
+    account.hidden ||
+    account.identityKind !== 'classic' ||
+    account.networkId !== dependencies.network.id ||
+    intent.networkId !== dependencies.network.id ||
+    intent.networkPassphrase !== dependencies.network.networkPassphrase ||
+    isWatchOnly
+  ) {
+    return false;
+  }
+
+  if (intent.asset.kind === 'credit') {
     try {
       await assertPaymentSourceCanSendAsset(dependencies, account, {
-        asset: parsed.result.intent.asset,
-        ...(parsed.result.intent.amount === undefined ? {} : { amount: parsed.result.intent.amount }),
+        asset: intent.asset,
+        ...(intent.amount === undefined ? {} : { amount: intent.amount }),
       });
     } catch {
-      return { kind: 'blocked', reason: 'account-ineligible' };
+      return false;
     }
   }
 
-  return { kind: 'ready', intent: parsed.result.intent, accountId: account.id };
+  return true;
 }

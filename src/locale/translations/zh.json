@@ -472,5 +472,10 @@
   "request.deepLink.blocked.unsupported": "此链接使用了 Fresnica 当前不支持的 Stellar 请求功能。",
   "request.deepLink.blocked.network-mismatch": "此请求属于另一个 Stellar 网络。Fresnica 没有切换网络。",
   "request.deepLink.blocked.no-account": "当前网络没有可见账户。Fresnica 没有自动创建或选择账户。",
-  "request.deepLink.blocked.account-ineligible": "当前账户无法发送此请求。Fresnica 没有自动切换到其他账户。"
+  "request.deepLink.blocked.account-ineligible": "当前账户无法发送此请求。Fresnica 没有自动切换到其他账户。",
+  "request.continueToSend": "继续发送",
+  "request.ingress.continueBlocked": "当前账户无法发送此请求。未做任何更改，请检查账户后重试。",
+  "send.request.assetUnavailable": "当前账户没有请求的资产。Fresnica 没有替换成其他资产。",
+  "send.request.context": "请求消息",
+  "send.request.untrusted": "公开、未经验证的请求内容；它不是交易备注。"
 }
