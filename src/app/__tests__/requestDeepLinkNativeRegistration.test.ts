@@ -14,4 +14,10 @@ describe('request deep-link native registration', () => {
     expect(info).toContain('<string>web+stellar</string>');
     expect(info).toContain('<key>CFBundleURLTypes</key>');
   });
+
+  it('forwards iOS warm deep links from AppDelegate to React Native Linking', () => {
+    const delegate = fs.readFileSync(path.join(process.cwd(), 'ios/Fresnica/AppDelegate.swift'), 'utf8');
+    expect(delegate).toMatch(/func application\(_ app: UIApplication, open url: URL, options: \[UIApplication\.OpenURLOptionsKey: Any\]/);
+    expect(delegate).toContain('RCTLinkingManager.application(app, open: url, options: options)');
+  });
 });
