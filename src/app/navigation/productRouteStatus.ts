@@ -62,7 +62,7 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   dapps: {
     readiness: 'structure-only',
-    note: 'The current dApps preview is only scaffolding. F4 must port the Stellar-owned catalog, Recent, browser, Freighter bridge, permissions and data exchange into Fresnica layers.',
+    note: 'S14 has an honest read-only catalog load/search/category boundary, but no verified remote provider is configured. Recent, browser, permissions, Freighter bridge and data exchange remain deferred.',
   },
   'settings-home': {
     readiness: 'implemented',
