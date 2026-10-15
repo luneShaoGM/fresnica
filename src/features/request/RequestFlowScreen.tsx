@@ -163,9 +163,6 @@ export function RequestFlowScreen({ account, activeAccountId, dependencies, Scan
     setIngressPermission(undefined);
     setIngressPlatformError(undefined);
     setTorchEnabled(false);
-    photoPickTicket.current += 1;
-    photoPickGate.current = false;
-    setPhotoBusy(false);
   };
 
   const runPasteIngress = async () => {
@@ -190,7 +187,6 @@ export function RequestFlowScreen({ account, activeAccountId, dependencies, Scan
   };
 
   const beginScanIngress = async () => {
-    if (photoPickGate.current) return;
     const session = ingressSession.current + 1;
     ingressSession.current = session;
     setIngressCarrier('scan');

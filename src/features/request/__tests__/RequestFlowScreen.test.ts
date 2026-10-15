@@ -205,4 +205,64 @@ describe('RequestFlowScreen photo retry', () => {
     await scan().onRetry();
     expect(checkCameraPermission).toHaveBeenCalledTimes(2);
   });
+
+  it('keeps photo selection disabled when the scan page reopens before the native read settles', async () => {
+    let resolvePhoto!: (picked: RequestPhotoQrPick) => void;
+    const pendingPhoto = new Promise<RequestPhotoQrPick>(resolve => {
+      resolvePhoto = resolve;
+    });
+    const pickPaymentQrFromPhotos = jest.fn().mockReturnValue(pendingPhoto);
+    const dependencies: RequestProductDependencies = {
+      gateway: {
+        isClassicAccountAddress: value => value.startsWith('G'),
+        loadAccountState: jest.fn().mockResolvedValue({ status: 'inactive', address: account.address }),
+      },
+      network: { id: 'stellar-testnet', networkPassphrase: 'Test SDF Network ; September 2015' },
+      output: {
+        copyRequestUri: jest.fn().mockResolvedValue(undefined),
+        shareRequestUri: jest.fn().mockResolvedValue('dismissed'),
+      },
+      ingress: {
+        readClipboardText: jest.fn().mockResolvedValue(''),
+        checkCameraPermission: jest.fn().mockResolvedValue('blocked'),
+        requestCameraPermission: jest.fn().mockResolvedValue('blocked'),
+        openCameraSettings: jest.fn().mockResolvedValue(undefined),
+        pickPaymentQrFromPhotos,
+      },
+    };
+    const props: React.ComponentProps<typeof RequestFlowScreen> = {
+      account,
+      activeAccountId: account.id,
+      dependencies,
+      ScannerView: () => null,
+      onDone: jest.fn(),
+      onContinueSend: jest.fn().mockResolvedValue(undefined),
+    };
+    const render = () => {
+      mockHooks.stateIndex = 0;
+      mockHooks.refIndex = 0;
+      mockHooks.effectIndex = 0;
+      return RequestFlowScreen(props);
+    };
+    const scan = () => render().props as React.ComponentProps<typeof RequestIngressScreen>;
+
+    const form = render();
+    await (form.props as React.ComponentProps<typeof RequestFormScreen>).onScanRequest();
+    const picking = (scan().onPickPhoto as unknown as () => Promise<void>)();
+    expect(scan().photoBusy).toBe(true);
+
+    scan().onClose();
+    expect(render().type).toBe(RequestFormScreen);
+    await (render().props as React.ComponentProps<typeof RequestFormScreen>).onScanRequest();
+    expect(scan().photoBusy).toBe(true);
+    expect(scan().platformError).toBeUndefined();
+    (scan().onPickPhoto as unknown as () => Promise<void>)();
+    expect(pickPaymentQrFromPhotos).toHaveBeenCalledTimes(1);
+
+    resolvePhoto({ status: 'found', value: 'web+stellar:pay?destination=GDESTINATION&amount=1' });
+    await picking;
+    expect(scan().result).toBeUndefined();
+    expect(scan().platformError).toBeUndefined();
+    expect(scan().photoBusy).toBe(false);
+  });
 });
