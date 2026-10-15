@@ -33,7 +33,7 @@ export function DAppsScreen({ catalog }: Readonly<{ catalog: DappCatalogPort }>)
   useEffect(() => {
     let current = true;
     setState({ kind: 'loading' });
-    void Promise.resolve()
+    Promise.resolve()
       .then(() => catalog.load())
       .then(result => {
         if (!current) return;

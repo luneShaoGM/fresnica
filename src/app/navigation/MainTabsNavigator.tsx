@@ -167,6 +167,8 @@ function MainTabsWithSelection({
     [networkId, onAccountsChanged, services],
   );
 
+  const renderDApps = useCallback(() => <DAppsStackNavigator catalog={services.dappCatalog} />, [services.dappCatalog]);
+
   const selectedAccount = resolveVisibleAccount(accounts, effectiveSelectedAccountId);
   const canSign = !services.onboarding.repository.isWatchOnly(selectedAccount.id);
   const actionAvailability = useMemo<Readonly<Record<ProductAction, boolean>>>(
@@ -209,9 +211,7 @@ function MainTabsWithSelection({
           />
         )}
       </Tab.Screen>
-      <Tab.Screen name="dapps">
-        {() => <DAppsStackNavigator catalog={services.dappCatalog} />}
-      </Tab.Screen>
+      <Tab.Screen name="dapps">{renderDApps}</Tab.Screen>
       <Tab.Screen name="settings">
         {({ navigation }) => (
           <SettingsStackNavigator
