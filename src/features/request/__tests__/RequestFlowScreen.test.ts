@@ -143,12 +143,13 @@ describe('RequestFlowScreen photo retry', () => {
     expect(checkCameraPermission).toHaveBeenCalledTimes(2);
   });
 
-  it('drops a photo result and releases the busy state when the active account changes', async () => {
+  it('keeps photo selection disabled until a stale pick settles after the active account changes', async () => {
     let resolvePhoto!: (picked: RequestPhotoQrPick) => void;
     const pendingPhoto = new Promise<RequestPhotoQrPick>(resolve => {
       resolvePhoto = resolve;
     });
     const checkCameraPermission = jest.fn().mockResolvedValue('blocked');
+    const pickPaymentQrFromPhotos = jest.fn().mockReturnValue(pendingPhoto);
     const dependencies: RequestProductDependencies = {
       gateway: {
         isClassicAccountAddress: value => value.startsWith('G'),
@@ -164,7 +165,7 @@ describe('RequestFlowScreen photo retry', () => {
         checkCameraPermission,
         requestCameraPermission: jest.fn().mockResolvedValue('blocked'),
         openCameraSettings: jest.fn().mockResolvedValue(undefined),
-        pickPaymentQrFromPhotos: jest.fn().mockReturnValue(pendingPhoto),
+        pickPaymentQrFromPhotos,
       },
     };
     let props: React.ComponentProps<typeof RequestFlowScreen> = {
@@ -190,8 +191,12 @@ describe('RequestFlowScreen photo retry', () => {
 
     props = { ...props, activeAccountId: 'account-other' };
     render();
-    expect(scan().photoBusy).toBe(false);
+    expect(scan().photoBusy).toBe(true);
     expect(scan().result).toBeUndefined();
+    (scan().onPickPhoto as unknown as () => Promise<void>)();
+    scan().onRetry();
+    expect(pickPaymentQrFromPhotos).toHaveBeenCalledTimes(1);
+    expect(checkCameraPermission).toHaveBeenCalledTimes(1);
 
     resolvePhoto({ status: 'found', value: 'web+stellar:pay?destination=GDESTINATION&amount=1' });
     await picking;

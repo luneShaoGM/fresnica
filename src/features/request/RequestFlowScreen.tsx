@@ -63,21 +63,16 @@ export function RequestFlowScreen({ account, activeAccountId, dependencies, Scan
   const continueGate = useRef(false);
   const scanFrameGate = useRef(createRequestScanFrameGate());
   const photoPickGate = useRef(false);
+  const photoPickTicket = useRef(0);
   const ingressSession = useRef(0);
 
   useEffect(() => {
     return () => {
       // Unmount or source-account context change cancels pending Continue and photo imports.
+      // An in-flight photo read keeps its ticket, so the button stays disabled until that call settles.
       ingressSession.current += 1;
       continueGate.current = false;
-      photoPickGate.current = false;
     };
-  }, [account.id, account.networkId, activeAccountId, dependencies.network.id]);
-
-  useEffect(() => {
-    // Drop the busy flag when the account context changes. The in-flight picker
-    // still settles later, but only its original session may import a result.
-    setPhotoBusy(false);
   }, [account.id, account.networkId, activeAccountId, dependencies.network.id]);
 
   useEffect(() => {
@@ -168,6 +163,7 @@ export function RequestFlowScreen({ account, activeAccountId, dependencies, Scan
     setIngressPermission(undefined);
     setIngressPlatformError(undefined);
     setTorchEnabled(false);
+    photoPickTicket.current += 1;
     photoPickGate.current = false;
     setPhotoBusy(false);
   };
@@ -229,11 +225,13 @@ export function RequestFlowScreen({ account, activeAccountId, dependencies, Scan
   const pickPhoto = async () => {
     if (photoPickGate.current || ingressCarrier !== 'scan') return;
     const session = ingressSession.current;
+    const ticket = photoPickTicket.current + 1;
+    photoPickTicket.current = ticket;
     photoPickGate.current = true;
     setPhotoBusy(true);
     try {
       const picked = await dependencies.ingress.pickPaymentQrFromPhotos();
-      if (ingressSession.current !== session) return;
+      if (photoPickTicket.current !== ticket || ingressSession.current !== session) return;
       if (picked.status === 'cancelled') return;
       scanFrameGate.current.reset();
       scanFrameGate.current.accept();
@@ -244,12 +242,12 @@ export function RequestFlowScreen({ account, activeAccountId, dependencies, Scan
       setIngressPlatformError(undefined);
       setIngressResult(parseIngress('scan', picked.value));
     } catch {
-      if (ingressSession.current !== session) return;
+      if (photoPickTicket.current !== ticket || ingressSession.current !== session) return;
       scanFrameGate.current.reset();
       scanFrameGate.current.accept();
       setIngressPlatformError('photo');
     } finally {
-      if (ingressSession.current === session) {
+      if (photoPickTicket.current === ticket) {
         photoPickGate.current = false;
         setPhotoBusy(false);
       }
