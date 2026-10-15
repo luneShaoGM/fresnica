@@ -104,7 +104,7 @@ Copy, system Share and QR render the exact same canonical URI string produced by
 
 The plain public address may be displayed separately for human verification, but the copy/share/QR Request actions must not silently switch between address-only and SEP-7 forms.
 
-System share cancellation is not an error. A platform share failure remains on Request, preserves the generated URI and shows a localized retryable failure.
+System share cancellation is not an error. A platform share failure remains on Request, preserves the generated URI and shows a localized retryable failure. React Native's Android system Share contract always reports `sharedAction` after the chooser returns, including after dismissal, so that result is **unconfirmed**: the Request screen must not announce successful delivery or show a share error, and the user can share again. iOS retains the explicit shared/dismissed outcomes. Unrecognized platform outcomes are also unconfirmed, not successes.
 
 Clipboard writes contain only the canonical public request URI. Request never reads the clipboard automatically.
 
