@@ -57,10 +57,12 @@ export function RequestFlowScreen({ account, activeAccountId, dependencies, Scan
   const [ingressPermission, setIngressPermission] = useState<RequestIngressPermissionViewState>();
   const [ingressPlatformError, setIngressPlatformError] = useState<RequestIngressPlatformError>();
   const [torchEnabled, setTorchEnabled] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [continueBusy, setContinueBusy] = useState(false);
   const [continueError, setContinueError] = useState<string>();
   const continueGate = useRef(false);
   const scanFrameGate = useRef(createRequestScanFrameGate());
+  const photoPickGate = useRef(false);
   const ingressSession = useRef(0);
 
   useEffect(() => {
@@ -159,6 +161,8 @@ export function RequestFlowScreen({ account, activeAccountId, dependencies, Scan
     setIngressPermission(undefined);
     setIngressPlatformError(undefined);
     setTorchEnabled(false);
+    photoPickGate.current = false;
+    setPhotoBusy(false);
   };
 
   const runPasteIngress = async () => {
@@ -214,6 +218,34 @@ export function RequestFlowScreen({ account, activeAccountId, dependencies, Scan
     setIngressPlatformError('camera');
   };
 
+  const pickPhoto = async () => {
+    if (photoPickGate.current || ingressCarrier !== 'scan') return;
+    const session = ingressSession.current;
+    photoPickGate.current = true;
+    setPhotoBusy(true);
+    try {
+      const picked = await dependencies.ingress.pickPaymentQrFromPhotos();
+      if (ingressSession.current !== session) return;
+      if (picked.status === 'cancelled') return;
+      scanFrameGate.current.reset();
+      scanFrameGate.current.accept();
+      if (picked.status === 'empty') {
+        setIngressPlatformError('photo-empty');
+        return;
+      }
+      setIngressPlatformError(undefined);
+      setIngressResult(parseIngress('scan', picked.value));
+    } catch {
+      if (ingressSession.current !== session) return;
+      scanFrameGate.current.reset();
+      scanFrameGate.current.accept();
+      setIngressPlatformError('photo');
+    } finally {
+      photoPickGate.current = false;
+      if (ingressSession.current === session) setPhotoBusy(false);
+    }
+  };
+
   const retryIngress = () => {
     if (ingressCarrier === 'paste') return runPasteIngress();
     return beginScanIngress();
@@ -261,17 +293,20 @@ export function RequestFlowScreen({ account, activeAccountId, dependencies, Scan
         continueError={continueError}
         onCode={handleScanCode}
         onOpenSettings={() => openCameraSettings()}
+        onPickPhoto={() => pickPhoto()}
         onRetry={() => retryIngress()}
         onScannerError={handleScannerError}
         onToggleTorch={() => setTorchEnabled(current => !current)}
         permissionState={ingressPermission}
+        photoBusy={photoBusy}
         platformError={ingressPlatformError}
         result={ingressResult}
         scannerActive={
           ingressCarrier === 'scan' &&
           ingressPermission === 'granted' &&
           ingressResult === undefined &&
-          ingressPlatformError === undefined
+          ingressPlatformError === undefined &&
+          !photoBusy
         }
         ScannerView={ScannerView}
         torchEnabled={torchEnabled}

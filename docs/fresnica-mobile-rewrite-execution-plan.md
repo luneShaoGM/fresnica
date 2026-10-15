@@ -731,7 +731,8 @@ UI 执行策略：
 - 地址 QR 与系统 Share。
 - SEP-7 request URI。
 - 可选 amount、asset、memo。
-- 扫描、粘贴、系统 deep link 进入同一个解析和路由模块。
+- 扫描、粘贴、系统 deep link 进入同一个解析和路由模块。扫描包含摄像头，以及系统相册单张选图；相册只读取 QR 文本，不申请整库照片权限。
+- 当前扫描入口在 Request。Stellar HomeActions 里的共享 `Modal/Scan` 仍是信息架构中的独立入口，尚未接到 Actions overlay。
 - 对未知 URI、错误 network、错误 asset identity fail closed。
 - 法币汇率为可选展示能力，不阻断基础收款。
 

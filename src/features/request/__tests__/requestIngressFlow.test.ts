@@ -14,6 +14,7 @@ function ingress(overrides: Partial<RequestIngressPort> = {}): RequestIngressPor
     checkCameraPermission: jest.fn().mockResolvedValue('granted'),
     requestCameraPermission: jest.fn().mockResolvedValue('granted'),
     openCameraSettings: jest.fn().mockResolvedValue(undefined),
+    pickPaymentQrFromPhotos: jest.fn().mockResolvedValue({ status: 'cancelled' }),
     ...overrides,
   };
 }

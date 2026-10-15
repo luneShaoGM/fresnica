@@ -51,6 +51,7 @@ function dependencies(state: StellarAccountState | 'inactive'): RequestProductDe
     checkCameraPermission: jest.fn().mockResolvedValue('granted'),
     requestCameraPermission: jest.fn().mockResolvedValue('granted'),
     openCameraSettings: jest.fn().mockResolvedValue(undefined),
+    pickPaymentQrFromPhotos: jest.fn().mockResolvedValue({ status: 'cancelled' }),
   } as const;
   return { gateway, network: NETWORK, output, ingress };
 }

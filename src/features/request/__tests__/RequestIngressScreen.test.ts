@@ -65,10 +65,12 @@ const baseProps = {
   carrier: 'scan' as const,
   scannerActive: false,
   torchEnabled: false,
+  photoBusy: false,
   ScannerView,
   onCode: jest.fn(),
   onScannerError: jest.fn(),
   onToggleTorch: jest.fn(),
+  onPickPhoto: jest.fn(),
   onRetry: jest.fn(),
   onOpenSettings: jest.fn(),
   onClose: jest.fn(),
@@ -88,6 +90,7 @@ describe('RequestIngressScreen', () => {
 
     expect(labels).toContain('request.ingress.close');
     expect(labels).toContain('request.ingress.retry');
+    expect(labels).toContain('request.ingress.scan.photo');
     expect(labels).toContain('request.ingress.permission.settings');
   });
 
@@ -115,6 +118,11 @@ describe('RequestIngressScreen', () => {
 
     expect(scanner?.props.active).toBe(true);
     expect(scanner?.props.torchEnabled).toBe(true);
+    const labels: string[] = [];
+    walk(root, element => {
+      if (element.props.accessibilityLabel) labels.push(element.props.accessibilityLabel);
+    });
+    expect(labels).toContain('request.ingress.scan.photo');
     scanner?.props.onCode('GDESTINATION');
     expect(onCode).toHaveBeenCalledWith('GDESTINATION');
   });
