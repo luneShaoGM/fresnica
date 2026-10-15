@@ -38,6 +38,7 @@ type NodeProps = Readonly<{
   children?: React.ReactNode;
   accessibilityLabel?: string;
   onPress?: () => void;
+  disabled?: boolean;
 }>;
 
 function walk(
@@ -92,6 +93,21 @@ describe('RequestIngressScreen', () => {
     expect(labels).toContain('request.ingress.retry');
     expect(labels).toContain('request.ingress.scan.photo');
     expect(labels).toContain('request.ingress.permission.settings');
+  });
+
+  it.each([
+    { permissionState: 'blocked' as const },
+    { platformError: 'camera' as const },
+  ])('disables retry while photo decoding is pending: %p', state => {
+    const root = RequestIngressScreen({ ...baseProps, ...state, photoBusy: true });
+    const retryDisabled: boolean[] = [];
+    walk(root, element => {
+      if (element.props.accessibilityLabel === 'request.ingress.retry') {
+        retryDisabled.push(element.props.disabled === true);
+      }
+    });
+
+    expect(retryDisabled).toEqual([true]);
   });
 
   it('injects the scanner only after permission is granted and preserves local torch state', () => {

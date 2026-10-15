@@ -133,7 +133,7 @@ function ScannerState(props: Props) {
       </View>
       <View style={styles.actions}>
         {(permission === 'denied' || permission === 'blocked' || permission === 'error') && (
-          <IngressAction label={t('request.ingress.retry')} onPress={props.onRetry} />
+          <IngressAction label={t('request.ingress.retry')} disabled={props.photoBusy} onPress={props.onRetry} />
         )}
         <PhotoAction {...props} />
         {permission === 'blocked' ? (
@@ -262,7 +262,7 @@ function IngressPlatformErrorCard({
       </Text>
       <Text style={styles.errorBody}>{body}</Text>
       <View style={styles.actions}>
-        <IngressAction label={t('request.ingress.retry')} onPress={onRetry} />
+        <IngressAction label={t('request.ingress.retry')} disabled={photoBusy} onPress={onRetry} />
         {onPickPhoto ? (
           <IngressAction
             disabled={photoBusy}

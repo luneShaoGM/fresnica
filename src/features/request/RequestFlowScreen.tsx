@@ -187,6 +187,7 @@ export function RequestFlowScreen({ account, activeAccountId, dependencies, Scan
   };
 
   const beginScanIngress = async () => {
+    if (photoPickGate.current) return;
     const session = ingressSession.current + 1;
     ingressSession.current = session;
     setIngressCarrier('scan');
@@ -241,12 +242,15 @@ export function RequestFlowScreen({ account, activeAccountId, dependencies, Scan
       scanFrameGate.current.accept();
       setIngressPlatformError('photo');
     } finally {
-      photoPickGate.current = false;
-      if (ingressSession.current === session) setPhotoBusy(false);
+      if (ingressSession.current === session) {
+        photoPickGate.current = false;
+        setPhotoBusy(false);
+      }
     }
   };
 
   const retryIngress = () => {
+    if (photoPickGate.current) return;
     if (ingressCarrier === 'paste') return runPasteIngress();
     return beginScanIngress();
   };
