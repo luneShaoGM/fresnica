@@ -1,4 +1,5 @@
 import Clipboard from '@react-native-clipboard/clipboard';
+import { NativeModules } from 'react-native';
 import { check, openSettings, request, RESULTS } from 'react-native-permissions';
 
 import { reactNativeRequestIngress } from '../requestIngress';
@@ -78,5 +79,29 @@ describe('reactNativeRequestIngress', () => {
 
     openSettingsMock.mockRejectedValueOnce(new Error('settings-detail'));
     await expect(reactNativeRequestIngress.openCameraSettings()).rejects.toThrow('request-camera-settings-failed');
+  });
+
+  it('returns only the QR text from a chosen photo and hides native failures', async () => {
+    const pickQr = jest.fn();
+    NativeModules.RequestPhotoQr = { pickQr };
+    const raw = 'web+stellar:pay?destination=GDESTINATION&amount=1.2345678';
+
+    pickQr.mockResolvedValueOnce({ status: 'cancelled' });
+    await expect(reactNativeRequestIngress.pickPaymentQrFromPhotos()).resolves.toEqual({ status: 'cancelled' });
+
+    pickQr.mockResolvedValueOnce({ status: 'empty' });
+    await expect(reactNativeRequestIngress.pickPaymentQrFromPhotos()).resolves.toEqual({ status: 'empty' });
+
+    pickQr.mockResolvedValueOnce({ status: 'found', value: raw });
+    await expect(reactNativeRequestIngress.pickPaymentQrFromPhotos()).resolves.toEqual({
+      status: 'found',
+      value: raw,
+    });
+
+    pickQr.mockResolvedValueOnce({ status: 'found', value: '' });
+    await expect(reactNativeRequestIngress.pickPaymentQrFromPhotos()).resolves.toEqual({ status: 'empty' });
+
+    pickQr.mockRejectedValueOnce(new Error('/private/secret-photo.png'));
+    await expect(reactNativeRequestIngress.pickPaymentQrFromPhotos()).rejects.toThrow('request-photo-qr-failed');
   });
 });

@@ -12,7 +12,7 @@ import { maskRequestIssuer } from './RequestFormScreen';
 import { createRequestIngressStyles } from './ingressStyles';
 
 export type RequestIngressPermissionViewState = RequestCameraPermissionState | 'checking' | 'error';
-export type RequestIngressPlatformError = 'clipboard' | 'camera' | 'settings';
+export type RequestIngressPlatformError = 'clipboard' | 'camera' | 'settings' | 'photo' | 'photo-empty';
 
 export type RequestScannerViewComponent = React.ComponentType<RequestScannerViewProps>;
 
@@ -23,10 +23,12 @@ type Props = Readonly<{
   platformError?: RequestIngressPlatformError;
   scannerActive: boolean;
   torchEnabled: boolean;
+  photoBusy: boolean;
   ScannerView: RequestScannerViewComponent;
   onCode: (value: string) => void;
   onScannerError: () => void;
   onToggleTorch: () => void;
+  onPickPhoto: () => void;
   onRetry: () => void;
   onOpenSettings: () => void;
   onClose: () => void;
@@ -65,6 +67,8 @@ export function RequestIngressScreen(props: Props) {
             error={props.platformError}
             onRetry={props.onRetry}
             onOpenSettings={props.onOpenSettings}
+            onPickPhoto={props.carrier === 'scan' ? props.onPickPhoto : undefined}
+            photoBusy={props.photoBusy}
           />
         ) : props.carrier === 'scan' ? (
           <ScannerState {...props} />
@@ -103,13 +107,19 @@ function ScannerState(props: Props) {
             label={props.torchEnabled ? t('request.ingress.scan.torchOff') : t('request.ingress.scan.torchOn')}
             onPress={props.onToggleTorch}
           />
+          <PhotoAction {...props} />
         </View>
       </>
     );
   }
 
   if (permission === 'checking') {
-    return <StatusCard title={t('request.ingress.permission.checking')} body={t('request.ingress.scan.purpose')} />;
+    return (
+      <View style={styles.center}>
+        <StatusCard title={t('request.ingress.permission.checking')} body={t('request.ingress.scan.purpose')} />
+        <PhotoAction {...props} />
+      </View>
+    );
   }
 
   const detail = permissionMessage(permission, t);
@@ -123,8 +133,9 @@ function ScannerState(props: Props) {
       </View>
       <View style={styles.actions}>
         {(permission === 'denied' || permission === 'blocked' || permission === 'error') && (
-          <IngressAction label={t('request.ingress.retry')} onPress={props.onRetry} />
+          <IngressAction label={t('request.ingress.retry')} disabled={props.photoBusy} onPress={props.onRetry} />
         )}
+        <PhotoAction {...props} />
         {permission === 'blocked' ? (
           <IngressAction label={t('request.ingress.permission.settings')} onPress={props.onOpenSettings} secondary />
         ) : null}
@@ -215,11 +226,31 @@ function Detail({ label, value }: Readonly<{ label: string; value: string }>) {
   );
 }
 
+function PhotoAction(props: Props) {
+  const { t } = useLocalization();
+  return (
+    <IngressAction
+      disabled={props.photoBusy}
+      label={t('request.ingress.scan.photo')}
+      onPress={props.onPickPhoto}
+      secondary
+    />
+  );
+}
+
 function IngressPlatformErrorCard({
   error,
   onRetry,
   onOpenSettings,
-}: Readonly<{ error: RequestIngressPlatformError; onRetry: () => void; onOpenSettings: () => void }>) {
+  onPickPhoto,
+  photoBusy,
+}: Readonly<{
+  error: RequestIngressPlatformError;
+  onRetry: () => void;
+  onOpenSettings: () => void;
+  onPickPhoto?: () => void;
+  photoBusy: boolean;
+}>) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createRequestIngressStyles);
   const title = t('request.ingress.platformError.title');
@@ -231,7 +262,15 @@ function IngressPlatformErrorCard({
       </Text>
       <Text style={styles.errorBody}>{body}</Text>
       <View style={styles.actions}>
-        <IngressAction label={t('request.ingress.retry')} onPress={onRetry} />
+        <IngressAction label={t('request.ingress.retry')} disabled={photoBusy} onPress={onRetry} />
+        {onPickPhoto ? (
+          <IngressAction
+            disabled={photoBusy}
+            label={t('request.ingress.scan.photo')}
+            onPress={onPickPhoto}
+            secondary
+          />
+        ) : null}
         {error === 'settings' ? (
           <IngressAction label={t('request.ingress.permission.settings')} onPress={onOpenSettings} secondary />
         ) : null}
@@ -243,13 +282,11 @@ function IngressPlatformErrorCard({
 function StatusCard({ title, body }: Readonly<{ title: string; body: string }>) {
   const styles = useThemedStyles(createRequestIngressStyles);
   return (
-    <View style={styles.center}>
-      <View style={styles.statusCard}>
-        <Text accessibilityLiveRegion="polite" style={styles.statusTitle}>
-          {title}
-        </Text>
-        <Text style={styles.resultBody}>{body}</Text>
-      </View>
+    <View style={styles.statusCard}>
+      <Text accessibilityLiveRegion="polite" style={styles.statusTitle}>
+        {title}
+      </Text>
+      <Text style={styles.resultBody}>{body}</Text>
     </View>
   );
 }

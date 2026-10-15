@@ -29,7 +29,7 @@ Ownership is split as follows:
 - a Request domain module owns canonical request DTOs plus SEP-7 pay build/parse rules;
 - Feature code owns form state, localized presentation and explicit user actions;
 - App navigation owns account/network routing and cold/warm deep-link composition;
-- Platform ports own QR rendering, system share, clipboard access, camera scan and OS deep-link ingress;
+- Platform ports own QR rendering, system share, clipboard access, camera scan, a system photo-library QR pick and OS deep-link ingress;
 - Payment remains authoritative for whether the eventual outbound payment is executable.
 
 Feature/domain code must not import React Native camera, Share, Clipboard or Linking APIs directly.
@@ -183,6 +183,8 @@ The Stage 5 scanner is purpose-limited to public Stellar payment input. It does 
 
 Camera permission follows the normal OS request/deny/retry/settings path. Denial leaves the user on a stable scanner state with Close and permission-recovery actions; it never falls back to an unrelated browser or hidden camera access.
 
+The same scanner offers an explicit photo pick. The system photo picker returns one image. Fresnica reads only QR payloads from that image and passes the text through the same scan parser. Cancelling the picker leaves the current scanner state unchanged. A photo with no QR code, or a photo that cannot be decoded, stays on a stable error with retry and imports nothing. The image path and pixel data are not logged or stored. This pick does not request broad photo-library permission and does not replace camera permission recovery.
+
 Paste is explicit user action. Clipboard content is read only after the user chooses Paste/Import from clipboard.
 
 If scan/paste content is a Stellar secret seed, mnemonic, arbitrary URL, plain text or another unsupported URI, S09 does not route it elsewhere. Secret/mnemonic-like content is classified as sensitive and rejected without echoing the full value into UI diagnostics or logs.
@@ -211,7 +213,7 @@ Exact ledger values remain strings. UI formatting must not replace the canonical
 
 The Request screen must expose meaningful labels for account, amount toggle/input, asset picker, memo type/value, message, Copy, Share and QR content. The QR itself needs an accessible textual alternative containing the public destination and enabled request fields rather than requiring a screen reader to interpret pixels.
 
-Scanner controls require explicit camera-purpose, torch, paste and close labels/states. Permission-denied recovery and parser errors remain reachable under dynamic font and screen readers.
+Scanner controls require explicit camera-purpose, torch, photo-pick, paste and close labels/states. Permission-denied recovery and parser errors remain reachable under dynamic font and screen readers. Photo pick stays available when camera permission is denied or blocked.
 
 Full dual-platform TalkBack/VoiceOver focus-order evidence is an aggregate/L4 acceptance item, not a reason to weaken the per-slice accessibility contract.
 

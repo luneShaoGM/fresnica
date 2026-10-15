@@ -38,6 +38,7 @@ type NodeProps = Readonly<{
   children?: React.ReactNode;
   accessibilityLabel?: string;
   onPress?: () => void;
+  disabled?: boolean;
 }>;
 
 function walk(
@@ -65,10 +66,12 @@ const baseProps = {
   carrier: 'scan' as const,
   scannerActive: false,
   torchEnabled: false,
+  photoBusy: false,
   ScannerView,
   onCode: jest.fn(),
   onScannerError: jest.fn(),
   onToggleTorch: jest.fn(),
+  onPickPhoto: jest.fn(),
   onRetry: jest.fn(),
   onOpenSettings: jest.fn(),
   onClose: jest.fn(),
@@ -88,7 +91,23 @@ describe('RequestIngressScreen', () => {
 
     expect(labels).toContain('request.ingress.close');
     expect(labels).toContain('request.ingress.retry');
+    expect(labels).toContain('request.ingress.scan.photo');
     expect(labels).toContain('request.ingress.permission.settings');
+  });
+
+  it.each([
+    { permissionState: 'blocked' as const },
+    { platformError: 'camera' as const },
+  ])('disables retry while photo decoding is pending: %p', state => {
+    const root = RequestIngressScreen({ ...baseProps, ...state, photoBusy: true });
+    const retryDisabled: boolean[] = [];
+    walk(root, element => {
+      if (element.props.accessibilityLabel === 'request.ingress.retry') {
+        retryDisabled.push(element.props.disabled === true);
+      }
+    });
+
+    expect(retryDisabled).toEqual([true]);
   });
 
   it('injects the scanner only after permission is granted and preserves local torch state', () => {
@@ -115,6 +134,11 @@ describe('RequestIngressScreen', () => {
 
     expect(scanner?.props.active).toBe(true);
     expect(scanner?.props.torchEnabled).toBe(true);
+    const labels: string[] = [];
+    walk(root, element => {
+      if (element.props.accessibilityLabel) labels.push(element.props.accessibilityLabel);
+    });
+    expect(labels).toContain('request.ingress.scan.photo');
     scanner?.props.onCode('GDESTINATION');
     expect(onCode).toHaveBeenCalledWith('GDESTINATION');
   });

@@ -8,8 +8,8 @@
 
 Fresnica 已具备账户、余额、发送、信任线、交易恢复等可用底座，多个 Stage 4 产品切片达到 **L3 / L4 partial**；但整个应用尚未达到发布成熟度。当前有两条近端任务线：
 
-1. **UI-01 / PR #83：先完成 exact-HEAD Work 独立审查。** 若出现 P1/P2，按实际 Diff 定向修复，新 HEAD 重审；审查无 P1/P2 后由用户决定合并。CI 全绿不等于原生 UI 验收。
-2. **S09 原生收口：保护已有工作并闭合缺失证据。** Photo QR 四个原生文件尚未被 Git 跟踪，必须从已有受保护工作区/快照核对后进入独立 PR；Android 分享取消、iOS 后台 deep link 等按影响范围定向复测，不重做已通过的热启动路径。
+1. **UI-01 / PR #83 已合并。** exact HEAD `5fe11f6671159935e6f2f2016565fe2c519cf9d0` 独立审查无 P1/P2，合并提交为 `b8c3a15b73eee12af6c10cdde56c9d2f1c175994`。dApps 空/不可用状态的双端原生验收仍未做。CI 全绿不等于原生 UI 验收。
+2. **S09 Photo QR 源码收口是当前切片。** 四个原生文件已与保全快照逐字节核对，临时 Gradle 打包配置和隐私清单重排未纳入。相册选图的双端真机/模拟器验收仍单独记录，不能把源码入库写成 S09-07 通过。Android 分享取消、iOS 后台 deep link 继续按影响范围定向复测。
 
 UI-01 之后再逐步迁移低风险页面；**不要一次性替换全部 UI**，不要把 UI 重构与账户、签名、交易、S09 原生改动混入同一个 PR。
 
@@ -18,14 +18,14 @@ UI-01 之后再逐步迁移低风险页面；**不要一次性替换全部 UI**�
 | 项目 | 截止 2026-10-15 的已核实状态 |
 | --- | --- |
 | 仓库 | [luneShaoGM/fresnica](https://github.com/luneShaoGM/fresnica) |
-| 远端 `main` | `aa01e7e0f570cfff53e514965d7ef6b33e34aa23` |
-| 近期合并 | [#80](https://github.com/luneShaoGM/fresnica/pull/80) iOS 前台 Deep Link → `a9b3274fd34858c5d3bd34e3c4c6564290093d52`；[#81](https://github.com/luneShaoGM/fresnica/pull/81) S14 只读 dApp Catalog → `d79d4f1bb9fd83949cb700cc58a1ea4107835eca`；[#82](https://github.com/luneShaoGM/fresnica/pull/82) Android 分享结果修复 → 当前 `main` |
-| 当前产品 PR | [#83 — UI-01 原生组件库首次接入](https://github.com/luneShaoGM/fresnica/pull/83)；OPEN、可合并候选，但未审查批准 |
-| PR #83 remote HEAD | `5fe11f6671159935e6f2f2016565fe2c519cf9d0`；base 为上述 `main`；10 个文件，+236/−15 |
-| PR #83 CI | GitHub CI、Realm、Native Android Gate、Native Apple Gate：**SUCCESS**；107/107 Jest 套件、619/619 测试；ESLint 0 errors、21 个既有 warnings |
-| PR #83 Work Review | **尚无**有效独立 Work Review；仅有 [DEV_HANDOFF 评论](https://github.com/luneShaoGM/fresnica/pull/83#issuecomment-6185910806)。不得视为 APPROVED |
+| 远端 `main` | `b8c3a15b73eee12af6c10cdde56c9d2f1c175994` |
+| 近期合并 | [#80](https://github.com/luneShaoGM/fresnica/pull/80) iOS 前台 Deep Link → `a9b3274fd34858c5d3bd34e3c4c6564290093d52`；[#81](https://github.com/luneShaoGM/fresnica/pull/81) S14 只读 dApp Catalog → `d79d4f1bb9fd83949cb700cc58a1ea4107835eca`；[#82](https://github.com/luneShaoGM/fresnica/pull/82) Android 分享结果修复 → `aa01e7e0f570cfff53e514965d7ef6b33e34aa23`；[#84](https://github.com/luneShaoGM/fresnica/pull/84) 进度索引 → `7a7c972fe23cf161a59f0ccab3838a8ea0470e81`；[#83](https://github.com/luneShaoGM/fresnica/pull/83) UI-01 → 当前 `main` |
+| 当前产品 PR | [#85 — S09 相册选图 QR](https://github.com/luneShaoGM/fresnica/pull/85)；分支 `stage5/s09-photo-qr-ingress-2026-10-15`；base 为上述 `main` |
+| PR #83 | 已合并。审查 HEAD `5fe11f6671159935e6f2f2016565fe2c519cf9d0`；10 个文件，+236/−15。独立审查无 P1/P2 后由用户决定合并 |
+| PR #83 CI | 合并前 GitHub CI、Realm、Native Android Gate、Native Apple Gate：**SUCCESS**；107/107 Jest 套件、619/619 测试；ESLint 0 errors、21 个既有 warnings。heavy 与 development-handoff 为 skipped |
+| PR #83 Work Review | 2026-10-15 对 exact HEAD 完成独立审查：包 SHA-256、lockfile integrity、Provider/locale、Metro ESM bundle 均核对；无 P1/P2。GitHub 上没有自动化 `FRESNICA_WORK_REVIEW` 标记，避免触发已暂停的控制器 |
 | 历史未关 PR | [#78](https://github.com/luneShaoGM/fresnica/pull/78) Automation V2.2 已暂停；[#25](https://github.com/luneShaoGM/fresnica/pull/25)、[#14](https://github.com/luneShaoGM/fresnica/pull/14) 为旧 PR，不作为当前开发基线 |
-| 本地工作区 | Remote Desktop Commander 离线/不稳定，**本轮未能实时重新确认** local branch、HEAD 与 working tree；不得推断本地已同步 `main` |
+| 本地工作区 | 脏工作区仍在 `stage5/s09-dual-platform-aggregate-acceptance-2026-10-09` @ `7a7c972fe23cf161a59f0ccab3838a8ea0470e81`，含未提交 S09 改动。Photo QR 切片在独立 worktree，未 reset、clean 或覆盖该工作区 |
 
 **已有保全证据（不是当前工作区状态证明）：** 前次在本地 `/Users/lune/Documents/work/2012/fresnica-s09-preserved/snapshot-20261015T021112Z/` 创建并校验过 S09 快照，共 53 个文件：20 个修改的跟踪文件、29 个未跟踪项目和 4 个被 Git 忽略的原生 Photo QR 文件。含 staged/unstaged patch、文件 manifest 与 SHA-256 校验。当前设备离线，尚未再次读取验证；**不得 reset、clean、覆盖或删除未知本地变更**。
 
@@ -40,7 +40,7 @@ UI-01 之后再逐步迁移低风险页面；**不要一次性替换全部 UI**�
 | S13 Activity | 分页、过滤/搜索、详情、离线缓存、Explorer、Android aggregate；**L3 partial** | iOS Activity 真正的离线→Retry→page 1 revalidation→重启产品链尚需证据；不要把直接 Helper 证据当产品流 |
 | S09 Request / QR / Share / Deep Link | #80、#82 的定向代码修复已进入 `main`；多个双端主路径已有历史模拟器验收 | **Aggregate 未闭合**：Photo QR 原生源码、S09-06/S09-27/S09-42 等仍有缺口（见第 4 节） |
 | S14 / S15 / S16–S19 dApps | S14 Catalog 加载/搜索/分类只读状态基线已合并，**S14 L1 partial**；S15 仅脚手架；SEP-53 为机制级 L2 | 真实 Catalog 提供方未验证；没有可信 WebView/origin、Recent、权限/撤销、Freighter 完整产品闭环 |
-| Stage 3 / UI-01 | 完成上游原生组件候选包来源与校验；PR #83 将 Provider、Theme、Locale 接线和 dApps 空状态首个消费者提交审查 | PR #83 尚未 Merge；组件在 Fresnica 真正 Android/iOS 产品流、动态字体、读屏、对比度等均未验收 |
+| Stage 3 / UI-01 | PR #83 已合并：Provider、Theme、Locale 接线，以及 dApps 空状态首个消费者 | 组件在 Fresnica 真正 Android/iOS 产品流、动态字体、读屏、对比度等均未验收 |
 | Stage 8 / 9 | S06、S22–S25 等有部分框架；发布路线和 fail-closed 发布安全边界已定义 | S22 通讯录、资产发现、设置/诊断完整闭环、主网与签名发布凭据、设备验收尚未完成 |
 
 成熟度以最新代码、PR、行为规格和实际验收记录为准。部分历史施工文档仍保留较早的 S09「未做」等行，**不得用过时状态行覆盖 #80–#83 的当前事实**；同时也不得因 PR 合并自动提升为 L4。
@@ -50,7 +50,7 @@ UI-01 之后再逐步迁移低风险页面；**不要一次性替换全部 UI**�
 | 任务 | 已知证据 / 风险 | 下一步与可通过条件 |
 | --- | --- | --- |
 | **S09-06 Android Share** | #82 已改变 Android 系统分享返回结果：不再把无法确认的 chooser 结果显示成「已分享」；此前模拟器出现取消后误报成功 | 在新构建中实测「分享 → Back/取消 → 不出现成功假阳性 → 再次分享」。记录构建、设备、步骤和 UI；正常关闭不是错误 |
-| **S09-07 / Photo QR** | Android 相册选图解码已有部分历史证据；iOS 尚未完整。四个新原生文件分别为 Android `RequestPhotoQrModule.kt`、`RequestPhotoQrPackage.kt`，iOS `RequestPhotoQr.swift`、`RequestPhotoQr.m`，被 `/android`、`/ios` ignore 规则遗漏 | **先以保全快照与当前基线逐文件核对**，筛除临时 Gradle/打包配置；在独立 Photo QR PR 显式 `git add -f` 纳入正确原生文件；验证双端 clean checkout/build、相册选图→公开 SEP-7 URI 解码、失败/取消/重复选择与权限降级；不得称相册选图等于相机扫码 |
+| **S09-07 / Photo QR** | 四个原生文件与快照 `snapshot-20261015T021112Z` 逐字节一致，已从忽略规则中用 `git add -f` 纳入。Android 只增加 ML Kit 条码依赖；`debuggableVariants` 与 legacy dex packaging 留在脏工作区。iOS 选图回调改为在主线程绘制。相册真机/模拟器路径仍未在本轮执行 | 干净检出后验证双端构建，以及相册选图→公开 SEP-7 URI、失败/取消/重复选择与权限降级。不得称相册选图等于相机扫码，不得把源码入库写成 PASS |
 | **S09-25 iOS 前台热 Deep Link** | #80 修复后 **2026-10-14 已复测成功**；原生 app 在前台接收链接并显示待处理付款请求 | 功能未受后续修改影响时不重复完整验收；新集成若直接触及链接路由才复测 |
 | **S09-27 iOS 后台 Deep Link** | 历史测试仍记录 FAIL；未建立 PR #80 后的可信定向复测结果 | 使用 #80 合并后的新构建：前台→后台→打开 URI→回到应用→核对请求展示/取消/重复交付。只修复实际失败面 |
 | **S09-42 路由失焦异步竞态** | 无受控延迟的原生产品流证据；既有 helper/单测不能代替 | 控制资格检查/导航异步完成时序，在切换路由、账户、卸载情况下证明旧回调不污染新状态 |
@@ -68,7 +68,7 @@ UI-01 之后再逐步迁移低风险页面；**不要一次性替换全部 UI**�
 | 上游 package-bearing commit | `7182872be5c1557bc332d270bf3a5e7cec48c409` |
 | Web Token source lock | `15d49e0be28a232ae6de2a7285a3a77add8c87d4` |
 | tarball SHA-256 | `54913d4c4466d3cd5744b41d878a3af54344728bda30dc3592ccef2c07fd834f` |
-| 本地包形式 | `vendor/ui-native/fresnica-ui-native-1.1.0-rc.1.tgz`（仅存在于 PR #83 分支，非 `main`） |
+| 本地包形式 | `vendor/ui-native/fresnica-ui-native-1.1.0-rc.1.tgz`，已随 PR #83 进入 `main` |
 
 **UI-01（当前 PR #83）：** App 保持原有 `AppThemeProvider` 与 `LocalizationProvider` 为权威，通过 `UiNativeProvider` 将语义色、语言传给第三方原语。`NativeStateView` 已试用于 S14 dApps 的只读空/不可用状态。包验证、npm lockfile、CI 均完成；未执行真机/模拟器 UI 验收。上游组件的品牌绿/白字对比度不足、reduced-motion 与真实读屏验证不足不得隐藏。
 
@@ -76,7 +76,7 @@ UI-01 之后再逐步迁移低风险页面；**不要一次性替换全部 UI**�
 
 | 顺序 | 切片 | 交付与门禁 |
 | --- | --- | --- |
-| UI-01 / PR #83 | 固定包 + App Provider / Theme / Locale + 第一个非交互 StateView | Work exact-HEAD Review；原生部署后核对主题/语言/布局/状态；不因 CI 自动 Merge |
+| UI-01 / PR #83 | 固定包 + App Provider / Theme / Locale + 第一个非交互 StateView | 已合并。原生部署后仍需核对主题/语言/布局/状态 |
 | UI-02 | 选一个低风险页面完成 Button/Field/Screen 等最小复用 | 无新业务 Capability；中英繁体/长文案/键盘/焦点/Back/失败状态定向验证；只改一屏 |
 | UI-03 | Home / Activity 展示层渐进接入 | 保留 Horizon 权威、账户/网络分区、离线缓存/Retry 和焦点刷新；不重跑无关原有用例 |
 | UI-04 | Accounts / Settings 视觉统一 | 保留账户删除、隐藏、默认账户与 Signer 生命周期；主题和偏好持久化仍归 App |
@@ -89,8 +89,8 @@ UI-01 之后再逐步迁移低风险页面；**不要一次性替换全部 UI**�
 
 | 优先级 | 任务 | 依赖 / 退出标准 |
 | --- | --- | --- |
-| **P0** | **PR #83 exact-HEAD Work Review** | 审查当前 `5fe11f6671159935e6f2f2016565fe2c519cf9d0`：实际 Diff、tarball/lock 来源、Provider/locale 生命周期、ESM、CI、回退方案；无未解决 P1/P2 后由用户决定 Merge |
-| **P1** | **S09 Photo QR 源码收口独立 PR** | 以已保护的四个原生文件为基础；前置：能可信读取本地源码并确认当前 branch/HEAD/dirty tree，或由用户提供同一快照；不得重造/覆盖未知工作；原生构建、相册失败/取消恢复检查 |
+| **完成** | **PR #83 exact-HEAD Work Review 与合并** | 审查 `5fe11f6671159935e6f2f2016565fe2c519cf9d0` 无 P1/P2；已合并为 `main` `b8c3a15b73eee12af6c10cdde56c9d2f1c175994` |
+| **P1** | **S09 Photo QR 源码收口 [#85](https://github.com/luneShaoGM/fresnica/pull/85)** | 快照与当前脏树已核对。退出仍包括干净构建，以及相册失败/取消/重复选择；这些设备证据尚未取得 |
 | **P1** | **S09-06 / S09-27 定向复测** | Android 分享取消/重试、iOS 后台链接，记录设备和真实路径；失败则新建相应范围修复 PR |
 | **P1** | **UI-01 原生试集成验收** | PR #83 被审查并获合并授权后，确认新 `main`，在双端新构建中查看 dApps 空/不可用状态、语言和 theme，并记录局限 |
 | **P2** | **S09-42 和真实相机验收** | 前者需受控异步时序；后者需可用真实相机，条件未满足则 BLOCKED，不冒充通过 |

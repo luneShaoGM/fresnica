@@ -359,6 +359,7 @@ HomeActions
 | 标记 | Fresnica |
 | --- | --- |
 | 留角色：账户、切换、主操作、资产；未激活 ≠ 断网 | `HomeScreen` + `loadBalanceSnapshot`；**脚手架** |
+| **留：HomeActions 扫码** | Stellar 中间操作 overlay 含扫码，打开共享 `Modal/Scan`。当前 Fresnica Actions 只有 Send、Swap、Request。付款请求扫描在 Request，见 §7.4 |
 | **留：测试网 Friendbot 激活按钮** | 当前 `InactiveAccountPanel` 只保留公开地址、资金提示和 refresh；自动 Friendbot 激活按钮仍是产品缺口，要按 Network/Testnet 边界单独补 |
 | **留：资产增减**（进 Trustline 精确 XDR，不是 Home 里直接改余额） | Manage Assets 能力有；Home 入口要保留 |
 | 删载体：Realm 当余额真值 | 交易后 focus + Stage 2.5 read invalidation 已接；UX 上仍可先显示上次 snapshot，但权威继续来自 Horizon |
@@ -656,7 +657,7 @@ Adopt（采用）= 在 Fresnica 重写用户可见表面。Adapt（适配）= �
 | --- | --- | --- |
 | 审阅交易 | `Modal/ReviewTransaction` | Adopt；绑定精确 XDR |
 | 提交 / 进度 / 结果 | `Modal/Submit`、`TransactionLoader` | Adopt |
-| 扫码 | `Modal/Scan` | Adopt |
+| 扫码 | `Modal/Scan`，由 HomeActions 打开 | Adopt。已落地的是 Request 内付款请求扫描：摄像头，以及系统相册单张选图后只读 QR，进入同一 SEP-7 解析器。HomeActions 上的共享扫码入口尚未接线 |
 | 币种 / 收款方 / 账户 / 手续费选择器 | Modal + Overlay pickers | Adopt 角色；手续费策略仅在 Capability 支持时 |
 | 全局选择器 | `Global/Picker` | Adopt 为共享选择器壳 |
 | Alert / 确认 | `Overlay/Alert` | Adopt |

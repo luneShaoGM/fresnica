@@ -12,7 +12,7 @@
 | S06 | Asset discovery/details/icons/risk | assets + Asset Discovery | Adapt | clean-room | TOML/catalog authority | L1 partial |
 | S07 | Send/CreateAccount + memo families | send + Payment/Transaction | Adapt | clean-room | 2026-09-18 dual-platform aggregate covers memo families, passphrase fallback, System Auth success, submission outcomes and restart recovery; native iOS System Auth cancel remains unproven | L3 partial |
 | S08 | M-address/muxed identity | send/request + Destination | Adapt | clean-room | shared destination contract required | L0 blocked |
-| S09 | Request/QR/scan/share/deep link | request + Intent/system ports | Adapt | clean-room | SEP-7 + camera/share/deep-link | L0 |
+| S09 | Request/QR/scan/share/deep link | request + Intent/system ports | Adapt | clean-room | SEP-7 + camera/share/deep-link；Request 扫描含系统相册单张 QR。HomeActions 的 `Modal/Scan` 入口仍未接线 | L0 |
 | S10 | Path Payment strict send/receive swap | exchange + Swap/Transaction | Adapt | clean-room | shared Path Payment capability required | L1 mechanism only |
 | S11 | Claimable balance list/risk/claim | claimables + capability | Adapt | clean-room | write semantics to define | L0 |
 | S12 | Liquidity pool list/details/withdraw | liquidity + pool capability | Adapt | clean-room | shared LP write contract required | L1 read mechanism only |
