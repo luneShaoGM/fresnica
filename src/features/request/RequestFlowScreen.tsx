@@ -67,10 +67,17 @@ export function RequestFlowScreen({ account, activeAccountId, dependencies, Scan
 
   useEffect(() => {
     return () => {
-      // Unmount or source-account context change cancels pending Continue attempts.
+      // Unmount or source-account context change cancels pending Continue and photo imports.
       ingressSession.current += 1;
       continueGate.current = false;
+      photoPickGate.current = false;
     };
+  }, [account.id, account.networkId, activeAccountId, dependencies.network.id]);
+
+  useEffect(() => {
+    // Drop the busy flag when the account context changes. The in-flight picker
+    // still settles later, but only its original session may import a result.
+    setPhotoBusy(false);
   }, [account.id, account.networkId, activeAccountId, dependencies.network.id]);
 
   useEffect(() => {
