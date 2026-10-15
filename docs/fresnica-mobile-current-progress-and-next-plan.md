@@ -20,7 +20,7 @@ UI-01 之后再逐步迁移低风险页面；**不要一次性替换全部 UI**�
 | 仓库 | [luneShaoGM/fresnica](https://github.com/luneShaoGM/fresnica) |
 | 远端 `main` | `b8c3a15b73eee12af6c10cdde56c9d2f1c175994` |
 | 近期合并 | [#80](https://github.com/luneShaoGM/fresnica/pull/80) iOS 前台 Deep Link → `a9b3274fd34858c5d3bd34e3c4c6564290093d52`；[#81](https://github.com/luneShaoGM/fresnica/pull/81) S14 只读 dApp Catalog → `d79d4f1bb9fd83949cb700cc58a1ea4107835eca`；[#82](https://github.com/luneShaoGM/fresnica/pull/82) Android 分享结果修复 → `aa01e7e0f570cfff53e514965d7ef6b33e34aa23`；[#84](https://github.com/luneShaoGM/fresnica/pull/84) 进度索引 → `7a7c972fe23cf161a59f0ccab3838a8ea0470e81`；[#83](https://github.com/luneShaoGM/fresnica/pull/83) UI-01 → 当前 `main` |
-| 当前产品 PR | Photo QR 源码收口，分支 `stage5/s09-photo-qr-ingress-2026-10-15`，基于上述 `main` |
+| 当前产品 PR | [#85 — S09 相册选图 QR](https://github.com/luneShaoGM/fresnica/pull/85)；分支 `stage5/s09-photo-qr-ingress-2026-10-15`；base 为上述 `main` |
 | PR #83 | 已合并。审查 HEAD `5fe11f6671159935e6f2f2016565fe2c519cf9d0`；10 个文件，+236/−15。独立审查无 P1/P2 后由用户决定合并 |
 | PR #83 CI | 合并前 GitHub CI、Realm、Native Android Gate、Native Apple Gate：**SUCCESS**；107/107 Jest 套件、619/619 测试；ESLint 0 errors、21 个既有 warnings。heavy 与 development-handoff 为 skipped |
 | PR #83 Work Review | 2026-10-15 对 exact HEAD 完成独立审查：包 SHA-256、lockfile integrity、Provider/locale、Metro ESM bundle 均核对；无 P1/P2。GitHub 上没有自动化 `FRESNICA_WORK_REVIEW` 标记，避免触发已暂停的控制器 |
@@ -90,7 +90,7 @@ UI-01 之后再逐步迁移低风险页面；**不要一次性替换全部 UI**�
 | 优先级 | 任务 | 依赖 / 退出标准 |
 | --- | --- | --- |
 | **完成** | **PR #83 exact-HEAD Work Review 与合并** | 审查 `5fe11f6671159935e6f2f2016565fe2c519cf9d0` 无 P1/P2；已合并为 `main` `b8c3a15b73eee12af6c10cdde56c9d2f1c175994` |
-| **P1** | **S09 Photo QR 源码收口** | 快照与当前脏树已核对。源码在 `stage5/s09-photo-qr-ingress-2026-10-15`。退出仍包括干净构建，以及相册失败/取消/重复选择；这些设备证据尚未取得 |
+| **P1** | **S09 Photo QR 源码收口 [#85](https://github.com/luneShaoGM/fresnica/pull/85)** | 快照与当前脏树已核对。退出仍包括干净构建，以及相册失败/取消/重复选择；这些设备证据尚未取得 |
 | **P1** | **S09-06 / S09-27 定向复测** | Android 分享取消/重试、iOS 后台链接，记录设备和真实路径；失败则新建相应范围修复 PR |
 | **P1** | **UI-01 原生试集成验收** | PR #83 被审查并获合并授权后，确认新 `main`，在双端新构建中查看 dApps 空/不可用状态、语言和 theme，并记录局限 |
 | **P2** | **S09-42 和真实相机验收** | 前者需受控异步时序；后者需可用真实相机，条件未满足则 BLOCKED，不冒充通过 |
