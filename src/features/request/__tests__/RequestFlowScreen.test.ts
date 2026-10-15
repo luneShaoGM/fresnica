@@ -15,6 +15,10 @@ const mockHooks = {
   refIndex: 0,
 };
 
+function mockApplyStateUpdate(next: unknown, previous: unknown): unknown {
+  return typeof next === 'function' ? (next as (value: unknown) => unknown)(previous) : next;
+}
+
 jest.mock('react', () => ({
   ...jest.requireActual('react'),
   useState: (initial: unknown) => {
@@ -24,7 +28,7 @@ jest.mock('react', () => ({
       mockHooks.states[index],
       (next: unknown) => {
         const previous = mockHooks.states[index];
-        mockHooks.states[index] = typeof next === 'function' ? (next as (value: unknown) => unknown)(previous) : next;
+        mockHooks.states[index] = mockApplyStateUpdate(next, previous);
       },
     ];
   },
