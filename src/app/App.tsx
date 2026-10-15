@@ -11,6 +11,7 @@ import { subscribeToNetworkRecovery } from '../platform/system/networkConnectivi
 import { reactNativeRequestDeepLink } from '../platform/system/requestDeepLink';
 import { AppNavigator } from './navigation/AppNavigator';
 import { OverlayHost } from './OverlayHost';
+import { UiNativeProvider } from './UiNativeProvider';
 import type { AppRuntimeState } from './runtimeState';
 import { resolveAppBootstrap } from './resolveBootstrap';
 import {
@@ -183,20 +184,22 @@ export function App() {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <AppThemeProvider>
-        <ThemeStatusBar />
-        <LocalizationProvider locale={locale} onChangeLocale={handleChangeLocale}>
-          <OverlayHost>
-            <AppNavigator
-              runtime={runtime}
-              onRefreshBootstrap={refreshBootstrap}
-              deepLink={resolvedDeepLink}
-              onDismissDeepLink={() => {
-                setParsedDeepLink(undefined);
-                setResolvedDeepLink(undefined);
-              }}
-            />
-          </OverlayHost>
-        </LocalizationProvider>
+        <UiNativeProvider locale={locale}>
+          <ThemeStatusBar />
+          <LocalizationProvider locale={locale} onChangeLocale={handleChangeLocale}>
+            <OverlayHost>
+              <AppNavigator
+                runtime={runtime}
+                onRefreshBootstrap={refreshBootstrap}
+                deepLink={resolvedDeepLink}
+                onDismissDeepLink={() => {
+                  setParsedDeepLink(undefined);
+                  setResolvedDeepLink(undefined);
+                }}
+              />
+            </OverlayHost>
+          </LocalizationProvider>
+        </UiNativeProvider>
       </AppThemeProvider>
     </SafeAreaProvider>
   );
