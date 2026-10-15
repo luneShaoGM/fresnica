@@ -6,7 +6,7 @@ import type {
   DappCatalogPort,
 } from '@capabilities/dapp-catalog/catalog';
 import { catalogCategories, filterCatalogEntries } from '@capabilities/dapp-catalog/catalog';
-import { Screen } from '@ui/components';
+import { NativeStateView, Screen } from '@ui/components';
 import { useAppTheme, useThemedStyles } from '@ui/theme';
 
 import { useLocalization } from '../../../../locale';
@@ -166,7 +166,7 @@ function AppRow({ entry, styles }: Readonly<{ entry: DappCatalogEntry; styles: S
 function EmptyCatalog({ message, styles }: Readonly<{ message: string; styles: Styles }>) {
   return (
     <View style={styles.emptyCatalog}>
-      <Text style={styles.emptyText}>{message}</Text>
+      <NativeStateView title={message} />
     </View>
   );
 }
