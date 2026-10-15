@@ -6,7 +6,8 @@ import type {
   DappCatalogPort,
 } from '@capabilities/dapp-catalog/catalog';
 import { catalogCategories, filterCatalogEntries } from '@capabilities/dapp-catalog/catalog';
-import { NativeStateView, Screen } from '@ui/components';
+import { Screen } from '@ui/components';
+import { NativeStateView } from '@ui/components/NativeStateView';
 import { useAppTheme, useThemedStyles } from '@ui/theme';
 
 import { useLocalization } from '../../../../locale';
