@@ -477,5 +477,17 @@
   "request.ingress.continueBlocked": "目前帳戶無法傳送此請求。未進行任何變更，請檢查帳戶後重試。",
   "send.request.assetUnavailable": "目前帳戶沒有請求的資產。Fresnica 沒有替換成其他資產。",
   "send.request.context": "請求訊息",
-  "send.request.untrusted": "公開、未經驗證的請求內容；它不是交易備註。"
+  "send.request.untrusted": "公開、未經驗證的請求內容；它不是交易備註。",
+  "dapps.catalog.home": "首頁",
+  "dapps.catalog.recent": "最近",
+  "dapps.catalog.search": "搜尋 dApp",
+  "dapps.catalog.all": "全部",
+  "dapps.catalog.readOnly": "目錄僅供閱讀，尚不支援開啟 dApp 或連接錢包。",
+  "dapps.catalog.loading": "正在載入 dApp 目錄…",
+  "dapps.catalog.unavailable": "尚未設定 dApp 目錄，目前沒有可展示或背書的項目。",
+  "dapps.catalog.error": "載入 dApp 目錄失敗，可以重試。",
+  "dapps.catalog.retry": "重試",
+  "dapps.catalog.empty": "目錄目前沒有項目。",
+  "dapps.catalog.noMatch": "沒有符合目前搜尋或分類的 dApp。",
+  "dapps.catalog.recentUnavailable": "瀏覽功能與隱私政策實作後才會提供最近使用記錄。"
 }

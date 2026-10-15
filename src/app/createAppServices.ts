@@ -15,6 +15,7 @@ import type { OnboardingProvisioningDependencies } from '../features/onboarding/
 import type { ApplicationSecurityDependencies } from '../capabilities/application-security/systemAuth';
 import type { BalanceDependencies } from '../capabilities/balance/loadBalanceSnapshot';
 import type { FriendbotDependencies } from '../capabilities/network/fundTestnetAccountWithFriendbot';
+import type { DappCatalogPort } from '../capabilities/dapp-catalog/catalog';
 import type { AccountOrderDependencies } from '../capabilities/account/accountOrder';
 import type { AccountVisibilityDependencies } from '../capabilities/account/accountVisibility';
 import type { DeleteLocalAccountDependencies } from '../capabilities/account/deleteLocalAccount';
@@ -38,6 +39,7 @@ import { StellarSdkGateway } from '../platform/stellar/StellarSdkGateway';
 import { reactNativeExternalUrlOpener, type ExternalUrlOpener } from '../platform/system/externalUrl';
 import { reactNativeRequestIngress } from '../platform/system/requestIngress';
 import { reactNativeRequestOutput } from '../platform/system/requestOutput';
+import { unconfiguredDappCatalog } from '../platform/dapps/unconfiguredDappCatalog';
 
 export type AccountManagementDependencies = RenameAccountDependencies &
   AccountVisibilityDependencies &
@@ -55,6 +57,7 @@ export type AppServices = Readonly<{
   history: HistoryProductDependencies;
   trustline: TrustlineProductDependencies;
   request: RequestProductDependencies;
+  dappCatalog: DappCatalogPort;
   transactionRecovery: TransactionReconciliationCoordinator;
   ledgerReadInvalidation: LedgerReadInvalidationStore;
   localePreferences: RealmLocalePreferenceStore;
@@ -161,6 +164,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         output: reactNativeRequestOutput,
         ingress: reactNativeRequestIngress,
       },
+      dappCatalog: unconfiguredDappCatalog,
       transactionRecovery,
       ledgerReadInvalidation,
       localePreferences,

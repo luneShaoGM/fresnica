@@ -174,6 +174,19 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.textSecondary,
       fontWeight: '700',
     },
+    retryButton: {
+      alignSelf: 'center',
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: 22,
+      marginTop: 14,
+      borderRadius: 10,
+      backgroundColor: theme.colors.actionPrimary,
+    },
+    retryText: {
+      color: theme.colors.onActionPrimary,
+      fontWeight: '700',
+    },
     emptyCatalog: {
       minHeight: 104,
       borderRadius: 12,

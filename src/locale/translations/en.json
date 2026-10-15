@@ -477,5 +477,17 @@
   "request.ingress.continueBlocked": "The current account cannot send this request. Nothing was changed; review the account and retry.",
   "send.request.assetUnavailable": "The requested asset is no longer available in this account. Fresnica did not substitute another asset.",
   "send.request.context": "REQUEST MESSAGE",
-  "send.request.untrusted": "Public, unverified request context. This is not a transaction memo."
+  "send.request.untrusted": "Public, unverified request context. This is not a transaction memo.",
+  "dapps.catalog.home": "Home",
+  "dapps.catalog.recent": "Recent",
+  "dapps.catalog.search": "Search dApps",
+  "dapps.catalog.all": "All",
+  "dapps.catalog.readOnly": "Directory listings (read-only). Opening dApps and wallet connections are not enabled.",
+  "dapps.catalog.loading": "Loading dApp catalog...",
+  "dapps.catalog.unavailable": "The dApp catalog is not configured. No listings or endorsements are available.",
+  "dapps.catalog.error": "Could not load the dApp catalog. You can retry.",
+  "dapps.catalog.retry": "Retry",
+  "dapps.catalog.empty": "The catalog is empty.",
+  "dapps.catalog.noMatch": "No dApps match the current search or category.",
+  "dapps.catalog.recentUnavailable": "Recent dApps are not available until browsing and its privacy policy are implemented."
 }

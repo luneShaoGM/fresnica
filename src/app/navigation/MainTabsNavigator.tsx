@@ -209,7 +209,9 @@ function MainTabsWithSelection({
           />
         )}
       </Tab.Screen>
-      <Tab.Screen name="dapps" component={DAppsStackNavigator} />
+      <Tab.Screen name="dapps">
+        {() => <DAppsStackNavigator catalog={services.dappCatalog} />}
+      </Tab.Screen>
       <Tab.Screen name="settings">
         {({ navigation }) => (
           <SettingsStackNavigator
