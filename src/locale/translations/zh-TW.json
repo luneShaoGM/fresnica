@@ -492,5 +492,13 @@
   "dapps.catalog.retry": "重試",
   "dapps.catalog.empty": "目錄目前沒有項目。",
   "dapps.catalog.noMatch": "沒有符合目前搜尋或分類的 dApp。",
-  "dapps.catalog.recentUnavailable": "瀏覽功能與隱私政策實作後才會提供最近使用記錄。"
+  "dapps.catalog.recentUnavailable": "瀏覽功能與隱私政策實作後才會提供最近使用記錄。",
+  "dapps.catalog.previewNotice": "這是介面核對用的示例。這些列不是目錄項目、背書，也沒有連接 dApp。",
+  "dapps.catalog.previewClear": "清除示例",
+  "dapps.catalog.sample.directory.category": "目錄示例",
+  "dapps.catalog.sample.directory.title": "示例目錄列",
+  "dapps.catalog.sample.directory.body": "用於查看搜尋框、列間距和較長說明的靜態文字。",
+  "dapps.catalog.sample.tools.category": "工具示例",
+  "dapps.catalog.sample.tools.title": "示例工具列",
+  "dapps.catalog.sample.tools.body": "另一列靜態內容。不會開啟網站，也不會請求錢包存取。"
 }

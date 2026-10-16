@@ -492,5 +492,13 @@
   "dapps.catalog.retry": "重试",
   "dapps.catalog.empty": "目录暂无条目。",
   "dapps.catalog.noMatch": "没有符合当前搜索或分类的 dApp。",
-  "dapps.catalog.recentUnavailable": "浏览功能和隐私策略实现后才会提供最近使用记录。"
+  "dapps.catalog.recentUnavailable": "浏览功能和隐私策略实现后才会提供最近使用记录。",
+  "dapps.catalog.previewNotice": "这是界面核对用的示例。这些行不是目录条目、背书，也没有连接 dApp。",
+  "dapps.catalog.previewClear": "清除示例",
+  "dapps.catalog.sample.directory.category": "目录示例",
+  "dapps.catalog.sample.directory.title": "示例目录行",
+  "dapps.catalog.sample.directory.body": "用于查看搜索框、行间距和较长说明的静态文字。",
+  "dapps.catalog.sample.tools.category": "工具示例",
+  "dapps.catalog.sample.tools.title": "示例工具行",
+  "dapps.catalog.sample.tools.body": "另一行静态内容。不会打开网站，也不会请求钱包访问。"
 }

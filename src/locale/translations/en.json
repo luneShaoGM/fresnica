@@ -492,5 +492,13 @@
   "dapps.catalog.retry": "Retry",
   "dapps.catalog.empty": "The catalog is empty.",
   "dapps.catalog.noMatch": "No dApps match the current search or category.",
-  "dapps.catalog.recentUnavailable": "Recent dApps are not available until browsing and its privacy policy are implemented."
+  "dapps.catalog.recentUnavailable": "Recent dApps are not available until browsing and its privacy policy are implemented.",
+  "dapps.catalog.previewNotice": "Layout sample for review. These rows are not catalog listings, endorsements, or connected dApps.",
+  "dapps.catalog.previewClear": "Clear sample",
+  "dapps.catalog.sample.directory.category": "Directory sample",
+  "dapps.catalog.sample.directory.title": "Sample directory row",
+  "dapps.catalog.sample.directory.body": "Static layout sample for the search field, row spacing, and a longer description.",
+  "dapps.catalog.sample.tools.category": "Tools sample",
+  "dapps.catalog.sample.tools.title": "Sample tools row",
+  "dapps.catalog.sample.tools.body": "Another static row. It does not open a site or request wallet access."
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 import type {
   DappCatalogEntry,
@@ -7,8 +7,11 @@ import type {
 } from '@capabilities/dapp-catalog/catalog';
 import { catalogCategories, filterCatalogEntries } from '@capabilities/dapp-catalog/catalog';
 import { Screen } from '@ui/components';
+import { NativeButton } from '@ui/components/NativeButton';
+import { NativeField } from '@ui/components/NativeField';
+import { NativeScreen } from '@ui/components/NativeScreen';
 import { NativeStateView } from '@ui/components/NativeStateView';
-import { useAppTheme, useThemedStyles } from '@ui/theme';
+import { useThemedStyles } from '@ui/theme';
 
 import { useLocalization } from '../../../../locale';
 import { createStyles } from './styles';
@@ -21,15 +24,35 @@ type CatalogState =
 
 type Section = 'home' | 'recent';
 
-export function DAppsScreen({ catalog }: Readonly<{ catalog: DappCatalogPort }>) {
+export function DAppsScreen({
+  catalog,
+  showInterfaceSample = __DEV__,
+}: Readonly<{ catalog: DappCatalogPort; showInterfaceSample?: boolean }>) {
   const { t } = useLocalization();
-  const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const [section, setSection] = useState<Section>('home');
   const [category, setCategory] = useState<string>();
   const [searchText, setSearchText] = useState('');
+  const [sampleQuery, setSampleQuery] = useState('');
+  const [sampleCategory, setSampleCategory] = useState<string>();
   const [retryCount, setRetryCount] = useState(0);
   const [state, setState] = useState<CatalogState>({ kind: 'loading' });
+  const interfaceSamples = useMemo<readonly DappCatalogEntry[]>(() => [
+    {
+      id: 'interface-sample-directory',
+      title: t('dapps.catalog.sample.directory.title'),
+      description: t('dapps.catalog.sample.directory.body'),
+      category: t('dapps.catalog.sample.directory.category'),
+      websiteUrl: 'https://example.invalid',
+    },
+    {
+      id: 'interface-sample-tools',
+      title: t('dapps.catalog.sample.tools.title'),
+      description: t('dapps.catalog.sample.tools.body'),
+      category: t('dapps.catalog.sample.tools.category'),
+      websiteUrl: 'https://example.invalid',
+    },
+  ], [t]);
 
   useEffect(() => {
     let current = true;
@@ -57,10 +80,11 @@ export function DAppsScreen({ catalog }: Readonly<{ catalog: DappCatalogPort }>)
 
   return (
     <Screen scrollable={false} contentInset="none">
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{t('nav.dapps')}</Text>
-        </View>
+      <NativeScreen padded={false} scroll>
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <Text style={styles.title}>{t('nav.dapps')}</Text>
+          </View>
 
         <View style={styles.segment}>
           <SegmentButton label={t('dapps.catalog.home')} selected={section === 'home'} onPress={() => setSection('home')} styles={styles} />
@@ -73,21 +97,18 @@ export function DAppsScreen({ catalog }: Readonly<{ catalog: DappCatalogPort }>)
           <>
             {state.kind === 'ready' ? (
               <>
-                <View style={styles.searchBox}>
-                  <TextInput
-                    accessibilityLabel={t('dapps.catalog.search')}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    onChangeText={setSearchText}
-                    placeholder={t('dapps.catalog.search')}
-                    placeholderTextColor={theme.colors.textTertiary}
-                    returnKeyType="search"
-                    style={styles.searchInput}
-                    value={searchText}
-                  />
-                </View>
+                <NativeField
+                  accessibilityLabel={t('dapps.catalog.search')}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  label={t('dapps.catalog.search')}
+                  onChangeText={setSearchText}
+                  placeholder={t('dapps.catalog.search')}
+                  returnKeyType="search"
+                  value={searchText}
+                />
                 {categories.length > 0 ? (
-                  <ScrollView contentContainerStyle={styles.categories} horizontal showsHorizontalScrollIndicator={false}>
+                  <ScrollView style={styles.categoryRow} contentContainerStyle={styles.categories} horizontal showsHorizontalScrollIndicator={false}>
                     {[undefined, ...categories].map(item => (
                       <Pressable
                         key={item ?? 'all'}
@@ -115,18 +136,35 @@ export function DAppsScreen({ catalog }: Readonly<{ catalog: DappCatalogPort }>)
                 <Text style={styles.emptyText}>{t('dapps.catalog.loading')}</Text>
               </View>
             ) : state.kind === 'unavailable' ? (
-              <EmptyCatalog message={t('dapps.catalog.unavailable')} styles={styles} />
+              <>
+                <EmptyCatalog message={t('dapps.catalog.unavailable')} styles={styles} />
+                {showInterfaceSample ? (
+                  <InterfaceSample
+                    category={sampleCategory}
+                    entries={interfaceSamples}
+                    onCategory={setSampleCategory}
+                    onClear={() => setSampleQuery('')}
+                    onQuery={setSampleQuery}
+                    query={sampleQuery}
+                    styles={styles}
+                    t={t}
+                  />
+                ) : null}
+              </>
             ) : (
               <>
                 <EmptyCatalog message={t('dapps.catalog.error')} styles={styles} />
-                <Pressable accessibilityRole="button" onPress={() => setRetryCount(value => value + 1)} style={styles.retryButton}>
-                  <Text style={styles.retryText}>{t('dapps.catalog.retry')}</Text>
-                </Pressable>
+                <NativeButton
+                  label={t('dapps.catalog.retry')}
+                  onPress={() => setRetryCount(value => value + 1)}
+                  variant="primary"
+                />
               </>
             )}
           </>
         )}
-      </ScrollView>
+        </View>
+      </NativeScreen>
     </Screen>
   );
 }
@@ -169,5 +207,66 @@ function EmptyCatalog({ message, styles }: Readonly<{ message: string; styles: S
     <View style={styles.emptyCatalog}>
       <NativeStateView title={message} />
     </View>
+  );
+}
+
+function InterfaceSample({
+  entries,
+  query,
+  category,
+  onQuery,
+  onCategory,
+  onClear,
+  styles,
+  t,
+}: Readonly<{
+  entries: readonly DappCatalogEntry[];
+  query: string;
+  category: string | undefined;
+  onQuery: (value: string) => void;
+  onCategory: (value: string | undefined) => void;
+  onClear: () => void;
+  styles: Styles;
+  t: (key: string) => string;
+}>) {
+  const categories = catalogCategories(entries);
+  const selectedCategory = category !== undefined && categories.includes(category) ? category : undefined;
+  const visibleEntries = filterCatalogEntries(entries, selectedCategory, query);
+
+  return (
+    <>
+      <Text style={styles.previewNotice}>{t('dapps.catalog.previewNotice')}</Text>
+      <NativeField
+        accessibilityLabel={t('dapps.catalog.search')}
+        autoCapitalize="none"
+        autoCorrect={false}
+        label={t('dapps.catalog.search')}
+        onChangeText={onQuery}
+        placeholder={t('dapps.catalog.search')}
+        returnKeyType="search"
+        value={query}
+      />
+      <ScrollView style={styles.categoryRow} contentContainerStyle={styles.categories} horizontal showsHorizontalScrollIndicator={false}>
+        {[undefined, ...categories].map(item => (
+          <Pressable
+            key={item ?? 'all'}
+            accessibilityRole="button"
+            accessibilityState={{ selected: selectedCategory === item }}
+            onPress={() => onCategory(item)}
+            style={[styles.chip, selectedCategory === item ? styles.chipSelected : undefined]}>
+            <Text style={[styles.chipText, selectedCategory === item ? styles.chipTextSelected : undefined]}>
+              {item ?? t('dapps.catalog.all')}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+      <Text style={styles.sectionTitle}>{t('dapps.catalog.readOnly')}</Text>
+      {visibleEntries.length > 0 ? visibleEntries.map(entry => (
+        <AppRow key={entry.id} entry={entry} styles={styles} />
+      )) : (
+        <EmptyCatalog message={t('dapps.catalog.noMatch')} styles={styles} />
+      )}
+      <NativeButton label={t('dapps.catalog.previewClear')} onPress={onClear} variant="primary" />
+    </>
   );
 }
