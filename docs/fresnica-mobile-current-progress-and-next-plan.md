@@ -77,7 +77,7 @@ UI-01 之后再逐步迁移低风险页面；**不要一次性替换全部 UI**�
 | 顺序 | 切片 | 交付与门禁 |
 | --- | --- | --- |
 | UI-01 / PR #83 | 固定包 + App Provider / Theme / Locale + 第一个非交互 StateView | 已合并。原生部署后仍需核对主题/语言/布局/状态 |
-| UI-02 | 选一个低风险页面完成 Button/Field/Screen 等最小复用 | 无新业务 Capability；中英繁体/长文案/键盘/焦点/Back/失败状态定向验证；只改一屏 |
+| UI-02 | 只读 dApps 目录：库 Screen 放在应用安全区内，搜索用 Field，目录加载失败用 Button 重试 | 无新业务 Capability；不改目录来源、浏览或签名。中英繁体文案沿用现有 `t(...)`；搜索为公开输入；失败可重试。动态字体、读屏和对比度仍未验收 |
 | UI-03 | Home / Activity 展示层渐进接入 | 保留 Horizon 权威、账户/网络分区、离线缓存/Retry 和焦点刷新；不重跑无关原有用例 |
 | UI-04 | Accounts / Settings 视觉统一 | 保留账户删除、隐藏、默认账户与 Signer 生命周期；主题和偏好持久化仍归 App |
 | UI-05 | Send / Request 高风险表面 | 最后接入；必须保留安全输入原生属性、授权、exact-XDR、intent identity、uncertain/recovery；执行受影响产品流验证 |

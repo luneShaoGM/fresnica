@@ -9,8 +9,13 @@ const { resolveModuleAlias } = require('./config/moduleAliases.cjs');
  */
 const config = {
   resolver: {
-    resolveRequest: (context, moduleName, platform) =>
-      context.resolveRequest(context, resolveModuleAlias(moduleName) ?? moduleName, platform),
+    resolveRequest: (context, moduleName, platform) => {
+      const resolvedName =
+        moduleName === '@react-native/assets-registry/registry'
+          ? 'react-native/asset-registry'
+          : (resolveModuleAlias(moduleName) ?? moduleName);
+      return context.resolveRequest(context, resolvedName, platform);
+    },
   },
 };
 

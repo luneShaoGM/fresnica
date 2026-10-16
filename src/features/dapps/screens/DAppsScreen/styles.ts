@@ -43,26 +43,11 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.surfaceStrong,
       fontWeight: '700',
     },
-    searchBox: {
-      height: 42,
-      borderRadius: 10,
-      backgroundColor: theme.colors.surfaceMuted,
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 12,
-      gap: 8,
-      marginTop: 8,
-      marginBottom: 12,
-    },
-    searchGlyph: {
-      fontSize: 20,
+    previewNotice: {
       color: theme.colors.textSecondary,
-    },
-    searchInput: {
-      flex: 1,
-      color: theme.colors.textPrimary,
-      fontSize: 14,
-      paddingVertical: 0,
+      fontSize: 13,
+      lineHeight: 18,
+      marginTop: 8,
     },
     segment: {
       height: 42,
@@ -89,6 +74,9 @@ export function createStyles(theme: AppTheme) {
     segmentTextSelected: {
       color: theme.colors.textPrimary,
       fontWeight: '800',
+    },
+    categoryRow: {
+      marginTop: 12,
     },
     categories: {
       gap: 8,
@@ -172,19 +160,6 @@ export function createStyles(theme: AppTheme) {
     aboutText: {
       fontSize: 10,
       color: theme.colors.textSecondary,
-      fontWeight: '700',
-    },
-    retryButton: {
-      alignSelf: 'center',
-      minHeight: 44,
-      justifyContent: 'center',
-      paddingHorizontal: 22,
-      marginTop: 14,
-      borderRadius: 10,
-      backgroundColor: theme.colors.actionPrimary,
-    },
-    retryText: {
-      color: theme.colors.onActionPrimary,
       fontWeight: '700',
     },
     emptyCatalog: {
