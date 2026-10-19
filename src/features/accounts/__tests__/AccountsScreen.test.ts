@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AccessibilityInfo, StyleSheet } from 'react-native';
+import { AccessibilityInfo, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 
 import { defaultTheme } from '@ui/theme';
@@ -7,6 +7,7 @@ import { NativeButton } from '@ui/components/NativeButton';
 
 import type { AccountRecord } from '../../../capabilities/account/types';
 import { AccountsScreen } from '../AccountsScreen';
+import { createStyles } from '../styles';
 
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
 
@@ -63,6 +64,7 @@ type TestElementProps = Readonly<{
   disabled?: boolean;
   onPress?: unknown;
   style?: unknown;
+  showsVerticalScrollIndicator?: boolean;
 }>;
 
 function elementsWithLabel(root: React.ReactNode, label: string): React.ReactElement<TestElementProps>[] {
@@ -89,6 +91,61 @@ describe('AccountsScreen sort controls', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('keeps Accounts Back wired to onBack and centers the title between identical flexible header sides', () => {
+    const onBack = jest.fn();
+    const onOpenAccount = jest.fn();
+    const onAddAccount = jest.fn();
+    const onMoveAccount = jest.fn();
+    const styles = createStyles(defaultTheme);
+
+    for (const accounts of [[], [account('visible'), { ...account('hidden'), hidden: true }]]) {
+      const root = AccountsScreen({ accounts, onBack, onOpenAccount, onAddAccount, onMoveAccount });
+      const header = React.Children.toArray(root.props.children).find(
+        (child): child is React.ReactElement<TestElementProps> =>
+          React.isValidElement<TestElementProps>(child) && child.type === View,
+      );
+      expect(header?.props.style).toEqual(styles.header);
+
+      const columns = React.Children.toArray(header?.props.children).filter(
+        (child): child is React.ReactElement<TestElementProps> => React.isValidElement<TestElementProps>(child),
+      );
+      expect(columns).toHaveLength(3);
+      const [left, title, right] = columns;
+      expect(left?.type).toBe(View);
+      expect(title?.type).toBe(Text);
+      expect(title?.props.children).toBe('Accounts');
+      expect(right?.type).toBe(View);
+      expect(left?.props.style).toEqual(styles.headerSide);
+      expect(right?.props.style).toEqual(styles.headerSide);
+      expect(styles.headerSide).toMatchObject({ flex: 1, alignItems: 'flex-start' });
+      expect(styles.header).not.toHaveProperty('justifyContent', 'space-between');
+      expect(styles.header.minHeight).toBe(58);
+
+      const nativeBack = React.Children.toArray(left?.props.children).filter(
+        (child): child is React.ReactElement<TestElementProps> =>
+          React.isValidElement<TestElementProps>(child) && child.type === NativeButton,
+      );
+      expect(nativeBack).toHaveLength(1);
+      expect(nativeBack[0]?.props).toMatchObject({ label: 'Back', size: 'sm', variant: 'quiet', onPress: onBack });
+      expect(elementsWithLabel(root, 'Back')).toHaveLength(0);
+
+      const nativeButtons: string[] = [];
+      let accountsScroller: React.ReactElement<TestElementProps> | undefined;
+      visit(root, element => {
+        if (element.type === NativeButton && element.props.label) nativeButtons.push(element.props.label);
+        if (element.type === ScrollView) accountsScroller = element;
+      });
+      expect(nativeButtons).toEqual(['Back', 'Add account']);
+      expect(accountsScroller?.props.showsVerticalScrollIndicator).toBe(false);
+      (nativeBack[0]?.props.onPress as () => void)();
+    }
+
+    expect(onBack).toHaveBeenCalledTimes(2);
+    expect(onOpenAccount).not.toHaveBeenCalled();
+    expect(onAddAccount).not.toHaveBeenCalled();
+    expect(onMoveAccount).not.toHaveBeenCalled();
   });
 
   it('keeps Add account available as a large native primary button for empty and hidden account lists', () => {
@@ -120,7 +177,10 @@ describe('AccountsScreen sort controls', () => {
       visit(root, element => {
         if (
           React.Children.toArray(element.props.children).some(
-            child => React.isValidElement(child) && child.type === NativeButton,
+            child =>
+              React.isValidElement<{ label?: string }>(child) &&
+              child.type === NativeButton &&
+              child.props.label === 'Add account',
           )
         )
           parentElements.push(element);
