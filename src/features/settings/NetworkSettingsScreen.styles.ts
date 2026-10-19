@@ -1,0 +1,80 @@
+import { StyleSheet } from 'react-native';
+
+import type { AppTheme } from '@ui/theme';
+
+export function createStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    safeArea: { flex: 1, backgroundColor: theme.colors.background },
+    header: {
+      minHeight: 58,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.border,
+    },
+    title: { fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary },
+    headerSide: { flex: 1, alignItems: 'flex-start' },
+    content: { paddingBottom: 34 },
+    sectionLabel: {
+      paddingHorizontal: 18,
+      paddingTop: 22,
+      paddingBottom: 8,
+      fontSize: 10,
+      lineHeight: 13,
+      color: theme.colors.textTertiary,
+      fontWeight: '800',
+    },
+    networkCard: { marginHorizontal: 18, borderRadius: 12, backgroundColor: theme.colors.surfaceMuted, padding: 14 },
+    networkIdentity: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    networkIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.surfaceStrong,
+    },
+    networkDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: theme.colors.warning },
+    flex: { flex: 1 },
+    networkTitle: { fontSize: 15, lineHeight: 19, color: theme.colors.textPrimary, fontWeight: '800' },
+    networkSubtitle: {
+      fontSize: 11,
+      lineHeight: 14,
+      color: theme.colors.actionPrimaryPressed,
+      fontWeight: '700',
+      marginTop: 2,
+    },
+    selectedMark: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.actionPrimaryMuted,
+    },
+    selectedGlyph: { fontSize: 14, color: theme.colors.actionPrimaryPressed, fontWeight: '800' },
+    rows: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
+    infoRow: {
+      minHeight: 56,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 18,
+      gap: 16,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.border,
+    },
+    infoLabel: { fontSize: 13, lineHeight: 17, color: theme.colors.textPrimary, fontWeight: '600' },
+    infoValue: { flex: 1, fontSize: 11, lineHeight: 15, color: theme.colors.textSecondary, textAlign: 'right' },
+    notice: {
+      marginHorizontal: 18,
+      marginTop: 22,
+      borderRadius: 12,
+      backgroundColor: theme.colors.surfaceMuted,
+      padding: 15,
+      gap: 5,
+    },
+    noticeTitle: { fontSize: 13, lineHeight: 17, color: theme.colors.secondary, fontWeight: '800' },
+    noticeText: { fontSize: 11, lineHeight: 16, color: theme.colors.textSecondary },
+  });
+}
