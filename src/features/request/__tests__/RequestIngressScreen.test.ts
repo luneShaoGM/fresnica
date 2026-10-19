@@ -3,6 +3,8 @@ import React from 'react';
 import { parseRequestIngress } from '../requestIngressFlow';
 import { RequestIngressScreen, type RequestScannerViewComponent } from '../RequestIngressScreen';
 
+jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
+
 jest.mock('react-native-qrcode-svg', () => ({
   __esModule: true,
   default: function QRCodeMock() {
@@ -95,20 +97,20 @@ describe('RequestIngressScreen', () => {
     expect(labels).toContain('request.ingress.permission.settings');
   });
 
-  it.each([
-    { permissionState: 'blocked' as const },
-    { platformError: 'camera' as const },
-  ])('disables retry while photo decoding is pending: %p', state => {
-    const root = RequestIngressScreen({ ...baseProps, ...state, photoBusy: true });
-    const retryDisabled: boolean[] = [];
-    walk(root, element => {
-      if (element.props.accessibilityLabel === 'request.ingress.retry') {
-        retryDisabled.push(element.props.disabled === true);
-      }
-    });
+  it.each([{ permissionState: 'blocked' as const }, { platformError: 'camera' as const }])(
+    'disables retry while photo decoding is pending: %p',
+    state => {
+      const root = RequestIngressScreen({ ...baseProps, ...state, photoBusy: true });
+      const retryDisabled: boolean[] = [];
+      walk(root, element => {
+        if (element.props.accessibilityLabel === 'request.ingress.retry') {
+          retryDisabled.push(element.props.disabled === true);
+        }
+      });
 
-    expect(retryDisabled).toEqual([true]);
-  });
+      expect(retryDisabled).toEqual([true]);
+    },
+  );
 
   it('injects the scanner only after permission is granted and preserves local torch state', () => {
     const onCode = jest.fn();

@@ -1,8 +1,15 @@
 import React from 'react';
-import { TextInput } from 'react-native';
+import { ScrollView, Text, TextInput, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
+import { Screen } from '@ui/components';
+import { NativeButton } from '@ui/components/NativeButton';
+import { defaultTheme } from '@ui/theme';
+
 import { maskRequestIssuer, RequestFormScreen } from '../RequestFormScreen';
+import { createRequestStyles } from '../styles';
+
+jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
 
 jest.mock('react-native-qrcode-svg', () => ({
   __esModule: true,
@@ -39,6 +46,13 @@ type NodeProps = Readonly<{
   onPress?: () => void;
   keyboardType?: string;
   value?: string;
+  size?: string;
+  variant?: string;
+  style?: unknown;
+  scrollable?: boolean;
+  contentInset?: string;
+  keyboardShouldPersistTaps?: string;
+  showsVerticalScrollIndicator?: boolean;
 }>;
 
 function visit(node: React.ReactNode, callback: (element: React.ReactElement<NodeProps>) => void): void {
@@ -85,6 +99,62 @@ function renderForm(overrides: Partial<React.ComponentProps<typeof RequestFormSc
 }
 
 describe('RequestFormScreen', () => {
+  it('keeps the localized Back callback available during idle/busy and centers Request with symmetric header sides', () => {
+    const styles = createRequestStyles(defaultTheme);
+
+    for (const busy of [false, true]) {
+      const onCancel = jest.fn();
+      const { root } = renderForm({ busy, onCancel });
+      expect(root.type).toBe(Screen);
+      expect(root.props).toMatchObject({ scrollable: false, contentInset: 'none' });
+
+      const header = React.Children.toArray(root.props.children).find(
+        (child): child is React.ReactElement<NodeProps> =>
+          React.isValidElement<NodeProps>(child) && child.type === View,
+      );
+      expect(header?.props.style).toEqual(styles.header);
+
+      const parts = React.Children.toArray(header?.props.children).filter(
+        (child): child is React.ReactElement<NodeProps> => React.isValidElement<NodeProps>(child),
+      );
+      expect(parts).toHaveLength(3);
+      const [left, title, right] = parts;
+      expect(left?.type).toBe(View);
+      expect(title?.type).toBe(Text);
+      expect(title?.props.children).toBe('request.title');
+      expect(right?.type).toBe(View);
+      expect(left?.props.style).toEqual(styles.headerSide);
+      expect(right?.props.style).toEqual(styles.headerSide);
+      expect(styles.headerSide).toMatchObject({ flex: 1, alignItems: 'flex-start' });
+      expect(styles.header).not.toHaveProperty('justifyContent', 'space-between');
+      expect(styles.header.minHeight).toBe(58);
+
+      const backControls = React.Children.toArray(left?.props.children).filter(
+        (child): child is React.ReactElement<NodeProps> =>
+          React.isValidElement<NodeProps>(child) && child.type === NativeButton,
+      );
+      expect(backControls).toHaveLength(1);
+      expect(backControls[0]?.props).toMatchObject({
+        label: 'request.back',
+        onPress: onCancel,
+        size: 'sm',
+        variant: 'quiet',
+      });
+      expect(backControls[0]?.props.disabled).toBeUndefined();
+      backControls[0]?.props.onPress?.();
+      expect(onCancel).toHaveBeenCalledTimes(1);
+
+      const scrollers: React.ReactElement<NodeProps>[] = [];
+      visit(root, element => {
+        if (element.type === ScrollView) scrollers.push(element);
+      });
+      expect(scrollers[0]?.props).toMatchObject({
+        keyboardShouldPersistTaps: 'handled',
+        showsVerticalScrollIndicator: false,
+      });
+    }
+  });
+
   it('exposes amount, memo and message inputs with accessibility labels', () => {
     const { root } = renderForm();
     const inputs: React.ReactElement<NodeProps>[] = [];
