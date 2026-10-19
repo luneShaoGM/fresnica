@@ -115,9 +115,8 @@ describe('RequestDeepLinkScreen Native Close', () => {
       expect(content?.props.onContinue).toBeUndefined();
     }
 
-    // This stylesheet is also consumed by RequestIngressScreen; its header contract must not migrate in this PR.
-    expect(styles.header.justifyContent).toBe('space-between');
-    expect(styles.spacer.width).toBe(54);
-    expect(styles.closeButton.minWidth).toBe(54);
+    // UI-05c migrates Ingress independently; both screens now use the same symmetric header tokens.
+    expect(styles.header).toEqual(styles.deepLinkHeader);
+    expect(styles.headerSide).toEqual(styles.deepLinkHeaderSide);
   });
 });
