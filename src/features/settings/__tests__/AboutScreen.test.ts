@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, Text } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 
 import { Screen } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
@@ -30,6 +30,7 @@ type NodeProps = Readonly<{
   contentInset?: string;
   showsVerticalScrollIndicator?: boolean;
   value?: string;
+  style?: unknown;
 }>;
 
 function findAll(
@@ -68,6 +69,33 @@ describe('About Settings native Back control', () => {
     expect(findAll(root, element => element.type === ScrollView)[0]?.props.showsVerticalScrollIndicator).toBe(false);
   });
 
+  it('centers About between identical flexible header columns rather than the old fixed 42dp placeholder', () => {
+    const root = AboutScreen({ onBack: jest.fn(), appName: 'Fresnica', projectName: 'Fresnica Mobile' });
+    const styles = createStyles(defaultTheme);
+    const header = React.Children.toArray(root.props.children).find(
+      (child): child is React.ReactElement<NodeProps> => React.isValidElement<NodeProps>(child) && child.type === View,
+    );
+
+    expect(header?.props.style).toEqual(styles.header);
+    const columns = React.Children.toArray(header?.props.children).filter(
+      (child): child is React.ReactElement<NodeProps> => React.isValidElement<NodeProps>(child),
+    );
+    expect(columns).toHaveLength(3);
+    const [left, title, right] = columns;
+    expect(left?.type).toBe(View);
+    expect(title?.type).toBe(Text);
+    expect(right?.type).toBe(View);
+    expect(left?.props.style).toEqual(styles.headerSide);
+    expect(right?.props.style).toEqual(styles.headerSide);
+    expect(styles.headerSide).toMatchObject({ flex: 1, alignItems: 'flex-start' });
+    expect(styles.header).not.toHaveProperty('justifyContent', 'space-between');
+    expect(
+      React.Children.toArray(left?.props.children).some(
+        child => React.isValidElement(child) && child.type === NativeButton,
+      ),
+    ).toBe(true);
+  });
+
   it('preserves supplied names, static info rows, compatibility notice and semantic layout dimensions', () => {
     const root = AboutScreen({ onBack: jest.fn(), appName: 'App Display Name', projectName: 'Project Display Name' });
     const infoRows = findAll(root, element => typeof element.props.label === 'string' && !!element.props.value);
@@ -91,6 +119,6 @@ describe('About Settings native Back control', () => {
     expect(styles.header.minHeight).toBe(58);
     expect(styles.content.paddingBottom).toBe(38);
     expect(styles.infoRow.minHeight).toBe(56);
-    expect(styles.headerSpacer.width).toBe(42);
+    expect(styles.headerSide.flex).toBe(1);
   });
 });

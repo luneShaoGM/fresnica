@@ -20,9 +20,11 @@ export function AboutScreen({ onBack, appName, projectName }: Props) {
   return (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
-        <NativeButton label="Back" onPress={onBack} size="sm" variant="quiet" />
+        <View style={styles.headerSide}>
+          <NativeButton label="Back" onPress={onBack} size="sm" variant="quiet" />
+        </View>
         <Text style={styles.title}>About</Text>
-        <View style={styles.headerSpacer} />
+        <View style={styles.headerSide} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
