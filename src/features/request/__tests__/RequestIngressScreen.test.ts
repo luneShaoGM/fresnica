@@ -1,5 +1,10 @@
 import React from 'react';
+import { ScrollView, Text, View } from 'react-native';
 
+import { NativeButton } from '@ui/components/NativeButton';
+import { defaultTheme } from '@ui/theme';
+
+import { createRequestIngressStyles } from '../ingressStyles';
 import { parseRequestIngress } from '../requestIngressFlow';
 import { RequestIngressScreen, type RequestScannerViewComponent } from '../RequestIngressScreen';
 
@@ -41,6 +46,13 @@ type NodeProps = Readonly<{
   accessibilityLabel?: string;
   onPress?: () => void;
   disabled?: boolean;
+  label?: string;
+  size?: string;
+  variant?: string;
+  style?: unknown;
+  contentInset?: string;
+  scrollable?: boolean;
+  showsVerticalScrollIndicator?: boolean;
 }>;
 
 function walk(
@@ -82,6 +94,74 @@ const baseProps = {
 };
 
 describe('RequestIngressScreen', () => {
+  it.each([
+    {
+      carrier: 'paste' as const,
+      photoBusy: false,
+      continueBusy: false,
+      title: 'request.ingress.title.paste',
+    },
+    {
+      carrier: 'scan' as const,
+      permissionState: 'checking' as const,
+      photoBusy: true,
+      continueBusy: true,
+      title: 'request.ingress.title.scan',
+    },
+    {
+      carrier: 'scan' as const,
+      permissionState: 'blocked' as const,
+      photoBusy: true,
+      continueBusy: true,
+      title: 'request.ingress.title.scan',
+    },
+  ])('keeps localized Close active and title centered for %p', state => {
+    const onClose = jest.fn();
+    const onContinue = jest.fn();
+    const onRetry = jest.fn();
+    const styles = createRequestIngressStyles(defaultTheme);
+    const root = RequestIngressScreen({ ...baseProps, ...state, onClose, onContinue, onRetry });
+
+    expect(root.props).toMatchObject({ scrollable: false, contentInset: 'none' });
+    const [header, scroller] = React.Children.toArray(root.props.children).filter(
+      (child): child is React.ReactElement<NodeProps> => React.isValidElement<NodeProps>(child),
+    );
+    expect(header?.type).toBe(View);
+    expect(header?.props.style).toEqual(styles.header);
+    expect(scroller?.type).toBe(ScrollView);
+    expect(scroller?.props.showsVerticalScrollIndicator).toBe(false);
+
+    const [left, title, right] = React.Children.toArray(header?.props.children).filter(
+      (child): child is React.ReactElement<NodeProps> => React.isValidElement<NodeProps>(child),
+    );
+    expect(left?.type).toBe(View);
+    expect(title?.type).toBe(Text);
+    expect(title?.props.children).toBe(state.title);
+    expect(right?.type).toBe(View);
+    expect(left?.props.style).toEqual(styles.headerSide);
+    expect(right?.props.style).toEqual(styles.headerSide);
+    expect(styles.headerSide).toMatchObject({ flex: 1, alignItems: 'flex-start' });
+    expect(styles.header).not.toHaveProperty('justifyContent', 'space-between');
+    expect(styles.header.minHeight).toBe(58);
+
+    const close = React.Children.toArray(left?.props.children).filter(
+      (child): child is React.ReactElement<NodeProps> =>
+        React.isValidElement<NodeProps>(child) && child.type === NativeButton,
+    );
+    expect(close).toHaveLength(1);
+    expect(close[0]?.props).toMatchObject({
+      label: 'request.ingress.close',
+      onPress: onClose,
+      size: 'sm',
+      variant: 'quiet',
+    });
+    expect(close[0]?.props.disabled).toBeUndefined();
+    close[0]?.props.onPress?.();
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onContinue).not.toHaveBeenCalled();
+    expect(onRetry).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => jest.clearAllMocks());
 
   it('keeps blocked camera permission on a stable screen with retry, settings, and close actions', () => {
@@ -89,6 +169,7 @@ describe('RequestIngressScreen', () => {
     const labels: string[] = [];
     walk(root, element => {
       if (element.props.accessibilityLabel) labels.push(element.props.accessibilityLabel);
+      if (element.type === NativeButton && element.props.label) labels.push(element.props.label);
     });
 
     expect(labels).toContain('request.ingress.close');

@@ -6,6 +6,7 @@ import type { RequestScannerViewProps } from '../../capabilities/request/Request
 import type { RequestPaymentIntent, RequestParseResult } from '../../capabilities/request/requestUri';
 import { useLocalization } from '../../locale';
 import { Screen } from '../../ui/components';
+import { NativeButton } from '@ui/components/NativeButton';
 import { useThemedStyles } from '../../ui/theme';
 import type { RequestIngressCarrier, RequestIngressResult } from './requestIngressFlow';
 import { maskRequestIssuer } from './RequestFormScreen';
@@ -45,11 +46,11 @@ export function RequestIngressScreen(props: Props) {
   return (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
-        <Pressable accessibilityLabel={t('request.ingress.close')} onPress={props.onClose} style={styles.closeButton}>
-          <Text style={styles.closeText}>{t('request.ingress.close')}</Text>
-        </Pressable>
+        <View style={styles.headerSide}>
+          <NativeButton label={t('request.ingress.close')} onPress={props.onClose} size="sm" variant="quiet" />
+        </View>
         <Text style={styles.title}>{title}</Text>
-        <View style={styles.spacer} />
+        <View style={styles.headerSide} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -173,7 +174,9 @@ function IngressResultCard({
         </Text>
         <IntentDetails intent={parsed.intent} />
         {continueError ? (
-          <Text accessibilityLiveRegion="assertive" style={styles.errorBody}>{continueError}</Text>
+          <Text accessibilityLiveRegion="assertive" style={styles.errorBody}>
+            {continueError}
+          </Text>
         ) : null}
         <View style={styles.actions}>
           <IngressAction label={t('request.continueToSend')} disabled={continueBusy} onPress={onContinue} />
@@ -264,12 +267,7 @@ function IngressPlatformErrorCard({
       <View style={styles.actions}>
         <IngressAction label={t('request.ingress.retry')} disabled={photoBusy} onPress={onRetry} />
         {onPickPhoto ? (
-          <IngressAction
-            disabled={photoBusy}
-            label={t('request.ingress.scan.photo')}
-            onPress={onPickPhoto}
-            secondary
-          />
+          <IngressAction disabled={photoBusy} label={t('request.ingress.scan.photo')} onPress={onPickPhoto} secondary />
         ) : null}
         {error === 'settings' ? (
           <IngressAction label={t('request.ingress.permission.settings')} onPress={onOpenSettings} secondary />
