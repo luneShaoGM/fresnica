@@ -2,6 +2,7 @@ import React from 'react';
 import {Pressable, ScrollView, Text, View} from 'react-native';
 
 import {Screen} from '@ui/components';
+import {NativeButton} from '@ui/components/NativeButton';
 
 import {useLocalization} from '../../locale';
 import {useThemedStyles} from '../../ui/theme';
@@ -21,12 +22,7 @@ export function LanguageSettingsScreen({onBack}: Props) {
   return (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onBack}
-          style={({pressed}) => [styles.backButton, pressed ? styles.pressed : undefined]}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </Pressable>
+        <NativeButton label={t('common.back')} onPress={onBack} size="sm" variant="quiet" />
         <Text style={styles.title}>{t('language.title')}</Text>
       </View>
 
