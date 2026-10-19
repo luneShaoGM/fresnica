@@ -40,11 +40,11 @@ export function AccountsScreen({ accounts, onOpenAccount, onAddAccount, onMoveAc
   return (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
-        <Pressable accessibilityLabel="Back" accessibilityRole="button" onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backGlyph}>‹</Text>
-        </Pressable>
+        <View style={styles.headerSide}>
+          <NativeButton label="Back" onPress={onBack} size="sm" variant="quiet" />
+        </View>
         <Text style={styles.title}>Accounts</Text>
-        <View style={styles.headerSpacer} />
+        <View style={styles.headerSide} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
