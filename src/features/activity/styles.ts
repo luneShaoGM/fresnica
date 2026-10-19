@@ -47,25 +47,6 @@ export function createStyles(theme: AppTheme) {
       paddingHorizontal: theme.spacing.md,
       paddingBottom: theme.spacing.sm,
     },
-    searchBox: {
-      height: 42,
-      borderRadius: theme.radii.md,
-      backgroundColor: theme.colors.surfaceMuted,
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: theme.spacing.sm,
-      gap: theme.spacing.sm,
-    },
-    searchGlyph: {
-      fontSize: 20,
-      color: theme.colors.textSecondary,
-    },
-    searchInput: {
-      flex: 1,
-      ...theme.typography.label,
-      color: theme.colors.textPrimary,
-      paddingVertical: 0,
-    },
     filters: {
       gap: theme.spacing.sm,
       paddingTop: theme.spacing.sm,
@@ -189,19 +170,6 @@ export function createStyles(theme: AppTheme) {
       ...theme.typography.caption,
       color: theme.colors.textSecondary,
       textAlign: 'center',
-    },
-    stateAction: {
-      minHeight: 36,
-      borderRadius: theme.radii.pill,
-      paddingHorizontal: theme.spacing.md,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.colors.surfaceMuted,
-    },
-    stateActionText: {
-      ...theme.typography.caption,
-      fontWeight: '700',
-      color: theme.colors.actionPrimaryPressed,
     },
     cacheStatus: {
       marginTop: theme.spacing.sm,

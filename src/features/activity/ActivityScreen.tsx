@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { Screen } from '@ui/components';
+import { NativeButton } from '@ui/components/NativeButton';
+import { NativeField } from '@ui/components/NativeField';
 
 import type { AccountRecord } from '@capabilities/account/types';
 import {
@@ -264,21 +266,17 @@ export function ActivityScreen({
       </View>
 
       <View style={styles.controls}>
-        <View style={styles.searchBox}>
-          <Text style={styles.searchGlyph}>⌕</Text>
-          <TextInput
-            accessibilityHint={t('activity.searchHint')}
-            accessibilityLabel={t('activity.searchLabel')}
-            autoCapitalize="none"
-            autoCorrect={false}
-            onChangeText={setSearchText}
-            placeholder={t('activity.searchPlaceholder')}
-            placeholderTextColor={theme.colors.textTertiary}
-            returnKeyType="search"
-            style={styles.searchInput}
-            value={searchText}
-          />
-        </View>
+        <NativeField
+          accessibilityHint={t('activity.searchHint')}
+          accessibilityLabel={t('activity.searchLabel')}
+          autoCapitalize="none"
+          autoCorrect={false}
+          label={t('activity.searchLabel')}
+          onChangeText={setSearchText}
+          placeholder={t('activity.searchPlaceholder')}
+          returnKeyType="search"
+          value={searchText}
+        />
         <ScrollView contentContainerStyle={styles.filters} horizontal showsHorizontalScrollIndicator={false}>
           {FILTERS.map(item => {
             const selected = filter === item;
@@ -414,13 +412,7 @@ export function ActivityContent({
           <Text style={styles.loadMoreError}>
             {state.stale ? t('activity.cache.refreshFailed') : t('activity.state.errorMessage')}
           </Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={onRetry}
-            style={({ pressed }) => [styles.stateAction, pressed ? styles.pressed : undefined]}
-          >
-            <Text style={styles.stateActionText}>{t('activity.retry')}</Text>
-          </Pressable>
+          <NativeButton label={t('activity.retry')} onPress={onRetry} size="sm" variant="secondary" />
         </>
       ) : null;
 
@@ -643,16 +635,7 @@ export function StatePanel({
       )}
       <Text style={styles.stateTitle}>{title}</Text>
       <Text style={styles.stateMessage}>{message}</Text>
-      {action && onAction ? (
-        <Pressable
-          accessibilityLabel={action}
-          accessibilityRole="button"
-          onPress={onAction}
-          style={({ pressed }) => [styles.stateAction, pressed ? styles.pressed : undefined]}
-        >
-          <Text style={styles.stateActionText}>{action}</Text>
-        </Pressable>
-      ) : null}
+      {action && onAction ? <NativeButton label={action} onPress={onAction} size="sm" variant="secondary" /> : null}
     </View>
   );
 }
