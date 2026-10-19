@@ -1,0 +1,76 @@
+# Fresnica Mobile｜任务划分与开发审查工作流
+
+> 适用范围：`luneShaoGM/fresnica` 的 Mobile 产品代码、Capability、Platform、测试和相关文档。本文是长期流程规范，不是某一次任务的进度快照。
+>
+> 权威关系：`AGENTS.md` 和架构/安全规范定义不可破坏的边界；`docs/stellar-product-information-architecture.md` 定义产品范围与完成标准；`docs/fresnica-mobile-rewrite-execution-plan.md` 定义当前 Stage、优先级、依赖和进度；`docs/product-traceability-ledger.md` 定义 S 编号与成熟度证据；GitHub 远端代码、PR exact HEAD、实际 diff、CI 和审查评论是当前集成事实源。本文只规定**如何切片与推进**，不能覆盖这些来源。
+
+## 1. 节点定义：Stage → Product ID → Slice → PR → Merge → Acceptance
+
+- **Stage**：计划与里程碑；可包含多个产品 ID 和许多 PR。Stage 完成不由 PR 数量决定。
+- **Product ID（如 S07、S09、S10）**：稳定的需求/行为追踪单元，标记 owner、依赖与 L0–L4 成熟度；不因子任务合并而自动升级。
+- **Slice**：默认的开发工作单元，代表一个可说明目标、风险边界、失败行为和验证方法的**自洽功能或 Capability 语义集合**。一个 Slice 默认对应一个 PR，可以包含多个本地 commit。
+- **PR / exact HEAD**：独立审查和 CI 的证据节点；修复继续追加到**同一个 PR**，不用为了每轮 Review 新建 PR。任何新 HEAD 必须重新核对相关门禁和审查结论。
+- **Merge**：合并为 `main` 上稳定、可集成的实现节点；不代表设备/UI/产品聚合验收已完成。
+- **Acceptance**：针对当前已合并产品树的功能、原生设备、异常/恢复、无障碍和可重复门禁证据。只有证据达到相应标准才升级 L3/L4；延期标记为 `DEFERRED` / `BLOCKED`，不能标记 `PASS`。
+
+**不按代码行数、文件数、单个按钮、页面数量或预设开发时长机械划分任务。** 目标是以足够大的闭环减少重复审查，同时把高风险改动保持在可审核范围内。
+
+## 2. 开工前如何确定 Slice
+
+每次先按以下顺序决策：
+
+1. 从最新 `main`、产品/Capability 契约、当前执行计划和稳定 S ID 确认**一个明确目标**；写出用户可见结果或 Capability 不变量。
+2. 列出必须覆盖的正常、取消、错误、超时、重试及不确定状态；明确**允许修改与禁止修改**的边界。
+3. 识别风险和触及层（UI/Feature/Capability/Platform/Realm/SDK），特别检查网络与账户分区、Signers、secret、精确金额、exact-XDR、授权和提交恢复。
+4. 判断能否在最新 `main` 上**独立实现、测试、审查和合并**。允许先交付不可从产品入口误触发的底层 Capability；不允许留下可达但安全规则不完整的产品路径。
+5. 同目标、同风险、同验证类型且一处修复可共用的改动可合并为一个 Slice；涉及不同经济行为或独立安全/持久化权威的改动必须拆分。
+6. 开发前冻结最小退出条件与证据清单；本轮之外发现的问题记为下一 Slice，不顺手重构或大范围格式化。
+
+### 任务粒度按风险决定
+
+| 类别                           | 推荐切片边界                                                                                                                               | 何时拆开                                                                             |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| **低风险 UI/样式**             | 在成熟且已验证的组件模式下，可一次迁移**多个相关页面或同类控件**；保持原回调、业务状态、安全区、语言、可访问性和滚动行为。                 | 一个页面牵涉新增状态机、权限、持久化、网络或授权；多页面共享样式变更难以隔离/复核。  |
+| **普通 Feature**               | 一条完整且可测试的用户操作链，包含 loading/empty/error/cancel/retry 等受影响分支。                                                         | 不同业务语义、独立路由/网络责任、复杂异常恢复难以放进同一审查范围。                  |
+| **Capability**                 | 同一个业务语义集合与一组契约/conformance 测试，例如 Swap quote 身份、选择及过期/滑点规则可按互不破坏的闭包拆分。                           | 独立的交易准备、签名/提交/恢复、不同协议族、不同源权威或需要单独冻结的 invariant。   |
+| **交易、安全、Signer/Account** | 比 UI 更窄：每个 PR 围绕一组紧密相关且可审查的安全不变量，完整验证 reject/cancel/retry/uncertain、exact-XDR、账户/网络身份与 fail-closed。 | 变更同时跨越授权、交易构造、持久化或执行恢复中多个独立权威，或任何范围无法单独验真。 |
+| **Realm/持久化迁移**           | 独立 PR，包含旧版本升级、原子性、失败和重启/恢复证据；不混 UI 整形。                                                                       | 不同 schema 或不同数据生命周期需要各自保证与回滚策略。                               |
+| **纯文档**                     | 独立于产品代码的窄范围文档切片，可修正计划、记录证据和规则。                                                                               | 文档与实际业务代码或 CI/构建配置改变混在一起时不能视为纯文档。                       |
+
+低风险 UI 的“多个”没有固定配额；**一个按钮一个 PR 不是规则**。已证明安全且采用同一模式的 UI 修改应酌情合并，避免反复跑同一套门禁。相反，金额、交易、网络、授权、秘密材料、持久化边界不因文件少就被视为低风险。
+
+### 完成一个 Slice 的最低条件
+
+- 目标、S ID、owner、依赖与禁止修改范围可独立解释。
+- 当前 `main` 下可安全集成；没有可达的安全半成品。
+- 覆盖受影响的正常/异常/取消/重试路径，测试失败时可准确定位这次变化。
+- 具备明确的审查所需 diff 和证据；不是仅靠“页面存在”“单测绿色”宣布产品完成。
+- 仅包含必要代码、对应测试与直接相关文档；没有无关整理或跨范围产品语义变更。
+
+## 3. 角色和手动推进流程
+
+**用户决定任务与合并时机；Chat 负责实现/修复；Work 独立 Review。**
+
+1. **恢复事实**：先读 GitHub `main`、OPEN PR、目标 PR base/current remote HEAD、实际 diff、CI、最新独立 Review；再核对 Mac mini 本地 branch/HEAD/working tree。用户未提交/未跟踪文件必须保留；未经授权不得 `git clean`、`reset` 或覆盖。
+2. **本地开发**：从最新 `main` 建干净分支或隔离 worktree；只对冻结的 Slice 实现和相称测试。优先通过 Remote Desktop Commander；离线或不稳定时**使用 AI Commander**。两者不可用时说明受阻，不因工具离线直接在 GitHub 上改产品源码，也不得声称未执行的本地操作。
+3. **验证**：受影响定向测试先行；执行需要的 `npm run check`、`npm run test:realm`、架构/provenance/格式、双端 JS Bundle/原生 Gate 和按风险选择的运行时/设备测试。区分未运行、成功、跳过、阻塞；不得把 skipped heavy job、模拟器或 JS Bundle 冒充真机产品验收。
+4. **提交与交接**：本地 commit/push，创建一个范围明确的 PR；核验远端 **exact HEAD**，检查 required CI，附上 `FRESNICA_DEV_HANDOFF`，列出真实测试、已知缺口、禁止修改范围和需要 Work 核对的事项。Handoff 是开发方说明，**不是独立审查证据**。
+5. **Work 独立审查**：Work 自行读取 current remote exact HEAD、实际 PR diff、相关契约、CI 和可验证证据，报告 P1/P2/P3，记录 `FRESNICA_WORK_REVIEW` 和 `reviewed_head_sha`。不能只采信开发方交接；如果 HEAD 已变，旧 APPROVED 不再是当前 HEAD 的合并证据。
+6. **修复与合并**：P1/P2 阻塞合并，修复仍在该 PR 内完成并对新 HEAD 重新审查。P3 优先修复；确需延期或接受时写明风险、责任与验收跟踪，不得默认为已解决。无阻塞问题、所需 CI/验收门成立后，**由用户决定 Merge**。Merge 后再以新的 `main` 开始下一 Slice。
+7. **文档与成熟度**：回写执行计划/产品追踪/Capability 状态时，必须对应真实 merged SHA 和证据级别；设备验收单独闭合，不能以 PR 合并提升为 L4。
+
+**已批准例外**：按用户先前确定的政策，只有 Markdown/说明/证据等**纯文档 PR** 可以免独立 Work Review；仍需确认实际 diff 只有文档、引用有效、没有代码/配置副作用，按用户授权流程合并。凡触及产品代码、CI 工作流、构建配置或安全行为的 PR 都不适用此例外。
+
+## 4. 不可跨越的约束与证据级别
+
+- 用户驱动手动 Chat → Work，不恢复旧 `ai:*` 标签状态机或 Automation V2.2 定时 Worker；仓库里保留的旧自动化说明仅作历史资料。
+- `AGENTS.md`、架构/安全规范、上游 Normative Application Capability 契约优先；Feature 负责产品流程、Capability 负责业务规则、Platform 负责机制、Native SDK/Core 负责密钥与加密。UI 组件不得变成第二套钱包或网络权威。
+- 新写路径复用既有 `prepare → exact-XDR review → authorize → sign → submit → pending/reconciliation` 管线，保留 network/account/intent 身份、跨重启防重复和 uncertain 处理；不能复制 Stellar/Xaman 未经批准的实现。
+- 测试事实要区分：静态/单元 → Realm/集成 → JS Bundle/CI → 原生重构建 → 模拟器/真机点击 → 双端聚合产品验收。**低一层不能替代高一层**；延期或不可运行时明确说明条件和发布阻塞。
+- 最终 Android/iOS 动态字体、窄屏、对比度、真实触控、TalkBack/VoiceOver 和 iOS 真机 System Auth 特殊流程仍要按各自验收门关闭。推迟测试是允许的，但不是 PASS。
+
+## 5. 新会话恢复与维护
+
+- 先从 `AGENTS.md` 找规范；从最新 GitHub PR/HEAD/CI/Review 和本地工作树恢复实际进度；从**当前**执行计划选择下一任务。历史会话与过期进度快照只能辅助定位，不能当当前事实。
+- 文档职责分离：**本文件维护长期规则**，执行计划维护 Stage/Slice 顺序与实时状态，`product-traceability-ledger.md` 维护 S ID/成熟度，测试清单维护未完成设备验收。不要把每次 PR 详细日志堆入本文件。
+- 工作流发生变化（任务粒度、审查门禁、自动化恢复、例外范围）应作为明确的文档变更，经用户确认后更新本文件及 `AGENTS.md` 入口；不要靠旧聊天自行恢复已废弃状态机。
