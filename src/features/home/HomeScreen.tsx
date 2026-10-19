@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AccessibilityInfo, ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { Screen } from '@ui/components';
+import { NativeButton } from '@ui/components/NativeButton';
+import { NativeStateView } from '@ui/components/NativeStateView';
 import { useAppTheme, useThemedStyles } from '@ui/theme';
 
 import type { AccountRecord } from '../../capabilities/account/types';
@@ -296,17 +298,12 @@ function renderPortfolio(
 
   if (state.kind === 'error') {
     return (
-      <View style={styles.stateBox}>
-        <Text style={styles.stateTitle}>Balances unavailable</Text>
-        <Text style={styles.stateText}>{state.message}</Text>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onRefresh}
-          style={({ pressed }) => [styles.retryButton, pressed ? styles.pressed : undefined]}
-        >
-          <Text style={styles.retryText}>Try again</Text>
-        </Pressable>
-      </View>
+      <NativeStateView
+        action={<NativeButton label="Try again" onPress={onRefresh} size="sm" variant="secondary" />}
+        description={state.message}
+        title="Balances unavailable"
+        tone="error"
+      />
     );
   }
 
@@ -324,10 +321,10 @@ function renderPortfolio(
 
   if (state.snapshot.status === 'unsupported-account') {
     return (
-      <View style={styles.stateBox}>
-        <Text style={styles.stateTitle}>Assets unavailable</Text>
-        <Text style={styles.stateText}>Classic Horizon balance semantics are not applied to contract accounts.</Text>
-      </View>
+      <NativeStateView
+        description="Classic Horizon balance semantics are not applied to contract accounts."
+        title="Assets unavailable"
+      />
     );
   }
 

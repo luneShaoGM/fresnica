@@ -134,12 +134,6 @@ export function createStyles(theme: AppTheme) {
       padding: theme.spacing.md,
       gap: theme.spacing.sm,
     },
-    stateTitle: {
-      ...theme.typography.label,
-      color: theme.colors.textPrimary,
-      textAlign: 'center',
-      fontWeight: '700',
-    },
     stateText: {
       ...theme.typography.body,
       color: theme.colors.textSecondary,
