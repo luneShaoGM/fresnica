@@ -3,6 +3,7 @@ import { AccessibilityInfo, Pressable, ScrollView, Text, View } from 'react-nati
 
 import type { AccountMoveDirection } from '@capabilities/account/accountOrder';
 import { Screen } from '@ui/components';
+import { NativeButton } from '@ui/components/NativeButton';
 
 import type { AccountRecord } from '../../capabilities/account/types';
 import { useLocalization } from '../../locale';
@@ -134,14 +135,15 @@ export function AccountsScreen({ accounts, onOpenAccount, onAddAccount, onMoveAc
           </View>
         ))}
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={onAddAccount}
-          style={({ pressed }) => [styles.addButton, pressed ? styles.pressed : undefined]}
-        >
-          <Text style={styles.addIcon}>＋</Text>
-          <Text style={styles.addText}>Add account</Text>
-        </Pressable>
+        <View style={styles.addButtonContainer}>
+          <NativeButton
+            icon={<Text style={styles.addIcon}>＋</Text>}
+            label="Add account"
+            onPress={onAddAccount}
+            size="lg"
+            variant="primary"
+          />
+        </View>
       </ScrollView>
     </Screen>
   );
