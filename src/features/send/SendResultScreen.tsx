@@ -1,8 +1,10 @@
 import React from 'react';
-import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {ScrollView, StyleSheet, Text, View} from 'react-native';
 
 import {Screen} from '@ui/components';
+import {NativeButton} from '@ui/components/NativeButton';
 
+import {useLocalization} from '../../locale';
 import {useThemedStyles, type AppTheme} from '../../ui/theme';
 import type {SendSubmissionResult} from './sendProductFlow';
 
@@ -18,6 +20,7 @@ type Props = Readonly<{
 
 export function SendResultScreen({result, onDone}: Props) {
   const styles = useThemedStyles(createStyles);
+  const {t} = useLocalization();
   const presentation = describeResult(result);
   const positive = result.status === 'submitted';
   const uncertain = result.status === 'uncertain';
@@ -50,9 +53,7 @@ export function SendResultScreen({result, onDone}: Props) {
       </ScrollView>
 
       <View style={styles.bottomBar}>
-        <Pressable onPress={onDone} style={({pressed}) => [styles.doneButton, pressed ? styles.pressed : undefined]}>
-          <Text style={styles.doneText}>Done</Text>
-        </Pressable>
+        <NativeButton label={t('send.navigation.done')} onPress={onDone} size="lg" variant="primary" />
       </View>
     </Screen>
   );
@@ -158,14 +159,5 @@ function createStyles(theme: AppTheme) {
       borderTopColor: theme.colors.border,
       backgroundColor: theme.colors.surface,
     },
-    doneButton: {
-      minHeight: 54,
-      borderRadius: 11,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.colors.actionPrimary,
-    },
-    doneText: {fontSize: 15, lineHeight: 19, color: theme.colors.onActionPrimary, fontWeight: '800'},
-    pressed: {opacity: 0.68},
   });
 }

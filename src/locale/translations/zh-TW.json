@@ -253,6 +253,8 @@
   "send.authorization.passphraseHint": "輸入目前的應用程式口令以授權這筆交易。",
   "send.authorization.slideToAuthorize": "滑動以授權並傳送",
   "send.authorization.appPassphrase": "應用程式口令",
+  "send.navigation.cancel": "取消傳送",
+  "send.navigation.done": "完成",
   "common.back": "返回",
   "activity.detail.asset": "資產",
   "activity.detail.issuer": "發行方",

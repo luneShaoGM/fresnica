@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 
 import {Screen} from '@ui/components';
+import {NativeButton} from '@ui/components/NativeButton';
 
 import type {BalanceAsset, BalanceLine} from '../../capabilities/balance/types';
 import type {StellarPaymentMemo} from '../../capabilities/stellar/types';
@@ -65,11 +66,11 @@ export function SendFormScreen({
   return (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
-        <Pressable accessibilityLabel="Cancel send" onPress={onCancel} style={styles.backButton}>
-          <Text style={styles.backGlyph}>‹</Text>
-        </Pressable>
+        <View style={styles.headerSide}>
+          <NativeButton label={t('send.navigation.cancel')} onPress={onCancel} size="sm" variant="quiet" />
+        </View>
         <Text style={styles.headerTitle}>Send</Text>
-        <View style={styles.headerSpacer} />
+        <View style={styles.headerSide} />
       </View>
 
       <ScrollView
