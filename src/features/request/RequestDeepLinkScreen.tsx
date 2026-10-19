@@ -4,6 +4,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import type { RequestPaymentIntent } from '../../capabilities/request/requestUri';
 import { useLocalization } from '../../locale';
 import { Screen } from '../../ui/components';
+import { NativeButton } from '@ui/components/NativeButton';
 import { useThemedStyles } from '../../ui/theme';
 import { maskRequestIssuer } from './RequestFormScreen';
 import { createRequestIngressStyles } from './ingressStyles';
@@ -27,15 +28,19 @@ export function RequestDeepLinkScreen({ state, onClose, onContinue }: Props) {
 
   return (
     <Screen scrollable={false} contentInset="none">
-      <View style={styles.header}>
-        <Pressable accessibilityLabel={t('request.deepLink.close')} onPress={onClose} style={styles.closeButton}>
-          <Text style={styles.closeText}>{t('request.deepLink.close')}</Text>
-        </Pressable>
+      <View style={styles.deepLinkHeader}>
+        <View style={styles.deepLinkHeaderSide}>
+          <NativeButton label={t('request.deepLink.close')} onPress={onClose} size="sm" variant="quiet" />
+        </View>
         <Text style={styles.title}>{t('request.deepLink.title')}</Text>
-        <View style={styles.spacer} />
+        <View style={styles.deepLinkHeaderSide} />
       </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {state.kind === 'ready' ? <ReadyCard intent={state.intent} onContinue={onContinue} /> : <BlockedCard reason={state.reason} />}
+        {state.kind === 'ready' ? (
+          <ReadyCard intent={state.intent} onContinue={onContinue} />
+        ) : (
+          <BlockedCard reason={state.reason} />
+        )}
       </ScrollView>
     </Screen>
   );
@@ -60,7 +65,12 @@ function ReadyCard({ intent, onContinue }: Readonly<{ intent: RequestPaymentInte
         value={intent.amount ?? t('request.ingress.accepted.openAmount')}
       />
       <View style={styles.actions}>
-        <Pressable accessibilityLabel={t('request.continueToSend')} accessibilityRole="button" onPress={onContinue} style={styles.action}>
+        <Pressable
+          accessibilityLabel={t('request.continueToSend')}
+          accessibilityRole="button"
+          onPress={onContinue}
+          style={styles.action}
+        >
           <Text style={styles.actionText}>{t('request.continueToSend')}</Text>
         </Pressable>
       </View>
