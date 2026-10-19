@@ -3,9 +3,12 @@ import { AccessibilityInfo, StyleSheet } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 
 import { defaultTheme } from '@ui/theme';
+import { NativeButton } from '@ui/components/NativeButton';
 
 import type { AccountRecord } from '../../../capabilities/account/types';
 import { AccountsScreen } from '../AccountsScreen';
+
+jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
 
 jest.mock('react', () => {
   const actual = jest.requireActual('react') as typeof import('react');
@@ -51,6 +54,10 @@ function account(id: string): AccountRecord {
 type TestElementProps = Readonly<{
   accessibilityLabel?: string;
   accessibilityLiveRegion?: string;
+  label?: string;
+  size?: string;
+  variant?: string;
+  icon?: React.ReactNode;
   accessibilityState?: Readonly<{ disabled?: boolean }>;
   children?: React.ReactNode;
   disabled?: boolean;
@@ -82,6 +89,55 @@ describe('AccountsScreen sort controls', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('keeps Add account available as a large native primary button for empty and hidden account lists', () => {
+    const onAddAccount = jest.fn();
+    const onOpenAccount = jest.fn();
+    const onMoveAccount = jest.fn();
+    const onBack = jest.fn();
+
+    for (const accounts of [[], [account('visible'), { ...account('hidden'), hidden: true }]]) {
+      const root = AccountsScreen({ accounts, onOpenAccount, onAddAccount, onMoveAccount, onBack });
+      let add: React.ReactElement<TestElementProps> | undefined;
+      visit(root, element => {
+        if (element.type === NativeButton) add = element;
+      });
+
+      expect(add?.props).toMatchObject({
+        label: 'Add account',
+        size: 'lg',
+        variant: 'primary',
+        onPress: onAddAccount,
+      });
+      const icon = add?.props.icon;
+      expect(React.isValidElement(icon)).toBe(true);
+      if (React.isValidElement<{ children?: React.ReactNode }>(icon)) {
+        expect(icon.props.children).toBe('＋');
+      }
+
+      const parentElements: React.ReactElement<TestElementProps>[] = [];
+      visit(root, element => {
+        if (
+          React.Children.toArray(element.props.children).some(
+            child => React.isValidElement(child) && child.type === NativeButton,
+          )
+        )
+          parentElements.push(element);
+      });
+      expect(parentElements).toHaveLength(1);
+      expect(StyleSheet.flatten(parentElements[0]?.props.style as StyleProp<ViewStyle>)).toMatchObject({
+        marginHorizontal: 20,
+        marginTop: 4,
+      });
+
+      (add?.props.onPress as () => void)();
+    }
+
+    expect(onAddAccount).toHaveBeenCalledTimes(2);
+    expect(onOpenAccount).not.toHaveBeenCalled();
+    expect(onMoveAccount).not.toHaveBeenCalled();
+    expect(onBack).not.toHaveBeenCalled();
   });
 
   it('exposes disabled move boundaries to assistive technology and visually dims them', () => {

@@ -74,19 +74,8 @@ export function createStyles(theme: AppTheme) {
     sortButtonDisabled: { opacity: 0.45, backgroundColor: theme.colors.surfaceMuted },
     sortButtonText: { fontSize: 12, lineHeight: 16, fontWeight: '700', color: theme.colors.textSecondary },
     sortButtonTextDisabled: { color: theme.colors.textTertiary },
-    addButton: {
-      minHeight: 64,
-      marginHorizontal: 20,
-      marginTop: 4,
-      borderRadius: 12,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      backgroundColor: theme.colors.actionPrimary,
-    },
+    addButtonContainer: { marginHorizontal: 20, marginTop: 4 },
     addIcon: { fontSize: 20, lineHeight: 22, color: theme.colors.onActionPrimary, fontWeight: '600' },
-    addText: { fontSize: 15, lineHeight: 19, color: theme.colors.onActionPrimary, fontWeight: '800' },
     pressed: { opacity: 0.68 },
   });
 }
