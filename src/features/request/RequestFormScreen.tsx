@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { Screen } from '../../ui/components';
+import { NativeButton } from '@ui/components/NativeButton';
 import { useAppTheme, useThemedStyles } from '../../ui/theme';
 import { useLocalization } from '../../locale';
 import type { StellarPaymentAsset, StellarPaymentMemo } from '../../capabilities/stellar/types';
@@ -48,11 +49,11 @@ export function RequestFormScreen(props: Props) {
   return (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
-        <Pressable accessibilityLabel={t('request.back')} onPress={props.onCancel} style={styles.backButton}>
-          <Text style={styles.backGlyph}>‹</Text>
-        </Pressable>
+        <View style={styles.headerSide}>
+          <NativeButton label={t('request.back')} onPress={props.onCancel} size="sm" variant="quiet" />
+        </View>
         <Text style={styles.headerTitle}>{t('request.title')}</Text>
-        <View style={styles.headerSpacer} />
+        <View style={styles.headerSide} />
       </View>
 
       <ScrollView
