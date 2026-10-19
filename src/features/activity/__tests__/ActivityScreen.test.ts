@@ -1,15 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, TextInput } from 'react-native';
+import { Pressable } from 'react-native';
+
+import { NativeButton } from '@ui/components/NativeButton';
+import { NativeField } from '@ui/components/NativeField';
 
 import type { AccountRecord } from '../../../capabilities/account/types';
 import type { HistoryProductDependencies } from '../../../capabilities/history/HistoryCacheHydration';
 import { loadHistoryPage } from '../../../capabilities/history/loadHistoryPage';
 import type { HistoryEntry } from '../../../capabilities/history/types';
+import { HISTORY_CACHE_SCHEMA_VERSION } from '../../../capabilities/history/HistoryCacheRepository';
 import { createLocalization } from '../../../locale/localization';
 import { defaultTheme } from '../../../ui/theme';
 import { ActivityContent, ActivityScreen, StatePanel } from '../ActivityScreen';
-import { createActivityReadyState } from '../activityReadModel';
+import { createActivityReadyState, createCachedActivityReadyState, failActivityRefresh } from '../activityReadModel';
 import { createStyles } from '../styles';
+
+jest.mock('@fresnica/ui-native', () => ({
+  Field: () => null,
+  Button: () => null,
+}));
 
 jest.mock('react', () => {
   const actual = jest.requireActual('react') as typeof import('react');
@@ -96,8 +105,16 @@ type NodeProps = Readonly<{
   accessibilityLabel?: string;
   accessibilityRole?: string;
   accessibilityState?: Readonly<{ selected?: boolean }>;
+  autoCapitalize?: string;
+  autoCorrect?: boolean;
   children?: React.ReactNode;
+  label?: string;
+  size?: string;
+  variant?: string;
+  value?: string;
   entries?: readonly HistoryEntry[];
+  entry?: HistoryEntry;
+  source?: string;
   message?: string;
   onChangeText?: (value: string) => void;
   onPress?: () => void;
@@ -156,12 +173,15 @@ describe('ActivityScreen filter/search closure', () => {
   });
   it('exposes accessible search and trustline controls without triggering history I/O', () => {
     const { root, setters } = renderScreen([trustline('trustline-1'), unsupported('other-1')]);
-    const search = findElement(root, element => element.type === TextInput);
+    const search = findElement(root, element => element.type === NativeField);
     const trustlines = findElement(root, element => element.props.accessibilityLabel === 'Trustlines');
 
     expect(search?.props).toMatchObject({
       accessibilityLabel: 'Search activity',
       accessibilityHint: 'Search only the activity currently loaded on this device.',
+      autoCapitalize: 'none',
+      autoCorrect: false,
+      label: 'Search activity',
     });
     expect(trustlines?.type).toBe(Pressable);
     expect(trustlines?.props).toMatchObject({
@@ -215,12 +235,44 @@ describe('ActivityScreen filter/search closure', () => {
       indicatorColor: defaultTheme.colors.actionPrimaryPressed,
       styles: createStyles(defaultTheme),
     });
-    const retry = findElement(panel, element => element.props.accessibilityLabel === 'Try again');
+    const retry = findElement(panel, element => element.type === NativeButton);
 
-    expect(retry?.type).toBe(Pressable);
-    expect(retry?.props.accessibilityRole).toBe('button');
+    expect(retry?.props).toMatchObject({ label: 'Try again', size: 'sm', variant: 'secondary' });
     retry?.props.onPress?.();
     expect(onAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a retry action while stale cached history remains visible', () => {
+    const localization = createLocalization('en');
+    const onRetry = jest.fn();
+    const entry = trustline('cached-1');
+    const cached = createCachedActivityReadyState({
+      schemaVersion: HISTORY_CACHE_SCHEMA_VERSION,
+      entries: [entry],
+      lastSuccessfulHorizonUpdateAt: now,
+      details: [],
+    });
+    const failed = { kind: 'ready' as const, ...failActivityRefresh(cached) };
+    const root = ActivityContent({
+      state: failed,
+      entries: [entry],
+      onRetry,
+      onLoadMore: jest.fn(),
+      onOpenOperation: jest.fn(),
+      t: localization.t,
+      formatNumber: localization.formatNumber,
+      dateFormatter: new Intl.DateTimeFormat('en-US'),
+      timeFormatter: new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }),
+      indicatorColor: defaultTheme.colors.actionPrimaryPressed,
+      styles: createStyles(defaultTheme),
+    });
+    const retry = findElement(root, element => element.type === NativeButton);
+
+    expect(retry?.props).toMatchObject({ label: localization.t('activity.retry'), variant: 'secondary' });
+    expect(findElement(root, element => element.props.source === 'cache')).toBeDefined();
+    expect(findElement(root, element => element.props.entry?.id === 'cached-1')).toBeDefined();
+    retry?.props.onPress?.();
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
   it('distinguishes no-match from empty history and preserves manual load-more', () => {
