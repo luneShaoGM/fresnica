@@ -16,14 +16,6 @@ export function createStyles(theme: AppTheme) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.colors.border,
     },
-    backButton: {
-      paddingVertical: theme.spacing.sm,
-      paddingRight: theme.spacing.md,
-    },
-    backText: {
-      ...theme.typography.label,
-      color: theme.colors.actionPrimary,
-    },
     title: {
       ...theme.typography.sectionTitle,
       color: theme.colors.textPrimary,
