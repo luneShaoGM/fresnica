@@ -1,3 +1,4 @@
+import type { AccountRecord } from '../../account/types';
 import type { FresnicaSdkPort } from '../../ports/FresnicaSdkPort';
 import type { SignerRecord } from '../../signer/types';
 import type { TransactionGatewayPort } from '../../transaction/TransactionGateway';
@@ -396,6 +397,120 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
     );
     expect(gateway.submitTransaction).not.toHaveBeenCalled();
     expect(repo.listUnresolved(NETWORK.id)).toHaveLength(0);
+  });
+
+  it.each([
+    ['address', { address: 'GOTHER' }],
+    ['network', { networkId: 'stellar-mainnet' }],
+    ['account ID', { id: 'wallet-other' }],
+    ['account type', { identityKind: 'contract' as const }],
+  ])('rejects %s mutation during System Auth before persistence or broadcast', async (_field, mutation) => {
+    const review = reviewed();
+    const liveAccount: Pick<AccountRecord, 'id' | 'address' | 'networkId' | 'identityKind'> = { ...ACCOUNT };
+    const { deps, gateway, sdk, repo, signerRepository } = fixture(review);
+    sdk.signWithSystemAuth.mockImplementationOnce(async () => {
+      Object.assign(liveAccount, mutation);
+      return 'signed-path-xdr';
+    });
+    await expect(submitReviewedPathPayment(deps, liveAccount, review, SIGNER)).rejects.toThrow(
+      'path_payment_review_mismatch',
+    );
+    expect(signerRepository.listSignersForAccount).toHaveBeenCalledWith(ACCOUNT.id);
+    expect(gateway.submitTransaction).not.toHaveBeenCalled();
+    expect(repo.get(NETWORK.id, 'path-hash-1')).toBeUndefined();
+  });
+
+  it('does not start System Auth signing when account changes during availability check', async () => {
+    const review = reviewed();
+    const liveAccount: Pick<AccountRecord, 'id' | 'address' | 'networkId' | 'identityKind'> = { ...ACCOUNT };
+    const { deps, sdk, gateway, repo } = fixture(review);
+    sdk.hasSignerSystemAuth.mockImplementationOnce(async () => {
+      liveAccount.address = 'GOTHER';
+      return true;
+    });
+    await expect(submitReviewedPathPayment(deps, liveAccount, review, SIGNER)).rejects.toThrow(
+      'path_payment_review_mismatch',
+    );
+    expect(sdk.signWithSystemAuth).not.toHaveBeenCalled();
+    expect(gateway.submitTransaction).not.toHaveBeenCalled();
+    expect(repo.get(NETWORK.id, 'path-hash-1')).toBeUndefined();
+  });
+
+  it('blocks passphrase signing continuation after a live-account mutation', async () => {
+    const review = reviewed();
+    const liveAccount: Pick<AccountRecord, 'id' | 'address' | 'networkId' | 'identityKind'> = { ...ACCOUNT };
+    const { deps, gateway, sdk, repo } = fixture(review);
+    sdk.hasSignerSystemAuth.mockResolvedValueOnce(false);
+    sdk.signWithPassphrase.mockImplementationOnce(async () => {
+      liveAccount.id = 'wallet-other';
+      return 'passphrase-path-xdr';
+    });
+    await expect(submitReviewedPathPayment(deps, liveAccount, review, SIGNER, 'password')).rejects.toThrow(
+      'path_payment_review_mismatch',
+    );
+    expect(gateway.submitTransaction).not.toHaveBeenCalled();
+    expect(repo.get(NETWORK.id, 'path-hash-1')).toBeUndefined();
+  });
+
+  it('rechecks account identity after awaited ledger authorization, before System Auth', async () => {
+    const review = reviewed();
+    const liveAccount: Pick<AccountRecord, 'id' | 'address' | 'networkId' | 'identityKind'> = { ...ACCOUNT };
+    const { deps, gateway, sdk, repo } = fixture(review);
+    gateway.loadAccountAuthorization.mockImplementationOnce(async address => {
+      liveAccount.networkId = 'stellar-mainnet';
+      return {
+        address,
+        thresholds: { low: 1, medium: 1, high: 2 },
+        signers: [{ kind: 'ed25519' as const, publicKey: SIGNER.publicKey, weight: 1 }],
+      };
+    });
+    await expect(submitReviewedPathPayment(deps, liveAccount, review, SIGNER)).rejects.toThrow(
+      'path_payment_review_mismatch',
+    );
+    expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
+    expect(gateway.submitTransaction).not.toHaveBeenCalled();
+    expect(repo.get(NETWORK.id, 'path-hash-1')).toBeUndefined();
+  });
+
+  it('blocks broadcast and preserves pending reconciliation when the account changes after persistence', async () => {
+    const review = reviewed();
+    const liveAccount: Pick<AccountRecord, 'id' | 'address' | 'networkId' | 'identityKind'> = { ...ACCOUNT };
+    const { deps, gateway, repo } = fixture(review);
+    const originalCreate = repo.create.bind(repo);
+    jest.spyOn(repo, 'create').mockImplementation(record => {
+      originalCreate(record);
+      liveAccount.address = 'GOTHER';
+    });
+    await expect(submitReviewedPathPayment(deps, liveAccount, review, SIGNER)).resolves.toMatchObject({
+      status: 'uncertain',
+      transactionHash: 'path-hash-1',
+    });
+    expect(gateway.submitTransaction).not.toHaveBeenCalled();
+    expect(repo.get(NETWORK.id, 'path-hash-1')).toMatchObject({
+      accountId: ACCOUNT.id,
+      sourceAddress: ACCOUNT.address,
+      state: 'uncertain',
+    });
+  });
+
+  it('treats a changed account after broadcast as uncertain rather than accepted', async () => {
+    const review = reviewed();
+    const liveAccount: Pick<AccountRecord, 'id' | 'address' | 'networkId' | 'identityKind'> = { ...ACCOUNT };
+    const { deps, gateway, repo } = fixture(review);
+    gateway.submitTransaction.mockImplementationOnce(async () => {
+      liveAccount.networkId = 'stellar-mainnet';
+      return { status: 'accepted' as const, hash: 'path-hash-1', ledger: 42 };
+    });
+    await expect(submitReviewedPathPayment(deps, liveAccount, review, SIGNER)).resolves.toMatchObject({
+      status: 'uncertain',
+      transactionHash: 'path-hash-1',
+    });
+    expect(gateway.submitTransaction).toHaveBeenCalledTimes(1);
+    expect(repo.get(NETWORK.id, 'path-hash-1')).toMatchObject({
+      accountId: ACCOUNT.id,
+      sourceAddress: ACCOUNT.address,
+      state: 'uncertain',
+    });
   });
 
   it('keeps a broadcast with network switching afterwards uncertain and requiring reconciliation', async () => {

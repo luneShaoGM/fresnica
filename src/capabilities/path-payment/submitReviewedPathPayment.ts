@@ -41,18 +41,32 @@ export async function submitReviewedPathPayment(
     id: dependencies.network.id,
     networkPassphrase: dependencies.network.networkPassphrase,
   });
-  const assertBoundNetwork = () => {
+  const boundAccount: PathPaymentSource = Object.freeze({
+    id: account.id,
+    address: account.address,
+    networkId: account.networkId,
+    identityKind: account.identityKind,
+  });
+  const assertBoundContext = () => {
+    if (
+      account.id !== boundAccount.id ||
+      account.address !== boundAccount.address ||
+      account.networkId !== boundAccount.networkId ||
+      account.identityKind !== boundAccount.identityKind
+    ) {
+      throw new Error('path_payment_review_mismatch');
+    }
     for (const candidate of [dependencies.network, dependencies.gateway.network, dependencies.inspector.network]) {
       if (candidate.id !== boundNetwork.id || candidate.networkPassphrase !== boundNetwork.networkPassphrase) {
         throw new Error('path_payment_review_mismatch');
       }
     }
   };
-  assertBoundNetwork();
+  assertBoundContext();
 
   let intent: ReturnType<typeof createTransactionIntentIdentity>;
   try {
-    validateReviewIdentity(account, review, boundNetwork);
+    validateReviewIdentity(boundAccount, review, boundNetwork);
     const projection = dependencies.inspector.inspectPathPaymentTransaction({
       transactionXdrBase64: review.transactionXdrBase64,
       networkPassphrase: boundNetwork.networkPassphrase,
@@ -62,14 +76,14 @@ export async function submitReviewedPathPayment(
   } catch {
     throw new Error('path_payment_review_mismatch');
   }
-  assertBoundNetwork();
+  assertBoundContext();
 
   // The supplied local signer must belong to this specific wallet account.
   // As with S07 Send, watch-only and multi-signer accounts do not fall
   // through to a guess at a signing key.
   const reviewedSigner: SignerRecord = Object.freeze({ ...signer });
   const assertSignerStillAttached = () => {
-    const attached = dependencies.signerRepository.listSignersForAccount(account.id);
+    const attached = dependencies.signerRepository.listSignersForAccount(boundAccount.id);
     if (
       attached.length !== 1 ||
       attached[0].id !== reviewedSigner.id ||
@@ -85,40 +99,68 @@ export async function submitReviewedPathPayment(
   } catch {
     return { status: 'unsupported-signer' };
   }
+  const assertSigningContext = () => {
+    assertBoundContext();
+    assertSignerStillAttached();
+  };
+  // Shared signing awaits System Auth availability before entering native
+  // signing. Recheck the account after that await, not only after the final
+  // signature; otherwise a stale account could be signed in the meantime.
+  const guardedSdk: FresnicaSdkPort = {
+    ...dependencies.sdk,
+    hasSignerSystemAuth: async publicKey => {
+      assertSigningContext();
+      const available = await dependencies.sdk.hasSignerSystemAuth(publicKey);
+      assertSigningContext();
+      return available;
+    },
+    signWithSystemAuth: async request => {
+      assertSigningContext();
+      const signed = await dependencies.sdk.signWithSystemAuth(request);
+      assertSigningContext();
+      return signed;
+    },
+    signWithPassphrase: async request => {
+      assertSigningContext();
+      const signed = await dependencies.sdk.signWithPassphrase(request);
+      assertSigningContext();
+      return signed;
+    },
+  };
   const reviewedTransaction = Object.freeze({
     transactionXdrBase64: review.transactionXdrBase64,
     networkId: boundNetwork.id,
-    source: account.address,
+    source: boundAccount.address,
     fee: review.fee,
     expiresAtUnixSeconds: review.expiresAtUnixSeconds,
   });
   const protectedGateway: TransactionGatewayPort = {
     loadAccountAuthorization: async address => {
-      assertBoundNetwork();
+      assertBoundContext();
       const authorization = await dependencies.gateway.loadAccountAuthorization(address);
-      assertBoundNetwork();
+      assertBoundContext();
       assertSignerStillAttached();
-      if (!authorization || authorization.address !== account.address) {
+      if (!authorization || address !== boundAccount.address || authorization.address !== boundAccount.address) {
         throw new Error('path_payment_review_mismatch');
       }
       return authorization;
     },
     transactionHash: signedXdr => {
-      assertBoundNetwork();
+      assertBoundContext();
       assertSignerStillAttached();
       return dependencies.gateway.transactionHash(signedXdr);
     },
     loadTransactionOutcome: hash => dependencies.gateway.loadTransactionOutcome(hash),
     submitTransaction: async signedXdr => {
-      assertBoundNetwork();
-      assertSignerStillAttached();
       // The shared pipeline already wrote a durable 'submitting' record before
-      // this call. If a network switch or transport exception occurs after a
-      // broadcast may have started, keep it uncertain; never blindly retry.
+      // this call. Account/network changes or transport errors leave the original
+      // transaction unresolved, never a success or an automatic second broadcast.
       const originalHash = dependencies.gateway.transactionHash(signedXdr);
       try {
+        assertBoundContext();
+        assertSignerStillAttached();
         const result = await dependencies.gateway.submitTransaction(signedXdr);
-        assertBoundNetwork();
+        assertBoundContext();
         return result;
       } catch {
         return { status: 'uncertain', transactionHash: originalHash };
@@ -128,9 +170,9 @@ export async function submitReviewedPathPayment(
 
   return submitReviewedTransaction({
     gateway: protectedGateway,
-    sdk: dependencies.sdk,
+    sdk: guardedSdk,
     review: reviewedTransaction,
-    accountId: account.id,
+    accountId: boundAccount.id,
     intent,
     recovery: dependencies.recovery,
     signer: reviewedSigner,
