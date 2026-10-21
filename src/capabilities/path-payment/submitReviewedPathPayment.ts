@@ -24,6 +24,9 @@ export type PathPaymentSubmissionDependencies = Readonly<{
   signerRepository: Pick<AccountSignerRepository, 'listSignersForAccount'>;
   recovery: PendingSubmissionDependencies;
   network: NetworkContext;
+  // Required live App selection/route epoch check. D1 account-object and
+  // network checks alone cannot detect an external selection switch.
+  isCurrentSession: () => boolean;
 }>;
 
 type PathPaymentSource = Pick<AccountRecord, 'id' | 'address' | 'networkId' | 'identityKind'>;
@@ -47,8 +50,16 @@ export async function submitReviewedPathPayment(
     networkId: account.networkId,
     identityKind: account.identityKind,
   });
+  const isCurrentSession = dependencies.isCurrentSession;
   const assertBoundContext = () => {
+    let sessionCurrent = false;
+    try {
+      sessionCurrent = isCurrentSession?.() === true;
+    } catch {
+      sessionCurrent = false;
+    }
     if (
+      !sessionCurrent ||
       account.id !== boundAccount.id ||
       account.address !== boundAccount.address ||
       account.networkId !== boundAccount.networkId ||
