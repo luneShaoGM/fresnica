@@ -1,7 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-
-import {Screen} from '@ui/components';
 
 import type { AccountRecord } from '../../capabilities/account/types';
 import { loadBalanceSnapshot } from '../../capabilities/balance/loadBalanceSnapshot';
@@ -10,10 +7,10 @@ import type { PaymentReview } from '../../capabilities/payment/buildPaymentRevie
 import type { RequestPaymentIntent } from '../../capabilities/request/requestUri';
 import type { StellarPaymentMemo } from '../../capabilities/stellar/types';
 import {useLocalization} from '../../locale';
-import {useAppTheme, useThemedStyles, type AppTheme} from '../../ui/theme';
 import { SendFormScreen } from './SendFormScreen';
 import { SendResultScreen, type SendTerminalResult } from './SendResultScreen';
 import { SendReviewScreen } from './SendReviewScreen';
+import { SendStatusScreen } from './SendStatusScreen';
 import {projectFeatureError} from '../featureError';
 import { buildSendReview, submitSendReview, type SendProductDependencies } from './sendProductFlow';
 import { resolveRequestSendPrefill } from './requestSendPrefill';
@@ -194,11 +191,11 @@ export function SendFlowScreen({ account, dependencies, onDone, requestIntent }:
   }, [account, appPassphrase, dependencies, flow, passphraseRequired, t]);
 
   if (loadState.kind === 'loading') {
-    return <FlowMessageScreen title="Send" message="Loading current Stellar balances…" loading onBack={onDone} />;
+    return <SendStatusScreen title="Send" message="Loading current Stellar balances…" loading onBack={onDone} />;
   }
 
   if (loadState.kind === 'blocked') {
-    return <FlowMessageScreen title={loadState.title} message={loadState.description} onBack={onDone} />;
+    return <SendStatusScreen title={loadState.title} message={loadState.description} onBack={onDone} />;
   }
 
   if (flow.kind === 'review') {
@@ -258,39 +255,6 @@ export function SendFlowScreen({ account, dependencies, onDone, requestIntent }:
   );
 }
 
-function FlowMessageScreen({
-  title,
-  message,
-  onBack,
-  loading = false,
-}: Readonly<{ title: string; message: string; onBack: () => void; loading?: boolean }>) {
-  const theme = useAppTheme();
-  const styles = useThemedStyles(createStyles);
-
-  return (
-    <Screen scrollable={false} contentInset="none">
-      <View style={styles.header}>
-        <Pressable accessibilityLabel="Back" onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backGlyph}>‹</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>Send</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-      <View style={styles.messageBody}>
-        {loading ? (
-          <ActivityIndicator color={theme.colors.actionPrimary} />
-        ) : (
-          <View style={styles.messageIcon}>
-            <Text style={styles.messageGlyph}>!</Text>
-          </View>
-        )}
-        <Text style={styles.messageTitle}>{title}</Text>
-        <Text style={styles.messageText}>{message}</Text>
-      </View>
-    </Screen>
-  );
-}
-
 function readableError(error: unknown, t: (key: string) => string): string {
   return projectFeatureError(error, {
     fallbackMessage: 'Unable to complete Send.',
@@ -301,41 +265,4 @@ function readableError(error: unknown, t: (key: string) => string): string {
       'payment-destination-requires-memo': t('send.memo.error.required'),
     },
   }).message;
-}
-
-function createStyles(theme: AppTheme) {
-  return StyleSheet.create({
-    safeArea: {flex: 1, backgroundColor: theme.colors.background},
-    header: {
-      minHeight: 58,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 12,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.border,
-    },
-    backButton: {width: 42, height: 42, alignItems: 'center', justifyContent: 'center'},
-    backGlyph: {fontSize: 36, lineHeight: 38, fontWeight: '300', color: theme.colors.secondary},
-    headerTitle: {fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary},
-    headerSpacer: {width: 42},
-    messageBody: {flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 34, gap: 10},
-    messageIcon: {
-      width: 58,
-      height: 58,
-      borderRadius: 29,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.colors.surfaceMuted,
-    },
-    messageGlyph: {fontSize: 24, color: theme.colors.textSecondary, fontWeight: '800'},
-    messageTitle: {
-      fontSize: 18,
-      lineHeight: 23,
-      color: theme.colors.textPrimary,
-      fontWeight: '800',
-      textAlign: 'center',
-    },
-    messageText: {fontSize: 12, lineHeight: 18, color: theme.colors.textSecondary, textAlign: 'center'},
-  });
 }
