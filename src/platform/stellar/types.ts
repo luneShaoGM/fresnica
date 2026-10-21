@@ -1,6 +1,10 @@
 import type {Asset, TransactionSource} from '@stellar/stellar-sdk';
 
 import type { BuiltTransaction, StellarPaymentAsset } from '../../capabilities/stellar/types';
+import type {
+  PathPaymentBuildStrictReceiveInput,
+  PathPaymentBuildStrictSendInput,
+} from '../../capabilities/path-payment/types';
 
 export type {
   BuildChangeTrustInput,
@@ -177,28 +181,7 @@ export type LoadStrictReceivePathsInput = Readonly<{
   destinationAmount: string;
 }>;
 
-export type BuildPathPaymentStrictSendInput = Readonly<{
-  source: string;
-  destination: string;
-  sendAsset: StellarPaymentAsset;
-  sendAmount: string;
-  destinationAsset: StellarPaymentAsset;
-  destinationMinimum: string;
-  path: readonly StellarPaymentAsset[];
-  baseFee: string;
-  timeoutSeconds: number;
-}>;
-
-export type BuildPathPaymentStrictReceiveInput = Readonly<{
-  source: string;
-  destination: string;
-  sendAsset: StellarPaymentAsset;
-  sendMaximum: string;
-  destinationAsset: StellarPaymentAsset;
-  destinationAmount: string;
-  path: readonly StellarPaymentAsset[];
-  baseFee: string;
-  timeoutSeconds: number;
-}>;
+export type BuildPathPaymentStrictSendInput = PathPaymentBuildStrictSendInput;
+export type BuildPathPaymentStrictReceiveInput = PathPaymentBuildStrictReceiveInput;
 
 export type PathPaymentBuiltTransaction = BuiltTransaction;
