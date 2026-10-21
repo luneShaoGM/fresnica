@@ -76,6 +76,16 @@ function mapPathRecord(record: HorizonPathRecordLike): StellarPathPaymentRoute {
   return {
     sourceAmount: record.source_amount,
     destinationAmount: record.destination_amount,
+    sourceAsset: mapPathAsset({
+      asset_type: record.source_asset_type,
+      asset_code: record.source_asset_code,
+      asset_issuer: record.source_asset_issuer,
+    }),
+    destinationAsset: mapPathAsset({
+      asset_type: record.destination_asset_type,
+      asset_code: record.destination_asset_code,
+      asset_issuer: record.destination_asset_issuer,
+    }),
     path: record.path.map(mapPathAsset),
   };
 }
@@ -94,6 +104,10 @@ export class StellarPathPaymentSdkGateway implements StellarPathPaymentGateway {
     server?: PathPaymentServerLike,
   ) {
     this.server = server ?? createDefaultServer(config.horizonUrl);
+  }
+
+  get network(): NetworkContext {
+    return this.config.network;
   }
 
   async loadStrictSendPaths(input: LoadStrictSendPathsInput): Promise<readonly StellarPathPaymentRoute[]> {
