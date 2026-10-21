@@ -12,8 +12,8 @@ const MAX_STELLAR_STROOPS = 9_223_372_036_854_775_807n;
 const MAX_INTERMEDIATE_ASSETS = 5;
 const MAX_QUOTE_TTL_MS = 30_000;
 
-// Swap-A returns unselected, unprepared quotes. Selection, monotonic expiry and
-// transaction slippage enforcement belong to the next Capability slices.
+// Swap-A collects verified provider routes; Swap-B selects and derives bounds.
+// Neither layer constructs, signs or submits a transaction.
 export async function loadPathPaymentQuotes(
   dependencies: LoadPathPaymentQuotesDependencies,
   input: PathPaymentQuoteRequest,
@@ -47,12 +47,21 @@ export async function loadPathPaymentQuotes(
     throw new Error('route_unavailable');
   }
   const quotedAtUnixMs = dependencies.nowUnixMs();
-  if (!Number.isSafeInteger(quotedAtUnixMs) || quotedAtUnixMs < 0) {
+  const quotedAtMonotonicMs = dependencies.nowMonotonicMs();
+  if (
+    !Number.isSafeInteger(quotedAtUnixMs) ||
+    quotedAtUnixMs < 0 ||
+    !Number.isSafeInteger(quotedAtUnixMs + MAX_QUOTE_TTL_MS) ||
+    !Number.isFinite(quotedAtMonotonicMs) ||
+    quotedAtMonotonicMs < 0
+  ) {
     throw new Error('quote_unavailable');
   }
 
   return Object.freeze(
-    routes.map(route => validateQuote(route, request, quotedAtUnixMs, dependencies.isClassicAccountAddress)),
+    routes.map(route =>
+      validateQuote(route, request, quotedAtUnixMs, quotedAtMonotonicMs, dependencies.isClassicAccountAddress),
+    ),
   );
 }
 
@@ -106,6 +115,7 @@ function validateQuote(
   route: PathPaymentRoute,
   request: PathPaymentQuoteRequest,
   quotedAtUnixMs: number,
+  quotedAtMonotonicMs: number,
   isClassicAddress: (address: string) => boolean,
 ): PathPaymentQuote {
   if (!route || !Array.isArray(route.path) || route.path.length > MAX_INTERMEDIATE_ASSETS) {
@@ -136,6 +146,7 @@ function validateQuote(
     path,
     quotedAtUnixMs,
     expiresAtUnixMs: quotedAtUnixMs + MAX_QUOTE_TTL_MS,
+    quotedAtMonotonicMs,
   });
 }
 
