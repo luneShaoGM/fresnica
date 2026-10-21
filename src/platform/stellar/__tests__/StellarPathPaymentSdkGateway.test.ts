@@ -1,5 +1,8 @@
 import { Account, Networks, StrKey, Transaction } from '@stellar/stellar-sdk';
 
+import { loadPathPaymentQuotes } from '../../../capabilities/path-payment/loadPathPaymentQuotes';
+import type { PathPaymentQuoteGatewayPort } from '../../../capabilities/path-payment/types';
+
 import { StellarPathPaymentSdkGateway } from '../StellarPathPaymentSdkGateway';
 import type { HorizonAccountLike, HorizonPathServerLike } from '../types';
 
@@ -94,6 +97,47 @@ describe('StellarPathPaymentSdkGateway', () => {
     expect(call.destinationAssets).toHaveLength(1);
     expect(call.destinationAssets[0].getCode()).toBe('usd');
     expect(call.destinationAssets[0].getIssuer()).toBe(issuerAddress);
+  });
+
+  it('binds the new quote Capability to this network-scoped Stellar SDK adapter', async () => {
+    const horizon = server();
+    horizon.loadStrictSendPaths.mockResolvedValue({
+      records: [{ source_amount: '5.0000000', destination_amount: '10.0000000', path: [] }],
+    });
+    const gateway = new StellarPathPaymentSdkGateway(TEST_GATEWAY_CONFIG, horizon);
+    const quotePort: PathPaymentQuoteGatewayPort = gateway;
+
+    expect(quotePort.network).toEqual(TEST_GATEWAY_CONFIG.network);
+    const quotes = await loadPathPaymentQuotes(
+      {
+        gateway: quotePort,
+        network: TEST_GATEWAY_CONFIG.network,
+        isClassicAccountAddress: StrKey.isValidEd25519PublicKey,
+        nowUnixMs: () => 1_782_000_000_000,
+      },
+      {
+        network: TEST_GATEWAY_CONFIG.network,
+        source: sourceAddress,
+        destination: destinationAddress,
+        sourceAsset: { kind: 'native' },
+        destinationAsset: { kind: 'credit', code: 'USDC', issuer: issuerAddress },
+        mode: 'strict_send',
+        fixedAmount: '5',
+      },
+    );
+    expect(quotes).toHaveLength(1);
+    expect(quotes[0]).toMatchObject({
+      sourceAmount: '5.0000000',
+      destinationAmount: '10.0000000',
+      path: [],
+      request: {
+        source: sourceAddress,
+        destination: destinationAddress,
+        network: TEST_GATEWAY_CONFIG.network,
+      },
+    });
+    expect(horizon.loadStrictSendPaths).toHaveBeenCalledTimes(1);
+    expect(horizon.loadAccount).not.toHaveBeenCalled();
   });
 
   it('normalizes strict-receive Horizon routes with exact source and destination amounts', async () => {

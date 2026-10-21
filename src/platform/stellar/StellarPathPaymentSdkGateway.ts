@@ -96,6 +96,10 @@ export class StellarPathPaymentSdkGateway implements StellarPathPaymentGateway {
     this.server = server ?? createDefaultServer(config.horizonUrl);
   }
 
+  get network(): NetworkContext {
+    return this.config.network;
+  }
+
   async loadStrictSendPaths(input: LoadStrictSendPathsInput): Promise<readonly StellarPathPaymentRoute[]> {
     const page = await this.server.loadStrictSendPaths({
       sourceAsset: toSdkAsset(input.sourceAsset),
