@@ -114,9 +114,20 @@ function formatNumber(
 
   const safePrecision = Math.max(0, Math.trunc(precision));
   const fraction = (match[3] ?? '').slice(0, safePrecision).replace(/0+$/, '');
-  const parts = new Intl.NumberFormat(locale).formatToParts(12345.6);
-  const groupSeparator = parts.find(part => part.type === 'group')?.value ?? ',';
-  const decimalSeparator = parts.find(part => part.type === 'decimal')?.value ?? '.';
+  const formatter = new Intl.NumberFormat(locale);
+  let groupSeparator: string;
+  let decimalSeparator: string;
+  if (typeof formatter.formatToParts === 'function') {
+    const parts = formatter.formatToParts(12345.6);
+    groupSeparator = parts.find(part => part.type === 'group')?.value ?? ',';
+    decimalSeparator = parts.find(part => part.type === 'decimal')?.value ?? '.';
+  } else {
+    // Some Hermes Intl runtimes expose format() but not formatToParts().
+    // A repeated localized digit lets us extract separators without rounding the wallet amount.
+    const one = formatter.format(1);
+    groupSeparator = formatter.format(11111).split(one).join('') || ',';
+    decimalSeparator = formatter.format(1.1).split(one).join('') || '.';
+  }
   const groupedInteger = match[2].replace(/\B(?=(\d{3})+(?!\d))/g, groupSeparator);
 
   return `${match[1]}${groupedInteger}${fraction ? `${decimalSeparator}${fraction}` : ''}`;

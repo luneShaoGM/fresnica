@@ -1,4 +1,5 @@
 import type { HistoryEntry } from '@capabilities/history/types';
+import { createLocalization } from '../../../locale/localization';
 
 import {
   activityEntryPresentation,
@@ -89,6 +90,47 @@ describe('activityList', () => {
       tone: 'positive',
       filter: 'payments',
     });
+  });
+
+  it('presents Activity ledger amounts when Hermes does not provide formatToParts', () => {
+    const prototype = Intl.NumberFormat.prototype;
+    const original = Object.getOwnPropertyDescriptor(prototype, 'formatToParts');
+    Object.defineProperty(prototype, 'formatToParts', {configurable: true, value: undefined});
+
+    try {
+      const localization = createLocalization('en');
+      const trustline = trustlineEntry();
+      expect(activityEntryPresentation(trustline, localization.t, localization.formatNumber).primary).toBe(
+        '100 MiXeD',
+      );
+
+      const payment: HistoryEntry = {
+        id: 'hermes-payment',
+        pagingToken: 'hermes-payment',
+        operationType: 'payment',
+        occurredAt: '2026-08-31T00:00:00Z',
+        transactionHash: 'tx-hermes-payment',
+        sourceAccount: 'GSOURCE',
+        kind: 'payment',
+        direction: 'incoming',
+        amount: '9999999999999999.12345678',
+        asset: {kind: 'native', code: 'XLM'},
+        counterparty: 'GCOUNTERPARTY',
+        participants: [
+          {role: 'sender', identity: 'GSOURCE'},
+          {role: 'recipient', identity: 'GCOUNTERPARTY'},
+        ],
+      };
+      const presentation = activityEntryPresentation(payment, localization.t, localization.formatNumber);
+      expect(presentation.primary).toBe('9,999,999,999,999,999.12345678 XLM');
+      expect(matchesActivitySearch(payment, '999,999,999', localization.t, localization.formatNumber)).toBe(true);
+    } finally {
+      if (original) {
+        Object.defineProperty(prototype, 'formatToParts', original);
+      } else {
+        Reflect.deleteProperty(prototype, 'formatToParts');
+      }
+    }
   });
 
   it('classifies change-trust under the dedicated trustline filter', () => {
