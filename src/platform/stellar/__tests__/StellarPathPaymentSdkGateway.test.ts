@@ -9,6 +9,10 @@ import {
   TransactionBuilder,
 } from '@stellar/stellar-sdk';
 
+import { submitReviewedPathPayment } from '../../../capabilities/path-payment/submitReviewedPathPayment';
+import type { FresnicaSdkPort } from '../../../capabilities/ports/FresnicaSdkPort';
+import type { SignerRecord } from '../../../capabilities/signer/types';
+import { InMemoryPendingSubmissionRepository } from '../../persistence/memory/InMemoryPendingSubmissionRepository';
 import { preparePathPayment } from '../../../capabilities/path-payment/preparePathPayment';
 import { loadPathPaymentQuotes } from '../../../capabilities/path-payment/loadPathPaymentQuotes';
 import type { PathPaymentQuoteGatewayPort } from '../../../capabilities/path-payment/types';
@@ -569,6 +573,131 @@ describe('StellarPathPaymentSdkGateway', () => {
     expect(horizon.loadAccount).toHaveBeenCalledTimes(1);
     expect(preflightGateway.loadLedgerParameters).toHaveBeenCalledTimes(2);
     expect(preflightGateway.loadAccountState).toHaveBeenCalledTimes(6);
+  });
+
+  it('authenticates one actual unsigned SDK Path Payment XDR via the shared transaction pipeline', async () => {
+    const expiry = Math.floor(Date.now() / 1000) + 180;
+    const unsigned = new TransactionBuilder(new Account(sourceAddress, '100'), {
+      fee: '100',
+      networkPassphrase: Networks.TESTNET,
+    })
+      .addOperation(
+        Operation.pathPaymentStrictSend({
+          sendAsset: Asset.native(),
+          sendAmount: '5.0000000',
+          destination: destinationAddress,
+          destAsset: new Asset('USDC', issuerAddress),
+          destMin: '9.9000000',
+          path: [],
+        }),
+      )
+      .setTimebounds(0, expiry)
+      .build()
+      .toXdr();
+    const quote = {
+      request: {
+        network: TEST_GATEWAY_CONFIG.network,
+        source: sourceAddress,
+        destination: destinationAddress,
+        sourceAsset: { kind: 'native' as const },
+        destinationAsset: { kind: 'credit' as const, code: 'USDC', issuer: issuerAddress },
+        mode: 'strict_send' as const,
+        fixedAmount: '5.0000000',
+      },
+      sourceAmount: '5.0000000',
+      destinationAmount: '10.0000000',
+      path: [],
+      quotedAtUnixMs: 1_700_000_000_000,
+      expiresAtUnixMs: 1_700_000_030_000,
+      quotedAtMonotonicMs: 20_000,
+    };
+    const review = {
+      transactionXdrBase64: unsigned,
+      networkId: TEST_GATEWAY_CONFIG.network.id,
+      source: sourceAddress,
+      destination: destinationAddress,
+      sourceAsset: quote.request.sourceAsset,
+      destinationAsset: quote.request.destinationAsset,
+      path: quote.path,
+      quote,
+      quotedSourceAmount: quote.sourceAmount,
+      quotedDestinationAmount: quote.destinationAmount,
+      mode: 'strict_send' as const,
+      sendAmount: '5.0000000',
+      destinationMinimum: '9.9000000',
+      slippageBps: 100,
+      fee: '100',
+      expiresAtUnixSeconds: expiry,
+    };
+    const signer: SignerRecord = {
+      id: 'local',
+      publicKey: sourceAddress,
+      kind: 'protected-software',
+      envelopeJson: '{"protected":true}',
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+    };
+    const sdk = {
+      hasSignerSystemAuth: jest.fn(async () => true),
+      signWithSystemAuth: jest.fn(async () => 'signed-test-xdr'),
+    } as unknown as FresnicaSdkPort;
+    const repository = new InMemoryPendingSubmissionRepository();
+    const transactionGateway = {
+      network: TEST_GATEWAY_CONFIG.network,
+      loadAccountAuthorization: jest.fn(async (address: string) => ({
+        address,
+        thresholds: { low: 1, medium: 1, high: 2 },
+        signers: [{ kind: 'ed25519' as const, publicKey: signer.publicKey, weight: 1 }],
+      })),
+      transactionHash: jest.fn(() => 'signed-hash'),
+      submitTransaction: jest.fn(async () => ({ status: 'accepted' as const, hash: 'signed-hash', ledger: 71 })),
+      loadTransactionOutcome: jest.fn(),
+    };
+    const deps = {
+      network: TEST_GATEWAY_CONFIG.network,
+      gateway: transactionGateway,
+      inspector: new StellarPathPaymentSdkGateway(TEST_GATEWAY_CONFIG, server()),
+      sdk,
+      signerRepository: { listSignersForAccount: () => [signer] },
+      recovery: { repository, readInvalidation: { invalidate: jest.fn() }, now: () => new Date() },
+    };
+    await expect(
+      submitReviewedPathPayment(
+        deps,
+        { id: 'account-1', address: sourceAddress, networkId: TEST_GATEWAY_CONFIG.network.id, identityKind: 'classic' },
+        review,
+        signer,
+      ),
+    ).resolves.toMatchObject({ status: 'submitted', hash: 'signed-hash' });
+    expect(transactionGateway.submitTransaction).toHaveBeenCalledWith('signed-test-xdr');
+    expect(repository.listUnresolved(TEST_GATEWAY_CONFIG.network.id)).toHaveLength(0);
+
+    const changedDestination = new TransactionBuilder(new Account(sourceAddress, '100'), {
+      fee: '100',
+      networkPassphrase: Networks.TESTNET,
+    })
+      .addOperation(
+        Operation.pathPaymentStrictSend({
+          sendAsset: Asset.native(),
+          sendAmount: '5.0000000',
+          destination: issuerAddress,
+          destAsset: new Asset('USDC', issuerAddress),
+          destMin: '9.9000000',
+          path: [],
+        }),
+      )
+      .setTimebounds(0, expiry)
+      .build()
+      .toXdr();
+    await expect(
+      submitReviewedPathPayment(
+        deps,
+        { id: 'account-1', address: sourceAddress, networkId: TEST_GATEWAY_CONFIG.network.id, identityKind: 'classic' },
+        { ...review, transactionXdrBase64: changedDestination },
+        signer,
+      ),
+    ).rejects.toThrow('path_payment_review_mismatch');
+    expect(transactionGateway.submitTransaction).toHaveBeenCalledTimes(1);
   });
 
   it('rejects an SDK source-account response that belongs to another G address', async () => {
