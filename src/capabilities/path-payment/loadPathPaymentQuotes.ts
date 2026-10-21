@@ -111,9 +111,13 @@ function validateQuote(
   if (!route || !Array.isArray(route.path) || route.path.length > MAX_INTERMEDIATE_ASSETS) {
     throw new Error('quote_unavailable');
   }
+  const sourceAsset = validateAsset(route.sourceAsset, isClassicAddress, 'quote_unavailable');
+  const destinationAsset = validateAsset(route.destinationAsset, isClassicAddress, 'quote_unavailable');
   const sourceAmount = canonicalPositiveAmount(route.sourceAmount, 'quote_unavailable');
   const destinationAmount = canonicalPositiveAmount(route.destinationAmount, 'quote_unavailable');
   if (
+    !sameAsset(sourceAsset, request.sourceAsset) ||
+    !sameAsset(destinationAsset, request.destinationAsset) ||
     (request.mode === 'strict_send' && sourceAmount !== request.fixedAmount) ||
     (request.mode === 'strict_receive' && destinationAmount !== request.fixedAmount)
   ) {

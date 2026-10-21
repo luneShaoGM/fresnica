@@ -4,11 +4,18 @@ import { loadPathPaymentQuotes } from '../../../capabilities/path-payment/loadPa
 import type { PathPaymentQuoteGatewayPort } from '../../../capabilities/path-payment/types';
 
 import { StellarPathPaymentSdkGateway } from '../StellarPathPaymentSdkGateway';
-import type { HorizonAccountLike, HorizonPathServerLike } from '../types';
+import type { HorizonAccountLike, HorizonPathRecordLike, HorizonPathServerLike } from '../types';
 
 const sourceAddress = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(11));
 const destinationAddress = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(12));
 const issuerAddress = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(13));
+
+const NATIVE_TO_USD_ENDPOINTS = Object.freeze({
+  source_asset_type: 'native',
+  destination_asset_type: 'credit_alphanum4',
+  destination_asset_code: 'usd',
+  destination_asset_issuer: issuerAddress,
+});
 
 const TEST_GATEWAY_CONFIG = Object.freeze({
   network: Object.freeze({ id: 'stellar-testnet', networkPassphrase: Networks.TESTNET }),
@@ -53,6 +60,7 @@ describe('StellarPathPaymentSdkGateway', () => {
     horizon.loadStrictSendPaths.mockResolvedValue({
       records: [
         {
+          ...NATIVE_TO_USD_ENDPOINTS,
           source_amount: '1.0000000',
           destination_amount: '2.0000000',
           path: [
@@ -64,6 +72,7 @@ describe('StellarPathPaymentSdkGateway', () => {
           ],
         },
         {
+          ...NATIVE_TO_USD_ENDPOINTS,
           source_amount: '1.0000000',
           destination_amount: '9.0000000',
           path: [{ asset_type: 'native' }],
@@ -82,11 +91,15 @@ describe('StellarPathPaymentSdkGateway', () => {
       {
         sourceAmount: '1.0000000',
         destinationAmount: '2.0000000',
+        sourceAsset: { kind: 'native' },
+        destinationAsset: { kind: 'credit', code: 'usd', issuer: issuerAddress },
         path: [{ kind: 'credit', code: 'usd', issuer: issuerAddress }],
       },
       {
         sourceAmount: '1.0000000',
         destinationAmount: '9.0000000',
+        sourceAsset: { kind: 'native' },
+        destinationAsset: { kind: 'credit', code: 'usd', issuer: issuerAddress },
         path: [{ kind: 'native' }],
       },
     ]);
@@ -102,7 +115,15 @@ describe('StellarPathPaymentSdkGateway', () => {
   it('binds the new quote Capability to this network-scoped Stellar SDK adapter', async () => {
     const horizon = server();
     horizon.loadStrictSendPaths.mockResolvedValue({
-      records: [{ source_amount: '5.0000000', destination_amount: '10.0000000', path: [] }],
+      records: [
+        {
+          ...NATIVE_TO_USD_ENDPOINTS,
+          destination_asset_code: 'USDC',
+          source_amount: '5.0000000',
+          destination_amount: '10.0000000',
+          path: [],
+        },
+      ],
     });
     const gateway = new StellarPathPaymentSdkGateway(TEST_GATEWAY_CONFIG, horizon);
     const quotePort: PathPaymentQuoteGatewayPort = gateway;
@@ -145,6 +166,7 @@ describe('StellarPathPaymentSdkGateway', () => {
     horizon.loadStrictReceivePaths.mockResolvedValue({
       records: [
         {
+          ...NATIVE_TO_USD_ENDPOINTS,
           source_amount: '3.1234567',
           destination_amount: '1.0000000',
           path: [],
@@ -163,6 +185,8 @@ describe('StellarPathPaymentSdkGateway', () => {
       {
         sourceAmount: '3.1234567',
         destinationAmount: '1.0000000',
+        sourceAsset: { kind: 'native' },
+        destinationAsset: { kind: 'credit', code: 'usd', issuer: issuerAddress },
         path: [],
       },
     ]);
@@ -174,11 +198,104 @@ describe('StellarPathPaymentSdkGateway', () => {
     expect(call.destinationAmount).toBe('1.0000000');
   });
 
+  it.each([
+    [
+      'strict_send',
+      'source',
+      { source_asset_type: 'credit_alphanum4', source_asset_code: 'EUR', source_asset_issuer: issuerAddress },
+    ],
+    ['strict_send', 'destination', { destination_asset_code: 'EUR' }],
+    [
+      'strict_receive',
+      'source',
+      { source_asset_type: 'credit_alphanum4', source_asset_code: 'EUR', source_asset_issuer: issuerAddress },
+    ],
+    ['strict_receive', 'destination', { destination_asset_code: 'EUR' }],
+  ] as const)(
+    'fails closed on Horizon %s quote with a misbound %s asset through the actual SDK gateway',
+    async (mode, _side, badEndpoint) => {
+      const horizon = server();
+      const rawRecord = {
+        ...NATIVE_TO_USD_ENDPOINTS,
+        destination_asset_code: 'USDC',
+        source_amount: '5.0000000',
+        destination_amount: '10.0000000',
+        path: [],
+        ...badEndpoint,
+      };
+      horizon.loadStrictSendPaths.mockResolvedValue({ records: [rawRecord] });
+      horizon.loadStrictReceivePaths.mockResolvedValue({ records: [rawRecord] });
+      const sdkGateway = new StellarPathPaymentSdkGateway(TEST_GATEWAY_CONFIG, horizon);
+
+      await expect(
+        loadPathPaymentQuotes(
+          {
+            gateway: sdkGateway,
+            network: TEST_GATEWAY_CONFIG.network,
+            isClassicAccountAddress: StrKey.isValidEd25519PublicKey,
+            nowUnixMs: () => 1_782_000_000_000,
+          },
+          {
+            network: TEST_GATEWAY_CONFIG.network,
+            source: sourceAddress,
+            destination: destinationAddress,
+            sourceAsset: { kind: 'native' },
+            destinationAsset: { kind: 'credit', code: 'USDC', issuer: issuerAddress },
+            mode,
+            fixedAmount: mode === 'strict_send' ? '5' : '10',
+          },
+        ),
+      ).rejects.toThrow('quote_unavailable');
+      expect(horizon.loadStrictSendPaths).toHaveBeenCalledTimes(mode === 'strict_send' ? 1 : 0);
+      expect(horizon.loadStrictReceivePaths).toHaveBeenCalledTimes(mode === 'strict_receive' ? 1 : 0);
+      expect(horizon.loadAccount).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['strict_send', 'strict_receive'] as const)(
+    'rejects Horizon %s records with missing source/destination asset fields',
+    async mode => {
+      const horizon = server();
+      const missingEndpoint = {
+        source_amount: '5.0000000',
+        destination_amount: '10.0000000',
+        path: [],
+      };
+      horizon.loadStrictSendPaths.mockResolvedValue({
+        records: [missingEndpoint as unknown as HorizonPathRecordLike],
+      });
+      horizon.loadStrictReceivePaths.mockResolvedValue({
+        records: [missingEndpoint as unknown as HorizonPathRecordLike],
+      });
+
+      await expect(
+        loadPathPaymentQuotes(
+          {
+            gateway: new StellarPathPaymentSdkGateway(TEST_GATEWAY_CONFIG, horizon),
+            network: TEST_GATEWAY_CONFIG.network,
+            isClassicAccountAddress: StrKey.isValidEd25519PublicKey,
+            nowUnixMs: () => 1_782_000_000_000,
+          },
+          {
+            network: TEST_GATEWAY_CONFIG.network,
+            source: sourceAddress,
+            destination: destinationAddress,
+            sourceAsset: { kind: 'native' },
+            destinationAsset: { kind: 'credit', code: 'USDC', issuer: issuerAddress },
+            mode,
+            fixedAmount: mode === 'strict_send' ? '5' : '10',
+          },
+        ),
+      ).rejects.toThrow('quote_unavailable');
+    },
+  );
+
   it('fails closed on malformed Horizon path assets', async () => {
     const horizon = server();
     horizon.loadStrictSendPaths.mockResolvedValue({
       records: [
         {
+          ...NATIVE_TO_USD_ENDPOINTS,
           source_amount: '1.0000000',
           destination_amount: '2.0000000',
           path: [{ asset_type: 'credit_alphanum4', asset_code: 'usd' }],

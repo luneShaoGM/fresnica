@@ -27,6 +27,8 @@ const NETWORK = Object.freeze({ id: 'stellar-testnet', networkPassphrase: 'Test 
 const NATIVE = Object.freeze({ kind: 'native' as const });
 const CREDIT = Object.freeze({ kind: 'credit' as const, code: 'USDC', issuer: 'GISSUER' });
 const PATH = Object.freeze({ kind: 'credit' as const, code: 'EUR', issuer: 'GISSUER' });
+const SEND_ENDPOINTS = Object.freeze({ sourceAsset: NATIVE, destinationAsset: CREDIT });
+const RECEIVE_ENDPOINTS = Object.freeze({ sourceAsset: CREDIT, destinationAsset: NATIVE });
 const NOW = 1_782_000_000_000;
 
 function gateway(routes: readonly PathPaymentRoute[] = []): jest.Mocked<PathPaymentQuoteGatewayPort> {
@@ -66,8 +68,8 @@ function dependencies(
 describe('Path Payment Swap-A quote capability', () => {
   it('loads strict-send candidates without changing order, amount, path or request identity', async () => {
     const routes: PathPaymentRoute[] = [
-      { sourceAmount: '5.0000000', destinationAmount: '9.9000000', path: [PATH] },
-      { sourceAmount: '5', destinationAmount: '10', path: [] },
+      { ...SEND_ENDPOINTS, sourceAmount: '5.0000000', destinationAmount: '9.9000000', path: [PATH] },
+      { ...SEND_ENDPOINTS, sourceAmount: '5', destinationAmount: '10', path: [] },
     ];
     const provider = gateway(routes);
     const input = request({ fixedAmount: '5.0000000', memo: { type: 'text', value: 'memo' } });
@@ -106,7 +108,9 @@ describe('Path Payment Swap-A quote capability', () => {
   });
 
   it('loads strict-receive candidates while fixing destination amount exactly', async () => {
-    const provider = gateway([{ sourceAmount: '3.1415926', destinationAmount: '10.0000000', path: [PATH] }]);
+    const provider = gateway([
+      { ...RECEIVE_ENDPOINTS, sourceAmount: '3.1415926', destinationAmount: '10.0000000', path: [PATH] },
+    ]);
     const quotes = await loadPathPaymentQuotes(
       dependencies(provider),
       request({
@@ -134,7 +138,7 @@ describe('Path Payment Swap-A quote capability', () => {
     expect(official.swap.source_account).toBe(official.swap.destination_account);
     expect(official.swap.strict_send_meaning).toBe('sell_exact');
     expect(official.swap.strict_receive_meaning).toBe('buy_exact');
-    const provider = gateway([{ sourceAmount: '5', destinationAmount: '10', path: [] }]);
+    const provider = gateway([{ ...SEND_ENDPOINTS, sourceAmount: '5', destinationAmount: '10', path: [] }]);
     const quotes = await loadPathPaymentQuotes(
       dependencies(provider),
       request({
@@ -181,28 +185,99 @@ describe('Path Payment Swap-A quote capability', () => {
   });
 
   it('rejects gateway network changes during an awaited Horizon request', async () => {
-    const provider = gateway([{ sourceAmount: '5', destinationAmount: '9', path: [] }]);
+    const provider = gateway([{ ...SEND_ENDPOINTS, sourceAmount: '5', destinationAmount: '9', path: [] }]);
     provider.loadStrictSendPaths.mockImplementation(async () => {
       Object.defineProperty(provider, 'network', { value: { id: 'other', networkPassphrase: 'other' } });
-      return [{ sourceAmount: '5', destinationAmount: '9', path: [] }];
+      return [{ ...SEND_ENDPOINTS, sourceAmount: '5', destinationAmount: '9', path: [] }];
     });
     await expect(loadPathPaymentQuotes(dependencies(provider), request())).rejects.toThrow('invalid_request');
   });
 
   it.each([
-    ['fixed-side mismatch', [{ sourceAmount: '4', destinationAmount: '10', path: [] }]],
-    ['zero quoted destination', [{ sourceAmount: '5', destinationAmount: '0', path: [] }]],
-    ['invalid quoted precision', [{ sourceAmount: '5', destinationAmount: '10.12345678', path: [] }]],
-    ['six intermediate assets', [{ sourceAmount: '5', destinationAmount: '10', path: Array(6).fill(PATH) }]],
-    ['endpoint present in path', [{ sourceAmount: '5', destinationAmount: '10', path: [NATIVE] }]],
+    ['fixed-side mismatch', [{ ...SEND_ENDPOINTS, sourceAmount: '4', destinationAmount: '10', path: [] }]],
+    ['zero quoted destination', [{ ...SEND_ENDPOINTS, sourceAmount: '5', destinationAmount: '0', path: [] }]],
+    [
+      'invalid quoted precision',
+      [{ ...SEND_ENDPOINTS, sourceAmount: '5', destinationAmount: '10.12345678', path: [] }],
+    ],
+    [
+      'six intermediate assets',
+      [{ ...SEND_ENDPOINTS, sourceAmount: '5', destinationAmount: '10', path: Array(6).fill(PATH) }],
+    ],
+    ['endpoint present in path', [{ ...SEND_ENDPOINTS, sourceAmount: '5', destinationAmount: '10', path: [NATIVE] }]],
     [
       'invalid intermediate issuer',
-      [{ sourceAmount: '5', destinationAmount: '10', path: [{ kind: 'credit', code: 'EUR', issuer: 'MISSUER' }] }],
+      [
+        {
+          ...SEND_ENDPOINTS,
+          sourceAmount: '5',
+          destinationAmount: '10',
+          path: [{ kind: 'credit', code: 'EUR', issuer: 'MISSUER' }],
+        },
+      ],
     ],
   ] as const)('fails closed on malformed provider route: %s', async (_label, routes) => {
     expect(official.path.maximum_intermediate_assets).toBe(5);
     expect(official.path.endpoints_are_excluded_from_intermediate_path).toBe(true);
     await expect(loadPathPaymentQuotes(dependencies(gateway(routes)), request())).rejects.toThrow('quote_unavailable');
+  });
+
+  it.each([
+    ['strict_send', 'source', NATIVE, CREDIT, CREDIT, CREDIT],
+    ['strict_send', 'destination', NATIVE, CREDIT, NATIVE, NATIVE],
+    ['strict_receive', 'source', CREDIT, NATIVE, NATIVE, NATIVE],
+    ['strict_receive', 'destination', CREDIT, NATIVE, CREDIT, CREDIT],
+  ] as const)(
+    'rejects a %s response with the wrong %s endpoint asset',
+    async (mode, _endpoint, requestedSource, requestedDestination, reportedSource, reportedDestination) => {
+      const providerRoute = {
+        sourceAmount: '5',
+        destinationAmount: '10',
+        sourceAsset: reportedSource,
+        destinationAsset: reportedDestination,
+        path: [],
+      };
+      await expect(
+        loadPathPaymentQuotes(
+          dependencies(gateway([providerRoute])),
+          request({
+            mode,
+            sourceAsset: requestedSource,
+            destinationAsset: requestedDestination,
+            fixedAmount: mode === 'strict_send' ? '5' : '10',
+          }),
+        ),
+      ).rejects.toThrow('quote_unavailable');
+    },
+  );
+
+  it.each(['strict_send', 'strict_receive'] as const)(
+    'rejects %s when Horizon does not provide route endpoint identities',
+    async mode => {
+      const legacyRoute = { sourceAmount: '5', destinationAmount: '10', path: [] } as unknown as PathPaymentRoute;
+      await expect(
+        loadPathPaymentQuotes(
+          dependencies(gateway([legacyRoute])),
+          request({
+            mode,
+            sourceAsset: mode === 'strict_send' ? NATIVE : CREDIT,
+            destinationAsset: mode === 'strict_send' ? CREDIT : NATIVE,
+            fixedAmount: mode === 'strict_send' ? '5' : '10',
+          }),
+        ),
+      ).rejects.toThrow('quote_unavailable');
+    },
+  );
+
+  it('rejects a destination issuer mismatch even when the asset code is the same', async () => {
+    const route = {
+      sourceAmount: '5',
+      destinationAmount: '10',
+      sourceAsset: NATIVE,
+      destinationAsset: { kind: 'credit' as const, code: 'USDC', issuer: 'GOTHERISSUER' },
+      path: [],
+    };
+    await expect(loadPathPaymentQuotes(dependencies(gateway([route])), request())).rejects.toThrow('quote_unavailable');
   });
 
   it('rejects malformed untrusted route objects with the stable provider error', async () => {
@@ -217,7 +292,7 @@ describe('Path Payment Swap-A quote capability', () => {
       issuer: 'GISSUER',
     }));
     const quotes = await loadPathPaymentQuotes(
-      dependencies(gateway([{ sourceAmount: '5', destinationAmount: '10', path }])),
+      dependencies(gateway([{ ...SEND_ENDPOINTS, sourceAmount: '5', destinationAmount: '10', path }])),
       request(),
     );
     expect(quotes[0]?.path).toEqual(path);
@@ -233,7 +308,7 @@ describe('Path Payment Swap-A quote capability', () => {
   it('preserves the maximum signed Stellar amount without floating-point conversion', async () => {
     const maximum = '922337203685.4775807';
     const quotes = await loadPathPaymentQuotes(
-      dependencies(gateway([{ sourceAmount: maximum, destinationAmount: maximum, path: [] }])),
+      dependencies(gateway([{ ...SEND_ENDPOINTS, sourceAmount: maximum, destinationAmount: maximum, path: [] }])),
       request({ fixedAmount: maximum }),
     );
     expect(quotes[0]?.sourceAmount).toBe(maximum);
@@ -241,7 +316,7 @@ describe('Path Payment Swap-A quote capability', () => {
   });
 
   it('rejects invalid local quote receipt time and malformed route collections', async () => {
-    const provider = gateway([{ sourceAmount: '5', destinationAmount: '10', path: [] }]);
+    const provider = gateway([{ ...SEND_ENDPOINTS, sourceAmount: '5', destinationAmount: '10', path: [] }]);
     await expect(
       loadPathPaymentQuotes(dependencies(provider, { nowUnixMs: () => Number.NaN }), request()),
     ).rejects.toThrow('quote_unavailable');

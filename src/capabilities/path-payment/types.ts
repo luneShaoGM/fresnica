@@ -17,6 +17,8 @@ export type PathPaymentQuoteRequest = Readonly<{
 export type PathPaymentRoute = Readonly<{
   sourceAmount: string;
   destinationAmount: string;
+  sourceAsset: StellarPaymentAsset;
+  destinationAsset: StellarPaymentAsset;
   path: readonly StellarPaymentAsset[];
 }>;
 

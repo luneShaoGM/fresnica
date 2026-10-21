@@ -113,7 +113,13 @@ export type HorizonPathAssetLike = Readonly<{
 
 export type HorizonPathRecordLike = Readonly<{
   source_amount: string;
+  source_asset_type: string;
+  source_asset_code?: string;
+  source_asset_issuer?: string;
   destination_amount: string;
+  destination_asset_type: string;
+  destination_asset_code?: string;
+  destination_asset_issuer?: string;
   path: readonly HorizonPathAssetLike[];
 }>;
 
@@ -154,6 +160,8 @@ export type HorizonServerLike = {
 export type StellarPathPaymentRoute = Readonly<{
   sourceAmount: string;
   destinationAmount: string;
+  sourceAsset: StellarPaymentAsset;
+  destinationAsset: StellarPaymentAsset;
   path: readonly StellarPaymentAsset[];
 }>;
 
