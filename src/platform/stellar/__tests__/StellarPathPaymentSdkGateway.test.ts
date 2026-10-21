@@ -135,6 +135,7 @@ describe('StellarPathPaymentSdkGateway', () => {
         network: TEST_GATEWAY_CONFIG.network,
         isClassicAccountAddress: StrKey.isValidEd25519PublicKey,
         nowUnixMs: () => 1_782_000_000_000,
+        nowMonotonicMs: () => 20_000,
       },
       {
         network: TEST_GATEWAY_CONFIG.network,
@@ -234,6 +235,7 @@ describe('StellarPathPaymentSdkGateway', () => {
             network: TEST_GATEWAY_CONFIG.network,
             isClassicAccountAddress: StrKey.isValidEd25519PublicKey,
             nowUnixMs: () => 1_782_000_000_000,
+            nowMonotonicMs: () => 20_000,
           },
           {
             network: TEST_GATEWAY_CONFIG.network,
@@ -275,6 +277,7 @@ describe('StellarPathPaymentSdkGateway', () => {
             network: TEST_GATEWAY_CONFIG.network,
             isClassicAccountAddress: StrKey.isValidEd25519PublicKey,
             nowUnixMs: () => 1_782_000_000_000,
+            nowMonotonicMs: () => 20_000,
           },
           {
             network: TEST_GATEWAY_CONFIG.network,

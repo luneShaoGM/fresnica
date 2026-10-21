@@ -61,6 +61,7 @@ function dependencies(
     network: NETWORK,
     isClassicAccountAddress: address => address.startsWith('G') && address.length > 1,
     nowUnixMs: () => NOW,
+    nowMonotonicMs: () => 20_000,
     ...overrides,
   };
 }
@@ -99,6 +100,7 @@ describe('Path Payment Swap-A quote capability', () => {
       path: [PATH],
       quotedAtUnixMs: NOW,
       expiresAtUnixMs: NOW + official.quote_ttl.maximum_seconds * 1000,
+      quotedAtMonotonicMs: 20_000,
     });
     expect(quotes[1]?.path).toEqual([]);
     expect(quotes[0]?.path).not.toBe(routes[0]?.path);
@@ -314,6 +316,41 @@ describe('Path Payment Swap-A quote capability', () => {
     expect(quotes[0]?.sourceAmount).toBe(maximum);
     expect(quotes[0]?.destinationAmount).toBe(maximum);
   });
+
+  it('records both audit wall-time and monotonic anchor only after the awaited provider response', async () => {
+    const provider = gateway();
+    let resolved = false;
+    provider.loadStrictSendPaths.mockImplementation(async () => {
+      resolved = true;
+      return [{ ...SEND_ENDPOINTS, sourceAmount: '5', destinationAmount: '10', path: [] }];
+    });
+    const nowUnixMs = jest.fn(() => {
+      expect(resolved).toBe(true);
+      return NOW;
+    });
+    const nowMonotonicMs = jest.fn(() => {
+      expect(resolved).toBe(true);
+      return 99_999.25;
+    });
+    const quotes = await loadPathPaymentQuotes(dependencies(provider, { nowUnixMs, nowMonotonicMs }), request());
+    expect(nowUnixMs).toHaveBeenCalledTimes(1);
+    expect(nowMonotonicMs).toHaveBeenCalledTimes(1);
+    expect(quotes[0]).toMatchObject({
+      quotedAtUnixMs: NOW,
+      quotedAtMonotonicMs: 99_999.25,
+      expiresAtUnixMs: NOW + official.quote_ttl.maximum_seconds * 1_000,
+    });
+  });
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, -1])(
+    'rejects an invalid monotonic receipt anchor %s rather than issuing a usable quote',
+    async value => {
+      const provider = gateway([{ ...SEND_ENDPOINTS, sourceAmount: '5', destinationAmount: '10', path: [] }]);
+      await expect(
+        loadPathPaymentQuotes(dependencies(provider, { nowMonotonicMs: () => value }), request()),
+      ).rejects.toThrow('quote_unavailable');
+    },
+  );
 
   it('rejects invalid local quote receipt time and malformed route collections', async () => {
     const provider = gateway([{ ...SEND_ENDPOINTS, sourceAmount: '5', destinationAmount: '10', path: [] }]);

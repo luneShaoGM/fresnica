@@ -47,11 +47,32 @@ export type PathPaymentQuote = Readonly<{
   path: readonly StellarPaymentAsset[];
   quotedAtUnixMs: number;
   expiresAtUnixMs: number;
+  quotedAtMonotonicMs: number;
 }>;
+
+export type PathPaymentQuoteClock = Readonly<{
+  nowUnixMs: () => number;
+  nowMonotonicMs: () => number;
+}>;
+
+export type PathPaymentQuoteProtection =
+  | Readonly<{
+      mode: 'strict_send';
+      quote: PathPaymentQuote;
+      slippageBps: number;
+      destinationMinimum: string;
+    }>
+  | Readonly<{
+      mode: 'strict_receive';
+      quote: PathPaymentQuote;
+      slippageBps: number;
+      sourceMaximum: string;
+    }>;
 
 export type LoadPathPaymentQuotesDependencies = Readonly<{
   gateway: PathPaymentQuoteGatewayPort;
   network: NetworkContext;
   isClassicAccountAddress: (address: string) => boolean;
   nowUnixMs: () => number;
+  nowMonotonicMs: () => number;
 }>;
