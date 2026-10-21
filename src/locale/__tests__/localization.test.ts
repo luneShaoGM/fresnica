@@ -79,6 +79,46 @@ describe('localization', () => {
     );
   });
 
+  it('keeps string-precise localized values when Hermes omits NumberFormat.formatToParts', () => {
+    const samples = [
+      { locale: 'en', value: '9999999999999999.123456789', precision: 8 },
+      { locale: 'de', value: '-1234567.890000', precision: 8 },
+      { locale: 'fr', value: '+1234567.0000001', precision: 7 },
+      { locale: 'zh', value: '1234567.5000000', precision: 7 },
+      { locale: 'zh-TW', value: '0001234567.5000000', precision: 8 },
+      { locale: 'ar', value: '1234567.8900000', precision: 7 },
+      { locale: 'hi-IN', value: '1234567.8900000', precision: 7 },
+      { locale: 'en', value: '-1000.9999999', precision: 0 },
+      { locale: 'en', value: 'not-an-amount', precision: 8 },
+    ];
+    const expected = samples.map(({ locale, value, precision }) =>
+      createLocalization(locale).formatNumber(value, precision),
+    );
+    const prototype = Intl.NumberFormat.prototype;
+    const original = Object.getOwnPropertyDescriptor(prototype, 'formatToParts');
+    Object.defineProperty(prototype, 'formatToParts', {
+      configurable: true,
+      value: undefined,
+    });
+
+    try {
+      expect(typeof prototype.formatToParts).toBe('undefined');
+      samples.forEach(({ locale, value, precision }, index) => {
+        expect(createLocalization(locale).formatNumber(value, precision)).toBe(expected[index]);
+      });
+      expect(createLocalization('en').formatNumber('9999999999999999.123456789', 8)).toBe(
+        '9,999,999,999,999,999.12345678',
+      );
+      expect(createLocalization('de').formatNumber('-1234567.890000')).toBe('-1.234.567,89');
+    } finally {
+      if (original) {
+        Object.defineProperty(prototype, 'formatToParts', original);
+      } else {
+        Reflect.deleteProperty(prototype, 'formatToParts');
+      }
+    }
+  });
+
   it('marks only migrated Fresnica dictionaries as translated', () => {
     const locales = createLocalization('en').locales;
     expect(locales.find(locale => locale.code === 'en')?.translated).toBe(true);
