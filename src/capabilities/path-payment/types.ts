@@ -1,4 +1,5 @@
 import type { NetworkContext } from '../network/types';
+import type { BuiltTransaction } from '../stellar/types';
 import type {
   StellarAccountStateResult,
   StellarLedgerParameters,
@@ -86,6 +87,96 @@ export type PathPaymentPreflightDependencies = Readonly<{
   network: NetworkContext;
   clock: PathPaymentQuoteClock;
 }>;
+
+// The SDK adapter is a separate, unsigned build/inspect port. It does NOT
+// expose signing or submission methods to the Capability.
+export type PathPaymentBuildStrictSendInput = Readonly<{
+  source: string;
+  destination: string;
+  sendAsset: StellarPaymentAsset;
+  sendAmount: string;
+  destinationAsset: StellarPaymentAsset;
+  destinationMinimum: string;
+  path: readonly StellarPaymentAsset[];
+  memo?: StellarPaymentMemo;
+  baseFee: string;
+  expiresAtUnixSeconds: number;
+}>;
+
+export type PathPaymentBuildStrictReceiveInput = Readonly<{
+  source: string;
+  destination: string;
+  sendAsset: StellarPaymentAsset;
+  sendMaximum: string;
+  destinationAsset: StellarPaymentAsset;
+  destinationAmount: string;
+  path: readonly StellarPaymentAsset[];
+  memo?: StellarPaymentMemo;
+  baseFee: string;
+  expiresAtUnixSeconds: number;
+}>;
+
+export type PathPaymentTransactionProjection = Readonly<
+  {
+    source: string;
+    destination: string;
+    sourceAsset: StellarPaymentAsset;
+    destinationAsset: StellarPaymentAsset;
+    path: readonly StellarPaymentAsset[];
+    memo?: StellarPaymentMemo;
+    fee: string;
+    minTimeUnixSeconds: number;
+    expiresAtUnixSeconds: number;
+  } & (
+    | Readonly<{ mode: 'strict_send'; sendAmount: string; destinationMinimum: string }>
+    | Readonly<{ mode: 'strict_receive'; sendMaximum: string; destinationAmount: string }>
+  )
+>;
+
+export interface PathPaymentTransactionGatewayPort {
+  readonly network: NetworkContext;
+  buildPathPaymentStrictSend(input: PathPaymentBuildStrictSendInput): Promise<BuiltTransaction>;
+  buildPathPaymentStrictReceive(input: PathPaymentBuildStrictReceiveInput): Promise<BuiltTransaction>;
+  inspectPathPaymentTransaction(
+    input: Readonly<{
+      transactionXdrBase64: string;
+      networkPassphrase: string;
+    }>,
+  ): PathPaymentTransactionProjection;
+}
+
+export type PreparePathPaymentDependencies = Readonly<{
+  preflight: PathPaymentPreflightDependencies;
+  transactionGateway: PathPaymentTransactionGatewayPort;
+}>;
+
+export type PathPaymentPrepareOptions = Readonly<{
+  slippageBps: number;
+  feeStroops: number;
+  transactionTimeoutSeconds: number;
+}>;
+
+export type PreparedPathPaymentReview = Readonly<
+  {
+    transactionXdrBase64: string;
+    networkId: string;
+    source: string;
+    destination: string;
+    sourceAsset: StellarPaymentAsset;
+    destinationAsset: StellarPaymentAsset;
+    path: readonly StellarPaymentAsset[];
+    quote: PathPaymentQuote;
+    memo?: StellarPaymentMemo;
+    quotedSourceAmount: string;
+    quotedDestinationAmount: string;
+    slippageBps: number;
+    fee: string;
+    expiresAtUnixSeconds: number;
+  } & (
+    | Readonly<{ mode: 'strict_send'; sendAmount: string; destinationMinimum: string }>
+    | Readonly<{ mode: 'strict_receive'; destinationAmount: string; sourceMaximum: string }>
+  )
+>;
 
 export type LoadPathPaymentQuotesDependencies = Readonly<{
   gateway: PathPaymentQuoteGatewayPort;

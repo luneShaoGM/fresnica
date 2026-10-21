@@ -175,6 +175,19 @@ describe('Swap-C1 account/ledger preflight, no executable transaction', () => {
     );
   });
 
+  it('uses the exact caller-proposed transaction fee for reserve availability, not only the ledger minimum', async () => {
+    const { dependencies } = fixture({
+      source: active(SOURCE, { native: '6.0000150', nativeSelling: '0', subentries: 0 }),
+    });
+    await expect(assertPathPaymentPreflight(dependencies, localAccount(), quote(), 100, 100)).resolves.toBeUndefined();
+    await expect(assertPathPaymentPreflight(dependencies, localAccount(), quote(), 100, 200)).rejects.toThrow(
+      'insufficient_source',
+    );
+    await expect(assertPathPaymentPreflight(dependencies, localAccount(), quote(), 100, 99)).rejects.toThrow(
+      'invalid_request',
+    );
+  });
+
   it('requires fee capacity even for an issued-asset source', async () => {
     const q = quote(
       { sourceAmount: '5' },

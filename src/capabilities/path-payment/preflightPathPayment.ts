@@ -21,7 +21,11 @@ export async function assertPathPaymentPreflight(
   account: Pick<AccountRecord, 'address' | 'networkId' | 'identityKind'>,
   quote: PathPaymentQuote,
   slippageBps: number,
+  requestedFeeStroops?: number,
 ): Promise<void> {
+  if (requestedFeeStroops !== undefined && (!Number.isSafeInteger(requestedFeeStroops) || requestedFeeStroops <= 0)) {
+    throw new Error('invalid_request');
+  }
   assertContext(dependencies, account, quote);
   const request = quote.request;
   const validClassic = (address: string) => dependencies.gateway.isClassicAccountAddress(address);
@@ -81,11 +85,14 @@ export async function assertPathPaymentPreflight(
   }
 
   const ledger = await readLedger(dependencies, account, quote);
+  if (requestedFeeStroops !== undefined && requestedFeeStroops < ledger.baseFeeStroops) {
+    throw new Error('invalid_request');
+  }
   const sourceAmount =
     protection.mode === 'strict_send' ? parseStroops(quote.sourceAmount) : parseStroops(protection.sourceMaximum);
   const destinationAmount = parseStroops(quote.destinationAmount);
 
-  assertSourceCanPay(source, request.sourceAsset, sourceAmount, ledger);
+  assertSourceCanPay(source, request.sourceAsset, sourceAmount, ledger, requestedFeeStroops ?? ledger.baseFeeStroops);
   assertDestinationCanReceive(destination, request.destinationAsset, destinationAmount);
 
   // Ledger reads may consume most or all quote TTL. Freshness is not
@@ -183,6 +190,7 @@ function assertSourceCanPay(
   asset: StellarPaymentAsset,
   sourceAmount: bigint,
   ledger: StellarLedgerParameters,
+  actualFeeStroops: number,
 ): void {
   const { subentryCount, numSponsoring, numSponsored } = source;
   if ([subentryCount, numSponsoring, numSponsored].some(value => !Number.isSafeInteger(value) || value < 0)) {
@@ -198,7 +206,7 @@ function assertSourceCanPay(
     parseStroops(native.balance) -
     parseStroops(native.sellingLiabilities) -
     BigInt(reserveUnits) * BigInt(ledger.baseReserveStroops);
-  const requiredNative = BigInt(ledger.baseFeeStroops) + (asset.kind === 'native' ? sourceAmount : 0n);
+  const requiredNative = BigInt(actualFeeStroops) + (asset.kind === 'native' ? sourceAmount : 0n);
   if (freeNative < requiredNative) throw new Error('insufficient_source');
 
   if (asset.kind === 'credit' && asset.issuer !== source.address) {
