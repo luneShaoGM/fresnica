@@ -1,7 +1,14 @@
 import React from 'react';
-import { TextInput } from 'react-native';
+import { ScrollView, Text, TextInput, View } from 'react-native';
+
+import { Screen } from '@ui/components';
+import { NativeButton } from '@ui/components/NativeButton';
+import { defaultTheme } from '@ui/theme';
 
 import { SendFormScreen } from '../SendFormScreen';
+import { createSendFormStyles } from '../styles';
+
+jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
 
 jest.mock('../../../ui/theme', () => {
   const actual = jest.requireActual('../../../ui/theme') as typeof import('../../../ui/theme');
@@ -16,6 +23,7 @@ jest.mock('../../../locale', () => ({
   useLocalization: () => ({
     t: (key: string) =>
       ({
+        'send.navigation.cancel': 'localized:cancel-send',
         'send.memo.type.none': 'None',
         'send.memo.type.text': 'Text',
         'send.memo.type.id': 'ID',
@@ -34,6 +42,15 @@ type NodeProps = Readonly<{
   onPress?: () => void;
   keyboardType?: string;
   value?: string;
+  label?: string;
+  disabled?: boolean;
+  size?: string;
+  variant?: string;
+  style?: unknown;
+  scrollable?: boolean;
+  contentInset?: string;
+  keyboardShouldPersistTaps?: string;
+  showsVerticalScrollIndicator?: boolean;
 }>;
 function visit(node: React.ReactNode, callback: (element: React.ReactElement<NodeProps>) => void): void {
   if (!React.isValidElement<NodeProps>(node)) return;
@@ -41,9 +58,11 @@ function visit(node: React.ReactNode, callback: (element: React.ReactElement<Nod
   React.Children.forEach(node.props.children, child => visit(child, callback));
 }
 
-function renderForm(onSelectMemoType = jest.fn()) {
+function renderForm(onSelectMemoType = jest.fn(), building = false) {
+  const onCancel = jest.fn();
   return {
     onSelectMemoType,
+    onCancel,
     root: SendFormScreen({
       accountLabel: 'Primary',
       balances: [{ asset: { kind: 'native', code: 'XLM' }, balance: '10.0000000' }],
@@ -52,18 +71,70 @@ function renderForm(onSelectMemoType = jest.fn()) {
       amount: '1',
       memoType: 'id',
       memoValue: '0007',
-      building: false,
+      building,
       onSelectAsset: jest.fn(),
       onChangeDestination: jest.fn(),
       onChangeAmount: jest.fn(),
       onSelectMemoType,
       onChangeMemoValue: jest.fn(),
       onContinue: jest.fn(),
-      onCancel: jest.fn(),
+      onCancel,
     }),
   };
 }
 describe('SendFormScreen memo families', () => {
+  it.each([false, true])(
+    'keeps Cancel send available when building=%s, without altering the form or scroll controls',
+    building => {
+      const { root, onCancel } = renderForm(jest.fn(), building);
+      const styles = createSendFormStyles(defaultTheme);
+      expect(root.type).toBe(Screen);
+      expect(root.props).toMatchObject({ scrollable: false, contentInset: 'none' });
+
+      const header = React.Children.toArray(root.props.children).find(
+        (child): child is React.ReactElement<NodeProps> =>
+          React.isValidElement<NodeProps>(child) && child.type === View,
+      );
+      expect(header?.props.style).toEqual(styles.header);
+
+      const [left, title, right] = React.Children.toArray(header?.props.children).filter(
+        (child): child is React.ReactElement<NodeProps> => React.isValidElement<NodeProps>(child),
+      );
+      expect(left?.type).toBe(View);
+      expect(title?.type).toBe(Text);
+      expect(title?.props.children).toBe('Send');
+      expect(right?.type).toBe(View);
+      expect(left?.props.style).toEqual(styles.headerSide);
+      expect(right?.props.style).toEqual(styles.headerSide);
+      expect(styles.headerSide).toMatchObject({ flex: 1, alignItems: 'flex-start' });
+      expect(styles.header).not.toHaveProperty('justifyContent', 'space-between');
+
+      const close = React.Children.toArray(left?.props.children).filter(
+        (child): child is React.ReactElement<NodeProps> =>
+          React.isValidElement<NodeProps>(child) && child.type === NativeButton,
+      );
+      expect(close).toHaveLength(1);
+      expect(close[0]?.props).toMatchObject({
+        label: 'localized:cancel-send',
+        size: 'sm',
+        variant: 'quiet',
+        onPress: onCancel,
+      });
+      expect(close[0]?.props.disabled).toBeUndefined();
+      close[0]?.props.onPress?.();
+      expect(onCancel).toHaveBeenCalledTimes(1);
+
+      const scrolls: React.ReactElement<NodeProps>[] = [];
+      visit(root, element => {
+        if (element.type === ScrollView) scrolls.push(element);
+      });
+      expect(scrolls[0]?.props).toMatchObject({
+        keyboardShouldPersistTaps: 'handled',
+        showsVerticalScrollIndicator: false,
+      });
+    },
+  );
+
   it('renders None/Text/ID/Hash choices with ID selected and a numeric ID input', () => {
     const { root } = renderForm();
     const memoChoices: Array<React.ReactElement<NodeProps>> = [];

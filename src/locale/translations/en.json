@@ -253,6 +253,8 @@
   "send.authorization.passphraseHint": "Enter the current App Passphrase to authorize this transaction.",
   "send.authorization.slideToAuthorize": "Slide to authorize and send",
   "send.authorization.appPassphrase": "App Passphrase",
+  "send.navigation.cancel": "Cancel send",
+  "send.navigation.done": "Done",
   "common.back": "Back",
   "activity.detail.asset": "Asset",
   "activity.detail.issuer": "Issuer",
