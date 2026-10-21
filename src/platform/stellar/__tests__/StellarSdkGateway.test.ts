@@ -9,6 +9,9 @@ import {
   TransactionBuilder,
 } from '@stellar/stellar-sdk';
 
+import { assertPathPaymentPreflight } from '../../../capabilities/path-payment/preflightPathPayment';
+import type { PathPaymentPreflightGatewayPort, PathPaymentQuote } from '../../../capabilities/path-payment/types';
+
 import { StellarSdkGateway } from '../StellarSdkGateway';
 import type { HorizonAccountLike, HorizonOperationLike, HorizonServerLike } from '../types';
 
@@ -110,6 +113,54 @@ async function paymentXdr(gateway: StellarSdkGateway): Promise<string> {
   });
   return built.transactionXdrBase64;
 }
+
+describe('StellarSdkGateway as isolated Path Payment read-only preflight port', () => {
+  it('binds exact gateway network/StrKey validation and reads state without any transaction builder', async () => {
+    const account = horizonAccount();
+    account.balances = [
+      { asset_type: 'native', balance: '20.0000000', selling_liabilities: '0', buying_liabilities: '0' },
+    ];
+    const horizon = server(account);
+    const gateway = new StellarSdkGateway(TEST_GATEWAY_CONFIG, horizon);
+    const port: PathPaymentPreflightGatewayPort = gateway;
+    expect(port.network).toEqual(TEST_GATEWAY_CONFIG.network);
+    expect(port.isClassicAccountAddress(sourceAddress)).toBe(true);
+    expect(port.isClassicAccountAddress('MSOURCE')).toBe(false);
+    const now = 1_782_000_000_000;
+    const quote: PathPaymentQuote = {
+      request: {
+        network: TEST_GATEWAY_CONFIG.network,
+        source: sourceAddress,
+        destination: sourceAddress,
+        sourceAsset: { kind: 'native' },
+        destinationAsset: { kind: 'credit', code: 'USD', issuer: sourceAddress },
+        mode: 'strict_send',
+        fixedAmount: '5.0000000',
+      },
+      sourceAmount: '5.0000000',
+      destinationAmount: '10.0000000',
+      path: [],
+      quotedAtUnixMs: now,
+      expiresAtUnixMs: now + 30_000,
+      quotedAtMonotonicMs: 20_000,
+    };
+    await expect(
+      assertPathPaymentPreflight(
+        {
+          gateway: port,
+          network: TEST_GATEWAY_CONFIG.network,
+          clock: { nowUnixMs: () => now + 1_000, nowMonotonicMs: () => 21_000 },
+        },
+        { address: sourceAddress, networkId: TEST_GATEWAY_CONFIG.network.id, identityKind: 'classic' },
+        quote,
+        0,
+      ),
+    ).resolves.toBeUndefined();
+    expect(horizon.loadAccount).toHaveBeenCalledTimes(1);
+    expect(horizon.loadLedgerParameters).toHaveBeenCalledTimes(1);
+    expect(horizon.submitTransaction).not.toHaveBeenCalled();
+  });
+});
 
 describe('StellarSdkGateway', () => {
   it('maps Horizon thresholds and typed Ed25519 signers into ledger authorization', async () => {
