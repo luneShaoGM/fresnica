@@ -1,5 +1,10 @@
 import type { NetworkContext } from '../network/types';
-import type { StellarPaymentAsset, StellarPaymentMemo } from '../stellar/types';
+import type {
+  StellarAccountStateResult,
+  StellarLedgerParameters,
+  StellarPaymentAsset,
+  StellarPaymentMemo,
+} from '../stellar/types';
 
 export type PathPaymentMode = 'strict_send' | 'strict_receive';
 
@@ -68,6 +73,19 @@ export type PathPaymentQuoteProtection =
       slippageBps: number;
       sourceMaximum: string;
     }>;
+
+export interface PathPaymentPreflightGatewayPort {
+  readonly network: NetworkContext;
+  isClassicAccountAddress(address: string): boolean;
+  loadAccountState(address: string): Promise<StellarAccountStateResult>;
+  loadLedgerParameters(): Promise<StellarLedgerParameters>;
+}
+
+export type PathPaymentPreflightDependencies = Readonly<{
+  gateway: PathPaymentPreflightGatewayPort;
+  network: NetworkContext;
+  clock: PathPaymentQuoteClock;
+}>;
 
 export type LoadPathPaymentQuotesDependencies = Readonly<{
   gateway: PathPaymentQuoteGatewayPort;

@@ -296,6 +296,10 @@ export class StellarSdkGateway implements StellarGateway {
     this.server = server ?? createDefaultServer(config.horizonUrl, config.network.networkPassphrase);
   }
 
+  get network(): NetworkContext {
+    return this.config.network;
+  }
+
   async loadAccountAuthorization(address: string) {
     const account = await this.server.loadAccount(address);
 
