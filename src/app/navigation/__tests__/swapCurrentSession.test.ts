@@ -136,6 +136,76 @@ describe('Swap-D2a live App selection and focus-epoch guard', () => {
     expect(missingRevision()).toBe(false);
   });
 
+  it('does not revive a blurred focus epoch when the caller replaces the original focus callback', () => {
+    const focus = createRequestRouteFocusLifetime();
+    focus.focus();
+    const input = {
+      account,
+      network,
+      getCurrentSelection: () => ({
+        selectedAccountId: account.id,
+        selectionRevision: 1,
+        accounts: [account, other],
+        network,
+      }),
+      isCurrentFocusEpoch: focus.capture(),
+    };
+    const guard = captureSwapCurrentSession(input);
+    expect(guard()).toBe(true);
+    focus.blur();
+    expect(guard()).toBe(false);
+    input.isCurrentFocusEpoch = () => true;
+    expect(guard()).toBe(false);
+    focus.focus();
+    expect(guard()).toBe(false);
+  });
+
+  it('does not mask a live account switch when the caller replaces the selection getter with a stale snapshot', () => {
+    let selection = {
+      selectedAccountId: account.id,
+      selectionRevision: 1,
+      accounts: [account, other],
+      network,
+    };
+    const original = () => selection;
+    const input = {
+      account,
+      network,
+      getCurrentSelection: original,
+      isCurrentFocusEpoch: () => true,
+    };
+    const guard = captureSwapCurrentSession(input);
+    expect(guard()).toBe(true);
+    const staleSnapshot = selection;
+    selection = { ...selection, selectedAccountId: other.id, selectionRevision: 2 };
+    expect(guard()).toBe(false);
+    input.getCurrentSelection = () => staleSnapshot;
+    expect(guard()).toBe(false);
+    selection = { ...selection, selectedAccountId: account.id, selectionRevision: 3 };
+    expect(guard()).toBe(false);
+  });
+
+  it('keeps using the original live getter when the input callback is replaced after a valid capture', () => {
+    const current = {
+      selectedAccountId: account.id,
+      selectionRevision: 1,
+      accounts: [account, other],
+      network,
+    };
+    const input = {
+      account,
+      network,
+      getCurrentSelection: () => current,
+      isCurrentFocusEpoch: () => true,
+    };
+    const guard = captureSwapCurrentSession(input);
+    expect(guard()).toBe(true);
+    input.getCurrentSelection = () => {
+      throw new Error('replaced callback must not be used');
+    };
+    expect(guard()).toBe(true);
+  });
+
   it('fails closed on invalid capture at route open, even if selection subsequently becomes valid', () => {
     const expected = { ...account };
     let selection = {

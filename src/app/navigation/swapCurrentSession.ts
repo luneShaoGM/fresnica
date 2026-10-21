@@ -33,15 +33,18 @@ export function captureSwapCurrentSession(
     id: input.network.id,
     networkPassphrase: input.network.networkPassphrase,
   });
+  // Freeze callback identities, not their live state; the supplied input
+  // object is only structurally readonly and can still be mutated at runtime.
+  const { getCurrentSelection, isCurrentFocusEpoch } = input;
   let capturedRevision: number | undefined;
   let wasValidAtCapture = false;
   try {
-    const current = input.getCurrentSelection();
+    const current = getCurrentSelection();
     if (
       current &&
       Number.isSafeInteger(current.selectionRevision) &&
       current.selectionRevision >= 0 &&
-      input.isCurrentFocusEpoch() &&
+      isCurrentFocusEpoch() &&
       matchesSelection(current, expected, expectedNetwork)
     ) {
       capturedRevision = current.selectionRevision;
@@ -54,8 +57,8 @@ export function captureSwapCurrentSession(
   return () => {
     if (!wasValidAtCapture) return false;
     try {
-      if (!input.isCurrentFocusEpoch()) return false;
-      const current = input.getCurrentSelection();
+      if (!isCurrentFocusEpoch()) return false;
+      const current = getCurrentSelection();
       return (
         current !== undefined &&
         current.selectionRevision === capturedRevision &&
