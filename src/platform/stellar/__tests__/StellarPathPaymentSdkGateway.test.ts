@@ -659,6 +659,7 @@ describe('StellarPathPaymentSdkGateway', () => {
       inspector: new StellarPathPaymentSdkGateway(TEST_GATEWAY_CONFIG, server()),
       sdk,
       signerRepository: { listSignersForAccount: () => [signer] },
+      isCurrentSession: () => true,
       recovery: { repository, readInvalidation: { invalidate: jest.fn() }, now: () => new Date() },
     };
     await expect(

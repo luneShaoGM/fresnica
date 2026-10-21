@@ -123,6 +123,7 @@ function fixture(review = reviewed()) {
   } as unknown as jest.Mocked<FresnicaSdkPort>;
   const recovery = { repository: repo, readInvalidation, now: () => new Date() };
   const signerRepository = { listSignersForAccount: jest.fn(() => [SIGNER]) };
+  const isCurrentSession = jest.fn(() => true);
   const deps = {
     network: NETWORK,
     gateway: gateway as typeof gateway & TransactionGatewayPort,
@@ -130,8 +131,9 @@ function fixture(review = reviewed()) {
     sdk,
     signerRepository,
     recovery,
+    isCurrentSession,
   };
-  return { repo, gateway, inspector, sdk, signerRepository, recovery, deps };
+  return { repo, gateway, inspector, sdk, signerRepository, recovery, isCurrentSession, deps };
 }
 
 describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
@@ -511,6 +513,107 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
       sourceAddress: ACCOUNT.address,
       state: 'uncertain',
     });
+  });
+
+  it('rejects a stale external account selection during System Auth even if AccountRecord itself is unchanged', async () => {
+    const review = reviewed();
+    const { deps, isCurrentSession, sdk, gateway, repo } = fixture(review);
+    sdk.signWithSystemAuth.mockImplementationOnce(async () => {
+      isCurrentSession.mockReturnValue(false);
+      return 'signed-path-xdr';
+    });
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).rejects.toThrow(
+      'path_payment_review_mismatch',
+    );
+    expect(gateway.submitTransaction).not.toHaveBeenCalled();
+    expect(repo.get(NETWORK.id, 'path-hash-1')).toBeUndefined();
+  });
+
+  it('does not initiate native signing when external session is invalidated during System Auth availability', async () => {
+    const review = reviewed();
+    const { deps, isCurrentSession, sdk, gateway } = fixture(review);
+    sdk.hasSignerSystemAuth.mockImplementationOnce(async () => {
+      isCurrentSession.mockReturnValue(false);
+      return true;
+    });
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).rejects.toThrow(
+      'path_payment_review_mismatch',
+    );
+    expect(sdk.signWithSystemAuth).not.toHaveBeenCalled();
+    expect(gateway.submitTransaction).not.toHaveBeenCalled();
+  });
+
+  it('checks the external selection after ledger authorization and before signer authorization', async () => {
+    const review = reviewed();
+    const { deps, isCurrentSession, sdk, gateway } = fixture(review);
+    gateway.loadAccountAuthorization.mockImplementationOnce(async address => {
+      isCurrentSession.mockReturnValue(false);
+      return {
+        address,
+        thresholds: { low: 1, medium: 1, high: 2 },
+        signers: [{ kind: 'ed25519' as const, publicKey: SIGNER.publicKey, weight: 1 }],
+      };
+    });
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).rejects.toThrow(
+      'path_payment_review_mismatch',
+    );
+    expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
+  });
+
+  it('blocks broadcast but preserves pending reconciliation when external selection changes after persistence', async () => {
+    const review = reviewed();
+    const { deps, isCurrentSession, gateway, repo } = fixture(review);
+    const originalCreate = repo.create.bind(repo);
+    jest.spyOn(repo, 'create').mockImplementation(record => {
+      originalCreate(record);
+      isCurrentSession.mockReturnValue(false);
+    });
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).resolves.toMatchObject({
+      status: 'uncertain',
+      transactionHash: 'path-hash-1',
+    });
+    expect(gateway.submitTransaction).not.toHaveBeenCalled();
+    expect(repo.get(NETWORK.id, 'path-hash-1')).toMatchObject({ state: 'uncertain' });
+  });
+
+  it('never reports accepted after the external session changes while the broadcast is in progress', async () => {
+    const review = reviewed();
+    const { deps, isCurrentSession, gateway, repo } = fixture(review);
+    gateway.submitTransaction.mockImplementationOnce(async () => {
+      isCurrentSession.mockReturnValue(false);
+      return { status: 'accepted' as const, hash: 'path-hash-1', ledger: 42 };
+    });
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).resolves.toMatchObject({
+      status: 'uncertain',
+      transactionHash: 'path-hash-1',
+    });
+    expect(gateway.submitTransaction).toHaveBeenCalledTimes(1);
+    expect(repo.get(NETWORK.id, 'path-hash-1')).toMatchObject({ state: 'uncertain' });
+  });
+
+  it('does not accept replacing the supplied session guard function during signing', async () => {
+    const review = reviewed();
+    const { deps, isCurrentSession, sdk, gateway } = fixture(review);
+    const mutableDeps = { ...deps };
+    sdk.signWithSystemAuth.mockImplementationOnce(async () => {
+      isCurrentSession.mockReturnValue(false);
+      mutableDeps.isCurrentSession = jest.fn(() => true);
+      return 'signed-path-xdr';
+    });
+    await expect(submitReviewedPathPayment(mutableDeps, ACCOUNT, review, SIGNER)).rejects.toThrow(
+      'path_payment_review_mismatch',
+    );
+    expect(gateway.submitTransaction).not.toHaveBeenCalled();
+  });
+
+  it('fails closed if no live session is supplied by App composition', async () => {
+    const review = reviewed();
+    const { deps, sdk, gateway } = fixture(review);
+    await expect(
+      submitReviewedPathPayment({ ...deps, isCurrentSession: undefined } as never, ACCOUNT, review, SIGNER),
+    ).rejects.toThrow('path_payment_review_mismatch');
+    expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
+    expect(gateway.loadAccountAuthorization).not.toHaveBeenCalled();
   });
 
   it('keeps a broadcast with network switching afterwards uncertain and requiring reconciliation', async () => {
