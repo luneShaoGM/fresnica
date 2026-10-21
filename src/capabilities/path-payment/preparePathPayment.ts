@@ -134,16 +134,19 @@ export async function preparePathPayment(
   }
   derivePathPaymentProtection(quote, slippageBps, dependencies.preflight.clock);
 
+  // The caller's structurally readonly quote may still be mutable at runtime.
+  // Keep a detached, deeply frozen quote identity beside the reviewed XDR.
+  const reviewedQuote = snapshotReviewedQuote(quote);
   const detail = {
     transactionXdrBase64: built.transactionXdrBase64,
     networkId: request.network.id,
     source: request.source,
     destination: request.destination,
-    sourceAsset: Object.freeze({ ...request.sourceAsset }),
-    destinationAsset: Object.freeze({ ...request.destinationAsset }),
-    path: Object.freeze(quote.path.map(asset => Object.freeze({ ...asset }))),
-    quote,
-    ...(request.memo === undefined ? {} : { memo: Object.freeze({ ...request.memo }) }),
+    sourceAsset: reviewedQuote.request.sourceAsset,
+    destinationAsset: reviewedQuote.request.destinationAsset,
+    path: reviewedQuote.path,
+    quote: reviewedQuote,
+    ...(reviewedQuote.request.memo === undefined ? {} : { memo: reviewedQuote.request.memo }),
     quotedSourceAmount: quote.sourceAmount,
     quotedDestinationAmount: quote.destinationAmount,
     slippageBps: slippageBps,
@@ -165,6 +168,28 @@ export async function preparePathPayment(
           sourceMaximum: firstProtection.sourceMaximum,
         },
   ) as PreparedPathPaymentReview;
+}
+
+function snapshotReviewedQuote(quote: PathPaymentQuote): PathPaymentQuote {
+  const { request } = quote;
+  return Object.freeze({
+    request: Object.freeze({
+      network: Object.freeze({ ...request.network }),
+      source: request.source,
+      destination: request.destination,
+      sourceAsset: Object.freeze({ ...request.sourceAsset }),
+      destinationAsset: Object.freeze({ ...request.destinationAsset }),
+      mode: request.mode,
+      fixedAmount: request.fixedAmount,
+      ...(request.memo === undefined ? {} : { memo: Object.freeze({ ...request.memo }) }),
+    }),
+    sourceAmount: quote.sourceAmount,
+    destinationAmount: quote.destinationAmount,
+    path: Object.freeze(quote.path.map(asset => Object.freeze({ ...asset }))),
+    quotedAtUnixMs: quote.quotedAtUnixMs,
+    expiresAtUnixMs: quote.expiresAtUnixMs,
+    quotedAtMonotonicMs: quote.quotedAtMonotonicMs,
+  });
 }
 
 function assertContext(

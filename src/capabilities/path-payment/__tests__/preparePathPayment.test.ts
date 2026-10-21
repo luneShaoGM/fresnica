@@ -111,7 +111,8 @@ describe('Swap-C2 preparation and exact decoded-XDR review', () => {
         networkPassphrase: network.networkPassphrase,
       });
       expect(result.transactionXdrBase64).toBe('encoded');
-      expect(result.quote).toBe(quote);
+      expect(result.quote).toEqual(quote);
+      expect(result.quote).not.toBe(quote);
       expect(result.fee).toBe('100');
       expect(result.slippageBps).toBe(100);
       expect(result.mode).toBe(mode);
@@ -142,6 +143,40 @@ describe('Swap-C2 preparation and exact decoded-XDR review', () => {
       'path_payment_review_mismatch',
     );
   });
+
+  it.each(['strict_send', 'strict_receive'] as const)(
+    'returns a deep immutable selected %s quote snapshot detached from caller mutations',
+    async mode => {
+      const { deps } = setup(mode);
+      // PathPaymentQuote is structurally readonly in TS, not necessarily frozen at runtime.
+      const mutableQuote = JSON.parse(JSON.stringify(selected(mode))) as PathPaymentQuote;
+      const review = await preparePathPayment(deps, account, mutableQuote, settings);
+      expect(review.quote).not.toBe(mutableQuote);
+      expect(Object.isFrozen(mutableQuote)).toBe(false);
+      expect(Object.isFrozen(review.quote)).toBe(true);
+      expect(Object.isFrozen(review.quote.request)).toBe(true);
+      expect(Object.isFrozen(review.quote.request.network)).toBe(true);
+      expect(Object.isFrozen(review.quote.request.sourceAsset)).toBe(true);
+      expect(Object.isFrozen(review.quote.request.destinationAsset)).toBe(true);
+      expect(Object.isFrozen(review.quote.request.memo)).toBe(true);
+      expect(Object.isFrozen(review.quote.path)).toBe(true);
+      expect(Object.isFrozen(review.quote.path[0])).toBe(true);
+      Object.assign(mutableQuote.request, { destination: 'GOTHER', fixedAmount: '9' });
+      Object.assign(mutableQuote.request.network, { networkPassphrase: 'WRONG' });
+      Object.assign(mutableQuote.request.sourceAsset, { kind: 'credit', code: 'BROKEN' });
+      Object.assign(mutableQuote.request.destinationAsset, { code: 'ALTERED' });
+      Object.assign(mutableQuote.request.memo!, { value: 'altered' });
+      Object.assign(mutableQuote.path[0], { code: 'ALTERED' });
+      (mutableQuote.path as Array<typeof intermediate>).push(intermediate);
+      Object.assign(mutableQuote, { sourceAmount: '1', destinationAmount: '1' });
+      expect(review.quote).toEqual(selected(mode));
+      expect(review.destination).toBe('GDESTINATION');
+      expect(review.path).toEqual([intermediate]);
+      expect(review.fee).toBe('100');
+      expect(review.transactionXdrBase64).toBe('encoded');
+      expect(review.mode).toBe(mode);
+    },
+  );
 
   it('rejects wrong build output network and source without trusting declared result', async () => {
     const { deps, gateway } = setup();
