@@ -23,6 +23,7 @@ import {
   type SwapPreviewProductDependencies,
 } from './swapPreviewProductFlow';
 import { createSwapPreviewStyles } from './styles';
+import { SwapPassphraseInput, type SwapPassphraseInputHandle } from './SwapPassphraseInput';
 import {
   listSwapHistory,
   reconcileSwapPending,
@@ -78,7 +79,7 @@ export function SwapPreviewScreen({
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [passphraseRequired, setPassphraseRequired] = useState(false);
-  const [appPassphrase, setAppPassphrase] = useState('');
+  const [hasPassphrase, setHasPassphrase] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [history, setHistory] = useState<readonly PendingSubmissionRecord[]>([]);
   const [reconcileError, setReconcileError] = useState<string>();
@@ -87,14 +88,20 @@ export function SwapPreviewScreen({
   const locked = useRef(false);
   const submitLocked = useRef(false);
   const reconcileLocked = useRef(false);
+  const securePassphraseInput = useRef<SwapPassphraseInputHandle>(null);
+
+  const clearPassphrase = useCallback(() => {
+    securePassphraseInput.current?.clear();
+    setHasPassphrase(false);
+  }, []);
 
   const resetQuotes = useCallback(() => {
     attempt.current += 1;
     setError(undefined);
     setPassphraseRequired(false);
-    setAppPassphrase('');
+    clearPassphrase();
     setView({ kind: 'form' });
-  }, []);
+  }, [clearPassphrase]);
 
   useEffect(() => {
     const generation = ++attempt.current;
@@ -105,7 +112,7 @@ export function SwapPreviewScreen({
     setView({ kind: 'form' });
     setError(undefined);
     setBusy(false);
-    setAppPassphrase('');
+    clearPassphrase();
     setPassphraseRequired(false);
     setSubmitting(false);
     setHistory([]);
@@ -145,7 +152,7 @@ export function SwapPreviewScreen({
     return () => {
       attempt.current += 1;
     };
-  }, [account, active, assetLoadRevision, captureSession, dependencies, execution, t]);
+  }, [account, active, assetLoadRevision, captureSession, clearPassphrase, dependencies, execution, t]);
 
   const startQuote = useCallback(async () => {
     if (busy || locked.current || assets.length < 2) return;
@@ -215,12 +222,15 @@ export function SwapPreviewScreen({
       setError(t('swap.error.pending'));
       return;
     }
+    // Consume the password only for the direct D1 SDK call. It never enters
+    // React state, a render prop, or the async callback's dependencies.
+    const passphrase = passphraseRequired ? securePassphraseInput.current?.consume() : undefined;
+    if (passphraseRequired && !passphrase) return;
     submitLocked.current = true;
     const generation = ++attempt.current;
     const session = captureSession();
     const valid = () => generation === attempt.current && session();
-    const passphrase = passphraseRequired ? appPassphrase : undefined;
-    setAppPassphrase('');
+    setHasPassphrase(false);
     setSubmitting(true);
     setError(undefined);
     try {
@@ -248,7 +258,7 @@ export function SwapPreviewScreen({
         if (valid()) setSubmitting(false);
       }
     }
-  }, [account, appPassphrase, busy, captureSession, execution, history, passphraseRequired, submitting, t, view]);
+  }, [account, busy, captureSession, execution, history, passphraseRequired, submitting, t, view]);
 
   const checkPending = useCallback(async () => {
     if (reconcileLocked.current || submitting || busy) return;
@@ -286,7 +296,7 @@ export function SwapPreviewScreen({
 
   const close = () => {
     attempt.current += 1;
-    setAppPassphrase('');
+    clearPassphrase();
     onDone();
   };
 
@@ -462,17 +472,12 @@ export function SwapPreviewScreen({
                 <Text accessibilityLiveRegion="assertive" style={styles.text}>
                   {t('swap.execution.passphraseRequired')}
                 </Text>
-                <TextInput
-                  accessibilityLabel={t('swap.execution.appPassphrase')}
-                  accessibilityHint={t('swap.execution.passphraseHint')}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="off"
-                  textContentType="none"
-                  editable={!submitting}
-                  secureTextEntry
-                  value={appPassphrase}
-                  onChangeText={setAppPassphrase}
+                <SwapPassphraseInput
+                  ref={securePassphraseInput}
+                  label={t('swap.execution.appPassphrase')}
+                  hint={t('swap.execution.passphraseHint')}
+                  disabled={submitting}
+                  onPresenceChange={setHasPassphrase}
                   style={styles.input}
                 />
               </View>
@@ -503,7 +508,7 @@ export function SwapPreviewScreen({
             ) : null}
           </View>
         ) : null}
-        {history.length > 0 ? (
+        {history.length > 0 || (view.kind === 'result' && view.result.status === 'uncertain') ? (
           <View style={styles.section}>
             <Text style={styles.label}>{t('swap.history.title')}</Text>
             {history.map(record => (
@@ -524,7 +529,7 @@ export function SwapPreviewScreen({
                 )}
               </View>
             ))}
-            {unresolved ? (
+            {unresolved || (view.kind === 'result' && view.result.status === 'uncertain') ? (
               <NativeButton
                 label={reconciling ? t('swap.history.checking') : t('swap.history.check')}
                 disabled={reconciling || busy || submitting}
@@ -582,7 +587,7 @@ export function SwapPreviewScreen({
             <SlideToConfirm
               label={passphraseRequired ? t('swap.execution.slidePassphrase') : t('swap.execution.slide')}
               loading={submitting}
-              disabled={busy || submitting || unresolved || (passphraseRequired && appPassphrase.length === 0)}
+              disabled={busy || submitting || unresolved || (passphraseRequired && !hasPassphrase)}
               onComplete={() => confirmSwap()}
             />
             <NativeButton

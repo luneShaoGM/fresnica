@@ -4,7 +4,7 @@ import type { AccountRecord } from '../../../capabilities/account/types';
 import type { PreparedPathPaymentReview } from '../../../capabilities/path-payment/types';
 import { NativeButton } from '../../../ui/components/NativeButton';
 import { SlideToConfirm } from '../../../ui/SlideToConfirm';
-import { TextInput } from 'react-native';
+import { SwapPassphraseInput } from '../SwapPassphraseInput';
 
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null, Screen: () => null }));
 jest.mock('../swapSubmissionProductFlow', () => ({
@@ -167,15 +167,17 @@ describe('Swap Preview user-visible scope', () => {
     stateSlots[1].current = false;
     stateSlots[8].current = { kind: 'review', review };
     stateSlots[11].current = true;
-    stateSlots[12].current = 'password';
+    stateSlots[12].current = true;
     const root = render();
     let secureInput: React.ReactElement<NodeProps> | undefined;
     let slide: React.ReactElement<NodeProps> | undefined;
     visit(root, node => {
-      if (node.type === TextInput && node.props.secureTextEntry === true) secureInput = node;
+      if (node.type === SwapPassphraseInput) secureInput = node;
       if (node.type === SlideToConfirm) slide = node;
     });
-    expect(secureInput?.props.value).toBe('password');
+    expect(secureInput).toBeDefined();
+    expect(secureInput?.props.value).toBeUndefined();
+    expect(stateSlots[12].current).toBe(true); // Availability only, never the password.
     expect(slide?.props.label).toBe('swap.execution.slidePassphrase');
   });
 
@@ -284,6 +286,61 @@ describe('Swap Preview user-visible scope', () => {
     });
   });
 
+  it('renders the original unknown hash instead of a retryable review after a broadcast result', async () => {
+    submitSwapReview.mockResolvedValueOnce({
+      status: 'uncertain',
+      transactionHash: 'HASH_FROM_ORIGINAL_BROADCAST',
+    });
+    render();
+    stateSlots[1].current = false;
+    stateSlots[8].current = { kind: 'review', review };
+    let slide: React.ReactElement<NodeProps> | undefined;
+    visit(render(), node => {
+      if (node.type === SlideToConfirm) slide = node;
+    });
+    await slide?.props.onComplete?.();
+    expect(stateSlots[8].current).toMatchObject({
+      kind: 'result',
+      result: { status: 'uncertain', transactionHash: 'HASH_FROM_ORIGINAL_BROADCAST' },
+    });
+    const values: string[] = [];
+    const slides: string[] = [];
+    visit(render(), node => {
+      if (node.type === SlideToConfirm) slides.push(node.props.label ?? '');
+      if (typeof node.props.value === 'string') values.push(node.props.value);
+    });
+    expect(values).toContain('HASH_FROM_ORIGINAL_BROADCAST');
+    expect(slides).toEqual([]);
+    expect(submitSwapReview).toHaveBeenCalledTimes(1);
+  });
+
+  it('still offers original-hash check-only recovery if the post-broadcast Realm read fails', async () => {
+    submitSwapReview.mockResolvedValueOnce({ status: 'uncertain', transactionHash: 'ORIGINAL_HASH' });
+    listSwapHistory.mockImplementationOnce(() => {
+      throw new Error('realm-read-failed');
+    });
+    render();
+    stateSlots[1].current = false;
+    stateSlots[8].current = { kind: 'review', review };
+    let slide: React.ReactElement<NodeProps> | undefined;
+    visit(render(), node => {
+      if (node.type === SlideToConfirm) slide = node;
+    });
+    await slide?.props.onComplete?.();
+    const buttons: string[] = [];
+    const slides: string[] = [];
+    visit(render(), node => {
+      if (node.type === NativeButton) buttons.push(node.props.label ?? '');
+      if (node.type === SlideToConfirm) slides.push(node.props.label ?? '');
+    });
+    expect(stateSlots[8].current).toMatchObject({
+      kind: 'result',
+      result: { status: 'uncertain', transactionHash: 'ORIGINAL_HASH' },
+    });
+    expect(slides).toEqual([]);
+    expect(buttons).toContain('swap.history.check');
+  });
+
   it('keeps the same reviewed transaction across System Auth fallback and a second explicit slide', async () => {
     submitSwapReview
       .mockResolvedValueOnce({ status: 'passphrase-required' })
@@ -297,7 +354,10 @@ describe('Swap Preview user-visible scope', () => {
     });
     await slide?.props.onComplete?.();
     expect(stateSlots[11].current).toBe(true);
-    stateSlots[12].current = 'password';
+    const consume = jest.fn(() => 'password');
+    const clear = jest.fn();
+    refSlots[4].current = { consume, clear };
+    stateSlots[12].current = true;
     visit(render(), node => {
       if (node.type === SlideToConfirm) slide = node;
     });
@@ -320,7 +380,9 @@ describe('Swap Preview user-visible scope', () => {
       expect.any(Function),
       'password',
     );
-    expect(stateSlots[12].current).toBe('');
+    expect(consume).toHaveBeenCalledTimes(1);
+    expect(stateSlots[12].current).toBe(false);
+    expect(stateSlots.map(slot => slot.current)).not.toContain('password');
     expect(stateSlots[8].current).toMatchObject({ kind: 'result', result: { status: 'submitted' } });
   });
 
@@ -343,6 +405,23 @@ describe('Swap Preview user-visible scope', () => {
     });
     expect(stateSlots[9].current).toBeUndefined();
     expect(stateSlots[15].current).toBe('swap.error.historyUnavailable');
+  });
+
+  it('clears the transient input on Back/Cancel instead of preserving a React password snapshot', () => {
+    const onDone = jest.fn();
+    const clear = jest.fn();
+    render({ onDone });
+    refSlots[4].current = { clear, consume: jest.fn() };
+    stateSlots[1].current = false;
+    stateSlots[8].current = { kind: 'review', review };
+    let back: React.ReactElement<NodeProps> | undefined;
+    visit(render({ onDone }), node => {
+      if (node.type === NativeButton && node.props.label === 'common.back') back ??= node;
+    });
+    back?.props.onPress?.();
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(onDone).toHaveBeenCalledTimes(1);
+    expect(stateSlots[12].current).toBe(false);
   });
 
   it('does not show form or review actions when the external selected account differs', () => {
