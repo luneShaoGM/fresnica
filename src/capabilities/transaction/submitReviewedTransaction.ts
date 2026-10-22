@@ -120,49 +120,63 @@ export async function submitReviewedTransaction(input: {
     throw error;
   }
 
-  const submission = await input.gateway.submitTransaction(signing.signedTransactionXdrBase64);
-  const completedAt = input.recovery.now();
+  // The original hash is durably stored as 'submitting' before any broadcast.
+  // Once this boundary is crossed, even a local Realm write failure is NOT a
+  // safe-to-retry error. Preserve the original hash for check-only recovery.
+  try {
+    const submission = await input.gateway.submitTransaction(signing.signedTransactionXdrBase64);
+    const completedAt = input.recovery.now();
 
-  if (submission.status === 'accepted') {
-    if (submission.hash !== transactionHash) {
+    if (submission.status === 'accepted') {
+      if (submission.hash !== transactionHash) {
+        invalidateLedgerReads(input, transactionHash);
+        input.recovery.repository.markUncertain(input.review.networkId, transactionHash, completedAt);
+        return { status: 'uncertain', transactionHash };
+      }
+      invalidateLedgerReads(input, transactionHash);
+      input.recovery.repository.markConfirmed(input.review.networkId, transactionHash, completedAt, submission.ledger);
+      return {
+        status: 'submitted',
+        authorization: signing.authorization,
+        hash: transactionHash,
+        ...(submission.ledger === undefined ? {} : { ledger: submission.ledger }),
+      };
+    }
+
+    if (submission.transactionHash !== transactionHash) {
       invalidateLedgerReads(input, transactionHash);
       input.recovery.repository.markUncertain(input.review.networkId, transactionHash, completedAt);
-      return {status: 'uncertain', transactionHash};
+      return { status: 'uncertain', transactionHash };
     }
-    invalidateLedgerReads(input, transactionHash);
-    input.recovery.repository.markConfirmed(
-      input.review.networkId,
-      transactionHash,
-      completedAt,
-      submission.ledger,
-    );
-    return {
-      status: 'submitted',
-      authorization: signing.authorization,
-      hash: transactionHash,
-      ...(submission.ledger === undefined ? {} : { ledger: submission.ledger }),
-    };
-  }
 
-  if (submission.transactionHash !== transactionHash) {
+    if (submission.status === 'rejected') {
+      input.recovery.repository.markRejected(
+        input.review.networkId,
+        transactionHash,
+        completedAt,
+        submission.resultCode,
+      );
+      return submission;
+    }
+
     invalidateLedgerReads(input, transactionHash);
     input.recovery.repository.markUncertain(input.review.networkId, transactionHash, completedAt);
-    return {status: 'uncertain', transactionHash};
-  }
-
-  if (submission.status === 'rejected') {
-    input.recovery.repository.markRejected(
-      input.review.networkId,
-      transactionHash,
-      completedAt,
-      submission.resultCode,
-    );
     return submission;
+  } catch {
+    // Best effort only: if Realm is unavailable, the original 'submitting'
+    // record remains unresolved and continues to block its economic intent.
+    try {
+      input.recovery.repository.markUncertain(input.review.networkId, transactionHash, input.recovery.now());
+    } catch {
+      // The persisted 'submitting' record is already a blocking state.
+    }
+    try {
+      invalidateLedgerReads(input, transactionHash);
+    } catch {
+      // An invalidation error cannot justify broadcasting again.
+    }
+    return { status: 'uncertain', transactionHash };
   }
-
-  invalidateLedgerReads(input, transactionHash);
-  input.recovery.repository.markUncertain(input.review.networkId, transactionHash, completedAt);
-  return submission;
 }
 
 function invalidateLedgerReads(

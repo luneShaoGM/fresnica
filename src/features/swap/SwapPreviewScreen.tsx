@@ -3,9 +3,12 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 
 import { Screen } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
+import { SlideToConfirm } from '../../ui/SlideToConfirm';
 import { useThemedStyles } from '../../ui/theme';
 import { useLocalization } from '../../locale';
 import type { AccountRecord } from '../../capabilities/account/types';
+import type { PendingSubmissionRecord } from '../../capabilities/transaction/pendingSubmission';
+import type { SubmitReviewedTransactionResult } from '../../capabilities/transaction/submitReviewedTransaction';
 import type { StellarPaymentAsset } from '../../capabilities/stellar/types';
 import type {
   PathPaymentMode,
@@ -20,17 +23,27 @@ import {
   type SwapPreviewProductDependencies,
 } from './swapPreviewProductFlow';
 import { createSwapPreviewStyles } from './styles';
+import { SwapPassphraseInput, type SwapPassphraseInputHandle } from './SwapPassphraseInput';
+import {
+  listSwapHistory,
+  reconcileSwapPending,
+  submitSwapReview,
+  type SwapSubmissionProductDependencies,
+} from './swapSubmissionProductFlow';
 
+type SwapTerminalResult = Exclude<SubmitReviewedTransactionResult, { status: 'passphrase-required' }>;
 type ViewState =
   | Readonly<{ kind: 'form' }>
   | Readonly<{ kind: 'quotes'; quotes: readonly PathPaymentQuote[]; selected: PathPaymentQuote }>
-  | Readonly<{ kind: 'review'; review: PreparedPathPaymentReview }>;
+  | Readonly<{ kind: 'review'; review: PreparedPathPaymentReview }>
+  | Readonly<{ kind: 'result'; result: SwapTerminalResult }>;
 
 type Props = Readonly<{
   account: AccountRecord;
   active: boolean;
   selectedAccountId: string;
   dependencies: SwapPreviewProductDependencies;
+  execution: SwapSubmissionProductDependencies;
   captureSession: () => () => boolean;
   onDone: () => void;
 }>;
@@ -43,7 +56,15 @@ function fullPath(assets: readonly StellarPaymentAsset[]): string {
   return assets.length === 0 ? '—' : assets.map(assetLabel).join(' → ');
 }
 
-export function SwapPreviewScreen({ account, active, selectedAccountId, dependencies, captureSession, onDone }: Props) {
+export function SwapPreviewScreen({
+  account,
+  active,
+  selectedAccountId,
+  dependencies,
+  execution,
+  captureSession,
+  onDone,
+}: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createSwapPreviewStyles);
   const [assets, setAssets] = useState<readonly StellarPaymentAsset[]>([]);
@@ -57,14 +78,30 @@ export function SwapPreviewScreen({ account, active, selectedAccountId, dependen
   const [view, setView] = useState<ViewState>({ kind: 'form' });
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [passphraseRequired, setPassphraseRequired] = useState(false);
+  const [hasPassphrase, setHasPassphrase] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [history, setHistory] = useState<readonly PendingSubmissionRecord[]>([]);
+  const [reconcileError, setReconcileError] = useState<string>();
+  const [reconciling, setReconciling] = useState(false);
   const attempt = useRef(0);
   const locked = useRef(false);
+  const submitLocked = useRef(false);
+  const reconcileLocked = useRef(false);
+  const securePassphraseInput = useRef<SwapPassphraseInputHandle>(null);
+
+  const clearPassphrase = useCallback(() => {
+    securePassphraseInput.current?.clear();
+    setHasPassphrase(false);
+  }, []);
 
   const resetQuotes = useCallback(() => {
     attempt.current += 1;
     setError(undefined);
+    setPassphraseRequired(false);
+    clearPassphrase();
     setView({ kind: 'form' });
-  }, []);
+  }, [clearPassphrase]);
 
   useEffect(() => {
     const generation = ++attempt.current;
@@ -75,6 +112,12 @@ export function SwapPreviewScreen({ account, active, selectedAccountId, dependen
     setView({ kind: 'form' });
     setError(undefined);
     setBusy(false);
+    clearPassphrase();
+    setPassphraseRequired(false);
+    setSubmitting(false);
+    setHistory([]);
+    setReconcileError(undefined);
+    setReconciling(false);
     setLoading(active);
     if (!active)
       return () => {
@@ -88,6 +131,11 @@ export function SwapPreviewScreen({ account, active, selectedAccountId, dependen
       return () => {
         attempt.current += 1;
       };
+    }
+    try {
+      setHistory(listSwapHistory(execution, account, valid));
+    } catch (caught) {
+      if (valid()) setReconcileError(errorText(caught, t));
     }
     loadSwapPreviewAssets(dependencies, account, valid)
       .then(available => {
@@ -104,7 +152,7 @@ export function SwapPreviewScreen({ account, active, selectedAccountId, dependen
     return () => {
       attempt.current += 1;
     };
-  }, [account, active, assetLoadRevision, captureSession, dependencies, t]);
+  }, [account, active, assetLoadRevision, captureSession, clearPassphrase, dependencies, execution, t]);
 
   const startQuote = useCallback(async () => {
     if (busy || locked.current || assets.length < 2) return;
@@ -166,6 +214,74 @@ export function SwapPreviewScreen({ account, active, selectedAccountId, dependen
     }
   }, [account, busy, captureSession, dependencies, slippageInput, t, view]);
 
+  const confirmSwap = useCallback(async () => {
+    if (view.kind !== 'review' || busy || submitting || submitLocked.current) return;
+    // Never initiate a second trade while prior submission for this account
+    // could still be on the network.
+    if (history.some(record => record.state === 'uncertain' || record.state === 'submitting')) {
+      setError(t('swap.error.pending'));
+      return;
+    }
+    // Consume the password only for the direct D1 SDK call. It never enters
+    // React state, a render prop, or the async callback's dependencies.
+    const passphrase = passphraseRequired ? securePassphraseInput.current?.consume() : undefined;
+    if (passphraseRequired && !passphrase) return;
+    submitLocked.current = true;
+    const generation = ++attempt.current;
+    const session = captureSession();
+    const valid = () => generation === attempt.current && session();
+    setHasPassphrase(false);
+    setSubmitting(true);
+    setError(undefined);
+    try {
+      if (!valid()) throw new Error('swap-session-stale');
+      const result = await submitSwapReview(execution, account, view.review, valid, passphrase);
+      if (!valid()) return;
+      if (result.status === 'passphrase-required') {
+        setPassphraseRequired(true);
+        return;
+      }
+      setPassphraseRequired(false);
+      setView({ kind: 'result', result });
+      try {
+        setHistory(listSwapHistory(execution, account, valid));
+      } catch {
+        // A local history read can fail AFTER Horizon acceptance. Never tell
+        // the user the signed transaction failed or suggest retrying it.
+        if (valid()) setReconcileError(t('swap.error.historyUnavailable'));
+      }
+    } catch (caught) {
+      if (valid()) setError(errorText(caught, t));
+    } finally {
+      if (generation === attempt.current) {
+        submitLocked.current = false;
+        if (valid()) setSubmitting(false);
+      }
+    }
+  }, [account, busy, captureSession, execution, history, passphraseRequired, submitting, t, view]);
+
+  const checkPending = useCallback(async () => {
+    if (reconcileLocked.current || submitting || busy) return;
+    reconcileLocked.current = true;
+    const generation = ++attempt.current;
+    const session = captureSession();
+    const valid = () => generation === attempt.current && session();
+    setReconcileError(undefined);
+    setReconciling(true);
+    try {
+      await reconcileSwapPending(execution, account, valid);
+      if (valid()) setHistory(listSwapHistory(execution, account, valid));
+    } catch (caught) {
+      if (valid()) setReconcileError(errorText(caught, t));
+    } finally {
+      if (generation === attempt.current) {
+        reconcileLocked.current = false;
+        if (valid()) setReconciling(false);
+      }
+    }
+  }, [account, busy, captureSession, execution, submitting, t]);
+
+  const unresolved = history.some(record => record.state === 'uncertain' || record.state === 'submitting');
   const accountCurrent = selectedAccountId === account.id && active;
   if (!accountCurrent) {
     return (
@@ -180,20 +296,21 @@ export function SwapPreviewScreen({ account, active, selectedAccountId, dependen
 
   const close = () => {
     attempt.current += 1;
+    clearPassphrase();
     onDone();
   };
 
   return (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
-        <NativeButton label={t('common.back')} onPress={close} size="sm" variant="quiet" />
+        <NativeButton label={t('common.back')} disabled={submitting} onPress={close} size="sm" variant="quiet" />
         <Text style={styles.heading}>{t('swap.preview.title')}</Text>
         <View />
       </View>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         <View style={styles.notice}>
           <Text style={styles.text}>{t('swap.preview.notice')}</Text>
-          <Text style={styles.secondary}>{t('swap.preview.unsignable')}</Text>
+          <Text style={styles.secondary}>{t('swap.execution.safePreview')}</Text>
         </View>
         <Text style={styles.secondary}>
           {t('swap.preview.account')}: {account.label || account.address}
@@ -347,9 +464,86 @@ export function SwapPreviewScreen({ account, active, selectedAccountId, dependen
               value={new Date(view.review.expiresAtUnixSeconds * 1000).toLocaleString()}
             />
             <View style={styles.notice}>
-              <Text style={styles.text}>{t('swap.preview.reviewOnly')}</Text>
+              <Text style={styles.text}>{t('swap.execution.authorizationNotice')}</Text>
+              {unresolved ? <Text style={styles.error}>{t('swap.error.pending')}</Text> : null}
             </View>
+            {passphraseRequired ? (
+              <View style={styles.section}>
+                <Text accessibilityLiveRegion="assertive" style={styles.text}>
+                  {t('swap.execution.passphraseRequired')}
+                </Text>
+                <SwapPassphraseInput
+                  ref={securePassphraseInput}
+                  label={t('swap.execution.appPassphrase')}
+                  hint={t('swap.execution.passphraseHint')}
+                  disabled={submitting}
+                  onPresenceChange={setHasPassphrase}
+                  style={styles.input}
+                />
+              </View>
+            ) : null}
           </>
+        ) : null}
+        {view.kind === 'result' ? (
+          <View style={styles.section}>
+            <Text accessibilityLiveRegion="polite" style={styles.heading}>
+              {t('swap.result.' + view.result.status)}
+            </Text>
+            <Text style={styles.secondary}>{t('swap.result.description.' + view.result.status)}</Text>
+            {'hash' in view.result ? <ReviewLine label={t('swap.history.hash')} value={view.result.hash} /> : null}
+            {'transactionHash' in view.result ? (
+              <ReviewLine label={t('swap.history.hash')} value={view.result.transactionHash} />
+            ) : null}
+            {view.result.status === 'submitted' && view.result.ledger !== undefined ? (
+              <ReviewLine label={t('swap.history.ledger')} value={String(view.result.ledger)} />
+            ) : null}
+            {view.result.status === 'submitted' ? (
+              <ReviewLine label={t('swap.execution.authorization')} value={view.result.authorization} />
+            ) : null}
+            {view.result.status === 'rejected' && view.result.resultCode ? (
+              <ReviewLine label={t('swap.result.code')} value={view.result.resultCode} />
+            ) : null}
+            {view.result.status === 'authorization-blocked' ? (
+              <ReviewLine label={t('swap.result.reason')} value={view.result.reason} />
+            ) : null}
+          </View>
+        ) : null}
+        {history.length > 0 || (view.kind === 'result' && view.result.status === 'uncertain') ? (
+          <View style={styles.section}>
+            <Text style={styles.label}>{t('swap.history.title')}</Text>
+            {history.map(record => (
+              <View style={styles.route} key={record.id}>
+                <Text style={styles.text}>{t('swap.history.state.' + record.state)}</Text>
+                <Text selectable style={styles.mono}>
+                  {record.transactionHash}
+                </Text>
+                {record.ledger === undefined ? null : (
+                  <Text style={styles.secondary}>
+                    {t('swap.history.ledger')}: {record.ledger}
+                  </Text>
+                )}
+                {record.resultCode === undefined ? null : (
+                  <Text style={styles.secondary}>
+                    {t('swap.result.code')}: {record.resultCode}
+                  </Text>
+                )}
+              </View>
+            ))}
+            {unresolved || (view.kind === 'result' && view.result.status === 'uncertain') ? (
+              <NativeButton
+                label={reconciling ? t('swap.history.checking') : t('swap.history.check')}
+                disabled={reconciling || busy || submitting}
+                onPress={() => checkPending()}
+                size="md"
+                variant="quiet"
+              />
+            ) : null}
+          </View>
+        ) : null}
+        {reconcileError ? (
+          <Text accessibilityLiveRegion="assertive" style={styles.error}>
+            {reconcileError}
+          </Text>
         ) : null}
         {error ? (
           <Text accessibilityLiveRegion="assertive" style={styles.error}>
@@ -387,6 +581,22 @@ export function SwapPreviewScreen({ account, active, selectedAccountId, dependen
               variant="quiet"
             />
             <NativeButton label={t('common.back')} disabled={busy} onPress={resetQuotes} size="sm" variant="quiet" />
+          </>
+        ) : view.kind === 'review' ? (
+          <>
+            <SlideToConfirm
+              label={passphraseRequired ? t('swap.execution.slidePassphrase') : t('swap.execution.slide')}
+              loading={submitting}
+              disabled={busy || submitting || unresolved || (passphraseRequired && !hasPassphrase)}
+              onComplete={() => confirmSwap()}
+            />
+            <NativeButton
+              label={t('swap.preview.requote')}
+              disabled={submitting}
+              onPress={resetQuotes}
+              size="md"
+              variant="quiet"
+            />
           </>
         ) : (
           <NativeButton label={t('swap.preview.done')} onPress={close} size="lg" variant="primary" />
@@ -452,6 +662,11 @@ function errorText(error: unknown, t: (key: string) => string): string {
       slippage_out_of_range: t('swap.error.slippage'),
       destination_no_trust: t('swap.error.trustline'),
       not_authorized: t('swap.error.trustline'),
+      'swap-unresolved-pending': t('swap.error.pending'),
+      path_payment_review_mismatch: t('swap.error.reviewMismatch'),
+      path_payment_signer_mismatch: t('swap.error.signerMismatch'),
+      'user-cancel': t('swap.error.cancelled'),
+      'review-expired': t('swap.error.expiredTransaction'),
     },
   }).message;
 }

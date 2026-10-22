@@ -43,6 +43,11 @@ export class RealmPendingSubmissionRepository implements PendingSubmissionReposi
       record => isPendingSubmissionBlocking(record) && (networkId === undefined || record.networkId === networkId),
     );
   }
+  listByAccount(networkId: string, accountId: string, intentKind: string): PendingSubmissionRecord[] {
+    return this.listAll().filter(
+      record => record.networkId === networkId && record.accountId === accountId && record.intentKind === intentKind,
+    );
+  }
 
   markUncertain(networkId: string, transactionHash: string, checkedAt: Date): void {
     this.update(networkId, transactionHash, record => {

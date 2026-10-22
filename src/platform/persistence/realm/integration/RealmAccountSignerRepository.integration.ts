@@ -183,6 +183,11 @@ describe('RealmPendingSubmissionRepository restart integration', () => {
         lastCheckedAt: checkedAt,
         resultCode: 'tx_bad_seq',
       });
+      expect(reopened.listByAccount(pending.networkId, pending.accountId, 'trustline')).toEqual([
+        expect.objectContaining({ state: 'rejected', transactionHash: pending.transactionHash }),
+      ]);
+      expect(reopened.listByAccount(pending.networkId, 'other-account', 'trustline')).toEqual([]);
+      expect(reopened.listByAccount(pending.networkId, pending.accountId, 'path-payment')).toEqual([]);
     } finally {
       activeRealm?.close();
       rmSync(directory, { recursive: true, force: true });
