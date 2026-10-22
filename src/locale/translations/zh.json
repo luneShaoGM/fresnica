@@ -576,5 +576,19 @@
   "swap.error.signerMismatch": "关联的签名人已变更，请关闭并重新开始兑换。",
   "swap.error.cancelled": "授权已取消，不会执行新的提交。",
   "swap.error.expiredTransaction": "已准备交易过期，请重新报价并生成新的审阅。",
-  "swap.error.historyUnavailable": "暂时无法读取已保存的交易状态。请勿重复提交；稍后重新打开兑换或核对原交易哈希。"
+  "swap.error.historyUnavailable": "暂时无法读取已保存的交易状态。请勿重复提交；稍后重新打开兑换或核对原交易哈希。",
+  "dapps.website.customTitle": "打开 dApp 网址",
+  "dapps.website.customNotice": "在设备系统浏览器中打开公开网站。Fresnica 不会向网站提供钱包身份或自动连接钱包。",
+  "dapps.website.input": "网站地址",
+  "dapps.website.placeholder": "https://example.org",
+  "dapps.website.preview": "核对网站",
+  "dapps.website.recentNotice": "仅列出本次应用会话请求打开的网站，不代表 Fresnica 已审核、认可或连接该网站。",
+  "dapps.website.recentEmpty": "本次会话尚无网站打开请求。",
+  "dapps.website.unreviewed": "未经审核的网站",
+  "dapps.website.trustBoundary": "Fresnica 未审核该网站。请核对完整 HTTPS 网址与 Origin，然后在设备浏览器中打开。Fresnica 不提供钱包身份、权限、签名或交易请求。",
+  "dapps.website.confirm": "在系统浏览器中打开",
+  "dapps.website.cancel": "取消",
+  "dapps.website.opening": "正在打开浏览器…",
+  "dapps.website.invalid": "请输入公开 HTTPS 域名。HTTP、IP 地址、本地域名、含凭据或格式错误的网址将被拦截。",
+  "dapps.website.failed": "无法打开浏览器，请检查网址后重试。"
 }

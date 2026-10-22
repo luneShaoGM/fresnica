@@ -196,7 +196,10 @@ function MainTabsWithSelection({
     [accounts, networkId, onAccountsChanged, services, swapSelectionStore],
   );
 
-  const renderDApps = useCallback(() => <DAppsStackNavigator catalog={services.dappCatalog} />, [services.dappCatalog]);
+  const renderDApps = useCallback(
+    () => <DAppsStackNavigator catalog={services.dappCatalog} openExternalUrl={services.externalUrl.open} />,
+    [services.dappCatalog, services.externalUrl],
+  );
 
   const selectedAccount = resolveVisibleAccount(accounts, effectiveSelectedAccountId);
   const canSign = !services.onboarding.repository.isWatchOnly(selectedAccount.id);

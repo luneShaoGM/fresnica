@@ -576,5 +576,19 @@
   "swap.error.signerMismatch": "The attached signer changed. Close and restart the Swap flow.",
   "swap.error.cancelled": "Authorization was cancelled. No new submission is performed.",
   "swap.error.expiredTransaction": "The prepared transaction expired. Get fresh quotes and prepare a new review.",
-  "swap.error.historyUnavailable": "Unable to read saved transaction statuses. Do not resubmit; reopen Swap or check the original hash later."
+  "swap.error.historyUnavailable": "Unable to read saved transaction statuses. Do not resubmit; reopen Swap or check the original hash later.",
+  "dapps.website.customTitle": "Open a dApp URL",
+  "dapps.website.customNotice": "Open a public website in your device's browser. Fresnica does not share your wallet or connect to the site.",
+  "dapps.website.input": "Website address",
+  "dapps.website.placeholder": "https://example.org",
+  "dapps.website.preview": "Review website",
+  "dapps.website.recentNotice": "Websites requested in this app session. They are not approved, verified, or connected dApps.",
+  "dapps.website.recentEmpty": "No website handoffs requested in this session.",
+  "dapps.website.unreviewed": "Unverified website",
+  "dapps.website.trustBoundary": "Fresnica has not verified this website. Check the full HTTPS URL and origin before opening your device's browser. No wallet identity, permissions, signing or transaction requests are shared.",
+  "dapps.website.confirm": "Open in device browser",
+  "dapps.website.cancel": "Cancel",
+  "dapps.website.opening": "Opening browser…",
+  "dapps.website.invalid": "Use a public HTTPS hostname. HTTP, IP addresses, local domains, credentials and malformed URLs are blocked.",
+  "dapps.website.failed": "Could not open the browser. Check the URL and try again."
 }
