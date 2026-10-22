@@ -36,6 +36,12 @@ export class InMemoryPendingSubmissionRepository implements PendingSubmissionRep
     );
   }
 
+  listByAccount(networkId: string, accountId: string, intentKind: string): PendingSubmissionRecord[] {
+    return [...this.records.values()].filter(
+      record => record.networkId === networkId && record.accountId === accountId && record.intentKind === intentKind,
+    );
+  }
+
   markUncertain(networkId: string, transactionHash: string, checkedAt: Date): void {
     this.update(networkId, transactionHash, record => ({
       ...record,

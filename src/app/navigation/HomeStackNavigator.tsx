@@ -230,6 +230,7 @@ function SwapPreviewRoute({
       active={active}
       selectedAccountId={actualSelectedAccountId}
       dependencies={services.swapPreview}
+      execution={services.swapExecution}
       captureSession={captureSession}
       onDone={() => navigation.popToTop()}
     />

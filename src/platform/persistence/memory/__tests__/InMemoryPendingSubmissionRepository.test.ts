@@ -84,3 +84,20 @@ it('isolates the same economic intent by network', () => {
   expect(repository.listUnresolved('stellar-testnet')).toEqual([testnet]);
   expect(repository.listUnresolved('stellar-mainnet')).toEqual([mainnet]);
 });
+
+it('includes terminal records in account-scoped recovery history without leaking another account or intent', () => {
+  const repository = new InMemoryPendingSubmissionRepository();
+  const original = { ...record(), intentKind: 'path-payment' };
+  repository.create(original);
+  repository.markConfirmed(original.networkId, original.transactionHash, createdAt, 42);
+  repository.create({
+    ...record(),
+    id: 'stellar-testnet:other',
+    transactionHash: 'other',
+    accountId: 'account-2',
+    intentKind: 'path-payment',
+  });
+  expect(repository.listByAccount(original.networkId, original.accountId, 'path-payment')).toEqual([
+    expect.objectContaining({ state: 'confirmed', ledger: 42 }),
+  ]);
+});

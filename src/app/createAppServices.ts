@@ -23,6 +23,7 @@ import type { RenameAccountDependencies } from '../capabilities/account/renameAc
 import type { HistoryProductDependencies } from '../capabilities/history/HistoryCacheHydration';
 import type { SendProductDependencies } from '../features/send/sendProductFlow';
 import type { SwapPreviewProductDependencies } from '../features/swap/swapPreviewProductFlow';
+import type { SwapSubmissionProductDependencies } from '../features/swap/swapSubmissionProductFlow';
 import type { TrustlineProductDependencies } from '../features/trustlines/trustlineProductFlow';
 import type { RequestProductDependencies } from '../features/request/requestProductFlow';
 import { ReactNativeFresnicaSdk, loadNativeFresnicaModule } from '../platform/fresnica/native';
@@ -57,6 +58,7 @@ export type AppServices = Readonly<{
   friendbot: FriendbotDependencies;
   send: SendProductDependencies;
   swapPreview: SwapPreviewProductDependencies;
+  swapExecution: SwapSubmissionProductDependencies;
   history: HistoryProductDependencies;
   trustline: TrustlineProductDependencies;
   request: RequestProductDependencies;
@@ -169,6 +171,15 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
           preflight: { network, gateway: stellarGateway, clock: quoteClock },
           transactionGateway: pathPaymentGateway,
         },
+      },
+      swapExecution: {
+        network,
+        gateway: stellarGateway,
+        inspector: pathPaymentGateway,
+        sdk,
+        signerRepository: repository,
+        recovery,
+        transactionRecovery,
       },
       history: {
         gateway: stellarGateway,
