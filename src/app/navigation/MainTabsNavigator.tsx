@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import type { AccountRecord } from '@capabilities/account/types';
@@ -17,6 +17,7 @@ import { ActivityStackNavigator } from './ActivityStackNavigator';
 import { DAppsStackNavigator } from './DAppsStackNavigator';
 import { HomeStackNavigator } from './HomeStackNavigator';
 import { MainTabBar } from './MainTabBar';
+import { createSwapSelectionStore } from './swapSelectionStore';
 import type { MainTabParamList } from './navigationTypes';
 import type { ProductAction } from './productRoutes';
 import { SettingsStackNavigator } from './SettingsStackNavigator';
@@ -108,6 +109,22 @@ function MainTabsWithSelection({
     previousAccountsRef.current,
     networkId,
   );
+  const selectionStoreRef = useRef<ReturnType<typeof createSwapSelectionStore> | undefined>(undefined);
+  if (selectionStoreRef.current === undefined) {
+    selectionStoreRef.current = createSwapSelectionStore();
+  }
+  const swapSelectionStore = selectionStoreRef.current;
+  useLayoutEffect(() => {
+    // Publish only committed selection/inventory changes; never notify a
+    // subscribed Swap route during another React component's render.
+    swapSelectionStore.update({
+      selectedAccountId: effectiveSelectedAccountId,
+      accounts,
+      network: services.send.network,
+    });
+  }, [accounts, effectiveSelectedAccountId, services.send.network, swapSelectionStore]);
+  useEffect(() => () => swapSelectionStore.invalidate(), [swapSelectionStore]);
+  const getCurrentSwapSelection = useCallback(() => swapSelectionStore.getCurrentSelection(), [swapSelectionStore]);
 
   useEffect(() => {
     if (effectiveSelectedAccountId !== selectedAccountId) {
@@ -133,7 +150,14 @@ function MainTabsWithSelection({
           networkId,
           services.accountSelectionPreferences,
         );
-        if (persistedAccountId !== effectiveSelectedAccountId) {
+        if (persistedAccountId !== swapSelectionStore.getCurrentSelection()?.selectedAccountId) {
+          // Persisted selection is authoritative now, even if React has not
+          // rendered the new route props yet (A→B→A in one tick).
+          swapSelectionStore.update({
+            selectedAccountId: persistedAccountId,
+            accounts,
+            network: services.send.network,
+          });
           setSelectedAccountId(persistedAccountId);
         }
       } catch (error) {
@@ -143,7 +167,7 @@ function MainTabsWithSelection({
         throw new Error('default-account-persistence-failed');
       }
     },
-    [accounts, effectiveSelectedAccountId, networkId, services],
+    [accounts, networkId, services, swapSelectionStore],
   );
 
   const completeCreatedAccount = useCallback(
@@ -155,6 +179,11 @@ function MainTabsWithSelection({
           networkId,
           services.accountSelectionPreferences,
         );
+        swapSelectionStore.update({
+          selectedAccountId: persistedAccountId,
+          accounts,
+          network: services.send.network,
+        });
         setSelectedAccountId(persistedAccountId);
       } catch (error) {
         services.diagnostics.warn('default-account-persistence-failed', {
@@ -164,7 +193,7 @@ function MainTabsWithSelection({
       }
       onAccountsChanged();
     },
-    [networkId, onAccountsChanged, services],
+    [accounts, networkId, onAccountsChanged, services, swapSelectionStore],
   );
 
   const renderDApps = useCallback(() => <DAppsStackNavigator catalog={services.dappCatalog} />, [services.dappCatalog]);
@@ -174,7 +203,8 @@ function MainTabsWithSelection({
   const actionAvailability = useMemo<Readonly<Record<ProductAction, boolean>>>(
     () => ({
       send: selectedAccount.identityKind === 'classic' && canSign,
-      swap: false,
+      // Preview-only: no authorization or submission UI in this slice.
+      swap: selectedAccount.identityKind === 'classic' && canSign,
       request: selectedAccount.identityKind === 'classic',
     }),
     [canSign, selectedAccount.identityKind],
@@ -198,6 +228,8 @@ function MainTabsWithSelection({
             onSelectAccount={selectAccount}
             selectableAccounts={selectableAccounts}
             selectedAccountId={effectiveSelectedAccountId}
+            getCurrentSwapSelection={getCurrentSwapSelection}
+            subscribeToSwapSelection={swapSelectionStore.subscribe}
             services={services}
           />
         )}

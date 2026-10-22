@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useSyncExternalStore } from 'react';
+import React, { useCallback, useRef, useState, useSyncExternalStore } from 'react';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -6,12 +6,14 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AccountRecord } from '@capabilities/account/types';
 import { canContinueRequestToSend } from '../requestDeepLinkRouting';
 import { continueRequestToSendIfCurrent, createRequestRouteFocusLifetime } from './requestContinueRouting';
+import { captureSwapCurrentSession, type SwapCurrentSelection } from './swapCurrentSession';
 import { AddAccountScreen } from '@features/accounts/AddAccountScreen';
 import { AssetDetailsScreen } from '@features/home/AssetDetailsScreen';
 import { HomeScreen } from '@features/home/HomeScreen';
 import { SendFlowScreen } from '@features/send/SendFlowScreen';
 import { RequestFlowScreen } from '@features/request/RequestFlowScreen';
 import { ManageAssetsScreen } from '@features/trustlines/ManageAssetsScreen';
+import { SwapPreviewScreen, SwapUnavailableScreen } from '@features/swap/SwapPreviewScreen';
 import { ReactNativeRequestQrScannerView } from '@platform/system/RequestQrScannerView';
 
 import type { AppServices } from '../createAppServices';
@@ -28,6 +30,8 @@ type Props = Readonly<{
   onAccountsChanged: () => void;
   onCreatedAccountReady: (accountId: string) => void | Promise<void>;
   onSelectAccount: (accountId: string) => void | Promise<void>;
+  getCurrentSwapSelection: () => SwapCurrentSelection | undefined;
+  subscribeToSwapSelection: (listener: () => void) => () => void;
 }>;
 
 export function HomeStackNavigator({
@@ -38,6 +42,8 @@ export function HomeStackNavigator({
   onAccountsChanged,
   onCreatedAccountReady,
   onSelectAccount,
+  getCurrentSwapSelection,
+  subscribeToSwapSelection,
 }: Props) {
   const selectedAccount = resolveVisibleAccount(accounts, selectedAccountId);
   const canSign = !services.onboarding.repository.isWatchOnly(selectedAccount.id);
@@ -120,6 +126,22 @@ export function HomeStackNavigator({
           );
         }}
       </Stack.Screen>
+      <Stack.Screen name="exchange">
+        {({ navigation, route }) => (
+          <SwapPreviewRoute
+            account={accounts.find(
+              candidate =>
+                candidate.id === route.params.accountId &&
+                candidate.networkId === services.swapPreview.network.id &&
+                !candidate.hidden,
+            )}
+            services={services}
+            getCurrentSelection={getCurrentSwapSelection}
+            subscribeToSelection={subscribeToSwapSelection}
+            navigation={navigation}
+          />
+        )}
+      </Stack.Screen>
       <Stack.Screen name="request">
         {({ navigation, route }) => (
           <RequestRoute
@@ -145,6 +167,72 @@ export function HomeStackNavigator({
         }}
       </Stack.Screen>
     </Stack.Navigator>
+  );
+}
+
+type SwapPreviewRouteProps = Readonly<{
+  account: AccountRecord | undefined;
+  services: AppServices;
+  getCurrentSelection: () => SwapCurrentSelection | undefined;
+  subscribeToSelection: (listener: () => void) => () => void;
+  navigation: NativeStackNavigationProp<HomeStackParamList, 'exchange'>;
+}>;
+
+function SwapPreviewRoute({
+  account,
+  services,
+  getCurrentSelection,
+  subscribeToSelection,
+  navigation,
+}: SwapPreviewRouteProps) {
+  const focusLifetimeRef = useRef<ReturnType<typeof createRequestRouteFocusLifetime> | undefined>(undefined);
+  if (focusLifetimeRef.current === undefined) {
+    focusLifetimeRef.current = createRequestRouteFocusLifetime();
+  }
+  const focusLifetime = focusLifetimeRef.current;
+  const [focusReady, setFocusReady] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      focusLifetime.focus();
+      setFocusReady(true);
+      return () => {
+        focusLifetime.blur();
+        setFocusReady(false);
+      };
+    }, [focusLifetime]),
+  );
+  const active = useIsFocused();
+  const selectionRevision = useSyncExternalStore(
+    subscribeToSelection,
+    () => getCurrentSelection()?.selectionRevision ?? 0,
+    () => 0,
+  );
+  const actualSelectedAccountId = getCurrentSelection()?.selectedAccountId ?? '';
+  const captureSession = useCallback(() => {
+    const currentFocus = focusLifetime.capture();
+    if (!account) return () => false;
+    return captureSwapCurrentSession({
+      account,
+      network: services.swapPreview.network,
+      getCurrentSelection,
+      isCurrentFocusEpoch: () => currentFocus() && navigation.isFocused(),
+    });
+  }, [account, focusLifetime, getCurrentSelection, navigation, services.swapPreview.network]);
+  // The child must mount only AFTER the route's focus epoch is established.
+  // Passive effect ordering alone cannot guarantee that its initial balance
+  // request captures a valid focus epoch.
+  if (!active || !focusReady) return null;
+  if (!account) return <SwapUnavailableScreen onDone={() => navigation.goBack()} />;
+  return (
+    <SwapPreviewScreen
+      key={String(selectionRevision)}
+      account={account}
+      active={active}
+      selectedAccountId={actualSelectedAccountId}
+      dependencies={services.swapPreview}
+      captureSession={captureSession}
+      onDone={() => navigation.popToTop()}
+    />
   );
 }
 

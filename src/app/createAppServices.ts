@@ -22,6 +22,7 @@ import type { DeleteLocalAccountDependencies } from '../capabilities/account/del
 import type { RenameAccountDependencies } from '../capabilities/account/renameAccount';
 import type { HistoryProductDependencies } from '../capabilities/history/HistoryCacheHydration';
 import type { SendProductDependencies } from '../features/send/sendProductFlow';
+import type { SwapPreviewProductDependencies } from '../features/swap/swapPreviewProductFlow';
 import type { TrustlineProductDependencies } from '../features/trustlines/trustlineProductFlow';
 import type { RequestProductDependencies } from '../features/request/requestProductFlow';
 import { ReactNativeFresnicaSdk, loadNativeFresnicaModule } from '../platform/fresnica/native';
@@ -36,6 +37,7 @@ import {
 } from '../platform/persistence/realm';
 import { StellarFriendbotGateway } from '../platform/stellar/StellarFriendbotGateway';
 import { StellarSdkGateway } from '../platform/stellar/StellarSdkGateway';
+import { StellarPathPaymentSdkGateway } from '../platform/stellar/StellarPathPaymentSdkGateway';
 import { reactNativeExternalUrlOpener, type ExternalUrlOpener } from '../platform/system/externalUrl';
 import { reactNativeRequestIngress } from '../platform/system/requestIngress';
 import { reactNativeRequestOutput } from '../platform/system/requestOutput';
@@ -54,6 +56,7 @@ export type AppServices = Readonly<{
   balance: BalanceDependencies;
   friendbot: FriendbotDependencies;
   send: SendProductDependencies;
+  swapPreview: SwapPreviewProductDependencies;
   history: HistoryProductDependencies;
   trustline: TrustlineProductDependencies;
   request: RequestProductDependencies;
@@ -95,6 +98,14 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const stellarGateway = new StellarSdkGateway({
       network,
       horizonUrl: APP_CONFIG.network.horizonUrl,
+    });
+    const pathPaymentGateway = new StellarPathPaymentSdkGateway({
+      network,
+      horizonUrl: APP_CONFIG.network.horizonUrl,
+    });
+    const quoteClock = Object.freeze({
+      nowUnixMs: () => Date.now(),
+      nowMonotonicMs: () => performance.now(),
     });
     const friendbotGateway = new StellarFriendbotGateway(APP_CONFIG.network.friendbotUrl);
     const transactionRecovery = createTransactionReconciliationCoordinator({
@@ -144,6 +155,20 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         repository,
         recovery,
         network,
+      },
+      swapPreview: {
+        network,
+        balance: { gateway: stellarGateway, networkId: network.id },
+        quotes: {
+          network,
+          gateway: pathPaymentGateway,
+          isClassicAccountAddress: address => stellarGateway.isClassicAccountAddress(address),
+          ...quoteClock,
+        },
+        prepare: {
+          preflight: { network, gateway: stellarGateway, clock: quoteClock },
+          transactionGateway: pathPaymentGateway,
+        },
       },
       history: {
         gateway: stellarGateway,

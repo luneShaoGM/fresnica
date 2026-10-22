@@ -15,6 +15,7 @@ export type HomeStackParamList = {
   'add-account': ProductRouteParams['add-account'];
   'asset-details': ProductRouteParams['asset-details'];
   'send-form': ProductRouteParams['send-form'];
+  exchange: ProductRouteParams['exchange'];
   request: ProductRouteParams['request'];
   'manage-assets': ProductRouteParams['manage-assets'];
 };
