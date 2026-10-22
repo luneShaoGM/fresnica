@@ -8,11 +8,14 @@ import type { DAppsStackParamList } from './navigationTypes';
 
 const Stack = createNativeStackNavigator<DAppsStackParamList>();
 
-export function DAppsStackNavigator({ catalog }: Readonly<{ catalog: DappCatalogPort }>) {
+export function DAppsStackNavigator({
+  catalog,
+  openExternalUrl,
+}: Readonly<{ catalog: DappCatalogPort; openExternalUrl: (url: string) => Promise<void> }>) {
   return (
     <Stack.Navigator initialRouteName="dapps" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="dapps">
-        {() => <DAppsScreen catalog={catalog} />}
+        {() => <DAppsScreen catalog={catalog} openExternalUrl={openExternalUrl} />}
       </Stack.Screen>
     </Stack.Navigator>
   );

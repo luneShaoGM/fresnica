@@ -1,6 +1,6 @@
-import {StyleSheet} from 'react-native';
+import { StyleSheet } from 'react-native';
 
-import type {AppTheme} from '../../../../ui/theme';
+import type { AppTheme } from '../../../../ui/theme';
 
 export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
@@ -42,6 +42,40 @@ export function createStyles(theme: AppTheme) {
       fontSize: 18,
       color: theme.colors.surfaceStrong,
       fontWeight: '700',
+    },
+    websiteSection: {
+      gap: 9,
+      paddingVertical: 12,
+    },
+    websiteConfirmation: {
+      gap: 12,
+      borderColor: theme.colors.border,
+      borderWidth: 1,
+      borderRadius: 12,
+      padding: 16,
+      backgroundColor: theme.colors.surface,
+    },
+    websiteWarning: {
+      fontSize: 16,
+      lineHeight: 22,
+      color: theme.colors.negativeStrong,
+      fontWeight: '700',
+    },
+    websiteOrigin: {
+      color: theme.colors.textPrimary,
+      fontSize: 16,
+      lineHeight: 22,
+      fontWeight: '700',
+    },
+    websiteDetail: {
+      color: theme.colors.textSecondary,
+      fontSize: 13,
+      lineHeight: 19,
+    },
+    websiteError: {
+      color: theme.colors.negativeStrong,
+      fontSize: 13,
+      lineHeight: 19,
     },
     previewNotice: {
       color: theme.colors.textSecondary,
