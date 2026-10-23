@@ -50,6 +50,11 @@ export function HomeStackNavigator({
   // Async Continue callbacks must read the latest account selection, not their render's captured value.
   const selectionRef = useRef({ selectedAccountId, accounts });
   selectionRef.current = { selectedAccountId, accounts };
+  const readRuntime = useSyncExternalStore(
+    services.ledgerReadRuntime.subscribe,
+    services.ledgerReadRuntime.getSnapshot,
+    services.ledgerReadRuntime.getSnapshot,
+  );
   const invalidationRevision = useSyncExternalStore(
     services.ledgerReadInvalidation.subscribe,
     () => services.ledgerReadInvalidation.getRevision(selectedAccount.networkId, selectedAccount.id),
@@ -61,6 +66,7 @@ export function HomeStackNavigator({
       <Stack.Screen name="home">
         {({ navigation }) => (
           <HomeRoute
+            foreground={readRuntime.foreground}
             account={selectedAccount}
             accountCount={selectableAccounts.length}
             selectableAccounts={selectableAccounts}
@@ -87,6 +93,7 @@ export function HomeStackNavigator({
           const account = resolveVisibleAccount(accounts, route.params.accountId);
           return (
             <AssetDetailsRoute
+              foreground={readRuntime.foreground}
               account={account}
               asset={route.params.asset}
               dependencies={services.balance}
@@ -312,12 +319,18 @@ function RequestRoute({
   );
 }
 
-function HomeRoute(props: Omit<React.ComponentProps<typeof HomeScreen>, 'active'>) {
-  const active = useIsFocused();
-  return <HomeScreen {...props} active={active} />;
+function HomeRoute({
+  foreground,
+  ...props
+}: Omit<React.ComponentProps<typeof HomeScreen>, 'active'> & { foreground: boolean }) {
+  const focused = useIsFocused();
+  return <HomeScreen {...props} active={focused && foreground} />;
 }
 
-function AssetDetailsRoute(props: Omit<React.ComponentProps<typeof AssetDetailsScreen>, 'active'>) {
-  const active = useIsFocused();
-  return <AssetDetailsScreen {...props} active={active} />;
+function AssetDetailsRoute({
+  foreground,
+  ...props
+}: Omit<React.ComponentProps<typeof AssetDetailsScreen>, 'active'> & { foreground: boolean }) {
+  const focused = useIsFocused();
+  return <AssetDetailsScreen {...props} active={focused && foreground} />;
 }

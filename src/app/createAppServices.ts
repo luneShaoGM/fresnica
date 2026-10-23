@@ -1,5 +1,8 @@
 import { NativeModules } from 'react-native';
 
+import { createLedgerReadRuntime, type LedgerReadRuntime } from './readModels/LedgerReadRuntime';
+import { createDisplayReadGateway } from './readModels/createDisplayReadGateway';
+
 import { APP_CONFIG } from './config/appConfig';
 import { SessionLogger } from './diagnostics/SessionLogger';
 import type { AccountSelectionPreferenceStore } from './accountSelectionPreferences';
@@ -65,6 +68,7 @@ export type AppServices = Readonly<{
   dappCatalog: DappCatalogPort;
   transactionRecovery: TransactionReconciliationCoordinator;
   ledgerReadInvalidation: LedgerReadInvalidationStore;
+  ledgerReadRuntime: LedgerReadRuntime;
   localePreferences: RealmLocalePreferenceStore;
   accountSelectionPreferences: AccountSelectionPreferenceStore;
   externalUrl: ExternalUrlOpener;
@@ -88,6 +92,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const pendingSubmissions = new RealmPendingSubmissionRepository(realm);
     const historyCache = new RealmHistoryCacheRepository(realm);
     const ledgerReadInvalidation = createLedgerReadInvalidationStore();
+    const ledgerReadRuntime = createLedgerReadRuntime();
     const recovery = Object.freeze({
       repository: pendingSubmissions,
       readInvalidation: ledgerReadInvalidation,
@@ -100,6 +105,17 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const stellarGateway = new StellarSdkGateway({
       network,
       horizonUrl: APP_CONFIG.network.horizonUrl,
+    });
+    const displayReadGateway = createDisplayReadGateway({
+      gateway: stellarGateway,
+      runtime: ledgerReadRuntime,
+      getAccountRevision: address =>
+        JSON.stringify(
+          repository
+            .listAccounts()
+            .filter(account => account.networkId === network.id && account.address === address)
+            .map(account => [account.id, ledgerReadInvalidation.getRevision(network.id, account.id)]),
+        ),
     });
     const pathPaymentGateway = new StellarPathPaymentSdkGateway({
       network,
@@ -144,7 +160,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         repository,
       },
       balance: {
-        gateway: stellarGateway,
+        gateway: displayReadGateway,
         networkId: network.id,
       },
       friendbot: {
@@ -182,7 +198,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         transactionRecovery,
       },
       history: {
-        gateway: stellarGateway,
+        gateway: displayReadGateway,
         networkId: network.id,
         cache: historyCache,
         now: () => new Date(),
@@ -203,6 +219,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       dappCatalog: unconfiguredDappCatalog,
       transactionRecovery,
       ledgerReadInvalidation,
+      ledgerReadRuntime,
       localePreferences,
       accountSelectionPreferences,
       externalUrl: reactNativeExternalUrlOpener,

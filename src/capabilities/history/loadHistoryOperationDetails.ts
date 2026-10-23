@@ -26,7 +26,7 @@ export async function loadHistoryOperationDetails(
     throw new Error('invalid-history-operation-id');
   }
 
-  const result = await dependencies.gateway.loadOperation({operationId});
+  const result = await dependencies.gateway.loadOperation({operationId, accountAddress: account.address});
   if (result.status === 'not-found') {
     return {status: 'not-found'};
   }
