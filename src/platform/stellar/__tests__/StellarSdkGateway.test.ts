@@ -365,7 +365,10 @@ describe('StellarSdkGateway', () => {
     horizon.loadOperation.mockResolvedValue(operation('777'));
 
     await expect(
-      new StellarSdkGateway(TEST_GATEWAY_CONFIG, horizon).loadOperation({ operationId: '777' }),
+      new StellarSdkGateway(TEST_GATEWAY_CONFIG, horizon).loadOperation({
+        operationId: '777',
+        accountAddress: sourceAddress,
+      }),
     ).resolves.toEqual({ status: 'found', record: normalizedOperation('777') });
     expect(horizon.loadOperation).toHaveBeenCalledWith('777');
   });
@@ -390,7 +393,10 @@ describe('StellarSdkGateway', () => {
     });
 
     await expect(
-      new StellarSdkGateway(TEST_GATEWAY_CONFIG, horizon).loadOperation({ operationId: '778' }),
+      new StellarSdkGateway(TEST_GATEWAY_CONFIG, horizon).loadOperation({
+        operationId: '778',
+        accountAddress: sourceAddress,
+      }),
     ).resolves.toEqual({
       status: 'found',
       record: {
@@ -413,10 +419,14 @@ describe('StellarSdkGateway', () => {
     horizon.loadOperation.mockRejectedValue({ response: { status: 404 } });
     const gateway = new StellarSdkGateway(TEST_GATEWAY_CONFIG, horizon);
 
-    await expect(gateway.loadOperation({ operationId: 'missing' })).resolves.toEqual({ status: 'not-found' });
+    await expect(gateway.loadOperation({ operationId: 'missing', accountAddress: sourceAddress })).resolves.toEqual({
+      status: 'not-found',
+    });
 
     horizon.loadOperation.mockRejectedValueOnce(new Error('timeout'));
-    await expect(gateway.loadOperation({ operationId: '900' })).rejects.toThrow('timeout');
+    await expect(gateway.loadOperation({ operationId: '900', accountAddress: sourceAddress })).rejects.toThrow(
+      'timeout',
+    );
   });
 
   it('loads account operations in descending cursor pages', async () => {

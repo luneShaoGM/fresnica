@@ -1,3 +1,6 @@
+import type { HistoryOperationLookupResult } from '@capabilities/history/HistoryGateway';
+import { loadHistoryOperationDetails } from '@capabilities/history/loadHistoryOperationDetails';
+
 import { createDisplayReadGateway } from '../createDisplayReadGateway';
 import { createLedgerReadRuntime } from '../LedgerReadRuntime';
 
@@ -17,7 +20,7 @@ function setup() {
       status: 'inactive' as const,
       address: input.address,
     })),
-    loadOperation: jest.fn(async () => ({ status: 'not-found' as const })),
+    loadOperation: jest.fn(async (): Promise<HistoryOperationLookupResult> => ({ status: 'not-found' })),
   };
   const reads = createDisplayReadGateway({
     gateway,
@@ -45,8 +48,8 @@ describe('display read gateway', () => {
       current.reads.loadAccountOperations({ address: 'GA', limit: 20 }),
       current.reads.loadAccountOperations({ address: 'GA', limit: 20, cursor: 'older' }),
       current.reads.loadAccountOperations({ address: 'GA', limit: 40 }),
-      current.reads.loadOperation({ operationId: 'one' }),
-      current.reads.loadOperation({ operationId: 'two' }),
+      current.reads.loadOperation({ operationId: 'one', accountAddress: 'GA' }),
+      current.reads.loadOperation({ operationId: 'two', accountAddress: 'GA' }),
     ]);
     expect(current.gateway.loadAccountBalances).toHaveBeenCalledTimes(2);
     expect(current.gateway.loadAccountOperations).toHaveBeenCalledTimes(3);
@@ -59,7 +62,9 @@ describe('display read gateway', () => {
     current.runtime.update({ foreground: true, connectivity: 'offline' });
     await expect(current.reads.loadAccountBalances('GA')).rejects.toThrow('ledger-read-offline');
     current.runtime.update({ foreground: false, connectivity: 'online' });
-    await expect(current.reads.loadOperation({ operationId: 'one' })).rejects.toThrow('ledger-read-paused');
+    await expect(current.reads.loadOperation({ operationId: 'one', accountAddress: 'GA' })).rejects.toThrow(
+      'ledger-read-paused',
+    );
     expect(current.gateway.loadAccountBalances).toHaveBeenCalledTimes(1);
     expect(current.gateway.loadOperation).not.toHaveBeenCalled();
   });
@@ -125,5 +130,67 @@ describe('display read gateway', () => {
     await expect(current.reads.loadAccountBalances('GA')).rejects.toThrow('network-error');
     await expect(current.reads.loadAccountBalances('GA')).resolves.toEqual({ status: 'inactive', address: 'GA' });
     expect(current.gateway.loadAccountBalances).toHaveBeenCalledTimes(2);
+  });
+  it('starts a fresh operation detail lookup after account invalidation and rejects an older not-found', async () => {
+    const current = setup();
+    const response = deferred<HistoryOperationLookupResult>();
+    current.gateway.loadOperation.mockReturnValueOnce(response.promise).mockResolvedValueOnce({
+      status: 'found',
+      record: {
+        id: 'one',
+        pagingToken: 'one',
+        type: 'future_operation',
+        occurredAt: '2026-10-23T00:00:00Z',
+        transactionHash: 'tx-one',
+        sourceAccount: 'GA',
+      },
+    });
+    const account = {
+      id: 'account-a',
+      networkId: 'stellar-testnet',
+      address: 'GA',
+      identityKind: 'classic' as const,
+      hidden: false,
+      label: 'A',
+      sortOrder: 0,
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+    };
+    const deps = { gateway: current.reads, networkId: account.networkId };
+    const old = loadHistoryOperationDetails(deps, account, 'one');
+    const oldOutcome = old.catch((error: unknown) => error);
+    await Promise.resolve();
+    current.revisions.set(account.address, '1');
+    const fresh = loadHistoryOperationDetails(deps, account, 'one');
+    await Promise.resolve();
+    response.resolve({ status: 'not-found' });
+    await expect(oldOutcome).resolves.toMatchObject({ message: 'ledger-read-superseded' });
+    await expect(fresh).resolves.toMatchObject({ status: 'ready', entry: { id: 'one' } });
+    expect(current.gateway.loadOperation).toHaveBeenCalledTimes(2);
+  });
+
+  it('isolates the same operation across requesting accounts and invalidates only the affected account', async () => {
+    const current = setup();
+    const accountA = deferred<HistoryOperationLookupResult>();
+    const accountB = deferred<HistoryOperationLookupResult>();
+    current.gateway.loadOperation.mockReturnValueOnce(accountA.promise).mockReturnValueOnce(accountB.promise);
+    const inputA = { operationId: 'one', accountAddress: 'GA' };
+    const inputB = { operationId: 'one', accountAddress: 'GB' };
+    const oldA = current.reads.loadOperation(inputA);
+    const pendingB = current.reads.loadOperation(inputB);
+    const oldOutcome = oldA.catch((error: unknown) => error);
+    await Promise.resolve();
+    expect(pendingB).not.toBe(oldA);
+    expect(current.reads.loadOperation(inputA)).toBe(oldA);
+    current.revisions.set('GA', '1');
+    const freshA = current.reads.loadOperation(inputA);
+    expect(freshA).not.toBe(oldA);
+    expect(current.reads.loadOperation(inputB)).toBe(pendingB);
+    accountA.resolve({ status: 'not-found' });
+    accountB.resolve({ status: 'not-found' });
+    await expect(oldOutcome).resolves.toMatchObject({ message: 'ledger-read-superseded' });
+    await expect(pendingB).resolves.toEqual({ status: 'not-found' });
+    await expect(freshA).resolves.toEqual({ status: 'not-found' });
+    expect(current.gateway.loadOperation).toHaveBeenCalledTimes(3);
   });
 });

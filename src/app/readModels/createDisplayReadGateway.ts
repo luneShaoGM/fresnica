@@ -20,12 +20,12 @@ export function createDisplayReadGateway(
     }>
   >();
 
-  function read<T>(key: readonly unknown[], address: string | undefined, load: () => Promise<T>): Promise<T> {
+  function read<T>(key: readonly unknown[], address: string, load: () => Promise<T>): Promise<T> {
     const snapshot = dependencies.runtime.getSnapshot();
     if (!snapshot.foreground || snapshot.connectivity === 'offline') {
       return Promise.reject(new Error(snapshot.foreground ? 'ledger-read-offline' : 'ledger-read-paused'));
     }
-    const revision = address === undefined ? '' : dependencies.getAccountRevision(address);
+    const revision = dependencies.getAccountRevision(address);
     const requestKey = JSON.stringify(key);
     const existing = inFlight.get(requestKey);
     if (existing?.snapshot === snapshot && existing.revision === revision) return existing.request as Promise<T>;
@@ -46,10 +46,7 @@ export function createDisplayReadGateway(
     return request;
 
     function assertCurrent() {
-      if (
-        dependencies.runtime.getSnapshot() !== snapshot ||
-        (address !== undefined && dependencies.getAccountRevision(address) !== revision)
-      ) {
+      if (dependencies.runtime.getSnapshot() !== snapshot || dependencies.getAccountRevision(address) !== revision) {
         throw new Error('ledger-read-superseded');
       }
     }
@@ -63,6 +60,8 @@ export function createDisplayReadGateway(
         dependencies.gateway.loadAccountOperations(input),
       ),
     loadOperation: input =>
-      read(['operation', input.operationId], undefined, () => dependencies.gateway.loadOperation(input)),
+      read(['operation', input.accountAddress, input.operationId], input.accountAddress, () =>
+        dependencies.gateway.loadOperation(input),
+      ),
   };
 }

@@ -342,7 +342,7 @@ export class StellarSdkGateway implements StellarGateway {
     }
   }
 
-  async loadOperation(input: { operationId: string }) {
+  async loadOperation(input: { operationId: string; accountAddress: string }) {
     const operationId = input.operationId.trim();
     if (!operationId) {
       throw new Error('invalid-history-operation-id');

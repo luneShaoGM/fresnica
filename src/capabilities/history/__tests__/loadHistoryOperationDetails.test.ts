@@ -60,7 +60,7 @@ describe('loadHistoryOperationDetails', () => {
       status: 'ready',
       entry: {id: '900', kind: 'payment', direction: 'outgoing'},
     });
-    expect(gateway.loadOperation).toHaveBeenCalledWith({operationId: '900'});
+    expect(gateway.loadOperation).toHaveBeenCalledWith({operationId: '900', accountAddress});
   });
 
   it('keeps Horizon not-found explicit', async () => {
