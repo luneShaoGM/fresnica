@@ -1,10 +1,14 @@
 import type { AccountRecord } from '../../capabilities/account/types';
+import type { BalanceCacheRepository } from '../../capabilities/balance/BalanceCacheRepository';
 import type { BalanceDependencies } from '../../capabilities/balance/loadBalanceSnapshot';
-import { loadBalanceSnapshot } from '../../capabilities/balance/loadBalanceSnapshot';
 import type { NetworkContext } from '../../capabilities/network/types';
 import { loadPathPaymentQuotes } from '../../capabilities/path-payment/loadPathPaymentQuotes';
 import { preparePathPayment } from '../../capabilities/path-payment/preparePathPayment';
 import { selectBestPathPaymentQuote } from '../../capabilities/path-payment/quotePolicy';
+import {
+  projectPathPaymentSourceAvailability,
+  type PathPaymentSourceAvailability,
+} from '../../capabilities/path-payment/sourceAvailability';
 import type {
   LoadPathPaymentQuotesDependencies,
   PathPaymentQuote,
@@ -13,9 +17,12 @@ import type {
   PreparedPathPaymentReview,
 } from '../../capabilities/path-payment/types';
 import type { StellarPaymentAsset } from '../../capabilities/stellar/types';
+import type { SwapAssetAvailabilityCache, SwapAssetAvailabilitySnapshot } from './swapAssetAvailabilityCache';
 
 export type SwapPreviewProductDependencies = Readonly<{
   network: NetworkContext;
+  assetCache: SwapAssetAvailabilityCache;
+  balanceCache?: Pick<BalanceCacheRepository, 'getSnapshot' | 'replaceSnapshot'>;
   balance: BalanceDependencies;
   quotes: LoadPathPaymentQuotesDependencies;
   prepare: PreparePathPaymentDependencies;
@@ -26,6 +33,7 @@ export type SwapPreviewDraft = Readonly<{
   sourceAsset: StellarPaymentAsset;
   destinationAsset: StellarPaymentAsset;
   fixedAmount: string;
+  allowIntermediatePaths?: boolean;
 }>;
 
 function assertCurrent(deps: SwapPreviewProductDependencies, account: AccountRecord, isCurrent: () => boolean): void {
@@ -52,24 +60,32 @@ function assertCurrent(deps: SwapPreviewProductDependencies, account: AccountRec
   }
 }
 
-export async function loadSwapPreviewAssets(
+export async function loadSwapAssetOptions(
   deps: SwapPreviewProductDependencies,
   account: AccountRecord,
   isCurrent: () => boolean,
-): Promise<readonly StellarPaymentAsset[]> {
+): Promise<readonly PathPaymentSourceAvailability[]> {
+  return (await loadSwapAssetAvailability(deps, account, isCurrent)).options;
+}
+
+export async function loadSwapAssetAvailability(
+  deps: SwapPreviewProductDependencies,
+  account: AccountRecord,
+  isCurrent: () => boolean,
+): Promise<SwapAssetAvailabilitySnapshot> {
   assertCurrent(deps, account, isCurrent);
-  const balance = await loadBalanceSnapshot(deps.balance, account);
+  const [accountState, ledger] = await Promise.all([
+    deps.prepare.preflight.gateway.loadAccountState(account.address),
+    deps.prepare.preflight.gateway.loadLedgerParameters(),
+  ]);
   assertCurrent(deps, account, isCurrent);
-  if (balance.status !== 'active' || balance.address !== account.address) {
+  if (accountState.status !== 'active' || accountState.account.address !== account.address) {
     throw new Error('swap-assets-unavailable');
   }
-  const assets = balance.balances.map(line =>
-    line.asset.kind === 'native'
-      ? ({ kind: 'native' } as const)
-      : ({ kind: 'credit', code: line.asset.code, issuer: line.asset.issuer } as const),
-  );
-  if (assets.length < 2) throw new Error('swap-assets-unavailable');
-  return Object.freeze(assets.map(asset => Object.freeze(asset)));
+  return Object.freeze({
+    options: Object.freeze(projectPathPaymentSourceAvailability(accountState.account, ledger)),
+    baseFeeStroops: ledger.baseFeeStroops,
+  });
 }
 
 export async function requestSwapPreviewQuotes(
@@ -79,7 +95,7 @@ export async function requestSwapPreviewQuotes(
   isCurrent: () => boolean,
 ): Promise<Readonly<{ quotes: readonly PathPaymentQuote[]; best: PathPaymentQuote }>> {
   assertCurrent(deps, account, isCurrent);
-  const quotes = await loadPathPaymentQuotes(deps.quotes, {
+  const loadedQuotes = await loadPathPaymentQuotes(deps.quotes, {
     network: deps.network,
     source: account.address,
     destination: account.address,
@@ -89,6 +105,9 @@ export async function requestSwapPreviewQuotes(
     fixedAmount: draft.fixedAmount,
   });
   assertCurrent(deps, account, isCurrent);
+  const quotes =
+    draft.allowIntermediatePaths === false ? loadedQuotes.filter(quote => quote.path.length === 0) : loadedQuotes;
+  if (quotes.length === 0) throw new Error('route_unavailable');
   return Object.freeze({ quotes, best: selectBestPathPaymentQuote(quotes) });
 }
 

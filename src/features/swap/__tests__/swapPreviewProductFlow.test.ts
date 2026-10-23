@@ -2,7 +2,8 @@ import type { AccountRecord } from '../../../capabilities/account/types';
 import { loadPathPaymentQuotes } from '../../../capabilities/path-payment/loadPathPaymentQuotes';
 import { preparePathPayment } from '../../../capabilities/path-payment/preparePathPayment';
 import type { PathPaymentQuote, PreparedPathPaymentReview } from '../../../capabilities/path-payment/types';
-import { loadSwapPreviewAssets, requestSwapPreviewQuotes, prepareSwapPreviewReview } from '../swapPreviewProductFlow';
+import type { StellarAccountStateResult } from '../../../capabilities/stellar/types';
+import { loadSwapAssetOptions, requestSwapPreviewQuotes, prepareSwapPreviewReview } from '../swapPreviewProductFlow';
 
 jest.mock('../../../capabilities/path-payment/loadPathPaymentQuotes');
 jest.mock('../../../capabilities/path-payment/preparePathPayment');
@@ -41,18 +42,40 @@ const quote: PathPaymentQuote = Object.freeze({
 const review = { quote, transactionXdrBase64: 'unsigned' } as PreparedPathPaymentReview;
 
 function fixture() {
-  const loadAccountBalances = jest.fn(async () => ({
+  const loadAccountState = jest.fn(async (): Promise<StellarAccountStateResult> => ({
     status: 'active' as const,
-    address: account.address,
-    balances: [
-      { kind: 'native' as const, balance: '20.0000000' },
-      { kind: 'credit' as const, code: 'USDC', issuer: 'GISSUER', balance: '9.0000000', limit: '100' },
-    ],
+    account: {
+      address: account.address,
+      subentryCount: 1,
+      numSponsoring: 0,
+      numSponsored: 0,
+      flags: { authRequired: false, authClawbackEnabled: false },
+      balances: [
+        {
+          kind: 'native' as const,
+          balance: '20.0000000',
+          sellingLiabilities: '1.0000000',
+          buyingLiabilities: '0.0000000',
+        },
+        {
+          kind: 'credit' as const,
+          code: 'USDC',
+          issuer: 'GISSUER',
+          balance: '9.0000000',
+          limit: '100',
+          sellingLiabilities: '2.0000000',
+          buyingLiabilities: '0.0000000',
+          isAuthorized: true,
+          isAuthorizedToMaintainLiabilities: true,
+          isClawbackEnabled: false,
+        },
+      ],
+    },
   }));
   const loadLedgerParameters = jest.fn(async () => ({ baseFeeStroops: 100, baseReserveStroops: 5000000 }));
   const deps = {
     network,
-    balance: { networkId: network.id, gateway: { loadAccountBalances } },
+    balance: { networkId: network.id, gateway: { loadAccountBalances: jest.fn() } },
     quotes: {
       network,
       gateway: { network, loadStrictSendPaths: jest.fn(), loadStrictReceivePaths: jest.fn() },
@@ -63,13 +86,13 @@ function fixture() {
     prepare: {
       preflight: {
         network,
-        gateway: { network, loadLedgerParameters },
+        gateway: { network, loadAccountState, loadLedgerParameters },
         clock: { nowUnixMs: () => 100, nowMonotonicMs: () => 100 },
       },
       transactionGateway: { network },
     },
   };
-  return { deps, loadAccountBalances, loadLedgerParameters };
+  return { deps, loadAccountState, loadLedgerParameters };
 }
 
 beforeEach(() => {
@@ -80,20 +103,26 @@ beforeEach(() => {
 
 describe('Swap product read-only quote → prepare → exact-XDR review', () => {
   it('loads only current Classic account real balances, preserving full issuer identity', async () => {
-    const { deps, loadAccountBalances } = fixture();
-    const assets = await loadSwapPreviewAssets(deps as never, account, () => true);
-    expect(assets).toEqual([XLM, USD]);
-    expect(loadAccountBalances).toHaveBeenCalledWith(account.address);
+    const { deps, loadAccountState } = fixture();
+    const assets = await loadSwapAssetOptions(deps as never, account, () => true);
+    expect(assets).toEqual([
+      { asset: XLM, balance: '20.0000000', spendable: '17.4999900' },
+      { asset: USD, balance: '9.0000000', spendable: '7.0000000' },
+    ]);
+    expect(loadAccountState).toHaveBeenCalledWith(account.address);
   });
 
   it('blocks stale active account from revealing balances after awaited Horizon read', async () => {
-    const { deps, loadAccountBalances } = fixture();
+    const { deps, loadAccountState } = fixture();
     let active = true;
-    loadAccountBalances.mockImplementationOnce(async () => {
+    loadAccountState.mockImplementationOnce(async () => {
       active = false;
-      return { status: 'active', address: account.address, balances: [] };
+      return {
+        status: 'inactive' as const,
+        address: account.address,
+      };
     });
-    await expect(loadSwapPreviewAssets(deps as never, account, () => active)).rejects.toThrow('swap-session-stale');
+    await expect(loadSwapAssetOptions(deps as never, account, () => active)).rejects.toThrow('swap-session-stale');
   });
 
   it('requests same-account strict-send quote and best path without changing user-selected fixed side', async () => {
@@ -115,6 +144,41 @@ describe('Swap product read-only quote → prepare → exact-XDR review', () => 
     });
     expect(result.best).toBe(quote);
     expect(result.quotes).toEqual([quote]);
+  });
+
+  it('keeps only direct routes when intermediate assets are disabled', async () => {
+    const { deps } = fixture();
+    const intermediate = { ...quote, path: [USD] };
+    (loadPathPaymentQuotes as jest.Mock).mockResolvedValueOnce([intermediate, quote]);
+    const result = await requestSwapPreviewQuotes(
+      deps as never,
+      account,
+      {
+        sourceAsset: XLM,
+        destinationAsset: USD,
+        mode: 'strict_send',
+        fixedAmount: '5',
+        allowIntermediatePaths: false,
+      },
+      () => true,
+    );
+    expect(result.quotes).toEqual([quote]);
+
+    (loadPathPaymentQuotes as jest.Mock).mockResolvedValueOnce([intermediate]);
+    await expect(
+      requestSwapPreviewQuotes(
+        deps as never,
+        account,
+        {
+          sourceAsset: XLM,
+          destinationAsset: USD,
+          mode: 'strict_send',
+          fixedAmount: '5',
+          allowIntermediatePaths: false,
+        },
+        () => true,
+      ),
+    ).rejects.toThrow('route_unavailable');
   });
 
   it('drops quote results after route blur or selection change while Horizon loads', async () => {

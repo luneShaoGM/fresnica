@@ -1,28 +1,52 @@
+import Clipboard from '@react-native-clipboard/clipboard';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  ActivityIndicator,
+  BackHandler,
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
-import { Screen } from '@ui/components';
+import { AccountIdentityCard, Screen, TransactionResult } from '@ui/components';
+import type { TransactionResultAction, TransactionResultDetail, TransactionResultTone } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import { SlideToConfirm } from '../../ui/SlideToConfirm';
 import { useThemedStyles } from '../../ui/theme';
 import { useLocalization } from '../../locale';
+import { rememberSpendableAssets } from '../../capabilities/balance/BalanceCacheRepository';
 import type { AccountRecord } from '../../capabilities/account/types';
 import type { PendingSubmissionRecord } from '../../capabilities/transaction/pendingSubmission';
 import type { SubmitReviewedTransactionResult } from '../../capabilities/transaction/submitReviewedTransaction';
 import type { StellarPaymentAsset } from '../../capabilities/stellar/types';
+import { transactionExplorerUrl } from '../../capabilities/network/transactionExplorer';
 import type {
   PathPaymentMode,
   PathPaymentQuote,
   PreparedPathPaymentReview,
 } from '../../capabilities/path-payment/types';
+import type { PathPaymentSourceAvailability } from '../../capabilities/path-payment/sourceAvailability';
+import { derivePathPaymentProtection } from '../../capabilities/path-payment/quotePolicy';
 import { projectFeatureError } from '../featureError';
 import {
-  loadSwapPreviewAssets,
+  loadSwapAssetAvailability,
   prepareSwapPreviewReview,
   requestSwapPreviewQuotes,
   type SwapPreviewProductDependencies,
 } from './swapPreviewProductFlow';
+import { readCachedSwapAssets, spendableAssetsFromOptions } from './cachedSwapAssets';
 import { createSwapPreviewStyles } from './styles';
+import { isQuotableSwapAmount, SwapAmountInput } from './SwapAmountInput';
+import {
+  formatSlippagePermille,
+  formatSwapRate,
+  normalizeSlippagePermille,
+  parseSlippagePermille,
+} from './swapPresentation';
 import { SwapPassphraseInput, type SwapPassphraseInputHandle } from './SwapPassphraseInput';
 import {
   listSwapHistory,
@@ -45,6 +69,8 @@ type Props = Readonly<{
   dependencies: SwapPreviewProductDependencies;
   execution: SwapSubmissionProductDependencies;
   captureSession: () => () => boolean;
+  openExternalUrl: (url: string) => Promise<void>;
+  onManageAssets: () => void;
   onDone: () => void;
 }>;
 
@@ -52,8 +78,73 @@ function assetLabel(asset: StellarPaymentAsset): string {
   return asset.kind === 'native' ? 'XLM' : asset.code + ' · ' + asset.issuer;
 }
 
-function fullPath(assets: readonly StellarPaymentAsset[]): string {
-  return assets.length === 0 ? '—' : assets.map(assetLabel).join(' → ');
+function resultTone(status: SwapTerminalResult['status']): TransactionResultTone {
+  switch (status) {
+    case 'submitted':
+      return 'success';
+    case 'uncertain':
+      return 'unverified';
+    case 'rejected':
+    case 'authorization-blocked':
+    case 'unsupported-signer':
+      return 'failed';
+  }
+}
+
+function fullPath(assets: readonly StellarPaymentAsset[], directLabel = '—'): string {
+  return assets.length === 0 ? directLabel : assets.map(assetLabel).join(' → ');
+}
+
+function pathIdentity(assets: readonly StellarPaymentAsset[]): string {
+  return assets.length === 0 ? 'direct' : assets.map(assetLabel).join('>');
+}
+
+function initialShownAssets(
+  dependencies: SwapPreviewProductDependencies,
+  account: AccountRecord,
+): Readonly<{ options: readonly PathPaymentSourceAvailability[]; fee?: number; ready: boolean }> {
+  const memory = dependencies.assetCache?.get(dependencies.network.id, account.id);
+  if (memory && memory.options.length > 0) {
+    return { options: memory.options, fee: memory.baseFeeStroops, ready: true };
+  }
+  const durable = readCachedSwapAssets(dependencies.balanceCache, account);
+  if (durable && durable.options.length > 0) {
+    return {
+      options: durable.options,
+      fee: durable.authoritative ? durable.baseFeeStroops : undefined,
+      ready: true,
+    };
+  }
+  return { options: [], ready: false };
+}
+
+function availabilityIdentity(option: PathPaymentSourceAvailability): string {
+  return option.asset.kind === 'native' ? 'native' : `${option.asset.code}:${option.asset.issuer}`;
+}
+
+function mergeShownAvailability(
+  current: readonly PathPaymentSourceAvailability[],
+  next: readonly PathPaymentSourceAvailability[],
+): readonly PathPaymentSourceAvailability[] {
+  if (current.length === 0) return next;
+  const incoming = new Map(next.map(option => [availabilityIdentity(option), option]));
+  const merged = current.map(option => incoming.get(availabilityIdentity(option)) ?? option);
+  const seen = new Set(merged.map(availabilityIdentity));
+  return [...merged, ...next.filter(option => !seen.has(availabilityIdentity(option)))];
+}
+
+function quoteProtectionValue(
+  quote: PathPaymentQuote,
+  slippageBps: number | undefined,
+  dependencies: SwapPreviewProductDependencies,
+): string {
+  if (slippageBps === undefined) return '—';
+  try {
+    const protection = derivePathPaymentProtection(quote, slippageBps, dependencies.quotes);
+    return protection.mode === 'strict_send' ? protection.destinationMinimum : protection.sourceMaximum;
+  } catch {
+    return '—';
+  }
 }
 
 export function SwapPreviewScreen({
@@ -63,18 +154,24 @@ export function SwapPreviewScreen({
   dependencies,
   execution,
   captureSession,
+  openExternalUrl,
+  onManageAssets,
   onDone,
 }: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createSwapPreviewStyles);
-  const [assets, setAssets] = useState<readonly StellarPaymentAsset[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [assetOptions, setAssetOptions] = useState(() => initialShownAssets(dependencies, account).options);
+  const [loading, setLoading] = useState(() => !initialShownAssets(dependencies, account).ready);
   const [assetLoadRevision, setAssetLoadRevision] = useState(0);
   const [sourceIndex, setSourceIndex] = useState(0);
   const [destinationIndex, setDestinationIndex] = useState(1);
   const [mode, setMode] = useState<PathPaymentMode>('strict_send');
-  const [amount, setAmount] = useState('');
-  const [slippageInput, setSlippageInput] = useState('100');
+  const [sourceAmount, setSourceAmount] = useState('');
+  const [destinationAmount, setDestinationAmount] = useState('');
+  const [slippageInput, setSlippageInput] = useState('5');
+  const [allowIntermediatePaths, setAllowIntermediatePaths] = useState(true);
+  const [settingsExpanded, setSettingsExpanded] = useState(false);
+  const [assetPicker, setAssetPicker] = useState<'source' | 'destination'>();
   const [view, setView] = useState<ViewState>({ kind: 'form' });
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -84,11 +181,20 @@ export function SwapPreviewScreen({
   const [history, setHistory] = useState<readonly PendingSubmissionRecord[]>([]);
   const [reconcileError, setReconcileError] = useState<string>();
   const [reconciling, setReconciling] = useState(false);
+  const [explorerState, setExplorerState] = useState<'idle' | 'opening' | 'failed'>('idle');
+  const [settingsSlippageDraft, setSettingsSlippageDraft] = useState('5');
+  const [estimatedFeeStroops, setEstimatedFeeStroops] = useState(() => initialShownAssets(dependencies, account).fee);
+  const [assetSnapshotCurrent, setAssetSnapshotCurrent] = useState(
+    () => initialShownAssets(dependencies, account).ready,
+  );
   const attempt = useRef(0);
   const locked = useRef(false);
   const submitLocked = useRef(false);
   const reconcileLocked = useRef(false);
+  const explorerLocked = useRef(false);
   const securePassphraseInput = useRef<SwapPassphraseInputHandle>(null);
+  const selectedPathIdentity = useRef<string | undefined>(undefined);
+  const assetAttempt = useRef(0);
 
   const clearPassphrase = useCallback(() => {
     securePassphraseInput.current?.clear();
@@ -97,18 +203,43 @@ export function SwapPreviewScreen({
 
   const resetQuotes = useCallback(() => {
     attempt.current += 1;
+    locked.current = false;
+    setBusy(false);
     setError(undefined);
     setPassphraseRequired(false);
     clearPassphrase();
+    setExplorerState('idle');
+    explorerLocked.current = false;
     setView({ kind: 'form' });
   }, [clearPassphrase]);
 
   useEffect(() => {
-    const generation = ++attempt.current;
+    if (view.kind !== 'review') return undefined;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!submitting) resetQuotes();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [resetQuotes, submitting, view.kind]);
+
+  useEffect(() => {
+    const generation = ++assetAttempt.current;
+    const memory = dependencies.assetCache?.get(dependencies.network.id, account.id);
+    const durable = readCachedSwapAssets(dependencies.balanceCache, account);
+    const shown = memory
+      ? { options: memory.options, baseFeeStroops: memory.baseFeeStroops, authoritative: true }
+      : durable;
+    const hasShownAssets = shown !== undefined && shown.options.length > 0;
     locked.current = false;
-    setAssets([]);
+    setAssetOptions(shown?.options ?? []);
+    setEstimatedFeeStroops(shown?.authoritative ? shown.baseFeeStroops : undefined);
+    setAssetSnapshotCurrent(hasShownAssets);
     setSourceIndex(0);
     setDestinationIndex(1);
+    setSourceAmount('');
+    setDestinationAmount('');
+    setMode('strict_send');
+    setAssetPicker(undefined);
     setView({ kind: 'form' });
     setError(undefined);
     setBusy(false);
@@ -118,18 +249,21 @@ export function SwapPreviewScreen({
     setHistory([]);
     setReconcileError(undefined);
     setReconciling(false);
-    setLoading(active);
-    if (!active)
+    setExplorerState('idle');
+    explorerLocked.current = false;
+    setLoading(active && !hasShownAssets);
+    if (!active) {
       return () => {
-        attempt.current += 1;
+        assetAttempt.current += 1;
       };
+    }
     const session = captureSession();
-    const valid = () => attempt.current === generation && session();
+    const valid = () => assetAttempt.current === generation && session();
     if (!valid()) {
       setLoading(false);
       setError(t('swap.error.session'));
       return () => {
-        attempt.current += 1;
+        assetAttempt.current += 1;
       };
     }
     try {
@@ -137,28 +271,43 @@ export function SwapPreviewScreen({
     } catch (caught) {
       if (valid()) setReconcileError(errorText(caught, t));
     }
-    loadSwapPreviewAssets(dependencies, account, valid)
-      .then(available => {
+    loadSwapAssetAvailability(dependencies, account, valid)
+      .then(snapshot => {
         if (!valid()) return;
-        setAssets(available);
+        dependencies.assetCache?.set(dependencies.network.id, account.id, snapshot);
+        if (dependencies.balanceCache && account.identityKind === 'classic') {
+          rememberSpendableAssets(
+            dependencies.balanceCache,
+            { networkId: account.networkId, accountAddress: account.address },
+            spendableAssetsFromOptions(snapshot.options),
+            snapshot.baseFeeStroops,
+            new Date(),
+          );
+        }
+        setAssetOptions(current => mergeShownAvailability(current, snapshot.options));
+        setEstimatedFeeStroops(snapshot.baseFeeStroops);
+        setAssetSnapshotCurrent(true);
       })
       .catch(caught => {
         if (!valid()) return;
+        if (!hasShownAssets) dependencies.assetCache?.remove(dependencies.network.id, account.id);
         setError(errorText(caught, t));
       })
       .finally(() => {
         if (valid()) setLoading(false);
       });
     return () => {
-      attempt.current += 1;
+      assetAttempt.current += 1;
     };
   }, [account, active, assetLoadRevision, captureSession, clearPassphrase, dependencies, execution, t]);
 
   const startQuote = useCallback(async () => {
-    if (busy || locked.current || assets.length < 2) return;
-    const sourceAsset = assets[sourceIndex];
-    const destinationAsset = assets[destinationIndex];
+    if (busy || locked.current || !assetSnapshotCurrent || assetOptions.length < 2) return;
+    const sourceAsset = assetOptions[sourceIndex]?.asset;
+    const destinationAsset = assetOptions[destinationIndex]?.asset;
     if (!sourceAsset || !destinationAsset) return;
+    const fixedAmount = mode === 'strict_send' ? sourceAmount : destinationAmount;
+    if (!isQuotableSwapAmount(fixedAmount)) return;
     locked.current = true;
     const generation = ++attempt.current;
     const session = captureSession();
@@ -171,13 +320,21 @@ export function SwapPreviewScreen({
         account,
         {
           mode,
-          fixedAmount: amount,
+          fixedAmount,
           sourceAsset,
           destinationAsset,
+          allowIntermediatePaths,
         },
         valid,
       );
-      if (valid()) setView({ kind: 'quotes', ...result, selected: result.best });
+      if (valid()) {
+        const selected =
+          result.quotes.find(quote => pathIdentity(quote.path) === selectedPathIdentity.current) ?? result.best;
+        selectedPathIdentity.current = pathIdentity(selected.path);
+        if (mode === 'strict_send') setDestinationAmount(selected.destinationAmount);
+        else setSourceAmount(selected.sourceAmount);
+        setView({ kind: 'quotes', ...result, selected });
+      }
     } catch (caught) {
       if (valid()) setError(errorText(caught, t));
     } finally {
@@ -186,12 +343,119 @@ export function SwapPreviewScreen({
         if (valid()) setBusy(false);
       }
     }
-  }, [account, amount, assets, busy, captureSession, dependencies, destinationIndex, mode, sourceIndex, t]);
+  }, [
+    account,
+    allowIntermediatePaths,
+    assetSnapshotCurrent,
+    assetOptions,
+    busy,
+    captureSession,
+    dependencies,
+    destinationAmount,
+    destinationIndex,
+    mode,
+    sourceAmount,
+    sourceIndex,
+    t,
+  ]);
+  const quoteRequest = useRef<() => Promise<void>>(async () => undefined);
+  quoteRequest.current = startQuote;
+
+  useEffect(() => {
+    const fixedAmount = mode === 'strict_send' ? sourceAmount : destinationAmount;
+    if (
+      view.kind !== 'form' ||
+      loading ||
+      !assetSnapshotCurrent ||
+      assetOptions.length < 2 ||
+      !isQuotableSwapAmount(fixedAmount)
+    )
+      return;
+    const timer = setTimeout(() => {
+      void quoteRequest.current();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [
+    allowIntermediatePaths,
+    assetOptions.length,
+    assetSnapshotCurrent,
+    destinationAmount,
+    destinationIndex,
+    loading,
+    mode,
+    sourceAmount,
+    sourceIndex,
+    view.kind,
+  ]);
+
+  const editSourceAmount = useCallback(
+    (value: string) => {
+      setMode('strict_send');
+      setSourceAmount(value);
+      setDestinationAmount('');
+      resetQuotes();
+    },
+    [resetQuotes],
+  );
+
+  const editDestinationAmount = useCallback(
+    (value: string) => {
+      setMode('strict_receive');
+      setDestinationAmount(value);
+      setSourceAmount('');
+      resetQuotes();
+    },
+    [resetQuotes],
+  );
+
+  const exchangeAssets = useCallback(() => {
+    setSourceIndex(destinationIndex);
+    setDestinationIndex(sourceIndex);
+    setSourceAmount('');
+    setDestinationAmount('');
+    selectedPathIdentity.current = undefined;
+    setAssetPicker(undefined);
+    resetQuotes();
+  }, [destinationIndex, resetQuotes, sourceIndex]);
+
+  const selectAsset = useCallback(
+    (side: 'source' | 'destination', index: number) => {
+      if (side === 'source') {
+        if (index === destinationIndex) {
+          setDestinationIndex(sourceIndex);
+        }
+        setSourceIndex(index);
+      } else {
+        if (index === sourceIndex) {
+          setSourceIndex(destinationIndex);
+        }
+        setDestinationIndex(index);
+      }
+      setSourceAmount('');
+      setDestinationAmount('');
+      selectedPathIdentity.current = undefined;
+      setAssetPicker(undefined);
+      resetQuotes();
+    },
+    [destinationIndex, resetQuotes, sourceIndex],
+  );
+
+  const selectQuote = useCallback(
+    (quote: PathPaymentQuote) => {
+      attempt.current += 1;
+      setError(undefined);
+      selectedPathIdentity.current = pathIdentity(quote.path);
+      setSourceAmount(quote.sourceAmount);
+      setDestinationAmount(quote.destinationAmount);
+      if (view.kind === 'quotes') setView({ ...view, selected: quote });
+    },
+    [view],
+  );
 
   const startReview = useCallback(async () => {
     if (view.kind !== 'quotes' || busy || locked.current) return;
-    const slippageText = slippageInput.trim();
-    if (!/^(0|[1-9]\d{0,3})$/.test(slippageText) || Number(slippageText) > 1000) {
+    const slippageBps = parseSlippagePermille(slippageInput);
+    if (slippageBps === undefined) {
       setError(t('swap.error.slippage'));
       return;
     }
@@ -202,7 +466,7 @@ export function SwapPreviewScreen({
     setBusy(true);
     setError(undefined);
     try {
-      const review = await prepareSwapPreviewReview(dependencies, account, view.selected, Number(slippageText), valid);
+      const review = await prepareSwapPreviewReview(dependencies, account, view.selected, slippageBps, valid);
       if (valid()) setView({ kind: 'review', review });
     } catch (caught) {
       if (valid()) setError(errorText(caught, t));
@@ -282,6 +546,10 @@ export function SwapPreviewScreen({
   }, [account, busy, captureSession, execution, submitting, t]);
 
   const unresolved = history.some(record => record.state === 'uncertain' || record.state === 'submitting');
+  const sourceOption = assetOptions[sourceIndex];
+  const destinationOption = assetOptions[destinationIndex];
+  const selectedQuote = view.kind === 'quotes' ? view.selected : undefined;
+  const showTradeForm = view.kind === 'form' || view.kind === 'quotes';
   const accountCurrent = selectedAccountId === account.id && active;
   if (!accountCurrent) {
     return (
@@ -300,24 +568,118 @@ export function SwapPreviewScreen({
     onDone();
   };
 
+  const onHeaderBack = () => {
+    if (view.kind === 'review') {
+      if (!submitting) resetQuotes();
+      return;
+    }
+    close();
+  };
+
+  const resultHash =
+    view.kind === 'result'
+      ? 'hash' in view.result
+        ? view.result.hash
+        : 'transactionHash' in view.result
+          ? view.result.transactionHash
+          : undefined
+      : undefined;
+  const explorerUrl = resultHash === undefined ? undefined : transactionExplorerUrl(account.networkId, resultHash);
+  const formControlsDisabled = busy && view.kind !== 'form';
+  const openResultExplorer = async () => {
+    if (explorerUrl === undefined || explorerLocked.current) return;
+    explorerLocked.current = true;
+    setExplorerState('opening');
+    try {
+      await openExternalUrl(explorerUrl);
+      setExplorerState('idle');
+    } catch {
+      setExplorerState('failed');
+      AccessibilityInfo.announceForAccessibility(t('swap.result.explorerError'));
+    } finally {
+      explorerLocked.current = false;
+    }
+  };
+
+  if (view.kind === 'result') {
+    const details: TransactionResultDetail[] = [];
+    if (resultHash) {
+      details.push({ label: t('swap.history.hash'), value: resultHash, copyLabel: t('common.copy') });
+    }
+    if (view.result.status === 'submitted' && view.result.ledger !== undefined) {
+      details.push({ label: t('swap.history.ledger'), value: String(view.result.ledger) });
+    }
+    if (view.result.status === 'rejected' && view.result.resultCode) {
+      details.push({ label: t('swap.result.code'), value: view.result.resultCode, copyLabel: t('common.copy') });
+    }
+    if (view.result.status === 'authorization-blocked') {
+      details.push({ label: t('swap.result.reason'), value: view.result.reason });
+    }
+    const highlight =
+      view.result.status === 'submitted' && sourceOption && destinationOption && sourceAmount && destinationAmount
+        ? `${sourceAmount} ${assetShortLabel(sourceOption.asset)} → ${destinationAmount} ${assetShortLabel(destinationOption.asset)}`
+        : undefined;
+    const resultActions: TransactionResultAction[] = [];
+    if (unresolved || view.result.status === 'uncertain') {
+      resultActions.push({
+        label: reconciling ? t('swap.history.checking') : t('swap.history.check'),
+        disabled: reconciling || busy || submitting,
+        onPress: () => checkPending(),
+      });
+    }
+    if (explorerUrl) {
+      resultActions.push({
+        label: explorerState === 'opening' ? t('swap.result.explorerOpening') : t('swap.result.openExplorer'),
+        disabled: explorerState === 'opening',
+        onPress: () => openResultExplorer(),
+      });
+    }
+    return (
+      <Screen scrollable={false} contentInset="none">
+        <TransactionResult
+          actions={resultActions}
+          details={details}
+          highlight={highlight}
+          notice={explorerState === 'failed' ? t('swap.result.explorerError') : reconcileError}
+          onCopy={value => {
+            Clipboard.setString(value);
+            AccessibilityInfo.announceForAccessibility(t('common.copied'));
+          }}
+          primaryAction={{ label: t('swap.preview.done'), onPress: close }}
+          subtitle={t('swap.result.description.' + view.result.status)}
+          title={t('swap.result.' + view.result.status)}
+          tone={resultTone(view.result.status)}
+        />
+      </Screen>
+    );
+  }
+
   return (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
-        <NativeButton label={t('common.back')} disabled={submitting} onPress={close} size="sm" variant="quiet" />
+        <View style={styles.headerSide}>
+          <NativeButton
+            label={t('common.back')}
+            disabled={submitting}
+            onPress={onHeaderBack}
+            size="sm"
+            variant="quiet"
+          />
+        </View>
         <Text style={styles.heading}>{t('swap.preview.title')}</Text>
-        <View />
+        <View style={styles.headerSide} />
+      </View>
+      <View style={styles.headerAccount}>
+        <AccountIdentityCard address={account.address} name={account.label.trim() || 'Account'} variant="default" />
       </View>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-        <View style={styles.notice}>
-          <Text style={styles.text}>{t('swap.preview.notice')}</Text>
-          <Text style={styles.secondary}>{t('swap.execution.safePreview')}</Text>
-        </View>
-        <Text style={styles.secondary}>
-          {t('swap.preview.account')}: {account.label || account.address}
-        </Text>
-
-        {loading ? <ActivityIndicator accessibilityLabel={t('swap.preview.loading')} /> : null}
-        {!loading && assets.length < 2 ? (
+        {loading && assetOptions.length === 0 ? (
+          <>
+            <ActivityIndicator accessibilityLabel={t('swap.preview.loading')} />
+            <SwapAssetLoadingShell styles={styles} />
+          </>
+        ) : null}
+        {!loading && assetOptions.length === 0 ? (
           <NativeButton
             label={t('swap.preview.retryAssets')}
             size="md"
@@ -325,121 +687,102 @@ export function SwapPreviewScreen({
             onPress={() => setAssetLoadRevision(current => current + 1)}
           />
         ) : null}
-        {view.kind === 'form' && !loading && assets.length >= 2 ? (
-          <>
-            <View style={styles.section}>
-              <Text style={styles.label}>{t('swap.preview.source')}</Text>
-              <View style={styles.choices}>
-                {assets.map((asset, index) => (
-                  <AssetChoice
-                    key={'source-' + assetLabel(asset)}
-                    asset={asset}
-                    selected={sourceIndex === index}
-                    disabled={busy}
-                    onPress={() => {
-                      setSourceIndex(index);
-                      if (index === destinationIndex) setDestinationIndex((index + 1) % assets.length);
-                      resetQuotes();
-                    }}
-                  />
-                ))}
-              </View>
-            </View>
-            <View style={styles.section}>
-              <Text style={styles.label}>{t('swap.preview.destination')}</Text>
-              <View style={styles.choices}>
-                {assets.map((asset, index) => (
-                  <AssetChoice
-                    key={'destination-' + assetLabel(asset)}
-                    asset={asset}
-                    selected={destinationIndex === index}
-                    disabled={busy}
-                    onPress={() => {
-                      setDestinationIndex(index);
-                      if (index === sourceIndex) setSourceIndex((index + 1) % assets.length);
-                      resetQuotes();
-                    }}
-                  />
-                ))}
-              </View>
-            </View>
-            <View style={styles.section}>
-              <Text style={styles.label}>{t('swap.preview.mode')}</Text>
-              <View style={styles.choices}>
-                {(['strict_send', 'strict_receive'] as const).map(value => (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: mode === value }}
-                    disabled={busy}
-                    key={value}
-                    onPress={() => {
-                      setMode(value);
-                      resetQuotes();
-                    }}
-                    style={[styles.choice, mode === value ? styles.choiceSelected : undefined]}
-                  >
-                    <Text style={styles.choiceText}>{t('swap.preview.' + value)}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-            <View style={styles.section}>
-              <Text style={styles.label}>{t('swap.preview.fixedAmount')}</Text>
-              <TextInput
-                accessibilityLabel={t('swap.preview.fixedAmount')}
-                autoCorrect={false}
-                editable={!busy}
-                keyboardType="decimal-pad"
-                onChangeText={value => {
-                  setAmount(value);
-                  resetQuotes();
-                }}
-                placeholder="0.0000000"
-                style={styles.input}
-                value={amount}
-              />
-              <Text style={styles.secondary}>{t('swap.preview.fixedHint')}</Text>
-            </View>
-          </>
+        {!loading && assetOptions.length === 1 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.text}>{t('swap.assets.additionalRequired')}</Text>
+            <Text style={styles.secondary}>{t('swap.assets.additionalRequiredHint')}</Text>
+            <NativeButton label={t('swap.assets.add')} onPress={onManageAssets} size="md" variant="primary" />
+            <NativeButton
+              label={t('swap.preview.retryAssets')}
+              onPress={() => setAssetLoadRevision(current => current + 1)}
+              size="sm"
+              variant="quiet"
+            />
+          </View>
         ) : null}
-        {view.kind === 'quotes' ? (
+        {showTradeForm && sourceOption && destinationOption ? (
           <>
-            <Text style={styles.label}>{t('swap.preview.routes')}</Text>
-            {view.quotes.map((quote, index) => (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected: view.selected === quote }}
-                disabled={busy}
-                key={String(index)}
-                onPress={() => {
-                  attempt.current += 1;
-                  setError(undefined);
-                  setView({ ...view, selected: quote });
-                }}
-                style={[styles.route, view.selected === quote ? styles.routeSelected : undefined]}
-              >
-                <Text style={styles.choiceText}>
-                  {quote.sourceAmount} → {quote.destinationAmount}
-                </Text>
-                <Text style={styles.secondary}>
-                  {t('swap.preview.path')}: {fullPath(quote.path)}
-                </Text>
-              </Pressable>
-            ))}
-            <Text style={styles.secondary}>
-              {t('swap.preview.quotedUntil')}: {new Date(view.selected.expiresAtUnixMs).toLocaleTimeString()}
-            </Text>
-            <View style={styles.section}>
-              <Text style={styles.label}>{t('swap.preview.slippage')}</Text>
-              <TextInput
-                accessibilityLabel={t('swap.preview.slippage')}
-                editable={!busy}
-                keyboardType="number-pad"
-                value={slippageInput}
-                onChangeText={setSlippageInput}
-                style={styles.input}
-              />
-            </View>
+            <SwapAssetCard
+              amount={sourceAmount}
+              amountLabel={t('swap.form.payAmount')}
+              amountPrefix="-"
+              disabled={formControlsDisabled}
+              label={t('swap.form.pay')}
+              onChangeAmount={editSourceAmount}
+              onClear={() => editSourceAmount('')}
+              onMax={() => editSourceAmount(sourceOption.spendable)}
+              onOpenAssets={() => setAssetPicker(assetPicker === 'source' ? undefined : 'source')}
+              option={sourceOption}
+              styles={styles}
+              t={t}
+            />
+            <Pressable
+              accessibilityLabel={t('swap.form.exchangeAssets')}
+              accessibilityRole="button"
+              disabled={formControlsDisabled}
+              onPress={exchangeAssets}
+              style={styles.exchangeButton}
+            >
+              <Text style={styles.exchangeGlyph}>⇅</Text>
+            </Pressable>
+            <SwapAssetCard
+              amount={destinationAmount}
+              amountLabel={t('swap.form.receiveAmount')}
+              amountPrefix="~"
+              disabled={formControlsDisabled}
+              label={t('swap.form.receive')}
+              onChangeAmount={editDestinationAmount}
+              onClear={() => editDestinationAmount('')}
+              onOpenAssets={() => setAssetPicker(assetPicker === 'destination' ? undefined : 'destination')}
+              option={destinationOption}
+              showSpendable={false}
+              styles={styles}
+              t={t}
+            />
+            {busy && view.kind === 'form' ? (
+              <View style={styles.quoteLoading}>
+                <ActivityIndicator accessibilityLabel={t('swap.preview.loading')} />
+                <Text style={styles.secondary}>{t('swap.quote.refreshing')}</Text>
+              </View>
+            ) : null}
+            {selectedQuote ? (
+              <View style={styles.quoteSummary}>
+                <ReviewLine
+                  label={t('swap.quote.rate')}
+                  value={`1 ${assetShortLabel(sourceOption.asset)} = ${formatSwapRate(
+                    selectedQuote.sourceAmount,
+                    selectedQuote.destinationAmount,
+                  )} ${assetShortLabel(destinationOption.asset)}`}
+                />
+                <ReviewLine
+                  label={t(mode === 'strict_send' ? 'swap.preview.minReceive' : 'swap.preview.maxSend')}
+                  value={quoteProtectionValue(selectedQuote, parseSlippagePermille(slippageInput), dependencies)}
+                />
+                <ReviewLine
+                  label={t('swap.preview.fee')}
+                  value={estimatedFeeStroops === undefined ? t('swap.quote.feeAtReview') : String(estimatedFeeStroops)}
+                />
+                <ReviewLine
+                  label={t('swap.settings.slippage')}
+                  value={formatSlippagePermille(parseSlippagePermille(slippageInput) ?? -1)}
+                />
+                <View style={styles.settingActionRow}>
+                  <Text style={styles.label}>{t('swap.settings.intermediatePaths')}</Text>
+                  <Pressable
+                    accessibilityLabel={t('swap.settings.title')}
+                    accessibilityRole="button"
+                    disabled={formControlsDisabled}
+                    onPress={() => {
+                      setSettingsSlippageDraft(slippageInput);
+                      setSettingsExpanded(true);
+                    }}
+                    style={styles.settingsActionButton}
+                  >
+                    <Text style={styles.settingsActionGlyph}>⚙︎</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
           </>
         ) : null}
         {view.kind === 'review' ? (
@@ -448,16 +791,33 @@ export function SwapPreviewScreen({
             <ReviewLine label={t('swap.preview.mode')} value={t('swap.preview.' + view.review.mode)} />
             <ReviewLine label={t('swap.preview.source')} value={assetLabel(view.review.sourceAsset)} />
             <ReviewLine label={t('swap.preview.destination')} value={assetLabel(view.review.destinationAsset)} />
-            <ReviewLine label={t('swap.preview.from')} value={view.review.source} />
-            <ReviewLine label={t('swap.preview.to')} value={view.review.destination} />
+            <AccountIdentityCard
+              address={view.review.source}
+              name={reviewAccountName(account, view.review.source)}
+              showSource
+              sourceLabel={t('swap.preview.from')}
+              variant="compact"
+            />
+            {view.review.destination === view.review.source ? null : (
+              <AccountIdentityCard
+                address={view.review.destination}
+                name={reviewAccountName(account, view.review.destination)}
+                showSource
+                sourceLabel={t('swap.preview.to')}
+                variant="compact"
+              />
+            )}
             <ReviewLine label={t('swap.preview.sourceAmount')} value={view.review.quotedSourceAmount} />
             <ReviewLine label={t('swap.preview.destinationAmount')} value={view.review.quotedDestinationAmount} />
-            <ReviewLine label={t('swap.preview.path')} value={fullPath(view.review.path)} />
+            <ReviewLine
+              label={t('swap.preview.path')}
+              value={fullPath(view.review.path, t('swap.preview.directPath'))}
+            />
             <ReviewLine
               label={t(view.review.mode === 'strict_send' ? 'swap.preview.minReceive' : 'swap.preview.maxSend')}
               value={view.review.mode === 'strict_send' ? view.review.destinationMinimum : view.review.sourceMaximum}
             />
-            <ReviewLine label={t('swap.preview.slippage')} value={String(view.review.slippageBps)} />
+            <ReviewLine label={t('swap.preview.slippage')} value={formatSlippagePermille(view.review.slippageBps)} />
             <ReviewLine label={t('swap.preview.fee')} value={view.review.fee} />
             <ReviewLine
               label={t('swap.preview.expires')}
@@ -484,31 +844,7 @@ export function SwapPreviewScreen({
             ) : null}
           </>
         ) : null}
-        {view.kind === 'result' ? (
-          <View style={styles.section}>
-            <Text accessibilityLiveRegion="polite" style={styles.heading}>
-              {t('swap.result.' + view.result.status)}
-            </Text>
-            <Text style={styles.secondary}>{t('swap.result.description.' + view.result.status)}</Text>
-            {'hash' in view.result ? <ReviewLine label={t('swap.history.hash')} value={view.result.hash} /> : null}
-            {'transactionHash' in view.result ? (
-              <ReviewLine label={t('swap.history.hash')} value={view.result.transactionHash} />
-            ) : null}
-            {view.result.status === 'submitted' && view.result.ledger !== undefined ? (
-              <ReviewLine label={t('swap.history.ledger')} value={String(view.result.ledger)} />
-            ) : null}
-            {view.result.status === 'submitted' ? (
-              <ReviewLine label={t('swap.execution.authorization')} value={view.result.authorization} />
-            ) : null}
-            {view.result.status === 'rejected' && view.result.resultCode ? (
-              <ReviewLine label={t('swap.result.code')} value={view.result.resultCode} />
-            ) : null}
-            {view.result.status === 'authorization-blocked' ? (
-              <ReviewLine label={t('swap.result.reason')} value={view.result.reason} />
-            ) : null}
-          </View>
-        ) : null}
-        {history.length > 0 || (view.kind === 'result' && view.result.status === 'uncertain') ? (
+        {unresolved && history.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.label}>{t('swap.history.title')}</Text>
             {history.map(record => (
@@ -529,7 +865,7 @@ export function SwapPreviewScreen({
                 )}
               </View>
             ))}
-            {unresolved || (view.kind === 'result' && view.result.status === 'uncertain') ? (
+            {unresolved ? (
               <NativeButton
                 label={reconciling ? t('swap.history.checking') : t('swap.history.check')}
                 disabled={reconciling || busy || submitting}
@@ -552,87 +888,492 @@ export function SwapPreviewScreen({
         ) : null}
       </ScrollView>
 
-      <View style={styles.footer}>
-        {view.kind === 'form' ? (
-          <NativeButton
-            label={busy ? t('swap.preview.loading') : t('swap.preview.getQuotes')}
-            disabled={busy || loading || assets.length < 2 || !amount.trim()}
-            onPress={() => startQuote()}
-            size="lg"
-            variant="primary"
-          />
-        ) : view.kind === 'quotes' ? (
-          <>
-            <NativeButton
-              label={busy ? t('swap.preview.loading') : t('swap.preview.review')}
-              disabled={busy}
-              onPress={() => startReview()}
-              size="lg"
-              variant="primary"
-            />
-            <NativeButton
-              label={t('swap.preview.requote')}
-              disabled={busy}
-              onPress={() => {
-                resetQuotes();
-                startQuote();
-              }}
-              size="md"
-              variant="quiet"
-            />
-            <NativeButton label={t('common.back')} disabled={busy} onPress={resetQuotes} size="sm" variant="quiet" />
-          </>
-        ) : view.kind === 'review' ? (
-          <>
-            <SlideToConfirm
-              label={passphraseRequired ? t('swap.execution.slidePassphrase') : t('swap.execution.slide')}
-              loading={submitting}
-              disabled={busy || submitting || unresolved || (passphraseRequired && !hasPassphrase)}
-              onComplete={() => confirmSwap()}
-            />
-            <NativeButton
-              label={t('swap.preview.requote')}
-              disabled={submitting}
-              onPress={resetQuotes}
-              size="md"
-              variant="quiet"
-            />
-          </>
-        ) : (
-          <NativeButton label={t('swap.preview.done')} onPress={close} size="lg" variant="primary" />
-        )}
-      </View>
+      {assetPicker ? (
+        <AssetPickerModal
+          closeLabel={t('common.close')}
+          disabled={formControlsDisabled}
+          onClose={() => setAssetPicker(undefined)}
+          onSelect={index => selectAsset(assetPicker, index)}
+          options={assetOptions}
+          searchLabel={t('swap.assetPicker.search')}
+          emptyLabel={t('swap.assetPicker.empty')}
+          clearSearchLabel={t('swap.assetPicker.clearSearch')}
+          selectedIndex={assetPicker === 'source' ? sourceIndex : destinationIndex}
+          side={assetPicker}
+          styles={styles}
+          title={t(assetPicker === 'source' ? 'swap.assetPicker.payTitle' : 'swap.assetPicker.receiveTitle')}
+        />
+      ) : null}
+      {settingsExpanded ? (
+        <SwapSettingsModal
+          allowIntermediatePaths={allowIntermediatePaths}
+          closeLabel={t('common.close')}
+          disabled={formControlsDisabled}
+          doneLabel={t('swap.settings.done')}
+          intermediateLabel={t('swap.settings.intermediatePaths')}
+          onClose={() => {
+            setSettingsSlippageDraft(slippageInput);
+            setSettingsExpanded(false);
+          }}
+          onDone={() => {
+            const nextSlippage = normalizeSlippagePermille(settingsSlippageDraft, slippageInput);
+            setSettingsSlippageDraft(nextSlippage);
+            setSlippageInput(nextSlippage);
+            setSettingsExpanded(false);
+            resetQuotes();
+          }}
+          onSelectRoute={selectQuote}
+          onSelectSlippage={value => {
+            setSettingsSlippageDraft(value);
+            setSlippageInput(value);
+            resetQuotes();
+          }}
+          onToggleIntermediate={() => {
+            setAllowIntermediatePaths(current => !current);
+            resetQuotes();
+          }}
+          onCommitSlippage={() => {
+            const nextSlippage = normalizeSlippagePermille(settingsSlippageDraft, slippageInput);
+            setSettingsSlippageDraft(nextSlippage);
+            if (nextSlippage === slippageInput) return;
+            setSlippageInput(nextSlippage);
+            resetQuotes();
+          }}
+          onUpdateSlippage={setSettingsSlippageDraft}
+          routes={view.kind === 'quotes' ? view.quotes : []}
+          selectedQuote={selectedQuote}
+          slippageDraft={settingsSlippageDraft}
+          slippageLabel={t('swap.settings.slippage')}
+          styles={styles}
+          t={t}
+          title={t('swap.settings.title')}
+        />
+      ) : null}
+
+      {view.kind === 'form' ? null : (
+        <View style={styles.footer}>
+          {view.kind === 'quotes' ? (
+            <>
+              <NativeButton
+                label={busy ? t('swap.preview.loading') : t('swap.preview.swap')}
+                disabled={busy}
+                onPress={() => startReview()}
+                size="lg"
+                variant="primary"
+              />
+            </>
+          ) : view.kind === 'review' ? (
+            <>
+              <SlideToConfirm
+                label={passphraseRequired ? t('swap.execution.slidePassphrase') : t('swap.execution.slide')}
+                loading={submitting}
+                disabled={busy || submitting || unresolved || (passphraseRequired && !hasPassphrase)}
+                onComplete={() => confirmSwap()}
+              />
+              <NativeButton
+                label={t('swap.preview.requote')}
+                disabled={submitting}
+                onPress={resetQuotes}
+                size="md"
+                variant="quiet"
+              />
+            </>
+          ) : (
+            <NativeButton label={t('swap.preview.done')} onPress={close} size="lg" variant="primary" />
+          )}
+        </View>
+      )}
     </Screen>
   );
 }
 
-function AssetChoice({
-  asset,
-  selected,
-  disabled,
-  onPress,
-}: Readonly<{
-  asset: StellarPaymentAsset;
-  selected: boolean;
-  disabled: boolean;
-  onPress: () => void;
-}>) {
-  const styles = useThemedStyles(createSwapPreviewStyles);
+type Styles = ReturnType<typeof createSwapPreviewStyles>;
+
+function SwapAssetLoadingShell({ styles }: Readonly<{ styles: Styles }>): React.JSX.Element {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected, disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={[styles.choice, selected ? styles.choiceSelected : undefined]}
-    >
-      <Text style={styles.choiceText}>{asset.kind === 'native' ? 'XLM' : asset.code}</Text>
-      {asset.kind === 'credit' ? (
-        <Text numberOfLines={2} style={styles.mono}>
-          {asset.issuer}
+    <View style={styles.loadingTradeShell}>
+      {[0, 1].map(index => (
+        <View key={index} style={styles.assetCard}>
+          <View style={styles.loadingAssetRow}>
+            <View style={styles.loadingAssetIcon} />
+            <View style={styles.loadingAssetIdentity} />
+          </View>
+          <View style={styles.loadingAmountLine} />
+          <View style={styles.loadingBalanceLine} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function assetShortLabel(asset: StellarPaymentAsset): string {
+  return asset.kind === 'native' ? 'XLM' : asset.code;
+}
+
+function reviewAccountName(account: AccountRecord, address: string): string {
+  if (address === account.address && account.label.trim()) {
+    return account.label.trim();
+  }
+  return 'Account';
+}
+
+function SwapAssetCard({
+  label,
+  amountLabel,
+  amountPrefix,
+  option,
+  amount,
+  disabled,
+  onChangeAmount,
+  onOpenAssets,
+  onClear,
+  onMax,
+  showSpendable = true,
+  styles,
+  t,
+}: Readonly<{
+  label: string;
+  amountLabel: string;
+  amountPrefix: '-' | '~';
+  option: PathPaymentSourceAvailability;
+  amount: string;
+  disabled: boolean;
+  onChangeAmount: (value: string) => void;
+  onOpenAssets: () => void;
+  onClear: () => void;
+  onMax?: () => void;
+  showSpendable?: boolean;
+  styles: Styles;
+  t: (key: string) => string;
+}>) {
+  return (
+    <View style={styles.assetCard}>
+      <View style={styles.assetCardHeader}>
+        <Text style={styles.label}>{label}</Text>
+        <Text style={styles.secondary}>
+          {t('swap.form.balance')}: {option.balance}
         </Text>
-      ) : null}
-    </Pressable>
+      </View>
+      <View style={styles.assetAmountRow}>
+        <Pressable
+          accessibilityLabel={`${label}: ${assetShortLabel(option.asset)}`}
+          accessibilityRole="button"
+          disabled={disabled}
+          onPress={onOpenAssets}
+          style={styles.assetSelector}
+        >
+          <View style={styles.assetIcon}>
+            <Text style={styles.assetIconText}>{assetShortLabel(option.asset).slice(0, 2).toUpperCase()}</Text>
+          </View>
+          <View style={styles.assetIdentity}>
+            <Text style={styles.assetCode}>{assetShortLabel(option.asset)}</Text>
+            {option.asset.kind === 'credit' ? (
+              <Text numberOfLines={1} style={styles.mono}>
+                {option.asset.issuer}
+              </Text>
+            ) : null}
+          </View>
+          <Text style={styles.assetChevron}>⌄</Text>
+        </Pressable>
+        <View style={styles.amountEditorRow}>
+          <Text style={styles.amountPrefix}>{amountPrefix}</Text>
+          <SwapAmountInput
+            accessibilityLabel={amountLabel}
+            disabled={disabled}
+            onChangeAmount={onChangeAmount}
+            style={styles.amountInput}
+            value={amount}
+          />
+        </View>
+      </View>
+      <View style={styles.assetCardActions}>
+        {showSpendable ? (
+          <Text style={styles.secondary}>
+            {t('swap.form.spendable')}: {option.spendable}
+          </Text>
+        ) : (
+          <View />
+        )}
+        <View style={styles.inlineActions}>
+          {onMax ? (
+            <Pressable accessibilityRole="button" disabled={disabled} onPress={onMax}>
+              <Text style={styles.actionText}>{t('swap.form.max')}</Text>
+            </Pressable>
+          ) : null}
+          <Pressable accessibilityRole="button" disabled={disabled || !amount} onPress={onClear}>
+            <Text style={styles.actionText}>{t('swap.form.clear')}</Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function SwapSettingsModal({
+  allowIntermediatePaths,
+  closeLabel,
+  disabled,
+  doneLabel,
+  intermediateLabel,
+  onClose,
+  onCommitSlippage,
+  onDone,
+  onSelectRoute,
+  onSelectSlippage,
+  onToggleIntermediate,
+  onUpdateSlippage,
+  routes,
+  selectedQuote,
+  slippageDraft,
+  slippageLabel,
+  styles,
+  t,
+  title,
+}: Readonly<{
+  allowIntermediatePaths: boolean;
+  closeLabel: string;
+  disabled: boolean;
+  doneLabel: string;
+  intermediateLabel: string;
+  onClose: () => void;
+  onCommitSlippage: () => void;
+  onDone: () => void;
+  onSelectRoute: (quote: PathPaymentQuote) => void;
+  onSelectSlippage: (value: string) => void;
+  onToggleIntermediate: () => void;
+  onUpdateSlippage: (value: string) => void;
+  routes: readonly PathPaymentQuote[];
+  selectedQuote: PathPaymentQuote | undefined;
+  slippageDraft: string;
+  slippageLabel: string;
+  styles: Styles;
+  t: (key: string) => string;
+  title: string;
+}>) {
+  return (
+    <Modal
+      animationType="fade"
+      onRequestClose={onClose}
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      transparent
+      visible
+    >
+      <Pressable
+        accessibilityLabel={closeLabel}
+        accessibilityRole="button"
+        onPress={onClose}
+        style={styles.modalBackdrop}
+      >
+        <View style={styles.settingsModalPosition}>
+          <Pressable onPress={event => event.stopPropagation()} style={styles.settingsModalCard}>
+            <ScrollView
+              bounces={false}
+              contentContainerStyle={styles.settingsModalContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={styles.settingsModalHeader}>
+                <Text style={styles.settingsModalTitle}>{title}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={disabled}
+                  onPress={onDone}
+                  style={styles.settingsDoneButton}
+                >
+                  <Text style={styles.settingsDoneText}>{doneLabel}</Text>
+                </Pressable>
+              </View>
+
+              <Pressable
+                accessibilityRole="switch"
+                accessibilityState={{ checked: allowIntermediatePaths }}
+                disabled={disabled}
+                onPress={onToggleIntermediate}
+                style={styles.settingRow}
+              >
+                <Text style={styles.text}>{intermediateLabel}</Text>
+                <View style={[styles.settingsSwitch, allowIntermediatePaths ? styles.settingsSwitchActive : undefined]}>
+                  <View
+                    style={[
+                      styles.settingsSwitchThumb,
+                      allowIntermediatePaths ? styles.settingsSwitchThumbActive : undefined,
+                    ]}
+                  />
+                </View>
+              </Pressable>
+
+              <View style={styles.settingsRow}>
+                <Text style={styles.text}>{slippageLabel}</Text>
+                <View style={styles.slippageInputContainer}>
+                  <TextInput
+                    accessibilityLabel={slippageLabel}
+                    editable={!disabled}
+                    keyboardType="number-pad"
+                    onChangeText={value => onUpdateSlippage(value.replace(/[^0-9]/g, ''))}
+                    onEndEditing={onCommitSlippage}
+                    style={styles.slippageInput}
+                    value={slippageDraft}
+                  />
+                  <Text style={styles.slippageSuffix}>‰</Text>
+                </View>
+              </View>
+              <View style={styles.slippagePresetRow}>
+                {['1', '5', '10'].map(value => (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: slippageDraft === value }}
+                    disabled={disabled}
+                    key={value}
+                    onPress={() => onSelectSlippage(value)}
+                    style={[styles.slippagePreset, slippageDraft === value ? styles.choiceSelected : undefined]}
+                  >
+                    <Text style={styles.choiceText}>{value}‰</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {allowIntermediatePaths && routes.length > 1 ? (
+                <View style={styles.settingsRoutes}>
+                  <Text style={styles.label}>{t('swap.settings.candidateRoutes')}</Text>
+                  {routes.map((quote, index) => {
+                    const selected = selectedQuote === quote;
+                    return (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                        disabled={disabled}
+                        key={`${quote.sourceAmount}-${quote.destinationAmount}-${index}`}
+                        onPress={() => onSelectRoute(quote)}
+                        style={[styles.route, selected ? styles.routeSelected : undefined]}
+                      >
+                        <View style={styles.settingActionRow}>
+                          <Text style={styles.choiceText}>
+                            {t('swap.settings.route')} {index + 1}
+                          </Text>
+                          <Text style={styles.settingValue}>
+                            {t(selected ? 'swap.settings.selected' : 'swap.settings.select')}
+                          </Text>
+                        </View>
+                        <Text style={styles.secondary}>
+                          {quote.sourceAmount} → {quote.destinationAmount}
+                        </Text>
+                        <Text style={styles.secondary}>
+                          {quote.path.length === 0
+                            ? t('swap.preview.directPath')
+                            : `${quote.path.length} ${t('swap.settings.hops')}`}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
+            </ScrollView>
+          </Pressable>
+        </View>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function AssetPickerModal({
+  options,
+  selectedIndex,
+  disabled,
+  onSelect,
+  onClose,
+  side,
+  title,
+  closeLabel,
+  searchLabel,
+  emptyLabel,
+  clearSearchLabel,
+  styles,
+}: Readonly<{
+  options: readonly PathPaymentSourceAvailability[];
+  selectedIndex: number;
+  disabled: boolean;
+  onSelect: (index: number) => void;
+  onClose: () => void;
+  side: 'source' | 'destination';
+  title: string;
+  closeLabel: string;
+  searchLabel: string;
+  emptyLabel: string;
+  clearSearchLabel: string;
+  styles: Styles;
+}>) {
+  const [query, setQuery] = useState('');
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const filteredOptions = options
+    .map((option, index) => ({ option, index }))
+    .filter(({ option }) => {
+      if (!normalizedQuery) return true;
+      const searchable =
+        option.asset.kind === 'native' ? 'xlm stellar native' : `${option.asset.code} ${option.asset.issuer}`;
+      return searchable.toLocaleLowerCase().includes(normalizedQuery);
+    });
+  return (
+    <Modal
+      animationType="fade"
+      onRequestClose={onClose}
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      transparent
+      visible
+    >
+      <Pressable accessibilityRole="button" onPress={onClose} style={styles.assetPickerBackdrop}>
+        <View
+          style={[
+            styles.assetPickerPopover,
+            side === 'source' ? styles.assetPickerSourcePosition : styles.assetPickerDestinationPosition,
+          ]}
+        >
+          <Pressable onPress={event => event.stopPropagation()} style={styles.assetPicker}>
+            <View style={styles.assetPickerHeader}>
+              <Text style={styles.assetPickerTitle}>{title}</Text>
+              <Pressable accessibilityLabel={closeLabel} accessibilityRole="button" onPress={onClose}>
+                <Text style={styles.assetPickerClose}>×</Text>
+              </Pressable>
+            </View>
+            <View style={styles.assetPickerSearchRow}>
+              <TextInput
+                accessibilityLabel={searchLabel}
+                autoCapitalize="none"
+                autoCorrect={false}
+                onChangeText={setQuery}
+                placeholder={searchLabel}
+                style={styles.assetPickerSearchInput}
+                value={query}
+              />
+              {query ? (
+                <Pressable accessibilityRole="button" onPress={() => setQuery('')}>
+                  <Text style={styles.actionText}>{clearSearchLabel}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            <ScrollView bounces={false} style={styles.assetPickerList}>
+              {filteredOptions.map(({ option, index }) => (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: selectedIndex === index }}
+                  disabled={disabled}
+                  key={`${assetLabel(option.asset)}-${index}`}
+                  onPress={() => onSelect(index)}
+                  style={[styles.assetPickerRow, selectedIndex === index ? styles.choiceSelected : undefined]}
+                >
+                  <Text style={styles.choiceText}>{assetShortLabel(option.asset)}</Text>
+                  <Text numberOfLines={1} style={styles.mono}>
+                    {option.asset.kind === 'credit' ? option.asset.issuer : 'Stellar native asset'}
+                  </Text>
+                  <Text style={styles.secondary}>{option.balance}</Text>
+                </Pressable>
+              ))}
+              {filteredOptions.length === 0 ? <Text style={styles.assetPickerEmpty}>{emptyLabel}</Text> : null}
+            </ScrollView>
+          </Pressable>
+        </View>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -656,7 +1397,7 @@ function errorText(error: unknown, t: (key: string) => string): string {
       'swap-assets-unavailable': t('swap.error.assets'),
       invalid_request: t('swap.error.invalid'),
       route_unavailable: t('swap.error.routes'),
-      quote_unavailable: t('swap.error.routes'),
+      quote_unavailable: t('swap.error.quoteUnavailable'),
       quote_expired: t('swap.error.expired'),
       insufficient_source: t('swap.error.balance'),
       slippage_out_of_range: t('swap.error.slippage'),
@@ -669,6 +1410,23 @@ function errorText(error: unknown, t: (key: string) => string): string {
       'review-expired': t('swap.error.expiredTransaction'),
     },
   }).message;
+}
+
+export function SwapLoadingScreen(): React.JSX.Element {
+  const styles = useThemedStyles(createSwapPreviewStyles);
+  const { t } = useLocalization();
+  return (
+    <Screen scrollable={false} contentInset="none">
+      <View style={styles.header}>
+        <View style={styles.headerSide} />
+        <Text style={styles.heading}>{t('swap.preview.title')}</Text>
+        <View style={styles.headerSide} />
+      </View>
+      <View style={styles.loadingShell}>
+        <ActivityIndicator accessibilityLabel={t('swap.preview.loading')} />
+      </View>
+    </Screen>
+  );
 }
 
 export function SwapUnavailableScreen({ onDone }: Readonly<{ onDone: () => void }>) {

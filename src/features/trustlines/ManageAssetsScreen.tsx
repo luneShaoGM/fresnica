@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { Screen } from '@ui/components';
+import { formatPublicAddress } from '@ui/formatPublicAddress';
 
 import type { AccountRecord } from '../../capabilities/account/types';
 import { loadBalanceSnapshot } from '../../capabilities/balance/loadBalanceSnapshot';
@@ -364,7 +365,7 @@ export function ManageAssetsScreen({ account, dependencies, onDone }: Props) {
         showsVerticalScrollIndicator={false}
       >
         <Text numberOfLines={1} style={styles.accountCaption}>
-          {account.label || account.address}
+          {account.label.trim() || formatPublicAddress(account.address)}
         </Text>
 
         <Text accessibilityRole="header" style={styles.sectionLabel}>

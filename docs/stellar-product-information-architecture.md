@@ -44,7 +44,7 @@ F0–F4 只是总表里的别名（导航库 / 守卫 / 栈 / 主题壳 / 按表
 | 5 Wallet / Balance | F4-2 | 选中账户、snapshot、Home、未激活 ≠ 断网 | 脚手架 | §9 Home；交易后 focus 失效 | 余额写入 Realm；乐观减余额 |
 | 6 交易框架 | — | prepare → review → authorize → sign → submit → 协调/结果 | **Stage 2.5 完成**：S07/S30 共用 pre-broadcast pending、无时效 duplicate guard、single-flight lifecycle reconciliation 与 read invalidation；Android 真实 Testnet process-death/restart 已验证 | 新写路径必须复用同一提交/reconciliation 管线并满足自己的 Capability/Stage 门 | 另建提交/恢复管线；把基础恢复通过误当成未开工写类型已获授权 |
 | 7 Send / Request | F4-3、F4-4 | 精确 XDR Send；Request 分享公开身份 | Send 脚手架；Request 未做 | §9 Send / Request | Phase 6 未复用就开新写路径 |
-| 8 Swap / SDEX | F4 表内未编号 | Path Payment；SDEX 独立 | Swap 卡 Path Payment 上游；SDEX 有规范但产品未实现 | 各自 Capability 契约 + 走 Phase 6 管线 | 未到契约就做执行；Swap 和 SDEX 混名 |
+| 8 Swap / SDEX | F4 表内未编号 | Path Payment；SDEX 独立 | Path Payment A–D2c 已接入报价、exact-XDR、授权提交与恢复；Swap 为 L2 partial，仍缺 Stellar-aligned 产品表面和双端/真实链验收；SDEX 产品未实现 | 各自 Capability 契约 + 走 Phase 6 管线 | 误把代码接线当作产品验收；Swap 和 SDEX 混名 |
 | 9 Security | F4-9 部分 | System Auth、Vault、硬件签名、截屏 | 部分 / 卡上游 | §7.6–§7.7、§9 Security；锁/改口令卡 Core 则占位 | 把 System Auth 当成 Dev Mode 或锁已经做完 |
 | 10 Settings / 次要 | F4-5–8 | Dev Mode、主题入口、Activity 详情、dApps、Help | Activity detail 已有有限闭环；其余未做 / 预览壳 | 对应 §9；dApps 按 behavior clean-room 重写 | 空 Tab 当完成；复制 donor 或搬入 `services/` |
 | 11 发布 | — | 异常、deep link、崩溃、商店 | 未到 | 原生变更走 native gate；签名不回落 debug | 用 `steps:null` 当通过 |
@@ -635,7 +635,7 @@ Adopt（采用）= 在 Fresnica 重写用户可见表面。Adapt（适配）= �
 | Overlay / HomeActions | Adopt | app 壳 + feature 操作 | — |
 | Send | Adopt | `features/send` | Payment、Transaction、Signing Coordination |
 | Request | Adopt | `features/request` | Account（分享公开身份） |
-| Exchange | Adopt UI 结构；执行卡在 Path Payment 契约 | `features/exchange` | Path Payment（缺失） |
+| Exchange | Adapt Stellar 的元素、数据、操作和视觉层级；执行使用 Fresnica Normative Path Payment，并保留 exact-XDR/uncertain/recovery 增强 | `features/swap` | Path Payment（A–D2c 已进入 Mobile，L2 partial；双端与真实链验收待完成） |
 | SDEX 挂单 | Adopt 为独立产品阶段，不要和 Exchange / Path Payment 混名 | 待建 `features/`（或 Exchange 内明确分子流） | 上游 SDEX 契约已有；未排进 F4 主序编号，设计要留位 |
 
 ### 7.3 账户
@@ -828,7 +828,7 @@ Stellar 有、§7.1–§7.7 原先没逐行写的表面。这里给决定，避�
 ### Request / Exchange / SDEX
 
 - Request 若只分享公开账户身份，可在 Home / Send 之后做。
-- Exchange 盘点 UI 结构。Path Payment 执行仍可能卡契约，但不要从产品表删掉。
+- Exchange 按 `docs/behavior-specs/s10-path-payment-swap.md` clean-room 对齐 Stellar 产品节奏；不得复制 donor 组件、样式、资源或实现结构。Path Payment 执行已进入 Mobile，但双端与真实链验收未闭合。
 - SDEX 挂单是独立阶段（§7.2 / §7.8），跟 Exchange 换汇不是同一产品。未排进 F4 编号前，不要用 Path Payment 屏幕冒充挂单。
 
 ---

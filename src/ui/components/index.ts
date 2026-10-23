@@ -1,3 +1,4 @@
+export * from './AccountIdentityCard';
 export * from './AppModal';
 export * from './BottomAction';
 export * from './Button';
@@ -7,3 +8,4 @@ export * from './Header';
 export * from './ListRow';
 export * from './Screen';
 export * from './StateView';
+export * from './TransactionResult';

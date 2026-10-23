@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 
 import {Screen} from '@ui/components';
+import {formatPublicAddress} from '@ui/formatPublicAddress';
 
 import type {AccountRecord} from '../../capabilities/account/types';
 import {useThemedStyles, type AppTheme} from '@ui/theme';
@@ -91,10 +92,7 @@ export function WalletReadyScreen({accounts, onAddAccount, onOpenSecurity}: Prop
 }
 
 function shortAddress(address: string): string {
-  if (address.length <= 24) {
-    return address;
-  }
-  return `${address.slice(0, 10)}…${address.slice(-8)}`;
+  return formatPublicAddress(address);
 }
 
 function createStyles(theme: AppTheme) {

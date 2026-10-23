@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
-import { Screen } from '@ui/components';
+import { AccountIdentityCard, Screen } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import { NativeStateView } from '@ui/components/NativeStateView';
 import { useAppTheme, useThemedStyles } from '@ui/theme';
 
 import type { AccountRecord } from '../../capabilities/account/types';
+import type { BalanceCacheRepository } from '../../capabilities/balance/BalanceCacheRepository';
+import { readCachedBalanceSnapshot, rememberBalanceSnapshot } from '../../capabilities/balance/BalanceCacheRepository';
 import { loadBalanceSnapshot, type BalanceDependencies } from '../../capabilities/balance/loadBalanceSnapshot';
 import type { BalanceAsset } from '../../capabilities/balance/types';
 import {
@@ -29,6 +31,7 @@ type Props = Readonly<{
   accountCount: number;
   selectableAccounts: readonly AccountRecord[];
   balanceDependencies: BalanceDependencies;
+  balanceCache?: Pick<BalanceCacheRepository, 'getSnapshot' | 'replaceSnapshot'>;
   friendbotDependencies: FriendbotDependencies;
   canSign: boolean;
   onSelectAccount: (accountId: string) => void | Promise<void>;
@@ -48,6 +51,7 @@ export function HomeScreen({
   accountCount,
   selectableAccounts,
   balanceDependencies,
+  balanceCache,
   friendbotDependencies,
   canSign,
   onSelectAccount,
@@ -64,19 +68,30 @@ export function HomeScreen({
   const theme = useAppTheme();
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
-  const [balanceState, setBalanceState] = useState<HomeBalanceState>({ kind: 'loading' });
+  const [balanceState, setBalanceState] = useState<HomeBalanceState>(() => initialBalanceState(balanceCache, account));
   const [accountPickerVisible, setAccountPickerVisible] = useState(false);
   const [friendbotStateByAccount, setFriendbotStateByAccount] = useState<Record<string, FriendbotFundingState>>({});
   const requestVersion = useRef(0);
   const currentAccountId = useRef(account.id);
   const friendbotRequestAccountIds = useRef<Set<string>>(new Set());
+  const balanceStateRef = useRef(balanceState);
   currentAccountId.current = account.id;
+  balanceStateRef.current = balanceState;
 
   const refreshBalances = useCallback(
     (beforeLoad?: () => Promise<unknown>) => {
       const version = requestVersion.current + 1;
       requestVersion.current = version;
-      setBalanceState({ kind: 'loading' });
+      const current = balanceStateRef.current;
+      const partition = balancePartition(account);
+      const cached = partition && balanceCache ? readCachedBalanceSnapshot(balanceCache, partition) : undefined;
+      if (current.kind === 'ready' && current.snapshot.address === account.address) {
+        setBalanceState({ ...current, revalidating: true });
+      } else if (cached) {
+        setBalanceState({ kind: 'ready', snapshot: cached, stale: true, revalidating: true });
+      } else {
+        setBalanceState({ kind: 'loading' });
+      }
 
       const before = beforeLoad
         ? Promise.resolve()
@@ -89,21 +104,30 @@ export function HomeScreen({
         .then(snapshot => {
           if (requestVersion.current === version) {
             setBalanceState({ kind: 'ready', snapshot });
+            if (partition && balanceCache) {
+              rememberBalanceSnapshot(balanceCache, partition, snapshot, new Date());
+            }
           }
         })
         .catch(error => {
-          if (requestVersion.current === version) {
-            setBalanceState({
-              kind: 'error',
-              message: projectFeatureError(error, {
-                fallbackMessage: 'Unable to load balances.',
-                fallbackRetryable: true,
-              }).message,
-            });
+          if (requestVersion.current !== version) {
+            return;
           }
+          const previous = balanceStateRef.current;
+          if (previous.kind === 'ready' && previous.snapshot.address === account.address) {
+            setBalanceState({ ...previous, stale: true, revalidating: false });
+            return;
+          }
+          setBalanceState({
+            kind: 'error',
+            message: projectFeatureError(error, {
+              fallbackMessage: 'Unable to load balances.',
+              fallbackRetryable: true,
+            }).message,
+          });
         });
     },
-    [account, balanceDependencies],
+    [account, balanceCache, balanceDependencies],
   );
 
   useEffect(() => {
@@ -174,7 +198,9 @@ export function HomeScreen({
         refreshControl={
           <RefreshControl
             onRefresh={() => refreshBalances(onManualRefresh)}
-            refreshing={balanceState.kind === 'loading'}
+            refreshing={
+              balanceState.kind === 'loading' || (balanceState.kind === 'ready' && balanceState.revalidating === true)
+            }
             tintColor={theme.colors.actionPrimary}
           />
         }
@@ -184,14 +210,17 @@ export function HomeScreen({
           <Text style={styles.brand}>Fresnica</Text>
           <NetworkStatus networkLabel={viewModel.networkLabel} />
         </View>
+        <AccountIdentityCard
+          address={viewModel.accountAddress}
+          name={viewModel.accountLabel}
+          onPress={() => setAccountPickerVisible(true)}
+          variant="default"
+        />
 
         <AccountSummary
           accountCount={accountCount}
           accountKindLabel={viewModel.accountKindLabel}
-          label={viewModel.accountLabel}
-          maskedAddress={viewModel.maskedAddress}
           onAddAccount={onAddAccount}
-          onOpenAccountPicker={() => setAccountPickerVisible(true)}
         />
 
         <View style={styles.actionsRow}>
@@ -225,6 +254,12 @@ export function HomeScreen({
           </Pressable>
         </View>
 
+        {balanceState.kind === 'ready' && balanceState.stale ? (
+          <Text style={styles.stateText}>
+            {balanceState.revalidating ? 'Updating saved balances…' : 'Showing saved balances.'}
+          </Text>
+        ) : null}
+
         {renderPortfolio(
           balanceState,
           viewModel.accountAddress,
@@ -246,6 +281,22 @@ export function HomeScreen({
       />
     </Screen>
   );
+}
+
+function initialBalanceState(
+  cache: Pick<BalanceCacheRepository, 'getSnapshot'> | undefined,
+  account: AccountRecord,
+): HomeBalanceState {
+  const partition = balancePartition(account);
+  const cached = partition && cache ? readCachedBalanceSnapshot(cache, partition) : undefined;
+  return cached ? { kind: 'ready', snapshot: cached, stale: true } : { kind: 'loading' };
+}
+
+function balancePartition(account: AccountRecord) {
+  if (account.identityKind !== 'classic') {
+    return undefined;
+  }
+  return { networkId: account.networkId, accountAddress: account.address };
 }
 
 function HomeAction({

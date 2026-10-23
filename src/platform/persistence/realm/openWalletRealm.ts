@@ -13,7 +13,8 @@ export function walletRealmConfiguration(options: OpenWalletRealmOptions = {}): 
     onMigration: () => {
       // Schema v2 added LocalePreferenceEntity; v3 added public-only
       // PendingSubmissionEntity recovery metadata; v4 added network-scoped
-      // DefaultAccountPreferenceEntity; v5 adds replaceable History cache snapshots.
+      // DefaultAccountPreferenceEntity; v5 adds replaceable History cache snapshots;
+      // v6 adds replaceable Balance cache snapshots.
       // Existing records require no transformation because each change adds a new
       // top-level entity.
     },

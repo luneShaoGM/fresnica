@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { Screen } from '@ui/components';
+import { formatPublicAddress } from '@ui/formatPublicAddress';
 import { NativeButton } from '@ui/components/NativeButton';
 import { NativeField } from '@ui/components/NativeField';
 
@@ -641,8 +642,5 @@ export function StatePanel({
 }
 
 function shortAddress(value: string): string {
-  if (value.length <= 22) {
-    return value;
-  }
-  return `${value.slice(0, 9)}…${value.slice(-7)}`;
+  return formatPublicAddress(value);
 }

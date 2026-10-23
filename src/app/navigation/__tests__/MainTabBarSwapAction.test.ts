@@ -71,13 +71,13 @@ function renderSwap(enabled: boolean) {
   return { navigate, overlay };
 }
 
-describe('Swap action product route remains bounded to preview', () => {
+describe('Swap action product route', () => {
   beforeEach(() => {
     mockPresentOverlay.mockClear();
     mockDismissOverlay.mockClear();
   });
 
-  it('routes eligible Swap to the current account exchange preview only', () => {
+  it('routes eligible Swap to the current account exchange flow', () => {
     const { navigate, overlay } = renderSwap(true);
     const button = findPressable(overlay, 'nav.swap');
     expect(button?.props.disabled).toBe(false);

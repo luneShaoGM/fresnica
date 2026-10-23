@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { AccessibilityInfo, Pressable, ScrollView, Text, View } from 'react-native';
+import { AccessibilityInfo, Pressable, ScrollView, Text } from 'react-native';
 
 import type { AccountRecord } from '@capabilities/account/types';
 import { useLocalization } from '../../../locale';
-import { AppModal } from '@ui/components';
+import { AccountIdentityCard, AppModal } from '@ui/components';
 import { useThemedStyles } from '@ui/theme';
 
 import { createStyles } from './AccountPickerModal.styles';
@@ -78,15 +78,14 @@ export function AccountPickerModal({ accounts, selectedAccountId, visible, onReq
                 pressed && !disabled ? styles.rowPressed : undefined,
               ]}
             >
-              <View style={styles.identity}>
-                <Text numberOfLines={1} style={styles.label}>
-                  {account.label || account.address}
-                </Text>
-                <Text numberOfLines={1} style={styles.address}>
-                  {account.address}
-                </Text>
-              </View>
-              {selected ? <Text style={styles.current}>{t('accounts.select.current')}</Text> : null}
+              <AccountIdentityCard
+                address={account.address}
+                name={account.label.trim() || 'Account'}
+                selected={selected}
+                showSource={selected}
+                sourceLabel={selected ? t('accounts.select.current') : undefined}
+                variant="compact"
+              />
             </Pressable>
           );
         })}

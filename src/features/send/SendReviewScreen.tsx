@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 
 import {Screen} from '@ui/components';
+import {formatPublicAddress} from '@ui/formatPublicAddress';
 
 import type {PaymentReview} from '../../capabilities/payment/buildPaymentReview';
 import {useLocalization} from '../../locale';
@@ -79,8 +80,8 @@ export function SendReviewScreen({
             label="Operation"
             value={review.operation === 'create-account' ? 'CreateAccount' : 'Payment'}
           />
-          <ReviewRow label="From" value={review.source} mono />
-          <ReviewRow label="To" value={review.destination} mono />
+          <ReviewRow label="From" value={formatPublicAddress(review.source)} mono />
+          <ReviewRow label="To" value={formatPublicAddress(review.destination)} mono />
           <ReviewRow label="Memo" value={memoLabel} mono={review.memo?.type === 'hash'} />
           <ReviewRow label="Fee" value={`${review.fee} stroops`} />
           {review.expiresAtUnixSeconds === undefined ? null : (

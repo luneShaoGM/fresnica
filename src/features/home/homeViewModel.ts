@@ -1,10 +1,17 @@
+import { formatPublicAddress } from '@ui/formatPublicAddress';
+
 import type { AccountRecord } from '../../capabilities/account/types';
 import type { BalanceSnapshot } from '../../capabilities/balance/types';
 
 export type HomeBalanceState =
   | Readonly<{ kind: 'loading' }>
   | Readonly<{ kind: 'error'; message: string }>
-  | Readonly<{ kind: 'ready'; snapshot: BalanceSnapshot }>;
+  | Readonly<{
+      kind: 'ready';
+      snapshot: BalanceSnapshot;
+      stale?: boolean;
+      revalidating?: boolean;
+    }>;
 
 export type HomeViewModel = Readonly<{
   accountLabel: string;
@@ -53,10 +60,7 @@ export function createHomeViewModel(
 }
 
 export function maskAddress(value: string): string {
-  if (value.length <= 20) {
-    return value;
-  }
-  return `${value.slice(0, 9)}…${value.slice(-7)}`;
+  return formatPublicAddress(value);
 }
 
 function networkLabel(networkId: string): string {

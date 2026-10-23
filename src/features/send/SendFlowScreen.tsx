@@ -7,6 +7,7 @@ import type { PaymentReview } from '../../capabilities/payment/buildPaymentRevie
 import type { RequestPaymentIntent } from '../../capabilities/request/requestUri';
 import type { StellarPaymentMemo } from '../../capabilities/stellar/types';
 import {useLocalization} from '../../locale';
+import {formatPublicAddress} from '@ui/formatPublicAddress';
 import { SendFormScreen } from './SendFormScreen';
 import { SendResultScreen, type SendTerminalResult } from './SendResultScreen';
 import { SendReviewScreen } from './SendReviewScreen';
@@ -224,7 +225,7 @@ export function SendFlowScreen({ account, dependencies, onDone, requestIntent }:
 
   return (
     <SendFormScreen
-      accountLabel={account.label || account.address}
+      accountLabel={account.label.trim() || formatPublicAddress(account.address)}
       requestMessage={requestIntent?.message}
       balances={loadState.balances}
       selectedAsset={selectedAsset ?? loadState.balances[0].asset}

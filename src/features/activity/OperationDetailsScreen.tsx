@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AccessibilityInfo, Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { AccountRecord } from '@capabilities/account/types';
+import { formatPublicAddress } from '@ui/formatPublicAddress';
 import {
   loadHistoryOperationDetails,
   type HistoryOperationDetails,
@@ -553,5 +554,5 @@ function directionLabel(direction: HistoryDirection, t: Translate): string {
 }
 
 function shortAddress(value: string): string {
-  return value.length <= 22 ? value : `${value.slice(0, 9)}…${value.slice(-7)}`;
+  return formatPublicAddress(value);
 }

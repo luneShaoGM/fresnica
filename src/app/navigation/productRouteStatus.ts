@@ -45,8 +45,8 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
     note: 'Request is user-reachable for visible Classic accounts, builds one canonical SEP-7 pay URI, and projects that exact URI through Copy, system Share and QR; paste/scan/deep-link ingress remains later S09 work.',
   },
   exchange: {
-    readiness: 'blocked',
-    note: 'Exchange presentation is planned, but authoritative Swap behavior remains blocked on the shared Fresnica Path Payment/Swap Application Capability contract.',
+    readiness: 'implemented',
+    note: 'Swap is reachable from Home and Actions for signing-capable Classic accounts, with dual-amount quoting, route and slippage settings, exact-XDR review, explicit authorization, precise submission outcomes and uncertain-state recovery.',
   },
   'manage-assets': {
     readiness: 'implemented',

@@ -744,6 +744,8 @@ UI 执行策略：
 
 ### Stage 6：Path Payment Swap
 
+> 当前产品表面对齐切片按 `docs/behavior-specs/s10-path-payment-swap.md` clean-room 对齐 Stellar Exchange 的页面元素、数据项、操作和视觉层级：支付/接收双金额、资产切换、余额/Max、报价摘要、direct/intermediate 路径设置、滑点和结构化 review。保留 Fresnica ≤30 秒 quote TTL、整数 bps、exact-XDR、live session、uncertain/recovery 权威；排除 XRPL offer/order-book、SDEX 挂单和 Soroban Swap。Home 与 Actions 必须进入同一路由并共享资格规则。代码合并不升级成熟度，双端/真实链仍是退出门。
+
 目标：重写 Stellar 已实现的报价与兑换体验。
 
 前置：

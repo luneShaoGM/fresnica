@@ -9,6 +9,8 @@ import {
   DEFAULT_ACCOUNT_PREFERENCE_SCHEMA,
   HISTORY_CACHE_SNAPSHOT_ENTITY,
   HISTORY_CACHE_SNAPSHOT_SCHEMA,
+  BALANCE_CACHE_SNAPSHOT_ENTITY,
+  BALANCE_CACHE_SNAPSHOT_SCHEMA,
   PENDING_SUBMISSION_ENTITY,
   PENDING_SUBMISSION_SCHEMA,
   SIGNER_ENTITY,
@@ -17,9 +19,9 @@ import {
   WALLET_REALM_SCHEMA_VERSION,
 } from '../schemas';
 
-describe('Realm wallet schema v5', () => {
-  it('adds replaceable History cache persistence without changing wallet entity identities', () => {
-    expect(WALLET_REALM_SCHEMA_VERSION).toBe(5);
+describe('Realm wallet schema v6', () => {
+  it('adds replaceable Balance cache persistence without changing wallet entity identities', () => {
+    expect(WALLET_REALM_SCHEMA_VERSION).toBe(6);
     expect(WALLET_REALM_SCHEMAS).toEqual([
       ACCOUNT_SCHEMA,
       SIGNER_SCHEMA,
@@ -28,6 +30,7 @@ describe('Realm wallet schema v5', () => {
       DEFAULT_ACCOUNT_PREFERENCE_SCHEMA,
       PENDING_SUBMISSION_SCHEMA,
       HISTORY_CACHE_SNAPSHOT_SCHEMA,
+      BALANCE_CACHE_SNAPSHOT_SCHEMA,
     ]);
     expect(ACCOUNT_SCHEMA.name).toBe(ACCOUNT_ENTITY);
     expect(SIGNER_SCHEMA.name).toBe(SIGNER_ENTITY);
@@ -36,6 +39,7 @@ describe('Realm wallet schema v5', () => {
     expect(DEFAULT_ACCOUNT_PREFERENCE_SCHEMA.name).toBe(DEFAULT_ACCOUNT_PREFERENCE_ENTITY);
     expect(PENDING_SUBMISSION_SCHEMA.name).toBe(PENDING_SUBMISSION_ENTITY);
     expect(HISTORY_CACHE_SNAPSHOT_SCHEMA.name).toBe(HISTORY_CACHE_SNAPSHOT_ENTITY);
+    expect(BALANCE_CACHE_SNAPSHOT_SCHEMA.name).toBe(BALANCE_CACHE_SNAPSHOT_ENTITY);
   });
 
   it('stores Account fields one-to-one without persisting derived watch-only state', () => {
@@ -144,6 +148,22 @@ describe('Realm wallet schema v5', () => {
     expect(HISTORY_CACHE_SNAPSHOT_SCHEMA.properties).not.toHaveProperty('cursor');
     expect(HISTORY_CACHE_SNAPSHOT_SCHEMA.properties).not.toHaveProperty('acceptedCursors');
     expect(HISTORY_CACHE_SNAPSHOT_SCHEMA.properties).not.toHaveProperty('rawHorizon');
+  });
+
+  it('persists Balance cache as a replaceable normalized snapshot blob', () => {
+    expect(BALANCE_CACHE_SNAPSHOT_SCHEMA).toEqual({
+      name: 'BalanceCacheSnapshotEntity',
+      primaryKey: 'id',
+      properties: {
+        id: 'string',
+        networkId: 'string',
+        accountAddress: 'string',
+        schemaVersion: 'int',
+        updatedAt: 'date',
+        snapshotJson: 'string',
+      },
+    });
+    expect(BALANCE_CACHE_SNAPSHOT_SCHEMA.properties).not.toHaveProperty('rawHorizon');
   });
 
   it('persists only public pending-submission recovery metadata', () => {

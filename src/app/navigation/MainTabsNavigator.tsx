@@ -18,6 +18,7 @@ import { DAppsStackNavigator } from './DAppsStackNavigator';
 import { HomeStackNavigator } from './HomeStackNavigator';
 import { MainTabBar } from './MainTabBar';
 import { createSwapSelectionStore } from './swapSelectionStore';
+import { isSwapAvailableForAccount } from './swapAvailability';
 import type { MainTabParamList } from './navigationTypes';
 import type { ProductAction } from './productRoutes';
 import { SettingsStackNavigator } from './SettingsStackNavigator';
@@ -206,11 +207,10 @@ function MainTabsWithSelection({
   const actionAvailability = useMemo<Readonly<Record<ProductAction, boolean>>>(
     () => ({
       send: selectedAccount.identityKind === 'classic' && canSign,
-      // Preview-only: no authorization or submission UI in this slice.
-      swap: selectedAccount.identityKind === 'classic' && canSign,
+      swap: isSwapAvailableForAccount(selectedAccount, canSign),
       request: selectedAccount.identityKind === 'classic',
     }),
-    [canSign, selectedAccount.identityKind],
+    [canSign, selectedAccount],
   );
 
   return (

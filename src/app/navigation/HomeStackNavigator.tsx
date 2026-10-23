@@ -7,13 +7,14 @@ import type { AccountRecord } from '@capabilities/account/types';
 import { canContinueRequestToSend } from '../requestDeepLinkRouting';
 import { continueRequestToSendIfCurrent, createRequestRouteFocusLifetime } from './requestContinueRouting';
 import { captureSwapCurrentSession, type SwapCurrentSelection } from './swapCurrentSession';
+import { isSwapAvailableForAccount } from './swapAvailability';
 import { AddAccountScreen } from '@features/accounts/AddAccountScreen';
 import { AssetDetailsScreen } from '@features/home/AssetDetailsScreen';
 import { HomeScreen } from '@features/home/HomeScreen';
 import { SendFlowScreen } from '@features/send/SendFlowScreen';
 import { RequestFlowScreen } from '@features/request/RequestFlowScreen';
 import { ManageAssetsScreen } from '@features/trustlines/ManageAssetsScreen';
-import { SwapPreviewScreen, SwapUnavailableScreen } from '@features/swap/SwapPreviewScreen';
+import { SwapLoadingScreen, SwapPreviewScreen, SwapUnavailableScreen } from '@features/swap/SwapPreviewScreen';
 import { ReactNativeRequestQrScannerView } from '@platform/system/RequestQrScannerView';
 
 import type { AppServices } from '../createAppServices';
@@ -65,6 +66,7 @@ export function HomeStackNavigator({
             accountCount={selectableAccounts.length}
             selectableAccounts={selectableAccounts}
             balanceDependencies={services.balance}
+            balanceCache={services.balanceCache}
             friendbotDependencies={services.friendbot}
             canSign={canSign}
             onSelectAccount={onSelectAccount}
@@ -77,6 +79,11 @@ export function HomeStackNavigator({
             }
             onManageAssets={() => navigation.navigate('manage-assets', { accountId: selectedAccount.id })}
             onOpenAsset={asset => navigation.navigate('asset-details', { accountId: selectedAccount.id, asset })}
+            onSwap={
+              isSwapAvailableForAccount(selectedAccount, canSign)
+                ? () => navigation.navigate('exchange', { accountId: selectedAccount.id })
+                : undefined
+            }
             onManualRefresh={() => services.transactionRecovery.reconcile('manual-refresh')}
             invalidationRevision={invalidationRevision}
           />
@@ -221,7 +228,7 @@ function SwapPreviewRoute({
   // The child must mount only AFTER the route's focus epoch is established.
   // Passive effect ordering alone cannot guarantee that its initial balance
   // request captures a valid focus epoch.
-  if (!active || !focusReady) return null;
+  if (!active || !focusReady) return <SwapLoadingScreen />;
   if (!account) return <SwapUnavailableScreen onDone={() => navigation.goBack()} />;
   return (
     <SwapPreviewScreen
@@ -232,6 +239,8 @@ function SwapPreviewRoute({
       dependencies={services.swapPreview}
       execution={services.swapExecution}
       captureSession={captureSession}
+      openExternalUrl={services.externalUrl.open}
+      onManageAssets={() => navigation.navigate('manage-assets', { accountId: account.id })}
       onDone={() => navigation.popToTop()}
     />
   );

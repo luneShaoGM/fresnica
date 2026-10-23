@@ -3,6 +3,7 @@ import { AccessibilityInfo, Pressable, ScrollView, Text, View } from 'react-nati
 
 import type { AccountMoveDirection } from '@capabilities/account/accountOrder';
 import { Screen } from '@ui/components';
+import { formatPublicAddress } from '@ui/formatPublicAddress';
 import { NativeButton } from '@ui/components/NativeButton';
 
 import type { AccountRecord } from '../../capabilities/account/types';
@@ -80,7 +81,7 @@ export function AccountsScreen({ accounts, onOpenAccount, onAddAccount, onMoveAc
                 <Text style={styles.chevron}>›</Text>
               </View>
               <Text numberOfLines={1} selectable style={styles.address}>
-                {account.address}
+                {formatPublicAddress(account.address)}
               </Text>
               <Text style={styles.network}>{account.networkId}</Text>
             </Pressable>

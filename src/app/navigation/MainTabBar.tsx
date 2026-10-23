@@ -145,7 +145,7 @@ export function MainTabBar({
                       pressed ? styles.pressed : undefined,
                     ]}>
                     <Text style={styles.actionLabel}>{label}</Text>
-                    {!enabled ? <Text style={styles.actionStatus}>{t('nav.comingSoon')}</Text> : null}
+                    {!enabled ? <Text style={styles.actionStatus}>{t('nav.unavailableForAccount')}</Text> : null}
                   </Pressable>
                 );
               })}

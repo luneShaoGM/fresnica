@@ -13,6 +13,7 @@ import {
 } from './transaction/TransactionReconciliationCoordinator';
 import type { OnboardingProvisioningDependencies } from '../features/onboarding/runOnboardingProvisioning';
 import type { ApplicationSecurityDependencies } from '../capabilities/application-security/systemAuth';
+import type { BalanceCacheRepository } from '../capabilities/balance/BalanceCacheRepository';
 import type { BalanceDependencies } from '../capabilities/balance/loadBalanceSnapshot';
 import type { FriendbotDependencies } from '../capabilities/network/fundTestnetAccountWithFriendbot';
 import type { DappCatalogPort } from '../capabilities/dapp-catalog/catalog';
@@ -22,6 +23,7 @@ import type { DeleteLocalAccountDependencies } from '../capabilities/account/del
 import type { RenameAccountDependencies } from '../capabilities/account/renameAccount';
 import type { HistoryProductDependencies } from '../capabilities/history/HistoryCacheHydration';
 import type { SendProductDependencies } from '../features/send/sendProductFlow';
+import { createSwapAssetAvailabilityCache } from '../features/swap/swapAssetAvailabilityCache';
 import type { SwapPreviewProductDependencies } from '../features/swap/swapPreviewProductFlow';
 import type { SwapSubmissionProductDependencies } from '../features/swap/swapSubmissionProductFlow';
 import type { TrustlineProductDependencies } from '../features/trustlines/trustlineProductFlow';
@@ -29,6 +31,7 @@ import type { RequestProductDependencies } from '../features/request/requestProd
 import { ReactNativeFresnicaSdk, loadNativeFresnicaModule } from '../platform/fresnica/native';
 import {
   RealmAccountSignerRepository,
+  RealmBalanceCacheRepository,
   RealmDefaultAccountPreferenceStore,
   RealmHistoryCacheRepository,
   RealmLocalePreferenceStore,
@@ -55,6 +58,7 @@ export type AppServices = Readonly<{
   onboarding: OnboardingProvisioningDependencies;
   security: ApplicationSecurityDependencies;
   balance: BalanceDependencies;
+  balanceCache: BalanceCacheRepository;
   friendbot: FriendbotDependencies;
   send: SendProductDependencies;
   swapPreview: SwapPreviewProductDependencies;
@@ -87,6 +91,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const accountSelectionPreferences = new RealmDefaultAccountPreferenceStore(realm);
     const pendingSubmissions = new RealmPendingSubmissionRepository(realm);
     const historyCache = new RealmHistoryCacheRepository(realm);
+    const balanceCache = new RealmBalanceCacheRepository(realm);
     const ledgerReadInvalidation = createLedgerReadInvalidationStore();
     const recovery = Object.freeze({
       repository: pendingSubmissions,
@@ -109,6 +114,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       nowUnixMs: () => Date.now(),
       nowMonotonicMs: () => performance.now(),
     });
+    const swapAssetCache = createSwapAssetAvailabilityCache();
     const friendbotGateway = new StellarFriendbotGateway(APP_CONFIG.network.friendbotUrl);
     const transactionRecovery = createTransactionReconciliationCoordinator({
       gateway: stellarGateway,
@@ -130,6 +136,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         repository,
         pendingSubmissions,
         historyCache,
+        balanceCache,
         now: () => new Date(),
       },
       onboarding: {
@@ -147,6 +154,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         gateway: stellarGateway,
         networkId: network.id,
       },
+      balanceCache,
       friendbot: {
         gateway: friendbotGateway,
         networkId: network.id,
@@ -160,6 +168,8 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       },
       swapPreview: {
         network,
+        assetCache: swapAssetCache,
+        balanceCache,
         balance: { gateway: stellarGateway, networkId: network.id },
         quotes: {
           network,
