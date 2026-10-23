@@ -1,40 +1,29 @@
-jest.mock('@react-native-community/netinfo', () => ({addEventListener: jest.fn()}));
+jest.mock('@react-native-community/netinfo', () => ({ addEventListener: jest.fn() }));
 
-import {
-  classifyInternetConnectivity,
-  subscribeToNetworkRecovery,
-} from '../networkConnectivity';
+import { classifyInternetConnectivity, subscribeToInternetConnectivity } from '../networkConnectivity';
 
 describe('networkConnectivity', () => {
   it('keeps null reachability unknown instead of treating it as online', () => {
-    expect(classifyInternetConnectivity({isConnected: true, isInternetReachable: null})).toBe('unknown');
-    expect(classifyInternetConnectivity({isConnected: false, isInternetReachable: null})).toBe('offline');
+    expect(classifyInternetConnectivity({ isConnected: true, isInternetReachable: null })).toBe('unknown');
+    expect(classifyInternetConnectivity({ isConnected: false, isInternetReachable: null })).toBe('offline');
   });
 
-  it('emits recovery only after a definite offline to online transition', () => {
+  it('delivers initial connectivity, deduplicates states, and ignores queued callbacks after disposal', () => {
     const listener = jest.fn();
-    let stateListener: ((state: {isConnected: boolean | null; isInternetReachable: boolean | null}) => void) | undefined;
+    let stateListener!: (state: { isConnected: boolean | null; isInternetReachable: boolean | null }) => void;
     const unsubscribe = jest.fn();
-
-    const stop = subscribeToNetworkRecovery(listener, callback => {
+    const stop = subscribeToInternetConnectivity(listener, callback => {
       stateListener = callback;
       return unsubscribe;
     });
-
-    stateListener?.({isConnected: true, isInternetReachable: null});
-    stateListener?.({isConnected: true, isInternetReachable: true});
-    expect(listener).not.toHaveBeenCalled();
-    stateListener?.({isConnected: false, isInternetReachable: false});
-    stateListener?.({isConnected: true, isInternetReachable: null});
-    expect(listener).not.toHaveBeenCalled();
-
-    stateListener?.({isConnected: true, isInternetReachable: true});
-    expect(listener).toHaveBeenCalledTimes(1);
-
-    stateListener?.({isConnected: true, isInternetReachable: true});
-    expect(listener).toHaveBeenCalledTimes(1);
-
+    stateListener({ isConnected: true, isInternetReachable: null });
+    stateListener({ isConnected: true, isInternetReachable: true });
+    stateListener({ isConnected: true, isInternetReachable: true });
+    stateListener({ isConnected: true, isInternetReachable: false });
+    expect(listener.mock.calls).toEqual([['unknown'], ['online'], ['offline']]);
     stop();
+    stateListener({ isConnected: true, isInternetReachable: true });
+    expect(listener).toHaveBeenCalledTimes(3);
     expect(unsubscribe).toHaveBeenCalledTimes(1);
   });
 });

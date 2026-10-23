@@ -22,6 +22,11 @@ type Props = Readonly<{
 
 export function ActivityStackNavigator({ accounts, selectedAccountId, services }: Props) {
   const account = resolveVisibleAccount(accounts, selectedAccountId);
+  const readRuntime = useSyncExternalStore(
+    services.ledgerReadRuntime.subscribe,
+    services.ledgerReadRuntime.getSnapshot,
+    services.ledgerReadRuntime.getSnapshot,
+  );
   const invalidationRevision = useSyncExternalStore(
     services.ledgerReadInvalidation.subscribe,
     () => services.ledgerReadInvalidation.getRevision(account.networkId, account.id),
@@ -35,6 +40,7 @@ export function ActivityStackNavigator({ accounts, selectedAccountId, services }
       <Stack.Screen name="activity">
         {({ navigation }) => (
           <ActivityRoute
+            foreground={readRuntime.foreground}
             account={account}
             dependencies={services.history}
             onOpenOperation={operationId =>
@@ -48,6 +54,7 @@ export function ActivityStackNavigator({ accounts, selectedAccountId, services }
       <Stack.Screen name="operation-details">
         {({ navigation, route }) => (
           <OperationDetailsRoute
+            foreground={readRuntime.foreground}
             account={requireAccount(accounts, route.params.accountId)}
             dependencies={services.history}
             operationId={route.params.operationId}
@@ -62,14 +69,20 @@ export function ActivityStackNavigator({ accounts, selectedAccountId, services }
   );
 }
 
-function ActivityRoute(props: Omit<React.ComponentProps<typeof ActivityScreen>, 'active'>) {
-  const active = useIsFocused();
-  return <ActivityScreen {...props} active={active} />;
+function ActivityRoute({
+  foreground,
+  ...props
+}: Omit<React.ComponentProps<typeof ActivityScreen>, 'active'> & { foreground: boolean }) {
+  const focused = useIsFocused();
+  return <ActivityScreen {...props} active={focused && foreground} />;
 }
 
-function OperationDetailsRoute(props: Omit<React.ComponentProps<typeof OperationDetailsScreen>, 'active'>) {
-  const active = useIsFocused();
-  return <OperationDetailsScreen {...props} active={active} />;
+function OperationDetailsRoute({
+  foreground,
+  ...props
+}: Omit<React.ComponentProps<typeof OperationDetailsScreen>, 'active'> & { foreground: boolean }) {
+  const focused = useIsFocused();
+  return <OperationDetailsScreen {...props} active={focused && foreground} />;
 }
 
 function requireAccount(accounts: readonly AccountRecord[], accountId: string): AccountRecord {
