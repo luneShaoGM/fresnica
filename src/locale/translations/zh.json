@@ -489,6 +489,7 @@
   "dapps.catalog.search": "搜索 dApp",
   "dapps.catalog.all": "全部",
   "dapps.catalog.readOnly": "目录仅供阅读，尚不支持打开 dApp 或连接钱包。",
+  "dapps.catalog.offline": "当前处于离线状态。连接网络后将自动加载 dApp 目录。",
   "dapps.catalog.loading": "正在加载 dApp 目录…",
   "dapps.catalog.unavailable": "尚未配置 dApp 目录。当前没有可展示或背书的条目。",
   "dapps.catalog.error": "加载 dApp 目录失败，可以重试。",

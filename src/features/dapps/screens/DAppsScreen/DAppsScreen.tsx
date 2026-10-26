@@ -16,6 +16,7 @@ import { createStyles } from './styles';
 
 type CatalogState =
   | Readonly<{ kind: 'loading' }>
+  | Readonly<{ kind: 'offline' }>
   | Readonly<{ kind: 'unavailable' }>
   | Readonly<{ kind: 'error' }>
   | Readonly<{ kind: 'ready'; entries: readonly DappCatalogEntry[]; refreshFailed?: boolean; stale?: boolean }>;
@@ -45,7 +46,7 @@ export function DAppsScreen({
   const [sampleQuery, setSampleQuery] = useState('');
   const [sampleCategory, setSampleCategory] = useState<string>();
   const [retryCount, setRetryCount] = useState(0);
-  const [state, setState] = useState<CatalogState>({ kind: 'loading' });
+  const [state, setState] = useState<CatalogState>({ kind: online ? 'loading' : 'offline' });
   const [websiteInput, setWebsiteInput] = useState('');
   const [preparedWebsite, setPreparedWebsite] = useState<UntrustedDappUrl>();
   const [recentOrigins, setRecentOrigins] = useState<readonly string[]>([]);
@@ -84,9 +85,12 @@ export function DAppsScreen({
   useEffect(() => {
     const changedCatalog = previousCatalog.current !== catalog;
     previousCatalog.current = catalog;
-    if (changedCatalog) setState({ kind: 'loading' });
     if (!active || !online) {
-      if (!changedCatalog) setState(previous => (previous.kind === 'ready' ? { ...previous, stale: true } : previous));
+      setState(previous => {
+        if (!changedCatalog && previous.kind === 'ready') return { ...previous, stale: true };
+        if (!online) return { kind: 'offline' };
+        return changedCatalog ? { kind: 'loading' } : previous;
+      });
       return;
     }
     let current = true;
@@ -335,6 +339,8 @@ export function DAppsScreen({
                     />
                   )}
                 </>
+              ) : state.kind === 'offline' ? (
+                <EmptyCatalog message={t('dapps.catalog.offline')} styles={styles} />
               ) : state.kind === 'loading' ? (
                 <View style={styles.emptyCatalog}>
                   <ActivityIndicator accessibilityLabel={t('dapps.catalog.loading')} />

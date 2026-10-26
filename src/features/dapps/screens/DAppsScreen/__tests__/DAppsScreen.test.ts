@@ -390,6 +390,37 @@ describe('catalog and browser lifecycle', () => {
     resetHarness();
     openExternalUrl.mockClear();
   });
+  it.each(['ready', 'unavailable'] as const)(
+    'shows offline on first entry and recovers to %s when online',
+    async kind => {
+      let resolve!: (value: Awaited<ReturnType<DappCatalogPort['load']>>) => void;
+      const load = jest.fn(
+        () =>
+          new Promise<Awaited<ReturnType<DappCatalogPort['load']>>>(done => {
+            resolve = done;
+          }),
+      );
+      const catalog = { load };
+      const offline = elements(await renderCatalog(catalog, true, true, false));
+      expect(offline.some(node => node.props.title === 'dapps.catalog.offline')).toBe(true);
+      expect(offline.some(node => node.props.accessibilityLabel === 'dapps.catalog.loading')).toBe(false);
+      expect(load).not.toHaveBeenCalled();
+      const loading = elements(await renderCatalog(catalog, true, true, true));
+      expect(load).toHaveBeenCalledTimes(1);
+      expect(loading.some(node => node.props.accessibilityLabel === 'dapps.catalog.loading')).toBe(true);
+      resolve(kind === 'ready' ? { kind, entries: [entry] } : { kind });
+      await settle();
+      const recovered = elements(await renderCatalog(catalog, true, true, true));
+      expect(recovered.some(node => node.props.title === 'dapps.catalog.offline')).toBe(false);
+      expect(recovered.some(node => node.props.accessibilityLabel === 'dapps.catalog.loading')).toBe(false);
+      expect(
+        recovered.some(node =>
+          kind === 'ready' ? node.props.children === entry.title : node.props.title === 'dapps.catalog.unavailable',
+        ),
+      ).toBe(true);
+      expect(load).toHaveBeenCalledTimes(1);
+    },
+  );
   it('gates loads on activity/connectivity, retains data on failed refresh and retries after recovery', async () => {
     const load = jest.fn().mockResolvedValue({ kind: 'ready', entries: [entry] });
     const catalog = { load };

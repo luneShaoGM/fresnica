@@ -489,6 +489,7 @@
   "dapps.catalog.search": "Search dApps",
   "dapps.catalog.all": "All",
   "dapps.catalog.readOnly": "Directory listings (read-only). Opening dApps and wallet connections are not enabled.",
+  "dapps.catalog.offline": "You are offline. Connect to the internet to load the dApp directory.",
   "dapps.catalog.loading": "Loading dApp catalog...",
   "dapps.catalog.unavailable": "The dApp catalog is not configured. No listings or endorsements are available.",
   "dapps.catalog.error": "Could not load the dApp catalog. You can retry.",
