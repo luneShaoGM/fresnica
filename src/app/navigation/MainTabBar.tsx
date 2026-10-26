@@ -1,15 +1,16 @@
 import React from 'react';
-import {Pressable, Text, View} from 'react-native';
-import type {BottomTabBarProps} from '@react-navigation/bottom-tabs';
-import {getFocusedRouteNameFromRoute} from '@react-navigation/native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import type { AccountSyncMode } from '@capabilities/account-sync/AccountEffects';
+import { Pressable, Text, View } from 'react-native';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import {useThemedStyles} from '@ui/theme';
+import { useThemedStyles } from '@ui/theme';
 
-import {useLocalization} from '../../locale';
-import {useOverlay} from '../OverlayHost';
-import {createStyles} from './MainTabBar.styles';
-import type {MainTab, ProductAction} from './productRoutes';
+import { useLocalization } from '../../locale';
+import { useOverlay } from '../OverlayHost';
+import { createStyles } from './MainTabBar.styles';
+import type { MainTab, ProductAction } from './productRoutes';
 
 const TAB_LABEL_KEYS: Readonly<Record<MainTab, string>> = {
   home: 'nav.home',
@@ -36,6 +37,7 @@ const ACTIONS_OVERLAY_ID = 'actions';
 export type MainTabBarProps = BottomTabBarProps &
   Readonly<{
     selectedAccountId: string;
+    syncMode?: AccountSyncMode;
     actionAvailability: Readonly<Record<ProductAction, boolean>>;
   }>;
 
@@ -45,10 +47,11 @@ export function MainTabBar({
   navigation,
   selectedAccountId,
   actionAvailability,
+  syncMode,
 }: MainTabBarProps) {
-  const {t} = useLocalization();
+  const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
-  const {activeOverlayId, present, dismiss} = useOverlay();
+  const { activeOverlayId, present, dismiss } = useOverlay();
 
   const activeRoute = state.routes[state.index];
   const activeTab = activeRoute.name as MainTab;
@@ -76,21 +79,20 @@ export function MainTabBar({
     };
 
     const onLongPress = () => {
-      navigation.emit({type: 'tabLongPress', target: route.key});
+      navigation.emit({ type: 'tabLongPress', target: route.key });
     };
 
     return (
       <Pressable
         accessibilityLabel={options.tabBarAccessibilityLabel ?? t(TAB_LABEL_KEYS[tab])}
         accessibilityRole="tab"
-        accessibilityState={{selected: focused}}
+        accessibilityState={{ selected: focused }}
         key={route.key}
         onLongPress={onLongPress}
         onPress={onPress}
-        style={({pressed}) => [styles.tab, pressed ? styles.pressed : undefined]}>
-        <Text style={[styles.tabText, focused ? styles.selectedTabText : undefined]}>
-          {t(TAB_LABEL_KEYS[tab])}
-        </Text>
+        style={({ pressed }) => [styles.tab, pressed ? styles.pressed : undefined]}
+      >
+        <Text style={[styles.tabText, focused ? styles.selectedTabText : undefined]}>{t(TAB_LABEL_KEYS[tab])}</Text>
       </Pressable>
     );
   };
@@ -103,19 +105,19 @@ export function MainTabBar({
     if (action === 'send') {
       navigation.navigate('home', {
         screen: 'send-form',
-        params: {accountId: selectedAccountId},
+        params: { accountId: selectedAccountId },
       });
     }
     if (action === 'swap') {
       navigation.navigate('home', {
         screen: 'exchange',
-        params: {accountId: selectedAccountId},
+        params: { accountId: selectedAccountId },
       });
     }
     if (action === 'request') {
       navigation.navigate('home', {
         screen: 'request',
-        params: {accountId: selectedAccountId},
+        params: { accountId: selectedAccountId },
       });
     }
   };
@@ -135,15 +137,16 @@ export function MainTabBar({
                   <Pressable
                     accessibilityLabel={label}
                     accessibilityRole="button"
-                    accessibilityState={{disabled: !enabled}}
+                    accessibilityState={{ disabled: !enabled }}
                     disabled={!enabled}
                     key={action}
                     onPress={() => selectAction(action)}
-                    style={({pressed}) => [
+                    style={({ pressed }) => [
                       styles.actionItem,
                       !enabled ? styles.actionItemDisabled : undefined,
                       pressed ? styles.pressed : undefined,
-                    ]}>
+                    ]}
+                  >
                     <Text style={styles.actionLabel}>{label}</Text>
                     {!enabled ? <Text style={styles.actionStatus}>{t('nav.comingSoon')}</Text> : null}
                   </Pressable>
@@ -153,27 +156,37 @@ export function MainTabBar({
           </SafeAreaView>
         </Pressable>
       </Pressable>,
-      {statusBarContent: 'light'},
+      { statusBarContent: 'light' },
     );
   };
 
   return (
-    <SafeAreaView edges={['right', 'bottom', 'left']} style={styles.tabBar}>
-      {renderTab(0)}
-      {renderTab(1)}
-      <View style={styles.actionsSlot}>
-        <Pressable
-          accessibilityLabel={t('nav.actions')}
-          accessibilityRole="button"
-          accessibilityState={{expanded: activeOverlayId === ACTIONS_OVERLAY_ID}}
-          onPress={openActions}
-          style={({pressed}) => [styles.actionsButton, pressed ? styles.pressed : undefined]}>
-          <Text accessibilityElementsHidden style={styles.actionsPlus}>+</Text>
-          <Text style={styles.actionsLabel}>{t('nav.actions')}</Text>
-        </Pressable>
-      </View>
-      {renderTab(2)}
-      {renderTab(3)}
-    </SafeAreaView>
+    <View>
+      {syncMode === 'polling' ? (
+        <Text accessibilityLiveRegion="polite" style={styles.syncNotice}>
+          {t('account.sync.polling')}
+        </Text>
+      ) : null}
+      <SafeAreaView edges={['right', 'bottom', 'left']} style={styles.tabBar}>
+        {renderTab(0)}
+        {renderTab(1)}
+        <View style={styles.actionsSlot}>
+          <Pressable
+            accessibilityLabel={t('nav.actions')}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: activeOverlayId === ACTIONS_OVERLAY_ID }}
+            onPress={openActions}
+            style={({ pressed }) => [styles.actionsButton, pressed ? styles.pressed : undefined]}
+          >
+            <Text accessibilityElementsHidden style={styles.actionsPlus}>
+              +
+            </Text>
+            <Text style={styles.actionsLabel}>{t('nav.actions')}</Text>
+          </Pressable>
+        </View>
+        {renderTab(2)}
+        {renderTab(3)}
+      </SafeAreaView>
+    </View>
   );
 }

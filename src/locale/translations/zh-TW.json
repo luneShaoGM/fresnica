@@ -592,6 +592,7 @@
   "dapps.website.opening": "正在開啟瀏覽器…",
   "dapps.website.invalid": "請輸入公開 HTTPS 網域。HTTP、IP 位址、本機網域、含憑證或格式錯誤的網址會被封鎖。",
   "dapps.website.failed": "無法開啟瀏覽器，請檢查網址後重試。",
+  "account.sync.polling": "即時更新正在重新連線，暫時每 15 秒檢查一次變化。",
   "balance.cache.refreshing": "正在重新整理，暫時顯示上次讀取的餘額…",
   "balance.cache.failed": "重新整理失敗，目前顯示上次讀取的餘額。",
   "balance.cache.stale": "目前顯示上次讀取的餘額。",

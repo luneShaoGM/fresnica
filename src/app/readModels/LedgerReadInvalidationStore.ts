@@ -6,7 +6,7 @@ import type {
 export type LedgerReadRefresh = Readonly<{
   networkId: string;
   accountId: string;
-  reason: 'cold-start' | 'foreground' | 'network-recovery' | 'manual-refresh' | 'offline';
+  reason: 'cold-start' | 'foreground' | 'network-recovery' | 'manual-refresh' | 'offline' | 'account-effects';
 }>;
 
 export interface LedgerReadInvalidationStore extends LedgerReadInvalidationPort {

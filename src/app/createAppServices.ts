@@ -1,3 +1,5 @@
+import { createForegroundAccountSync, type ForegroundAccountSync } from './readModels/createForegroundAccountSync';
+import { createHorizonAccountEffects } from '../platform/stellar/HorizonAccountEffects';
 import { NativeModules } from 'react-native';
 
 import { createLedgerReadRuntime, type LedgerReadRuntime } from './readModels/LedgerReadRuntime';
@@ -70,6 +72,7 @@ export type AppServices = Readonly<{
   transactionRecovery: TransactionReconciliationCoordinator;
   ledgerReadInvalidation: LedgerReadInvalidationStore;
   ledgerReadRuntime: LedgerReadRuntime;
+  foregroundAccountSync: ForegroundAccountSync;
   localePreferences: RealmLocalePreferenceStore;
   accountSelectionPreferences: AccountSelectionPreferenceStore;
   externalUrl: ExternalUrlOpener;
@@ -138,6 +141,15 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         diagnostics.info('transaction-reconciliation-start', { details: { reason, networkId: network.id } }),
       onRunFailure: (reason, error) =>
         diagnostics.warn('transaction-reconciliation-failed', { details: { reason, networkId: network.id, error } }),
+    });
+
+    const foregroundAccountSync = createForegroundAccountSync({
+      networkId: network.id,
+      runtime: ledgerReadRuntime,
+      invalidation: ledgerReadInvalidation,
+      effects: createHorizonAccountEffects(APP_CONFIG.network.horizonUrl),
+      onFailure: () => diagnostics.warn('account-effects-probe-failed'),
+      isReading: displayReadGateway.hasPendingReads,
     });
 
     diagnostics.info('app-services-ready', { details: { networkId: network.id } });
@@ -225,10 +237,14 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       transactionRecovery,
       ledgerReadInvalidation,
       ledgerReadRuntime,
+      foregroundAccountSync,
       localePreferences,
       accountSelectionPreferences,
       externalUrl: reactNativeExternalUrlOpener,
-      close: () => realm.close(),
+      close: () => {
+        foregroundAccountSync.close();
+        realm.close();
+      },
     };
   } catch (error) {
     realm.close();
