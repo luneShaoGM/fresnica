@@ -438,6 +438,8 @@ describe('catalog and browser lifecycle', () => {
     expect(openExternalUrl).not.toHaveBeenCalled();
     const resumed = elements(await renderCatalog(catalog));
     expect(resumed.some(node => node.props.label === 'dapps.website.confirm')).toBe(false);
+    confirm?.props.onPress?.();
+    expect(openExternalUrl).not.toHaveBeenCalled();
   });
   it('does not retain a different catalog provider snapshot after replacement fails', async () => {
     await renderCatalog({ load: async () => ({ kind: 'ready', entries: [entry] }) });

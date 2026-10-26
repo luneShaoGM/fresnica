@@ -53,6 +53,7 @@ export function DAppsScreen({
   const activeRef = useRef(active);
   activeRef.current = active;
   const websiteEpoch = useRef(0);
+  const proposalRef = useRef<Readonly<{ value: UntrustedDappUrl; epoch: number }> | undefined>(undefined);
   const mountedRef = useRef(false);
   const previousCatalog = useRef(catalog);
   const interfaceSamples = useMemo<readonly DappCatalogEntry[]>(
@@ -123,9 +124,10 @@ export function DAppsScreen({
   }, [active]);
 
   const prepareWebsite = (value: string) => {
-    if (!activeRef.current || openingRef.current) return;
+    if (!mountedRef.current || !activeRef.current || openingRef.current) return;
     try {
       const verified = normalizeUntrustedDappUrl(value);
+      proposalRef.current = { value: verified, epoch: websiteEpoch.current };
       setPreparedWebsite(verified);
       setWebsiteError(undefined);
     } catch {
@@ -144,7 +146,15 @@ export function DAppsScreen({
   };
 
   const confirmWebsite = async () => {
-    if (!activeRef.current || !preparedWebsite || openingRef.current) return;
+    if (
+      !mountedRef.current ||
+      !activeRef.current ||
+      !preparedWebsite ||
+      openingRef.current ||
+      proposalRef.current?.value !== preparedWebsite ||
+      proposalRef.current.epoch !== websiteEpoch.current
+    )
+      return;
     // This confirmation opens the site in the system browser only.
     // Fresnica never shares wallet identity, permission or signing.
     const proposal = preparedWebsite;
