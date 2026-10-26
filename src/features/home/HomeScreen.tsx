@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { Screen } from '@ui/components';
@@ -7,7 +7,9 @@ import { NativeStateView } from '@ui/components/NativeStateView';
 import { useAppTheme, useThemedStyles } from '@ui/theme';
 
 import type { AccountRecord } from '../../capabilities/account/types';
-import { loadBalanceSnapshot, type BalanceDependencies } from '../../capabilities/balance/loadBalanceSnapshot';
+import type { BalanceProductDependencies } from '@capabilities/balance/BalanceCacheHydration';
+import { useBalanceDisplay } from './useBalanceDisplay';
+import { BalanceFreshnessNotice } from './components/BalanceFreshnessNotice';
 import type { BalanceAsset } from '../../capabilities/balance/types';
 import {
   fundTestnetAccountWithFriendbot,
@@ -15,7 +17,6 @@ import {
   type FriendbotDependencies,
 } from '../../capabilities/network/fundTestnetAccountWithFriendbot';
 import { useLocalization } from '../../locale';
-import { projectFeatureError } from '../featureError';
 import { AccountPickerModal } from './components/AccountPickerModal';
 import { AccountSummary } from './components/AccountSummary';
 import { AssetList } from './components/AssetList';
@@ -28,7 +29,7 @@ type Props = Readonly<{
   account: AccountRecord;
   accountCount: number;
   selectableAccounts: readonly AccountRecord[];
-  balanceDependencies: BalanceDependencies;
+  balanceDependencies: BalanceProductDependencies;
   friendbotDependencies: FriendbotDependencies;
   canSign: boolean;
   onSelectAccount: (accountId: string) => void | Promise<void>;
@@ -64,58 +65,17 @@ export function HomeScreen({
   const theme = useAppTheme();
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
-  const [balanceState, setBalanceState] = useState<HomeBalanceState>({ kind: 'loading' });
+  const { state: balanceState, refresh: refreshBalances } = useBalanceDisplay(
+    account,
+    balanceDependencies,
+    active,
+    invalidationRevision,
+  );
   const [accountPickerVisible, setAccountPickerVisible] = useState(false);
   const [friendbotStateByAccount, setFriendbotStateByAccount] = useState<Record<string, FriendbotFundingState>>({});
-  const requestVersion = useRef(0);
   const currentAccountId = useRef(account.id);
   const friendbotRequestAccountIds = useRef<Set<string>>(new Set());
   currentAccountId.current = account.id;
-
-  const refreshBalances = useCallback(
-    (beforeLoad?: () => Promise<unknown>) => {
-      const version = requestVersion.current + 1;
-      requestVersion.current = version;
-      setBalanceState({ kind: 'loading' });
-
-      const before = beforeLoad
-        ? Promise.resolve()
-            .then(beforeLoad)
-            .catch(() => undefined)
-        : Promise.resolve();
-
-      void before
-        .then(() => loadBalanceSnapshot(balanceDependencies, account))
-        .then(snapshot => {
-          if (requestVersion.current === version) {
-            setBalanceState({ kind: 'ready', snapshot });
-          }
-        })
-        .catch(error => {
-          if (requestVersion.current === version) {
-            setBalanceState({
-              kind: 'error',
-              message: projectFeatureError(error, {
-                fallbackMessage: 'Unable to load balances.',
-                fallbackRetryable: true,
-              }).message,
-            });
-          }
-        });
-    },
-    [account, balanceDependencies],
-  );
-
-  useEffect(() => {
-    if (!active) {
-      return;
-    }
-
-    refreshBalances();
-    return () => {
-      requestVersion.current += 1;
-    };
-  }, [active, invalidationRevision, refreshBalances]);
 
   const clearFriendbotState = useCallback((accountId: string) => {
     setFriendbotStateByAccount(current => {
@@ -174,7 +134,7 @@ export function HomeScreen({
         refreshControl={
           <RefreshControl
             onRefresh={() => refreshBalances(onManualRefresh)}
-            refreshing={balanceState.kind === 'loading'}
+            refreshing={balanceState.kind === 'loading' || (balanceState.kind === 'ready' && balanceState.refreshing)}
             tintColor={theme.colors.actionPrimary}
           />
         }
@@ -225,6 +185,7 @@ export function HomeScreen({
           </Pressable>
         </View>
 
+        <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} />
         {renderPortfolio(
           balanceState,
           viewModel.accountAddress,

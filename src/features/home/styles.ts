@@ -258,6 +258,7 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.textTertiary,
       paddingTop: theme.spacing.sm,
     },
+    freshness: { gap: theme.spacing.xs, paddingVertical: theme.spacing.sm },
     refreshLink: {
       alignSelf: 'center',
       minHeight: 44,

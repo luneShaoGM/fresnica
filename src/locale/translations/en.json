@@ -590,5 +590,14 @@
   "dapps.website.cancel": "Cancel",
   "dapps.website.opening": "Opening browser…",
   "dapps.website.invalid": "Use a public HTTPS hostname. HTTP, IP addresses, local domains, credentials and malformed URLs are blocked.",
-  "dapps.website.failed": "Could not open the browser. Check the URL and try again."
+  "dapps.website.failed": "Could not open the browser. Check the URL and try again.",
+  "balance.cache.refreshing": "Showing previous balances while refreshing…",
+  "balance.cache.failed": "Refresh failed. Showing previous balances.",
+  "balance.cache.stale": "Showing previous balances.",
+  "balance.cache.current": "Balances updated.",
+  "balance.cache.updated": "Last update: {{time}}",
+  "balance.cache.retry": "Retry",
+  "balance.cache.inactive": "The last snapshot showed an inactive account. Refresh to verify.",
+  "balance.cache.missing": "This asset was absent from the last snapshot. Refresh to verify.",
+  "balance.cache.balanceLabel": "Last known balance"
 }

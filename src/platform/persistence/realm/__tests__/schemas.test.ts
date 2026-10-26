@@ -1,4 +1,6 @@
 import {
+  BALANCE_CACHE_SNAPSHOT_ENTITY,
+  BALANCE_CACHE_SNAPSHOT_SCHEMA,
   ACCOUNT_ENTITY,
   ACCOUNT_SCHEMA,
   ACCOUNT_SIGNER_REFERENCE_ENTITY,
@@ -17,9 +19,9 @@ import {
   WALLET_REALM_SCHEMA_VERSION,
 } from '../schemas';
 
-describe('Realm wallet schema v5', () => {
-  it('adds replaceable History cache persistence without changing wallet entity identities', () => {
-    expect(WALLET_REALM_SCHEMA_VERSION).toBe(5);
+describe('Realm wallet schema v6', () => {
+  it('adds replaceable Balance cache persistence without changing wallet entity identities', () => {
+    expect(WALLET_REALM_SCHEMA_VERSION).toBe(6);
     expect(WALLET_REALM_SCHEMAS).toEqual([
       ACCOUNT_SCHEMA,
       SIGNER_SCHEMA,
@@ -28,7 +30,9 @@ describe('Realm wallet schema v5', () => {
       DEFAULT_ACCOUNT_PREFERENCE_SCHEMA,
       PENDING_SUBMISSION_SCHEMA,
       HISTORY_CACHE_SNAPSHOT_SCHEMA,
+      BALANCE_CACHE_SNAPSHOT_SCHEMA,
     ]);
+    expect(BALANCE_CACHE_SNAPSHOT_SCHEMA.name).toBe(BALANCE_CACHE_SNAPSHOT_ENTITY);
     expect(ACCOUNT_SCHEMA.name).toBe(ACCOUNT_ENTITY);
     expect(SIGNER_SCHEMA.name).toBe(SIGNER_ENTITY);
     expect(ACCOUNT_SIGNER_REFERENCE_SCHEMA.name).toBe(ACCOUNT_SIGNER_REFERENCE_ENTITY);

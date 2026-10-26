@@ -1,5 +1,6 @@
 import { InMemoryAccountSignerRepository } from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
 import { InMemoryHistoryCacheRepository } from '../../../platform/persistence/memory/InMemoryHistoryCacheRepository';
+import { InMemoryBalanceCacheRepository } from '../../../platform/persistence/memory/InMemoryBalanceCacheRepository';
 import { InMemoryPendingSubmissionRepository } from '../../../platform/persistence/memory/InMemoryPendingSubmissionRepository';
 import { HISTORY_CACHE_SCHEMA_VERSION } from '../../history/HistoryCacheRepository';
 import type { SignerRecord } from '../../signer/types';
@@ -58,6 +59,7 @@ function dependencies() {
     repository: new InMemoryAccountSignerRepository(),
     pendingSubmissions: new InMemoryPendingSubmissionRepository(),
     historyCache: new InMemoryHistoryCacheRepository(),
+    balanceCache: new InMemoryBalanceCacheRepository(),
   };
 }
 
@@ -151,6 +153,16 @@ describe('deleteLocalAccount', () => {
     };
 
     expect(() => deleteLocalAccount(deps, 'account-a')).toThrow('history-cache-clear-failed');
+    expect(deps.repository.getAccount('account-a')).toBeDefined();
+  });
+
+  it('keeps the account when Balance cache cleanup fails', () => {
+    const deps = dependencies();
+    deps.repository.createAccount(account('account-a'));
+    deps.balanceCache.clearPartition = () => {
+      throw new Error('balance-cache-clear-failed');
+    };
+    expect(() => deleteLocalAccount(deps, 'account-a')).toThrow('balance-cache-clear-failed');
     expect(deps.repository.getAccount('account-a')).toBeDefined();
   });
 

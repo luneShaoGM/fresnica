@@ -1,3 +1,4 @@
+import { InMemoryBalanceCacheRepository } from '../../../platform/persistence/memory/InMemoryBalanceCacheRepository';
 import React, { useEffect, useState } from 'react';
 import { StateView } from '@fresnica/ui-native';
 
@@ -5,7 +6,8 @@ import { NativeButton } from '@ui/components/NativeButton';
 import { NativeStateView } from '@ui/components/NativeStateView';
 
 import type { AccountRecord } from '../../../capabilities/account/types';
-import { loadBalanceSnapshot, type BalanceDependencies } from '../../../capabilities/balance/loadBalanceSnapshot';
+import { loadBalanceSnapshot } from '../../../capabilities/balance/loadBalanceSnapshot';
+import type { BalanceProductDependencies } from '../../../capabilities/balance/BalanceCacheHydration';
 import type { FriendbotDependencies } from '../../../capabilities/network/fundTestnetAccountWithFriendbot';
 import { HomeScreen } from '../HomeScreen';
 import { AssetList } from '../components/AssetList';
@@ -89,7 +91,12 @@ const account: AccountRecord = {
   updatedAt: now,
 };
 
-const balanceDependencies = {} as BalanceDependencies;
+const balanceDependencies: BalanceProductDependencies = {
+  networkId: 'stellar-testnet',
+  now: () => new Date(0),
+  cache: new InMemoryBalanceCacheRepository(),
+  gateway: { loadAccountBalances: jest.fn() },
+};
 const friendbotDependencies = {} as FriendbotDependencies;
 const mockedUseState = useState as unknown as jest.Mock;
 const mockedUseEffect = useEffect as unknown as jest.Mock;
@@ -160,7 +167,7 @@ describe('Home native balance-state presentation', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(setBalanceState).toHaveBeenCalledWith({ kind: 'loading' });
+    expect(setBalanceState.mock.calls[0][0]({ kind: 'error', message: 'Previous error' })).toEqual({ kind: 'loading' });
     expect(mockedLoadBalanceSnapshot).toHaveBeenCalledWith(balanceDependencies, account);
     expect(onSelectAccount).not.toHaveBeenCalled();
     expect(onManualRefresh).not.toHaveBeenCalled();
@@ -170,7 +177,13 @@ describe('Home native balance-state presentation', () => {
   it('explains unsupported contract balances without offering a classic-account retry', () => {
     const contractAccount: AccountRecord = { ...account, identityKind: 'contract', address: 'CCONTRACT-A' };
     const { root } = renderHome(
-      { kind: 'ready', snapshot: { status: 'unsupported-account', address: contractAccount.address } },
+      {
+        kind: 'ready',
+        stale: false,
+        refreshing: false,
+        refreshFailed: false,
+        snapshot: { status: 'unsupported-account', address: contractAccount.address },
+      },
       contractAccount,
     );
     const state = findElement(root, element => element.type === NativeStateView);
@@ -187,10 +200,16 @@ describe('Home native balance-state presentation', () => {
     const loading = renderHome({ kind: 'loading' }).root;
     const inactive = renderHome({
       kind: 'ready',
+      stale: false,
+      refreshing: false,
+      refreshFailed: false,
       snapshot: { status: 'inactive', address: account.address },
     }).root;
     const active = renderHome({
       kind: 'ready',
+      stale: false,
+      refreshing: false,
+      refreshFailed: false,
       snapshot: {
         status: 'active',
         address: account.address,
