@@ -1,5 +1,6 @@
 import { createDisplayReadGateway } from '../createDisplayReadGateway';
 import { loadBalanceSnapshot } from '@capabilities/balance/loadBalanceSnapshot';
+import type { HistoryOperationResult } from '@capabilities/history/HistoryGateway';
 import type { StellarAccountBalanceResult } from '@capabilities/stellar/types';
 import type { AccountRecord } from '@capabilities/account/types';
 import type { AccountEffectsPort } from '@capabilities/account-sync/AccountEffects';
@@ -300,6 +301,92 @@ describe('selected-account foreground sync', () => {
     expect(s.revision()).toBe(before);
     s.reading.mockReturnValue(false);
     jest.advanceTimersByTime(timing.coalesce);
+    expect(s.revision()).toBe(before + 1);
+    s.sync.close();
+  });
+  it('waits for the initial display read instead of expiring the first dirty batch immediately', async () => {
+    const s = setup();
+    s.reading.mockReturnValue(true);
+    s.sync.setAccount(account());
+    s.streams[0].onOpen();
+    await settle();
+    jest.advanceTimersByTime(timing.coalesce);
+    expect(s.revision()).toBe(0);
+    s.reading.mockReturnValue(false);
+    jest.advanceTimersByTime(timing.coalesce);
+    expect(s.revision()).toBe(1);
+    s.sync.close();
+  });
+  it('preserves real Balance/History reads after more than 30 seconds of quiet, then dispatches one dirty follow-up', async () => {
+    const s = setup();
+    s.sync.setAccount(account());
+    s.streams[0].onOpen();
+    await settle();
+    jest.advanceTimersByTime(timing.coalesce);
+    const before = s.revision();
+    // The health checkpoint is still pending; no checkpoint invalidation masks the quiet interval.
+    s.latest.mockReturnValue(deferred<string>().promise);
+    jest.advanceTimersByTime(timing.maxReadWait + 1000);
+    await settle();
+    expect(s.revision()).toBe(before);
+    const balance = deferred<StellarAccountBalanceResult>();
+    const history = deferred<HistoryOperationResult>();
+    const loadAccountBalances = jest
+      .fn()
+      .mockReturnValueOnce(balance.promise)
+      .mockResolvedValue({ status: 'active', address: 'Ga', balances: [{ kind: 'native', balance: '2.0000000' }] });
+    const loadAccountOperations = jest
+      .fn()
+      .mockReturnValueOnce(history.promise)
+      .mockResolvedValue({ status: 'active', address: 'Ga', records: [] });
+    const gateway = createDisplayReadGateway({
+      runtime: s.runtime,
+      getAccountRevision: () => String(s.revision()),
+      gateway: { loadAccountBalances, loadAccountOperations, loadOperation: async () => ({ status: 'not-found' }) },
+    });
+    s.reading.mockImplementation(() => gateway.hasPendingReads('Ga'));
+    const pendingBalance = loadBalanceSnapshot({ gateway, networkId: 'testnet' }, account());
+    const pendingHistory = gateway.loadAccountOperations({ address: 'Ga', limit: 5 });
+    await settle();
+    s.streams[0].onEffect('receipt-after-quiet');
+    jest.advanceTimersByTime(timing.coalesce * 4);
+    expect(s.revision()).toBe(before);
+    expect(loadAccountBalances).toHaveBeenCalledTimes(1);
+    expect(loadAccountOperations).toHaveBeenCalledTimes(1);
+    balance.resolve({ status: 'inactive', address: 'Ga' });
+    await expect(pendingBalance).resolves.toEqual({ status: 'inactive', address: 'Ga' });
+    jest.advanceTimersByTime(timing.coalesce);
+    expect(s.revision()).toBe(before); // History is still running.
+    history.resolve({ status: 'inactive', address: 'Ga' });
+    await expect(pendingHistory).resolves.toEqual({ status: 'inactive', address: 'Ga' });
+    jest.advanceTimersByTime(timing.coalesce);
+    expect(s.revision()).toBe(before + 1);
+    await expect(loadBalanceSnapshot({ gateway, networkId: 'testnet' }, account())).resolves.toMatchObject({
+      balances: [{ balance: '2.0000000' }],
+    });
+    await expect(gateway.loadAccountOperations({ address: 'Ga', limit: 5 })).resolves.toMatchObject({
+      status: 'active',
+    });
+    expect(loadAccountBalances).toHaveBeenCalledTimes(2);
+    expect(loadAccountOperations).toHaveBeenCalledTimes(2);
+    s.sync.close();
+  });
+  it('starts a full bounded wait after quiet and does not extend its deadline for later effects', async () => {
+    const s = setup();
+    s.sync.setAccount(account());
+    s.streams[0].onOpen();
+    await settle();
+    jest.advanceTimersByTime(timing.coalesce);
+    s.latest.mockReturnValue(deferred<string>().promise);
+    jest.advanceTimersByTime(timing.maxReadWait + 1000);
+    await settle();
+    const before = s.revision();
+    s.reading.mockReturnValue(true);
+    for (let i = 0; i < timing.maxReadWait / timing.coalesce; i++) {
+      s.streams[0].onEffect(`continuous-${i}`);
+      expect(s.revision()).toBe(before);
+      jest.advanceTimersByTime(timing.coalesce);
+    }
     expect(s.revision()).toBe(before + 1);
     s.sync.close();
   });

@@ -73,19 +73,20 @@ export function createForegroundAccountSync(
         timers.delete(timer);
       }
     };
-    let lastDelivery = -Infinity;
+    let dirtySince = 0;
     const flushDirty = () => {
       // Preserve a dirty follow-up without repeatedly superseding a slow current display read.
-      if (deps.isReading(account.address) && performance.now() - lastDelivery < ACCOUNT_SYNC_TIMING.maxReadWait) {
+      if (deps.isReading(account.address) && performance.now() - dirtySince < ACCOUNT_SYNC_TIMING.maxReadWait) {
         dirtyTimer = later(flushDirty, ACCOUNT_SYNC_TIMING.coalesce);
         return;
       }
       dirtyTimer = undefined;
-      lastDelivery = performance.now();
       deps.invalidation.refresh({ networkId: deps.networkId, accountId: account.id, reason: 'account-effects' });
     };
     const dirty = () => {
-      if (dirtyTimer === undefined) dirtyTimer = later(flushDirty, ACCOUNT_SYNC_TIMING.coalesce);
+      if (dirtyTimer !== undefined) return;
+      dirtySince = performance.now();
+      dirtyTimer = later(flushDirty, ACCOUNT_SYNC_TIMING.coalesce);
     };
     const probe = () => {
       if (probing) {
