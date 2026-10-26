@@ -5,6 +5,7 @@ import { createForegroundAccountSync } from '../createForegroundAccountSync';
 import { createLedgerReadRuntime } from '../LedgerReadRuntime';
 import { createLedgerReadInvalidationStore } from '../LedgerReadInvalidationStore';
 import { bindNodeAccountEffects } from '../bindNodeAccountEffects';
+import { createHorizonAccountEffects } from '../../../platform/stellar/HorizonAccountEffects';
 async function settle() {
   for (let i = 0; i < 24; i++) await Promise.resolve();
 }
@@ -106,3 +107,68 @@ it('keeps a stream-only failure on REST fallback and treats ordinary scope cance
   expect(node.getSnapshot().phase).toBe('healthy');
   node.close();
 });
+
+it.each(['transport', 'json', 'records', 'token'] as const)(
+  'shares cooldown for an immediate Effects REST %s failure after a healthy root probe',
+  async failure => {
+    const runtime = createLedgerReadRuntime();
+    const probe = jest.fn(async () => 'network');
+    const node = createNodeReadSession({
+      runtime,
+      endpoint: 'https://node.test',
+      networkPassphrase: 'network',
+      probe,
+      onState: jest.fn(),
+      random: () => 1,
+    });
+    await settle();
+    expect(node.getSnapshot().phase).toBe('healthy');
+    const xhr = { open: jest.fn(), setRequestHeader: jest.fn(), send: jest.fn(), abort: jest.fn() };
+    const createRequest = jest.fn(() => xhr as unknown as XMLHttpRequest);
+    const http = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ _embedded: { records: [] } }),
+    });
+    if (failure === 'transport') http.mockRejectedValueOnce(new Error('private network details'));
+    else
+      http.mockResolvedValueOnce({
+        ok: true,
+        json: async () => {
+          if (failure === 'json') throw new Error('private response body');
+          return failure === 'records' ? { _embedded: { records: {} } } : { _embedded: { records: [{}] } };
+        },
+      });
+    const sync = createForegroundAccountSync({
+      runtime,
+      node,
+      effects: bindNodeAccountEffects(node, endpoint => createHorizonAccountEffects(endpoint, createRequest, http)),
+      invalidation: createLedgerReadInvalidationStore(),
+      networkId: 'testnet',
+      isReading: () => false,
+      onFailure: jest.fn(),
+    });
+    sync.setAccount({ id: 'a', address: 'Ga', networkId: 'testnet', hidden: false, identityKind: 'classic' });
+    await settle();
+    expect(node.getSnapshot()).toMatchObject({
+      phase: 'cooldown',
+      failure: failure === 'transport' ? 'unavailable' : 'protocol',
+    });
+    expect(sync.getSnapshot().mode).toBe('paused');
+    expect(xhr.abort).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(1999);
+    await settle();
+    expect(probe).toHaveBeenCalledTimes(1);
+    expect(http).toHaveBeenCalledTimes(1);
+    expect(createRequest).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(1);
+    await settle();
+    expect(probe).toHaveBeenCalledTimes(2);
+    expect(node.getSnapshot().phase).toBe('healthy');
+    expect(http).toHaveBeenCalledTimes(2);
+    expect(createRequest).toHaveBeenCalledTimes(2);
+    sync.close();
+    node.close();
+    await settle();
+    expect(jest.getTimerCount()).toBe(0);
+  },
+);

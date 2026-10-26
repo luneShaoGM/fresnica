@@ -1,5 +1,5 @@
-import { horizonHttpError } from './horizonReadHttp';
-import type { NodeReadError } from '../../capabilities/network/NodeReadError';
+import { horizonHttpError, horizonReadJson } from './horizonReadHttp';
+import { NodeReadError } from '../../capabilities/network/NodeReadError';
 import type { AccountEffectsPort, EffectStreamFailure } from '../../capabilities/account-sync/AccountEffects';
 
 const MAX_RESPONSE = 512 * 1024;
@@ -86,13 +86,12 @@ export function createHorizonAccountEffects(
       return stop;
     },
     async latest(address, signal) {
-      const response = await http(`${endpoint(address)}?order=desc&limit=1`, { signal });
+      const body = await horizonReadJson(`${endpoint(address)}?order=desc&limit=1`, signal, http);
+      if (signal.aborted) throw new NodeReadError('superseded');
       // An unfunded classic account has no effects yet; polling must keep running.
-      if (response.status === 404) return undefined;
-      if (!response.ok) throw horizonHttpError(response.status, response.headers.get('Retry-After'));
-      const body: unknown = await response.json();
+      if (body === undefined) return undefined;
       const records = (body as { _embedded?: { records?: unknown } } | null)?._embedded?.records;
-      if (!Array.isArray(records) || records.length > 1) throw new Error('effects-probe-invalid');
+      if (!Array.isArray(records) || records.length > 1) throw new NodeReadError('protocol');
       if (records.length === 0) return undefined;
       return effectToken(records[0]);
     },
@@ -102,7 +101,7 @@ export function createHorizonAccountEffects(
 function effectToken(value: unknown): string {
   const token = (value as { paging_token?: unknown } | null)?.paging_token;
   if (typeof token !== 'string' || token.length === 0 || token.length > 256 || /[\r\n\0]/.test(token)) {
-    throw new Error('effects-invalid-token');
+    throw new NodeReadError('protocol');
   }
   return token;
 }
