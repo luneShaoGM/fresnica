@@ -8,6 +8,8 @@ Trace: S05-LC6 / S13-LC6, plus merged S09/S14/S15 LC5 consumers. Baseline: PR #1
 | --- | --- | --- | --- | --- | --- |
 | 是 | 首次离线启动 / 缓存恢复 | 先在线加载 A 的 Home 和 Activity，退出应用，断网后重新启动 | A 的公开缓存可见且有 stale/更新时间；不产生新读取、不使用缓存作为交易授权 | NOT RUN | NOT RUN |
 | 是 | 在线恢复 / A 与 B 分区 | 缓存 A、切换到 B、离线与重新联网 | 仅显示当前账户/网络内容；在线后重新验证 Balance/History，旧 A 结果不得闪现或覆盖 B | NOT RUN | NOT RUN |
+| 是 | 未激活账户首次资金到账 | Testnet 新增无初始账本账户，选中账户保持前台，由外部资助/激活 | 无缓存余额伪造；首次被可信节点查询为 active 后更新 Balance 和 Activity；不依赖本地 pending | NOT RUN | NOT RUN |
+| 是 | Events 握手与切账户竞态 | 切换 A→B→A、断流重连、握手前后注入 Effects 事件并缓慢返回第一页 | 旧事件/旧请求不污染当前账户，重连后补读当前账本，慢读 dirty follow-up 不丢事件 | NOT RUN | NOT RUN |
 | 是 | 前后台实时到账 | 在选中账户保持前台，切换 Home、Activity 和其他 Tab，外部向该账户发送 Testnet 资金 | Effects 仅提供 invalidation；可查询后的 Balance 与 Activity 按真实账本更新，并记录查询可用→UI 可见延迟（目标五秒；单次通过不等于 SLA） | NOT RUN | NOT RUN |
 | 是 | 断流与节点冷却 | 中断 Effects、模拟节点 429/5xx/超时或切换到错误网络节点，恢复可信端点 | 共享 cooldown/fallback，不越过 Retry-After；错误网络 fail-closed；恢复后再读真实状态，无自动重广播 | NOT RUN | NOT RUN |
 | 是 | 冷/热链接与网络恢复 | 冷启动/前台重复输入同一 Request URI，离线等待后恢复在线；中途切换账户或关闭 | 有效请求只进入一次当前审阅；取消/旧解析不能复活；不绕开 eligibility、signer 或 exact-XDR 管线 | NOT RUN | NOT RUN |
@@ -15,6 +17,17 @@ Trace: S05-LC6 / S13-LC6, plus merged S09/S14/S15 LC5 consumers. Baseline: PR #1
 | 是 | 交易提交后数据收敛 | 使用获授权 Testnet 交易触发 pending→confirmed/rejected/uncertain，节点短暂不可用后恢复 | 跟踪原始 hash；最多既定次数的只读收敛；恢复不得重新签名/广播，不伪造余额或历史 | NOT RUN | NOT RUN |
 | 是 | 删除与重启 | A/B 分区分别缓存，删除 A；结束进程并重新打开 | A 的分区被清理、B 保持；Realm 迁移和历史持久化不丢失；无残留 signer/secret 跨分区暴露 | NOT RUN | NOT RUN |
 | 否 | 访问性与显示设置 | 在小屏/大字号和屏幕阅读器下完成离线、错误、重试、恢复 | 状态文案可读可访问；无错误交互或 UI 跳转；TalkBack/VoiceOver 证据独立记录 | NOT RUN | NOT RUN |
+
+## 自动化聚合准备与原生验收的界限
+
+| 实际代码路径 | 回归内容 | 开发验证级别 | 设备验收 |
+| --- | --- | --- | --- |
+| `lc6AggregateReadRecovery.test.ts` | 离线缓存→在线、A→B 旧读取、错误网络节点、原哈希 pending 的只读收敛 | App/Capability/内存缓存合同测试 | NOT RUN |
+| `lc6ForegroundSyncIntegration.test.ts` | 选中账户 Effects × Balance/History 在途读取、旧回调隔离、限流后恢复 | App/Platform 注入端口的确定性集成测试 | NOT RUN |
+| `Lc6AggregateCacheRecovery.integration.ts` | 同一真实 Realm v6 文件双缓存重开、离线/在线收敛、删 A 保 B | Realm Repository 集成测试 | NOT RUN |
+| 既有 S09/S14/S15、LC2–LC4 单模块测试 | Deep Link、目录/网站确认、Effects、节点与交易恢复各自的逻辑 | 已有自动化覆盖；随全量 check 运行 | NOT RUN |
+
+原生设备中由 AppState、NetInfo、XHR/Effects、Linking、系统浏览器、真实 Realm 进程恢复和 Horizon 触发的行为，不能由以上注入端口或单独文件 reopen 冒充。LC6 自动化准备与 LC6 双端产品验收是两个不同关口。全部设备行保留 NOT RUN，不因 Work code review 通过而改为 PASS。
 
 ## 记录要求
 

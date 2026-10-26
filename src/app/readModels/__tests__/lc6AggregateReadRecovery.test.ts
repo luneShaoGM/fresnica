@@ -14,11 +14,15 @@ import {
 import { HISTORY_CACHE_SCHEMA_VERSION } from '@capabilities/history/HistoryCacheRepository';
 import { InMemoryBalanceCacheRepository } from '../../../platform/persistence/memory/InMemoryBalanceCacheRepository';
 import { InMemoryHistoryCacheRepository } from '../../../platform/persistence/memory/InMemoryHistoryCacheRepository';
+import { InMemoryPendingSubmissionRepository } from '../../../platform/persistence/memory/InMemoryPendingSubmissionRepository';
+import { NodeReadError } from '@capabilities/network/NodeReadError';
+import { createTransactionReconciliationCoordinator } from '../../transaction/TransactionReconciliationCoordinator';
 import { createDisplayReadGateway } from '../createDisplayReadGateway';
 import { createLedgerReadInvalidationStore } from '../LedgerReadInvalidationStore';
 import { createLedgerReadRuntime, type InternetConnectivity } from '../LedgerReadRuntime';
 import { createNodeReadSession } from '../createNodeReadSession';
 import { startLedgerReadLifecycle } from '../startLedgerReadLifecycle';
+import { startPostSubmitReadConvergence } from '../startPostSubmitReadConvergence';
 
 const networkId = 'stellar-testnet';
 const timestamp = new Date('2026-10-26T00:00:00Z');
@@ -65,6 +69,10 @@ function deferred<T>() {
 }
 async function settle() {
   for (let i = 0; i < 50; i++) await Promise.resolve();
+}
+async function tick(ms: number) {
+  jest.advanceTimersByTime(ms);
+  await settle();
 }
 
 function setup() {
@@ -260,6 +268,83 @@ describe('LC6-A merged lifecycle / node / display / cache contract', () => {
     ]);
     expect(current.balanceCache.getSnapshot(partition(a))).toBeUndefined();
     expect(current.historyCache.getSnapshot(partition(a))).toBeUndefined();
+    await current.close();
+  });
+
+  it('reconciles the original hash and converges its public reads after node cooldown', async () => {
+    const current = setup();
+    current.connectivity('online');
+    current.appState('active');
+    await settle();
+
+    const pending = new InMemoryPendingSubmissionRepository();
+    const hash = `tx-${a.address}`;
+    pending.create({
+      id: `${networkId}:${hash}`,
+      networkId,
+      accountId: a.id,
+      sourceAddress: a.address,
+      transactionHash: hash,
+      intentKind: 'payment',
+      intentKey: hash,
+      state: 'uncertain',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    const outcome = jest.fn(async (transactionHash: string) => ({
+      status: 'confirmed' as const,
+      transactionHash,
+      ledger: 50,
+    }));
+    const coordinator = createTransactionReconciliationCoordinator({
+      repository: pending,
+      networkId,
+      readInvalidation: current.invalidation,
+      gateway: {
+        loadTransactionOutcome: transactionHash => current.node.run(() => outcome(transactionHash)),
+      },
+    });
+    current.liveBalances.mockResolvedValueOnce({
+      status: 'active',
+      address: a.address,
+      balances: [{ kind: 'native', balance: '5.0000000' }],
+      lastModifiedLedger: 50,
+    });
+    const completed = jest.fn();
+    const stopConvergence = startPostSubmitReadConvergence({
+      runtime: current.runtime,
+      node: current.node,
+      invalidation: current.invalidation,
+      pending,
+      coordinator,
+      networkId,
+      balance: current.balanceDeps,
+      history: current.historyDeps,
+      getAccount: id => (id === a.id ? a : undefined),
+      onComplete: completed,
+    });
+
+    current.node.reportFailure(new NodeReadError('rate-limited', 20000), current.node.getSnapshot().generation);
+    current.invalidation.invalidate({ networkId, accountId: a.id, transactionHash: hash });
+    await tick(19999);
+    expect(outcome).not.toHaveBeenCalled();
+    expect(current.liveBalances).not.toHaveBeenCalled();
+    expect(current.balanceCache.getSnapshot(partition(a))).toBeUndefined();
+    expect(current.historyCache.getSnapshot(partition(a))).toBeUndefined();
+    await tick(1);
+    expect(current.node.getSnapshot().phase).toBe('healthy');
+    await tick(1000);
+    expect(pending.get(networkId, hash)).toMatchObject({ state: 'confirmed', ledger: 50 });
+    expect(completed).toHaveBeenCalledWith('converged');
+    expect(current.balanceCache.getSnapshot(partition(a))?.balance).toMatchObject({
+      status: 'active',
+      balances: [{ balance: '5.0000000' }],
+    });
+    expect(current.historyCache.getSnapshot(partition(a))?.entries).toMatchObject([{ transactionHash: hash }]);
+    expect(current.balanceCache.getSnapshot(partition(b))).toBeUndefined();
+    await tick(60000);
+    expect(outcome).toHaveBeenCalledTimes(1);
+    stopConvergence();
     await current.close();
   });
 

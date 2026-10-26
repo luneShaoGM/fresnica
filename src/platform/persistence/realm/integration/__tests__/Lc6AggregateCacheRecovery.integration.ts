@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import Realm from 'realm';
 
 import type { AccountRecord } from '../../../../../capabilities/account/types';
+import { deleteLocalAccount } from '../../../../../capabilities/account/deleteLocalAccount';
 import { loadBalanceSnapshot } from '../../../../../capabilities/balance/loadBalanceSnapshot';
 import {
   cacheBalanceSnapshotBestEffort,
@@ -20,8 +21,10 @@ import { createLedgerReadInvalidationStore } from '../../../../../app/readModels
 import { createLedgerReadRuntime, type InternetConnectivity } from '../../../../../app/readModels/LedgerReadRuntime';
 import { createNodeReadSession } from '../../../../../app/readModels/createNodeReadSession';
 import { startLedgerReadLifecycle } from '../../../../../app/readModels/startLedgerReadLifecycle';
+import { RealmAccountSignerRepository } from '../../RealmAccountSignerRepository';
 import { RealmBalanceCacheRepository } from '../../RealmBalanceCacheRepository';
 import { RealmHistoryCacheRepository } from '../../RealmHistoryCacheRepository';
+import { RealmPendingSubmissionRepository } from '../../RealmPendingSubmissionRepository';
 import { openWalletRealm } from '../../openWalletRealm';
 
 const networkId = 'stellar-testnet';
@@ -199,6 +202,56 @@ it('restores both partitioned display caches after Realm reopen and refreshes on
     expect(resumed.balancePort).toHaveBeenCalledTimes(1);
     expect(resumed.historyPort).toHaveBeenCalledTimes(1);
     resumed.close();
+  } finally {
+    realm?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+it('clears both deleted-account caches while retaining the other account across Realm reopening', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'fresnica-lc6-delete-'));
+  const path = join(directory, 'wallet.realm');
+  let realm: Realm | undefined;
+  try {
+    realm = await openWalletRealm({ path });
+    const accounts = new RealmAccountSignerRepository(realm);
+    accounts.createAccount(a);
+    accounts.createAccount(b);
+    const initial = createScope(realm, '7.0000000', 'before-delete');
+    initial.connectivity('online');
+    initial.appState('active');
+    await settle();
+    await initial.loadAndCache(a);
+    await initial.loadAndCache(b);
+    initial.close();
+
+    deleteLocalAccount(
+      {
+        repository: accounts,
+        pendingSubmissions: new RealmPendingSubmissionRepository(realm),
+        balanceCache: new RealmBalanceCacheRepository(realm),
+        historyCache: new RealmHistoryCacheRepository(realm),
+      },
+      a.id,
+    );
+    realm.close();
+    realm = undefined;
+
+    realm = await openWalletRealm({ path });
+    const reopenedAccounts = new RealmAccountSignerRepository(realm);
+    const balances = new RealmBalanceCacheRepository(realm);
+    const history = new RealmHistoryCacheRepository(realm);
+    expect(reopenedAccounts.getAccount(a.id)).toBeUndefined();
+    expect(reopenedAccounts.getAccount(b.id)).toEqual(b);
+    expect(balances.getSnapshot({ networkId, accountAddress: a.address })).toBeUndefined();
+    expect(history.getSnapshot({ networkId, accountAddress: a.address })).toBeUndefined();
+    expect(balances.getSnapshot({ networkId, accountAddress: b.address })?.balance).toMatchObject({
+      status: 'active',
+      balances: [{ balance: '7.0000000' }],
+    });
+    expect(history.getSnapshot({ networkId, accountAddress: b.address })?.entries).toMatchObject([
+      { id: 'operation-GB-before-delete' },
+    ]);
   } finally {
     realm?.close();
     rmSync(directory, { recursive: true, force: true });
