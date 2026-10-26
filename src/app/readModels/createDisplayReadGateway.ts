@@ -10,12 +10,13 @@ export function createDisplayReadGateway(
     runtime: LedgerReadRuntime;
     getAccountRevision: (address: string) => string;
   }>,
-): BalanceGatewayPort & HistoryGatewayPort {
+): BalanceGatewayPort & HistoryGatewayPort & { hasPendingReads: (address: string) => boolean } {
   const inFlight = new Map<
     string,
     Readonly<{
       snapshot: ReturnType<LedgerReadRuntime['getSnapshot']>;
       revision: string;
+      address: string;
       request: Promise<unknown>;
     }>
   >();
@@ -42,7 +43,7 @@ export function createDisplayReadGateway(
       .finally(() => {
         if (inFlight.get(requestKey)?.request === request) inFlight.delete(requestKey);
       });
-    inFlight.set(requestKey, { snapshot, revision, request });
+    inFlight.set(requestKey, { snapshot, revision, address, request });
     return request;
 
     function assertCurrent() {
@@ -53,6 +54,13 @@ export function createDisplayReadGateway(
   }
 
   return {
+    hasPendingReads: address => {
+      const snapshot = dependencies.runtime.getSnapshot();
+      const revision = dependencies.getAccountRevision(address);
+      return [...inFlight.values()].some(
+        entry => entry.address === address && entry.snapshot === snapshot && entry.revision === revision,
+      );
+    },
     loadAccountBalances: address =>
       read(['balance', address], address, () => dependencies.gateway.loadAccountBalances(address)),
     loadAccountOperations: input =>

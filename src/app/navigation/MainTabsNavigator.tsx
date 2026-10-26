@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import type { AccountRecord } from '@capabilities/account/types';
@@ -17,6 +17,7 @@ import { ActivityStackNavigator } from './ActivityStackNavigator';
 import { DAppsStackNavigator } from './DAppsStackNavigator';
 import { HomeStackNavigator } from './HomeStackNavigator';
 import { MainTabBar } from './MainTabBar';
+import { bindForegroundAccountSync } from './bindForegroundAccountSync';
 import { createSwapSelectionStore } from './swapSelectionStore';
 import type { MainTabParamList } from './navigationTypes';
 import type { ProductAction } from './productRoutes';
@@ -124,6 +125,10 @@ function MainTabsWithSelection({
     });
   }, [accounts, effectiveSelectedAccountId, services.send.network, swapSelectionStore]);
   useEffect(() => () => swapSelectionStore.invalidate(), [swapSelectionStore]);
+  useLayoutEffect(
+    () => bindForegroundAccountSync(swapSelectionStore, services.foregroundAccountSync),
+    [swapSelectionStore, services.foregroundAccountSync],
+  );
   const getCurrentSwapSelection = useCallback(() => swapSelectionStore.getCurrentSelection(), [swapSelectionStore]);
 
   useEffect(() => {
@@ -202,6 +207,11 @@ function MainTabsWithSelection({
   );
 
   const selectedAccount = resolveVisibleAccount(accounts, effectiveSelectedAccountId);
+  const sync = useSyncExternalStore(
+    services.foregroundAccountSync.subscribe,
+    services.foregroundAccountSync.getSnapshot,
+    services.foregroundAccountSync.getSnapshot,
+  );
   const canSign = !services.onboarding.repository.isWatchOnly(selectedAccount.id);
   const actionAvailability = useMemo<Readonly<Record<ProductAction, boolean>>>(
     () => ({
@@ -219,7 +229,12 @@ function MainTabsWithSelection({
       initialRouteName="home"
       screenOptions={{ headerShown: false }}
       tabBar={props => (
-        <MainTabBar {...props} actionAvailability={actionAvailability} selectedAccountId={effectiveSelectedAccountId} />
+        <MainTabBar
+          {...props}
+          syncMode={sync.mode}
+          actionAvailability={actionAvailability}
+          selectedAccountId={effectiveSelectedAccountId}
+        />
       )}
     >
       <Tab.Screen name="home">

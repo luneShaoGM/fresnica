@@ -592,6 +592,7 @@
   "dapps.website.opening": "Opening browser…",
   "dapps.website.invalid": "Use a public HTTPS hostname. HTTP, IP addresses, local domains, credentials and malformed URLs are blocked.",
   "dapps.website.failed": "Could not open the browser. Check the URL and try again.",
+  "account.sync.polling": "Live updates are reconnecting. Checking for changes every 15 seconds.",
   "balance.cache.refreshing": "Showing previous balances while refreshing…",
   "balance.cache.failed": "Refresh failed. Showing previous balances.",
   "balance.cache.stale": "Showing previous balances.",

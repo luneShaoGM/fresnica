@@ -41,7 +41,7 @@ function findPressable(node: React.ReactNode, label: string): React.ReactElement
   return undefined;
 }
 
-function renderSwap(enabled: boolean) {
+function renderSwap(enabled: boolean, syncMode?: MainTabBarProps['syncMode']) {
   const navigate = jest.fn();
   const props = {
     state: {
@@ -61,6 +61,7 @@ function renderSwap(enabled: boolean) {
     },
     navigation: { navigate, emit: jest.fn(() => ({ defaultPrevented: false })) },
     selectedAccountId: 'wallet-1',
+    syncMode,
     actionAvailability: { send: true, swap: enabled, request: true },
   } as unknown as MainTabBarProps;
   const root = MainTabBar(props);
@@ -68,7 +69,7 @@ function renderSwap(enabled: boolean) {
   expect(actionButton?.props.onPress).toBeDefined();
   actionButton?.props.onPress?.();
   const overlay = mockPresentOverlay.mock.calls[0]?.[1] as React.ReactNode;
-  return { navigate, overlay };
+  return { navigate, overlay, root };
 }
 
 describe('Swap action product route remains bounded to preview', () => {
@@ -97,3 +98,17 @@ describe('Swap action product route remains bounded to preview', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 });
+
+function textValues(node: React.ReactNode): string[] {
+  if (typeof node === 'string') return [node];
+  if (!React.isValidElement<Props>(node)) return [];
+  return React.Children.toArray(node.props.children).flatMap(textValues);
+}
+it.each(['paused', 'connecting', 'live', 'polling'] as const)(
+  'shows the fallback update cadence only while polling (%s)',
+  syncMode => {
+    mockPresentOverlay.mockClear();
+    const { root } = renderSwap(true, syncMode);
+    expect(textValues(root).includes('account.sync.polling')).toBe(syncMode === 'polling');
+  },
+);

@@ -1,9 +1,16 @@
-import {StyleSheet} from 'react-native';
+import { StyleSheet } from 'react-native';
 
-import type {AppTheme} from '@ui/theme';
+import type { AppTheme } from '@ui/theme';
 
 export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
+    syncNotice: {
+      ...theme.typography.caption,
+      color: theme.colors.textSecondary,
+      backgroundColor: theme.colors.surface,
+      padding: theme.spacing.sm,
+      textAlign: 'center',
+    },
     tabBar: {
       minHeight: 64,
       flexDirection: 'row',

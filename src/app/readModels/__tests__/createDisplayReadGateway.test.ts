@@ -40,6 +40,26 @@ describe('display read gateway', () => {
     expect(current.gateway.loadAccountBalances).toHaveBeenCalledTimes(2);
   });
 
+  it('reports only current-generation/current-revision activity for the requested account', async () => {
+    const current = setup();
+    const response = deferred<{ status: 'inactive'; address: string }>();
+    current.gateway.loadAccountBalances.mockReturnValueOnce(response.promise);
+    const old = current.reads.loadAccountBalances('GA');
+    const rejected = old.catch((error: unknown) => error);
+    await Promise.resolve();
+    expect(current.reads.hasPendingReads('GA')).toBe(true);
+    expect(current.reads.hasPendingReads('GB')).toBe(false);
+    current.revisions.set('GA', '1');
+    expect(current.reads.hasPendingReads('GA')).toBe(false);
+    const next = current.reads.loadAccountBalances('GA');
+    expect(current.reads.hasPendingReads('GA')).toBe(true);
+    current.runtime.update({ foreground: false, connectivity: 'unknown' });
+    expect(current.reads.hasPendingReads('GA')).toBe(false);
+    await expect(next).rejects.toThrow('ledger-read-superseded');
+    response.resolve({ status: 'inactive', address: 'GA' });
+    expect(await rejected).toEqual(new Error('ledger-read-superseded'));
+  });
+
   it('isolates accounts, list parameters, and operation details', async () => {
     const current = setup();
     await Promise.all([
