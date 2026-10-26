@@ -24,7 +24,7 @@ export type StellarSdkGatewayConfig = Readonly<{
   horizonUrl: string;
 }>;
 
-function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryOperationRecord {
+export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryOperationRecord {
   const asset =
     input.asset_type === undefined
       ? undefined
@@ -126,7 +126,7 @@ function mapLedgerSigner(input: { key: string; weight: number; type: string }): 
   }
 }
 
-function mapBalance(input: HorizonBalanceLike): StellarBalanceLine {
+export function mapBalance(input: HorizonBalanceLike): StellarBalanceLine {
   switch (input.asset_type) {
     case 'native':
       return { kind: 'native', balance: input.balance };

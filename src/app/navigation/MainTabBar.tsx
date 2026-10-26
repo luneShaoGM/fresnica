@@ -1,3 +1,5 @@
+import type { NodeReadFailure } from '@capabilities/network/NodeReadError';
+import { NativeButton } from '@ui/components/NativeButton';
 import React from 'react';
 import type { AccountSyncMode } from '@capabilities/account-sync/AccountEffects';
 import { Pressable, Text, View } from 'react-native';
@@ -38,6 +40,9 @@ export type MainTabBarProps = BottomTabBarProps &
   Readonly<{
     selectedAccountId: string;
     syncMode?: AccountSyncMode;
+    nodePhase?: 'checking' | 'healthy' | 'cooldown' | 'wrong-network' | 'paused' | 'closed';
+    nodeFailure?: NodeReadFailure;
+    onRetryNode?: () => void;
     actionAvailability: Readonly<Record<ProductAction, boolean>>;
   }>;
 
@@ -48,6 +53,9 @@ export function MainTabBar({
   selectedAccountId,
   actionAvailability,
   syncMode,
+  nodePhase,
+  nodeFailure,
+  onRetryNode,
 }: MainTabBarProps) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
@@ -162,7 +170,24 @@ export function MainTabBar({
 
   return (
     <View>
-      {syncMode === 'polling' ? (
+      {nodePhase === 'checking' || nodePhase === 'cooldown' || nodePhase === 'wrong-network' ? (
+        <View style={styles.nodeNotice}>
+          <Text accessibilityLiveRegion="polite" style={styles.syncNotice}>
+            {t(
+              nodePhase === 'wrong-network'
+                ? 'node.read.wrongNetwork'
+                : nodePhase === 'checking'
+                  ? 'node.read.checking'
+                  : nodeFailure === 'rate-limited'
+                    ? 'node.read.rateLimited'
+                    : 'node.read.unavailable',
+            )}
+          </Text>
+          {nodePhase !== 'checking' && onRetryNode ? (
+            <NativeButton label={t('node.read.retry')} onPress={onRetryNode} size="sm" variant="secondary" />
+          ) : null}
+        </View>
+      ) : syncMode === 'polling' ? (
         <Text accessibilityLiveRegion="polite" style={styles.syncNotice}>
           {t('account.sync.polling')}
         </Text>

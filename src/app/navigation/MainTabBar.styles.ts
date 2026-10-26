@@ -4,6 +4,7 @@ import type { AppTheme } from '@ui/theme';
 
 export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
+    nodeNotice: { alignItems: 'center', backgroundColor: theme.colors.surface, paddingBottom: theme.spacing.xs },
     syncNotice: {
       ...theme.typography.caption,
       color: theme.colors.textSecondary,

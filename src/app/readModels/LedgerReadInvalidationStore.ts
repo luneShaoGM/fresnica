@@ -6,16 +6,26 @@ import type {
 export type LedgerReadRefresh = Readonly<{
   networkId: string;
   accountId: string;
-  reason: 'cold-start' | 'foreground' | 'network-recovery' | 'manual-refresh' | 'offline' | 'account-effects';
+  reason:
+    | 'cold-start'
+    | 'foreground'
+    | 'network-recovery'
+    | 'manual-refresh'
+    | 'offline'
+    | 'account-effects'
+    | 'node-recovery'
+    | 'post-submit';
 }>;
 
 export interface LedgerReadInvalidationStore extends LedgerReadInvalidationPort {
+  subscribeTransactions(listener: (input: LedgerReadInvalidation) => void): () => void;
   refresh(input: LedgerReadRefresh): void;
   getRevision(networkId: string, accountId: string): number;
   subscribe(listener: () => void): () => void;
 }
 
 export function createLedgerReadInvalidationStore(): LedgerReadInvalidationStore {
+  const transactionListeners = new Set<(input: LedgerReadInvalidation) => void>();
   const revisions = new Map<string, number>();
   const listeners = new Set<() => void>();
 
@@ -28,7 +38,16 @@ export function createLedgerReadInvalidationStore(): LedgerReadInvalidationStore
   };
 
   return {
-    invalidate,
+    invalidate(input) {
+      invalidate(input);
+      transactionListeners.forEach(listener => listener(input));
+    },
+    subscribeTransactions(listener) {
+      transactionListeners.add(listener);
+      return () => {
+        transactionListeners.delete(listener);
+      };
+    },
     refresh: invalidate,
     getRevision(networkId, accountId) {
       return revisions.get(identityKey(networkId, accountId)) ?? 0;

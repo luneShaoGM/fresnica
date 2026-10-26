@@ -1,3 +1,7 @@
+import { createNodeReadSession, type NodeReadSession } from './readModels/createNodeReadSession';
+import { createHorizonPublicReadGateway } from '../platform/stellar/HorizonPublicReadGateway';
+import { bindNodeAccountEffects } from './readModels/bindNodeAccountEffects';
+import { startPostSubmitReadConvergence } from './readModels/startPostSubmitReadConvergence';
 import { createForegroundAccountSync, type ForegroundAccountSync } from './readModels/createForegroundAccountSync';
 import { createHorizonAccountEffects } from '../platform/stellar/HorizonAccountEffects';
 import { NativeModules } from 'react-native';
@@ -73,6 +77,7 @@ export type AppServices = Readonly<{
   ledgerReadInvalidation: LedgerReadInvalidationStore;
   ledgerReadRuntime: LedgerReadRuntime;
   foregroundAccountSync: ForegroundAccountSync;
+  nodeReadSession: NodeReadSession;
   localePreferences: RealmLocalePreferenceStore;
   accountSelectionPreferences: AccountSelectionPreferenceStore;
   externalUrl: ExternalUrlOpener;
@@ -87,6 +92,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
   const diagnostics = new SessionLogger();
   const realm = await openWalletRealm(options.realmPath === undefined ? {} : { path: options.realmPath });
 
+  let closeReadRecovery = () => {};
   try {
     const nativeModule = loadNativeFresnicaModule(NativeModules);
     const sdk = new ReactNativeFresnicaSdk(nativeModule);
@@ -111,8 +117,34 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       network,
       horizonUrl: APP_CONFIG.network.horizonUrl,
     });
+    const publicReads = createHorizonPublicReadGateway();
+    const nodeReadSession = createNodeReadSession({
+      endpoint: APP_CONFIG.network.horizonUrl,
+      networkPassphrase: network.networkPassphrase,
+      runtime: ledgerReadRuntime,
+      probe: publicReads.probe,
+      onState: snapshot => {
+        diagnostics.info('node-read-state', {
+          details: { phase: snapshot.phase, generation: snapshot.generation, failure: snapshot.failure },
+        });
+        if (['checking', 'healthy', 'cooldown', 'wrong-network'].includes(snapshot.phase)) {
+          for (const account of repository.listAccounts()) {
+            if (!account.hidden && account.networkId === network.id)
+              ledgerReadInvalidation.refresh({ networkId: network.id, accountId: account.id, reason: 'node-recovery' });
+          }
+        }
+      },
+    });
+    closeReadRecovery = () => nodeReadSession.close();
     const displayReadGateway = createDisplayReadGateway({
-      gateway: stellarGateway,
+      gateway: {
+        loadAccountBalances: address =>
+          nodeReadSession.run((signal, endpoint) => publicReads.loadAccountBalances(endpoint, address, signal)),
+        loadAccountOperations: input =>
+          nodeReadSession.run((signal, endpoint) => publicReads.loadAccountOperations(endpoint, input, signal)),
+        loadOperation: input =>
+          nodeReadSession.run((signal, endpoint) => publicReads.loadOperation(endpoint, input, signal)),
+      },
       runtime: ledgerReadRuntime,
       getAccountRevision: address =>
         JSON.stringify(
@@ -132,7 +164,10 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     });
     const friendbotGateway = new StellarFriendbotGateway(APP_CONFIG.network.friendbotUrl);
     const transactionRecovery = createTransactionReconciliationCoordinator({
-      gateway: stellarGateway,
+      gateway: {
+        loadTransactionOutcome: hash =>
+          nodeReadSession.run((signal, endpoint) => publicReads.loadTransactionOutcome(endpoint, hash, signal)),
+      },
       repository: pendingSubmissions,
       readInvalidation: ledgerReadInvalidation,
       networkId: network.id,
@@ -147,11 +182,34 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       networkId: network.id,
       runtime: ledgerReadRuntime,
       invalidation: ledgerReadInvalidation,
-      effects: createHorizonAccountEffects(APP_CONFIG.network.horizonUrl),
+      effects: bindNodeAccountEffects(nodeReadSession, createHorizonAccountEffects),
+      node: nodeReadSession,
       onFailure: () => diagnostics.warn('account-effects-probe-failed'),
       isReading: displayReadGateway.hasPendingReads,
     });
 
+    closeReadRecovery = () => {
+      foregroundAccountSync.close();
+      nodeReadSession.close();
+    };
+    const stopPostSubmitReadConvergence = startPostSubmitReadConvergence({
+      networkId: network.id,
+      runtime: ledgerReadRuntime,
+      node: nodeReadSession,
+      invalidation: ledgerReadInvalidation,
+      pending: pendingSubmissions,
+      coordinator: transactionRecovery,
+      balance: { gateway: displayReadGateway, networkId: network.id, cache: balanceCache, now: () => new Date() },
+      history: { gateway: displayReadGateway, networkId: network.id, cache: historyCache, now: () => new Date() },
+      getAccount: id => repository.getAccount(id),
+      onComplete: result => diagnostics.info('post-submit-read-completed', { details: { result } }),
+    });
+
+    closeReadRecovery = () => {
+      stopPostSubmitReadConvergence();
+      foregroundAccountSync.close();
+      nodeReadSession.close();
+    };
     diagnostics.info('app-services-ready', { details: { networkId: network.id } });
 
     return {
@@ -238,15 +296,17 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       ledgerReadInvalidation,
       ledgerReadRuntime,
       foregroundAccountSync,
+      nodeReadSession,
       localePreferences,
       accountSelectionPreferences,
       externalUrl: reactNativeExternalUrlOpener,
       close: () => {
-        foregroundAccountSync.close();
+        closeReadRecovery();
         realm.close();
       },
     };
   } catch (error) {
+    closeReadRecovery();
     realm.close();
     throw error;
   }

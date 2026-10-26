@@ -59,7 +59,10 @@ describe('Horizon Effects SSE adapter', () => {
     s.xhr.onreadystatechange();
     s.xhr.onerror();
     expect(s.onOpen).not.toHaveBeenCalled();
-    expect(s.onFailure.mock.calls).toEqual([[status === 400 || status === 410 ? 'cursor-rejected' : 'failed']]);
+    expect(s.onFailure.mock.calls[0][0]).toBe(status === 400 || status === 410 ? 'cursor-rejected' : 'failed');
+    expect(s.onFailure).toHaveBeenCalledTimes(1);
+    if (status === 429 || status >= 500)
+      expect(s.onFailure.mock.calls[0][1]).toMatchObject({ kind: status === 429 ? 'rate-limited' : 'unavailable' });
     expect(s.xhr.abort).toHaveBeenCalledTimes(1);
   });
   it('rejects non-SSE responses and malformed data without exposing raw payloads', () => {
@@ -118,8 +121,11 @@ describe('Horizon Effects SSE adapter', () => {
       json: async () => ({ _embedded: { records: [{ paging_token: 'opaque' }] } }),
     });
     await expect(s.gateway.latest('GA', controller.signal)).resolves.toBe('opaque');
-    s.http.mockResolvedValueOnce({ ok: false, status: 429 });
-    await expect(s.gateway.latest('GA', controller.signal)).rejects.toThrow('effects-probe-http:429');
+    s.http.mockResolvedValueOnce({ ok: false, status: 429, headers: { get: () => '30' } });
+    await expect(s.gateway.latest('GA', controller.signal)).rejects.toMatchObject({
+      kind: 'rate-limited',
+      retryAfterMs: 30000,
+    });
     s.http.mockResolvedValueOnce({ ok: true, json: async () => ({ _embedded: { records: [{}] } }) });
     await expect(s.gateway.latest('GA', controller.signal)).rejects.toThrow('effects-invalid-token');
     s.stop();

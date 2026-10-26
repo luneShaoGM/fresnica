@@ -1,3 +1,5 @@
+import { horizonHttpError } from './horizonReadHttp';
+import type { NodeReadError } from '../../capabilities/network/NodeReadError';
 import type { AccountEffectsPort, EffectStreamFailure } from '../../capabilities/account-sync/AccountEffects';
 
 const MAX_RESPONSE = 512 * 1024;
@@ -23,10 +25,11 @@ export function createHorizonAccountEffects(
         stopped = true;
         xhr.abort();
       };
-      const fail = (reason: EffectStreamFailure) => {
+      const fail = (reason: EffectStreamFailure, failure?: NodeReadError) => {
         if (stopped) return;
         stop();
-        input.onFailure(reason);
+        if (failure) input.onFailure(reason, failure);
+        else input.onFailure(reason);
       };
       const parse = createEffectEventParser(token => {
         if (!stopped) input.onEffect(token);
@@ -35,7 +38,12 @@ export function createHorizonAccountEffects(
         if (stopped || xhr.readyState < 2) return;
         if (!opened) {
           if (xhr.status !== 200) {
-            fail(xhr.status === 400 || xhr.status === 410 ? 'cursor-rejected' : 'failed');
+            fail(
+              xhr.status === 400 || xhr.status === 410 ? 'cursor-rejected' : 'failed',
+              xhr.status === 429 || xhr.status >= 500
+                ? horizonHttpError(xhr.status, xhr.getResponseHeader('Retry-After'))
+                : undefined,
+            );
             return;
           }
           if (!/^text\/event-stream(?:;|$)/i.test(xhr.getResponseHeader('content-type') ?? '')) {
@@ -81,7 +89,7 @@ export function createHorizonAccountEffects(
       const response = await http(`${endpoint(address)}?order=desc&limit=1`, { signal });
       // An unfunded classic account has no effects yet; polling must keep running.
       if (response.status === 404) return undefined;
-      if (!response.ok) throw new Error(`effects-probe-http:${response.status}`);
+      if (!response.ok) throw horizonHttpError(response.status, response.headers.get('Retry-After'));
       const body: unknown = await response.json();
       const records = (body as { _embedded?: { records?: unknown } } | null)?._embedded?.records;
       if (!Array.isArray(records) || records.length > 1) throw new Error('effects-probe-invalid');
