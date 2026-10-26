@@ -12,6 +12,7 @@ export type StellarAccountBalanceResult =
       status: 'active';
       address: string;
       balances: readonly StellarBalanceLine[];
+      lastModifiedLedger?: number;
     }>
   | Readonly<{ status: 'inactive'; address: string }>;
 

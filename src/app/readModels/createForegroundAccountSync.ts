@@ -1,3 +1,4 @@
+import type { NodeReadSession } from './createNodeReadSession';
 import type { AccountRecord } from '@capabilities/account/types';
 import type { AccountEffectsPort, AccountSyncMode } from '@capabilities/account-sync/AccountEffects';
 import type { LedgerReadInvalidationStore } from './LedgerReadInvalidationStore';
@@ -25,6 +26,7 @@ export function createForegroundAccountSync(
     onFailure: () => void;
     isReading: (address: string) => boolean;
     random?: () => number;
+    node?: Pick<NodeReadSession, 'getSnapshot' | 'subscribe'>;
   }>,
 ) {
   let selected: Target | undefined;
@@ -41,7 +43,13 @@ export function createForegroundAccountSync(
     stopSession();
     const state = deps.runtime.getSnapshot();
     const account = selected;
-    if (closed || !account || !state.foreground || state.connectivity === 'offline') {
+    if (
+      closed ||
+      !account ||
+      !state.foreground ||
+      state.connectivity === 'offline' ||
+      (deps.node && deps.node.getSnapshot().phase !== 'healthy')
+    ) {
       publish('paused');
       return;
     }
@@ -96,8 +104,9 @@ export function createForegroundAccountSync(
       const probeStreamVersion = streamVersion;
       const controller = new AbortController();
       probing = controller;
-      let timeout: ReturnType<typeof setTimeout>;
+      let timeout: ReturnType<typeof setTimeout> | undefined;
       const expiry = new Promise<never>((_, reject) => {
+        if (deps.node) return; // Bound production reads use the shared node deadline.
         timeout = later(() => {
           controller.abort();
           reject(new Error('effects-probe-timeout'));
@@ -220,6 +229,7 @@ export function createForegroundAccountSync(
     later(tick, ACCOUNT_SYNC_TIMING.poll);
   }
   const unsubscribe = deps.runtime.subscribe(restart);
+  const unsubscribeNode = deps.node?.subscribe(restart);
   return {
     getSnapshot: () => snapshot,
     subscribe(listener: () => void) {
@@ -243,6 +253,7 @@ export function createForegroundAccountSync(
       closed = true;
       stopSession();
       unsubscribe();
+      unsubscribeNode?.();
       listeners.clear();
     },
   };

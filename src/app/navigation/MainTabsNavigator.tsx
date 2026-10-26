@@ -212,6 +212,11 @@ function MainTabsWithSelection({
     services.foregroundAccountSync.getSnapshot,
     services.foregroundAccountSync.getSnapshot,
   );
+  const node = useSyncExternalStore(
+    services.nodeReadSession.subscribe,
+    services.nodeReadSession.getSnapshot,
+    services.nodeReadSession.getSnapshot,
+  );
   const canSign = !services.onboarding.repository.isWatchOnly(selectedAccount.id);
   const actionAvailability = useMemo<Readonly<Record<ProductAction, boolean>>>(
     () => ({
@@ -232,6 +237,9 @@ function MainTabsWithSelection({
         <MainTabBar
           {...props}
           syncMode={sync.mode}
+          nodePhase={node.phase}
+          nodeFailure={node.failure}
+          onRetryNode={services.nodeReadSession.retry}
           actionAvailability={actionAvailability}
           selectedAccountId={effectiveSelectedAccountId}
         />

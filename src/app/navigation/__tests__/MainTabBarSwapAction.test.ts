@@ -1,3 +1,4 @@
+jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
 import React from 'react';
 import { Pressable } from 'react-native';
 import type { MainTabBarProps } from '../MainTabBar';
@@ -28,6 +29,7 @@ type Props = Readonly<{
   children?: React.ReactNode;
   accessibilityLabel?: string;
   disabled?: boolean;
+  label?: string;
   onPress?: () => void;
 }>;
 
@@ -41,7 +43,11 @@ function findPressable(node: React.ReactNode, label: string): React.ReactElement
   return undefined;
 }
 
-function renderSwap(enabled: boolean, syncMode?: MainTabBarProps['syncMode']) {
+function renderSwap(
+  enabled: boolean,
+  syncMode?: MainTabBarProps['syncMode'],
+  node: Partial<Pick<MainTabBarProps, 'nodePhase' | 'nodeFailure' | 'onRetryNode'>> = {},
+) {
   const navigate = jest.fn();
   const props = {
     state: {
@@ -62,6 +68,7 @@ function renderSwap(enabled: boolean, syncMode?: MainTabBarProps['syncMode']) {
     navigation: { navigate, emit: jest.fn(() => ({ defaultPrevented: false })) },
     selectedAccountId: 'wallet-1',
     syncMode,
+    ...node,
     actionAvailability: { send: true, swap: enabled, request: true },
   } as unknown as MainTabBarProps;
   const root = MainTabBar(props);
@@ -110,5 +117,36 @@ it.each(['paused', 'connecting', 'live', 'polling'] as const)(
     mockPresentOverlay.mockClear();
     const { root } = renderSwap(true, syncMode);
     expect(textValues(root).includes('account.sync.polling')).toBe(syncMode === 'polling');
+  },
+);
+
+function findLabel(node: React.ReactNode, label: string): React.ReactElement<Props> | undefined {
+  if (!React.isValidElement<Props>(node)) return undefined;
+  if (node.props.label === label) return node;
+  for (const child of React.Children.toArray(node.props.children)) {
+    const found = findLabel(child, label);
+    if (found) return found;
+  }
+  return undefined;
+}
+it.each([
+  ['checking', undefined, 'node.read.checking'],
+  ['cooldown', 'rate-limited', 'node.read.rateLimited'],
+  ['cooldown', 'unavailable', 'node.read.unavailable'],
+  ['wrong-network', 'wrong-network', 'node.read.wrongNetwork'],
+] as const)(
+  'shows honest node state instead of a stream polling notice (%s / %s)',
+  (nodePhase, nodeFailure, message) => {
+    mockPresentOverlay.mockClear();
+    const retry = jest.fn();
+    const { root } = renderSwap(true, 'polling', { nodePhase, nodeFailure, onRetryNode: retry });
+    expect(textValues(root)).toContain(message);
+    expect(textValues(root)).not.toContain('account.sync.polling');
+    const button = findLabel(root, 'node.read.retry');
+    if (nodePhase === 'checking') expect(button).toBeUndefined();
+    else {
+      button?.props.onPress?.();
+      expect(retry).toHaveBeenCalledTimes(1);
+    }
   },
 );

@@ -59,7 +59,10 @@ describe('Horizon Effects SSE adapter', () => {
     s.xhr.onreadystatechange();
     s.xhr.onerror();
     expect(s.onOpen).not.toHaveBeenCalled();
-    expect(s.onFailure.mock.calls).toEqual([[status === 400 || status === 410 ? 'cursor-rejected' : 'failed']]);
+    expect(s.onFailure.mock.calls[0][0]).toBe(status === 400 || status === 410 ? 'cursor-rejected' : 'failed');
+    expect(s.onFailure).toHaveBeenCalledTimes(1);
+    if (status === 429 || status >= 500)
+      expect(s.onFailure.mock.calls[0][1]).toMatchObject({ kind: status === 429 ? 'rate-limited' : 'unavailable' });
     expect(s.xhr.abort).toHaveBeenCalledTimes(1);
   });
   it('rejects non-SSE responses and malformed data without exposing raw payloads', () => {
@@ -118,11 +121,68 @@ describe('Horizon Effects SSE adapter', () => {
       json: async () => ({ _embedded: { records: [{ paging_token: 'opaque' }] } }),
     });
     await expect(s.gateway.latest('GA', controller.signal)).resolves.toBe('opaque');
-    s.http.mockResolvedValueOnce({ ok: false, status: 429 });
-    await expect(s.gateway.latest('GA', controller.signal)).rejects.toThrow('effects-probe-http:429');
+    s.http.mockResolvedValueOnce({ ok: false, status: 429, headers: { get: () => '30' } });
+    await expect(s.gateway.latest('GA', controller.signal)).rejects.toMatchObject({
+      kind: 'rate-limited',
+      retryAfterMs: 30000,
+    });
     s.http.mockResolvedValueOnce({ ok: true, json: async () => ({ _embedded: { records: [{}] } }) });
-    await expect(s.gateway.latest('GA', controller.signal)).rejects.toThrow('effects-invalid-token');
+    await expect(s.gateway.latest('GA', controller.signal)).rejects.toMatchObject({ kind: 'protocol' });
     s.stop();
+  });
+  it('maps transport and malformed REST responses to safe node failures', async () => {
+    const http = jest.fn().mockRejectedValueOnce(new Error('private transport details'));
+    const gateway = createHorizonAccountEffects('https://horizon.test', undefined, http);
+    const signal = new AbortController().signal;
+    await expect(gateway.latest('GA', signal)).rejects.toMatchObject({
+      kind: 'unavailable',
+      message: 'node-read-unavailable',
+    });
+    http.mockResolvedValueOnce({
+      ok: true,
+      json: async () => {
+        throw new Error('private response');
+      },
+    });
+    await expect(gateway.latest('GA', signal)).rejects.toMatchObject({
+      kind: 'protocol',
+      message: 'node-read-protocol',
+    });
+    for (const records of [
+      undefined,
+      {},
+      [null],
+      [{ paging_token: 123 }],
+      [{ paging_token: '' }],
+      [{ paging_token: 'a\nb' }],
+      [{ paging_token: 'x'.repeat(257) }],
+      [{ paging_token: 'a' }, { paging_token: 'b' }],
+    ]) {
+      http.mockResolvedValueOnce({ ok: true, json: async () => ({ _embedded: { records } }) });
+      await expect(gateway.latest('GA', signal)).rejects.toMatchObject({
+        kind: 'protocol',
+        message: 'node-read-protocol',
+      });
+    }
+  });
+  it.each(['transport', 'json', 'late-response'])('keeps active cancellation benign during REST %s', async stage => {
+    const controller = new AbortController();
+    const http = jest.fn(async () => {
+      if (stage === 'transport') {
+        controller.abort();
+        throw new Error('request aborted');
+      }
+      return {
+        ok: true,
+        json: async () => {
+          controller.abort();
+          if (stage === 'json') throw new Error('body aborted');
+          return { _embedded: { records: [{}] } };
+        },
+      };
+    }) as unknown as typeof fetch;
+    const gateway = createHorizonAccountEffects('https://horizon.test', undefined, http);
+    await expect(gateway.latest('GA', controller.signal)).rejects.toMatchObject({ kind: 'superseded' });
   });
 });
 describe('bounded Effects event parser', () => {

@@ -27,3 +27,19 @@ describe('LedgerReadInvalidationStore', () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 });
+
+it('only notifies transaction observers for transaction invalidation and disposes them', () => {
+  const store = createLedgerReadInvalidationStore();
+  const listener = jest.fn();
+  const stop = store.subscribeTransactions(listener);
+  const input = { networkId: 'testnet', accountId: 'a', transactionHash: 'hash' };
+  store.refresh({ networkId: 'testnet', accountId: 'a', reason: 'post-submit' });
+  expect(listener).not.toHaveBeenCalled();
+  store.invalidate(input);
+  expect(listener).toHaveBeenCalledWith(input);
+  stop();
+  stop();
+  store.invalidate(input);
+  expect(listener).toHaveBeenCalledTimes(1);
+  expect(store.getRevision('testnet', 'a')).toBe(3);
+});

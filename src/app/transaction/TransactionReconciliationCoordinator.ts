@@ -10,7 +10,9 @@ export type TransactionReconciliationReason =
   | 'cold-start'
   | 'foreground'
   | 'network-recovery'
-  | 'manual-refresh';
+  | 'manual-refresh'
+  | 'post-submit'
+  | 'node-recovery';
 
 export type TransactionReconciliationCoordinator = Readonly<{
   reconcile: (
