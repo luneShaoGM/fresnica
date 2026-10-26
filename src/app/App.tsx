@@ -78,6 +78,7 @@ export function App() {
         pendingRawDeepLinkRef.current = undefined;
         stopLedgerReadLifecycle = startLedgerReadLifecycle({
           runtime: created.ledgerReadRuntime,
+          node: created.nodeReadSession,
           invalidation: created.ledgerReadInvalidation,
           coordinator: created.transactionRecovery,
           networkId: created.onboarding.networkId,

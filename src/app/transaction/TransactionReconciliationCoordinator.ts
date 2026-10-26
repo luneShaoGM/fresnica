@@ -11,7 +11,8 @@ export type TransactionReconciliationReason =
   | 'foreground'
   | 'network-recovery'
   | 'manual-refresh'
-  | 'post-submit';
+  | 'post-submit'
+  | 'node-recovery';
 
 export type TransactionReconciliationCoordinator = Readonly<{
   reconcile: (

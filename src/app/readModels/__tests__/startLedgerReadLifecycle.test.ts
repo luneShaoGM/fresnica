@@ -2,6 +2,8 @@ import type { AccountRecord } from '@capabilities/account/types';
 
 import { createLedgerReadInvalidationStore } from '../LedgerReadInvalidationStore';
 import { createLedgerReadRuntime, type InternetConnectivity } from '../LedgerReadRuntime';
+import { createNodeReadSession } from '../createNodeReadSession';
+import { NodeReadError } from '@capabilities/network/NodeReadError';
 import { startLedgerReadLifecycle } from '../startLedgerReadLifecycle';
 
 const account = (id: string, networkId = 'stellar-testnet', hidden = false): AccountRecord => ({
@@ -156,4 +158,60 @@ describe('ledger read lifecycle', () => {
     expect(stopAppState).toHaveBeenCalledTimes(1);
     expect(runtime.getSnapshot().foreground).toBe(false);
   });
+});
+
+it('defers pending recovery until node verification and repeats it after cooldown/resume', async () => {
+  jest.useFakeTimers();
+  const runtime = createLedgerReadRuntime();
+  const node = createNodeReadSession({
+    runtime,
+    endpoint: 'https://node.test',
+    networkPassphrase: 'test',
+    probe: async () => 'test',
+    onState: jest.fn(),
+    random: () => 1,
+  });
+  const reconcile = jest.fn().mockResolvedValue([]);
+  let appState!: (state: string) => void;
+  const stop = startLedgerReadLifecycle({
+    runtime,
+    node,
+    invalidation: createLedgerReadInvalidationStore(),
+    coordinator: { reconcile },
+    networkId: 'stellar-testnet',
+    currentAppState: 'active',
+    getAccounts: () => [account('one')],
+    onFailure: jest.fn(),
+    subscribeAppState: listener => {
+      appState = listener;
+      return () => {};
+    },
+    subscribeConnectivity: () => () => {},
+  });
+  const settle = async () => {
+    for (let i = 0; i < 30; i++) await Promise.resolve();
+  };
+  expect(reconcile).not.toHaveBeenCalled();
+  await settle();
+  expect(reconcile.mock.calls).toEqual([['node-recovery']]);
+  node.reportFailure(new NodeReadError('rate-limited', 5000), node.getSnapshot().generation);
+  appState('background');
+  appState('active');
+  expect(reconcile).toHaveBeenCalledTimes(1);
+  jest.advanceTimersByTime(4999);
+  await settle();
+  expect(reconcile).toHaveBeenCalledTimes(1);
+  jest.advanceTimersByTime(1);
+  await settle();
+  expect(reconcile).toHaveBeenCalledTimes(2);
+  appState('background');
+  appState('active');
+  await settle();
+  expect(reconcile).toHaveBeenCalledTimes(3);
+  stop();
+  node.close();
+  await settle();
+  expect(reconcile).toHaveBeenCalledTimes(3);
+  expect(jest.getTimerCount()).toBe(0);
+  jest.useRealTimers();
 });

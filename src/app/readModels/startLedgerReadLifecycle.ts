@@ -1,3 +1,4 @@
+import type { NodeReadSession } from './createNodeReadSession';
 import type { AccountRecord } from '@capabilities/account/types';
 
 import type {
@@ -9,6 +10,7 @@ import type { InternetConnectivity, LedgerReadRuntime } from './LedgerReadRuntim
 
 type Dependencies = Readonly<{
   runtime: LedgerReadRuntime;
+  node?: Pick<NodeReadSession, 'getSnapshot' | 'subscribe'>;
   invalidation: LedgerReadInvalidationStore;
   coordinator: TransactionReconciliationCoordinator;
   networkId: string;
@@ -25,6 +27,16 @@ export function startLedgerReadLifecycle(dependencies: Dependencies): () => void
   let connectivity: InternetConnectivity = 'unknown';
 
   const updateRuntime = () => dependencies.runtime.update({ foreground, connectivity });
+  const reconcile = (reason: TransactionReconciliationReason) => {
+    if (
+      stopped ||
+      !foreground ||
+      connectivity === 'offline' ||
+      (dependencies.node && dependencies.node.getSnapshot().phase !== 'healthy')
+    )
+      return;
+    dependencies.coordinator.reconcile(reason).catch(dependencies.onFailure);
+  };
   const refresh = (reason: TransactionReconciliationReason | 'offline') => {
     try {
       for (const account of dependencies.getAccounts()) {
@@ -35,9 +47,7 @@ export function startLedgerReadLifecycle(dependencies: Dependencies): () => void
     } catch (error) {
       dependencies.onFailure(error);
     }
-    if (reason !== 'offline' && foreground && connectivity !== 'offline') {
-      void dependencies.coordinator.reconcile(reason).catch(dependencies.onFailure);
-    }
+    if (reason !== 'offline') reconcile(reason);
   };
 
   updateRuntime();
@@ -51,7 +61,11 @@ export function startLedgerReadLifecycle(dependencies: Dependencies): () => void
     if (foreground && !wasForeground) refresh('foreground');
   });
   let stopConnectivity: () => void;
+  let stopNode: (() => void) | undefined;
   try {
+    stopNode = dependencies.node?.subscribe(() => {
+      if (dependencies.node?.getSnapshot().phase === 'healthy') reconcile('node-recovery');
+    });
     stopConnectivity = dependencies.subscribeConnectivity(state => {
       if (stopped || state === 'unknown' || state === connectivity) return;
       connectivity = state;
@@ -63,12 +77,14 @@ export function startLedgerReadLifecycle(dependencies: Dependencies): () => void
     foreground = false;
     updateRuntime();
     stopAppState();
+    stopNode?.();
     throw error;
   }
 
   return () => {
     if (stopped) return;
     stopped = true;
+    stopNode?.();
     foreground = false;
     updateRuntime();
     try {
