@@ -1,10 +1,7 @@
 import type { AccountRecord } from '../../capabilities/account/types';
-import type { BalanceSnapshot } from '../../capabilities/balance/types';
 
-export type HomeBalanceState =
-  | Readonly<{ kind: 'loading' }>
-  | Readonly<{ kind: 'error'; message: string }>
-  | Readonly<{ kind: 'ready'; snapshot: BalanceSnapshot }>;
+import type { BalanceDisplayState } from './balanceReadModel';
+export type HomeBalanceState = BalanceDisplayState;
 
 export type HomeViewModel = Readonly<{
   accountLabel: string;
@@ -34,8 +31,9 @@ export function createHomeViewModel(
 ): HomeViewModel {
   const isClassic = account.identityKind === 'classic';
   const isReadOnly = !canSign || !isClassic;
-  const isActive = balanceState.kind === 'ready' && balanceState.snapshot.status === 'active';
-  const isInactive = balanceState.kind === 'ready' && balanceState.snapshot.status === 'inactive';
+  const isActive = balanceState.kind === 'ready' && !balanceState.stale && balanceState.snapshot.status === 'active';
+  const isInactive =
+    balanceState.kind === 'ready' && !balanceState.stale && balanceState.snapshot.status === 'inactive';
 
   return {
     accountLabel: account.label.trim() || 'Stellar account',

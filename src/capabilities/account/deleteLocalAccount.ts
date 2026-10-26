@@ -1,3 +1,4 @@
+import type { BalanceCacheRepository } from '../balance/BalanceCacheRepository';
 import type { HistoryCacheRepository } from '../history/HistoryCacheRepository';
 import type { PendingSubmissionRepository } from '../transaction/pendingSubmission';
 import type { AccountSignerRepository } from './AccountSignerRepository';
@@ -6,6 +7,7 @@ export type DeleteLocalAccountDependencies = Readonly<{
   repository: AccountSignerRepository;
   pendingSubmissions: PendingSubmissionRepository;
   historyCache: Pick<HistoryCacheRepository, 'clearPartition'>;
+  balanceCache: Pick<BalanceCacheRepository, 'clearPartition'>;
 }>;
 
 export function deleteLocalAccount(dependencies: DeleteLocalAccountDependencies, accountId: string): void {
@@ -27,6 +29,7 @@ export function deleteLocalAccount(dependencies: DeleteLocalAccountDependencies,
   }
 
   if (account.identityKind === 'classic') {
+    dependencies.balanceCache.clearPartition({ networkId: account.networkId, accountAddress: account.address });
     dependencies.historyCache.clearPartition({
       networkId: account.networkId,
       accountAddress: account.address,

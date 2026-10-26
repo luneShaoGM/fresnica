@@ -1,3 +1,4 @@
+export { RealmBalanceCacheRepository } from './RealmBalanceCacheRepository';
 export { RealmAccountSignerRepository } from './RealmAccountSignerRepository';
 export { RealmLocalePreferenceStore } from './RealmLocalePreferenceStore';
 export { RealmDefaultAccountPreferenceStore } from './RealmDefaultAccountPreferenceStore';
@@ -16,6 +17,8 @@ export {
   DEFAULT_ACCOUNT_PREFERENCE_SCHEMA,
   PENDING_SUBMISSION_ENTITY,
   PENDING_SUBMISSION_SCHEMA,
+  BALANCE_CACHE_SNAPSHOT_ENTITY,
+  BALANCE_CACHE_SNAPSHOT_SCHEMA,
   HISTORY_CACHE_SNAPSHOT_ENTITY,
   HISTORY_CACHE_SNAPSHOT_SCHEMA,
   SIGNER_ENTITY,

@@ -1,6 +1,6 @@
 # Account data lifecycle and foreground synchronization
 
-Status: implementation candidate on main baseline `589a75ba5a97b305b94b15b7aff6be62067c8bc9`. This specification covers the S05/S13 lifecycle maintenance slices. It does not promote their product maturity or replace the Transaction recovery contract.
+Status: LC1 merged as `245262327fba37123a7c91befcb1902d4ab4a8ea`; LC2 implementation candidate on that main baseline. This specification covers the S05/S13 lifecycle maintenance slices. It does not promote their product maturity or replace the Transaction recovery contract.
 
 ## Ownership and source decision
 
@@ -12,7 +12,7 @@ App owns lifecycle subscriptions and public read activity. Platform reports conn
 
 ## LC1 Lifecycle refresh and display read lifetime
 
-LC1 is the current implementation batch. Its user-visible outcome is automatic revalidation on foreground/network recovery even when there are no pending local transactions.
+LC1 is merged in PR #111. Its user-visible outcome is automatic revalidation on foreground/network recovery even when there are no pending local transactions.
 
 1. On active startup, refresh revisions for visible accounts on the configured network and independently reconcile pending transactions. Hidden and other-network accounts are excluded. Revision changes themselves never fetch every account; focused screens read their current account.
 2. Returning to active from any non-active state refreshes the current inventory independently of pending outcomes. Repeated active callbacks do not retrigger. Inactive pauses display reads but does not cancel or authorize a signing/submission operation and does not imply an application lock.
@@ -31,7 +31,7 @@ LC1 changes no database schema, cached ledger authority, signer material, transa
 
 | Slice | Required behavior | Current state |
 | --- | --- | --- |
-| LC2 Balance display cache | Partitioned normalized public snapshots; schema/migration, corrupt-cache handling, best-effort writes, retain old data on refresh error; Home and asset detail show freshness | Planned, separate persistence slice |
+| LC2 Balance display cache | Partitioned normalized public snapshots; schema/migration, corrupt-cache handling, best-effort writes, retain old data on refresh error; Home and asset detail show freshness | Implementation candidate; separate persistence slice, independent review pending |
 | LC3 Foreground real time | Selected account Effects subscription across tabs; handshake/recovery reconciliation, event deduplication and coalescing, dirty revisions, opaque cursor, polling fallback, reconnect and silent-stream health check | Planned, must not be claimed delivered by LC1 |
 | LC4 Node recovery and post-submit convergence | Separate device connectivity from node health; timeout/rate-limit/backoff, one retry owner, diagnostics, endpoint-generation isolation and bounded post-submit read retries without resubmission | Planned |
 | LC5 Other lifecycle consumers | Per-kind cache TTL/failure policy; registry/metadata/claimable/catalog/icons/resolver; initial link/notification readiness and deduplication; appearance/browser cleanup | Planned by owning product slices |
@@ -64,3 +64,31 @@ Independent review of `d1cc8c554faf72ff22182159d93101ca9245572b` found that an i
 The new regression ran against the reviewed implementation and failed because the old request resolved not-found instead of being rejected. It now passes through the real History detail loader. A second regression proves same-operation requests for different accounts remain separate and invalidating one account preserves the other's in-flight request.
 
 Repair validation: `npm run check -- -- --watchman=false` passed 132 suites / 1002 tests and all earlier check stages, lint 0 errors / 21 warnings. Watchman was disabled after the local sandbox prevented its client from starting; no shipping configuration changed. Realm integration passed three suites / 52 tests. Android and iOS release JS bundles passed using the existing temporary external Metro config. Native/device acceptance and new exact-HEAD independent review remain pending.
+
+## LC2 Balance display cache contract
+
+LC1 was merged in PR #111 as `245262327fba37123a7c91befcb1902d4ab4a8ea` after independent approval of `88f6ee5`. LC2 is a separate cache/migration slice. It adds no ledger-write semantics and preserves the original live Balance loader for transaction preparation.
+
+One replaceable snapshot per network/classic account address stores normalized active or inactive Balance DTOs, schema version and last successful read time. Unsupported contract accounts are not persisted. Cache reads and writes are best effort; a successful live result remains usable if persistence fails. Invalid shape/version/address clears only that cache partition. Balances remain exact decimal strings. Cached fields cannot contain signer, envelope, XDR, pending-submission or raw Horizon data. Snapshot size is bounded; account deletion removes its partition. Realm migration adds a top-level entity and preserves all existing wallet and recovery entities.
+
+Home and Asset Details restore matching snapshots, mark them stale, then reread through LC1's display gate. Refresh failures preserve the last successful snapshot and timestamp, and expose Retry. No matching snapshot means a full error state. Live inactive results replace older active data; no speculative arithmetic is performed. Foreground, focus, transaction invalidation and manual refresh mark displayed values stale until successful revalidation. Cached/stale availability does not enable Send/Swap/Manage Assets or Friendbot; their own existing capabilities still validate live state.
+
+An account/identity/network change cannot display or write another partition's data. Refresh completion is accepted only for the current request lifetime; no cache write occurs from a disposed screen or superseded request. Neither expiry nor failure deletes the only usable offline snapshot. Balance caches remain display-only and are never injected into Send, Swap quote/preflight, signing or submission.
+
+Acceptance includes memory/Realm contract parity, corrupt/version/address/size/decimal validation, v5→v6 preservation and close/reopen, deletion/failure guards, cached loading→successful refresh and cached loading→failure→retry, inactive replacement, cross-account isolation, cache-write failure and lifecycle cancellation. Real device offline/restart acceptance remains separately recorded.
+
+
+## LC2 local development evidence
+
+- Trace: S05-LC2; Home/Asset Details own presentation, Balance owns the public cache contract, Platform owns Realm I/O, and App owns composition. Adopt stale-while-revalidate behavior / Adapt through existing ports; independently implemented with no donor source migration. Existing strict Home architecture enforcement covers the new hook and notice.
+- `npm run check -- --watchman=false`: 134 suites / 1023 tests passed, including typecheck, lint, architecture, locale and provenance gates. Existing lint warnings remain non-blocking.
+- `npm run test:realm`: four suites / 68 tests passed, including real Realm v5→v6 migration with all prior entities, atomic replacement failure, corruption isolation, close/reopen and account-deletion cleanup. The schema declaration regression was updated from v5 to v6.
+- Android and iOS release JS bundles passed with the existing installed dependencies through a temporary external Metro configuration for this isolated clone. An initial stale local file-map resolution failed; rebuilding the Metro cache with Watchman disabled resolved it. No project build configuration or dependency was changed.
+- Not run: native rebuild/install, device offline/process-restart flows, TalkBack/VoiceOver and visual/dynamic-font acceptance. Independent exact-HEAD review remains pending. This does not promote S05/S13 maturity or complete LC3 foreground receipt.
+
+
+## LC2 inactive-cache review repair
+
+Independent review of `6711a26` approved LC2 with one P3: Home still showed current-tense activation/funding instructions for a stale inactive snapshot. Home now forwards freshness into the inactive panel. Stale inactive displays a localized activation-status verification title and the existing previous-snapshot explanation; address and refresh remain available, while funding steps, Friendbot and funding-result messages are hidden. Fresh inactive retains the existing funding flow. No persistence, read lifetime or transaction authority changed.
+
+Regression coverage checks Home freshness forwarding, stale idle/funding/error presentation, absence of recharge instructions, the working refresh callback, and unchanged fresh funding behavior. The prior approval applies only to `6711a26`; the repair needs independent incremental review at its new HEAD. Device acceptance remains pending.

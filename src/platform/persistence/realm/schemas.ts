@@ -1,6 +1,6 @@
 import type Realm from 'realm';
 
-export const WALLET_REALM_SCHEMA_VERSION = 5;
+export const WALLET_REALM_SCHEMA_VERSION = 6;
 
 export const ACCOUNT_ENTITY = 'AccountEntity';
 export const SIGNER_ENTITY = 'SignerEntity';
@@ -8,6 +8,7 @@ export const ACCOUNT_SIGNER_REFERENCE_ENTITY = 'AccountSignerReferenceEntity';
 export const LOCALE_PREFERENCE_ENTITY = 'LocalePreferenceEntity';
 export const DEFAULT_ACCOUNT_PREFERENCE_ENTITY = 'DefaultAccountPreferenceEntity';
 export const PENDING_SUBMISSION_ENTITY = 'PendingSubmissionEntity';
+export const BALANCE_CACHE_SNAPSHOT_ENTITY = 'BalanceCacheSnapshotEntity';
 export const HISTORY_CACHE_SNAPSHOT_ENTITY = 'HistoryCacheSnapshotEntity';
 
 export const ACCOUNT_SCHEMA = {
@@ -109,6 +110,19 @@ export const HISTORY_CACHE_SNAPSHOT_SCHEMA = {
   },
 } satisfies Realm.ObjectSchema;
 
+export const BALANCE_CACHE_SNAPSHOT_SCHEMA = {
+  name: BALANCE_CACHE_SNAPSHOT_ENTITY,
+  primaryKey: 'id',
+  properties: {
+    id: 'string',
+    networkId: 'string',
+    accountAddress: 'string',
+    schemaVersion: 'int',
+    lastSuccessfulUpdateAt: 'date',
+    balanceJson: 'string',
+  },
+} satisfies Realm.ObjectSchema;
+
 export const WALLET_REALM_SCHEMAS = [
   ACCOUNT_SCHEMA,
   SIGNER_SCHEMA,
@@ -117,4 +131,5 @@ export const WALLET_REALM_SCHEMAS = [
   DEFAULT_ACCOUNT_PREFERENCE_SCHEMA,
   PENDING_SUBMISSION_SCHEMA,
   HISTORY_CACHE_SNAPSHOT_SCHEMA,
+  BALANCE_CACHE_SNAPSHOT_SCHEMA,
 ] as const;

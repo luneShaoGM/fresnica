@@ -259,6 +259,7 @@
   "activity.detail.asset": "資產",
   "activity.detail.issuer": "發行方",
   "home.inactive.title": "帳戶尚未啟用",
+  "home.inactive.staleTitle": "啟用狀態待確認",
   "home.inactive.fundTitle": "1. 為這個 Stellar 帳戶充值",
   "home.inactive.fundMessage": "向下方公開地址在目前網路傳送 XLM。只有 Horizon 回報帳戶已存在後，Fresnica 才會顯示鏈上餘額。",
   "home.inactive.refreshTitle": "2. 充值後重新整理",
@@ -590,5 +591,14 @@
   "dapps.website.cancel": "取消",
   "dapps.website.opening": "正在開啟瀏覽器…",
   "dapps.website.invalid": "請輸入公開 HTTPS 網域。HTTP、IP 位址、本機網域、含憑證或格式錯誤的網址會被封鎖。",
-  "dapps.website.failed": "無法開啟瀏覽器，請檢查網址後重試。"
+  "dapps.website.failed": "無法開啟瀏覽器，請檢查網址後重試。",
+  "balance.cache.refreshing": "正在重新整理，暫時顯示上次讀取的餘額…",
+  "balance.cache.failed": "重新整理失敗，目前顯示上次讀取的餘額。",
+  "balance.cache.stale": "目前顯示上次讀取的餘額。",
+  "balance.cache.current": "餘額已更新。",
+  "balance.cache.updated": "上次更新：{{time}}",
+  "balance.cache.retry": "重試",
+  "balance.cache.inactive": "上次快照顯示帳戶未啟用，請重新整理確認。",
+  "balance.cache.missing": "上次快照中沒有此資產，請重新整理確認。",
+  "balance.cache.balanceLabel": "上次讀取的餘額"
 }

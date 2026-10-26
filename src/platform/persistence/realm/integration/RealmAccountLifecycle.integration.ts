@@ -9,6 +9,7 @@ import { deleteLocalAccount } from '../../../../capabilities/account/deleteLocal
 import type { AccountRecord } from '../../../../capabilities/account/types';
 import { historySnapshot, payment } from '../../__tests__/historyCacheRepositoryContract';
 import { RealmAccountSignerRepository } from '../RealmAccountSignerRepository';
+import { RealmBalanceCacheRepository } from '../RealmBalanceCacheRepository';
 import { RealmHistoryCacheRepository } from '../RealmHistoryCacheRepository';
 import { RealmPendingSubmissionRepository } from '../RealmPendingSubmissionRepository';
 import { openWalletRealm } from '../openWalletRealm';
@@ -109,7 +110,7 @@ describe('Realm account lifecycle', () => {
         historySnapshot([payment('history-before-delete')]),
       );
 
-      deleteLocalAccount({ repository, pendingSubmissions, historyCache }, deletedAccount.id);
+      deleteLocalAccount({ repository, pendingSubmissions, historyCache, balanceCache: new RealmBalanceCacheRepository(activeRealm) }, deletedAccount.id);
 
       expect(repository.listAccounts()).toEqual([]);
       expect(

@@ -16,7 +16,7 @@ import {
 } from './transaction/TransactionReconciliationCoordinator';
 import type { OnboardingProvisioningDependencies } from '../features/onboarding/runOnboardingProvisioning';
 import type { ApplicationSecurityDependencies } from '../capabilities/application-security/systemAuth';
-import type { BalanceDependencies } from '../capabilities/balance/loadBalanceSnapshot';
+import type { BalanceProductDependencies } from '../capabilities/balance/BalanceCacheHydration';
 import type { FriendbotDependencies } from '../capabilities/network/fundTestnetAccountWithFriendbot';
 import type { DappCatalogPort } from '../capabilities/dapp-catalog/catalog';
 import type { AccountOrderDependencies } from '../capabilities/account/accountOrder';
@@ -32,6 +32,7 @@ import type { RequestProductDependencies } from '../features/request/requestProd
 import { ReactNativeFresnicaSdk, loadNativeFresnicaModule } from '../platform/fresnica/native';
 import {
   RealmAccountSignerRepository,
+  RealmBalanceCacheRepository,
   RealmDefaultAccountPreferenceStore,
   RealmHistoryCacheRepository,
   RealmLocalePreferenceStore,
@@ -57,7 +58,7 @@ export type AppServices = Readonly<{
   accountManagement: AccountManagementDependencies;
   onboarding: OnboardingProvisioningDependencies;
   security: ApplicationSecurityDependencies;
-  balance: BalanceDependencies;
+  balance: BalanceProductDependencies;
   friendbot: FriendbotDependencies;
   send: SendProductDependencies;
   swapPreview: SwapPreviewProductDependencies;
@@ -91,6 +92,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const accountSelectionPreferences = new RealmDefaultAccountPreferenceStore(realm);
     const pendingSubmissions = new RealmPendingSubmissionRepository(realm);
     const historyCache = new RealmHistoryCacheRepository(realm);
+    const balanceCache = new RealmBalanceCacheRepository(realm);
     const ledgerReadInvalidation = createLedgerReadInvalidationStore();
     const ledgerReadRuntime = createLedgerReadRuntime();
     const recovery = Object.freeze({
@@ -146,6 +148,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         repository,
         pendingSubmissions,
         historyCache,
+        balanceCache,
         now: () => new Date(),
       },
       onboarding: {
@@ -160,6 +163,8 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         repository,
       },
       balance: {
+        cache: balanceCache,
+        now: () => new Date(),
         gateway: displayReadGateway,
         networkId: network.id,
       },

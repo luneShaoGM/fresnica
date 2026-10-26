@@ -15,6 +15,9 @@ const account: AccountRecord = {
 
 const active: HomeBalanceState = {
   kind: 'ready',
+  stale: false,
+  refreshing: false,
+  refreshFailed: false,
   snapshot: {
     status: 'active',
     address: account.address,
@@ -39,6 +42,20 @@ describe('createHomeViewModel', () => {
     expect(model.networkLabel).toBe('Testnet');
   });
 
+  it.each(['active', 'inactive'] as const)('does not enable ledger actions from a stale %s snapshot', status => {
+    const stale: HomeBalanceState = {
+      ...active,
+      stale: true,
+      snapshot: status === 'active' ? active.snapshot : { status: 'inactive', address: account.address },
+    };
+    const model = createHomeViewModel(account, true, stale, { swap: true, request: true, friendbot: true });
+    expect(model.canSend).toBe(false);
+    expect(model.canSwap).toBe(false);
+    expect(model.canManageAssets).toBe(false);
+    expect(model.canFundWithFriendbot).toBe(false);
+    expect(model.canRequest).toBe(true);
+  });
+
   it('keeps signing and trustline actions disabled for a watch-only account', () => {
     const model = createHomeViewModel(account, false, active, {
       swap: true,
@@ -56,6 +73,9 @@ describe('createHomeViewModel', () => {
   it('does not enable ledger mutation actions before the account is active', () => {
     const inactive: HomeBalanceState = {
       kind: 'ready',
+      stale: false,
+      refreshing: false,
+      refreshFailed: false,
       snapshot: { status: 'inactive', address: account.address },
     };
     const model = createHomeViewModel(account, true, inactive, {
@@ -82,6 +102,9 @@ describe('createHomeViewModel', () => {
       true,
       {
         kind: 'ready',
+        stale: false,
+        refreshing: false,
+        refreshFailed: false,
         snapshot: {
           status: 'unsupported-account',
           address: contractAccount.address,
@@ -100,6 +123,9 @@ describe('createHomeViewModel', () => {
   it('does not offer Friendbot when the Network capability does not mark it available', () => {
     const inactive: HomeBalanceState = {
       kind: 'ready',
+      stale: false,
+      refreshing: false,
+      refreshFailed: false,
       snapshot: { status: 'inactive', address: account.address },
     };
     const model = createHomeViewModel(account, false, inactive, {

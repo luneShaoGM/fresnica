@@ -2,6 +2,7 @@ import { deleteLocalAccount } from '../../../capabilities/account/deleteLocalAcc
 import type { AccountRecord } from '../../../capabilities/account/types';
 import { InMemoryAccountSignerRepository } from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
 import { InMemoryHistoryCacheRepository } from '../../../platform/persistence/memory/InMemoryHistoryCacheRepository';
+import { InMemoryBalanceCacheRepository } from '../../../platform/persistence/memory/InMemoryBalanceCacheRepository';
 import { InMemoryPendingSubmissionRepository } from '../../../platform/persistence/memory/InMemoryPendingSubmissionRepository';
 import { resolveOnboardingBootstrap } from '../onboardingBootstrap';
 
@@ -32,6 +33,7 @@ describe('account delete bootstrap', () => {
         repository,
         pendingSubmissions,
         historyCache: new InMemoryHistoryCacheRepository(),
+    balanceCache: new InMemoryBalanceCacheRepository(),
       },
       'account-a',
     );

@@ -259,6 +259,7 @@
   "activity.detail.asset": "资产",
   "activity.detail.issuer": "发行方",
   "home.inactive.title": "账户尚未激活",
+  "home.inactive.staleTitle": "激活状态待确认",
   "home.inactive.fundTitle": "1. 为这个 Stellar 账户充值",
   "home.inactive.fundMessage": "向下方公钥地址在当前网络发送 XLM。只有 Horizon 报告账户已存在后，Fresnica 才会显示链上余额。",
   "home.inactive.refreshTitle": "2. 充值后刷新",
@@ -590,5 +591,14 @@
   "dapps.website.cancel": "取消",
   "dapps.website.opening": "正在打开浏览器…",
   "dapps.website.invalid": "请输入公开 HTTPS 域名。HTTP、IP 地址、本地域名、含凭据或格式错误的网址将被拦截。",
-  "dapps.website.failed": "无法打开浏览器，请检查网址后重试。"
+  "dapps.website.failed": "无法打开浏览器，请检查网址后重试。",
+  "balance.cache.refreshing": "正在刷新，暂时显示上次读取的余额…",
+  "balance.cache.failed": "刷新失败，当前显示上次读取的余额。",
+  "balance.cache.stale": "当前显示上次读取的余额。",
+  "balance.cache.current": "余额已更新。",
+  "balance.cache.updated": "上次更新：{{time}}",
+  "balance.cache.retry": "重试",
+  "balance.cache.inactive": "上次快照显示账户未激活，请刷新确认。",
+  "balance.cache.missing": "上次快照中没有此资产，请刷新确认。",
+  "balance.cache.balanceLabel": "上次读取的余额"
 }
