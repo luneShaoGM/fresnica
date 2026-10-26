@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useSyncExternalStore } from 'react';
+import { useIsFocused } from '@react-navigation/native';
+import type { LedgerReadRuntime } from '../readModels/LedgerReadRuntime';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import type { DappCatalogPort } from '@capabilities/dapp-catalog/catalog';
@@ -11,12 +13,42 @@ const Stack = createNativeStackNavigator<DAppsStackParamList>();
 export function DAppsStackNavigator({
   catalog,
   openExternalUrl,
-}: Readonly<{ catalog: DappCatalogPort; openExternalUrl: (url: string) => Promise<void> }>) {
+  runtime,
+}: Readonly<{
+  catalog: DappCatalogPort;
+  openExternalUrl: (url: string) => Promise<void>;
+  runtime: LedgerReadRuntime;
+}>) {
+  const reads = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot, runtime.getSnapshot);
   return (
     <Stack.Navigator initialRouteName="dapps" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="dapps">
-        {() => <DAppsScreen catalog={catalog} openExternalUrl={openExternalUrl} />}
+        {() => (
+          <DAppsRoute
+            catalog={catalog}
+            openExternalUrl={openExternalUrl}
+            foreground={reads.foreground}
+            online={reads.connectivity !== 'offline'}
+          />
+        )}
       </Stack.Screen>
     </Stack.Navigator>
+  );
+}
+
+function DAppsRoute({
+  catalog,
+  openExternalUrl,
+  foreground,
+  online,
+}: Readonly<{
+  catalog: DappCatalogPort;
+  openExternalUrl: (url: string) => Promise<void>;
+  foreground: boolean;
+  online: boolean;
+}>) {
+  const focused = useIsFocused();
+  return (
+    <DAppsScreen catalog={catalog} openExternalUrl={openExternalUrl} active={focused && foreground} online={online} />
   );
 }

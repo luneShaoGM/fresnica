@@ -77,6 +77,7 @@ jest.spyOn(react, 'useEffect').mockImplementation(((effect: () => void | (() => 
     effect,
     deps: nextDeps,
     pending: changed,
+    cleanup: changed ? undefined : previous?.cleanup,
   };
 }) as typeof react.useEffect);
 
@@ -123,8 +124,8 @@ async function settle() {
   }
 }
 
-async function renderCatalog(catalog: DappCatalogPort, showInterfaceSample = false) {
-  const props = { catalog, showInterfaceSample, openExternalUrl };
+async function renderCatalog(catalog: DappCatalogPort, showInterfaceSample = false, active = true, online = true) {
+  const props = { catalog, showInterfaceSample, openExternalUrl, active, online };
   beginRender();
   DAppsScreen(props);
   await settle();
@@ -375,5 +376,103 @@ describe('S15 untrusted URL risk confirmation and in-session Recent', () => {
     const nodes = websiteNodes();
     expect(nodes.some(node => node.props.label === 'https://example.org')).toBe(true);
     expect(openExternalUrl).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('catalog and browser lifecycle', () => {
+  beforeEach(() => {
+    resetHarness();
+    openExternalUrl.mockClear();
+  });
+  it('gates loads on activity/connectivity, retains data on failed refresh and retries after recovery', async () => {
+    const load = jest.fn().mockResolvedValue({ kind: 'ready', entries: [entry] });
+    const catalog = { load };
+    await renderCatalog(catalog, false, false);
+    expect(load).not.toHaveBeenCalled();
+    await renderCatalog(catalog);
+    expect(load).toHaveBeenCalledTimes(1);
+    await renderCatalog(catalog, false, true, false);
+    expect(load).toHaveBeenCalledTimes(1);
+    load.mockRejectedValueOnce(new Error('offline'));
+    const stale = elements(await renderCatalog(catalog));
+    expect(stale.some(node => node.props.children === entry.title)).toBe(true);
+    expect(stale.some(node => node.props.children === 'dapps.catalog.stale')).toBe(true);
+    stale.find(node => node.props.label === 'dapps.catalog.retry')?.props.onPress?.();
+    const fresh = elements(await renderCatalog(catalog));
+    expect(fresh.some(node => node.props.children === 'dapps.catalog.stale')).toBe(false);
+    expect(load).toHaveBeenCalledTimes(3);
+  });
+  it('drops an old catalog completion after leaving and starts a new activation read', async () => {
+    let resolve!: (value: { kind: 'ready'; entries: readonly DappCatalogEntry[] }) => void;
+    const load = jest
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise(done => {
+            resolve = done;
+          }),
+      )
+      .mockResolvedValue({ kind: 'ready', entries: [] });
+    const catalog = { load };
+    await renderCatalog(catalog);
+    await renderCatalog(catalog, false, false);
+    resolve({ kind: 'ready', entries: [entry] });
+    await settle();
+    const resumed = elements(await renderCatalog(catalog));
+    expect(resumed.some(node => node.props.children === entry.title)).toBe(false);
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+  it('clears a website proposal on leaving and blocks its queued confirmation callback', async () => {
+    const catalog = { load: async () => ({ kind: 'unavailable' as const }) };
+    const initial = elements(await renderCatalog(catalog));
+    initial
+      .find(node => node.props.accessibilityLabel === 'dapps.website.input')
+      ?.props.onChangeText?.('https://example.org');
+    elements(await renderCatalog(catalog))
+      .find(node => node.props.label === 'dapps.website.preview')
+      ?.props.onPress?.();
+    const confirm = elements(await renderCatalog(catalog)).find(node => node.props.label === 'dapps.website.confirm');
+    expect(confirm).toBeDefined();
+    await renderCatalog(catalog, false, false);
+    confirm?.props.onPress?.();
+    expect(openExternalUrl).not.toHaveBeenCalled();
+    const resumed = elements(await renderCatalog(catalog));
+    expect(resumed.some(node => node.props.label === 'dapps.website.confirm')).toBe(false);
+  });
+  it('does not retain a different catalog provider snapshot after replacement fails', async () => {
+    await renderCatalog({ load: async () => ({ kind: 'ready', entries: [entry] }) });
+    const replacement = { load: jest.fn().mockRejectedValue(new Error('new provider failed')) };
+    const nodes = elements(await renderCatalog(replacement));
+    expect(nodes.some(node => node.props.children === entry.title)).toBe(false);
+    expect(nodes.some(node => node.props.title === 'dapps.catalog.error')).toBe(true);
+  });
+  it('ignores a browser handoff completion after the screen leaves', async () => {
+    let opened!: () => void;
+    openExternalUrl.mockImplementationOnce(
+      () =>
+        new Promise<void>(resolve => {
+          opened = resolve;
+        }),
+    );
+    const catalog = { load: async () => ({ kind: 'unavailable' as const }) };
+    const nodes = elements(await renderCatalog(catalog));
+    nodes
+      .find(node => node.props.accessibilityLabel === 'dapps.website.input')
+      ?.props.onChangeText?.('https://example.org');
+    elements(await renderCatalog(catalog))
+      .find(node => node.props.label === 'dapps.website.preview')
+      ?.props.onPress?.();
+    elements(await renderCatalog(catalog))
+      .find(node => node.props.label === 'dapps.website.confirm')
+      ?.props.onPress?.();
+    expect(openExternalUrl).toHaveBeenCalledTimes(1);
+    await renderCatalog(catalog, false, false);
+    opened();
+    await settle();
+    elements(await renderCatalog(catalog))
+      .filter(node => node.props.accessibilityRole === 'button')[1]
+      ?.props.onPress?.();
+    const recent = elements(await renderCatalog(catalog));
+    expect(recent.some(node => node.props.label === 'https://example.org')).toBe(false);
   });
 });

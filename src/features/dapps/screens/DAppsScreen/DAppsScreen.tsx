@@ -18,7 +18,7 @@ type CatalogState =
   | Readonly<{ kind: 'loading' }>
   | Readonly<{ kind: 'unavailable' }>
   | Readonly<{ kind: 'error' }>
-  | Readonly<{ kind: 'ready'; entries: readonly DappCatalogEntry[] }>;
+  | Readonly<{ kind: 'ready'; entries: readonly DappCatalogEntry[]; refreshFailed?: boolean; stale?: boolean }>;
 
 type Section = 'home' | 'recent';
 
@@ -26,8 +26,12 @@ export function DAppsScreen({
   catalog,
   showInterfaceSample = __DEV__,
   openExternalUrl,
+  active = true,
+  online = true,
 }: Readonly<{
   catalog: DappCatalogPort;
+  active?: boolean;
+  online?: boolean;
   showInterfaceSample?: boolean;
   openExternalUrl: (url: string) => Promise<void>;
 }>) {
@@ -46,8 +50,11 @@ export function DAppsScreen({
   const [websiteError, setWebsiteError] = useState<'invalid' | 'openFailed'>();
   const [opening, setOpening] = useState(false);
   const openingRef = useRef(false);
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const websiteEpoch = useRef(0);
   const mountedRef = useRef(false);
+  const previousCatalog = useRef(catalog);
   const interfaceSamples = useMemo<readonly DappCatalogEntry[]>(
     () => [
       {
@@ -69,21 +76,33 @@ export function DAppsScreen({
   );
 
   useEffect(() => {
+    const changedCatalog = previousCatalog.current !== catalog;
+    previousCatalog.current = catalog;
+    if (changedCatalog) setState({ kind: 'loading' });
+    if (!active || !online) {
+      if (!changedCatalog) setState(previous => (previous.kind === 'ready' ? { ...previous, stale: true } : previous));
+      return;
+    }
     let current = true;
-    setState({ kind: 'loading' });
+    setState(previous =>
+      !changedCatalog && previous.kind === 'ready' ? { ...previous, stale: true } : { kind: 'loading' },
+    );
     Promise.resolve()
-      .then(() => catalog.load())
+      .then(() => (current ? catalog.load() : undefined))
       .then(result => {
-        if (!current) return;
+        if (!current || result === undefined) return;
         setState(result.kind === 'unavailable' ? { kind: 'unavailable' } : { kind: 'ready', entries: result.entries });
       })
       .catch(() => {
-        if (current) setState({ kind: 'error' });
+        if (current)
+          setState(previous =>
+            previous.kind === 'ready' ? { ...previous, refreshFailed: true, stale: true } : { kind: 'error' },
+          );
       });
     return () => {
       current = false;
     };
-  }, [catalog, retryCount]);
+  }, [catalog, retryCount, active, online]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -93,8 +112,18 @@ export function DAppsScreen({
     };
   }, []);
 
+  useEffect(() => {
+    if (!active) {
+      setPreparedWebsite(undefined);
+      setWebsiteError(undefined);
+    }
+    return () => {
+      websiteEpoch.current += 1;
+    };
+  }, [active]);
+
   const prepareWebsite = (value: string) => {
-    if (openingRef.current) return;
+    if (!activeRef.current || openingRef.current) return;
     try {
       const verified = normalizeUntrustedDappUrl(value);
       setPreparedWebsite(verified);
@@ -115,7 +144,7 @@ export function DAppsScreen({
   };
 
   const confirmWebsite = async () => {
-    if (!preparedWebsite || openingRef.current) return;
+    if (!activeRef.current || !preparedWebsite || openingRef.current) return;
     // This confirmation opens the site in the system browser only.
     // Fresnica never shares wallet identity, permission or signing.
     const proposal = preparedWebsite;
@@ -217,6 +246,19 @@ export function DAppsScreen({
               </View>
               {state.kind === 'ready' ? (
                 <>
+                  {state.stale ? (
+                    <>
+                      <Text accessibilityLiveRegion="polite" style={styles.previewNotice}>
+                        {t(state.refreshFailed ? 'dapps.catalog.stale' : 'dapps.catalog.cached')}
+                      </Text>
+                      <NativeButton
+                        label={t('dapps.catalog.retry')}
+                        onPress={() => setRetryCount(value => value + 1)}
+                        disabled={!active || !online}
+                        variant="secondary"
+                      />
+                    </>
+                  ) : null}
                   <NativeField
                     accessibilityLabel={t('dapps.catalog.search')}
                     autoCapitalize="none"

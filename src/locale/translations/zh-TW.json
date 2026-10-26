@@ -492,6 +492,8 @@
   "dapps.catalog.loading": "正在載入 dApp 目錄…",
   "dapps.catalog.unavailable": "尚未設定 dApp 目錄，目前沒有可展示或背書的項目。",
   "dapps.catalog.error": "載入 dApp 目錄失敗，可以重試。",
+  "dapps.catalog.cached": "正在顯示上次目錄，等待更新。",
+  "dapps.catalog.stale": "正在顯示上次目錄。重新整理失敗，內容可能已過期。",
   "dapps.catalog.retry": "重試",
   "dapps.catalog.empty": "目錄目前沒有項目。",
   "dapps.catalog.noMatch": "沒有符合目前搜尋或分類的 dApp。",

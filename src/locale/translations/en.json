@@ -492,6 +492,8 @@
   "dapps.catalog.loading": "Loading dApp catalog...",
   "dapps.catalog.unavailable": "The dApp catalog is not configured. No listings or endorsements are available.",
   "dapps.catalog.error": "Could not load the dApp catalog. You can retry.",
+  "dapps.catalog.cached": "Showing the previous directory while waiting for an update.",
+  "dapps.catalog.stale": "Showing the previous directory. Refresh failed; listings may be outdated.",
   "dapps.catalog.retry": "Retry",
   "dapps.catalog.empty": "The catalog is empty.",
   "dapps.catalog.noMatch": "No dApps match the current search or category.",

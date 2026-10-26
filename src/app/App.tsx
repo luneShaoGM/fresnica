@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState, StatusBar } from 'react-native';
 import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -6,6 +6,8 @@ import { AppThemeProvider, useAppTheme } from '@ui/theme';
 
 import { getDeviceLocale, LocalizationProvider, resolveLocale, type SupportedLocale } from '../locale';
 import { createAppServices, type AppServices } from './createAppServices';
+import { startRequestDeepLinkIntake } from './readModels/startRequestDeepLinkIntake';
+import type { LedgerReadRuntimeSnapshot } from './readModels/LedgerReadRuntime';
 import { startLedgerReadLifecycle } from './readModels/startLedgerReadLifecycle';
 import { subscribeToInternetConnectivity } from '../platform/system/networkConnectivity';
 import { reactNativeRequestDeepLink } from '../platform/system/requestDeepLink';
@@ -21,20 +23,31 @@ import {
   type RequestDeepLinkResolved,
 } from './requestDeepLinkRouting';
 
+const inactiveReads: LedgerReadRuntimeSnapshot = { foreground: false, connectivity: 'unknown' };
+const noSubscription = () => () => {};
+const inactiveSnapshot = () => inactiveReads;
+
 export function App() {
   const [runtime, setRuntime] = useState<AppRuntimeState>({ kind: 'loading' });
   const [locale, setLocale] = useState<SupportedLocale>(() => getDeviceLocale());
   const servicesRef = useRef<AppServices | undefined>(undefined);
-  const pendingRawDeepLinkRef = useRef<string | undefined>(undefined);
+  const intake = useRef<ReturnType<typeof startRequestDeepLinkIntake> | undefined>(undefined);
+  const linkGeneration = useRef(0);
+  const resolvedFor = useRef<Readonly<{ parsed: RequestDeepLinkParsed; runtime: AppRuntimeState }> | undefined>(
+    undefined,
+  );
+  const readRuntime = useSyncExternalStore(
+    runtime.kind === 'ready' ? runtime.services.ledgerReadRuntime.subscribe : noSubscription,
+    runtime.kind === 'ready' ? runtime.services.ledgerReadRuntime.getSnapshot : inactiveSnapshot,
+    inactiveSnapshot,
+  );
   const [parsedDeepLink, setParsedDeepLink] = useState<RequestDeepLinkParsed>();
   const [resolvedDeepLink, setResolvedDeepLink] = useState<RequestDeepLinkResolved>();
 
   const captureDeepLink = useCallback((rawUrl: string) => {
     const services = servicesRef.current;
-    if (!services) {
-      pendingRawDeepLinkRef.current = rawUrl;
-      return;
-    }
+    if (!services) return;
+    linkGeneration.current += 1;
     const parsed = parseRequestDeepLink(services.request, rawUrl);
     services.diagnostics.info('request-deep-link-received', { details: parsed.diagnostics });
     setParsedDeepLink(parsed);
@@ -42,25 +55,22 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    let active = true;
-    let receivedWarmUrl = false;
-    const unsubscribe = reactNativeRequestDeepLink.subscribe(url => {
-      receivedWarmUrl = true;
-      if (active) captureDeepLink(url);
+    const owner = startRequestDeepLinkIntake({
+      port: reactNativeRequestDeepLink,
+      onCapture: captureDeepLink,
+      onFailure: () => servicesRef.current?.diagnostics.warn('request-deep-link-initial-read-failed'),
     });
-    reactNativeRequestDeepLink
-      .getInitialUrl()
-      .then(url => {
-        if (active && !receivedWarmUrl && url !== undefined) captureDeepLink(url);
-      })
-      .catch(() => {
-        servicesRef.current?.diagnostics.warn('request-deep-link-initial-read-failed');
-      });
+    intake.current = owner;
     return () => {
-      active = false;
-      unsubscribe();
+      owner.close();
+      if (intake.current === owner) intake.current = undefined;
     };
   }, [captureDeepLink]);
+
+  useEffect(() => {
+    intake.current?.setReady(runtime.kind === 'ready' && runtime.bootstrap.kind === 'ready' && readRuntime.foreground);
+    return () => intake.current?.setReady(false);
+  }, [runtime, readRuntime.foreground]);
 
   useEffect(() => {
     let mounted = true;
@@ -74,8 +84,6 @@ export function App() {
         }
 
         servicesRef.current = created;
-        const pendingRawDeepLink = pendingRawDeepLinkRef.current;
-        pendingRawDeepLinkRef.current = undefined;
         stopLedgerReadLifecycle = startLedgerReadLifecycle({
           runtime: created.ledgerReadRuntime,
           node: created.nodeReadSession,
@@ -110,9 +118,6 @@ export function App() {
               }),
           }),
         });
-        if (pendingRawDeepLink !== undefined) {
-          captureDeepLink(pendingRawDeepLink);
-        }
       })
       .catch(error => {
         if (mounted) {
@@ -129,8 +134,17 @@ export function App() {
   }, [captureDeepLink]);
 
   useEffect(() => {
-    if (parsedDeepLink === undefined || runtime.kind !== 'ready' || runtime.bootstrap.kind !== 'ready') return;
+    if (
+      parsedDeepLink === undefined ||
+      runtime.kind !== 'ready' ||
+      runtime.bootstrap.kind !== 'ready' ||
+      !readRuntime.foreground ||
+      readRuntime.connectivity === 'offline' ||
+      (resolvedFor.current?.parsed === parsedDeepLink && resolvedFor.current.runtime === runtime)
+    )
+      return;
     let active = true;
+    const generation = linkGeneration.current;
     let defaultAccountId: string | undefined;
     try {
       defaultAccountId = runtime.services.accountSelectionPreferences.getDefaultAccountId(
@@ -149,18 +163,32 @@ export function App() {
       accountId => runtime.services.onboarding.repository.isWatchOnly(accountId),
     )
       .then(resolved => {
-        if (active) setResolvedDeepLink(resolved);
+        if (
+          active &&
+          generation === linkGeneration.current &&
+          readRuntime === runtime.services.ledgerReadRuntime.getSnapshot()
+        ) {
+          resolvedFor.current = { parsed: parsedDeepLink, runtime };
+          setResolvedDeepLink(resolved);
+        }
       })
       .catch(error => {
         runtime.services.diagnostics.warn('request-deep-link-resolution-failed', {
           details: { category: parsedDeepLink.diagnostics.category, error },
         });
-        if (active) setResolvedDeepLink({ kind: 'blocked', reason: 'account-ineligible' });
+        if (
+          active &&
+          generation === linkGeneration.current &&
+          readRuntime === runtime.services.ledgerReadRuntime.getSnapshot()
+        ) {
+          resolvedFor.current = { parsed: parsedDeepLink, runtime };
+          setResolvedDeepLink({ kind: 'blocked', reason: 'account-ineligible' });
+        }
       });
     return () => {
       active = false;
     };
-  }, [parsedDeepLink, runtime]);
+  }, [parsedDeepLink, runtime, readRuntime]);
 
   const refreshBootstrap = useCallback(() => {
     setRuntime(current => {
@@ -199,6 +227,9 @@ export function App() {
                 onRefreshBootstrap={refreshBootstrap}
                 deepLink={resolvedDeepLink}
                 onDismissDeepLink={() => {
+                  linkGeneration.current += 1;
+                  intake.current?.dismiss();
+                  resolvedFor.current = undefined;
                   setParsedDeepLink(undefined);
                   setResolvedDeepLink(undefined);
                 }}

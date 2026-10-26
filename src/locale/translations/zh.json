@@ -492,6 +492,8 @@
   "dapps.catalog.loading": "正在加载 dApp 目录…",
   "dapps.catalog.unavailable": "尚未配置 dApp 目录。当前没有可展示或背书的条目。",
   "dapps.catalog.error": "加载 dApp 目录失败，可以重试。",
+  "dapps.catalog.cached": "正在显示上次目录，等待更新。",
+  "dapps.catalog.stale": "正在显示上次目录。刷新失败，内容可能已过期。",
   "dapps.catalog.retry": "重试",
   "dapps.catalog.empty": "目录暂无条目。",
   "dapps.catalog.noMatch": "没有符合当前搜索或分类的 dApp。",
