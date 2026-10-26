@@ -259,6 +259,7 @@
   "activity.detail.asset": "資產",
   "activity.detail.issuer": "發行方",
   "home.inactive.title": "帳戶尚未啟用",
+  "home.inactive.staleTitle": "啟用狀態待確認",
   "home.inactive.fundTitle": "1. 為這個 Stellar 帳戶充值",
   "home.inactive.fundMessage": "向下方公開地址在目前網路傳送 XLM。只有 Horizon 回報帳戶已存在後，Fresnica 才會顯示鏈上餘額。",
   "home.inactive.refreshTitle": "2. 充值後重新整理",

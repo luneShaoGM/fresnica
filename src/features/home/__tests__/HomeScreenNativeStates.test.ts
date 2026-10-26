@@ -225,6 +225,18 @@ describe('Home native balance-state presentation', () => {
     expect(findElement(active, element => element.type === NativeStateView)).toBeUndefined();
   });
 
+  it.each([true, false])('forwards inactive snapshot freshness to the panel (stale=%s)', stale => {
+    const { root } = renderHome({
+      kind: 'ready',
+      stale,
+      refreshing: stale,
+      refreshFailed: false,
+      snapshot: { status: 'inactive', address: account.address },
+    });
+    const panel = findElement(root, element => element.type === InactiveAccountPanel);
+    expect(panel?.props).toMatchObject({ stale, address: account.address });
+  });
+
   it('forwards optional description and action through the native state facade', () => {
     const action = React.createElement(NativeButton, { label: 'Retry', onPress: jest.fn() });
     const element = NativeStateView({

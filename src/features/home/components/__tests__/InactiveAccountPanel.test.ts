@@ -46,6 +46,7 @@ function visit(node: React.ReactNode, callback: (element: React.ReactElement<Tes
 describe('InactiveAccountPanel', () => {
   const baseProps = {
     address: 'GACCOUNT',
+    stale: false,
     friendbotAvailable: true,
     onFundWithFriendbot: jest.fn(),
     onRefresh: jest.fn(),
@@ -64,7 +65,31 @@ describe('InactiveAccountPanel', () => {
       'home.inactive.refreshAction',
     ]);
     expect(renderedButtons[0]?.props.disabled).toBe(false);
+    expect(textValues(root)).toContain('home.inactive.fundMessage');
+    expect(textValues(root)).not.toContain('home.inactive.staleTitle');
   });
+  it.each(['idle', 'funding', 'error'] as const)(
+    'requests verification of a stale inactive snapshot without funding advice (%s)',
+    friendbotState => {
+      const root = InactiveAccountPanel({ ...baseProps, stale: true, friendbotState });
+      const copy = textValues(root);
+      expect(copy).toContain('home.inactive.staleTitle');
+      expect(copy).toContain('balance.cache.inactive');
+      expect(copy).not.toContain('home.inactive.title');
+      expect(copy).not.toContain('home.inactive.fundTitle');
+      expect(copy).not.toContain('home.inactive.fundMessage');
+      expect(copy).not.toContain('home.inactive.refreshTitle');
+      expect(copy).not.toContain('home.inactive.refreshMessage');
+      expect(copy).not.toContain('home.friendbot.error');
+      expect(copy).toContain(baseProps.address);
+      const renderedButtons = buttons(root);
+      expect(renderedButtons.map(button => button.props.label)).toEqual(['home.inactive.refreshAction']);
+      renderedButtons[0]?.props.onPress?.();
+      expect(baseProps.onRefresh).toHaveBeenCalledTimes(1);
+      expect(baseProps.onFundWithFriendbot).not.toHaveBeenCalled();
+    },
+  );
+
   it('disables duplicate funding while Friendbot is in progress', () => {
     const root = InactiveAccountPanel({ ...baseProps, friendbotState: 'funding' });
     const renderedButtons = buttons(root);

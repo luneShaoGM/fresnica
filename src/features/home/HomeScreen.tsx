@@ -272,6 +272,7 @@ function renderPortfolio(
     return (
       <InactiveAccountPanel
         address={address}
+        stale={state.stale}
         friendbotAvailable={friendbotAvailable}
         friendbotState={friendbotState}
         onFundWithFriendbot={onFundWithFriendbot}

@@ -85,3 +85,10 @@ Acceptance includes memory/Realm contract parity, corrupt/version/address/size/d
 - `npm run test:realm`: four suites / 68 tests passed, including real Realm v5→v6 migration with all prior entities, atomic replacement failure, corruption isolation, close/reopen and account-deletion cleanup. The schema declaration regression was updated from v5 to v6.
 - Android and iOS release JS bundles passed with the existing installed dependencies through a temporary external Metro configuration for this isolated clone. An initial stale local file-map resolution failed; rebuilding the Metro cache with Watchman disabled resolved it. No project build configuration or dependency was changed.
 - Not run: native rebuild/install, device offline/process-restart flows, TalkBack/VoiceOver and visual/dynamic-font acceptance. Independent exact-HEAD review remains pending. This does not promote S05/S13 maturity or complete LC3 foreground receipt.
+
+
+## LC2 inactive-cache review repair
+
+Independent review of `6711a26` approved LC2 with one P3: Home still showed current-tense activation/funding instructions for a stale inactive snapshot. Home now forwards freshness into the inactive panel. Stale inactive displays a localized activation-status verification title and the existing previous-snapshot explanation; address and refresh remain available, while funding steps, Friendbot and funding-result messages are hidden. Fresh inactive retains the existing funding flow. No persistence, read lifetime or transaction authority changed.
+
+Regression coverage checks Home freshness forwarding, stale idle/funding/error presentation, absence of recharge instructions, the working refresh callback, and unchanged fresh funding behavior. The prior approval applies only to `6711a26`; the repair needs independent incremental review at its new HEAD. Device acceptance remains pending.

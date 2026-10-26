@@ -259,6 +259,7 @@
   "activity.detail.asset": "Asset",
   "activity.detail.issuer": "Issuer",
   "home.inactive.title": "Your account is not activated",
+  "home.inactive.staleTitle": "Activation status needs refresh",
   "home.inactive.fundTitle": "1. Fund this Stellar account",
   "home.inactive.fundMessage": "Send XLM to the public address below on the configured network. Fresnica will not create a local balance until Horizon reports the account.",
   "home.inactive.refreshTitle": "2. Refresh after funding",
