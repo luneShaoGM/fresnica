@@ -1,6 +1,6 @@
 # Account data lifecycle and foreground synchronization
 
-Status: LC1 merged as `2452623`; LC2 merged as `be96178beb6c7a9c854d9a0fc70f6d7b46f97fbc`; LC3 merged via PR #113 as `ea007d8cf0eaecc263c9f0d083c693f82c32998b`; LC4 merged via PR #114 as `288f5ca684b8e4b22fb2203c83ad9065ea3cf4e1`; LC5 existing-consumer implementation candidate on that main baseline. This specification covers S05/S13 lifecycle maintenance plus S09/S14/S15 external-input and existing-consumer integration. It does not promote their product maturity or replace the Transaction recovery contract.
+Status: LC1 merged as `2452623`; LC2 merged as `be96178beb6c7a9c854d9a0fc70f6d7b46f97fbc`; LC3 merged via PR #113 as `ea007d8cf0eaecc263c9f0d083c693f82c32998b`; LC4 merged via PR #114 as `288f5ca684b8e4b22fb2203c83ad9065ea3cf4e1`; LC5 existing-consumer integration merged via PR #115 as `6b1f2100f6c3a91394170b9005a807f76f7b6bcb`; LC6 aggregate acceptance remains pending. This specification covers S05/S13 lifecycle maintenance plus S09/S14/S15 external-input and existing-consumer integration. It does not promote their product maturity or replace the Transaction recovery contract.
 
 ## Ownership and source decision
 
@@ -34,8 +34,8 @@ LC1 changes no database schema, cached ledger authority, signer material, transa
 | LC2 Balance display cache | Partitioned normalized public snapshots; schema/migration, corrupt-cache handling, best-effort writes, retain old data on refresh error; Home and asset detail show freshness | Merged via PR #112 (`be96178`), independent review of `8e6b167` APPROVED with zero findings; device acceptance pending |
 | LC3 Foreground real time | Selected account Effects subscription across tabs; handshake/recovery reconciliation, event deduplication and coalescing, dirty revisions, opaque cursor, polling fallback, reconnect and silent-stream health check | Merged via PR #113 (`ea007d8`), review of `6398645` APPROVED with zero findings; native receipt acceptance pending |
 | LC4 Node recovery and post-submit convergence | Separate device connectivity from node health; timeout/rate-limit/backoff, one retry owner, diagnostics, endpoint-generation isolation and bounded post-submit read retries without resubmission | Merged via PR #114 (`288f5ca`), review of `c2c3088` APPROVED with zero findings; native recovery acceptance pending |
-| LC5 Other lifecycle consumers | Per-kind cache TTL/failure policy; registry/metadata/claimable/catalog/icons/resolver; initial link/notification readiness and deduplication; appearance/browser cleanup | Existing S09/S14/S15 integration candidate; unimplemented caches remain with their owning slices, as recorded below |
-| LC6 Aggregate acceptance | Deterministic races, Realm integration where relevant, Android/iOS actual external receipt and recovery flows | Pending |
+| LC5 Other lifecycle consumers | Per-kind cache TTL/failure policy; registry/metadata/claimable/catalog/icons/resolver; initial link/notification readiness and deduplication; appearance/browser cleanup | Existing S09/S14/S15 consumers merged via PR #115; unimplemented caches remain with their owning slices, as recorded below |
+| LC6 Aggregate acceptance | Deterministic races, Realm integration where relevant, Android/iOS actual external receipt and recovery flows | LC6-A deterministic cross-slice development checks in progress; native/device acceptance pending |
 
 Foreground receipt scope begins with the selected account, independent of visible Tab. All-account notifications require an explicitly expanded subscription scope and resource policy. Background/killed-app push remains subject to trusted Backend/Push contracts. Generic session lock remains upstream-blocked and cannot be simulated with a local PIN or boolean.
 
@@ -177,9 +177,9 @@ Trace: S09-LC5 / S14-LC5 / S15-LC5. Phase 0 passed; reuse Phase 2a/2b. Adopt ext
 | Consumer | Current main implementation | Policy / remaining owner |
 | --- | --- | --- |
 | Balance / History public display | Implemented, partitioned caches and LC1–LC4 read recovery | Existing stale-on-refresh/failure and transaction-authority boundaries; device flows remain LC6 |
-| Request cold/warm links | Native port, parser and declarative review exist | This LC5 candidate adds ready/foreground gating, active-request deduplication and stale resolution isolation |
-| dApp catalog | Only `unconfiguredDappCatalog` is wired; remote source is not contracted | Candidate adds focus/runtime gating and same-source session snapshot retention. TTL/ETag/durable cache cannot be asserted until S14's source/version/validation contract exists; revalidate every activation now |
-| Website consent / Recent | Explicit system-browser handoff, session-only Recent | Candidate clears proposals and ignores obsolete completion. Persistent visit history and in-app browser lifecycle remain S15/S16, not implemented here |
+| Request cold/warm links | Native port, parser and declarative review exist | Merged LC5 adds ready/foreground gating, active-request deduplication and stale resolution isolation |
+| dApp catalog | Only `unconfiguredDappCatalog` is wired; remote source is not contracted | Merged LC5 adds focus/runtime gating and same-source session snapshot retention. TTL/ETag/durable cache cannot be asserted until S14's source/version/validation contract exists; revalidate every activation now |
+| Website consent / Recent | Explicit system-browser handoff, session-only Recent | Merged LC5 clears proposals and ignores obsolete completion. Persistent visit history and in-app browser lifecycle remain S15/S16, not implemented here |
 | Asset registry / TOML metadata / remote icons | No corresponding remote cache adapter in main | S06 must supply source validation, issuer identity, expiry/failure/capacity rules and lifecycle generation before its cache is delivered; the reference 24h metadata policy is behavior input, not a fabricated implementation |
 | Claimable snapshots | No claimable cache consumer in main | S11 owns list/source/pagination, reference 1h expiry and claim transaction authority; no unsupported claim path is introduced |
 | Resolver / contacts | No resolver cache in main | S22 owns local account/contact invalidation and bounded cache policy; cloud KYC/consultation remains excluded |
@@ -188,7 +188,7 @@ Trace: S09-LC5 / S14-LC5 / S15-LC5. Phase 0 passed; reuse Phase 2a/2b. Adopt ext
 
 LC5 is not globally accepted by this batch. Implemented consumers are integrated now; the remaining rows are explicit owning-slice requirements. LC6 still requires Android/iOS actual external input, offline/process restart, receipt/convergence and accessibility flows on the aggregated merged product tree.
 
-## LC5 development evidence
+## LC5 development evidence (pre-merge)
 
 Local full check: 143 suites / 1138 tests, lint 0 errors / 19 existing warnings. New tests exercise the actual App component's readiness/effect wiring with mocked native/IO ports, plus the real intake owner and dApps feature: cold/warm races, initialization/onboarding/background/offline readiness, duplicate-preserved review, deliberate reopen after dismissal, obsolete completion, catalog failure retention/provider replacement and browser callback scope. The dApps hook harness now preserves effect cleanup across unchanged renders, so cleanup assertions exercise the intended React lifetime.
 
@@ -201,4 +201,16 @@ Independent [review of `fb4dc4fad7fd0da6ec8c4e042e9e3eeecb749e3c`](https://githu
 
 The catalog now has an explicit offline state, including its initial render. While gated, a prior same-source ready snapshot stays stale; otherwise offline replaces loading. Provider changes cannot retain the old provider's snapshot. Online recovery enters loading only when a real read starts, then displays that read's ready/unavailable result. A dedicated offline message is available in English, Simplified Chinese and Traditional Chinese; it is distinct from an unconfigured catalog source.
 
-Two regressions cover first offline entry with zero requests/no spinner, online recovery with one pending real read, and completion as either ready or unavailable. Both failed on the reviewed implementation, then passed after repair. Full local check: 143 suites / 1138 tests, lint 0 errors / 19 existing warnings. Android/iOS release JS bundles rerun and passed. Realm, native/device and live network checks were not rerun for this presentation/state repair. PR #115 remains Draft and requires independent incremental review of the new remote HEAD.
+Two regressions cover first offline entry with zero requests/no spinner, online recovery with one pending real read, and completion as either ready or unavailable. Both failed on the reviewed implementation, then passed after repair. Full local check: 143 suites / 1138 tests, lint 0 errors / 19 existing warnings. Android/iOS release JS bundles rerun and passed. Realm, native/device and live network checks were not rerun for this presentation/state repair. At the time of this repair PR #115 was Draft and needed incremental review; the later approval and merge are recorded below.
+
+## LC5 merge and LC6-A aggregate-readiness candidate
+
+LC5's existing S09/S14/S15 consumers were reviewed APPROVED (P1/P2/P3 zero) at `20b9a0d0659176e8c66d4c826175d6e92a580c5e`, then merged through PR #115 as `6b1f2100f6c3a91394170b9005a807f76f7b6bcb`. This integration does not deliver a remote dApp catalog or promote LC5's remaining consumer caches.
+
+LC6-A combines **existing production** lifecycle invalidation, the node verification/session gate, display read lifetime, and the Balance/History cache helpers in a deterministic contract harness. It covers three complementary paths:
+
+1. First offline entry with a pre-existing matching public cache: display-only balance/history data survives; no node or live read is dispatched; unrelated account/network partitions remain isolated; online return verifies the node, triggers lifecycle invalidation and reconciles the two current partitions using live results.
+2. Background/offline while both account A reads are outstanding: obsolete completions are rejected and never written to either cache, including if the underlying transport resolves late. A later foreground/online activation can read and cache B without reviving A.
+3. Wrong-network root probe: both public read models fail closed without a wire read or cache write; endpoint replacement must verify the configured passphrase before both can load.
+
+The harness uses in-memory cache repositories, controlled network/foreground events and injected public ports. It is **not** a React Native device, live Horizon request, persisted Realm restart or OS-driven event. The existing LC2 Realm migration and other unaffected suites are retained as prior evidence; this slice does not change schema, signer, exact-XDR or transaction submission/recovery. LC6 native aggregate acceptance follows the separate `docs/test/lc6-aggregate-acceptance.md` checklist and remains NOT RUN. Final measurements and exact HEAD belong to the new PR evidence, not to this development note.
