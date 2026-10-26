@@ -6,13 +6,13 @@ import type { BalanceAsset, BalanceLine } from '../../capabilities/balance/types
 import type { PaymentReview } from '../../capabilities/payment/buildPaymentReview';
 import type { RequestPaymentIntent } from '../../capabilities/request/requestUri';
 import type { StellarPaymentMemo } from '../../capabilities/stellar/types';
-import {useLocalization} from '../../locale';
-import {formatPublicAddress} from '@ui/formatPublicAddress';
+import { useLocalization } from '../../locale';
+import { formatPublicAddress } from '@ui/formatPublicAddress';
 import { SendFormScreen } from './SendFormScreen';
 import { SendResultScreen, type SendTerminalResult } from './SendResultScreen';
 import { SendReviewScreen } from './SendReviewScreen';
 import { SendStatusScreen } from './SendStatusScreen';
-import {projectFeatureError} from '../featureError';
+import { projectFeatureError } from '../featureError';
 import { buildSendReview, submitSendReview, type SendProductDependencies } from './sendProductFlow';
 import { resolveRequestSendPrefill } from './requestSendPrefill';
 
@@ -31,9 +31,10 @@ type Props = Readonly<{
   dependencies: SendProductDependencies;
   onDone: () => void;
   requestIntent?: RequestPaymentIntent;
+  initialAsset?: BalanceAsset;
 }>;
 
-export function SendFlowScreen({ account, dependencies, onDone, requestIntent }: Props) {
+export function SendFlowScreen({ account, dependencies, onDone, requestIntent, initialAsset }: Props) {
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [flow, setFlow] = useState<FlowState>({ kind: 'form' });
   const [selectedAsset, setSelectedAsset] = useState<BalanceAsset | undefined>();
@@ -46,7 +47,7 @@ export function SendFlowScreen({ account, dependencies, onDone, requestIntent }:
   const [passphraseRequired, setPassphraseRequired] = useState(false);
   const [appPassphrase, setAppPassphrase] = useState('');
   const [error, setError] = useState<string | undefined>();
-  const {t} = useLocalization();
+  const { t } = useLocalization();
   const loadVersion = useRef(0);
 
   useEffect(() => {
@@ -119,7 +120,8 @@ export function SendFlowScreen({ account, dependencies, onDone, requestIntent }:
           setMemoType(prefill.memoType);
           setMemoValue(prefill.memoValue);
         } else {
-          setSelectedAsset(snapshot.balances[0].asset);
+          const requested = snapshot.balances.find(line => sameSendAsset(line.asset, initialAsset));
+          setSelectedAsset(requested?.asset ?? snapshot.balances[0].asset);
         }
         setLoadState({ kind: 'ready', balances: snapshot.balances });
       })
@@ -136,7 +138,7 @@ export function SendFlowScreen({ account, dependencies, onDone, requestIntent }:
     return () => {
       loadVersion.current += 1;
     };
-  }, [account, dependencies.gateway, dependencies.network, dependencies.repository, requestIntent, t]);
+  }, [account, dependencies.gateway, dependencies.network, dependencies.repository, initialAsset, requestIntent, t]);
 
   const buildReview = useCallback(async () => {
     if (loadState.kind !== 'ready' || !selectedAsset) {
@@ -150,7 +152,7 @@ export function SendFlowScreen({ account, dependencies, onDone, requestIntent }:
         destination,
         amount,
         asset: selectedAsset,
-        ...(memoType === 'none' ? {} : {memo: {type: memoType, value: memoValue}}),
+        ...(memoType === 'none' ? {} : { memo: { type: memoType, value: memoValue } }),
       });
 
       setPassphraseRequired(false);
@@ -253,6 +255,17 @@ export function SendFlowScreen({ account, dependencies, onDone, requestIntent }:
       onContinue={() => void buildReview()}
       onCancel={onDone}
     />
+  );
+}
+
+function sameSendAsset(candidate: BalanceAsset, requested: BalanceAsset | undefined): boolean {
+  if (!requested || candidate.kind !== requested.kind) return false;
+  if (candidate.kind === 'native' && requested.kind === 'native') return true;
+  return (
+    candidate.kind === 'credit' &&
+    requested.kind === 'credit' &&
+    candidate.code === requested.code &&
+    candidate.issuer === requested.issuer
   );
 }
 

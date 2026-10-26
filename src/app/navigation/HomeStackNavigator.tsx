@@ -4,16 +4,19 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import type { AccountRecord } from '@capabilities/account/types';
+import type { BalanceAsset } from '@capabilities/balance/types';
 import { canContinueRequestToSend } from '../requestDeepLinkRouting';
 import { continueRequestToSendIfCurrent, createRequestRouteFocusLifetime } from './requestContinueRouting';
 import { captureSwapCurrentSession, type SwapCurrentSelection } from './swapCurrentSession';
 import { isSwapAvailableForAccount } from './swapAvailability';
 import { AddAccountScreen } from '@features/accounts/AddAccountScreen';
 import { AssetDetailsScreen } from '@features/home/AssetDetailsScreen';
+import { AssetDetailsSheet } from '@features/home/AssetDetailsSheet';
 import { HomeScreen } from '@features/home/HomeScreen';
 import { SendFlowScreen } from '@features/send/SendFlowScreen';
 import { RequestFlowScreen } from '@features/request/RequestFlowScreen';
 import { ManageAssetsScreen } from '@features/trustlines/ManageAssetsScreen';
+import { AddAssetSheet } from '@features/trustlines/AddAssetSheet';
 import { SwapLoadingScreen, SwapPreviewScreen, SwapUnavailableScreen } from '@features/swap/SwapPreviewScreen';
 import { ReactNativeRequestQrScannerView } from '@platform/system/RequestQrScannerView';
 
@@ -51,6 +54,11 @@ export function HomeStackNavigator({
   // Async Continue callbacks must read the latest account selection, not their render's captured value.
   const selectionRef = useRef({ selectedAccountId, accounts });
   selectionRef.current = { selectedAccountId, accounts };
+  const pendingAddRef = useRef<
+    Readonly<{ accountId: string; action: 'add' | 'remove'; code: string; issuer: string }> | undefined
+  >(undefined);
+  const pendingSendAssetRef = useRef<BalanceAsset | undefined>(undefined);
+  const pendingSwapAssetRef = useRef<BalanceAsset | undefined>(undefined);
   const invalidationRevision = useSyncExternalStore(
     services.ledgerReadInvalidation.subscribe,
     () => services.ledgerReadInvalidation.getRevision(selectedAccount.networkId, selectedAccount.id),
@@ -61,7 +69,7 @@ export function HomeStackNavigator({
     <Stack.Navigator initialRouteName="home" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="home">
         {({ navigation }) => (
-          <HomeRoute
+          <HomeWithAddAsset
             account={selectedAccount}
             accountCount={selectableAccounts.length}
             selectableAccounts={selectableAccounts}
@@ -71,21 +79,29 @@ export function HomeStackNavigator({
             canSign={canSign}
             onSelectAccount={onSelectAccount}
             onAddAccount={() => navigation.navigate('add-account')}
-            onSend={() => navigation.navigate('send-form', { accountId: selectedAccount.id })}
+            onSend={() => {
+              pendingSendAssetRef.current = undefined;
+              navigation.navigate('send-form', { accountId: selectedAccount.id });
+            }}
             onRequest={
               selectedAccount.identityKind === 'classic'
                 ? () => navigation.navigate('request', { accountId: selectedAccount.id })
                 : undefined
             }
-            onManageAssets={() => navigation.navigate('manage-assets', { accountId: selectedAccount.id })}
-            onOpenAsset={asset => navigation.navigate('asset-details', { accountId: selectedAccount.id, asset })}
             onSwap={
               isSwapAvailableForAccount(selectedAccount, canSign)
-                ? () => navigation.navigate('exchange', { accountId: selectedAccount.id })
+                ? () => {
+                    pendingSwapAssetRef.current = undefined;
+                    navigation.navigate('exchange', { accountId: selectedAccount.id });
+                  }
                 : undefined
             }
             onManualRefresh={() => services.transactionRecovery.reconcile('manual-refresh')}
             invalidationRevision={invalidationRevision}
+            navigation={navigation}
+            pendingAddRef={pendingAddRef}
+            pendingSendAssetRef={pendingSendAssetRef}
+            pendingSwapAssetRef={pendingSwapAssetRef}
           />
         )}
       </Stack.Screen>
@@ -127,6 +143,7 @@ export function HomeStackNavigator({
             <SendFlowScreen
               account={account}
               dependencies={services.send}
+              initialAsset={pendingSendAssetRef.current}
               requestIntent={route.params.requestIntent}
               onDone={() => navigation.popToTop()}
             />
@@ -146,6 +163,8 @@ export function HomeStackNavigator({
             getCurrentSelection={getCurrentSwapSelection}
             subscribeToSelection={subscribeToSwapSelection}
             navigation={navigation}
+            pendingAddRef={pendingAddRef}
+            preferredSource={pendingSwapAssetRef.current}
           />
         )}
       </Stack.Screen>
@@ -164,11 +183,21 @@ export function HomeStackNavigator({
       <Stack.Screen name="manage-assets">
         {({ navigation, route }) => {
           const account = resolveVisibleAccount(accounts, route.params.accountId);
+          const pending = pendingAddRef.current;
+          const requestedAdd =
+            pending?.accountId === account.id
+              ? { action: pending.action, code: pending.code, issuer: pending.issuer }
+              : undefined;
           return (
             <ManageAssetsScreen
               account={account}
               dependencies={services.trustline}
               onDone={() => navigation.popToTop()}
+              onRequestedAddConsumed={() => {
+                pendingAddRef.current = undefined;
+              }}
+              onReviewDismiss={() => navigation.goBack()}
+              requestedAdd={requestedAdd}
             />
           );
         }}
@@ -177,12 +206,16 @@ export function HomeStackNavigator({
   );
 }
 
+type PendingAdd = Readonly<{ accountId: string; action: 'add' | 'remove'; code: string; issuer: string }>;
+
 type SwapPreviewRouteProps = Readonly<{
   account: AccountRecord | undefined;
   services: AppServices;
   getCurrentSelection: () => SwapCurrentSelection | undefined;
   subscribeToSelection: (listener: () => void) => () => void;
   navigation: NativeStackNavigationProp<HomeStackParamList, 'exchange'>;
+  pendingAddRef: React.MutableRefObject<PendingAdd | undefined>;
+  preferredSource?: BalanceAsset;
 }>;
 
 function SwapPreviewRoute({
@@ -191,6 +224,8 @@ function SwapPreviewRoute({
   getCurrentSelection,
   subscribeToSelection,
   navigation,
+  pendingAddRef,
+  preferredSource,
 }: SwapPreviewRouteProps) {
   const focusLifetimeRef = useRef<ReturnType<typeof createRequestRouteFocusLifetime> | undefined>(undefined);
   if (focusLifetimeRef.current === undefined) {
@@ -209,6 +244,7 @@ function SwapPreviewRoute({
     }, [focusLifetime]),
   );
   const active = useIsFocused();
+  const [addAssetOpen, setAddAssetOpen] = useState(false);
   const selectionRevision = useSyncExternalStore(
     subscribeToSelection,
     () => getCurrentSelection()?.selectionRevision ?? 0,
@@ -231,18 +267,33 @@ function SwapPreviewRoute({
   if (!active || !focusReady) return <SwapLoadingScreen />;
   if (!account) return <SwapUnavailableScreen onDone={() => navigation.goBack()} />;
   return (
-    <SwapPreviewScreen
-      key={String(selectionRevision)}
-      account={account}
-      active={active}
-      selectedAccountId={actualSelectedAccountId}
-      dependencies={services.swapPreview}
-      execution={services.swapExecution}
-      captureSession={captureSession}
-      openExternalUrl={services.externalUrl.open}
-      onManageAssets={() => navigation.navigate('manage-assets', { accountId: account.id })}
-      onDone={() => navigation.popToTop()}
-    />
+    <>
+      <SwapPreviewScreen
+        key={String(selectionRevision)}
+        account={account}
+        active={active}
+        selectedAccountId={actualSelectedAccountId}
+        dependencies={services.swapPreview}
+        execution={services.swapExecution}
+        captureSession={captureSession}
+        openExternalUrl={services.externalUrl.open}
+        onManageAssets={() => setAddAssetOpen(true)}
+        onDone={() => navigation.popToTop()}
+        preferredSource={preferredSource}
+      />
+      <AddAssetSheet
+        account={account}
+        balanceDependencies={services.swapPreview.balance}
+        onAddAndSign={asset => {
+          pendingAddRef.current = { accountId: account.id, action: 'add', code: asset.code, issuer: asset.issuer };
+          setAddAssetOpen(false);
+          navigation.navigate('manage-assets', { accountId: account.id });
+        }}
+        onClose={() => setAddAssetOpen(false)}
+        signing={false}
+        visible={addAssetOpen}
+      />
+    </>
   );
 }
 
@@ -321,9 +372,78 @@ function RequestRoute({
   );
 }
 
-function HomeRoute(props: Omit<React.ComponentProps<typeof HomeScreen>, 'active'>) {
+function HomeWithAddAsset({
+  navigation,
+  pendingAddRef,
+  pendingSendAssetRef,
+  pendingSwapAssetRef,
+  ...props
+}: Omit<React.ComponentProps<typeof HomeScreen>, 'active' | 'onManageAssets' | 'onOpenAsset'> &
+  Readonly<{
+    navigation: NativeStackNavigationProp<HomeStackParamList, 'home'>;
+    pendingAddRef: React.MutableRefObject<PendingAdd | undefined>;
+    pendingSendAssetRef: React.MutableRefObject<BalanceAsset | undefined>;
+    pendingSwapAssetRef: React.MutableRefObject<BalanceAsset | undefined>;
+  }>) {
   const active = useIsFocused();
-  return <HomeScreen {...props} active={active} />;
+  const [addAssetOpen, setAddAssetOpen] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<BalanceAsset>();
+  return (
+    <>
+      <HomeScreen
+        {...props}
+        active={active}
+        onManageAssets={() => setAddAssetOpen(true)}
+        onOpenAsset={setSelectedAsset}
+      />
+      <AddAssetSheet
+        account={props.account}
+        balanceDependencies={props.balanceDependencies}
+        onAddAndSign={asset => {
+          pendingAddRef.current = {
+            accountId: props.account.id,
+            action: 'add',
+            code: asset.code,
+            issuer: asset.issuer,
+          };
+          setAddAssetOpen(false);
+          navigation.navigate('manage-assets', { accountId: props.account.id });
+        }}
+        onClose={() => setAddAssetOpen(false)}
+        visible={addAssetOpen}
+      />
+      <AssetDetailsSheet
+        account={props.account}
+        asset={selectedAsset}
+        balanceCache={props.balanceCache}
+        balanceDependencies={props.balanceDependencies}
+        canSign={props.canSign}
+        canSwap={typeof props.onSwap === 'function'}
+        onClose={() => setSelectedAsset(undefined)}
+        onRemove={asset => {
+          pendingAddRef.current = {
+            accountId: props.account.id,
+            action: 'remove',
+            code: asset.code,
+            issuer: asset.issuer,
+          };
+          setSelectedAsset(undefined);
+          navigation.navigate('manage-assets', { accountId: props.account.id });
+        }}
+        onSend={asset => {
+          pendingSendAssetRef.current = asset;
+          setSelectedAsset(undefined);
+          navigation.navigate('send-form', { accountId: props.account.id });
+        }}
+        onSwap={asset => {
+          pendingSwapAssetRef.current = asset;
+          setSelectedAsset(undefined);
+          navigation.navigate('exchange', { accountId: props.account.id });
+        }}
+        visible={selectedAsset !== undefined}
+      />
+    </>
+  );
 }
 
 function AssetDetailsRoute(props: Omit<React.ComponentProps<typeof AssetDetailsScreen>, 'active'>) {

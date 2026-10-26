@@ -1,0 +1,71 @@
+import { StyleSheet } from 'react-native';
+
+import type { AppTheme } from '../../ui/theme';
+
+export function createAssetDetailsSheetStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    sheet: { flex: 1, paddingHorizontal: theme.spacing.lg, gap: theme.spacing.md },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm },
+    title: { ...theme.typography.sectionTitle, color: theme.colors.textPrimary, flex: 1 },
+    close: {
+      minHeight: 32,
+      borderRadius: theme.radii.pill,
+      paddingHorizontal: theme.spacing.sm,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.surfaceMuted,
+    },
+    closeText: { ...theme.typography.caption, color: theme.colors.textPrimary, fontWeight: '700' },
+    explanation: { ...theme.typography.caption, color: theme.colors.textSecondary, textAlign: 'center' },
+    body: { flex: 1 },
+    bodyContent: { gap: theme.spacing.md, paddingBottom: theme.spacing.lg },
+    balanceBlock: { alignItems: 'center', gap: theme.spacing.xs, paddingVertical: theme.spacing.md },
+    avatar: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.actionPrimaryMuted,
+    },
+    avatarText: { ...theme.typography.label, color: theme.colors.textPrimary },
+    amount: { ...theme.typography.title, color: theme.colors.textPrimary },
+    code: { ...theme.typography.label, color: theme.colors.textSecondary },
+    card: {
+      borderRadius: theme.radii.md,
+      backgroundColor: theme.colors.surface,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      gap: theme.spacing.xs,
+    },
+    cardTitle: { ...theme.typography.caption, color: theme.colors.textSecondary, fontWeight: '700' },
+    cardRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm },
+    cardLabel: { ...theme.typography.label, color: theme.colors.textPrimary },
+    cardValue: { ...theme.typography.label, color: theme.colors.textPrimary, flexShrink: 1, textAlign: 'right' },
+    warning: { ...theme.typography.caption, color: theme.colors.negativeStrong },
+    issuerButton: { alignItems: 'flex-end' },
+    actions: { flexDirection: 'row', gap: theme.spacing.sm },
+    action: {
+      flex: 1,
+      minHeight: 48,
+      borderRadius: theme.radii.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.actionPrimary,
+    },
+    secondaryAction: { backgroundColor: theme.colors.surfaceStrong },
+    actionText: { ...theme.typography.button, color: theme.colors.onActionPrimary },
+    remove: {
+      minHeight: 44,
+      borderRadius: theme.radii.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.surfaceMuted,
+    },
+    removeText: { ...theme.typography.label, color: theme.colors.negativeStrong },
+    helper: { ...theme.typography.caption, color: theme.colors.textSecondary, textAlign: 'center' },
+    status: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: theme.spacing.sm },
+    statusText: { ...theme.typography.body, color: theme.colors.textSecondary, textAlign: 'center' },
+    disabled: { opacity: 0.45 },
+  });
+}

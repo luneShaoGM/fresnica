@@ -1,6 +1,7 @@
 export * from './AccountIdentityCard';
 export * from './AppModal';
 export * from './BottomAction';
+export * from './BottomSheet';
 export * from './Button';
 export * from './Card';
 export * from './Field';

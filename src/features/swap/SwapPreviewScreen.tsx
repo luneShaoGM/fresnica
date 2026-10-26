@@ -20,6 +20,7 @@ import { useThemedStyles } from '../../ui/theme';
 import { useLocalization } from '../../locale';
 import { rememberSpendableAssets } from '../../capabilities/balance/BalanceCacheRepository';
 import type { AccountRecord } from '../../capabilities/account/types';
+import type { BalanceAsset } from '../../capabilities/balance/types';
 import type { PendingSubmissionRecord } from '../../capabilities/transaction/pendingSubmission';
 import type { SubmitReviewedTransactionResult } from '../../capabilities/transaction/submitReviewedTransaction';
 import type { StellarPaymentAsset } from '../../capabilities/stellar/types';
@@ -72,6 +73,7 @@ type Props = Readonly<{
   openExternalUrl: (url: string) => Promise<void>;
   onManageAssets: () => void;
   onDone: () => void;
+  preferredSource?: BalanceAsset;
 }>;
 
 function assetLabel(asset: StellarPaymentAsset): string {
@@ -118,6 +120,23 @@ function initialShownAssets(
   return { options: [], ready: false };
 }
 
+function preferredSwapIndexes(
+  options: readonly PathPaymentSourceAvailability[],
+  preferred: BalanceAsset | undefined,
+): Readonly<{ source: number; destination: number }> {
+  const fallback = { source: 0, destination: options.length > 1 ? 1 : 0 };
+  if (!preferred) return fallback;
+  const source = options.findIndex(option => sameSwapAsset(option.asset, preferred));
+  if (source < 0) return fallback;
+  const destination = options.findIndex((_, index) => index !== source);
+  return { source, destination: destination < 0 ? source : destination };
+}
+
+function sameSwapAsset(asset: StellarPaymentAsset, preferred: BalanceAsset): boolean {
+  if (preferred.kind === 'native') return asset.kind === 'native';
+  return asset.kind === 'credit' && asset.code === preferred.code && asset.issuer === preferred.issuer;
+}
+
 function availabilityIdentity(option: PathPaymentSourceAvailability): string {
   return option.asset.kind === 'native' ? 'native' : `${option.asset.code}:${option.asset.issuer}`;
 }
@@ -157,6 +176,7 @@ export function SwapPreviewScreen({
   openExternalUrl,
   onManageAssets,
   onDone,
+  preferredSource,
 }: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createSwapPreviewStyles);
@@ -234,8 +254,9 @@ export function SwapPreviewScreen({
     setAssetOptions(shown?.options ?? []);
     setEstimatedFeeStroops(shown?.authoritative ? shown.baseFeeStroops : undefined);
     setAssetSnapshotCurrent(hasShownAssets);
-    setSourceIndex(0);
-    setDestinationIndex(1);
+    const indexes = preferredSwapIndexes(shown?.options ?? [], preferredSource);
+    setSourceIndex(indexes.source);
+    setDestinationIndex(indexes.destination);
     setSourceAmount('');
     setDestinationAmount('');
     setMode('strict_send');
@@ -299,7 +320,17 @@ export function SwapPreviewScreen({
     return () => {
       assetAttempt.current += 1;
     };
-  }, [account, active, assetLoadRevision, captureSession, clearPassphrase, dependencies, execution, t]);
+  }, [
+    account,
+    active,
+    assetLoadRevision,
+    captureSession,
+    clearPassphrase,
+    dependencies,
+    execution,
+    preferredSource,
+    t,
+  ]);
 
   const startQuote = useCallback(async () => {
     if (busy || locked.current || !assetSnapshotCurrent || assetOptions.length < 2) return;
