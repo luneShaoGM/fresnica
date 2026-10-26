@@ -49,6 +49,12 @@ function DAppsRoute({
 }>) {
   const focused = useIsFocused();
   return (
-    <DAppsScreen catalog={catalog} openExternalUrl={openExternalUrl} active={focused && foreground} online={online} />
+    <DAppsScreen
+      catalog={catalog}
+      openExternalUrl={openExternalUrl}
+      active={focused && foreground}
+      online={online}
+      focused={focused}
+    />
   );
 }

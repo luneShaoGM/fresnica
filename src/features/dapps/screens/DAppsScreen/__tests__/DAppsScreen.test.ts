@@ -124,8 +124,14 @@ async function settle() {
   }
 }
 
-async function renderCatalog(catalog: DappCatalogPort, showInterfaceSample = false, active = true, online = true) {
-  const props = { catalog, showInterfaceSample, openExternalUrl, active, online };
+async function renderCatalog(
+  catalog: DappCatalogPort,
+  showInterfaceSample = false,
+  active = true,
+  online = true,
+  focused = active,
+) {
+  const props = { catalog, showInterfaceSample, openExternalUrl, active, online, focused };
   beginRender();
   DAppsScreen(props);
   await settle();
@@ -476,5 +482,31 @@ describe('catalog and browser lifecycle', () => {
       ?.props.onPress?.();
     const recent = elements(await renderCatalog(catalog));
     expect(recent.some(node => node.props.label === 'https://example.org')).toBe(false);
+  });
+  it('records a confirmed OS browser handoff across backgrounding while the same route stays focused', async () => {
+    let opened!: () => void;
+    openExternalUrl.mockImplementationOnce(
+      () =>
+        new Promise<void>(resolve => {
+          opened = resolve;
+        }),
+    );
+    const catalog = { load: async () => ({ kind: 'unavailable' as const }) };
+    elements(await renderCatalog(catalog))
+      .find(node => node.props.accessibilityLabel === 'dapps.website.input')
+      ?.props.onChangeText?.('https://example.org');
+    elements(await renderCatalog(catalog))
+      .find(node => node.props.label === 'dapps.website.preview')
+      ?.props.onPress?.();
+    elements(await renderCatalog(catalog))
+      .find(node => node.props.label === 'dapps.website.confirm')
+      ?.props.onPress?.();
+    await renderCatalog(catalog, false, false, true, true);
+    opened();
+    await settle();
+    elements(await renderCatalog(catalog))
+      .filter(node => node.props.accessibilityRole === 'button')[1]
+      ?.props.onPress?.();
+    expect(elements(await renderCatalog(catalog)).some(node => node.props.label === 'https://example.org')).toBe(true);
   });
 });

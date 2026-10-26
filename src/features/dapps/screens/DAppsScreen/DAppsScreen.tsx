@@ -28,10 +28,12 @@ export function DAppsScreen({
   openExternalUrl,
   active = true,
   online = true,
+  focused = active,
 }: Readonly<{
   catalog: DappCatalogPort;
   active?: boolean;
   online?: boolean;
+  focused?: boolean;
   showInterfaceSample?: boolean;
   openExternalUrl: (url: string) => Promise<void>;
 }>) {
@@ -53,6 +55,9 @@ export function DAppsScreen({
   const activeRef = useRef(active);
   activeRef.current = active;
   const websiteEpoch = useRef(0);
+  const handoffEpoch = useRef(0);
+  const focusedRef = useRef(focused);
+  focusedRef.current = focused;
   const proposalRef = useRef<Readonly<{ value: UntrustedDappUrl; epoch: number }> | undefined>(undefined);
   const mountedRef = useRef(false);
   const previousCatalog = useRef(catalog);
@@ -109,6 +114,7 @@ export function DAppsScreen({
     mountedRef.current = true;
     return () => {
       websiteEpoch.current += 1;
+      handoffEpoch.current += 1;
       mountedRef.current = false;
     };
   }, []);
@@ -122,6 +128,13 @@ export function DAppsScreen({
       websiteEpoch.current += 1;
     };
   }, [active]);
+
+  useEffect(
+    () => () => {
+      handoffEpoch.current += 1;
+    },
+    [focused],
+  );
 
   const prepareWebsite = (value: string) => {
     if (!mountedRef.current || !activeRef.current || openingRef.current) return;
@@ -140,6 +153,7 @@ export function DAppsScreen({
     // A browser handoff cannot be reversed, but its late completion must
     // not attach a Recent origin to an unrelated screen after navigation.
     websiteEpoch.current += 1;
+    handoffEpoch.current += 1;
     setPreparedWebsite(undefined);
     setWebsiteError(undefined);
     setSection(next);
@@ -159,17 +173,20 @@ export function DAppsScreen({
     // Fresnica never shares wallet identity, permission or signing.
     const proposal = preparedWebsite;
     const epoch = websiteEpoch.current;
+    const visitEpoch = handoffEpoch.current;
     openingRef.current = true;
     setOpening(true);
     setWebsiteError(undefined);
     try {
       await openExternalUrl(proposal.url);
-      if (!mountedRef.current || websiteEpoch.current !== epoch) return;
+      if (!mountedRef.current || !focusedRef.current || handoffEpoch.current !== visitEpoch) return;
       setRecentOrigins(previous =>
         [proposal.origin, ...previous.filter(origin => origin !== proposal.origin)].slice(0, 10),
       );
-      setPreparedWebsite(undefined);
-      setWebsiteInput('');
+      if (activeRef.current && websiteEpoch.current === epoch) {
+        setPreparedWebsite(undefined);
+        setWebsiteInput('');
+      }
     } catch {
       if (mountedRef.current && websiteEpoch.current === epoch) {
         setWebsiteError('openFailed');
@@ -240,6 +257,7 @@ export function DAppsScreen({
                   value={websiteInput}
                   onChangeText={value => {
                     websiteEpoch.current += 1;
+                    handoffEpoch.current += 1;
                     setWebsiteInput(value);
                     setPreparedWebsite(undefined);
                     setWebsiteError(undefined);
@@ -373,6 +391,7 @@ export function DAppsScreen({
                 disabled={opening}
                 onPress={() => {
                   websiteEpoch.current += 1;
+                  handoffEpoch.current += 1;
                   setPreparedWebsite(undefined);
                   setWebsiteError(undefined);
                 }}
