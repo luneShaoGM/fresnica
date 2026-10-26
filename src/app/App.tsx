@@ -6,8 +6,8 @@ import { AppThemeProvider, useAppTheme } from '@ui/theme';
 
 import { getDeviceLocale, LocalizationProvider, resolveLocale, type SupportedLocale } from '../locale';
 import { createAppServices, type AppServices } from './createAppServices';
-import { startTransactionReconciliationLifecycle } from './transaction/startTransactionReconciliationLifecycle';
-import { subscribeToNetworkRecovery } from '../platform/system/networkConnectivity';
+import { startLedgerReadLifecycle } from './readModels/startLedgerReadLifecycle';
+import { subscribeToInternetConnectivity } from '../platform/system/networkConnectivity';
 import { reactNativeRequestDeepLink } from '../platform/system/requestDeepLink';
 import { AppNavigator } from './navigation/AppNavigator';
 import { OverlayHost } from './OverlayHost';
@@ -64,7 +64,7 @@ export function App() {
 
   useEffect(() => {
     let mounted = true;
-    let stopTransactionLifecycle: (() => void) | undefined;
+    let stopLedgerReadLifecycle: (() => void) | undefined;
 
     void createAppServices()
       .then(created => {
@@ -76,14 +76,19 @@ export function App() {
         servicesRef.current = created;
         const pendingRawDeepLink = pendingRawDeepLinkRef.current;
         pendingRawDeepLinkRef.current = undefined;
-        stopTransactionLifecycle = startTransactionReconciliationLifecycle({
+        stopLedgerReadLifecycle = startLedgerReadLifecycle({
+          runtime: created.ledgerReadRuntime,
+          invalidation: created.ledgerReadInvalidation,
           coordinator: created.transactionRecovery,
+          networkId: created.onboarding.networkId,
+          getAccounts: () => created.onboarding.repository.listAccounts(),
+          onFailure: error => created.diagnostics.warn('ledger-read-lifecycle-recovery-failed', { details: { error } }),
           currentAppState: AppState.currentState,
           subscribeAppState: listener => {
             const subscription = AppState.addEventListener('change', listener);
             return () => subscription.remove();
           },
-          subscribeNetworkRecovery: listener => subscribeToNetworkRecovery(listener),
+          subscribeConnectivity: listener => subscribeToInternetConnectivity(listener),
         });
         const storedLocale = created.localePreferences.getLocale();
         const resolvedLocale = resolveLocale(storedLocale ?? getDeviceLocale());
@@ -116,7 +121,7 @@ export function App() {
 
     return () => {
       mounted = false;
-      stopTransactionLifecycle?.();
+      stopLedgerReadLifecycle?.();
       servicesRef.current?.close();
       servicesRef.current = undefined;
     };

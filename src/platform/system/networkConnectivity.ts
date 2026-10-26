@@ -1,4 +1,4 @@
-import NetInfo, {type NetInfoState} from '@react-native-community/netinfo';
+import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
 
 export type InternetConnectivity = 'online' | 'offline' | 'unknown';
 
@@ -15,20 +15,20 @@ export function classifyInternetConnectivity(state: NetworkState): InternetConne
   return 'unknown';
 }
 
-export function subscribeToNetworkRecovery(
-  onRecovery: () => void,
-  subscribe: NetworkStateSubscriber = listener => NetInfo.addEventListener(listener),
+export function subscribeToInternetConnectivity(
+  listener: (state: InternetConnectivity) => void,
+  subscribe: NetworkStateSubscriber = callback => NetInfo.addEventListener(callback),
 ): () => void {
-  let lastDefinitive: Exclude<InternetConnectivity, 'unknown'> | undefined;
-
-  return subscribe(state => {
-    const current = classifyInternetConnectivity(state);
-    if (current === 'unknown') {
-      return;
-    }
-    if (lastDefinitive === 'offline' && current === 'online') {
-      onRecovery();
-    }
-    lastDefinitive = current;
+  let active = true;
+  let previous: InternetConnectivity | undefined;
+  const stop = subscribe(state => {
+    const next = classifyInternetConnectivity(state);
+    if (!active || next === previous) return;
+    previous = next;
+    listener(next);
   });
+  return () => {
+    active = false;
+    stop();
+  };
 }

@@ -309,3 +309,10 @@ This map assigns construction order without reducing final scope. An ID is compl
 - New behavior discovered under execution-plan §7, §10 or later audits receives a new stable ID rather than being hidden inside a Stage bullet.
 - Stable IDs are append-only. Do not renumber existing rows when a missing behavior is discovered; S30 was added for this reason.
 - Evidence must identify the exact commit, platform/device, command or scenario, date and result. A historical green run is not current-head evidence.
+
+## S05 and S13 account data lifecycle maintenance
+
+- Trace: S05-LC1 / S13-LC1, App readModels + Balance/History display reads; base main `589a75ba5a97b305b94b15b7aff6be62067c8bc9`.
+- Phase 0 passed; reuse Phase 2a/2b. Decision: Adopt lifecycle recovery behavior / Adapt to Fresnica boundaries / clean-room implementation. Specification: `docs/behavior-specs/account-data-lifecycle.md`.
+- LC1 is an unmerged implementation candidate for independent foreground/network read invalidation, first-online recovery, display-only request gating/coalescing and stale-response rejection. No Realm schema or transaction authority changes; independent exact-HEAD Work review and device evidence remain required.
+- LC2 Balance cache, LC3 foreground real-time selected-account receipt, LC4 node recovery and LC5/LC6 integration/acceptance remain planned. This maintenance entry does not promote either product row or claim all-account/background notifications.

@@ -9,6 +9,7 @@ const sourceExtensions = new Set(['.js', '.jsx', '.ts', '.tsx']);
 // are added when that surface is deliberately migrated under the rewrite guide.
 const strictPresentationScopes = [
   'src/app/navigation/',
+  'src/app/readModels/',
   'src/ui/components/',
   'src/features/home/',
   'src/features/activity/',
