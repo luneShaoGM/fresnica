@@ -16,9 +16,10 @@ import { createStyles } from './styles';
 
 type CatalogState =
   | Readonly<{ kind: 'loading' }>
+  | Readonly<{ kind: 'offline' }>
   | Readonly<{ kind: 'unavailable' }>
   | Readonly<{ kind: 'error' }>
-  | Readonly<{ kind: 'ready'; entries: readonly DappCatalogEntry[] }>;
+  | Readonly<{ kind: 'ready'; entries: readonly DappCatalogEntry[]; refreshFailed?: boolean; stale?: boolean }>;
 
 type Section = 'home' | 'recent';
 
@@ -26,8 +27,14 @@ export function DAppsScreen({
   catalog,
   showInterfaceSample = __DEV__,
   openExternalUrl,
+  active = true,
+  online = true,
+  focused = active,
 }: Readonly<{
   catalog: DappCatalogPort;
+  active?: boolean;
+  online?: boolean;
+  focused?: boolean;
   showInterfaceSample?: boolean;
   openExternalUrl: (url: string) => Promise<void>;
 }>) {
@@ -39,15 +46,22 @@ export function DAppsScreen({
   const [sampleQuery, setSampleQuery] = useState('');
   const [sampleCategory, setSampleCategory] = useState<string>();
   const [retryCount, setRetryCount] = useState(0);
-  const [state, setState] = useState<CatalogState>({ kind: 'loading' });
+  const [state, setState] = useState<CatalogState>({ kind: online ? 'loading' : 'offline' });
   const [websiteInput, setWebsiteInput] = useState('');
   const [preparedWebsite, setPreparedWebsite] = useState<UntrustedDappUrl>();
   const [recentOrigins, setRecentOrigins] = useState<readonly string[]>([]);
   const [websiteError, setWebsiteError] = useState<'invalid' | 'openFailed'>();
   const [opening, setOpening] = useState(false);
   const openingRef = useRef(false);
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const websiteEpoch = useRef(0);
+  const handoffEpoch = useRef(0);
+  const focusedRef = useRef(focused);
+  focusedRef.current = focused;
+  const proposalRef = useRef<Readonly<{ value: UntrustedDappUrl; epoch: number }> | undefined>(undefined);
   const mountedRef = useRef(false);
+  const previousCatalog = useRef(catalog);
   const interfaceSamples = useMemo<readonly DappCatalogEntry[]>(
     () => [
       {
@@ -69,34 +83,68 @@ export function DAppsScreen({
   );
 
   useEffect(() => {
+    const changedCatalog = previousCatalog.current !== catalog;
+    previousCatalog.current = catalog;
+    if (!active || !online) {
+      setState(previous => {
+        if (!changedCatalog && previous.kind === 'ready') return { ...previous, stale: true };
+        if (!online) return { kind: 'offline' };
+        return changedCatalog ? { kind: 'loading' } : previous;
+      });
+      return;
+    }
     let current = true;
-    setState({ kind: 'loading' });
+    setState(previous =>
+      !changedCatalog && previous.kind === 'ready' ? { ...previous, stale: true } : { kind: 'loading' },
+    );
     Promise.resolve()
-      .then(() => catalog.load())
+      .then(() => (current ? catalog.load() : undefined))
       .then(result => {
-        if (!current) return;
+        if (!current || result === undefined) return;
         setState(result.kind === 'unavailable' ? { kind: 'unavailable' } : { kind: 'ready', entries: result.entries });
       })
       .catch(() => {
-        if (current) setState({ kind: 'error' });
+        if (current)
+          setState(previous =>
+            previous.kind === 'ready' ? { ...previous, refreshFailed: true, stale: true } : { kind: 'error' },
+          );
       });
     return () => {
       current = false;
     };
-  }, [catalog, retryCount]);
+  }, [catalog, retryCount, active, online]);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       websiteEpoch.current += 1;
+      handoffEpoch.current += 1;
       mountedRef.current = false;
     };
   }, []);
 
+  useEffect(() => {
+    if (!active) {
+      setPreparedWebsite(undefined);
+      setWebsiteError(undefined);
+    }
+    return () => {
+      websiteEpoch.current += 1;
+    };
+  }, [active]);
+
+  useEffect(
+    () => () => {
+      handoffEpoch.current += 1;
+    },
+    [focused],
+  );
+
   const prepareWebsite = (value: string) => {
-    if (openingRef.current) return;
+    if (!mountedRef.current || !activeRef.current || openingRef.current) return;
     try {
       const verified = normalizeUntrustedDappUrl(value);
+      proposalRef.current = { value: verified, epoch: websiteEpoch.current };
       setPreparedWebsite(verified);
       setWebsiteError(undefined);
     } catch {
@@ -109,28 +157,40 @@ export function DAppsScreen({
     // A browser handoff cannot be reversed, but its late completion must
     // not attach a Recent origin to an unrelated screen after navigation.
     websiteEpoch.current += 1;
+    handoffEpoch.current += 1;
     setPreparedWebsite(undefined);
     setWebsiteError(undefined);
     setSection(next);
   };
 
   const confirmWebsite = async () => {
-    if (!preparedWebsite || openingRef.current) return;
+    if (
+      !mountedRef.current ||
+      !activeRef.current ||
+      !preparedWebsite ||
+      openingRef.current ||
+      proposalRef.current?.value !== preparedWebsite ||
+      proposalRef.current.epoch !== websiteEpoch.current
+    )
+      return;
     // This confirmation opens the site in the system browser only.
     // Fresnica never shares wallet identity, permission or signing.
     const proposal = preparedWebsite;
     const epoch = websiteEpoch.current;
+    const visitEpoch = handoffEpoch.current;
     openingRef.current = true;
     setOpening(true);
     setWebsiteError(undefined);
     try {
       await openExternalUrl(proposal.url);
-      if (!mountedRef.current || websiteEpoch.current !== epoch) return;
+      if (!mountedRef.current || !focusedRef.current || handoffEpoch.current !== visitEpoch) return;
       setRecentOrigins(previous =>
         [proposal.origin, ...previous.filter(origin => origin !== proposal.origin)].slice(0, 10),
       );
-      setPreparedWebsite(undefined);
-      setWebsiteInput('');
+      if (activeRef.current && websiteEpoch.current === epoch) {
+        setPreparedWebsite(undefined);
+        setWebsiteInput('');
+      }
     } catch {
       if (mountedRef.current && websiteEpoch.current === epoch) {
         setWebsiteError('openFailed');
@@ -201,6 +261,7 @@ export function DAppsScreen({
                   value={websiteInput}
                   onChangeText={value => {
                     websiteEpoch.current += 1;
+                    handoffEpoch.current += 1;
                     setWebsiteInput(value);
                     setPreparedWebsite(undefined);
                     setWebsiteError(undefined);
@@ -217,6 +278,19 @@ export function DAppsScreen({
               </View>
               {state.kind === 'ready' ? (
                 <>
+                  {state.stale ? (
+                    <>
+                      <Text accessibilityLiveRegion="polite" style={styles.previewNotice}>
+                        {t(state.refreshFailed ? 'dapps.catalog.stale' : 'dapps.catalog.cached')}
+                      </Text>
+                      <NativeButton
+                        label={t('dapps.catalog.retry')}
+                        onPress={() => setRetryCount(value => value + 1)}
+                        disabled={!active || !online}
+                        variant="secondary"
+                      />
+                    </>
+                  ) : null}
                   <NativeField
                     accessibilityLabel={t('dapps.catalog.search')}
                     autoCapitalize="none"
@@ -265,6 +339,8 @@ export function DAppsScreen({
                     />
                   )}
                 </>
+              ) : state.kind === 'offline' ? (
+                <EmptyCatalog message={t('dapps.catalog.offline')} styles={styles} />
               ) : state.kind === 'loading' ? (
                 <View style={styles.emptyCatalog}>
                   <ActivityIndicator accessibilityLabel={t('dapps.catalog.loading')} />
@@ -321,6 +397,7 @@ export function DAppsScreen({
                 disabled={opening}
                 onPress={() => {
                   websiteEpoch.current += 1;
+                  handoffEpoch.current += 1;
                   setPreparedWebsite(undefined);
                   setWebsiteError(undefined);
                 }}

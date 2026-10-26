@@ -202,8 +202,14 @@ function MainTabsWithSelection({
   );
 
   const renderDApps = useCallback(
-    () => <DAppsStackNavigator catalog={services.dappCatalog} openExternalUrl={services.externalUrl.open} />,
-    [services.dappCatalog, services.externalUrl],
+    () => (
+      <DAppsStackNavigator
+        catalog={services.dappCatalog}
+        openExternalUrl={services.externalUrl.open}
+        runtime={services.ledgerReadRuntime}
+      />
+    ),
+    [services.dappCatalog, services.externalUrl, services.ledgerReadRuntime],
   );
 
   const selectedAccount = resolveVisibleAccount(accounts, effectiveSelectedAccountId);

@@ -151,7 +151,7 @@ Stellar 里有某个屏幕，只证明需要审计该产品行为，不代表可
 4. 下拉刷新走同一条 capability，不另开数据源。
 5. Horizon 404 是未激活；请求失败是断网 / 网关错误。二者不要和「刚转完、旧 snapshot 还在」混成一种 UI。
 
-Stage 2.5 已把 submitted/uncertain 写入 network/account-scoped invalidation，并接入 focus 与交易核对。2026-10-23 核查确认：原 foreground/network recovery 只核对 pending，无 pending 时不会因此刷新读取。补齐规格见 `docs/behavior-specs/account-data-lifecycle.md`：LC1 已通过 PR #111 合并（`2452623`），把生命周期读取失效与交易核对分离，补首次在线、后台门控、请求合并和旧响应隔离。余额展示缓存 LC2 已通过 PR #112 合并（`be96178`）。LC3 前台事件流、握手重读、轮询/重连与静默检查已有实施候选，原生到账/延迟与设备验收尚未完成；节点恢复 LC4 仍待交付。
+Stage 2.5 已把 submitted/uncertain 写入 network/account-scoped invalidation，并接入 focus 与交易核对。2026-10-23 核查确认：原 foreground/network recovery 只核对 pending，无 pending 时不会因此刷新读取。补齐规格见 `docs/behavior-specs/account-data-lifecycle.md`：LC1 已通过 PR #111 合并（`2452623`），把生命周期读取失效与交易核对分离，补首次在线、后台门控、请求合并和旧响应隔离。余额展示缓存 LC2 已通过 PR #112 合并（`be96178`）。LC3 前台事件流已通过 PR #113 合并（`ea007d8`）；LC4 节点恢复与提交后有界收敛已通过 PR #114 合并（`288f5ca`）。原生到账/延迟与设备验收尚未完成。LC5 现有 Request/dApps 消费者接入为候选，尚无实现的缓存随所属产品交付，详见行为规格的消费者清单。
 
 **UX 缓存（要做）和「缓存当权威」（不做）不是同一件事。** 上次余额/历史可以立刻上屏，但过期后必须再问 Horizon；交易后必须失效。Stellar 把余额写进 Realm 当真值，那条不要。
 
@@ -970,7 +970,7 @@ F3 只锁这些：
 | 竖屏锁定 | Info.plist / Android manifest | 壳 | RNN orientation options |
 | 当前选中账户 | `app/` 一份公开 `accountId` | F2 已有形态；F4 各表面消费 | 各 Tab 互不同步的选中态 |
 | 链上 snapshot 失效 | §2.1：focus / 显式失效，不写 Realm | F4 Home / Send / Activity / Trustline | 全局 AccountService 改缓存；乐观减余额 |
-| 账户数据生命周期与前台到账 | `docs/behavior-specs/account-data-lifecycle.md`；App 调度、Capability 端口、Platform I/O，公开数据重读与交易恢复分离 | LC1/LC2 已合并；S05/S13 LC3 事件流/轮询/恢复实施候选，独立审查和原生到账验收待完成；LC4 节点恢复后续交付 | 无 pending 就不刷新；后台重复监听；事件直接加减余额；假称全账户提醒或后台推送已完成 |
+| 账户数据生命周期与前台到账 | `docs/behavior-specs/account-data-lifecycle.md`；App 调度、Capability 端口、Platform I/O，公开数据重读与交易恢复分离 | LC1–LC4 已合并；LC5 现有链接/目录/网站确认生命周期接入候选，其他缓存随所属产品；原生到账和 LC6 聚合验收待完成 | 无 pending 就不刷新；后台重复监听；事件直接加减余额；假称全账户提醒或后台推送已完成 |
 | Metro ↔ 真机 / 模拟器 | 开发机：`adb reverse` 等随冷启动会丢 | 开发运行时，不是产品 | 把「Unable to load script」当产品缺陷改业务 |
 | 推送 / Firebase | Push 是完整计划必达但 Backend 非当前主线：先做受控 Deep Link、前台事件、本地通知和稳定端口；远端通知在可信发送端、token/identity/scope 协议成立前阻断 | 执行计划 Stage 8B / 后续 release | 把 Firebase 客户端配置当后端；Push 自动授权/签名 |
 | IAP / jailbreak 启动拦截 | IAP Exclude；root/jailbreak 策略在发布安全阶段单独决定 | 排除 / 发布 | 当「Xaman 有」就照搬 |
