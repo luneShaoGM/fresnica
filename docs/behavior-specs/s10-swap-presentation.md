@@ -17,8 +17,9 @@ Decision: Adapt the existing Fresnica branch `stage6/add-assets-sheet-2026-10-23
 | Branch area | Disposition after this slice |
 | --- | --- |
 | Add/details sheets | Already adapted and merged by PR #117; do not overwrite its fixes. |
-| SwapAmountInput, account card, result presentation | Adapt in this slice and wire into current Swap. Other screens consume shared components only in a later scoped migration. |
-| Paired pay/receive editing, debounced automatic quotes, path/settings picker, Max and live spendable projection | Deferred: adapt separately against current read lifecycle and capability authority. Do not import the old SwapPreviewScreen wholesale. |
+| SwapAmountInput, account card, result presentation | Adapted and merged by PR #118. Other screens consume shared components only in a later scoped migration. |
+| Paired pay/receive editing, debounced automatic quotes and asset exchange | Current follow-up slice: see `s10-paired-swap-quotes.md`; not a full old-branch migration. |
+| Path/settings picker, Max and live spendable projection | Deferred: adapt separately against current read lifecycle and capability authority. Do not import the old SwapPreviewScreen wholesale. |
 | Old CachedSpendableAsset/readCachedBalanceSnapshot/rememberSpendableAssets, duplicate balance repositories and Realm schema | Superseded by main; exclude. Cached balance is not spendable or signing authority. |
 | Branch-specific Home/account/navigation restyling | Deferred; not required for this Swap presentation slice. |
 

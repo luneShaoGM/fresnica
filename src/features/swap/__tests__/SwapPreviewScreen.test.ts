@@ -108,6 +108,7 @@ function render(overrides: Partial<React.ComponentProps<typeof SwapPreviewScreen
   return SwapPreviewScreen({
     account,
     active: true,
+    foreground: true,
     selectedAccountId: account.id,
     dependencies: {} as never,
     execution: {} as never,

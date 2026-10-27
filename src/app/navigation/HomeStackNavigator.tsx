@@ -149,6 +149,7 @@ export function HomeStackNavigator({
       <Stack.Screen name="exchange">
         {({ navigation, route }) => (
           <SwapPreviewRoute
+            foreground={readRuntime.foreground}
             account={accounts.find(
               candidate =>
                 candidate.id === route.params.accountId &&
@@ -206,6 +207,7 @@ export function HomeStackNavigator({
 }
 
 type SwapPreviewRouteProps = Readonly<{
+  foreground: boolean;
   account: AccountRecord | undefined;
   services: AppServices;
   getCurrentSelection: () => SwapCurrentSelection | undefined;
@@ -214,6 +216,7 @@ type SwapPreviewRouteProps = Readonly<{
 }>;
 
 function SwapPreviewRoute({
+  foreground,
   account,
   services,
   getCurrentSelection,
@@ -263,6 +266,7 @@ function SwapPreviewRoute({
       key={String(selectionRevision)}
       account={account}
       active={active}
+      foreground={foreground}
       selectedAccountId={actualSelectedAccountId}
       dependencies={services.swapPreview}
       execution={services.swapExecution}
