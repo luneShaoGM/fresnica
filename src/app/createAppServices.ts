@@ -1,3 +1,6 @@
+import { copyPublicText } from '../platform/system/copyPublicText';
+import type { AssetCatalogPort } from '../capabilities/trustline/curatedAssetCatalog';
+import { createHttpAssetCatalog } from '../platform/assets/HttpAssetCatalog';
 import { createNodeReadSession, type NodeReadSession } from './readModels/createNodeReadSession';
 import { createHorizonPublicReadGateway } from '../platform/stellar/HorizonPublicReadGateway';
 import { bindNodeAccountEffects } from './readModels/bindNodeAccountEffects';
@@ -73,6 +76,8 @@ export type AppServices = Readonly<{
   trustline: TrustlineProductDependencies;
   request: RequestProductDependencies;
   dappCatalog: DappCatalogPort;
+  assetCatalog: AssetCatalogPort;
+  copyPublicText: (text: string) => Promise<void>;
   transactionRecovery: TransactionReconciliationCoordinator;
   ledgerReadInvalidation: LedgerReadInvalidationStore;
   ledgerReadRuntime: LedgerReadRuntime;
@@ -214,6 +219,8 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
 
     return {
       diagnostics,
+      assetCatalog: createHttpAssetCatalog(),
+      copyPublicText,
       accountManagement: {
         repository,
         pendingSubmissions,

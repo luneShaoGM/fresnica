@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { AccountRecord } from '../../capabilities/account/types';
 import { loadBalanceSnapshot } from '../../capabilities/balance/loadBalanceSnapshot';
 import type { BalanceAsset, BalanceLine } from '../../capabilities/balance/types';
+import { sameBalanceAsset } from '../home/assetDetails';
 import type { PaymentReview } from '../../capabilities/payment/buildPaymentReview';
 import type { RequestPaymentIntent } from '../../capabilities/request/requestUri';
 import type { StellarPaymentMemo } from '../../capabilities/stellar/types';
@@ -30,9 +31,10 @@ type Props = Readonly<{
   dependencies: SendProductDependencies;
   onDone: () => void;
   requestIntent?: RequestPaymentIntent;
+  initialAsset?: BalanceAsset;
 }>;
 
-export function SendFlowScreen({ account, dependencies, onDone, requestIntent }: Props) {
+export function SendFlowScreen({ account, dependencies, onDone, requestIntent, initialAsset }: Props) {
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [flow, setFlow] = useState<FlowState>({ kind: 'form' });
   const [selectedAsset, setSelectedAsset] = useState<BalanceAsset | undefined>();
@@ -118,7 +120,12 @@ export function SendFlowScreen({ account, dependencies, onDone, requestIntent }:
           setMemoType(prefill.memoType);
           setMemoValue(prefill.memoValue);
         } else {
-          setSelectedAsset(snapshot.balances[0].asset);
+          const requested = initialAsset ? snapshot.balances.find(line => sameBalanceAsset(line.asset, initialAsset)) : snapshot.balances[0];
+          if (!requested) {
+            setLoadState({ kind: 'blocked', title: t('home.asset.missing'), description: t('send.request.assetUnavailable') });
+            return;
+          }
+          setSelectedAsset(requested.asset);
         }
         setLoadState({ kind: 'ready', balances: snapshot.balances });
       })
@@ -135,7 +142,7 @@ export function SendFlowScreen({ account, dependencies, onDone, requestIntent }:
     return () => {
       loadVersion.current += 1;
     };
-  }, [account, dependencies.gateway, dependencies.network, dependencies.repository, requestIntent, t]);
+  }, [account, dependencies.gateway, dependencies.network, dependencies.repository, initialAsset, requestIntent, t]);
 
   const buildReview = useCallback(async () => {
     if (loadState.kind !== 'ready' || !selectedAsset) {

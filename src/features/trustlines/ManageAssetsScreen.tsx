@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { useIsFocused } from '@react-navigation/native';
+import type { BalanceProductDependencies } from '@capabilities/balance/BalanceCacheHydration';
+import type { AssetCatalogPort } from '@capabilities/trustline/curatedAssetCatalog';
 import { Screen } from '@ui/components';
 
 import type { AccountRecord } from '../../capabilities/account/types';
@@ -12,6 +15,7 @@ import { useLocalization, type LocalizationRuntime } from '../../locale';
 import { useAppTheme, useThemedStyles } from '../../ui/theme';
 import { SlideToConfirm } from '../../ui/SlideToConfirm';
 import { projectFeatureError } from '../featureError';
+import { AddAssetSheet, type AddAssetSelection } from './AddAssetSheet';
 import {
   prepareTrustlineProductReview,
   submitTrustlineProductReview,
@@ -31,6 +35,7 @@ type LoadState =
 
 type FlowState =
   | Readonly<{ kind: 'manage' }>
+  | Readonly<{ kind: 'preparing' }>
   | Readonly<{ kind: 'review'; review: TrustlineReview }>
   | Readonly<{ kind: 'result'; result: TrustlineSubmissionResult }>;
 
@@ -44,17 +49,46 @@ type LimitEditorState = Readonly<{
 type Props = Readonly<{
   account: AccountRecord;
   dependencies: TrustlineProductDependencies;
+  balanceDependencies: BalanceProductDependencies;
+  catalog: AssetCatalogPort;
+  foreground: boolean;
+  invalidationRevision: number;
+  requestedAdd?: AddAssetSelection & Readonly<{ action?: 'add' | 'remove' }>;
+  onReviewDismiss?: () => void;
   onDone: () => void;
 }>;
 
-export function ManageAssetsScreen({ account, dependencies, onDone }: Props) {
+export function ManageAssetsScreen({
+  account,
+  dependencies,
+  balanceDependencies,
+  catalog,
+  foreground,
+  invalidationRevision,
+  requestedAdd,
+  onReviewDismiss,
+  onDone,
+}: Props) {
+  const focused = useIsFocused();
+  const active = focused && foreground;
+  const currentActive = useRef(active);
+  currentActive.current = active;
+  const prepareVersion = useRef(0);
+  useEffect(() => {
+    if (!active) {
+      setBuilding(false);
+    }
+    return () => {
+      prepareVersion.current += 1;
+    };
+  }, [active, account]);
   const { t } = useLocalization();
   const theme = useAppTheme();
   const styles = useThemedStyles(createManageAssetsStyles);
+  const openedForReviewRef = useRef(requestedAdd !== undefined);
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
-  const [flow, setFlow] = useState<FlowState>({ kind: 'manage' });
-  const [assetCode, setAssetCode] = useState('');
-  const [assetIssuer, setAssetIssuer] = useState('');
+  const [flow, setFlow] = useState<FlowState>(requestedAdd ? { kind: 'preparing' } : { kind: 'manage' });
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [limitEditor, setLimitEditor] = useState<LimitEditorState>();
   const [building, setBuilding] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -62,6 +96,7 @@ export function ManageAssetsScreen({ account, dependencies, onDone }: Props) {
   const [appPassphrase, setAppPassphrase] = useState('');
   const [error, setError] = useState<string>();
   const loadVersion = useRef(0);
+  const consumedAddRef = useRef<AddAssetSelection | undefined>(undefined);
 
   const loadTrustlines = useCallback(() => {
     const version = loadVersion.current + 1;
@@ -96,13 +131,14 @@ export function ManageAssetsScreen({ account, dependencies, onDone }: Props) {
   }, [account, dependencies.gateway, dependencies.network.id, t]);
 
   useEffect(() => {
-    setFlow({ kind: 'manage' });
-    setAssetCode('');
-    setAssetIssuer('');
-    setLimitEditor(undefined);
-    setAppPassphrase('');
-    setPassphraseRequired(false);
-    setError(undefined);
+    if (!openedForReviewRef.current) {
+      setFlow({ kind: 'manage' });
+      setAddSheetOpen(false);
+      setLimitEditor(undefined);
+      setAppPassphrase('');
+      setPassphraseRequired(false);
+      setError(undefined);
+    }
     loadTrustlines();
 
     return () => {
@@ -112,6 +148,9 @@ export function ManageAssetsScreen({ account, dependencies, onDone }: Props) {
 
   const prepare = useCallback(
     async (action: TrustlineAction, code: string, issuer: string, limit?: string) => {
+      if (!currentActive.current) return;
+      const version = ++prepareVersion.current;
+      if (action === 'add') setFlow({ kind: 'preparing' });
       setBuilding(true);
       setError(undefined);
       try {
@@ -120,22 +159,31 @@ export function ManageAssetsScreen({ account, dependencies, onDone }: Props) {
           asset: { code, issuer },
           ...(limit === undefined ? {} : { limit }),
         });
+        if (version !== prepareVersion.current || !currentActive.current) return;
         setAppPassphrase('');
         setPassphraseRequired(false);
         setFlow({ kind: 'review', review });
       } catch (caught) {
+        if (version !== prepareVersion.current || !currentActive.current) return;
         const message = readableError(caught, t);
         setError(message);
+        if (!openedForReviewRef.current) setFlow({ kind: 'manage' });
         AccessibilityInfo.announceForAccessibility(message);
       } finally {
-        setBuilding(false);
+        if (version === prepareVersion.current) setBuilding(false);
       }
     },
     [account, dependencies, t],
   );
 
+  useEffect(() => {
+    if (!active || !requestedAdd || consumedAddRef.current === requestedAdd) return;
+    consumedAddRef.current = requestedAdd;
+    void prepare(requestedAdd.action ?? 'add', requestedAdd.code, requestedAdd.issuer);
+  }, [active, prepare, requestedAdd]);
+
   const submit = useCallback(async () => {
-    if (flow.kind !== 'review') {
+    if (!currentActive.current || flow.kind !== 'review') {
       return;
     }
 
@@ -169,53 +217,34 @@ export function ManageAssetsScreen({ account, dependencies, onDone }: Props) {
     }
   }, [account, appPassphrase, dependencies, flow, passphraseRequired, t]);
 
-  if (loadState.kind === 'loading') {
-    return (
-      <MessageScreen
-        backLabel={t('common.back')}
-        headerTitle={t('trustlines.title')}
-        loading
-        message={t('trustlines.loading.message')}
-        onBack={onDone}
-        title={t('trustlines.loading.title')}
-      />
-    );
-  }
+  const leaveReview = () => {
+    prepareVersion.current += 1;
+    setBuilding(false);
+    setAppPassphrase('');
+    setPassphraseRequired(false);
+    setError(undefined);
+    if (openedForReviewRef.current) {
+      (onReviewDismiss ?? onDone)();
+      return;
+    }
+    setFlow({ kind: 'manage' });
+  };
 
-  if (loadState.kind === 'inactive') {
+  if (flow.kind === 'preparing') {
     return (
       <MessageScreen
         backLabel={t('common.back')}
-        headerTitle={t('trustlines.title')}
-        message={t('trustlines.inactive.message')}
-        onBack={onDone}
-        title={t('trustlines.inactive.title')}
-      />
-    );
-  }
-
-  if (loadState.kind === 'unsupported-account') {
-    return (
-      <MessageScreen
-        backLabel={t('common.back')}
-        headerTitle={t('trustlines.title')}
-        message={t('trustlines.unsupported.message')}
-        onBack={onDone}
-        title={t('trustlines.unsupported.title')}
-      />
-    );
-  }
-
-  if (loadState.kind === 'error') {
-    return (
-      <MessageScreen
-        actionLabel={t('trustlines.retry')}
-        backLabel={t('common.back')}
-        headerTitle={t('trustlines.title')}
-        message={t('trustlines.load.errorMessage')}
-        onAction={loadTrustlines}
-        onBack={onDone}
-        title={t('trustlines.load.errorTitle')}
+        actionLabel={!building && requestedAdd ? t('trustlines.retry') : undefined}
+        onAction={
+          !building && requestedAdd
+            ? () => void prepare(requestedAdd.action ?? 'add', requestedAdd.code, requestedAdd.issuer)
+            : undefined
+        }
+        headerTitle={t('trustlines.review.title')}
+        loading={building}
+        message={error ?? t('trustlines.review.preparing')}
+        onBack={leaveReview}
+        title={error ? t('trustlines.error.generic') : t('trustlines.review.title')}
       />
     );
   }
@@ -228,12 +257,7 @@ export function ManageAssetsScreen({ account, dependencies, onDone }: Props) {
           backLabel={t('common.back')}
           title={t('trustlines.review.title')}
           disabled={submitting}
-          onBack={() => {
-            setAppPassphrase('');
-            setPassphraseRequired(false);
-            setError(undefined);
-            setFlow({ kind: 'manage' });
-          }}
+          onBack={leaveReview}
         />
         <ScrollView
           contentContainerStyle={styles.reviewContent}
@@ -355,6 +379,57 @@ export function ManageAssetsScreen({ account, dependencies, onDone }: Props) {
     );
   }
 
+  if (loadState.kind === 'loading') {
+    return (
+      <MessageScreen
+        backLabel={t('common.back')}
+        headerTitle={t('trustlines.title')}
+        loading
+        message={t('trustlines.loading.message')}
+        onBack={onDone}
+        title={t('trustlines.loading.title')}
+      />
+    );
+  }
+
+  if (loadState.kind === 'inactive') {
+    return (
+      <MessageScreen
+        backLabel={t('common.back')}
+        headerTitle={t('trustlines.title')}
+        message={t('trustlines.inactive.message')}
+        onBack={onDone}
+        title={t('trustlines.inactive.title')}
+      />
+    );
+  }
+
+  if (loadState.kind === 'unsupported-account') {
+    return (
+      <MessageScreen
+        backLabel={t('common.back')}
+        headerTitle={t('trustlines.title')}
+        message={t('trustlines.unsupported.message')}
+        onBack={onDone}
+        title={t('trustlines.unsupported.title')}
+      />
+    );
+  }
+
+  if (loadState.kind === 'error') {
+    return (
+      <MessageScreen
+        actionLabel={t('trustlines.retry')}
+        backLabel={t('common.back')}
+        headerTitle={t('trustlines.title')}
+        message={t('trustlines.load.errorMessage')}
+        onAction={loadTrustlines}
+        onBack={onDone}
+        title={t('trustlines.load.errorTitle')}
+      />
+    );
+  }
+
   return (
     <Screen scrollable={false} contentInset="none">
       <Header backLabel={t('common.back')} title={t('trustlines.title')} onBack={onDone} />
@@ -370,53 +445,30 @@ export function ManageAssetsScreen({ account, dependencies, onDone }: Props) {
         <Text accessibilityRole="header" style={styles.sectionLabel}>
           {t('trustlines.add.section')}
         </Text>
-        <View style={styles.addBlock}>
-          <TextInput
-            accessibilityLabel={t('trustlines.add.assetCode')}
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!building}
-            onChangeText={setAssetCode}
-            placeholder={t('trustlines.add.assetCodePlaceholder')}
-            placeholderTextColor={theme.colors.textTertiary}
-            style={styles.input}
-            value={assetCode}
-          />
-          <TextInput
-            accessibilityLabel={t('trustlines.add.issuer')}
-            autoCapitalize="characters"
-            autoCorrect={false}
-            editable={!building}
-            onChangeText={setAssetIssuer}
-            placeholder={t('trustlines.add.issuerPlaceholder')}
-            placeholderTextColor={theme.colors.textTertiary}
-            style={[styles.input, styles.issuerInput]}
-            value={assetIssuer}
-          />
-          <Text style={styles.helperText}>{t('trustlines.add.helper')}</Text>
-          <Pressable
-            accessibilityLabel={t('trustlines.add.review')}
-            accessibilityRole="button"
-            accessibilityState={{
-              disabled: building || assetCode.trim().length === 0 || assetIssuer.trim().length === 0,
+        <Pressable
+          accessibilityLabel={t('trustlines.add.title')}
+          accessibilityRole="button"
+          onPress={() => setAddSheetOpen(true)}
+          style={({ pressed }) => [styles.primaryButton, pressed ? styles.pressed : undefined]}
+        >
+          <Text style={styles.primaryButtonText}>{t('trustlines.add.title')}</Text>
+        </Pressable>
+        {addSheetOpen && active ? (
+          <AddAssetSheet
+            account={account}
+            balanceDependencies={balanceDependencies}
+            catalog={catalog}
+            active={active}
+            invalidationRevision={invalidationRevision}
+            onAddAndSign={asset => {
+              setAddSheetOpen(false);
+              void prepare('add', asset.code, asset.issuer);
             }}
-            disabled={building || assetCode.trim().length === 0 || assetIssuer.trim().length === 0}
-            onPress={() => void prepare('add', assetCode, assetIssuer)}
-            style={({ pressed }) => [
-              styles.primaryButton,
-              building || assetCode.trim().length === 0 || assetIssuer.trim().length === 0
-                ? styles.disabled
-                : undefined,
-              pressed ? styles.pressed : undefined,
-            ]}
-          >
-            {building ? (
-              <ActivityIndicator color={theme.colors.onActionPrimary} />
-            ) : (
-              <Text style={styles.primaryButtonText}>{t('trustlines.add.review')}</Text>
-            )}
-          </Pressable>
-        </View>
+            onClose={() => setAddSheetOpen(false)}
+            signing={building}
+            visible
+          />
+        ) : null}
 
         <Text accessibilityRole="header" style={styles.sectionLabel}>
           {t('trustlines.assets.section')}

@@ -3,11 +3,15 @@ import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { Screen, StateView } from '@ui/components';
+import { useLocalization } from '../../locale';
 import type { AccountRecord } from '@capabilities/account/types';
 import { canContinueRequestToSend } from '../requestDeepLinkRouting';
 import { continueRequestToSendIfCurrent, createRequestRouteFocusLifetime } from './requestContinueRouting';
 import { captureSwapCurrentSession, type SwapCurrentSelection } from './swapCurrentSession';
 import { AddAccountScreen } from '@features/accounts/AddAccountScreen';
+import { AddAssetSheet } from '@features/trustlines/AddAssetSheet';
+import { AssetDetailsSheet } from '@features/home/AssetDetailsSheet';
 import { AssetDetailsScreen } from '@features/home/AssetDetailsScreen';
 import { HomeScreen } from '@features/home/HomeScreen';
 import { SendFlowScreen } from '@features/send/SendFlowScreen';
@@ -65,7 +69,11 @@ export function HomeStackNavigator({
     <Stack.Navigator initialRouteName="home" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="home">
         {({ navigation }) => (
-          <HomeRoute
+          <HomeWithAssetSheets
+            key={JSON.stringify([selectedAccount.id, selectedAccount.networkId])}
+            navigation={navigation}
+            catalog={services.assetCatalog}
+            copyPublicText={services.copyPublicText}
             foreground={readRuntime.foreground}
             account={selectedAccount}
             accountCount={selectableAccounts.length}
@@ -81,8 +89,6 @@ export function HomeStackNavigator({
                 ? () => navigation.navigate('request', { accountId: selectedAccount.id })
                 : undefined
             }
-            onManageAssets={() => navigation.navigate('manage-assets', { accountId: selectedAccount.id })}
-            onOpenAsset={asset => navigation.navigate('asset-details', { accountId: selectedAccount.id, asset })}
             onManualRefresh={() => services.transactionRecovery.reconcile('manual-refresh')}
             invalidationRevision={invalidationRevision}
           />
@@ -123,11 +129,18 @@ export function HomeStackNavigator({
       <Stack.Screen name="send-form">
         {({ navigation, route }) => {
           const account = resolveVisibleAccount(accounts, route.params.accountId);
+          if (
+            route.params.initialAsset &&
+            (account.id !== route.params.accountId || account.id !== selectedAccount.id)
+          ) {
+            return <AssetAccountUnavailable onBack={() => navigation.popToTop()} />;
+          }
           return (
             <SendFlowScreen
               account={account}
               dependencies={services.send}
               requestIntent={route.params.requestIntent}
+              initialAsset={route.params.initialAsset}
               onDone={() => navigation.popToTop()}
             />
           );
@@ -164,10 +177,25 @@ export function HomeStackNavigator({
       <Stack.Screen name="manage-assets">
         {({ navigation, route }) => {
           const account = resolveVisibleAccount(accounts, route.params.accountId);
+          if (
+            route.params.requestedAction &&
+            (account.id !== route.params.accountId ||
+              account.id !== selectedAccount.id ||
+              account.networkId !== services.trustline.network.id)
+          ) {
+            return <AssetAccountUnavailable onBack={() => navigation.popToTop()} />;
+          }
           return (
             <ManageAssetsScreen
               account={account}
+              key={JSON.stringify([account.id, account.networkId])}
               dependencies={services.trustline}
+              balanceDependencies={services.balance}
+              catalog={services.assetCatalog}
+              foreground={readRuntime.foreground}
+              invalidationRevision={invalidationRevision}
+              requestedAdd={route.params.requestedAction}
+              onReviewDismiss={() => navigation.goBack()}
               onDone={() => navigation.popToTop()}
             />
           );
@@ -319,12 +347,71 @@ function RequestRoute({
   );
 }
 
-function HomeRoute({
+function HomeWithAssetSheets({
   foreground,
+  navigation,
+  catalog,
+  copyPublicText,
   ...props
-}: Omit<React.ComponentProps<typeof HomeScreen>, 'active'> & { foreground: boolean }) {
+}: Omit<React.ComponentProps<typeof HomeScreen>, 'active' | 'onManageAssets' | 'onOpenAsset'> & {
+  foreground: boolean;
+  navigation: NativeStackNavigationProp<HomeStackParamList, 'home'>;
+  catalog: AppServices['assetCatalog'];
+  copyPublicText: AppServices['copyPublicText'];
+}) {
   const focused = useIsFocused();
-  return <HomeScreen {...props} active={focused && foreground} />;
+  const active = focused && foreground;
+  const [sheet, setSheet] = useState<
+    { kind: 'add' } | { kind: 'details'; asset: React.ComponentProps<typeof AssetDetailsSheet>['asset'] }
+  >();
+  useFocusEffect(useCallback(() => () => setSheet(undefined), []));
+  const manage = (action: 'add' | 'remove', asset: { code: string; issuer: string }) => {
+    if (!active || !props.canSign) return;
+    setSheet(undefined);
+    navigation.navigate('manage-assets', { accountId: props.account.id, requestedAction: { action, ...asset } });
+  };
+  return (
+    <>
+      <HomeScreen
+        {...props}
+        active={active}
+        onManageAssets={() => setSheet({ kind: 'add' })}
+        onOpenAsset={asset => setSheet({ kind: 'details', asset })}
+      />
+      {active && sheet?.kind === 'add' ? (
+        <AddAssetSheet
+          account={props.account}
+          balanceDependencies={props.balanceDependencies}
+          catalog={catalog}
+          active={active}
+          invalidationRevision={props.invalidationRevision}
+          visible={active}
+          onClose={() => setSheet(undefined)}
+          onAddAndSign={asset => manage('add', asset)}
+        />
+      ) : null}
+      {active && sheet?.kind === 'details' ? (
+        <AssetDetailsSheet
+          key={JSON.stringify(sheet.asset)}
+          account={props.account}
+          asset={sheet.asset}
+          balanceDependencies={props.balanceDependencies}
+          active={active}
+          invalidationRevision={props.invalidationRevision}
+          visible={active}
+          canSign={props.canSign}
+          copyPublicText={copyPublicText}
+          onClose={() => setSheet(undefined)}
+          onRemove={asset => manage('remove', asset)}
+          onSend={asset => {
+            if (!active || !props.canSign) return;
+            setSheet(undefined);
+            navigation.navigate('send-form', { accountId: props.account.id, initialAsset: asset });
+          }}
+        />
+      ) : null}
+    </>
+  );
 }
 
 function AssetDetailsRoute({
@@ -333,4 +420,19 @@ function AssetDetailsRoute({
 }: Omit<React.ComponentProps<typeof AssetDetailsScreen>, 'active'> & { foreground: boolean }) {
   const focused = useIsFocused();
   return <AssetDetailsScreen {...props} active={focused && foreground} />;
+}
+
+function AssetAccountUnavailable({ onBack }: { onBack: () => void }) {
+  const { t } = useLocalization();
+  return (
+    <Screen>
+      <StateView
+        kind="empty"
+        title={t('home.asset.accountUnavailable')}
+        message={t('home.asset.accountChanged')}
+        actionLabel={t('common.back')}
+        onAction={onBack}
+      />
+    </Screen>
+  );
 }

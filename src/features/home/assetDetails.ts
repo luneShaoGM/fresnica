@@ -1,24 +1,21 @@
-import type {BalanceAsset, BalanceLine, BalanceSnapshot} from '../../capabilities/balance/types';
+import type { BalanceAsset, BalanceLine, BalanceSnapshot } from '../../capabilities/balance/types';
 
 export type AssetDetailsSnapshotState =
-  | Readonly<{kind: 'ready'; line: BalanceLine}>
-  | Readonly<{kind: 'inactive'}>
-  | Readonly<{kind: 'unsupported-account'}>
-  | Readonly<{kind: 'missing'}>;
+  | Readonly<{ kind: 'ready'; line: BalanceLine }>
+  | Readonly<{ kind: 'inactive' }>
+  | Readonly<{ kind: 'unsupported-account' }>
+  | Readonly<{ kind: 'missing' }>;
 
-export function resolveAssetDetailsSnapshot(
-  snapshot: BalanceSnapshot,
-  asset: BalanceAsset,
-): AssetDetailsSnapshotState {
+export function resolveAssetDetailsSnapshot(snapshot: BalanceSnapshot, asset: BalanceAsset): AssetDetailsSnapshotState {
   if (snapshot.status === 'inactive') {
-    return {kind: 'inactive'};
+    return { kind: 'inactive' };
   }
   if (snapshot.status === 'unsupported-account') {
-    return {kind: 'unsupported-account'};
+    return { kind: 'unsupported-account' };
   }
 
   const line = snapshot.balances.find(candidate => sameBalanceAsset(candidate.asset, asset));
-  return line ? {kind: 'ready', line} : {kind: 'missing'};
+  return line ? { kind: 'ready', line } : { kind: 'missing' };
 }
 
 export function sameBalanceAsset(left: BalanceAsset, right: BalanceAsset): boolean {
@@ -28,10 +25,14 @@ export function sameBalanceAsset(left: BalanceAsset, right: BalanceAsset): boole
   if (left.kind === 'native' && right.kind === 'native') {
     return true;
   }
-  return (
-    left.kind === 'credit' &&
-    right.kind === 'credit' &&
-    left.code === right.code &&
-    left.issuer === right.issuer
-  );
+  return left.kind === 'credit' && right.kind === 'credit' && left.code === right.code && left.issuer === right.issuer;
+}
+
+// Display gates only; financial authority stays in the transaction capabilities.
+export function canRemoveIssuedBalance(balance: string): boolean {
+  return /^0(?:\.0{1,7})?$/.test(balance);
+}
+
+export function canSendBalance(balance: string): boolean {
+  return /^(?:0|[1-9]\d*)(?:\.\d{1,7})?$/.test(balance) && /[1-9]/.test(balance);
 }
