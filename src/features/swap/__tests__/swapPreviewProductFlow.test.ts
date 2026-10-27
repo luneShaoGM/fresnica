@@ -2,7 +2,12 @@ import type { AccountRecord } from '../../../capabilities/account/types';
 import { loadPathPaymentQuotes } from '../../../capabilities/path-payment/loadPathPaymentQuotes';
 import { preparePathPayment } from '../../../capabilities/path-payment/preparePathPayment';
 import type { PathPaymentQuote, PreparedPathPaymentReview } from '../../../capabilities/path-payment/types';
-import { loadSwapPreviewAssets, requestSwapPreviewQuotes, prepareSwapPreviewReview } from '../swapPreviewProductFlow';
+import {
+  loadSwapPreviewAssets,
+  loadSwapSourceSpendable,
+  requestSwapPreviewQuotes,
+  prepareSwapPreviewReview,
+} from '../swapPreviewProductFlow';
 
 jest.mock('../../../capabilities/path-payment/loadPathPaymentQuotes');
 jest.mock('../../../capabilities/path-payment/preparePathPayment');
@@ -50,6 +55,30 @@ function fixture() {
     ],
   }));
   const loadLedgerParameters = jest.fn(async () => ({ baseFeeStroops: 100, baseReserveStroops: 5000000 }));
+  const loadAccountState = jest.fn(async () => ({
+    status: 'active' as const,
+    account: {
+      address: account.address,
+      subentryCount: 2,
+      numSponsoring: 1,
+      numSponsored: 1,
+      flags: { authRequired: false, authClawbackEnabled: false },
+      balances: [
+        { kind: 'native' as const, balance: '20', sellingLiabilities: '1' },
+        {
+          kind: 'credit' as const,
+          balance: '8',
+          buyingLiabilities: '0',
+          sellingLiabilities: '3.125',
+          code: USD.code,
+          issuer: USD.issuer,
+          isAuthorized: true,
+          isAuthorizedToMaintainLiabilities: true,
+          isClawbackEnabled: false,
+        },
+      ],
+    },
+  }));
   const deps = {
     network,
     balance: { networkId: network.id, gateway: { loadAccountBalances } },
@@ -63,13 +92,13 @@ function fixture() {
     prepare: {
       preflight: {
         network,
-        gateway: { network, loadLedgerParameters },
+        gateway: { network, loadLedgerParameters, loadAccountState },
         clock: { nowUnixMs: () => 100, nowMonotonicMs: () => 100 },
       },
       transactionGateway: { network },
     },
   };
-  return { deps, loadAccountBalances, loadLedgerParameters };
+  return { deps, loadAccountBalances, loadLedgerParameters, loadAccountState };
 }
 
 beforeEach(() => {
@@ -94,6 +123,29 @@ describe('Swap product read-only quote → prepare → exact-XDR review', () => 
       return { status: 'active', address: account.address, balances: [] };
     });
     await expect(loadSwapPreviewAssets(deps as never, account, () => active)).rejects.toThrow('swap-session-stale');
+  });
+
+  it('projects the live account spendable with native fee/reserves and trustline liabilities', async () => {
+    const { deps, loadAccountState, loadLedgerParameters } = fixture();
+    await expect(loadSwapSourceSpendable(deps as never, account, XLM, () => true)).resolves.toBe('16.9999900');
+    await expect(loadSwapSourceSpendable(deps as never, account, USD, () => true)).resolves.toBe('4.8750000');
+    expect(loadAccountState).toHaveBeenCalledWith(account.address);
+    expect(loadLedgerParameters).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects stale Max after a changed selection and refuses account/network mismatches', async () => {
+    const { deps, loadAccountState } = fixture();
+    let current = true;
+    loadAccountState.mockImplementationOnce(async () => {
+      current = false;
+      return { status: 'inactive', address: account.address } as never;
+    });
+    await expect(loadSwapSourceSpendable(deps as never, account, XLM, () => current)).rejects.toThrow(
+      'swap-session-stale',
+    );
+    await expect(
+      loadSwapSourceSpendable(deps as never, { ...account, networkId: 'other' }, XLM, () => true),
+    ).rejects.toThrow('swap-session-stale');
   });
 
   it('requests same-account strict-send quote and best path without changing user-selected fixed side', async () => {

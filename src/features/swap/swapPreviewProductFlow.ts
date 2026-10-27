@@ -4,6 +4,7 @@ import { loadBalanceSnapshot } from '../../capabilities/balance/loadBalanceSnaps
 import type { NetworkContext } from '../../capabilities/network/types';
 import { loadPathPaymentQuotes } from '../../capabilities/path-payment/loadPathPaymentQuotes';
 import { preparePathPayment } from '../../capabilities/path-payment/preparePathPayment';
+import { projectPathPaymentSpendable } from '../../capabilities/path-payment/preflightPathPayment';
 import { selectBestPathPaymentQuote } from '../../capabilities/path-payment/quotePolicy';
 import type {
   LoadPathPaymentQuotesDependencies,
@@ -70,6 +71,26 @@ export async function loadSwapPreviewAssets(
   );
   if (assets.length < 2) throw new Error('swap-assets-unavailable');
   return Object.freeze(assets.map(asset => Object.freeze(asset)));
+}
+
+// Spendable is read from current account state and current ledger parameters;
+// balance display caches are never valid inputs to Max.
+export async function loadSwapSourceSpendable(
+  deps: SwapPreviewProductDependencies,
+  account: AccountRecord,
+  asset: StellarPaymentAsset,
+  isCurrent: () => boolean,
+): Promise<string | undefined> {
+  assertCurrent(deps, account, isCurrent);
+  const gateway = deps.prepare.preflight.gateway;
+  const response = await gateway.loadAccountState(account.address);
+  assertCurrent(deps, account, isCurrent);
+  if (response.status !== 'active' || response.account.address !== account.address) {
+    throw new Error('swap-assets-unavailable');
+  }
+  const ledger = await gateway.loadLedgerParameters();
+  assertCurrent(deps, account, isCurrent);
+  return projectPathPaymentSpendable(response.account, asset, ledger, ledger.baseFeeStroops);
 }
 
 export async function requestSwapPreviewQuotes(
