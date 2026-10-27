@@ -115,6 +115,7 @@ function splitAssetIdentity(value: string | undefined): { code: string; issuer: 
   return { code, issuer };
 }
 
+// shortcut: this reads simple quoted currency fields only; use a full TOML parser when richer metadata is required.
 function currenciesFromStellarToml(body: string): readonly Record<string, string>[] {
   const assets: Record<string, string>[] = [];
   let current: Record<string, string> | undefined;
@@ -123,6 +124,11 @@ function currenciesFromStellarToml(body: string): readonly Record<string, string
     if (line === '[[CURRENCIES]]') {
       if (current) assets.push(current);
       current = {};
+      continue;
+    }
+    if (line.startsWith('[')) {
+      if (current) assets.push(current);
+      current = undefined;
       continue;
     }
     if (!current || !line || line.startsWith('#')) continue;

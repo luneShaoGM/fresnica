@@ -107,6 +107,7 @@ type Props = {
   spendable?: string;
   value?: string;
   canSign?: boolean;
+  asset?: { code: string; issuer: string };
   state?: BalanceDisplayState;
 };
 function find(
@@ -262,6 +263,7 @@ describe('asset sheet current balance integration', () => {
       node => node.type === TextInput && node.props.placeholder === 'trustlines.add.assetCodePlaceholder',
     );
     expect(code?.props.value).toBe('');
+    expect(read).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -343,4 +345,84 @@ describe('sheet-to-Trustline review lifecycle', () => {
     expect(resumed.type).toBe(first.type);
     expect(resumed.props.onAction).toBeDefined();
   });
+});
+
+it('loads the well-known TOML when a domain homepage fails', async () => {
+  const read = jest
+    .fn()
+    .mockRejectedValueOnce(new Error('homepage-404'))
+    .mockResolvedValueOnce(`[[CURRENCIES]]\ncode="EUR"\nissuer="${issuer}"`);
+  const props = {
+    account,
+    balanceDependencies: dependencies,
+    catalog: { read },
+    active: true,
+    visible: true,
+    invalidationRevision: 0,
+    onClose: jest.fn(),
+    onAddAndSign: jest.fn(),
+  };
+  let root = render(() => AddAssetSheet(props));
+  effects();
+  find(root, node => node.type === TextInput && node.props.placeholder === 'https://example.com')?.props.onChangeText?.(
+    'example.com',
+  );
+  root = render(() => AddAssetSheet(props));
+  button(root, 'trustlines.add.load').props.onPress?.();
+  await settle();
+  expect(read.mock.calls.map(call => call[0])).toEqual([
+    'https://example.com/',
+    'https://example.com/.well-known/stellar.toml',
+  ]);
+  root = render(() => AddAssetSheet(props));
+  const code = find(
+    root,
+    node => node.type === TextInput && node.props.placeholder === 'trustlines.add.assetCodePlaceholder',
+  );
+  expect(code?.props.value).toBe('EUR');
+  expect(button(root, 'trustlines.add.addAndSign').props.disabled).toBe(false);
+});
+
+it('cannot submit an auto-selected catalog asset hidden by search', async () => {
+  const onAddAndSign = jest.fn();
+  const read = jest.fn(async () =>
+    JSON.stringify([
+      { code: 'BTC', issuer },
+      { code: 'ETH', issuer },
+    ]),
+  );
+  const props = {
+    account: { ...account, networkId: 'stellar-mainnet' },
+    balanceDependencies: { ...dependencies, networkId: 'stellar-mainnet' },
+    catalog: { read },
+    active: true,
+    visible: true,
+    invalidationRevision: 0,
+    onClose: jest.fn(),
+    onAddAndSign,
+  };
+  render(() => AddAssetSheet(props));
+  effects();
+  await settle();
+  let root = render(() => AddAssetSheet(props));
+  expect(button(root, 'trustlines.add.addAndSign').props.disabled).toBe(false);
+  find(
+    root,
+    node => node.type === TextInput && node.props.placeholder === 'trustlines.add.search',
+  )?.props.onChangeText?.('no-matches');
+  root = render(() => AddAssetSheet(props));
+  expect(button(root, 'trustlines.add.addAndSign').props.disabled).toBe(true);
+  button(root, 'trustlines.add.addAndSign').props.onPress?.();
+  expect(onAddAndSign).not.toHaveBeenCalled();
+  find(
+    root,
+    node => node.type === TextInput && node.props.placeholder === 'trustlines.add.search',
+  )?.props.onChangeText?.('ETH');
+  root = render(() => AddAssetSheet(props));
+  expect(button(root, 'trustlines.add.addAndSign').props.disabled).toBe(true);
+  find(root, node => node.props.asset?.code === 'ETH')?.props.onPress?.();
+  root = render(() => AddAssetSheet(props));
+  expect(button(root, 'trustlines.add.addAndSign').props.disabled).toBe(false);
+  button(root, 'trustlines.add.addAndSign').props.onPress?.();
+  expect(onAddAndSign).toHaveBeenCalledWith({ code: 'ETH', issuer });
 });

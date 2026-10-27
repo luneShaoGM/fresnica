@@ -128,7 +128,7 @@ export function AddAssetSheet({
 
   const listed = assets.map(asset => ({ ...asset, added: held.has(assetKey(asset)) }));
   const visibleAssets = listed.filter(asset => matchesCuratedAssetQuery(asset, query));
-  const selected = listed.find(asset => assetKey(asset) === selectedKey && !asset.added);
+  const selected = visibleAssets.find(asset => assetKey(asset) === selectedKey && !asset.added);
   const manualReady = isCuratedAssetCode(manualCode.trim()) && isCuratedIssuer(manualIssuer.trim());
   const canSubmit =
     visible &&
@@ -448,7 +448,13 @@ async function loadManualUrl(
   signal: AbortSignal,
 ): Promise<readonly ListedAsset[]> {
   const target = normalizeUntrustedDappUrl(input);
-  const parsed = parseManualAssetDocument(await catalog.read(target.url, signal));
+  let parsed: readonly CuratedAsset[] = [];
+  try {
+    parsed = parseManualAssetDocument(await catalog.read(target.url, signal));
+  } catch (error) {
+    if (signal.aborted) throw error;
+  }
+  if (signal.aborted) throw new Error('asset-catalog-cancelled');
   const found =
     parsed.length > 0
       ? parsed

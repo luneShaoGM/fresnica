@@ -45,3 +45,26 @@ name="USD Coin"
     ).toEqual([{ code: 'USDC', issuer, name: 'USD Coin' }]);
   });
 });
+
+it('ends currency records before unrelated TOML tables can overwrite their identity', () => {
+  const other = 'GBQCD6CQXH72HGTAASZPTFPSGXXRUGKL4SPS5X7UGQYA3RN6CZWW4ZIM';
+  expect(
+    parseManualAssetDocument(`
+[[CURRENCIES]]
+code="usd"
+issuer="${issuer}"
+[OTHER]
+code="BTC"
+issuer="${other}"
+[[CURRENCIES]]
+code="EUR"
+issuer="${issuer}"
+[[DOCUMENTATION]]
+code="BAD"
+issuer="${other}"
+`),
+  ).toEqual([
+    { code: 'usd', issuer },
+    { code: 'EUR', issuer },
+  ]);
+});
