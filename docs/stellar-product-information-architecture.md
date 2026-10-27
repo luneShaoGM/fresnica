@@ -977,3 +977,7 @@ F3 只锁这些：
 | RNN / NavigationService / StyleService / DeviceUtils / 全局 `services/` | **Exclude** | 禁止 | 以任何名义加回来 |
 
 Xaman 没有、Fresnica 栈仍要有的：`SafeAreaProvider`、`enableScreens`、改导航库后的原生重建。这些写在表里，就是为了不再靠真机才发现。
+
+### S04/S24 shared foundation clarification (2026-10-27)
+
+The current authentication and network-session behavior contract is [shared-auth-network-session](behavior-specs/shared-auth-network-session.md). Fresh App Passphrase verification for sensitive Developer Mode enable is independent from the still-missing generic biometric app-session challenge. A zero-signer verification result never authenticates this action. Normal bootstrap selects Mainnet without relabelling existing Testnet records; empty current-network account partitions keep Settings reachable. Custom-node controls remain mode-gated and service generations bind all gateways consistently. The contract records cancellation, persistence, pending-submission and active-node removal invariants and native acceptance boundaries.
