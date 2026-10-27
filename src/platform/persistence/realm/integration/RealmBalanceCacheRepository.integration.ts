@@ -15,7 +15,7 @@ import { RealmPendingSubmissionRepository } from '../RealmPendingSubmissionRepos
 import { RealmDefaultAccountPreferenceStore } from '../RealmDefaultAccountPreferenceStore';
 import { RealmLocalePreferenceStore } from '../RealmLocalePreferenceStore';
 import { openWalletRealm } from '../openWalletRealm';
-import { BALANCE_CACHE_SNAPSHOT_ENTITY, WALLET_REALM_SCHEMAS } from '../schemas';
+import { BALANCE_CACHE_SNAPSHOT_ENTITY, DAPP_CATALOG_CACHE_ENTITY, WALLET_REALM_SCHEMAS } from '../schemas';
 import { deleteLocalAccount } from '../../../../capabilities/account/deleteLocalAccount';
 
 describe('Realm Balance cache', () => {
@@ -74,14 +74,16 @@ describe('Realm Balance cache', () => {
     },
   );
 
-  it('migrates v5 to v6 preserving every existing entity and starts Balance empty', async () => {
+  it('migrates v5 to v7 preserving every existing entity and starts Balance empty', async () => {
     const path = realm.path;
     realm.close();
     Realm.deleteFile({ path });
     realm = await Realm.open({
       path,
       schemaVersion: 5,
-      schema: WALLET_REALM_SCHEMAS.filter(schema => schema.name !== BALANCE_CACHE_SNAPSHOT_ENTITY),
+      schema: WALLET_REALM_SCHEMAS.filter(
+        schema => schema.name !== BALANCE_CACHE_SNAPSHOT_ENTITY && schema.name !== DAPP_CATALOG_CACHE_ENTITY,
+      ),
     });
     const date = new Date(0);
     const account = {
@@ -128,7 +130,7 @@ describe('Realm Balance cache', () => {
     realm.close();
     realm = await openWalletRealm({ path });
     const migrated = new RealmAccountSignerRepository(realm);
-    expect(realm.schemaVersion).toBe(6);
+    expect(realm.schemaVersion).toBe(7);
     expect(migrated.getAccount('old')).toEqual(account);
     expect(migrated.getSigner('signer')).toEqual(signer);
     expect(migrated.listSignersForAccount('old')).toEqual([signer]);

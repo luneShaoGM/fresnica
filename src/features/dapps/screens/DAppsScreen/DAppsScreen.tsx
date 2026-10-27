@@ -101,7 +101,11 @@ export function DAppsScreen({
       .then(() => (current ? catalog.load() : undefined))
       .then(result => {
         if (!current || result === undefined) return;
-        setState(result.kind === 'unavailable' ? { kind: 'unavailable' } : { kind: 'ready', entries: result.entries });
+        setState(
+          result.kind === 'unavailable'
+            ? { kind: 'unavailable' }
+            : { kind: 'ready', entries: result.entries, ...(result.stale ? { stale: true, refreshFailed: true } : {}) },
+        );
       })
       .catch(() => {
         if (current)

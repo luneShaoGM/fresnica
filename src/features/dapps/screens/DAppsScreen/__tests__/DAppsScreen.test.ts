@@ -253,6 +253,16 @@ describe('DAppsScreen native field and retry', () => {
     expect(searchedNodes.some(node => node.props.title === 'dapps.catalog.noMatch')).toBe(true);
   });
 
+  it('labels offline fallback rows stale and offers retry without hiding the catalog', async () => {
+    const catalog: DappCatalogPort = {
+      load: jest.fn().mockResolvedValue({ kind: 'ready', stale: true, entries: [entry] }),
+    };
+    const nodes = elements(await renderCatalog(catalog));
+    expect(nodes.some(node => node.props.children === 'dapps.catalog.stale')).toBe(true);
+    expect(nodes.some(node => node.props.label === 'dapps.catalog.retry')).toBe(true);
+    expect(nodes.some(node => node.props.children === 'Demo Exchange')).toBe(true);
+  });
+
   it('retries a failed catalog load from the native button', async () => {
     const load = jest.fn().mockRejectedValue(new Error('catalog-down'));
     const catalog = { load };

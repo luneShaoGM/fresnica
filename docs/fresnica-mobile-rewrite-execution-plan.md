@@ -326,7 +326,7 @@ Screen → Feature controller → Capability read model
 - **LC4 已合并**：PR #114，合并提交 `288f5ca`；HEAD `c2c3088` 独立增量复审 APPROVED（P1/P2/P3 均为 0），CI #567 通过。统一只读节点会话，网络身份验证、10 秒请求期限、429/5xx/超时退避与 Retry-After、端点代际隔离；Effects 共用节点退避；提交后最多 5 次 / 60 秒的只读跟进，复用既有交易确认协调器，余额账本号与历史哈希同时就绪才收敛。原始准备/签名/广播链路保持既有 SDK 配置。全量 141 套件 / 1122 测试、双端 JS 打包与真实 Testnet 已有交易只读验证通过；原生恢复/新交易收敛验收待完成。
 - **LC5 现有消费者已合并**：PR #115，合并提交 `6b1f210`；修复后 HEAD `20b9a0d` 独立增量复审 APPROVED（P1/P2/P3 皆为 0），远端 CI 143 套件 / 1138 测试。S09 外部链接等待服务/bootstrap/前台就绪、当前请求去重及旧解析结果隔离；S14 目录只在聚焦/前台/非离线读取，同源会话快照失败保留并标记旧数据；S15 网站确认提案离开即清理，失焦旧回调不得触发打开或回写 Recent；已批准的系统浏览器交接成功可在同一焦点路由后台记入 Recent。原生链接/浏览器及双端聚合流程验收仍待完成。
 - **LC6 自动化聚合准备（PR #116，统一审查前候选）**：基于 `main@6b1f210`，覆盖首次离线缓存→联网重验、A 账户后台旧结果→B 账户恢复、节点网络身份错误→可信端点恢复；增加选中账户 Effects 与在途 Balance/History 协同、Retry-After 冷却→恢复、原哈希 pending 收敛、真实 Realm 文件余额/历史联合 close/reopen、账户删除后跨分区保留。本地全量检查 145 套件 / 1144 测试、真实 Realm 集成 5 套件 / 70 测试通过。只有 Repository/Helper/Realm Integration 级开发证据，不宣称原生进程重启、到账时延或产品验收。本批自动化准备完成后保持 PR #116 Draft，待用户最后统一触发 Work exact-HEAD Review；设备/真机按最终统一验收计划。
-- **LC5 剩余 / LC6-B 设备聚合**：main 仅配置 unavailable 目录源；Registry/TOML metadata/icons、Claimable、Resolver 缓存尚无实现，TTL/版本/容量/失效随 S06/S11/S14/S22 交付。主题订阅随 2c/F3，内嵌浏览器随 S16；不把这些依赖行记为 LC5 完成。LC6 做双端聚合；会话锁与 Backend Push 保持各自阻断条件。
+- **LC5 剩余 / LC6-B 设备聚合**：在 PR #115 合并时 main 仅配置 unavailable 目录源（本候选 S14 正逐步接入 FChain）；Registry/TOML metadata/icons、Claimable、Resolver 缓存尚无实现，TTL/版本/容量/失效随 S06/S11/S14/S22 交付。主题订阅随 2c/F3，内嵌浏览器随 S16；不把这些依赖行记为 LC5 完成。LC6 做双端聚合；会话锁与 Backend Push 保持各自阻断条件。
 
 顺序与 Merge 门：LC1 先形成可审查 PR；代码批次由独立 Work 审查、真实检查和用户 Merge 决定集成。后续切片从新的 main 继续；未运行的设备流程记为待验收，不升级 S05/S13 成熟度。
 
@@ -782,6 +782,25 @@ UI 执行策略：
 - 不使用 JavaScript float 计算链上值。
 
 ### Stage 7：dApps 与 Freighter
+
+**2026-10-27 双 Worktree 迁移记录**：从合并 Swap PR #121 后的
+`main@8031a9d3e4dc0a30541a6e91721a00a96544c235` 新建独立 dApp 集成分支；
+随后已无冲突同步 S24 PR #122 后的 `main@a795e440fdc10ff7007a300d3c885d1c6a2c2435`。
+原始 dApp 工作树的 31 个跟踪修改与 42 个未跟踪文件已有独立、逐文件校验的
+本地恢复快照；原工作树及 Swap 工作树不清理、不覆盖。以下迁移均属候选，
+须独立 Work exact-HEAD 审查，Merge 仍由用户决定。
+
+| 顺序 | 已有改动 | 接入方式及安全门 |
+| --- | --- | --- |
+| S14（本批） | FChain 公开 Catalog、Realm、App 接线和单元测试 | 以最新 Realm v6 升 v7，只持久化按 network 划分的公开目录；保留 LC5 焦点、在线和前后台门控，错误时明确标为旧缓存；无授权或签名 |
+| S15（下批） | Recent、自定义 URL、UI/文档 | 保留已合并的外部浏览器确认；未来 Recent 只存标准化 origin，不持久化完整查询参数 |
+| S16（后续） | WebView、导航、依赖/lockfile、iOS/原生补丁 | 以最新导航生命周期为基线增量接线，原生构建和安全审查后才启用 |
+| S17（后续） | 权限、Realm、Connected dApps | 先解决 grant/revoke 即时一致性；Catalog 不能成为自动授权依据 |
+| S18–S21（后续） | Freighter、交易签名、SEP-53、Soroban、设备桥 | 统一 exact-XDR 审核与 SDK 授权，禁用普通 React State 中的 App Passphrase |
+
+本批 S14 候选尚无独立 Work 审批和双端原生产品流证据。
+未迁移的业务/导航/依赖/文档仍在受保护的原工作树，不等于已放弃。
+
 
 目标：保留 Stellar 已形成的 dApp 产品行为，以 clean-room 方式在 Fresnica 边界内重写；只有 Stage 0A 已证明完全自有并获批的独立文件才允许直接移植。
 
