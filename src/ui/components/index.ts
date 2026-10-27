@@ -8,3 +8,5 @@ export * from './ListRow';
 export * from './Screen';
 export * from './StateView';
 export * from './BottomSheet';
+export * from './AccountIdentityCard';
+export * from './TransactionResult';

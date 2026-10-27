@@ -649,5 +649,9 @@
   "trustlines.add.added": "Added",
   "trustlines.add.addAndSign": "Add and sign",
   "home.asset.accountUnavailable": "Account unavailable",
-  "home.asset.accountChanged": "The selected account changed. Return to Home and choose the asset again."
+  "home.asset.accountChanged": "The selected account changed. Return to Home and choose the asset again.",
+  "swap.amount.invalid": "Enter a positive amount with up to 7 decimal places within the Stellar amount limit.",
+  "swap.result.copyHash": "Copy transaction hash",
+  "swap.result.copiedHash": "Transaction hash copied",
+  "swap.result.outputError": "Couldn’t complete that action. Try again."
 }

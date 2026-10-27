@@ -4,6 +4,9 @@ import type { AccountRecord } from '../../../capabilities/account/types';
 import type { PreparedPathPaymentReview } from '../../../capabilities/path-payment/types';
 import { NativeButton } from '../../../ui/components/NativeButton';
 import { SlideToConfirm } from '../../../ui/SlideToConfirm';
+import { SwapResultScreen } from '../SwapResultScreen';
+import { SwapAmountInput } from '../SwapAmountInput';
+import type { SwapTerminalResult } from '../SwapResultScreen';
 import { SwapPassphraseInput } from '../SwapPassphraseInput';
 
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null, Screen: () => null }));
@@ -91,6 +94,8 @@ type NodeProps = Readonly<{
   onComplete?: () => void;
   secureTextEntry?: boolean;
   disabled?: boolean;
+  result?: SwapTerminalResult;
+  onChangeAmount?: (value: string) => void;
 }>;
 function visit(node: React.ReactNode, callback: (element: React.ReactElement<NodeProps>) => void): void {
   if (!React.isValidElement<NodeProps>(node)) return;
@@ -108,6 +113,8 @@ function render(overrides: Partial<React.ComponentProps<typeof SwapPreviewScreen
     execution: {} as never,
     captureSession: () => () => true,
     onDone: jest.fn(),
+    copyPublicText: jest.fn(async () => undefined),
+    openExternalUrl: jest.fn(async () => undefined),
     ...overrides,
   });
 }
@@ -201,8 +208,11 @@ describe('Swap Preview user-visible scope', () => {
       if (node.type === SlideToConfirm) slides.push(node.props.label ?? '');
       if (typeof node.props.value === 'string') values.push(node.props.value);
     });
-    expect(texts).toContain('swap.result.uncertain');
-    expect(values).toContain('hash-unknown');
+    let result: SwapTerminalResult | undefined;
+    visit(root, node => {
+      if (node.type === SwapResultScreen) result = node.props.result;
+    });
+    expect(result).toMatchObject({ status: 'uncertain', transactionHash: 'hash-unknown' });
     expect(slides).toEqual([]);
   });
 
@@ -309,7 +319,11 @@ describe('Swap Preview user-visible scope', () => {
       if (node.type === SlideToConfirm) slides.push(node.props.label ?? '');
       if (typeof node.props.value === 'string') values.push(node.props.value);
     });
-    expect(values).toContain('HASH_FROM_ORIGINAL_BROADCAST');
+    const results: SwapTerminalResult[] = [];
+    visit(render(), node => {
+      if (node.type === SwapResultScreen && node.props.result) results.push(node.props.result);
+    });
+    expect(results).toContainEqual({ status: 'uncertain', transactionHash: 'HASH_FROM_ORIGINAL_BROADCAST' });
     expect(slides).toEqual([]);
     expect(submitSwapReview).toHaveBeenCalledTimes(1);
   });
@@ -432,4 +446,24 @@ describe('Swap Preview user-visible scope', () => {
     });
     expect(buttons).toEqual(['common.back']);
   });
+});
+
+it('blocks invalid amounts in the current form and preserves quote-only entry', () => {
+  render();
+  stateSlots[0].current = [{ kind: 'native' }, issued];
+  stateSlots[1].current = false;
+  stateSlots[6].current = '-5';
+  let input: React.ReactElement<NodeProps> | undefined;
+  let quote: React.ReactElement<NodeProps> | undefined;
+  const inspect = () =>
+    visit(render(), node => {
+      if (node.type === SwapAmountInput) input = node;
+      if (node.type === NativeButton && node.props.label === 'swap.preview.getQuotes') quote = node;
+    });
+  inspect();
+  expect(quote?.props.disabled).toBe(true);
+  input?.props.onChangeAmount?.('5.0000000');
+  inspect();
+  expect(quote?.props.disabled).toBe(false);
+  expect(stateSlots[8].current).toEqual({ kind: 'form' });
 });

@@ -266,6 +266,8 @@ function SwapPreviewRoute({
       selectedAccountId={actualSelectedAccountId}
       dependencies={services.swapPreview}
       execution={services.swapExecution}
+      copyPublicText={services.copyPublicText}
+      openExternalUrl={services.externalUrl.open}
       captureSession={captureSession}
       onDone={() => navigation.popToTop()}
     />
