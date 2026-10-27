@@ -90,6 +90,7 @@ export function SwapPreviewScreen({
   const [history, setHistory] = useState<readonly PendingSubmissionRecord[]>([]);
   const [reconcileError, setReconcileError] = useState<string>();
   const [reconciling, setReconciling] = useState(false);
+  const [settingsVisible, setSettingsVisible] = useState(false);
   const attempt = useRef(0);
   const locked = useRef(false);
   const submitLocked = useRef(false);
@@ -113,6 +114,7 @@ export function SwapPreviewScreen({
     setPassphraseRequired(false);
     clearPassphrase();
     setView({ kind: 'form' });
+    setSettingsVisible(false);
   }, [clearPassphrase]);
 
   useEffect(() => {
@@ -122,6 +124,7 @@ export function SwapPreviewScreen({
     setSourceIndex(0);
     setDestinationIndex(1);
     setMode('strict_send');
+    setSettingsVisible(false);
     setAmount('');
     setView({ kind: 'form' });
     setError(undefined);
@@ -486,6 +489,7 @@ export function SwapPreviewScreen({
                 setSourceIndex(destinationIndex);
                 setDestinationIndex(sourceIndex);
                 setMode('strict_send');
+    setSettingsVisible(false);
                 setAmount('');
                 resetQuotes();
               }}
@@ -526,43 +530,88 @@ export function SwapPreviewScreen({
         ) : null}
         {view.kind === 'quotes' ? (
           <>
-            <Text style={styles.label}>{t('swap.preview.routes')}</Text>
-            {view.quotes.map((quote, index) => (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected: view.selected === quote }}
+            <View style={styles.row}>
+              <Text style={styles.label}>{t('swap.preview.routes')}</Text>
+              <NativeButton
+                label={t('swap.settings.open')}
                 disabled={busy}
-                key={String(index)}
-                onPress={() => {
-                  if (locked.current) return;
-                  attempt.current += 1;
-                  setError(undefined);
-                  setView({ ...view, selected: quote });
-                }}
-                style={[styles.route, view.selected === quote ? styles.routeSelected : undefined]}
-              >
-                <Text style={styles.choiceText}>
-                  {quote.sourceAmount} → {quote.destinationAmount}
-                </Text>
-                <Text style={styles.secondary}>
-                  {t('swap.preview.path')}: {fullPath(quote.path)}
-                </Text>
-              </Pressable>
-            ))}
+                onPress={() => setSettingsVisible(value => !value)}
+                size="sm"
+                variant="quiet"
+              />
+            </View>
+            <View style={[styles.route, styles.routeSelected]}>
+              <Text style={styles.choiceText}>
+                {view.selected.sourceAmount} → {view.selected.destinationAmount}
+              </Text>
+              <Text style={styles.secondary}>
+                {t('swap.preview.path')}: {fullPath(view.selected.path)}
+              </Text>
+            </View>
             <Text style={styles.secondary}>
               {t('swap.preview.quotedUntil')}: {new Date(view.selected.expiresAtUnixMs).toLocaleTimeString()}
             </Text>
-            <View style={styles.section}>
-              <Text style={styles.label}>{t('swap.preview.slippage')}</Text>
-              <TextInput
-                accessibilityLabel={t('swap.preview.slippage')}
-                editable={!busy}
-                keyboardType="number-pad"
-                value={slippageInput}
-                onChangeText={setSlippageInput}
-                style={styles.input}
-              />
-            </View>
+            {settingsVisible ? (
+              <View style={styles.section}>
+                <View style={styles.row}>
+                  <Text style={styles.heading}>{t('swap.settings.title')}</Text>
+                  <NativeButton
+                    label={t('swap.settings.done')}
+                    disabled={busy}
+                    onPress={() => setSettingsVisible(false)}
+                    size="sm"
+                    variant="quiet"
+                  />
+                </View>
+                <Text style={styles.label}>{t('swap.preview.slippage')}</Text>
+                <View style={styles.choices}>
+                  {[10, 50, 100].map(bps => (
+                    <Pressable
+                      key={bps}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: slippageInput === String(bps) }}
+                      disabled={busy}
+                      onPress={() => setSlippageInput(String(bps))}
+                      style={[styles.choice, slippageInput === String(bps) ? styles.choiceSelected : undefined]}
+                    >
+                      <Text style={styles.choiceText}>{(bps / 100).toString()}%</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <TextInput
+                  accessibilityLabel={t('swap.settings.customSlippage')}
+                  editable={!busy}
+                  keyboardType="number-pad"
+                  value={slippageInput}
+                  onChangeText={setSlippageInput}
+                  style={styles.input}
+                />
+                <Text style={styles.secondary}>{t('swap.settings.slippageBpsHint')}</Text>
+                <Text style={styles.label}>{t('swap.preview.routes')}</Text>
+                {view.quotes.map((quote, index) => (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: view.selected === quote }}
+                    disabled={busy}
+                    key={String(index)}
+                    onPress={() => {
+                      if (locked.current) return;
+                      attempt.current += 1;
+                      setError(undefined);
+                      setView({ ...view, selected: quote });
+                    }}
+                    style={[styles.route, view.selected === quote ? styles.routeSelected : undefined]}
+                  >
+                    <Text style={styles.choiceText}>
+                      {quote.sourceAmount} → {quote.destinationAmount}
+                    </Text>
+                    <Text style={styles.secondary}>
+                      {t('swap.preview.path')}: {fullPath(quote.path)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
           </>
         ) : null}
         {view.kind === 'review' ? (
