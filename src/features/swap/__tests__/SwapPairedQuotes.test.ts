@@ -719,3 +719,95 @@ it('switches explicitly edited Receive back to strict-send only after a successf
   await settle();
   expect(request.mock.lastCall?.[2]).toMatchObject({ mode: 'strict_send', fixedAmount: '6.1234567' });
 });
+
+it.each(['route', 'review', 'requote'] as const)(
+  'ignores a pre-Max %s callback delivered after the fresh Max read has completed',
+  async action => {
+    const best = quote('2', '3');
+    const alternate = quote('2', '4');
+    request.mockResolvedValueOnce({ quotes: [best, alternate], best });
+    prepare.mockReturnValueOnce(new Promise(() => undefined));
+    const h = setup();
+    let root = await h.mount();
+    await settle();
+    root = h.draw();
+    input(root, 'pay').props.onChangeAmount?.('2');
+    h.draw();
+    jest.advanceTimersByTime(500);
+    await settle();
+    root = h.draw();
+    button(root, 'swap.settings.open').props.onPress?.();
+    root = h.draw();
+    const oldRoute = find(root, node => node.type === Pressable && node.key === '1');
+    expect(oldRoute).toBeDefined();
+    const oldReview = button(root, 'swap.preview.review');
+    const oldRequote = button(root, 'swap.preview.requote');
+    spendable.mockResolvedValueOnce('7.5000000');
+    button(root, 'swap.form.max').props.onPress?.();
+    await settle();
+    root = h.draw();
+    expect(input(root, 'pay').props.value).toBe('7.5000000');
+    expect(input(root, 'receive').props.value).toBe('');
+
+    if (action === 'route') oldRoute?.props.onPress?.();
+    if (action === 'review') oldReview.props.onPress?.();
+    if (action === 'requote') oldRequote.props.onPress?.();
+    await settle();
+    root = h.draw();
+    expect(input(root, 'pay').props.value).toBe('7.5000000');
+    expect(input(root, 'receive').props.value).toBe('');
+    expect(prepare).not.toHaveBeenCalled();
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(submitSwapReview).not.toHaveBeenCalled();
+  },
+);
+
+it('rejects a queued old Get Quotes callback after Max fills the new draft', async () => {
+  const h = setup();
+  let root = await h.mount();
+  await settle();
+  root = h.draw();
+  input(root, 'pay').props.onChangeAmount?.('2');
+  root = h.draw();
+  const oldGetQuotes = button(root, 'swap.preview.getQuotes');
+  jest.advanceTimersByTime(500);
+  await settle();
+  root = h.draw();
+  spendable.mockResolvedValueOnce('7.5000000');
+  button(root, 'swap.form.max').props.onPress?.();
+  await settle();
+  oldGetQuotes.props.onPress?.();
+  await settle();
+  root = h.draw();
+  expect(input(root, 'pay').props.value).toBe('7.5000000');
+  expect(input(root, 'receive').props.value).toBe('');
+  expect(request).toHaveBeenCalledTimes(1);
+  expect(prepare).not.toHaveBeenCalled();
+});
+
+it('rejects the previous selected route review callback but accepts the newly selected route review', async () => {
+  const best = quote('2', '3');
+  const alternate = quote('2', '4');
+  request.mockResolvedValueOnce({ quotes: [best, alternate], best });
+  prepare.mockReturnValueOnce(new Promise(() => undefined));
+  const h = setup();
+  let root = await h.mount();
+  input(root, 'pay').props.onChangeAmount?.('2');
+  h.draw();
+  jest.advanceTimersByTime(500);
+  await settle();
+  root = h.draw();
+  button(root, 'swap.settings.open').props.onPress?.();
+  root = h.draw();
+  const previousReview = button(root, 'swap.preview.review');
+  const alternateRoute = find(root, node => node.type === Pressable && node.key === '1');
+  expect(alternateRoute).toBeDefined();
+  alternateRoute?.props.onPress?.();
+  root = h.draw();
+  expect(input(root, 'receive').props.value).toBe('4');
+  previousReview.props.onPress?.();
+  expect(prepare).not.toHaveBeenCalled();
+  button(root, 'swap.preview.review').props.onPress?.();
+  expect(prepare).toHaveBeenCalledTimes(1);
+  expect(prepare.mock.calls[0][2]).toBe(alternate);
+});

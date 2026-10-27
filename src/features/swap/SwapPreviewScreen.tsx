@@ -108,6 +108,7 @@ export function SwapPreviewScreen({
   foregroundRef.current = foreground;
   const spendableAttempt = useRef(0);
   const draftRevision = useRef(0);
+  const renderedDraftRevision = draftRevision.current;
   const maxReadLocked = useRef(false);
   const maxSurfaceRef = useRef(view.kind === 'form' || view.kind === 'quotes');
   maxSurfaceRef.current = view.kind === 'form' || view.kind === 'quotes';
@@ -144,6 +145,7 @@ export function SwapPreviewScreen({
 
   useEffect(() => {
     const generation = ++attempt.current;
+    draftRevision.current += 1;
     locked.current = false;
     setAssets([]);
     setSourceIndex(0);
@@ -163,6 +165,7 @@ export function SwapPreviewScreen({
     setLoading(active);
     if (!active)
       return () => {
+        draftRevision.current += 1;
         attempt.current += 1;
       };
     const session = captureSession();
@@ -171,6 +174,7 @@ export function SwapPreviewScreen({
       setLoading(false);
       setError(t('swap.error.session'));
       return () => {
+        draftRevision.current += 1;
         attempt.current += 1;
       };
     }
@@ -192,12 +196,14 @@ export function SwapPreviewScreen({
         if (valid()) setLoading(false);
       });
     return () => {
+      draftRevision.current += 1;
       attempt.current += 1;
     };
   }, [account, active, assetLoadRevision, captureSession, clearPassphrase, dependencies, execution, t]);
 
   const startQuote = useCallback(async () => {
     if (
+      renderedDraftRevision !== draftRevision.current ||
       !foregroundRef.current ||
       busy ||
       maxLoading ||
@@ -216,6 +222,8 @@ export function SwapPreviewScreen({
     const valid = () => generation === attempt.current && foregroundRef.current && session();
     setBusy(true);
     setError(undefined);
+    setView({ kind: 'form' });
+    setSettingsVisible(false);
     try {
       const result = await requestSwapPreviewQuotes(
         dependencies,
@@ -228,7 +236,10 @@ export function SwapPreviewScreen({
         },
         valid,
       );
-      if (valid()) setView({ kind: 'quotes', ...result, selected: result.best });
+      if (valid()) {
+        draftRevision.current += 1;
+        setView({ kind: 'quotes', ...result, selected: result.best });
+      }
     } catch (caught) {
       if (valid()) setError(errorText(caught, t));
     } finally {
@@ -237,7 +248,20 @@ export function SwapPreviewScreen({
         if (valid()) setBusy(false);
       }
     }
-  }, [account, amount, assets, busy, maxLoading, captureSession, dependencies, destinationIndex, mode, sourceIndex, t]);
+  }, [
+    account,
+    amount,
+    assets,
+    busy,
+    maxLoading,
+    captureSession,
+    dependencies,
+    destinationIndex,
+    mode,
+    renderedDraftRevision,
+    sourceIndex,
+    t,
+  ]);
 
   const quoteRequest = useRef(startQuote);
   quoteRequest.current = startQuote;
@@ -280,7 +304,15 @@ export function SwapPreviewScreen({
   }, [foreground, loading, view.kind, resetQuotes]);
 
   const startReview = useCallback(async () => {
-    if (!foregroundRef.current || view.kind !== 'quotes' || busy || maxLoading || locked.current) return;
+    if (
+      renderedDraftRevision !== draftRevision.current ||
+      !foregroundRef.current ||
+      view.kind !== 'quotes' ||
+      busy ||
+      maxLoading ||
+      locked.current
+    )
+      return;
     const slippageText = slippageInput.trim();
     if (!/^(0|[1-9]\d{0,3})$/.test(slippageText) || Number(slippageText) > 1000) {
       setError(t('swap.error.slippage'));
@@ -294,7 +326,10 @@ export function SwapPreviewScreen({
     setError(undefined);
     try {
       const review = await prepareSwapPreviewReview(dependencies, account, view.selected, Number(slippageText), valid);
-      if (valid()) setView({ kind: 'review', review });
+      if (valid()) {
+        draftRevision.current += 1;
+        setView({ kind: 'review', review });
+      }
     } catch (caught) {
       if (valid()) setError(errorText(caught, t));
     } finally {
@@ -303,7 +338,7 @@ export function SwapPreviewScreen({
         if (valid()) setBusy(false);
       }
     }
-  }, [account, busy, maxLoading, captureSession, dependencies, slippageInput, t, view]);
+  }, [account, busy, maxLoading, captureSession, dependencies, renderedDraftRevision, slippageInput, t, view]);
 
   const confirmSwap = useCallback(async () => {
     if (view.kind !== 'review' || busy || submitting || submitLocked.current) return;
@@ -770,7 +805,8 @@ export function SwapPreviewScreen({
                     disabled={busy || maxLoading}
                     key={String(index)}
                     onPress={() => {
-                      if (locked.current) return;
+                      if (locked.current || renderedDraftRevision !== draftRevision.current) return;
+                      draftRevision.current += 1;
                       attempt.current += 1;
                       setError(undefined);
                       setView({ ...view, selected: quote });
@@ -860,14 +896,19 @@ export function SwapPreviewScreen({
             <NativeButton
               label={t('swap.preview.requote')}
               disabled={busy}
-              onPress={() => {
-                resetQuotes();
-                startQuote();
-              }}
+              onPress={() => startQuote()}
               size="md"
               variant="quiet"
             />
-            <NativeButton label={t('common.back')} disabled={busy} onPress={resetQuotes} size="sm" variant="quiet" />
+            <NativeButton
+              label={t('common.back')}
+              disabled={busy}
+              onPress={() => {
+                if (renderedDraftRevision === draftRevision.current) resetQuotes();
+              }}
+              size="sm"
+              variant="quiet"
+            />
           </>
         ) : view.kind === 'review' ? (
           <>
