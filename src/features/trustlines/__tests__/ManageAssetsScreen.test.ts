@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AccessibilityInfo, Pressable, StyleSheet, Text, TextInput, type ViewStyle } from 'react-native';
 
 import type { AccountRecord } from '../../../capabilities/account/types';
+import type { BalanceProductDependencies } from '@capabilities/balance/BalanceCacheHydration';
 import { loadBalanceSnapshot } from '../../../capabilities/balance/loadBalanceSnapshot';
 import type { TrustlineReview } from '../../../capabilities/trustline/buildTrustlineReview';
 import { SlideToConfirm } from '../../../ui/SlideToConfirm';
@@ -13,6 +14,10 @@ import {
   type TrustlineProductDependencies,
   type TrustlineSubmissionResult,
 } from '../trustlineProductFlow';
+
+jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
+
+jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true }));
 
 jest.mock('react', () => {
   const actual = jest.requireActual('react') as typeof import('react');
@@ -147,8 +152,7 @@ function renderWithState(overrides: StateOverrides = {}) {
   const values = [
     overrides.loadState ?? readyLoadState,
     overrides.flow ?? { kind: 'manage' },
-    overrides.assetCode ?? '',
-    overrides.assetIssuer ?? '',
+    false,
     overrides.limitEditor,
     overrides.building ?? false,
     overrides.submitting ?? false,
@@ -168,6 +172,10 @@ function renderWithState(overrides: StateOverrides = {}) {
     root: ManageAssetsScreen({
       account,
       dependencies,
+      balanceDependencies: {} as BalanceProductDependencies,
+      catalog: { read: jest.fn() },
+      foreground: true,
+      invalidationRevision: 0,
       onDone: jest.fn(),
     }),
     setters,
@@ -246,19 +254,15 @@ describe('ManageAssetsScreen Stage 4 hardening', () => {
       },
     });
 
-    const add = elementsWithLabel(root, 'Review add')[0];
+    const add = elementsWithLabel(root, 'Add asset')[0];
     const setLimit = elementsWithLabel(root, 'Set limit for USD')[0];
     const remove = elementsWithLabel(root, 'Remove USD trustline')[0];
     const reviewLimit = elementsWithLabel(root, 'Review limit')[0];
     const limitInput = elementsWithLabel(root, 'New USD trustline limit')[0];
-    const codeInput = elementsWithLabel(root, 'Asset code')[0];
-    const issuerInput = elementsWithLabel(root, 'Issuer')[0];
 
     expect(add?.type).toBe(Pressable);
     expect(add?.props).toMatchObject({
       accessibilityRole: 'button',
-      accessibilityState: { disabled: true },
-      disabled: true,
     });
     expect(setLimit?.props).toMatchObject({
       accessibilityRole: 'button',
@@ -274,8 +278,6 @@ describe('ManageAssetsScreen Stage 4 hardening', () => {
     });
     expect(limitInput?.type).toBe(TextInput);
     expect(limitInput?.props.placeholder).toBe('New positive limit');
-    expect(codeInput?.type).toBe(TextInput);
-    expect(issuerInput?.type).toBe(TextInput);
   });
 
   it('renders the localized App Passphrase fallback with focus, hint and a disabled second slide', () => {

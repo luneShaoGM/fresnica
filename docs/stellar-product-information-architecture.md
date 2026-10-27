@@ -773,7 +773,7 @@ Stellar 有、§7.1–§7.7 原先没逐行写的表面。这里给决定，避�
 
 - 信息顺序仍是：当前账户、切换器、主操作、资产列表。
 - 加载 / 未激活 / 已激活 / 错误保持区分。测试网未激活要有 **Friendbot 激活**。LP / claimable 不当成普通代币；claimable **搬运** Stellar 实现。
-- Send / 管理资产（增减资产）/ 添加账户是 stack push。Home 上要有资产增减入口。
+- Send / 添加账户与 Trustline 精确复核是 stack push。Home 的添加资产和资产详情可用可关闭的 bottom sheet；增减资产继续进入既有 Trustline 精确复核，见 `behavior-specs/s06-asset-sheets.md`。
 - 余额读取仍走 Balance capability，snapshot 留在 Home feature 状态，不写入 Realm 当真值。
 - 从 Send / Trustline / 任何改账本流返回时，即使 Home 仍挂在栈上，也要因 focus 或显式失效再拉 snapshot。提交 uncertain 同样失效。不要本地乐观减余额。
 - 资产类别切换、余额说明、LP / claimable 详情走 §7.8 角色；契约表达不了就占位，不要显示成普通发行资产。

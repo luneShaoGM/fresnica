@@ -12,6 +12,7 @@ const strictPresentationScopes = [
   'src/app/readModels/',
   'src/ui/components/',
   'src/features/home/',
+  'src/features/trustlines/',
   'src/features/activity/',
   'src/features/dapps/',
   'src/features/request/',
