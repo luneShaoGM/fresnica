@@ -1,19 +1,22 @@
 import React from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
+import type { NodeHealthMonitor } from '@capabilities/network/NodeHealthMonitor';
 import { Screen } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 
 import { useThemedStyles } from '../../ui/theme';
 
+import { NetworkNodeHealth } from './NetworkNodeHealth';
 import { createStyles } from './NetworkSettingsScreen.styles';
 
 type Props = Readonly<{
   onBack: () => void;
+  monitor: NodeHealthMonitor;
   network: Readonly<{ id: string; horizonUrl: string; isMainnet: boolean }>;
 }>;
 
-export function NetworkSettingsScreen({ onBack, network }: Props) {
+export function NetworkSettingsScreen({ onBack, network, monitor }: Props) {
   const styles = useThemedStyles(createStyles);
 
   return (
@@ -48,6 +51,8 @@ export function NetworkSettingsScreen({ onBack, network }: Props) {
           <InfoRow label="Network ID" value={network.id} />
           <InfoRow label="Horizon" value={network.horizonUrl} multiline />
         </View>
+
+        <NetworkNodeHealth monitor={monitor} />
 
         <View style={styles.notice}>
           <Text style={styles.noticeTitle}>Network switching is read-only for now</Text>

@@ -121,6 +121,7 @@ export function SettingsStackNavigator({
       <Stack.Screen name="network-settings">
         {({ navigation }) => (
           <NetworkSettingsScreen
+            monitor={services.nodeReadSession}
             network={{
               id: APP_CONFIG.network.id,
               horizonUrl: APP_CONFIG.network.horizonUrl,

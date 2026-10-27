@@ -667,5 +667,19 @@
   "swap.form.payAmount": "付款金额",
   "swap.form.receiveAmount": "收款金额",
   "swap.form.exchangeAssets": "交换付款与收款资产",
-  "swap.quote.automatic": "编辑后会自动更新报价，复核和授权仍需单独操作。"
+  "swap.quote.automatic": "编辑后会自动更新报价，复核和授权仍需单独操作。",
+  "networkHealth.currentNode": "当前节点",
+  "networkHealth.phase.checking": "正在检查连接…",
+  "networkHealth.phase.healthy": "已连接",
+  "networkHealth.phase.cooldown": "正在重试连接",
+  "networkHealth.phase.wrong-network": "网络不匹配，已阻止读取",
+  "networkHealth.phase.paused": "离线或应用未激活，连接已暂停",
+  "networkHealth.phase.closed": "连接已关闭",
+  "networkHealth.failure.timeout": "节点响应超时。",
+  "networkHealth.failure.rate-limited": "节点正在限制请求频率。",
+  "networkHealth.failure.unavailable": "节点当前不可用。",
+  "networkHealth.failure.protocol": "节点返回了无效响应。",
+  "networkHealth.readScope": "此状态反映实时余额与交易记录的连接情况。",
+  "networkHealth.retryPolicy": "连接会自动重试。手动重试仍遵守节点等待时间，可能不会立即发起请求。",
+  "networkHealth.retry": "重试连接"
 }

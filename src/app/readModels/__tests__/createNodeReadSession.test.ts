@@ -33,6 +33,25 @@ afterEach(() => {
   jest.useRealTimers();
 });
 describe('shared node read session', () => {
+  it('publishes shared health transitions and removes a screen listener without closing the session', async () => {
+    const s = setup();
+    const changed = jest.fn();
+    const unsubscribe = s.node.subscribe(changed);
+    expect(s.node.getSnapshot().phase).toBe('checking');
+    await settle();
+    expect(changed).toHaveBeenCalledTimes(1);
+    expect(s.node.getSnapshot().phase).toBe('healthy');
+    s.runtime.update({ foreground: false, connectivity: 'offline' });
+    expect(s.node.getSnapshot().phase).toBe('paused');
+    expect(changed).toHaveBeenCalledTimes(2);
+    unsubscribe();
+    s.runtime.update({ foreground: true, connectivity: 'online' });
+    await settle();
+    expect(s.node.getSnapshot().phase).toBe('healthy');
+    expect(changed).toHaveBeenCalledTimes(2);
+    await expect(s.node.run(async () => 'still shared')).resolves.toBe('still shared');
+    s.node.close();
+  });
   it('validates the network before allowing any read and keeps business request errors separate', async () => {
     const s = setup();
     const load = jest.fn(async () => 'value');

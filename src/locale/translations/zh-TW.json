@@ -667,5 +667,19 @@
   "swap.form.payAmount": "付款金額",
   "swap.form.receiveAmount": "收款金額",
   "swap.form.exchangeAssets": "交換付款與收款資產",
-  "swap.quote.automatic": "編輯後會自動更新報價，複核和授權仍須單獨操作。"
+  "swap.quote.automatic": "編輯後會自動更新報價，複核和授權仍須單獨操作。",
+  "networkHealth.currentNode": "目前節點",
+  "networkHealth.phase.checking": "正在檢查連線…",
+  "networkHealth.phase.healthy": "已連線",
+  "networkHealth.phase.cooldown": "正在重試連線",
+  "networkHealth.phase.wrong-network": "網路不符，已阻止讀取",
+  "networkHealth.phase.paused": "離線或應用程式未啟用，連線已暫停",
+  "networkHealth.phase.closed": "連線已關閉",
+  "networkHealth.failure.timeout": "節點回應逾時。",
+  "networkHealth.failure.rate-limited": "節點正在限制請求頻率。",
+  "networkHealth.failure.unavailable": "節點目前無法使用。",
+  "networkHealth.failure.protocol": "節點傳回無效回應。",
+  "networkHealth.readScope": "此狀態反映即時餘額與交易紀錄的連線情況。",
+  "networkHealth.retryPolicy": "連線會自動重試。手動重試仍遵守節點等待時間，可能不會立即發出請求。",
+  "networkHealth.retry": "重試連線"
 }

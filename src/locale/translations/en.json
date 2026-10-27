@@ -667,5 +667,19 @@
   "swap.form.payAmount": "Amount to pay",
   "swap.form.receiveAmount": "Amount to receive",
   "swap.form.exchangeAssets": "Exchange pay and receive assets",
-  "swap.quote.automatic": "Quotes update automatically after editing. Review and authorization are separate steps."
+  "swap.quote.automatic": "Quotes update automatically after editing. Review and authorization are separate steps.",
+  "networkHealth.currentNode": "Current node",
+  "networkHealth.phase.checking": "Checking connection…",
+  "networkHealth.phase.healthy": "Connected",
+  "networkHealth.phase.cooldown": "Retrying connection",
+  "networkHealth.phase.wrong-network": "Wrong network — reads blocked",
+  "networkHealth.phase.paused": "Connection paused while offline or inactive",
+  "networkHealth.phase.closed": "Connection closed",
+  "networkHealth.failure.timeout": "The node did not respond in time.",
+  "networkHealth.failure.rate-limited": "The node is limiting requests.",
+  "networkHealth.failure.unavailable": "The node is currently unavailable.",
+  "networkHealth.failure.protocol": "The node returned an invalid response.",
+  "networkHealth.readScope": "Connection status for live balances and activity.",
+  "networkHealth.retryPolicy": "Connection retries automatically. Retry respects the node’s waiting period and may not run immediately.",
+  "networkHealth.retry": "Retry connection"
 }
