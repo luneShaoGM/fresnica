@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, TextInput } from 'react-native';
+import { Pressable, TextInput, View } from 'react-native';
 import { SlideToConfirm } from '../../../ui/SlideToConfirm';
 import { submitSwapReview } from '../swapSubmissionProductFlow';
 import type { AccountRecord } from '@capabilities/account/types';
@@ -116,6 +116,7 @@ type NodeProps = {
   onComplete?: () => void;
   selected?: boolean;
   asset?: StellarPaymentAsset;
+  style?: unknown;
 };
 function find(
   root: React.ReactNode,
@@ -390,6 +391,21 @@ it('manual Requote after an existing quote does not leave a second automatic req
   jest.advanceTimersByTime(2000);
   await settle();
   expect(request).toHaveBeenCalledTimes(2);
+});
+
+it('frames the selected quote summary with the route card layout and selected highlight', async () => {
+  const h = setup();
+  let root = await h.mount();
+  input(root, 'pay').props.onChangeAmount?.('2');
+  h.draw();
+  jest.advanceTimersByTime(500);
+  await settle();
+  root = h.draw();
+  const summary = find(root, node => node.type === View && Array.isArray(node.props.style));
+  expect(summary).toBeDefined();
+  const [base, selected] = summary?.props.style as ReadonlyArray<Record<string, unknown>>;
+  expect(base).toMatchObject({ borderWidth: 1, paddingHorizontal: 14, paddingVertical: 14, gap: 6 });
+  expect(selected).toHaveProperty('borderColor');
 });
 
 it('projects an alternate route and prepares that exact selected quote', async () => {

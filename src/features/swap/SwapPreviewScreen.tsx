@@ -540,7 +540,7 @@ export function SwapPreviewScreen({
                 variant="quiet"
               />
             </View>
-            <View style={styles.routeSelected}>
+            <View style={[styles.route, styles.routeSelected]}>
               <Text style={styles.choiceText}>
                 {view.selected.sourceAmount} → {view.selected.destinationAmount}
               </Text>
