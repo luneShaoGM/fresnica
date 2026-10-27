@@ -41,6 +41,7 @@ type ViewState =
 type Props = Readonly<{
   account: AccountRecord;
   active: boolean;
+  foreground: boolean;
   selectedAccountId: string;
   dependencies: SwapPreviewProductDependencies;
   execution: SwapSubmissionProductDependencies;
@@ -61,6 +62,7 @@ function fullPath(assets: readonly StellarPaymentAsset[]): string {
 export function SwapPreviewScreen({
   account,
   active,
+  foreground,
   selectedAccountId,
   dependencies,
   execution,
@@ -93,6 +95,9 @@ export function SwapPreviewScreen({
   const submitLocked = useRef(false);
   const reconcileLocked = useRef(false);
   const securePassphraseInput = useRef<SwapPassphraseInputHandle>(null);
+  const quoteTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const foregroundRef = useRef(foreground);
+  foregroundRef.current = foreground;
 
   const clearPassphrase = useCallback(() => {
     securePassphraseInput.current?.clear();
@@ -101,6 +106,9 @@ export function SwapPreviewScreen({
 
   const resetQuotes = useCallback(() => {
     attempt.current += 1;
+    clearTimeout(quoteTimer.current);
+    locked.current = false;
+    setBusy(false);
     setError(undefined);
     setPassphraseRequired(false);
     clearPassphrase();
@@ -113,6 +121,8 @@ export function SwapPreviewScreen({
     setAssets([]);
     setSourceIndex(0);
     setDestinationIndex(1);
+    setMode('strict_send');
+    setAmount('');
     setView({ kind: 'form' });
     setError(undefined);
     setBusy(false);
@@ -159,14 +169,15 @@ export function SwapPreviewScreen({
   }, [account, active, assetLoadRevision, captureSession, clearPassphrase, dependencies, execution, t]);
 
   const startQuote = useCallback(async () => {
-    if (busy || locked.current || assets.length < 2 || !isQuotableSwapAmount(amount)) return;
+    if (!foregroundRef.current || busy || locked.current || assets.length < 2 || !isQuotableSwapAmount(amount)) return;
+    clearTimeout(quoteTimer.current);
     const sourceAsset = assets[sourceIndex];
     const destinationAsset = assets[destinationIndex];
     if (!sourceAsset || !destinationAsset) return;
     locked.current = true;
     const generation = ++attempt.current;
     const session = captureSession();
-    const valid = () => generation === attempt.current && session();
+    const valid = () => generation === attempt.current && foregroundRef.current && session();
     setBusy(true);
     setError(undefined);
     try {
@@ -192,8 +203,46 @@ export function SwapPreviewScreen({
     }
   }, [account, amount, assets, busy, captureSession, dependencies, destinationIndex, mode, sourceIndex, t]);
 
+  const quoteRequest = useRef(startQuote);
+  quoteRequest.current = startQuote;
+  useEffect(() => {
+    if (
+      !active ||
+      !foreground ||
+      selectedAccountId !== account.id ||
+      loading ||
+      view.kind !== 'form' ||
+      locked.current ||
+      assets.length < 2 ||
+      !isQuotableSwapAmount(amount)
+    )
+      return undefined;
+    const timer = setTimeout(() => {
+      void quoteRequest.current();
+    }, 500);
+    quoteTimer.current = timer;
+    return () => clearTimeout(timer);
+  }, [
+    account.id,
+    active,
+    foreground,
+    selectedAccountId,
+    loading,
+    view.kind,
+    assets,
+    amount,
+    mode,
+    sourceIndex,
+    destinationIndex,
+  ]);
+
+  useEffect(() => {
+    // Do not invalidate the native System Auth handoff of an explicitly submitted review.
+    if (!foreground && !loading && (view.kind === 'form' || view.kind === 'quotes')) resetQuotes();
+  }, [foreground, loading, view.kind, resetQuotes]);
+
   const startReview = useCallback(async () => {
-    if (view.kind !== 'quotes' || busy || locked.current) return;
+    if (!foregroundRef.current || view.kind !== 'quotes' || busy || locked.current) return;
     const slippageText = slippageInput.trim();
     if (!/^(0|[1-9]\d{0,3})$/.test(slippageText) || Number(slippageText) > 1000) {
       setError(t('swap.error.slippage'));
@@ -202,7 +251,7 @@ export function SwapPreviewScreen({
     locked.current = true;
     const generation = ++attempt.current;
     const session = captureSession();
-    const valid = () => generation === attempt.current && session();
+    const valid = () => generation === attempt.current && foregroundRef.current && session();
     setBusy(true);
     setError(undefined);
     try {
@@ -300,8 +349,20 @@ export function SwapPreviewScreen({
 
   const close = () => {
     attempt.current += 1;
+    clearTimeout(quoteTimer.current);
     clearPassphrase();
     onDone();
+  };
+
+  const selectedQuote = view.kind === 'quotes' ? view.selected : undefined;
+  const sourceAmount = mode === 'strict_send' ? amount : (selectedQuote?.sourceAmount ?? '');
+  const destinationAmount = mode === 'strict_receive' ? amount : (selectedQuote?.destinationAmount ?? '');
+  const preparing = busy && view.kind === 'quotes';
+  const editAmount = (nextMode: PathPaymentMode, value: string) => {
+    if (preparing) return;
+    setMode(nextMode);
+    setAmount(value);
+    resetQuotes();
   };
 
   const historyPanel = (
@@ -387,7 +448,7 @@ export function SwapPreviewScreen({
             onPress={() => setAssetLoadRevision(current => current + 1)}
           />
         ) : null}
-        {view.kind === 'form' && !loading && assets.length >= 2 ? (
+        {(view.kind === 'form' || view.kind === 'quotes') && !loading && assets.length >= 2 ? (
           <>
             <View style={styles.section}>
               <Text style={styles.label}>{t('swap.preview.source')}</Text>
@@ -397,8 +458,9 @@ export function SwapPreviewScreen({
                     key={'source-' + assetLabel(asset)}
                     asset={asset}
                     selected={sourceIndex === index}
-                    disabled={busy}
+                    disabled={preparing}
                     onPress={() => {
+                      if (preparing) return;
                       setSourceIndex(index);
                       if (index === destinationIndex) setDestinationIndex((index + 1) % assets.length);
                       resetQuotes();
@@ -406,7 +468,28 @@ export function SwapPreviewScreen({
                   />
                 ))}
               </View>
+              <SwapAmountInput
+                accessibilityLabel={t('swap.form.payAmount')}
+                disabled={preparing}
+                onChangeAmount={value => editAmount('strict_send', value)}
+                style={styles.input}
+                value={sourceAmount}
+              />
             </View>
+            <NativeButton
+              label={t('swap.form.exchangeAssets')}
+              disabled={preparing}
+              size="sm"
+              variant="quiet"
+              onPress={() => {
+                if (preparing) return;
+                setSourceIndex(destinationIndex);
+                setDestinationIndex(sourceIndex);
+                setMode('strict_send');
+                setAmount('');
+                resetQuotes();
+              }}
+            />
             <View style={styles.section}>
               <Text style={styles.label}>{t('swap.preview.destination')}</Text>
               <View style={styles.choices}>
@@ -415,8 +498,9 @@ export function SwapPreviewScreen({
                     key={'destination-' + assetLabel(asset)}
                     asset={asset}
                     selected={destinationIndex === index}
-                    disabled={busy}
+                    disabled={preparing}
                     onPress={() => {
+                      if (preparing) return;
                       setDestinationIndex(index);
                       if (index === sourceIndex) setSourceIndex((index + 1) % assets.length);
                       resetQuotes();
@@ -424,44 +508,20 @@ export function SwapPreviewScreen({
                   />
                 ))}
               </View>
-            </View>
-            <View style={styles.section}>
-              <Text style={styles.label}>{t('swap.preview.mode')}</Text>
-              <View style={styles.choices}>
-                {(['strict_send', 'strict_receive'] as const).map(value => (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: mode === value }}
-                    disabled={busy}
-                    key={value}
-                    onPress={() => {
-                      setMode(value);
-                      resetQuotes();
-                    }}
-                    style={[styles.choice, mode === value ? styles.choiceSelected : undefined]}
-                  >
-                    <Text style={styles.choiceText}>{t('swap.preview.' + value)}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-            <View style={styles.section}>
-              <Text style={styles.label}>{t('swap.preview.fixedAmount')}</Text>
               <SwapAmountInput
-                accessibilityLabel={t('swap.preview.fixedAmount')}
-                disabled={busy}
-                onChangeAmount={value => {
-                  setAmount(value);
-                  resetQuotes();
-                }}
+                accessibilityLabel={t('swap.form.receiveAmount')}
+                disabled={preparing}
+                onChangeAmount={value => editAmount('strict_receive', value)}
                 style={styles.input}
-                value={amount}
+                value={destinationAmount}
               />
-              <Text style={styles.secondary}>{t('swap.preview.fixedHint')}</Text>
-              {amount && !isQuotableSwapAmount(amount) ? (
-                <Text style={styles.error}>{t('swap.amount.invalid')}</Text>
-              ) : null}
             </View>
+            <Text style={styles.secondary}>{t('swap.preview.' + mode)}</Text>
+            <Text style={styles.secondary}>{t('swap.quote.automatic')}</Text>
+            {busy && view.kind === 'form' ? <ActivityIndicator accessibilityLabel={t('swap.preview.loading')} /> : null}
+            {amount && !isQuotableSwapAmount(amount) ? (
+              <Text style={styles.error}>{t('swap.amount.invalid')}</Text>
+            ) : null}
           </>
         ) : null}
         {view.kind === 'quotes' ? (
@@ -474,6 +534,7 @@ export function SwapPreviewScreen({
                 disabled={busy}
                 key={String(index)}
                 onPress={() => {
+                  if (locked.current) return;
                   attempt.current += 1;
                   setError(undefined);
                   setView({ ...view, selected: quote });
