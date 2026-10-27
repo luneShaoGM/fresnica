@@ -1059,3 +1059,11 @@ Backend 交付并完成身份/滥用验证后才可支持：
 - 在 Capability 与 Platform 仍混合时复制大量 Feature，扩大架构债务。
 - 在不确定交易未协调时扩展多种写路径，放大重复上链风险。
 - 把 Stellar 派生目录误当成完全自有代码，再次引入许可证风险。
+
+### S24 current-node health slice (2026-10-27)
+
+- Branch `feat/s24-current-network-nodes-2026-10-27` starts from `main@8031a9d3e4dc0a30541a6e91721a00a96544c235`, isolated from ongoing Swap/dApp work.
+- Scope agreed: current-node live public-read health and existing-policy Retry only. Behavior/provenance/acceptance: [S24 current-node health](behavior-specs/s24-current-node-health.md). No custom-node controls, gateway rebinding or network switching in this slice.
+- Developer Mode authentication is a planned dependency, not an implemented flow. Before custom nodes: define authenticated enable/cancel/failure/retry and no-signer behavior, persisted preferences, and return-to-Mainnet-before-disable. SDK verification-only App Passphrase support exists; generic System Auth challenge remains upstream-blocked. Do not infer a successful challenge from availability/enrollment checks.
+- Next network batch: authenticated Developer Mode, then gated same-network node add/test/default/remove and consistent read/quote/preflight/submit gateway binding. Mainnet/Testnet switching remains a separate network-identity/recovery boundary.
+- S24 stays L1; automated checks and native product acceptance must be reported separately. Stage 9 iOS System Auth cancel/retry remains deferred.

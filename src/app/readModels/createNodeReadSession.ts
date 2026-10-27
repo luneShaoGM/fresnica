@@ -1,12 +1,8 @@
 import { isNodeFault, NodeReadError, type NodeReadFailure } from '@capabilities/network/NodeReadError';
+import type { NodeHealthSnapshot } from '@capabilities/network/NodeHealthMonitor';
 import type { LedgerReadRuntime } from './LedgerReadRuntime';
 
-export type NodeReadSnapshot = Readonly<{
-  endpoint: string;
-  generation: number;
-  phase: 'checking' | 'healthy' | 'cooldown' | 'wrong-network' | 'paused' | 'closed';
-  failure?: NodeReadFailure;
-}>;
+export type NodeReadSnapshot = NodeHealthSnapshot;
 export const NODE_READ_TIMING = Object.freeze({ timeout: 10000, retry: 2000, maxRetry: 60000, stable: 30000 });
 
 export function createNodeReadSession(

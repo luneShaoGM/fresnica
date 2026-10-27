@@ -12,6 +12,8 @@ const strictPresentationScopes = [
   'src/app/readModels/',
   'src/ui/components/',
   'src/features/home/',
+  'src/features/settings/NetworkSettingsScreen',
+  'src/features/settings/NetworkNodeHealth',
   'src/features/trustlines/',
   'src/features/swap/',
   'src/features/activity/',

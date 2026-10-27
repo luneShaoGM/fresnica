@@ -5,6 +5,7 @@ import { Screen } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 
 import { defaultTheme } from '../../../ui/theme';
+import { NetworkNodeHealth } from '../NetworkNodeHealth';
 import { NetworkSettingsScreen } from '../NetworkSettingsScreen';
 import { createStyles } from '../NetworkSettingsScreen.styles';
 
@@ -55,11 +56,18 @@ function displayedText(root: React.ReactNode): string[] {
   );
 }
 
+const monitor = {
+  getSnapshot: () => ({ endpoint: 'https://horizon-testnet.example', generation: 0, phase: 'healthy' as const }),
+  subscribe: () => () => {},
+  retry: jest.fn(),
+};
+
 describe('Network Settings native Back and read-only contract', () => {
   it('keeps Back callback, App-owned safe area, and original hidden-indicator ScrollView', () => {
     const onBack = jest.fn();
     const root = NetworkSettingsScreen({
       onBack,
+      monitor,
       network: { id: 'stellar-testnet', horizonUrl: 'https://horizon-testnet.example', isMainnet: false },
     });
 
@@ -67,6 +75,7 @@ describe('Network Settings native Back and read-only contract', () => {
     expect(back?.props).toMatchObject({ label: 'Back', size: 'sm', variant: 'quiet', onPress: onBack });
     back?.props.onPress?.();
     expect(onBack).toHaveBeenCalledTimes(1);
+    expect(findAll(root, element => element.type === NetworkNodeHealth)[0]?.props).toEqual({ monitor });
     expect(findAll(root, element => element.type === NativeButton)).toHaveLength(1);
     expect(findAll(root, element => element.type === Pressable)).toHaveLength(0);
     expect(findAll(root, element => element.type === Screen)[0]?.props).toMatchObject({
@@ -79,6 +88,7 @@ describe('Network Settings native Back and read-only contract', () => {
   it('keeps Network title centered using equal flexible sides, not the old 42dp spacer', () => {
     const root = NetworkSettingsScreen({
       onBack: jest.fn(),
+      monitor,
       network: { id: 'public', horizonUrl: 'https://horizon.example', isMainnet: true },
     });
     const styles = createStyles(defaultTheme);
@@ -113,7 +123,7 @@ describe('Network Settings native Back and read-only contract', () => {
       { id: 'testnet-network-passphrase', horizonUrl: 'https://horizon-testnet.example', isMainnet: false },
       { id: 'public-network-passphrase', horizonUrl: 'https://horizon-mainnet.example', isMainnet: true },
     ]) {
-      const root = NetworkSettingsScreen({ onBack: jest.fn(), network });
+      const root = NetworkSettingsScreen({ onBack: jest.fn(), network, monitor });
       const shown = displayedText(root);
       const infoRows = findAll(
         root,
