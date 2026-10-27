@@ -24,3 +24,7 @@ Decision: Adapt the existing Fresnica branch `stage6/add-assets-sheet-2026-10-23
 | Branch-specific Home/account/navigation restyling | Deferred; not required for this Swap presentation slice. |
 
 Provenance: existing Fresnica code and new adaptation only; no Stellar/Xaman source consulted/copied. Automated zero donor collisions is not proof of historical authorship. Validate changed UI and connected submission/recovery tests, types/lint/architecture/provenance/locales and CI. Simulator, physical-device, dynamic-font and TalkBack/VoiceOver acceptance remain unperformed; Stage 9 iPhone System Auth cancellation/retry remains deferred.
+
+## Route/settings parity follow-up (stacked on PR #119)
+
+The Stellar Exchange interaction reference exposes a separate settings surface with route selection and preset/custom slippage. Fresnica retains its quote identity and exact-XDR authority: the settings area can select only an already returned quote and edit explicit slippage bps, while review preparation performs all freshness/limits validation. Current bps presets 10/50/100 represent 0.1%/0.5%/1%; raw custom input is preserved for fail-closed validation. Changing the selected quote never signs or submits. This small UI follow-up intentionally does not introduce the source's legacy cached spendable balance/Max behavior; a separate current-ledger read contract is required. Clean-room UI adaptation based on observed behavior only. Native and screen-reader acceptance remains deferred.

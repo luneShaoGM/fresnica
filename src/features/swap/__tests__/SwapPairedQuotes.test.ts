@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable } from 'react-native';
+import { Pressable, TextInput } from 'react-native';
 import { SlideToConfirm } from '../../../ui/SlideToConfirm';
 import { submitSwapReview } from '../swapSubmissionProductFlow';
 import type { AccountRecord } from '@capabilities/account/types';
@@ -404,6 +404,8 @@ it('projects an alternate route and prepares that exact selected quote', async (
   jest.advanceTimersByTime(500);
   await settle();
   root = h.draw();
+  button(root, 'swap.settings.open').props.onPress?.();
+  root = h.draw();
   const row = find(root, node => node.type === Pressable && node.key === '1');
   expect(row).toBeDefined();
   row?.props.onPress?.();
@@ -516,6 +518,8 @@ it('ignores an already queued route tap while review preparation owns the reques
   jest.advanceTimersByTime(500);
   await settle();
   root = h.draw();
+  button(root, 'swap.settings.open').props.onPress?.();
+  root = h.draw();
   const row = find(root, node => node.type === Pressable && node.key === '1');
   button(root, 'swap.preview.review').props.onPress?.();
   row?.props.onPress?.();
@@ -523,4 +527,27 @@ it('ignores an already queued route tap while review preparation owns the reques
   expect(input(root, 'receive').props.value).toBe('3');
   expect(input(root, 'receive').props.disabled).toBe(true);
   expect(prepare.mock.calls[0][2]).toBe(best);
+});
+
+it('opens Stellar-style swap settings, applies an explicit preset and closes without submitting', async () => {
+  const h = setup();
+  let root = await h.mount();
+  input(root, 'pay').props.onChangeAmount?.('2');
+  h.draw();
+  jest.advanceTimersByTime(500);
+  await settle();
+  root = h.draw();
+  expect(find(root, node => node.type === TextInput && node.props.accessibilityLabel === 'swap.settings.customSlippage')).toBeUndefined();
+  button(root, 'swap.settings.open').props.onPress?.();
+  root = h.draw();
+  const preset = find(root, node => node.type === Pressable && node.key === '50');
+  expect(preset).toBeDefined();
+  preset?.props.onPress?.();
+  root = h.draw();
+  expect(find(root, node => node.type === TextInput && node.props.accessibilityLabel === 'swap.settings.customSlippage')?.props.value).toBe('50');
+  button(root, 'swap.settings.done').props.onPress?.();
+  root = h.draw();
+  expect(find(root, node => node.type === TextInput && node.props.accessibilityLabel === 'swap.settings.customSlippage')).toBeUndefined();
+  expect(prepare).not.toHaveBeenCalled();
+  expect(submitSwapReview).not.toHaveBeenCalled();
 });
