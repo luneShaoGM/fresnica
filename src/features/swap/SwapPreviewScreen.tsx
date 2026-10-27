@@ -1,14 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { Screen } from '@ui/components';
+import { AccountIdentityCard, Screen } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import { SlideToConfirm } from '../../ui/SlideToConfirm';
 import { useThemedStyles } from '../../ui/theme';
 import { useLocalization } from '../../locale';
 import type { AccountRecord } from '../../capabilities/account/types';
 import type { PendingSubmissionRecord } from '../../capabilities/transaction/pendingSubmission';
-import type { SubmitReviewedTransactionResult } from '../../capabilities/transaction/submitReviewedTransaction';
 import type { StellarPaymentAsset } from '../../capabilities/stellar/types';
 import type {
   PathPaymentMode,
@@ -31,7 +30,8 @@ import {
   type SwapSubmissionProductDependencies,
 } from './swapSubmissionProductFlow';
 
-type SwapTerminalResult = Exclude<SubmitReviewedTransactionResult, { status: 'passphrase-required' }>;
+import { isQuotableSwapAmount, SwapAmountInput } from './SwapAmountInput';
+import { SwapResultScreen, type SwapTerminalResult } from './SwapResultScreen';
 type ViewState =
   | Readonly<{ kind: 'form' }>
   | Readonly<{ kind: 'quotes'; quotes: readonly PathPaymentQuote[]; selected: PathPaymentQuote }>
@@ -46,6 +46,8 @@ type Props = Readonly<{
   execution: SwapSubmissionProductDependencies;
   captureSession: () => () => boolean;
   onDone: () => void;
+  copyPublicText: (value: string) => Promise<void>;
+  openExternalUrl: (url: string) => Promise<void>;
 }>;
 
 function assetLabel(asset: StellarPaymentAsset): string {
@@ -64,6 +66,8 @@ export function SwapPreviewScreen({
   execution,
   captureSession,
   onDone,
+  copyPublicText,
+  openExternalUrl,
 }: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createSwapPreviewStyles);
@@ -155,7 +159,7 @@ export function SwapPreviewScreen({
   }, [account, active, assetLoadRevision, captureSession, clearPassphrase, dependencies, execution, t]);
 
   const startQuote = useCallback(async () => {
-    if (busy || locked.current || assets.length < 2) return;
+    if (busy || locked.current || assets.length < 2 || !isQuotableSwapAmount(amount)) return;
     const sourceAsset = assets[sourceIndex];
     const destinationAsset = assets[destinationIndex];
     if (!sourceAsset || !destinationAsset) return;
@@ -300,6 +304,66 @@ export function SwapPreviewScreen({
     onDone();
   };
 
+  const historyPanel = (
+    <>
+      {history.length > 0 || (view.kind === 'result' && view.result.status === 'uncertain') ? (
+        <View style={styles.section}>
+          <Text style={styles.label}>{t('swap.history.title')}</Text>
+          {history.map(record => (
+            <View style={styles.route} key={record.id}>
+              <Text style={styles.text}>{t('swap.history.state.' + record.state)}</Text>
+              <Text selectable style={styles.mono}>
+                {record.transactionHash}
+              </Text>
+              {record.ledger === undefined ? null : (
+                <Text style={styles.secondary}>
+                  {t('swap.history.ledger')}: {record.ledger}
+                </Text>
+              )}
+              {record.resultCode === undefined ? null : (
+                <Text style={styles.secondary}>
+                  {t('swap.result.code')}: {record.resultCode}
+                </Text>
+              )}
+            </View>
+          ))}
+          {unresolved || (view.kind === 'result' && view.result.status === 'uncertain') ? (
+            <NativeButton
+              label={reconciling ? t('swap.history.checking') : t('swap.history.check')}
+              disabled={reconciling || busy || submitting}
+              onPress={() => checkPending()}
+              size="md"
+              variant="quiet"
+            />
+          ) : null}
+        </View>
+      ) : null}
+      {reconcileError ? (
+        <Text accessibilityLiveRegion="assertive" style={styles.error}>
+          {reconcileError}
+        </Text>
+      ) : null}
+    </>
+  );
+
+  if (view.kind === 'result') {
+    return (
+      <Screen scrollable={false} contentInset="none">
+        <SwapResultScreen
+          key={JSON.stringify(view.result)}
+          account={account}
+          result={view.result}
+          captureSession={captureSession}
+          copyPublicText={copyPublicText}
+          openExternalUrl={openExternalUrl}
+          onDone={close}
+        >
+          {historyPanel}
+        </SwapResultScreen>
+      </Screen>
+    );
+  }
+
   return (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
@@ -312,9 +376,7 @@ export function SwapPreviewScreen({
           <Text style={styles.text}>{t('swap.preview.notice')}</Text>
           <Text style={styles.secondary}>{t('swap.execution.safePreview')}</Text>
         </View>
-        <Text style={styles.secondary}>
-          {t('swap.preview.account')}: {account.label || account.address}
-        </Text>
+        <AccountIdentityCard address={account.address} name={account.label} label={t('swap.preview.account')} />
 
         {loading ? <ActivityIndicator accessibilityLabel={t('swap.preview.loading')} /> : null}
         {!loading && assets.length < 2 ? (
@@ -385,20 +447,20 @@ export function SwapPreviewScreen({
             </View>
             <View style={styles.section}>
               <Text style={styles.label}>{t('swap.preview.fixedAmount')}</Text>
-              <TextInput
+              <SwapAmountInput
                 accessibilityLabel={t('swap.preview.fixedAmount')}
-                autoCorrect={false}
-                editable={!busy}
-                keyboardType="decimal-pad"
-                onChangeText={value => {
+                disabled={busy}
+                onChangeAmount={value => {
                   setAmount(value);
                   resetQuotes();
                 }}
-                placeholder="0.0000000"
                 style={styles.input}
                 value={amount}
               />
               <Text style={styles.secondary}>{t('swap.preview.fixedHint')}</Text>
+              {amount && !isQuotableSwapAmount(amount) ? (
+                <Text style={styles.error}>{t('swap.amount.invalid')}</Text>
+              ) : null}
             </View>
           </>
         ) : null}
@@ -484,67 +546,7 @@ export function SwapPreviewScreen({
             ) : null}
           </>
         ) : null}
-        {view.kind === 'result' ? (
-          <View style={styles.section}>
-            <Text accessibilityLiveRegion="polite" style={styles.heading}>
-              {t('swap.result.' + view.result.status)}
-            </Text>
-            <Text style={styles.secondary}>{t('swap.result.description.' + view.result.status)}</Text>
-            {'hash' in view.result ? <ReviewLine label={t('swap.history.hash')} value={view.result.hash} /> : null}
-            {'transactionHash' in view.result ? (
-              <ReviewLine label={t('swap.history.hash')} value={view.result.transactionHash} />
-            ) : null}
-            {view.result.status === 'submitted' && view.result.ledger !== undefined ? (
-              <ReviewLine label={t('swap.history.ledger')} value={String(view.result.ledger)} />
-            ) : null}
-            {view.result.status === 'submitted' ? (
-              <ReviewLine label={t('swap.execution.authorization')} value={view.result.authorization} />
-            ) : null}
-            {view.result.status === 'rejected' && view.result.resultCode ? (
-              <ReviewLine label={t('swap.result.code')} value={view.result.resultCode} />
-            ) : null}
-            {view.result.status === 'authorization-blocked' ? (
-              <ReviewLine label={t('swap.result.reason')} value={view.result.reason} />
-            ) : null}
-          </View>
-        ) : null}
-        {history.length > 0 || (view.kind === 'result' && view.result.status === 'uncertain') ? (
-          <View style={styles.section}>
-            <Text style={styles.label}>{t('swap.history.title')}</Text>
-            {history.map(record => (
-              <View style={styles.route} key={record.id}>
-                <Text style={styles.text}>{t('swap.history.state.' + record.state)}</Text>
-                <Text selectable style={styles.mono}>
-                  {record.transactionHash}
-                </Text>
-                {record.ledger === undefined ? null : (
-                  <Text style={styles.secondary}>
-                    {t('swap.history.ledger')}: {record.ledger}
-                  </Text>
-                )}
-                {record.resultCode === undefined ? null : (
-                  <Text style={styles.secondary}>
-                    {t('swap.result.code')}: {record.resultCode}
-                  </Text>
-                )}
-              </View>
-            ))}
-            {unresolved || (view.kind === 'result' && view.result.status === 'uncertain') ? (
-              <NativeButton
-                label={reconciling ? t('swap.history.checking') : t('swap.history.check')}
-                disabled={reconciling || busy || submitting}
-                onPress={() => checkPending()}
-                size="md"
-                variant="quiet"
-              />
-            ) : null}
-          </View>
-        ) : null}
-        {reconcileError ? (
-          <Text accessibilityLiveRegion="assertive" style={styles.error}>
-            {reconcileError}
-          </Text>
-        ) : null}
+        {historyPanel}
         {error ? (
           <Text accessibilityLiveRegion="assertive" style={styles.error}>
             {error}
@@ -556,7 +558,7 @@ export function SwapPreviewScreen({
         {view.kind === 'form' ? (
           <NativeButton
             label={busy ? t('swap.preview.loading') : t('swap.preview.getQuotes')}
-            disabled={busy || loading || assets.length < 2 || !amount.trim()}
+            disabled={busy || loading || assets.length < 2 || !isQuotableSwapAmount(amount)}
             onPress={() => startQuote()}
             size="lg"
             variant="primary"
@@ -598,9 +600,7 @@ export function SwapPreviewScreen({
               variant="quiet"
             />
           </>
-        ) : (
-          <NativeButton label={t('swap.preview.done')} onPress={close} size="lg" variant="primary" />
-        )}
+        ) : null}
       </View>
     </Screen>
   );

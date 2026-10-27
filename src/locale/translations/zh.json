@@ -649,5 +649,9 @@
   "trustlines.add.added": "已添加",
   "trustlines.add.addAndSign": "添加并签名",
   "home.asset.accountUnavailable": "账户不可用",
-  "home.asset.accountChanged": "所选账户已更改。请返回首页重新选择资产。"
+  "home.asset.accountChanged": "所选账户已更改。请返回首页重新选择资产。",
+  "swap.amount.invalid": "请输入 Stellar 金额范围内的正数，最多 7 位小数。",
+  "swap.result.copyHash": "复制交易哈希",
+  "swap.result.copiedHash": "已复制交易哈希",
+  "swap.result.outputError": "无法完成此操作，请重试。"
 }

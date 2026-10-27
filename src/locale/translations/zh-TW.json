@@ -649,5 +649,9 @@
   "trustlines.add.added": "已新增",
   "trustlines.add.addAndSign": "新增並簽名",
   "home.asset.accountUnavailable": "帳戶無法使用",
-  "home.asset.accountChanged": "所選帳戶已變更。請返回首頁重新選擇資產。"
+  "home.asset.accountChanged": "所選帳戶已變更。請返回首頁重新選擇資產。",
+  "swap.amount.invalid": "請輸入 Stellar 金額範圍內的正數，最多 7 位小數。",
+  "swap.result.copyHash": "複製交易雜湊",
+  "swap.result.copiedHash": "已複製交易雜湊",
+  "swap.result.outputError": "無法完成此操作，請重試。"
 }
