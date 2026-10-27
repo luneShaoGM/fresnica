@@ -59,23 +59,11 @@ The app passphrase is held only in the Security Settings component long enough t
 
 Fresnica presents one product app passphrase over the local protected software-signer set. Mobile must not silently provision additional protected signers under unrelated passphrases.
 
-The current Native Binding API 2 contains native-only `derive_unlock_key`, but the canonical React Native adapter intentionally does not expose raw unlock-key operations. There is currently no framework-safe operation that verifies an app passphrase against an existing protected signer and returns only success/failure.
+Current SDK/Capability code includes `verifyProtectedSignerPassphrase`, returning only success/failure for an existing protected signer. `verifyExistingAppPassphrase` verifies the protected local signer set through that port. The historical claim that this verification-only API is missing is superseded; existing-wallet Create/Import/HD must be assessed against current code rather than treated as watch-only-only.
 
-Until that upstream boundary exists, an initialized wallet must fail closed for additional protected-software provisioning. The current Add Account flow therefore permits watch-only accounts only. First-wallet Create / Import remains supported because it establishes the product passphrase rather than attempting to prove an existing one.
+Verification must keep derivation and envelope verification below the framework boundary, return no secret/unlock key, and fail on missing/corrupt envelopes. A verifier that reports zero protected signers is not proof of authentication for a sensitive setting. Do not substitute reveal, dummy signing, reprotect or a JavaScript KDF/verifier.
 
-Required upstream addition, conceptually:
-
-```text
-verifySignerPassphrase(
-  envelope_json,
-  app_passcode,
-  expected_signer_public_key,
-) -> success / invalid-passcode
-```
-
-The implementation should derive and verify the WalletUnlockKey entirely below the framework boundary, zero temporary key bytes, and return no secret, mnemonic, private key or WalletUnlockKey to JavaScript.
-
-Do not substitute `reveal`, dummy transaction signing, `reprotect` as a verifier, or a JavaScript KDF/verifier.
+Shared sensitive-setting policy and network transitions are specified in `behavior-specs/shared-auth-network-session.md`. This design does not imply that generic biometric app unlock has been implemented.
 
 ## App session lock boundary
 

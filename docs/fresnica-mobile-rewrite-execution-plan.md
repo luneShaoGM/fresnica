@@ -1,3 +1,5 @@
+> 当前任务顺序与集成事实请先读 [当前基线与执行队列](fresnica-mobile-current-progress-and-next-plan.md)（2026-10-27 校准）。本文件保留完整产品覆盖和历史阶段证据；历史推荐 PR 序列不代表实时待办。
+
 # Fresnica Mobile 重写评估与执行计划
 
 > 状态：2026-09-08 源码审计基线；2026-09-09 产品范围与迁移策略确认；2026-09-10 Stage 2.5 交易恢复门完成；Stage 0A 发现历史 donor presentation blocker 后进入净树 remediation，当前目标是 clean integration milestone，而不是直接合并 rewrite 历史

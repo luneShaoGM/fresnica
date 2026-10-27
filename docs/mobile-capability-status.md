@@ -202,7 +202,7 @@ passphrase-required
   -> require a fresh app passphrase
 ```
 
-Two upstream gaps remain explicit: framework-safe verification-only current-passphrase validation, and a generic existing-domain System Auth challenge for app-session unlock. Mobile must not emulate them with `reveal`, dummy signing/XDR, `reprotect`, or a second JS verifier/KDF.
+Current code exposes framework-safe verification-only current-passphrase validation through `verifyProtectedSignerPassphrase`; that earlier upstream gap is resolved. The generic existing-domain System Auth challenge for app-session unlock remains missing. Mobile must not emulate them with `reveal`, dummy signing/XDR, `reprotect`, or a second JS verifier/KDF.
 
 ## Persistence evidence
 
