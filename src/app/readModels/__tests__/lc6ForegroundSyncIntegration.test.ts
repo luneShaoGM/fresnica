@@ -177,8 +177,17 @@ describe('LC6 selected-account Effects / node / display-read integration', () =>
     expect(current.node.getSnapshot().phase).toBe('healthy');
     expect(current.probe).toHaveBeenCalledTimes(2);
     expect(current.streams).toHaveLength(originalStreamCount + 1);
-    current.streams[0].onEffect('late-from-old-node-lease');
+    const beforeHandshake = current.invalidation.getRevision(network.id, b.id);
+    current.streams[originalStreamCount].onOpen();
+    await tick(ACCOUNT_SYNC_TIMING.coalesce);
+    await tick(ACCOUNT_SYNC_TIMING.coalesce);
     const revision = current.invalidation.getRevision(network.id, b.id);
+    expect(revision).toBeGreaterThan(beforeHandshake);
+
+    // A late callback from the obsolete lease must not queue another invalidation.
+    current.streams[0].onEffect('late-from-old-node-lease');
+    await tick(ACCOUNT_SYNC_TIMING.coalesce);
+    expect(current.invalidation.getRevision(network.id, b.id)).toBe(revision);
 
     await Promise.all([
       current.display.loadAccountBalances(b.address),
