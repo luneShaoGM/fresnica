@@ -192,30 +192,59 @@ function assertSourceCanPay(
   ledger: StellarLedgerParameters,
   actualFeeStroops: number,
 ): void {
-  const { subentryCount, numSponsoring, numSponsored } = source;
-  if ([subentryCount, numSponsoring, numSponsored].some(value => !Number.isSafeInteger(value) || value < 0)) {
+  const spendable = sourceSpendableStroops(source, asset, ledger, actualFeeStroops);
+  if (spendable !== undefined && sourceAmount > spendable) throw new Error('insufficient_source');
+}
+
+// Display-only estimate based on the same current-ledger source bounds used by
+// exact-XDR preflight. Never a substitute for preparing and checking the trade.
+// An issuer has no finite source trustline balance, so Max is unavailable.
+export function projectPathPaymentSpendable(
+  source: StellarAccountState,
+  asset: StellarPaymentAsset,
+  ledger: StellarLedgerParameters,
+  actualFeeStroops: number,
+): string | undefined {
+  const amount = sourceSpendableStroops(source, asset, ledger, actualFeeStroops);
+  return amount === undefined
+    ? undefined
+    : `${amount / STROOPS_PER_UNIT}.${(amount % STROOPS_PER_UNIT).toString().padStart(7, '0')}`;
+}
+
+function sourceSpendableStroops(
+  source: StellarAccountState,
+  asset: StellarPaymentAsset,
+  ledger: StellarLedgerParameters,
+  actualFeeStroops: number,
+): bigint | undefined {
+  if (
+    !Number.isSafeInteger(ledger.baseReserveStroops) ||
+    ledger.baseReserveStroops < 0 ||
+    !Number.isSafeInteger(actualFeeStroops) ||
+    actualFeeStroops < 0
+  )
     throw new Error('quote_unavailable');
-  }
+  const { subentryCount, numSponsoring, numSponsored } = source;
+  if ([subentryCount, numSponsoring, numSponsored].some(value => !Number.isSafeInteger(value) || value < 0))
+    throw new Error('quote_unavailable');
   const reserveUnits = Math.max(0, 2 + subentryCount + numSponsoring - numSponsored);
   if (!Number.isSafeInteger(reserveUnits)) throw new Error('quote_unavailable');
 
   const native = source.balances.find(balance => balance.kind === 'native');
   if (!native || native.kind !== 'native') throw new Error('insufficient_source');
-
   const freeNative =
     parseStroops(native.balance) -
     parseStroops(native.sellingLiabilities) -
     BigInt(reserveUnits) * BigInt(ledger.baseReserveStroops);
-  const requiredNative = BigInt(actualFeeStroops) + (asset.kind === 'native' ? sourceAmount : 0n);
-  if (freeNative < requiredNative) throw new Error('insufficient_source');
+  if (freeNative < BigInt(actualFeeStroops)) throw new Error('insufficient_source');
 
-  if (asset.kind === 'credit' && asset.issuer !== source.address) {
-    const line = findTrustline(source, asset);
-    if (!line) throw new Error('insufficient_source');
-    if (!line.isAuthorized) throw new Error('not_authorized');
-    const available = parseStroops(line.balance) - parseStroops(line.sellingLiabilities);
-    if (available < sourceAmount) throw new Error('insufficient_source');
-  }
+  if (asset.kind === 'native') return freeNative - BigInt(actualFeeStroops);
+  if (asset.issuer === source.address) return undefined;
+  const line = findTrustline(source, asset);
+  if (!line) throw new Error('insufficient_source');
+  if (!line.isAuthorized) throw new Error('not_authorized');
+  const available = parseStroops(line.balance) - parseStroops(line.sellingLiabilities);
+  return available > 0n ? available : 0n;
 }
 
 function assertDestinationCanReceive(

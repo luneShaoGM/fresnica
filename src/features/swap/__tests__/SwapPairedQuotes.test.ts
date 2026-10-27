@@ -8,7 +8,12 @@ import type { StellarPaymentAsset } from '@capabilities/stellar/types';
 import { NativeButton } from '@ui/components/NativeButton';
 import { SwapAmountInput } from '../SwapAmountInput';
 import { SwapPreviewScreen } from '../SwapPreviewScreen';
-import { loadSwapPreviewAssets, prepareSwapPreviewReview, requestSwapPreviewQuotes } from '../swapPreviewProductFlow';
+import {
+  loadSwapPreviewAssets,
+  loadSwapSourceSpendable,
+  prepareSwapPreviewReview,
+  requestSwapPreviewQuotes,
+} from '../swapPreviewProductFlow';
 
 const mockT = (key: string) => key;
 type Slot = { value?: unknown; deps?: readonly unknown[]; cleanup?: () => void };
@@ -58,6 +63,7 @@ jest.mock('../../../ui/theme', () => {
 });
 jest.mock('../swapPreviewProductFlow', () => ({
   loadSwapPreviewAssets: jest.fn(),
+  loadSwapSourceSpendable: jest.fn(),
   requestSwapPreviewQuotes: jest.fn(),
   prepareSwapPreviewReview: jest.fn(),
 }));
@@ -67,6 +73,7 @@ jest.mock('../swapSubmissionProductFlow', () => ({
   submitSwapReview: jest.fn(),
 }));
 const load = jest.mocked(loadSwapPreviewAssets);
+const spendable = jest.mocked(loadSwapSourceSpendable);
 const request = jest.mocked(requestSwapPreviewQuotes);
 const prepare = jest.mocked(prepareSwapPreviewReview);
 const account = {
@@ -191,6 +198,7 @@ beforeEach(() => {
   mockCursor = 0;
   mockEffects = [];
   load.mockReset().mockResolvedValue(assets);
+  spendable.mockReset().mockResolvedValue('10.0000000');
   request.mockReset().mockResolvedValue(result());
   prepare.mockReset();
   jest.mocked(submitSwapReview).mockReset();
@@ -553,17 +561,161 @@ it('opens Stellar-style swap settings, applies an explicit preset and closes wit
   jest.advanceTimersByTime(500);
   await settle();
   root = h.draw();
-  expect(find(root, node => node.type === TextInput && node.props.accessibilityLabel === 'swap.settings.customSlippage')).toBeUndefined();
+  expect(
+    find(root, node => node.type === TextInput && node.props.accessibilityLabel === 'swap.settings.customSlippage'),
+  ).toBeUndefined();
   button(root, 'swap.settings.open').props.onPress?.();
   root = h.draw();
   const preset = find(root, node => node.type === Pressable && node.key === '50');
   expect(preset).toBeDefined();
   preset?.props.onPress?.();
   root = h.draw();
-  expect(find(root, node => node.type === TextInput && node.props.accessibilityLabel === 'swap.settings.customSlippage')?.props.value).toBe('50');
+  expect(
+    find(root, node => node.type === TextInput && node.props.accessibilityLabel === 'swap.settings.customSlippage')
+      ?.props.value,
+  ).toBe('50');
   button(root, 'swap.settings.done').props.onPress?.();
   root = h.draw();
-  expect(find(root, node => node.type === TextInput && node.props.accessibilityLabel === 'swap.settings.customSlippage')).toBeUndefined();
+  expect(
+    find(root, node => node.type === TextInput && node.props.accessibilityLabel === 'swap.settings.customSlippage'),
+  ).toBeUndefined();
   expect(prepare).not.toHaveBeenCalled();
   expect(submitSwapReview).not.toHaveBeenCalled();
+});
+
+it('shows Pay spendable and refetches live ledger bounds before applying Max', async () => {
+  const h = setup();
+  let root = await h.mount();
+  await settle();
+  root = h.draw();
+  expect(spendable).toHaveBeenCalledWith(h.props.dependencies, account, assets[0], expect.any(Function));
+  spendable.mockResolvedValueOnce('8.9999900');
+  button(root, 'swap.form.max').props.onPress?.();
+  await settle();
+  root = h.draw();
+  expect(spendable).toHaveBeenCalledTimes(2);
+  expect(input(root, 'pay').props.value).toBe('8.9999900');
+  expect(input(root, 'receive').props.value).toBe('');
+  jest.advanceTimersByTime(500);
+  await settle();
+  expect(request.mock.calls[0][2]).toMatchObject({
+    mode: 'strict_send',
+    fixedAmount: '8.9999900',
+    sourceAsset: assets[0],
+  });
+  expect(prepare).not.toHaveBeenCalled();
+  expect(submitSwapReview).not.toHaveBeenCalled();
+});
+
+it('does not overwrite newer Pay edit from a slow Max read', async () => {
+  const h = setup();
+  let root = await h.mount();
+  await settle();
+  root = h.draw();
+  const pending = deferred<string | undefined>();
+  spendable.mockReturnValueOnce(pending.promise);
+  button(root, 'swap.form.max').props.onPress?.();
+  root = h.draw();
+  input(root, 'pay').props.onChangeAmount?.('3');
+  h.draw();
+  pending.resolve('9.0000000');
+  await settle();
+  root = h.draw();
+  expect(input(root, 'pay').props.value).toBe('3');
+  await settle();
+  root = h.draw();
+  expect(button(root, 'swap.form.max').props.disabled).toBe(false);
+});
+
+it('drops an old source Max result after a new asset and shows the new asset only', async () => {
+  const h = setup();
+  let root = await h.mount();
+  await settle();
+  root = h.draw();
+  const pending = deferred<string | undefined>();
+  spendable.mockReturnValueOnce(pending.promise);
+  button(root, 'swap.form.max').props.onPress?.();
+  root = h.draw();
+  const choice = find(
+    root,
+    node => typeof node.type === 'function' && node.type.name === 'AssetChoice' && node.key === 'source-usd · GISSUER',
+  );
+  choice?.props.onPress?.();
+  h.draw();
+  await settle();
+  pending.resolve('999.0000000');
+  await settle();
+  root = h.draw();
+  expect(input(root, 'pay').props.value).toBe('');
+  expect(spendable.mock.lastCall?.[2]).toEqual(assets[1]);
+});
+
+it('keeps Max disabled when the fresh balance read fails or has zero spendable', async () => {
+  spendable.mockReset().mockRejectedValueOnce(new Error('offline'));
+  const h = setup();
+  let root = await h.mount();
+  await settle();
+  root = h.draw();
+  expect(button(root, 'swap.form.max').props.disabled).toBe(true);
+  spendable.mockResolvedValueOnce('0.0000000');
+  button(root, 'swap.form.retrySpendable').props.onPress?.();
+  h.draw();
+  await settle();
+  root = h.draw();
+  expect(button(root, 'swap.form.max').props.disabled).toBe(true);
+  expect(input(root, 'pay').props.value).toBe('');
+});
+
+it('does not allow a queued review or old route choice to run during a fresh Max read', async () => {
+  const best = quote('2', '3');
+  const alternative = quote('2', '4');
+  request.mockResolvedValueOnce({ quotes: [best, alternative], best });
+  const h = setup();
+  let root = await h.mount();
+  await settle();
+  root = h.draw();
+  input(root, 'pay').props.onChangeAmount?.('2');
+  h.draw();
+  jest.advanceTimersByTime(500);
+  await settle();
+  root = h.draw();
+  button(root, 'swap.settings.open').props.onPress?.();
+  root = h.draw();
+  const oldRoute = find(root, node => node.type === Pressable && node.key === '1');
+  const oldReview = button(root, 'swap.preview.review');
+  const delayed = deferred<string | undefined>();
+  spendable.mockReturnValueOnce(delayed.promise);
+  button(root, 'swap.form.max').props.onPress?.();
+  oldReview.props.onPress?.();
+  oldRoute?.props.onPress?.();
+  expect(prepare).not.toHaveBeenCalled();
+  root = h.draw();
+  expect(input(root, 'receive').props.value).toBe('3');
+  delayed.resolve('7.5000000');
+  await settle();
+  root = h.draw();
+  expect(input(root, 'pay').props.value).toBe('7.5000000');
+  expect(prepare).not.toHaveBeenCalled();
+});
+
+it('switches explicitly edited Receive back to strict-send only after a successful Max read', async () => {
+  const h = setup();
+  let root = await h.mount();
+  await settle();
+  root = h.draw();
+  input(root, 'receive').props.onChangeAmount?.('4');
+  h.draw();
+  jest.advanceTimersByTime(500);
+  await settle();
+  root = h.draw();
+  expect(input(root, 'receive').props.value).toBe('4');
+  spendable.mockResolvedValueOnce('6.1234567');
+  button(root, 'swap.form.max').props.onPress?.();
+  await settle();
+  root = h.draw();
+  expect(input(root, 'pay').props.value).toBe('6.1234567');
+  expect(input(root, 'receive').props.value).toBe('');
+  jest.advanceTimersByTime(500);
+  await settle();
+  expect(request.mock.lastCall?.[2]).toMatchObject({ mode: 'strict_send', fixedAmount: '6.1234567' });
 });

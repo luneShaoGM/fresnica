@@ -17,6 +17,7 @@ import type {
 import { projectFeatureError } from '../featureError';
 import {
   loadSwapPreviewAssets,
+  loadSwapSourceSpendable,
   prepareSwapPreviewReview,
   requestSwapPreviewQuotes,
   type SwapPreviewProductDependencies,
@@ -91,6 +92,12 @@ export function SwapPreviewScreen({
   const [reconcileError, setReconcileError] = useState<string>();
   const [reconciling, setReconciling] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [spendable, setSpendable] = useState<
+    | Readonly<{ kind: 'loading' | 'unavailable'; key: string }>
+    | Readonly<{ kind: 'ready'; key: string; amount: string }>
+  >({ kind: 'unavailable', key: '' });
+  const [spendableRevision, setSpendableRevision] = useState(0);
+  const [maxLoading, setMaxLoading] = useState(false);
   const attempt = useRef(0);
   const locked = useRef(false);
   const submitLocked = useRef(false);
@@ -99,6 +106,18 @@ export function SwapPreviewScreen({
   const quoteTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const foregroundRef = useRef(foreground);
   foregroundRef.current = foreground;
+  const spendableAttempt = useRef(0);
+  const draftRevision = useRef(0);
+  const maxReadLocked = useRef(false);
+  const maxSurfaceRef = useRef(view.kind === 'form' || view.kind === 'quotes');
+  maxSurfaceRef.current = view.kind === 'form' || view.kind === 'quotes';
+  const selectedSourceAsset = assets[sourceIndex];
+  const spendableKey = JSON.stringify([
+    account.id,
+    account.networkId,
+    account.address,
+    selectedSourceAsset ? assetLabel(selectedSourceAsset) : '',
+  ]);
 
   const clearPassphrase = useCallback(() => {
     securePassphraseInput.current?.clear();
@@ -106,6 +125,12 @@ export function SwapPreviewScreen({
   }, []);
 
   const resetQuotes = useCallback(() => {
+    if (maxReadLocked.current) {
+      maxReadLocked.current = false;
+      setMaxLoading(false);
+      setSpendableRevision(current => current + 1);
+    }
+    draftRevision.current += 1;
     attempt.current += 1;
     clearTimeout(quoteTimer.current);
     locked.current = false;
@@ -172,7 +197,15 @@ export function SwapPreviewScreen({
   }, [account, active, assetLoadRevision, captureSession, clearPassphrase, dependencies, execution, t]);
 
   const startQuote = useCallback(async () => {
-    if (!foregroundRef.current || busy || locked.current || assets.length < 2 || !isQuotableSwapAmount(amount)) return;
+    if (
+      !foregroundRef.current ||
+      busy ||
+      maxLoading ||
+      locked.current ||
+      assets.length < 2 ||
+      !isQuotableSwapAmount(amount)
+    )
+      return;
     clearTimeout(quoteTimer.current);
     const sourceAsset = assets[sourceIndex];
     const destinationAsset = assets[destinationIndex];
@@ -204,7 +237,7 @@ export function SwapPreviewScreen({
         if (valid()) setBusy(false);
       }
     }
-  }, [account, amount, assets, busy, captureSession, dependencies, destinationIndex, mode, sourceIndex, t]);
+  }, [account, amount, assets, busy, maxLoading, captureSession, dependencies, destinationIndex, mode, sourceIndex, t]);
 
   const quoteRequest = useRef(startQuote);
   quoteRequest.current = startQuote;
@@ -216,6 +249,7 @@ export function SwapPreviewScreen({
       loading ||
       view.kind !== 'form' ||
       locked.current ||
+      maxLoading ||
       assets.length < 2 ||
       !isQuotableSwapAmount(amount)
     )
@@ -234,6 +268,7 @@ export function SwapPreviewScreen({
     view.kind,
     assets,
     amount,
+    maxLoading,
     mode,
     sourceIndex,
     destinationIndex,
@@ -245,7 +280,7 @@ export function SwapPreviewScreen({
   }, [foreground, loading, view.kind, resetQuotes]);
 
   const startReview = useCallback(async () => {
-    if (!foregroundRef.current || view.kind !== 'quotes' || busy || locked.current) return;
+    if (!foregroundRef.current || view.kind !== 'quotes' || busy || maxLoading || locked.current) return;
     const slippageText = slippageInput.trim();
     if (!/^(0|[1-9]\d{0,3})$/.test(slippageText) || Number(slippageText) > 1000) {
       setError(t('swap.error.slippage'));
@@ -268,7 +303,7 @@ export function SwapPreviewScreen({
         if (valid()) setBusy(false);
       }
     }
-  }, [account, busy, captureSession, dependencies, slippageInput, t, view]);
+  }, [account, busy, maxLoading, captureSession, dependencies, slippageInput, t, view]);
 
   const confirmSwap = useCallback(async () => {
     if (view.kind !== 'review' || busy || submitting || submitLocked.current) return;
@@ -337,6 +372,108 @@ export function SwapPreviewScreen({
     }
   }, [account, busy, captureSession, execution, submitting, t]);
 
+  const spendableSurfaceActive = view.kind === 'form' || view.kind === 'quotes';
+  useEffect(() => {
+    const generation = ++spendableAttempt.current;
+    maxReadLocked.current = false;
+    setMaxLoading(false);
+    if (
+      !active ||
+      !foreground ||
+      loading ||
+      !spendableSurfaceActive ||
+      selectedAccountId !== account.id ||
+      !selectedSourceAsset
+    )
+      return;
+    const session = captureSession();
+    const valid = () => generation === spendableAttempt.current && foregroundRef.current && session();
+    setSpendable({ kind: 'loading', key: spendableKey });
+    void loadSwapSourceSpendable(dependencies, account, selectedSourceAsset, valid)
+      .then(amount => {
+        if (!valid()) return;
+        setSpendable(
+          amount === undefined
+            ? { kind: 'unavailable', key: spendableKey }
+            : { kind: 'ready', key: spendableKey, amount },
+        );
+      })
+      .catch(() => {
+        if (valid()) setSpendable({ kind: 'unavailable', key: spendableKey });
+      });
+    return () => {
+      spendableAttempt.current += 1;
+    };
+  }, [
+    account,
+    active,
+    assets,
+    captureSession,
+    dependencies,
+    foreground,
+    loading,
+    spendableSurfaceActive,
+    selectedAccountId,
+    selectedSourceAsset,
+    spendableKey,
+    spendableRevision,
+  ]);
+
+  const applyMax = async () => {
+    if (
+      !active ||
+      !foregroundRef.current ||
+      !spendableSurfaceActive ||
+      !maxSurfaceRef.current ||
+      selectedAccountId !== account.id ||
+      !selectedSourceAsset ||
+      maxLoading ||
+      maxReadLocked.current ||
+      busy ||
+      locked.current ||
+      spendable.kind !== 'ready' ||
+      spendable.key !== spendableKey ||
+      !isQuotableSwapAmount(spendable.amount)
+    )
+      return;
+    const generation = ++spendableAttempt.current;
+    maxReadLocked.current = true;
+    locked.current = true;
+    const draft = draftRevision.current;
+    const session = captureSession();
+    const valid = () =>
+      generation === spendableAttempt.current &&
+      draft === draftRevision.current &&
+      maxSurfaceRef.current &&
+      foregroundRef.current &&
+      session();
+    setMaxLoading(true);
+    setSpendable({ kind: 'loading', key: spendableKey });
+    try {
+      const amount = await loadSwapSourceSpendable(dependencies, account, selectedSourceAsset, valid);
+      if (!valid()) return;
+      setSpendable(
+        amount === undefined
+          ? { kind: 'unavailable', key: spendableKey }
+          : { kind: 'ready', key: spendableKey, amount },
+      );
+      if (amount !== undefined && isQuotableSwapAmount(amount)) {
+        maxReadLocked.current = false;
+        resetQuotes();
+        setMode('strict_send');
+        setAmount(amount);
+      }
+    } catch {
+      if (valid()) setSpendable({ kind: 'unavailable', key: spendableKey });
+    } finally {
+      if (generation === spendableAttempt.current) {
+        maxReadLocked.current = false;
+        locked.current = false;
+        setMaxLoading(false);
+      }
+    }
+  };
+
   const unresolved = history.some(record => record.state === 'uncertain' || record.state === 'submitting');
   const accountCurrent = selectedAccountId === account.id && active;
   if (!accountCurrent) {
@@ -351,6 +488,8 @@ export function SwapPreviewScreen({
   }
 
   const close = () => {
+    draftRevision.current += 1;
+    spendableAttempt.current += 1;
     attempt.current += 1;
     clearTimeout(quoteTimer.current);
     clearPassphrase();
@@ -361,6 +500,8 @@ export function SwapPreviewScreen({
   const sourceAmount = mode === 'strict_send' ? amount : (selectedQuote?.sourceAmount ?? '');
   const destinationAmount = mode === 'strict_receive' ? amount : (selectedQuote?.destinationAmount ?? '');
   const preparing = busy && view.kind === 'quotes';
+  const visibleSpendable =
+    foreground && spendable.key === spendableKey ? spendable : ({ kind: 'unavailable', key: spendableKey } as const);
   const editAmount = (nextMode: PathPaymentMode, value: string) => {
     if (preparing) return;
     setMode(nextMode);
@@ -478,6 +619,40 @@ export function SwapPreviewScreen({
                 style={styles.input}
                 value={sourceAmount}
               />
+              <View style={styles.row}>
+                <Text style={styles.secondary}>
+                  {t('swap.form.spendable')}:{' '}
+                  {visibleSpendable.kind === 'ready'
+                    ? visibleSpendable.amount
+                    : t(
+                        visibleSpendable.kind === 'loading'
+                          ? 'swap.form.loadingSpendable'
+                          : 'swap.form.spendableUnavailable',
+                      )}
+                </Text>
+                <NativeButton
+                  label={t('swap.form.max')}
+                  disabled={
+                    preparing ||
+                    maxLoading ||
+                    busy ||
+                    visibleSpendable.kind !== 'ready' ||
+                    !isQuotableSwapAmount(visibleSpendable.amount)
+                  }
+                  onPress={() => void applyMax()}
+                  size="sm"
+                  variant="quiet"
+                />
+              </View>
+              {visibleSpendable.kind === 'unavailable' ? (
+                <NativeButton
+                  label={t('swap.form.retrySpendable')}
+                  disabled={maxLoading || preparing}
+                  onPress={() => setSpendableRevision(current => current + 1)}
+                  size="sm"
+                  variant="quiet"
+                />
+              ) : null}
             </View>
             <NativeButton
               label={t('swap.form.exchangeAssets')}
@@ -489,7 +664,7 @@ export function SwapPreviewScreen({
                 setSourceIndex(destinationIndex);
                 setDestinationIndex(sourceIndex);
                 setMode('strict_send');
-    setSettingsVisible(false);
+                setSettingsVisible(false);
                 setAmount('');
                 resetQuotes();
               }}
@@ -592,7 +767,7 @@ export function SwapPreviewScreen({
                   <Pressable
                     accessibilityRole="button"
                     accessibilityState={{ selected: view.selected === quote }}
-                    disabled={busy}
+                    disabled={busy || maxLoading}
                     key={String(index)}
                     onPress={() => {
                       if (locked.current) return;
@@ -668,7 +843,7 @@ export function SwapPreviewScreen({
         {view.kind === 'form' ? (
           <NativeButton
             label={busy ? t('swap.preview.loading') : t('swap.preview.getQuotes')}
-            disabled={busy || loading || assets.length < 2 || !isQuotableSwapAmount(amount)}
+            disabled={busy || maxLoading || loading || assets.length < 2 || !isQuotableSwapAmount(amount)}
             onPress={() => startQuote()}
             size="lg"
             variant="primary"
@@ -677,7 +852,7 @@ export function SwapPreviewScreen({
           <>
             <NativeButton
               label={busy ? t('swap.preview.loading') : t('swap.preview.review')}
-              disabled={busy}
+              disabled={busy || maxLoading}
               onPress={() => startReview()}
               size="lg"
               variant="primary"
