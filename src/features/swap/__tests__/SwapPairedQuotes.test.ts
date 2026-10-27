@@ -811,3 +811,70 @@ it('rejects the previous selected route review callback but accepts the newly se
   expect(prepare).toHaveBeenCalledTimes(1);
   expect(prepare.mock.calls[0][2]).toBe(alternate);
 });
+
+it.each(['review', 'route', 'requote'] as const)(
+  'discards a pre-Requote %s callback delivered after the replacement quote fails',
+  async action => {
+    const best = quote('2', '3');
+    const alternate = quote('2', '4');
+    request.mockResolvedValueOnce({ quotes: [best, alternate], best });
+    prepare.mockReturnValueOnce(new Promise(() => undefined));
+    const h = setup();
+    let root = await h.mount();
+    input(root, 'pay').props.onChangeAmount?.('2');
+    h.draw();
+    jest.advanceTimersByTime(500);
+    await settle();
+    root = h.draw();
+    button(root, 'swap.settings.open').props.onPress?.();
+    root = h.draw();
+    const oldReview = button(root, 'swap.preview.review');
+    const oldRoute = find(root, node => node.type === Pressable && node.key === '1');
+    const oldRequote = button(root, 'swap.preview.requote');
+    expect(oldRoute).toBeDefined();
+
+    request.mockRejectedValueOnce(new Error('offline'));
+    oldRequote.props.onPress?.();
+    await settle();
+    root = h.draw();
+    expect(input(root, 'pay').props.value).toBe('2');
+    expect(input(root, 'receive').props.value).toBe('');
+    expect(request).toHaveBeenCalledTimes(2);
+
+    if (action === 'review') oldReview.props.onPress?.();
+    if (action === 'route') oldRoute?.props.onPress?.();
+    if (action === 'requote') oldRequote.props.onPress?.();
+    await settle();
+    root = h.draw();
+    expect(input(root, 'pay').props.value).toBe('2');
+    expect(input(root, 'receive').props.value).toBe('');
+    expect(prepare).not.toHaveBeenCalled();
+    expect(request).toHaveBeenCalledTimes(2);
+  },
+);
+
+it('allows a new Get Quotes action after failed Requote without reviving the discarded quote', async () => {
+  const oldQuote = quote('2', '3');
+  const newQuote = quote('2', '5');
+  request.mockResolvedValueOnce({ quotes: [oldQuote], best: oldQuote });
+  const h = setup();
+  let root = await h.mount();
+  input(root, 'pay').props.onChangeAmount?.('2');
+  h.draw();
+  jest.advanceTimersByTime(500);
+  await settle();
+  root = h.draw();
+  const oldReview = button(root, 'swap.preview.review');
+  request.mockRejectedValueOnce(new Error('offline'));
+  button(root, 'swap.preview.requote').props.onPress?.();
+  await settle();
+  root = h.draw();
+  request.mockResolvedValueOnce({ quotes: [newQuote], best: newQuote });
+  button(root, 'swap.preview.getQuotes').props.onPress?.();
+  await settle();
+  root = h.draw();
+  expect(input(root, 'receive').props.value).toBe('5');
+  oldReview.props.onPress?.();
+  expect(prepare).not.toHaveBeenCalled();
+  expect(request).toHaveBeenCalledTimes(3);
+});

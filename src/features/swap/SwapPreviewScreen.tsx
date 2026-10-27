@@ -216,6 +216,8 @@ export function SwapPreviewScreen({
     const sourceAsset = assets[sourceIndex];
     const destinationAsset = assets[destinationIndex];
     if (!sourceAsset || !destinationAsset) return;
+    // Invalidate callbacks captured by the discarded quote even if the refresh fails.
+    draftRevision.current += 1;
     locked.current = true;
     const generation = ++attempt.current;
     const session = captureSession();
