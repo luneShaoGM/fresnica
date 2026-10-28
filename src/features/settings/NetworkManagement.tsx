@@ -131,6 +131,20 @@ export function NetworkManagement({ settings }: Readonly<{ settings: NetworkSett
         {t(preferences.selectionConfirmed ? 'networkManage.partitionNotice' : 'networkManage.initialChoice')}
       </Text>
       {preferences.retainedTestnet ? <Text style={styles.noticeText}>{t('networkManage.retainedTestnet')}</Text> : null}
+      {!preferences.selectionConfirmed
+        ? (Object.keys(NETWORKS) as NetworkId[])
+            .filter(id => isNodeAvailable(preferences, id, NETWORKS[id].horizonUrl))
+            .sort((left, right) => Number(right === 'stellar-testnet') - Number(left === 'stellar-testnet'))
+            .map(id => (
+              <NativeButton
+                key={id}
+                label={t(`networkManage.continue.${id}`)}
+                disabled={busy}
+                onPress={() => run(() => settings.selectNode(id, NETWORKS[id].horizonUrl))}
+                size="sm"
+              />
+            ))
+        : null}
       <Text style={styles.nodeStatus}>
         {t(preferences.developerMode ? 'networkManage.developerOn' : 'networkManage.developerOff')}
       </Text>

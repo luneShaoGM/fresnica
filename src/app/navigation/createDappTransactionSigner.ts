@@ -2,7 +2,7 @@ import type { AccountSignerRepository } from '../../capabilities/account/Account
 import type { DappTransactionSigner } from '../../capabilities/dapp-interaction/dappTransactionSigner';
 import { signPreparedDappTransaction } from '../../capabilities/dapp-interaction/signPreparedDappTransaction';
 import type { FresnicaSdkPort } from '../../capabilities/ports/FresnicaSdkPort';
-import { readTransactionIdentity } from '../../platform/stellar/readTransactionIdentity';
+import { readReviewableDappTransaction } from '../../platform/stellar/readReviewableDappTransaction';
 
 export function createDappTransactionSigner(dependencies: {
   sdk: FresnicaSdkPort;
@@ -18,16 +18,10 @@ export function createDappTransactionSigner(dependencies: {
       .find(item => item.kind === 'protected-software' && item.publicKey === account.address && item.envelopeJson);
     if (!signer) return { status: 'unsupported-signer' };
 
-    const identity = readTransactionIdentity(input.transactionXdrBase64, input.networkPassphrase);
-    if (!identity || identity.operationCount < 1) return { status: 'invalid' };
-    if (input.phase === 'inspect') {
-      return {
-        status: 'ready',
-        source: identity.source,
-        fee: identity.fee,
-        operationCount: identity.operationCount,
-      };
-    }
+    const intent = readReviewableDappTransaction(input.transactionXdrBase64, input.networkPassphrase, account.address);
+    if (!intent) return { status: 'invalid' };
+    if (input.phase === 'inspect') return { status: 'ready', intent };
+    if (input.reviewedHash !== intent.hash || !current(input.isCurrent)) return { status: 'invalid' };
 
     const signed = await signPreparedDappTransaction({
       sdk: dependencies.sdk,
@@ -35,12 +29,15 @@ export function createDappTransactionSigner(dependencies: {
       accountAddress: account.address,
       networkPassphrase: input.networkPassphrase,
       appPassphrase: input.appPassphrase,
+      isCurrent: input.isCurrent,
       review: {
         transactionXdrBase64: input.transactionXdrBase64,
         networkId: input.networkId,
-        source: identity.source,
-        fee: identity.fee,
-        ...(identity.expiresAtUnixSeconds === undefined ? {} : { expiresAtUnixSeconds: identity.expiresAtUnixSeconds }),
+        source: intent.source,
+        fee: intent.fee,
+        ...(intent.timeBounds?.maxTime === undefined || intent.timeBounds.maxTime === '0'
+          ? {}
+          : { expiresAtUnixSeconds: Number(intent.timeBounds.maxTime) }),
       },
     });
     if (signed.status === 'signed') {
@@ -52,4 +49,12 @@ export function createDappTransactionSigner(dependencies: {
     }
     return signed;
   };
+}
+
+function current(check: () => boolean): boolean {
+  try {
+    return check() === true;
+  } catch {
+    return false;
+  }
 }

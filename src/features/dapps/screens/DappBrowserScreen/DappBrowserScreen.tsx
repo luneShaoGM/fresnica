@@ -10,6 +10,7 @@ import {
   normalizeUntrustedDappUrl,
   readPublicDappNavigation,
 } from '../../../../capabilities/dapp-interaction/externalDappUrl';
+import type { DappTransactionIntent } from '../../../../capabilities/dapp-interaction/dappTransactionIntent';
 import type { DappTransactionSigner } from '../../../../capabilities/dapp-interaction/dappTransactionSigner';
 import {
   createFreighterSession,
@@ -44,9 +45,8 @@ type Props = Readonly<{
 type PendingSignature = Readonly<{
   transactionXdrBase64: string;
   origin: string;
-  source: string;
-  fee: string;
-  operationCount: number;
+  intent: DappTransactionIntent;
+  documentEpoch: number;
   passphraseRequired: boolean;
 }>;
 
@@ -82,10 +82,11 @@ export function DappBrowserScreen({
   const [pendingOrigin, setPendingOrigin] = useState<string>();
   const [page, setPage] = useState({ origin: '', canGoBack: false, canGoForward: false });
   const [pendingSign, setPendingSign] = useState<PendingSignature>();
-  const lastPage = useRef(url);
+  const documentEpoch = useRef(0);
   const documentOrigin = useRef<string | undefined>(undefined);
   const signGeneration = useRef(0);
   const signing = useRef(false);
+  const currentSession = () => live.current && !stale && current?.session.isLive() === true;
 
   if (!initial.current) {
     try {
@@ -177,7 +178,7 @@ export function DappBrowserScreen({
     } catch {
       inspected = { status: 'invalid' };
     }
-    if (!current || generation !== signGeneration.current) return;
+    if (!current || generation !== signGeneration.current || !currentSession()) return;
     if (inspected.status !== 'ready') {
       const failed = current.session.finishSign({
         status: 'failed',
@@ -189,9 +190,8 @@ export function DappBrowserScreen({
     setPendingSign({
       transactionXdrBase64: decision.transactionXdrBase64,
       origin: decision.origin,
-      source: inspected.source,
-      fee: inspected.fee,
-      operationCount: inspected.operationCount,
+      intent: inspected.intent,
+      documentEpoch: documentEpoch.current,
       passphraseRequired: false,
     });
   };
@@ -205,10 +205,15 @@ export function DappBrowserScreen({
   };
 
   const confirmSignature = async (appPassphrase: string) => {
-    if (!current || !pendingSign || signing.current) return;
+    if (!current || !pendingSign || signing.current || !currentSession()) return;
     const request = pendingSign;
+    if (request.documentEpoch !== documentEpoch.current) return;
+    const generation = signGeneration.current;
+    const isCurrent = () =>
+      currentSession() && generation === signGeneration.current && request.documentEpoch === documentEpoch.current;
     signing.current = true;
     try {
+      if (!isCurrent()) return;
       const signed = await signTransaction({
         phase: 'sign',
         accountId: current.selection.accountId,
@@ -216,8 +221,11 @@ export function DappBrowserScreen({
         networkId: current.selection.networkId,
         networkPassphrase: current.selection.networkPassphrase,
         transactionXdrBase64: request.transactionXdrBase64,
+        reviewedHash: request.intent.hash,
+        isCurrent,
         appPassphrase,
       });
+      if (!isCurrent()) return;
       if (signed.status === 'passphrase-required') {
         setPendingSign({ ...request, passphraseRequired: true });
         return;
@@ -240,13 +248,14 @@ export function DappBrowserScreen({
   const choosePermission = (decision: 'once' | 'always' | 'reject') => {
     const grantedOrigin = pendingOrigin;
     setPendingOrigin(undefined);
-    if (!current || !active || stale) return;
-    if (decision === 'always' && grantedOrigin) {
+    if (!current || !currentSession()) return;
+    const result = current.session.resolvePermission(decision !== 'reject');
+    if (result?.kind !== 'respond') return;
+    if (decision === 'always' && grantedOrigin && !result.response.error && currentSession()) {
       rememberDappReadGrant(grantedOrigin, current.selection.accountId, current.selection.networkId);
       rememberPersistentAccess?.(grantedOrigin, current.selection.accountId, current.selection.networkId);
     }
-    const result = current.session.resolvePermission(decision !== 'reject');
-    if (result?.kind === 'respond') reply(result.response);
+    reply(result.response);
   };
 
   const shouldLoad = (candidate: string) => {
@@ -255,18 +264,22 @@ export function DappBrowserScreen({
     return readPublicDappNavigation(candidate) !== undefined;
   };
 
+  const onDocumentStart = (nextUrl: string) => {
+    if (!current || !currentSession() || nextUrl === 'about:blank') return;
+    const target = readPublicDappNavigation(nextUrl);
+    if (!target) return;
+    documentEpoch.current += 1;
+    documentOrigin.current = target.origin;
+    current.session.activateDocument(target.origin);
+    signGeneration.current += 1;
+    setPendingOrigin(undefined);
+    setPendingSign(undefined);
+  };
+
   const onNavigation = (next: DappBrowserNavigation) => {
     if (!current || !active || stale || next.url === 'about:blank') return;
     const target = readPublicDappNavigation(next.url);
     if (!target) return;
-    if (next.url !== lastPage.current) {
-      lastPage.current = next.url;
-      documentOrigin.current = target.origin;
-      current.session.activateDocument(target.origin);
-      setPendingOrigin(undefined);
-      signGeneration.current += 1;
-      setPendingSign(undefined);
-    }
     setPage({ origin: target.origin, canGoBack: next.canGoBack, canGoForward: next.canGoForward });
   };
 
@@ -325,6 +338,7 @@ export function DappBrowserScreen({
             nonce={current.token}
             onMessage={handleMessage}
             onNavigation={onNavigation}
+            onDocumentStart={onDocumentStart}
             shouldLoad={shouldLoad}
           />
         </View>
@@ -341,15 +355,13 @@ export function DappBrowserScreen({
         ) : null}
         {pendingSign ? (
           <DappSignSheet
-            fee={pendingSign.fee}
+            intent={pendingSign.intent}
             onConfirm={passphrase => {
               confirmSignature(passphrase).catch(() => undefined);
             }}
             onReject={rejectSignature}
-            operationCount={pendingSign.operationCount}
             origin={pendingSign.origin}
             passphraseRequired={pendingSign.passphraseRequired}
-            source={pendingSign.source}
             visible
           />
         ) : null}

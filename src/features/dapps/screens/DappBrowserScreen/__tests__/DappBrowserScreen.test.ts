@@ -111,6 +111,7 @@ type NodeProps = Readonly<{
   operationCount?: number;
   onMessage?: DappBrowserSurfaceProps['onMessage'];
   onNavigation?: DappBrowserSurfaceProps['onNavigation'];
+  onDocumentStart?: DappBrowserSurfaceProps['onDocumentStart'];
   shouldLoad?: DappBrowserSurfaceProps['shouldLoad'];
   disabled?: boolean;
 }>;
@@ -200,9 +201,43 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     expect(replies).toHaveBeenCalledWith(expect.objectContaining({ publicKey: 'GSOURCE', messagedId: 3 }));
   });
 
+  it('does not persist stale allow-always decisions after session retirement', () => {
+    render();
+    refs[1].current = { reply: replies };
+    const webview = find(render(), node => node.type === BrowserSurface);
+    webview?.props.onMessage?.(request('REQUEST_ACCESS', 2), 'https://demo.example.org/start');
+    const sheet = find(render(), node => node.type === DappConnectSheet);
+    for (const effect of effects.splice(0)) effect();
+    subscriber?.();
+    sheet?.props.onAllowAlways?.();
+    expect(hasDappReadGrant('https://demo.example.org', 'wallet1', 'stellar-testnet')).toBe(false);
+  });
+
+  it('resets message deduplication for a new same-URL document', () => {
+    render();
+    refs[1].current = { reply: replies };
+    const webview = find(render(), node => node.type === BrowserSurface);
+    webview?.props.onMessage?.(request('REQUEST_ALLOWED_STATUS', 14), 'https://demo.example.org');
+    expect(replies).toHaveBeenCalledTimes(1);
+    webview?.props.onDocumentStart?.('https://demo.example.org/start');
+    webview?.props.onMessage?.(request('REQUEST_ALLOWED_STATUS', 14), 'https://demo.example.org');
+    expect(replies).toHaveBeenCalledTimes(2);
+  });
+
   it('shows the transaction from the session and returns the signed envelope', async () => {
     const signTransaction: DappTransactionSigner = async input => {
-      if (input.phase === 'inspect') return { status: 'ready', source: 'GSOURCE', fee: '100', operationCount: 1 };
+      if (input.phase === 'inspect')
+        return {
+          status: 'ready',
+          intent: {
+            hash: 'mockhash',
+            source: 'GSOURCE',
+            sequence: '7',
+            fee: '100',
+            memo: null,
+            operations: [{ type: 'payment', source: 'GSOURCE', destination: 'GDEST', amount: '2', assetCode: 'XLM' }],
+          },
+        };
       return { status: 'signed', signedTransaction: 'BBBB', signerAddress: input.accountAddress };
     };
     const signed = jest.fn(signTransaction);
@@ -226,12 +261,19 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     await Promise.resolve();
     const { DappSignSheet } = require('../DappSignSheet') as typeof import('../DappSignSheet');
     const sheet = find(render(true, signed), node => node.type === DappSignSheet);
-    expect(sheet?.props).toMatchObject({ source: 'GSOURCE', fee: '100', operationCount: 1 });
+    expect(sheet?.props).toMatchObject({
+      intent: { source: 'GSOURCE', fee: '100', operations: [{ destination: 'GDEST' }] },
+    });
     sheet?.props.onConfirm?.('secret');
     await Promise.resolve();
     await Promise.resolve();
     expect(signed).toHaveBeenLastCalledWith(
-      expect.objectContaining({ phase: 'sign', transactionXdrBase64: 'AAAA', appPassphrase: 'secret' }),
+      expect.objectContaining({
+        phase: 'sign',
+        transactionXdrBase64: 'AAAA',
+        reviewedHash: 'mockhash',
+        appPassphrase: 'secret',
+      }),
     );
     expect(replies).toHaveBeenCalledWith(
       expect.objectContaining({ signedTransaction: 'BBBB', signerAddress: 'GSOURCE', messagedId: 4 }),

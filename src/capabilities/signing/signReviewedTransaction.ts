@@ -21,6 +21,7 @@ export async function signReviewedTransaction(input: {
   systemAuthReason?: string;
   authorizationPolicy?: SigningAuthorizationPolicy;
   networkPassphrase: string;
+  isCurrent?: () => boolean;
 }): Promise<ReviewedTransactionSigningResult> {
   const { sdk, review, signer } = input;
 
@@ -28,10 +29,22 @@ export async function signReviewedTransaction(input: {
     return { status: 'unsupported-signer' };
   }
 
+  const current = () => {
+    try {
+      return input.isCurrent?.() !== false;
+    } catch {
+      return false;
+    }
+  };
+  if (!current()) return { status: 'unsupported-signer' };
+
   const authorizationPolicy = input.authorizationPolicy ?? 'routine';
   if (authorizationPolicy === 'routine') {
     const hasSystemAuth = await sdk.hasSignerSystemAuth(signer.publicKey);
     if (hasSystemAuth) {
+      // The SDK call may show native System Auth. Recheck after the await
+      // before allowing a retired dApp document to initiate it.
+      if (!current()) return { status: 'unsupported-signer' };
       const signedTransactionXdrBase64 = await sdk.signWithSystemAuth({
         envelopeJson: signer.envelopeJson,
         expectedSignerPublicKey: signer.publicKey,
@@ -52,6 +65,7 @@ export async function signReviewedTransaction(input: {
     return { status: 'passphrase-required' };
   }
 
+  if (!current()) return { status: 'unsupported-signer' };
   const signedTransactionXdrBase64 = await sdk.signWithPassphrase({
     envelopeJson: signer.envelopeJson,
     appPassphrase: input.appPassphrase,

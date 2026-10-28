@@ -16,6 +16,7 @@ export async function signPreparedDappTransaction(input: {
   accountAddress: string;
   networkPassphrase: string;
   appPassphrase?: string;
+  isCurrent: () => boolean;
 }): Promise<PreparedDappSignature> {
   if (input.signer.publicKey !== input.accountAddress || input.signer.kind !== 'protected-software') {
     return { status: 'unsupported-signer' };
@@ -27,6 +28,7 @@ export async function signPreparedDappTransaction(input: {
     appPassphrase: input.appPassphrase,
     networkPassphrase: input.networkPassphrase,
     systemAuthReason: 'Sign dApp transaction',
+    isCurrent: input.isCurrent,
   });
   if (signed.status === 'signed') {
     return { status: 'signed', signedTransactionXdrBase64: signed.signedTransactionXdrBase64 };

@@ -15,7 +15,7 @@ const styles = StyleSheet.create({ root: { flex: 1 } });
 /** Transport-only. URL policy, account/session validation and permission
  * decisions are deliberately owned outside this platform component. */
 export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowserSurfaceProps>(
-  function WebViewTransport({ url, shouldLoad, onMessage, onNavigation }, ref) {
+  function WebViewTransport({ url, shouldLoad, onMessage, onNavigation, onDocumentStart }, ref) {
     const webview = useRef<React.ElementRef<typeof WebView>>(null);
     const injected = useMemo(() => buildFreighterInjectionScript(), []);
 
@@ -47,6 +47,7 @@ export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowse
         source={{ uri: url }}
         originWhitelist={['https://*']}
         onShouldStartLoadWithRequest={event => shouldLoad(event.url)}
+        onLoadStart={event => onDocumentStart(event.nativeEvent.url)}
         onNavigationStateChange={event =>
           onNavigation({
             url: event.url,

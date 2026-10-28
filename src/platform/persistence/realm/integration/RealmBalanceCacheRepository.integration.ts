@@ -15,7 +15,13 @@ import { RealmPendingSubmissionRepository } from '../RealmPendingSubmissionRepos
 import { RealmDefaultAccountPreferenceStore } from '../RealmDefaultAccountPreferenceStore';
 import { RealmLocalePreferenceStore } from '../RealmLocalePreferenceStore';
 import { openWalletRealm } from '../openWalletRealm';
-import { BALANCE_CACHE_SNAPSHOT_ENTITY, DAPP_CATALOG_CACHE_ENTITY, WALLET_REALM_SCHEMAS } from '../schemas';
+import {
+  ACCOUNT_ENTITY,
+  BALANCE_CACHE_SNAPSHOT_ENTITY,
+  DAPP_CATALOG_CACHE_ENTITY,
+  WALLET_REALM_SCHEMA_VERSION,
+  WALLET_REALM_SCHEMAS,
+} from '../schemas';
 import { deleteLocalAccount } from '../../../../capabilities/account/deleteLocalAccount';
 
 describe('Realm Balance cache', () => {
@@ -74,7 +80,7 @@ describe('Realm Balance cache', () => {
     },
   );
 
-  it('migrates v5 to v7 preserving every existing entity and starts Balance empty', async () => {
+  it('migrates v5 to the current schema preserving every existing entity and starts Balance empty', async () => {
     const path = realm.path;
     realm.close();
     Realm.deleteFile({ path });
@@ -130,7 +136,7 @@ describe('Realm Balance cache', () => {
     realm.close();
     realm = await openWalletRealm({ path });
     const migrated = new RealmAccountSignerRepository(realm);
-    expect(realm.schemaVersion).toBe(7);
+    expect(realm.schemaVersion).toBe(WALLET_REALM_SCHEMA_VERSION);
     expect(migrated.getAccount('old')).toEqual(account);
     expect(migrated.getSigner('signer')).toEqual(signer);
     expect(migrated.listSignersForAccount('old')).toEqual([signer]);
@@ -155,5 +161,78 @@ describe('Realm Balance cache', () => {
     expect(balanceCache.getSnapshot(balancePartition)).toBeUndefined();
     expect(new RealmHistoryCacheRepository(realm).getSnapshot(balancePartition)).toBeUndefined();
     expect(new RealmPendingSubmissionRepository(realm).get(account.networkId, 'old-hash')?.state).toBe('confirmed');
+  });
+
+  it('discards a snapshotJson balance cache and keeps the wallet account', async () => {
+    const path = realm.path;
+    realm.close();
+    Realm.deleteFile({ path });
+    const date = new Date(0);
+    realm = await Realm.open({
+      path,
+      schemaVersion: 7,
+      schema: [
+        ...WALLET_REALM_SCHEMAS.filter(
+          schema => schema.name !== BALANCE_CACHE_SNAPSHOT_ENTITY && schema.name !== DAPP_CATALOG_CACHE_ENTITY,
+        ),
+        {
+          name: BALANCE_CACHE_SNAPSHOT_ENTITY,
+          primaryKey: 'id',
+          properties: {
+            id: 'string',
+            networkId: 'string',
+            accountAddress: 'string',
+            schemaVersion: 'int',
+            updatedAt: 'date',
+            snapshotJson: 'string',
+          },
+        },
+        {
+          name: 'DappCacheSnapshotEntity',
+          primaryKey: 'id',
+          properties: {
+            id: 'string',
+            schemaVersion: 'int',
+            updatedAt: 'date',
+            payloadJson: 'string',
+          },
+        },
+      ],
+    });
+    realm.write(() => {
+      realm.create(ACCOUNT_ENTITY, {
+        id: 'kept',
+        address: balancePartition.accountAddress,
+        identityKind: 'classic',
+        networkId: balancePartition.networkId,
+        label: 'Kept',
+        sortOrder: 0,
+        hidden: false,
+        createdAt: date,
+        updatedAt: date,
+      });
+      realm.create(BALANCE_CACHE_SNAPSHOT_ENTITY, {
+        id: 'cached-balance',
+        networkId: balancePartition.networkId,
+        accountAddress: balancePartition.accountAddress,
+        schemaVersion: 1,
+        updatedAt: date,
+        snapshotJson: '{}',
+      });
+      realm.create('DappCacheSnapshotEntity', {
+        id: 'dapp-cache',
+        schemaVersion: 1,
+        updatedAt: date,
+        payloadJson: '{}',
+      });
+    });
+    realm.close();
+
+    realm = await openWalletRealm({ path });
+    expect(realm.schemaVersion).toBe(WALLET_REALM_SCHEMA_VERSION);
+    expect(realm.schema.some(schema => schema.name === 'DappCacheSnapshotEntity')).toBe(false);
+    expect(new RealmAccountSignerRepository(realm).getAccount('kept')?.label).toBe('Kept');
+    expect(realm.objects(BALANCE_CACHE_SNAPSHOT_ENTITY)).toHaveLength(0);
+    expect(new RealmBalanceCacheRepository(realm).getSnapshot(balancePartition)).toBeUndefined();
   });
 });

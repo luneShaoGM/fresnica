@@ -9,7 +9,12 @@ import { createFchainCatalog } from '../../../dapps/loadFchainCatalog';
 import { RealmAccountSignerRepository } from '../RealmAccountSignerRepository';
 import { RealmDappCatalogRepository } from '../RealmDappCatalogRepository';
 import { openWalletRealm } from '../openWalletRealm';
-import { ACCOUNT_ENTITY, DAPP_CATALOG_CACHE_ENTITY, WALLET_REALM_SCHEMAS } from '../schemas';
+import {
+  ACCOUNT_ENTITY,
+  DAPP_CATALOG_CACHE_ENTITY,
+  WALLET_REALM_SCHEMA_VERSION,
+  WALLET_REALM_SCHEMAS,
+} from '../schemas';
 
 const testnetCatalog = {
   schemaVersion: 1 as const,
@@ -95,7 +100,7 @@ describe('Realm S14 public catalog integration', () => {
       realm.close();
 
       realm = await openWalletRealm({ path });
-      expect(realm.schemaVersion).toBe(7);
+      expect(realm.schemaVersion).toBe(WALLET_REALM_SCHEMA_VERSION);
       expect(new RealmAccountSignerRepository(realm).getAccount('old-account')?.label).toBe('Existing');
       const cache = new RealmDappCatalogRepository(realm);
       expect(cache.read('stellar-testnet')).toBeUndefined();
