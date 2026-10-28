@@ -43,6 +43,14 @@ export function createConnectSheetStyles(theme: AppTheme) {
     },
     cardLabel: { ...theme.typography.caption, color: theme.colors.textSecondary },
     cardValue: { ...theme.typography.label, color: theme.colors.textPrimary, flexShrink: 1 },
+    passphraseInput: {
+      minHeight: 48,
+      borderColor: theme.colors.border,
+      borderWidth: 1,
+      borderRadius: theme.radii.md,
+      color: theme.colors.textPrimary,
+      paddingHorizontal: theme.spacing.md,
+    },
     hint: { ...theme.typography.caption, color: theme.colors.textTertiary, textAlign: 'center' },
     actions: { flexDirection: 'row', gap: theme.spacing.sm },
     action: {

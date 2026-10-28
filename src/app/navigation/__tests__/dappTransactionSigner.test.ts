@@ -60,18 +60,68 @@ describe('createDappTransactionSigner', () => {
       transactionXdrBase64,
     };
 
-    await expect(sign({ ...input, phase: 'inspect' })).resolves.toEqual({
+    const inspected = await sign({ ...input, phase: 'inspect' });
+    expect(inspected).toMatchObject({
       status: 'ready',
-      source: address,
-      fee: '100',
-      operationCount: 1,
+      intent: { source: address, fee: '100', operations: [{ destination, amount: '2.0000000', assetCode: 'XLM' }] },
     });
-    await expect(sign({ ...input, phase: 'sign' })).resolves.toEqual({
+    if (inspected.status !== 'ready') throw new Error('invalid-inspection');
+    await expect(
+      sign({ ...input, phase: 'sign', reviewedHash: inspected.intent.hash, isCurrent: () => true }),
+    ).resolves.toEqual({
       status: 'signed',
       signedTransaction: 'signed-envelope',
       signerAddress: address,
     });
     expect(signWithSystemAuth).toHaveBeenCalledWith(expect.objectContaining({ transactionXdrBase64 }));
+  });
+
+  it('refuses to sign changed destinations and stale authorization before native auth', async () => {
+    const signWithSystemAuth = jest.fn().mockResolvedValue('signed-envelope');
+    const sdk = {
+      hasSignerSystemAuth: jest.fn().mockResolvedValue(true),
+      signWithSystemAuth,
+    } as unknown as FresnicaSdkPort;
+    const repository = {
+      getAccount: () => account,
+      listSignersForAccount: () => [signer],
+    } as unknown as AccountSignerRepository;
+    const sign = createDappTransactionSigner({ sdk, repository });
+    const first = envelope();
+    const inspected = await sign({
+      phase: 'inspect',
+      accountId: account.id,
+      accountAddress: address,
+      networkId: account.networkId,
+      networkPassphrase,
+      transactionXdrBase64: first,
+    });
+    if (inspected.status !== 'ready') throw new Error('no-intent');
+    const changed = new TransactionBuilder(new Account(address, '7'), { fee: '100', networkPassphrase })
+      .addOperation(Operation.payment({ destination: address, asset: Asset.native(), amount: '2' }))
+      .setTimeout(30)
+      .build()
+      .toXDR();
+    const fields = { accountId: account.id, accountAddress: address, networkId: account.networkId, networkPassphrase };
+    await expect(
+      sign({
+        ...fields,
+        phase: 'sign',
+        transactionXdrBase64: changed,
+        reviewedHash: inspected.intent.hash,
+        isCurrent: () => true,
+      }),
+    ).resolves.toEqual({ status: 'invalid' });
+    await expect(
+      sign({
+        ...fields,
+        phase: 'sign',
+        transactionXdrBase64: first,
+        reviewedHash: inspected.intent.hash,
+        isCurrent: () => false,
+      }),
+    ).resolves.toEqual({ status: 'invalid' });
+    expect(signWithSystemAuth).not.toHaveBeenCalled();
   });
 
   it('rejects an envelope that cannot be parsed before asking for a signature', async () => {

@@ -380,5 +380,13 @@ export function createFreighterSession(
     closed = true;
   }
 
-  return Object.freeze({ receive, resolvePermission, finishSign, reset, activateDocument, revoke });
+  return Object.freeze({
+    receive,
+    resolvePermission,
+    finishSign,
+    reset,
+    activateDocument,
+    revoke,
+    isLive: () => !closed && live(),
+  });
 }

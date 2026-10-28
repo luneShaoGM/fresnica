@@ -13,6 +13,7 @@ export type DappBrowserSurfaceProps = Readonly<{
   shouldLoad: (url: string) => boolean;
   onMessage: (data: string, messageUrl: string) => void;
   onNavigation: (navigation: DappBrowserNavigation) => void;
+  onDocumentStart: (url: string) => void;
 }>;
 
 export type DappBrowserSurfaceHandle = Readonly<{

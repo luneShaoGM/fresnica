@@ -34,6 +34,7 @@ describe('signPreparedDappTransaction', () => {
         accountAddress: 'GACCOUNT',
         networkPassphrase: 'Test SDF Network ; September 2015',
         appPassphrase: 'secret',
+        isCurrent: () => true,
       }),
     ).resolves.toEqual({ status: 'signed', signedTransactionXdrBase64: 'AAAA-signed' });
     expect(signWithPassphrase).toHaveBeenCalledWith(expect.objectContaining({ transactionXdrBase64: 'AAAA-exact' }));
@@ -49,6 +50,7 @@ describe('signPreparedDappTransaction', () => {
         accountAddress: 'GOTHER',
         networkPassphrase: 'Test SDF Network ; September 2015',
         appPassphrase: 'secret',
+        isCurrent: () => true,
       }),
     ).resolves.toEqual({ status: 'unsupported-signer' });
     expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
