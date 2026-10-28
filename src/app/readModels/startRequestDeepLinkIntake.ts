@@ -43,6 +43,8 @@ export function startRequestDeepLinkIntake(
       flush();
     },
     dismiss() {
+      // A dismissed session must also ignore an outstanding cold-start URL.
+      warmReceived = true;
       pending = undefined;
       delivered = false;
     },

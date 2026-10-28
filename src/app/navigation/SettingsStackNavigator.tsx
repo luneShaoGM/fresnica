@@ -122,10 +122,11 @@ export function SettingsStackNavigator({
         {({ navigation }) => (
           <NetworkSettingsScreen
             monitor={services.nodeReadSession}
+            settings={services.networkSettings}
             network={{
-              id: APP_CONFIG.network.id,
-              horizonUrl: APP_CONFIG.network.horizonUrl,
-              isMainnet: APP_CONFIG.network.isMainnet,
+              id: services.networkProfile.id,
+              horizonUrl: services.networkProfile.horizonUrl,
+              isMainnet: services.networkProfile.isMainnet,
             }}
             onBack={() => navigation.goBack()}
           />

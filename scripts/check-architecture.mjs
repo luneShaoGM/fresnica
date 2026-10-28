@@ -10,10 +10,12 @@ const sourceExtensions = new Set(['.js', '.jsx', '.ts', '.tsx']);
 const strictPresentationScopes = [
   'src/app/navigation/',
   'src/app/readModels/',
+  'src/app/network/',
   'src/ui/components/',
   'src/features/home/',
   'src/features/settings/NetworkSettingsScreen',
   'src/features/settings/NetworkNodeHealth',
+  'src/features/settings/NetworkManagement',
   'src/features/trustlines/',
   'src/features/swap/',
   'src/features/activity/',

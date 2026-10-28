@@ -8,6 +8,7 @@ export type DeleteLocalAccountDependencies = Readonly<{
   pendingSubmissions: PendingSubmissionRepository;
   historyCache: Pick<HistoryCacheRepository, 'clearPartition'>;
   balanceCache: Pick<BalanceCacheRepository, 'clearPartition'>;
+  onDeleted?: () => void;
 }>;
 
 export function deleteLocalAccount(dependencies: DeleteLocalAccountDependencies, accountId: string): void {
@@ -36,4 +37,5 @@ export function deleteLocalAccount(dependencies: DeleteLocalAccountDependencies,
     });
   }
   dependencies.repository.deleteAccount(accountId);
+  dependencies.onDeleted?.();
 }

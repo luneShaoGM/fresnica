@@ -29,6 +29,7 @@ const inactiveSnapshot = () => inactiveReads;
 
 export function App() {
   const [runtime, setRuntime] = useState<AppRuntimeState>({ kind: 'loading' });
+  const [serviceGeneration, setServiceGeneration] = useState(0);
   const [locale, setLocale] = useState<SupportedLocale>(() => getDeviceLocale());
   const servicesRef = useRef<AppServices | undefined>(undefined);
   const intake = useRef<ReturnType<typeof startRequestDeepLinkIntake> | undefined>(undefined);
@@ -68,7 +69,12 @@ export function App() {
   }, [captureDeepLink]);
 
   useEffect(() => {
-    intake.current?.setReady(runtime.kind === 'ready' && runtime.bootstrap.kind === 'ready' && readRuntime.foreground);
+    intake.current?.setReady(
+      runtime.kind === 'ready' &&
+        runtime.bootstrap.kind === 'ready' &&
+        runtime.services.networkSettings?.getSnapshot().preferences.selectionConfirmed !== false &&
+        readRuntime.foreground,
+    );
     return () => intake.current?.setReady(false);
   }, [runtime, readRuntime.foreground]);
 
@@ -76,7 +82,20 @@ export function App() {
     let mounted = true;
     let stopLedgerReadLifecycle: (() => void) | undefined;
 
-    void createAppServices()
+    void createAppServices({
+      onNetworkChanged: () => {
+        stopLedgerReadLifecycle?.();
+        servicesRef.current = undefined;
+        intake.current?.setReady(false);
+        intake.current?.dismiss();
+        linkGeneration.current += 1;
+        resolvedFor.current = undefined;
+        setParsedDeepLink(undefined);
+        setResolvedDeepLink(undefined);
+        setRuntime({ kind: 'loading' });
+        setServiceGeneration(generation => generation + 1);
+      },
+    })
       .then(created => {
         if (!mounted) {
           created.close();
@@ -131,13 +150,14 @@ export function App() {
       servicesRef.current?.close();
       servicesRef.current = undefined;
     };
-  }, [captureDeepLink]);
+  }, [captureDeepLink, serviceGeneration]);
 
   useEffect(() => {
     if (
       parsedDeepLink === undefined ||
       runtime.kind !== 'ready' ||
       runtime.bootstrap.kind !== 'ready' ||
+      runtime.services.networkSettings?.getSnapshot().preferences.selectionConfirmed === false ||
       !readRuntime.foreground ||
       readRuntime.connectivity === 'offline' ||
       (resolvedFor.current?.parsed === parsedDeepLink && resolvedFor.current.runtime === runtime)
@@ -223,6 +243,7 @@ export function App() {
           <LocalizationProvider locale={locale} onChangeLocale={handleChangeLocale}>
             <OverlayHost>
               <AppNavigator
+                key={serviceGeneration}
                 runtime={runtime}
                 onRefreshBootstrap={refreshBootstrap}
                 deepLink={resolvedDeepLink}

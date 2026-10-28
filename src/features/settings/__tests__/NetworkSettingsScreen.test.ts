@@ -9,6 +9,8 @@ import { NetworkNodeHealth } from '../NetworkNodeHealth';
 import { NetworkSettingsScreen } from '../NetworkSettingsScreen';
 import { createStyles } from '../NetworkSettingsScreen.styles';
 
+jest.mock('@react-navigation/native', () => ({ useFocusEffect: jest.fn() }));
+
 jest.mock('@fresnica/ui-native', () => ({
   Button: () => null,
 }));

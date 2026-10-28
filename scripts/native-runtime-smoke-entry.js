@@ -159,7 +159,7 @@ async function verifyProtectedSignerPassphraseRuntime(core) {
 
 async function verifyExistingWalletCreateRuntime() {
   const realmPath = Realm.defaultPath.replace(/[^/]+$/u, `s01-existing-wallet-create-smoke-${Date.now()}.realm`);
-  let services = await createAppServices({ realmPath });
+  let services = await createAppServices({ fixedNetwork: 'stellar-testnet', realmPath });
 
   try {
     let initial = await runGeneratedMnemonicOnboarding(services.onboarding, {
@@ -224,7 +224,7 @@ async function verifyExistingWalletCreateRuntime() {
     created = undefined;
 
     services.close();
-    services = await createAppServices({ realmPath });
+    services = await createAppServices({ fixedNetwork: 'stellar-testnet', realmPath });
     const pending = resolveOnboardingBootstrap(services.onboarding);
     if (
       pending.kind !== 'pending-mnemonic-backup' ||
@@ -249,7 +249,7 @@ async function verifyExistingWalletCreateRuntime() {
     });
 
     services.close();
-    services = await createAppServices({ realmPath });
+    services = await createAppServices({ fixedNetwork: 'stellar-testnet', realmPath });
     const ready = resolveOnboardingBootstrap(services.onboarding);
     const restoredSigner = services.onboarding.repository.getSigner(createdSignerId);
     const restoredDefault = services.accountSelectionPreferences.getDefaultAccountId(services.onboarding.networkId);
@@ -277,7 +277,7 @@ async function verifyExistingWalletCreateRuntime() {
 
 async function verifyExistingWalletHdRuntime() {
   const realmPath = Realm.defaultPath.replace(/[^/]+$/u, `s01-existing-wallet-hd-smoke-${Date.now()}.realm`);
-  let services = await createAppServices({ realmPath });
+  let services = await createAppServices({ fixedNetwork: 'stellar-testnet', realmPath });
 
   try {
     let initial = await runGeneratedMnemonicOnboarding(services.onboarding, {
@@ -355,7 +355,7 @@ async function verifyExistingWalletHdRuntime() {
     );
 
     services.close();
-    services = await createAppServices({ realmPath });
+    services = await createAppServices({ fixedNetwork: 'stellar-testnet', realmPath });
     const ready = resolveOnboardingBootstrap(services.onboarding);
     const restoredDefault = services.accountSelectionPreferences.getDefaultAccountId(services.onboarding.networkId);
     const restoredSigner = services.onboarding.repository.getSigner(derivedSignerId);
@@ -384,7 +384,7 @@ async function verifyExistingWalletHdRuntime() {
 
 async function verifyExistingWalletImportRuntime() {
   const realmPath = Realm.defaultPath.replace(/[^/]+$/u, `s01-existing-wallet-import-smoke-${Date.now()}.realm`);
-  let services = await createAppServices({ realmPath });
+  let services = await createAppServices({ fixedNetwork: 'stellar-testnet', realmPath });
 
   try {
     let initial = await runGeneratedMnemonicOnboarding(services.onboarding, {
@@ -535,7 +535,7 @@ async function verifyExistingWalletImportRuntime() {
     );
 
     services.close();
-    services = await createAppServices({ realmPath });
+    services = await createAppServices({ fixedNetwork: 'stellar-testnet', realmPath });
     const ready = resolveOnboardingBootstrap(services.onboarding);
     const restoredDefault = services.accountSelectionPreferences.getDefaultAccountId(services.onboarding.networkId);
     const restoredMnemonicSigner = services.onboarding.repository.getSigner(mnemonicSignerId);

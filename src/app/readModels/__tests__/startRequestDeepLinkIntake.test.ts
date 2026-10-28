@@ -102,3 +102,16 @@ it('reports initial lookup failure without losing later warm input', async () =>
   expect(s.onCapture).toHaveBeenCalledWith('request-a');
   s.owner.close();
 });
+it('drops an outstanding cold URL when a network transition dismisses intake, then accepts new warm input', async () => {
+  const s = setup();
+  await settle();
+  s.owner.setReady(false);
+  s.owner.dismiss();
+  s.initial('old-network-request');
+  await settle();
+  s.owner.setReady(true);
+  expect(s.onCapture).not.toHaveBeenCalled();
+  s.warm('new-network-request');
+  expect(s.onCapture).toHaveBeenCalledWith('new-network-request');
+  s.owner.close();
+});

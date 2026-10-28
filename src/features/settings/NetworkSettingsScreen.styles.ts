@@ -66,6 +66,13 @@ export function createStyles(theme: AppTheme) {
     },
     infoLabel: { fontSize: 13, lineHeight: 17, color: theme.colors.textPrimary, fontWeight: '600' },
     infoValue: { flex: 1, fontSize: 11, lineHeight: 15, color: theme.colors.textSecondary, textAlign: 'right' },
+    nodeGroup: {
+      gap: 8,
+      paddingVertical: 10,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: theme.colors.border,
+    },
+    nodeActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     nodeSection: {
       marginHorizontal: 18,
       marginTop: 18,

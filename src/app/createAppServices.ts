@@ -1,3 +1,18 @@
+import { authorizeSensitiveSetting } from '../capabilities/application-security/authorizeSensitiveSetting';
+import { createNetworkSettings, type NetworkSettings } from '../capabilities/network/createNetworkSettings';
+import {
+  DEFAULT_NETWORK_PREFERENCES,
+  NETWORKS,
+  selectedNetwork,
+  validateNetworkPreferences,
+  type NetworkId,
+  type NetworkProfile,
+} from '../capabilities/network/networkPreferences';
+import {
+  openNetworkPreferences,
+  RealmNetworkPreferenceStore,
+} from '../platform/persistence/realm/RealmNetworkPreferenceStore';
+import { createServiceSession } from './network/createServiceSession';
 import { copyPublicText } from '../platform/system/copyPublicText';
 import type { AssetCatalogPort } from '../capabilities/trustline/curatedAssetCatalog';
 import { createHttpAssetCatalog } from '../platform/assets/HttpAssetCatalog';
@@ -64,6 +79,8 @@ export type AccountManagementDependencies = RenameAccountDependencies &
 
 export type AppServices = Readonly<{
   diagnostics: SessionLogger;
+  networkProfile: NetworkProfile;
+  networkSettings?: NetworkSettings;
   accountManagement: AccountManagementDependencies;
   onboarding: OnboardingProvisioningDependencies;
   security: ApplicationSecurityDependencies;
@@ -91,16 +108,37 @@ export type AppServices = Readonly<{
 
 export type CreateAppServicesOptions = Readonly<{
   realmPath?: string;
+  fixedNetwork?: NetworkId;
+  onNetworkChanged?: () => void;
 }>;
 
 export async function createAppServices(options: CreateAppServicesOptions = {}): Promise<AppServices> {
   const diagnostics = new SessionLogger();
   const realm = await openWalletRealm(options.realmPath === undefined ? {} : { path: options.realmPath });
 
+  const session = createServiceSession();
   let closeReadRecovery = () => {};
+  let closePreferences = () => {};
+  let stopSettingsLifecycle = () => {};
+  let networkSettings: NetworkSettings | undefined;
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    session.close();
+    networkSettings?.close();
+    stopSettingsLifecycle();
+    closeReadRecovery();
+    closePreferences();
+    realm.close();
+  };
+  const restartNetworkSession = () => {
+    close();
+    options.onNetworkChanged?.();
+  };
   try {
     const nativeModule = loadNativeFresnicaModule(NativeModules);
-    const sdk = new ReactNativeFresnicaSdk(nativeModule);
+    const sdk = session.bind(new ReactNativeFresnicaSdk(nativeModule), true);
     const repository = new RealmAccountSignerRepository(realm);
     const localePreferences = new RealmLocalePreferenceStore(realm);
     const accountSelectionPreferences = new RealmDefaultAccountPreferenceStore(realm);
@@ -114,17 +152,52 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       readInvalidation: ledgerReadInvalidation,
       now: () => new Date(),
     });
-    const network = Object.freeze({
-      id: APP_CONFIG.network.id,
-      networkPassphrase: APP_CONFIG.network.networkPassphrase,
+    const preferencesRealm = options.fixedNetwork ? undefined : await openNetworkPreferences(realm.path);
+    closePreferences = () => preferencesRealm?.close();
+    const preferences = preferencesRealm ? new RealmNetworkPreferenceStore(preferencesRealm) : undefined;
+    const storedPreferences = preferences?.load();
+    const previousPreferences = storedPreferences ?? {
+      ...DEFAULT_NETWORK_PREFERENCES,
+      selectionConfirmed:
+        options.fixedNetwork !== undefined ||
+        (repository.listAccounts().length === 0 && pendingSubmissions.listUnresolved().length === 0),
+    };
+    const retainedTestnet = repository.listAccounts().some(account => account.networkId === 'stellar-testnet');
+    const revokeSelectedTestnet =
+      !options.fixedNetwork &&
+      !previousPreferences.developerMode &&
+      previousPreferences.networkId === 'stellar-testnet' &&
+      !retainedTestnet;
+    // Never abandon unresolved recovery in an accountless legacy partition.
+    if (revokeSelectedTestnet && pendingSubmissions.listUnresolved('stellar-testnet').length > 0)
+      throw new Error('pending-submission');
+    const initialPreferences = validateNetworkPreferences({
+      ...previousPreferences,
+      retainedTestnet,
+      ...(revokeSelectedTestnet
+        ? {
+            networkId: 'stellar-mainnet',
+            selectionConfirmed: false,
+            endpoints: { ...previousPreferences.endpoints, 'stellar-mainnet': NETWORKS['stellar-mainnet'].horizonUrl },
+          }
+        : {}),
     });
-    const stellarGateway = new StellarSdkGateway({
-      network,
-      horizonUrl: APP_CONFIG.network.horizonUrl,
-    });
+    if (
+      preferences &&
+      storedPreferences &&
+      ((storedPreferences.retainedTestnet === true) !== retainedTestnet || revokeSelectedTestnet)
+    ) {
+      preferences.save(initialPreferences);
+    }
+    const networkProfile = options.fixedNetwork ? NETWORKS[options.fixedNetwork] : selectedNetwork(initialPreferences);
+    const network = Object.freeze({ id: networkProfile.id, networkPassphrase: networkProfile.networkPassphrase });
+    const stellarGateway = session.bind(
+      new StellarSdkGateway({ network, horizonUrl: networkProfile.horizonUrl }),
+      new Set(['submitTransaction']),
+    );
     const publicReads = createHorizonPublicReadGateway();
     const nodeReadSession = createNodeReadSession({
-      endpoint: APP_CONFIG.network.horizonUrl,
+      endpoint: networkProfile.horizonUrl,
       networkPassphrase: network.networkPassphrase,
       runtime: ledgerReadRuntime,
       probe: publicReads.probe,
@@ -159,15 +232,17 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
             .map(account => [account.id, ledgerReadInvalidation.getRevision(network.id, account.id)]),
         ),
     });
-    const pathPaymentGateway = new StellarPathPaymentSdkGateway({
-      network,
-      horizonUrl: APP_CONFIG.network.horizonUrl,
-    });
+    const pathPaymentGateway = session.bind(
+      new StellarPathPaymentSdkGateway({
+        network,
+        horizonUrl: networkProfile.horizonUrl,
+      }),
+    );
     const quoteClock = Object.freeze({
       nowUnixMs: () => Date.now(),
       nowMonotonicMs: () => performance.now(),
     });
-    const friendbotGateway = new StellarFriendbotGateway(APP_CONFIG.network.friendbotUrl);
+    const friendbotGateway = session.bind(new StellarFriendbotGateway(APP_CONFIG.network.friendbotUrl));
     const transactionRecovery = createTransactionReconciliationCoordinator({
       gateway: {
         loadTransactionOutcome: hash =>
@@ -215,10 +290,37 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       foregroundAccountSync.close();
       nodeReadSession.close();
     };
+    if (preferences) {
+      networkSettings = createNetworkSettings({
+        store: preferences,
+        initial: initialPreferences,
+        authorize: (passphrase, signal) => authorizeSensitiveSetting({ sdk, repository }, passphrase, signal),
+        probe: publicReads.probe,
+        isForeground: () => ledgerReadRuntime.getSnapshot().foreground,
+        assertCanSwitch: target => {
+          session.assertIdle();
+          if (
+            !initialPreferences.selectionConfirmed &&
+            pendingSubmissions.listUnresolved().some(record => record.networkId !== target)
+          )
+            throw new Error('pending-submission');
+          if (repository.listSigners().some(signer => signer.backupState === 'pending'))
+            throw new Error('pending-backup');
+          if (target !== network.id && pendingSubmissions.listUnresolved(network.id).length > 0)
+            throw new Error('pending-submission');
+        },
+        restart: restartNetworkSession,
+      });
+      stopSettingsLifecycle = ledgerReadRuntime.subscribe(() => {
+        if (!ledgerReadRuntime.getSnapshot().foreground) networkSettings?.cancel();
+      });
+    }
     diagnostics.info('app-services-ready', { details: { networkId: network.id } });
 
     return {
       diagnostics,
+      networkProfile,
+      networkSettings,
       assetCatalog: createHttpAssetCatalog(),
       copyPublicText,
       accountManagement: {
@@ -226,6 +328,16 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         pendingSubmissions,
         historyCache,
         balanceCache,
+        onDeleted: () => {
+          if (
+            networkSettings?.getSnapshot().preferences.retainedTestnet &&
+            !repository.listAccounts().some(account => account.networkId === 'stellar-testnet')
+          ) {
+            // Retire before the delete flow can expose onboarding on the old Testnet profile.
+            // Reopening derives and persists the new policy from the authoritative account inventory.
+            restartNetworkSession();
+          }
+        },
         now: () => new Date(),
       },
       onboarding: {
@@ -307,14 +419,10 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       localePreferences,
       accountSelectionPreferences,
       externalUrl: reactNativeExternalUrlOpener,
-      close: () => {
-        closeReadRecovery();
-        realm.close();
-      },
+      close,
     };
   } catch (error) {
-    closeReadRecovery();
-    realm.close();
+    close();
     throw error;
   }
 }
