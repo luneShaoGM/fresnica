@@ -666,7 +666,7 @@
   "swap.form.retrySpendable": "重試查詢可用餘額",
   "swap.form.payAmount": "付款金額",
   "swap.form.receiveAmount": "收款金額",
-  "swap.form.exchangeAssets": "交換付款與收款資產",
+  "swap.form.switchAssets": "交換付款與收款資產",
   "swap.quote.automatic": "編輯後會自動更新報價，複核和授權仍須單獨操作。",
   "networkHealth.currentNode": "目前節點",
   "networkHealth.phase.checking": "正在檢查連線…",

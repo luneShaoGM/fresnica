@@ -692,7 +692,7 @@ export function SwapPreviewScreen({
               ) : null}
             </View>
             <NativeButton
-              label={t('swap.form.exchangeAssets')}
+              label={t('swap.form.switchAssets')}
               disabled={preparing}
               size="sm"
               variant="quiet"
