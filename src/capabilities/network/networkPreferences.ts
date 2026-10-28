@@ -22,6 +22,7 @@ export type NetworkProfile = Readonly<{
 export type NetworkPreferences = Readonly<{
   developerMode: boolean;
   selectionConfirmed: boolean;
+  retainedTestnet?: boolean;
   networkId: NetworkId;
   endpoints: Readonly<Record<NetworkId, string>>;
   customNodes: Readonly<Record<NetworkId, readonly string[]>>;
@@ -54,6 +55,7 @@ export function validateNetworkPreferences(value: unknown): NetworkPreferences {
   if (!value || typeof value !== 'object') return fail();
   const v = value as Record<string, unknown>;
   if (
+    (v.retainedTestnet !== undefined && typeof v.retainedTestnet !== 'boolean') ||
     typeof v.selectionConfirmed !== 'boolean' ||
     typeof v.developerMode !== 'boolean' ||
     (v.networkId !== 'stellar-mainnet' && v.networkId !== 'stellar-testnet')
@@ -82,10 +84,12 @@ export function validateNetworkPreferences(value: unknown): NetworkPreferences {
   }
   if (
     !v.developerMode &&
-    (v.networkId !== 'stellar-mainnet' || endpoints['stellar-mainnet'] !== NETWORKS['stellar-mainnet'].horizonUrl)
+    (endpoints[v.networkId] !== NETWORKS[v.networkId].horizonUrl ||
+      (v.networkId === 'stellar-testnet' && v.retainedTestnet !== true))
   )
     return fail();
   return Object.freeze({
+    ...(v.retainedTestnet === true ? { retainedTestnet: true } : {}),
     developerMode: v.developerMode,
     selectionConfirmed: v.selectionConfirmed,
     networkId: v.networkId,
@@ -98,4 +102,12 @@ export function selectedNetwork(preferences: NetworkPreferences): NetworkProfile
     ...NETWORKS[preferences.networkId],
     horizonUrl: preferences.endpoints[preferences.networkId],
   }) as NetworkProfile;
+}
+
+// Retaining access to an existing partition grants no developer/custom-node authority.
+export function isNodeAvailable(preferences: NetworkPreferences, id: NetworkId, endpoint: string): boolean {
+  return (
+    preferences.developerMode ||
+    (endpoint === NETWORKS[id].horizonUrl && (id === 'stellar-mainnet' || preferences.retainedTestnet === true))
+  );
 }

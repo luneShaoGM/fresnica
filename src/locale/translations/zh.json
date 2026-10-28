@@ -683,7 +683,7 @@
   "networkHealth.retryPolicy": "连接会自动重试。手动重试仍遵守节点等待时间，可能不会立即发起请求。",
   "networkHealth.retry": "重试连接",
   "networkManage.title": "网络与节点",
-  "networkManage.partitionNotice": "正常模式默认使用主网。账户保留在原网络；已有测试网账户仍保留，可在开发者模式中访问。切换会关闭当前复核和报价。",
+  "networkManage.partitionNotice": "正常模式默认使用主网。账户保留在原网络，切换会关闭当前复核和报价。",
   "networkManage.developerOn": "开发者模式已开启",
   "networkManage.developerOff": "开发者模式已关闭",
   "networkManage.enable": "开启开发者模式",
@@ -723,5 +723,6 @@
   "networkManage.error.pending-backup": "请先完成待处理的助记词备份。",
   "networkManage.error.pending-submission": "请先处理当前网络的待确认交易，再切换网络。恢复时仍可切换同网络节点。",
   "networkManage.error.invalid-endpoint": "请输入 HTTPS 地址，不含登录信息、查询参数或片段。",
-  "networkManage.initialChoice": "请先选择网络。已有测试网账户和待确认交易仍保留。若要继续使用测试网，请鉴权开启开发者模式后选择测试网节点。正常模式默认使用主网。"
+  "networkManage.initialChoice": "请先选择网络。已有账户与待确认交易仍保留在原网络。自定义节点需要鉴权开启开发者模式。",
+  "networkManage.retainedTestnet": "已有测试网账户分区可通过内置节点继续访问，无需开启开发者模式。自定义节点仍需鉴权。"
 }

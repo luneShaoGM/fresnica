@@ -73,6 +73,34 @@ describe('authenticated node and network settings', () => {
     expect(s.store.save).not.toHaveBeenCalled();
     expect(s.settings.getSnapshot().busy).toBe(false);
   });
+  it('keeps a retained partition restricted and verifies its node before selection', async () => {
+    const s = setup(false, {
+      ...DEFAULT_NETWORK_PREFERENCES,
+      retainedTestnet: true,
+      selectionConfirmed: false,
+      customNodes: { ...DEFAULT_NETWORK_PREFERENCES.customNodes, 'stellar-testnet': ['https://saved-custom.test'] },
+    });
+    await expect(s.settings.selectNode(testnet, 'https://saved-custom.test')).rejects.toThrow(
+      'developer-mode-required',
+    );
+    await expect(s.settings.selectNode(testnet, NETWORKS[testnet].horizonUrl)).rejects.toThrow('wrong-network');
+    expect(s.store.save).not.toHaveBeenCalled();
+    s.probe.mockResolvedValueOnce(NETWORKS[testnet].networkPassphrase);
+    await s.settings.selectNode(testnet, NETWORKS[testnet].horizonUrl);
+    expect(s.saved()).toMatchObject({
+      developerMode: false,
+      retainedTestnet: true,
+      selectionConfirmed: true,
+      networkId: testnet,
+    });
+    await expect(s.settings.addNode(testnet, 'https://new.test')).rejects.toThrow('developer-mode-required');
+    await expect(s.settings.removeNode(testnet, 'https://saved-custom.test')).rejects.toThrow(
+      'developer-mode-required',
+    );
+    await s.settings.selectNode(main, NETWORKS[main].horizonUrl);
+    expect(s.saved().retainedTestnet).toBe(true);
+    expect(s.authorize).not.toHaveBeenCalled();
+  });
   it('adds only a verified unique node without silently selecting it', async () => {
     const s = setup();
     await s.settings.addNode(main, ' https://node.test/ ');

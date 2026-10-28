@@ -3,6 +3,7 @@ import {
   DEFAULT_NETWORK_PREFERENCES,
   NETWORKS,
   normalizeHorizonEndpoint,
+  isNodeAvailable,
   validateNetworkPreferences,
   type NetworkId,
   type NetworkPreferences,
@@ -50,8 +51,7 @@ export function createNetworkSettings(
   function requireNode(id: NetworkId, endpoint: string) {
     if (!NETWORKS[id] || ![NETWORKS[id].horizonUrl, ...snapshot.preferences.customNodes[id]].includes(endpoint))
       throw new Error('node-not-found');
-    if (!snapshot.preferences.developerMode && (id !== 'stellar-mainnet' || endpoint !== NETWORKS[id].horizonUrl))
-      throw new Error('developer-mode-required');
+    if (!isNodeAvailable(snapshot.preferences, id, endpoint)) throw new Error('developer-mode-required');
   }
   async function run<T>(action: (signal: AbortSignal) => Promise<T>): Promise<T> {
     if (snapshot.busy) throw new Error('network-settings-busy');

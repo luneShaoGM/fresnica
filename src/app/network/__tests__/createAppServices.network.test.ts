@@ -9,7 +9,7 @@ const mockWallet = { path: '/tmp/wallet.realm', close: jest.fn() };
 const mockPreferenceRealm = { close: jest.fn() };
 let mockPreferences: NetworkPreferences | undefined;
 let mockUnresolved: unknown[] = [];
-const mockSigners = [
+let mockSigners: { id: string; publicKey: string; kind: string; envelopeJson?: string; backupState?: string }[] = [
   { id: 's', publicKey: 'GS', kind: 'protected-software', envelopeJson: '{encrypted}', backupState: 'confirmed' },
 ];
 let mockAccounts: { networkId: string }[] = [];
@@ -81,6 +81,9 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockPreferences = undefined;
   mockAccounts = [];
+  mockSigners = [
+    { id: 's', publicKey: 'GS', kind: 'protected-software', envelopeJson: '{encrypted}', backupState: 'confirmed' },
+  ];
   mockUnresolved = [];
   mockSave.mockImplementation(next => {
     mockPreferences = next;
@@ -175,6 +178,56 @@ describe('production network composition and retirement', () => {
     expect(mockPreferences).toMatchObject({ selectionConfirmed: true, networkId: 'stellar-testnet' });
     expect(mockUnresolved).toHaveLength(1);
   });
+  it.each([
+    ['watch-only', false],
+    ['watch-only', true],
+    ['external-only', false],
+    ['external-only', true],
+  ] as const)(
+    'restores an existing %s Testnet partition without Developer Mode (pending=%s)',
+    async (kind, pending) => {
+      mockAccounts = [{ networkId: 'stellar-testnet' }];
+      mockSigners = kind === 'watch-only' ? [] : [{ id: 'hardware', publicKey: 'GX', kind: 'external' }];
+      mockUnresolved = pending
+        ? [{ networkId: 'stellar-testnet', transactionHash: 'original', state: 'uncertain' }]
+        : [];
+      const accounts = mockAccounts;
+      const signers = mockSigners;
+      const unresolved = mockUnresolved;
+      const services = await createAppServices();
+      expect(services.networkSettings?.getSnapshot().preferences).toMatchObject({
+        selectionConfirmed: false,
+        developerMode: false,
+        retainedTestnet: true,
+      });
+      await expect(services.networkSettings?.enableDeveloperMode('unused')).rejects.toThrow(
+        'protected-signer-required',
+      );
+      if (pending)
+        await expect(
+          services.networkSettings?.selectNode('stellar-mainnet', NETWORKS['stellar-mainnet'].horizonUrl),
+        ).rejects.toThrow('pending-submission');
+      mockProbe.mockImplementation(async () => NETWORKS['stellar-testnet'].networkPassphrase);
+      await services.networkSettings?.selectNode('stellar-testnet', NETWORKS['stellar-testnet'].horizonUrl);
+      expect(mockPreferences).toMatchObject({
+        networkId: 'stellar-testnet',
+        selectionConfirmed: true,
+        developerMode: false,
+        retainedTestnet: true,
+      });
+      const reopened = await createAppServices();
+      expect(reopened.networkProfile).toEqual(NETWORKS['stellar-testnet']);
+      expect(reopened.networkSettings?.getSnapshot().preferences.selectionConfirmed).toBe(true);
+      await expect(reopened.networkSettings?.addNode('stellar-testnet', 'https://custom.test')).rejects.toThrow(
+        'developer-mode-required',
+      );
+      expect(mockSdk.verifyProtectedSignerPassphrase).not.toHaveBeenCalled();
+      expect(mockAccounts).toBe(accounts);
+      expect(mockSigners).toBe(signers);
+      expect(mockUnresolved).toBe(unresolved);
+      reopened.close();
+    },
+  );
   it('keeps helper network choice explicit and separate from production preferences', async () => {
     const services = await createAppServices({ fixedNetwork: 'stellar-testnet' });
     expect(services.send.network.id).toBe('stellar-testnet');

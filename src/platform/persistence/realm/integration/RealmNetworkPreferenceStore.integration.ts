@@ -74,6 +74,16 @@ describe('durable network preferences alongside unchanged wallet partitions', ()
     expect(new RealmPendingSubmissionRepository(wallet).listUnresolved('stellar-testnet')).toHaveLength(1);
     expect(new RealmPendingSubmissionRepository(wallet).listUnresolved('stellar-mainnet')).toHaveLength(0);
   });
+  it('reopens a retained Testnet choice without promoting it to Developer Mode', async () => {
+    const value = { ...DEFAULT_NETWORK_PREFERENCES, retainedTestnet: true, networkId: 'stellar-testnet' as const };
+    const store = new RealmNetworkPreferenceStore(preferences);
+    store.save(value);
+    const path = wallet.path;
+    preferences.close();
+    preferences = await openNetworkPreferences(path);
+    expect(new RealmNetworkPreferenceStore(preferences).load()).toEqual(value);
+    expect(new RealmAccountSignerRepository(wallet).listSigners()).toEqual([]);
+  });
   it('rolls back a failed preference write and rejects corrupted persisted state', () => {
     const store = new RealmNetworkPreferenceStore(preferences);
     expect(store.load()).toBeUndefined();

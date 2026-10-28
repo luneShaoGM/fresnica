@@ -683,7 +683,7 @@
   "networkHealth.retryPolicy": "連線會自動重試。手動重試仍遵守節點等待時間，可能不會立即發出請求。",
   "networkHealth.retry": "重試連線",
   "networkManage.title": "網路與節點",
-  "networkManage.partitionNotice": "一般模式預設使用主網。帳戶保留在原網路；既有測試網帳戶仍保留，可在開發者模式中存取。切換會關閉目前複核與報價。",
+  "networkManage.partitionNotice": "一般模式預設使用主網。帳戶保留在原網路，切換會關閉目前複核與報價。",
   "networkManage.developerOn": "開發者模式已開啟",
   "networkManage.developerOff": "開發者模式已關閉",
   "networkManage.enable": "開啟開發者模式",
@@ -723,5 +723,6 @@
   "networkManage.error.pending-backup": "請先完成待處理的助記詞備份。",
   "networkManage.error.pending-submission": "請先處理目前網路的待確認交易，再切換網路。復原時仍可切換同網路節點。",
   "networkManage.error.invalid-endpoint": "請輸入 HTTPS 位址，不含登入資訊、查詢參數或片段。",
-  "networkManage.initialChoice": "請先選擇網路。既有測試網帳戶與待確認交易仍保留。若要繼續使用測試網，請驗證開啟開發者模式後選擇測試網節點。一般模式預設使用主網。"
+  "networkManage.initialChoice": "請先選擇網路。既有帳戶與待確認交易仍保留在原網路。自訂節點需要驗證開啟開發者模式。",
+  "networkManage.retainedTestnet": "既有測試網帳戶分區可透過內建節點繼續存取，無須開啟開發者模式。自訂節點仍須驗證。"
 }

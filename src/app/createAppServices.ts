@@ -150,11 +150,17 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const preferencesRealm = options.fixedNetwork ? undefined : await openNetworkPreferences(realm.path);
     closePreferences = () => preferencesRealm?.close();
     const preferences = preferencesRealm ? new RealmNetworkPreferenceStore(preferencesRealm) : undefined;
-    const initialPreferences = preferences?.load() ?? {
-      ...DEFAULT_NETWORK_PREFERENCES,
-      selectionConfirmed:
-        options.fixedNetwork !== undefined ||
-        (repository.listAccounts().length === 0 && pendingSubmissions.listUnresolved().length === 0),
+    const storedPreferences = preferences?.load();
+    const initialPreferences = {
+      ...(storedPreferences ?? {
+        ...DEFAULT_NETWORK_PREFERENCES,
+        selectionConfirmed:
+          options.fixedNetwork !== undefined ||
+          (repository.listAccounts().length === 0 && pendingSubmissions.listUnresolved().length === 0),
+      }),
+      ...(!options.fixedNetwork && repository.listAccounts().some(account => account.networkId === 'stellar-testnet')
+        ? { retainedTestnet: true }
+        : {}),
     };
     const networkProfile = options.fixedNetwork ? NETWORKS[options.fixedNetwork] : selectedNetwork(initialPreferences);
     const network = Object.freeze({ id: networkProfile.id, networkPassphrase: networkProfile.networkPassphrase });

@@ -34,10 +34,10 @@ function nodes(root: React.ReactNode): React.ReactElement<Props>[] {
   if (!React.isValidElement<Props>(root)) return [];
   return [root, ...React.Children.toArray(root.props.children).flatMap(nodes)];
 }
-function setup(developerMode = false) {
+function setup(developerMode = false, retainedTestnet = false) {
   const authorize = jest.fn(async () => {});
   const settings = createNetworkSettings({
-    initial: { ...DEFAULT_NETWORK_PREFERENCES, developerMode },
+    initial: { ...DEFAULT_NETWORK_PREFERENCES, developerMode, ...(retainedTestnet ? { retainedTestnet: true } : {}) },
     store: { load: () => undefined, save: jest.fn() },
     authorize,
     probe: async () => NETWORKS['stellar-mainnet'].networkPassphrase,
@@ -57,6 +57,16 @@ describe('network management presentation and event wiring', () => {
     expect(labels).not.toContain('Add node');
     expect(labels).not.toContain('Remove node');
     expect(all.some(n => String(n.props.children).includes('Stellar Testnet'))).toBe(false);
+  });
+  it('shows the retained built-in Testnet partition without revealing custom-node controls', () => {
+    const { settings } = setup(false, true);
+    const all = nodes(NetworkManagement({ settings }));
+    expect(all.some(node => String(node.props.children).includes('Stellar Testnet'))).toBe(true);
+    const labels = all.filter(node => node.type === NativeButton).map(node => node.props.label);
+    expect(labels).toContain('Use node');
+    expect(labels).not.toContain('Add node');
+    expect(labels).not.toContain('Remove node');
+    expect(settings.getSnapshot().preferences.developerMode).toBe(false);
   });
   it('uses a secure transient field and forwards a fresh credential only on explicit confirmation', async () => {
     const { settings, authorize } = setup();

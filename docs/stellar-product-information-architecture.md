@@ -981,3 +981,7 @@ Xaman 没有、Fresnica 栈仍要有的：`SafeAreaProvider`、`enableScreens`�
 ### S04/S24 shared foundation clarification (2026-10-27)
 
 The current authentication and network-session behavior contract is [shared-auth-network-session](behavior-specs/shared-auth-network-session.md). Fresh App Passphrase verification for sensitive Developer Mode enable is independent from the still-missing generic biometric app-session challenge. A zero-signer verification result never authenticates this action. Normal bootstrap selects Mainnet without relabelling existing Testnet records; empty current-network account partitions keep Settings reachable. Custom-node controls remain mode-gated and service generations bind all gateways consistently. The contract records cancellation, persistence, pending-submission and active-node removal invariants and native acceptance boundaries.
+
+#### Retained Testnet migration exception (PR #124 P2)
+
+Existing Testnet account partitions, including watch-only/external-only wallets, retain an explicit built-in Testnet path without enabling Developer Mode. This exception prevents bootstrap lockout; new Testnet access and all custom-node controls still require the existing mode authority. Retention is persisted as public network preference metadata and does not authenticate an action or alter Account/Signer/network identities. See the shared-auth-network-session specification.

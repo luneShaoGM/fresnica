@@ -3,7 +3,7 @@ import { Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
 import type { NetworkSettings } from '@capabilities/network/createNetworkSettings';
-import { NETWORKS, type NetworkId } from '@capabilities/network/networkPreferences';
+import { isNodeAvailable, NETWORKS, type NetworkId } from '@capabilities/network/networkPreferences';
 import { Field } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import { useThemedStyles } from '@ui/theme';
@@ -130,6 +130,7 @@ export function NetworkManagement({ settings }: Readonly<{ settings: NetworkSett
       <Text style={styles.noticeText}>
         {t(preferences.selectionConfirmed ? 'networkManage.partitionNotice' : 'networkManage.initialChoice')}
       </Text>
+      {preferences.retainedTestnet ? <Text style={styles.noticeText}>{t('networkManage.retainedTestnet')}</Text> : null}
       <Text style={styles.nodeStatus}>
         {t(preferences.developerMode ? 'networkManage.developerOn' : 'networkManage.developerOff')}
       </Text>
@@ -141,7 +142,7 @@ export function NetworkManagement({ settings }: Readonly<{ settings: NetworkSett
         variant="quiet"
       />
       {(Object.keys(NETWORKS) as NetworkId[])
-        .filter(id => preferences.developerMode || id === 'stellar-mainnet')
+        .filter(id => isNodeAvailable(preferences, id, NETWORKS[id].horizonUrl))
         .map(id => (
           <View key={id} style={styles.nodeGroup}>
             <Text style={styles.nodeTitle}>

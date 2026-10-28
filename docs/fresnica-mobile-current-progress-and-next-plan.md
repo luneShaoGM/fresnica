@@ -62,3 +62,9 @@
 本地验证：`npm run check` 162 suites / 1292 tests 通过，lint 0 errors / 31 既有 warnings；新增 Realm 重启/分区保留/写入回滚 2 tests 通过。Android/iOS JS bundle 使用临时 Metro watchFolders/nodeModulesPaths 配置解析共享依赖；此辅助打包不等于原生构建或产品验收。
 
 待完成：远端 CI、独立 Work exact-HEAD review、Android/iOS 原生产品流和无障碍验收。S24 不升级 L4。通用应用生物解锁、Developer Session Logs、Stage 9 iOS 真机 System Auth 取消/重试仍未完成。合并前还需与 PR #123 的 `createAppServices`/文档变更对齐；本轮不修改其工作区或 wallet Realm v6→v7 migration。
+
+## PR #124 审查修复
+
+- 旧 HEAD `41ade33bdb5dbc96e59f50e491d11dfef727e822`：Work NEEDS_FIX，P2 1（已有 Testnet 只读/外部 signer 钱包被首次网络选择阻挡）。
+- 修复：已有 Testnet 分区可显式选择内置节点并持久保留访问；不启用 Developer Mode，不开放自定义节点，不创建/导入无关 signer。新钱包默认和原有交易/恢复隔离保持不变。
+- 新 HEAD 必须重新独立审查；原生验收仍未执行。
