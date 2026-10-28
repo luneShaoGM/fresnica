@@ -27,7 +27,7 @@ export type ProductRoute =
   | 'send-review'
   | 'send-result'
   | 'request'
-  | 'exchange'
+  | 'swap'
   | 'manage-assets'
   | 'activity'
   | 'operation-details'
@@ -64,7 +64,7 @@ export type ProductRouteParams = Readonly<{
   'send-review': undefined;
   'send-result': undefined;
   request: Readonly<{accountId: string}>;
-  exchange: Readonly<{accountId: string}>;
+  swap: Readonly<{accountId: string}>;
   'manage-assets': Readonly<{accountId: string; requestedAction?: Readonly<{action: 'add' | 'remove'; code: string; issuer: string}>}>;
   activity: undefined;
   'operation-details': Readonly<{accountId: string; operationId: string}>;
@@ -99,7 +99,7 @@ export const PRODUCT_ROUTES: Readonly<Record<MainTab, readonly ProductRoute[]>> 
     'send-review',
     'send-result',
     'request',
-    'exchange',
+    'swap',
     'manage-assets',
   ],
   activity: ['activity', 'operation-details'],

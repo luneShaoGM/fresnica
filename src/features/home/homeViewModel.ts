@@ -43,7 +43,7 @@ export function createHomeViewModel(
     networkLabel: networkLabel(account.networkId),
     isReadOnly,
     canSend: isActive && !isReadOnly,
-    canSwap: isActive && !isReadOnly && availability.swap,
+    canSwap: !isReadOnly && availability.swap,
     canRequest: availability.request,
     canManageAssets: isActive && !isReadOnly,
     canFundWithFriendbot: isInactive && availability.friendbot === true,

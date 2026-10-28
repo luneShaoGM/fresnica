@@ -30,6 +30,7 @@ type Props = Readonly<{
   accounts: readonly AccountRecord[];
   selectedAccountId: string;
   selectableAccounts: readonly AccountRecord[];
+  swapEnabled: boolean;
   services: AppServices;
   onAccountsChanged: () => void;
   onCreatedAccountReady: (accountId: string) => void | Promise<void>;
@@ -42,6 +43,7 @@ export function HomeStackNavigator({
   accounts,
   selectedAccountId,
   selectableAccounts,
+  swapEnabled,
   services,
   onAccountsChanged,
   onCreatedAccountReady,
@@ -84,6 +86,7 @@ export function HomeStackNavigator({
             onSelectAccount={onSelectAccount}
             onAddAccount={() => navigation.navigate('add-account')}
             onSend={() => navigation.navigate('send-form', { accountId: selectedAccount.id })}
+            onSwap={swapEnabled ? () => navigation.navigate('swap', { accountId: selectedAccount.id }) : undefined}
             onRequest={
               selectedAccount.identityKind === 'classic'
                 ? () => navigation.navigate('request', { accountId: selectedAccount.id })
@@ -146,7 +149,7 @@ export function HomeStackNavigator({
           );
         }}
       </Stack.Screen>
-      <Stack.Screen name="exchange">
+      <Stack.Screen name="swap">
         {({ navigation, route }) => (
           <SwapPreviewRoute
             foreground={readRuntime.foreground}
@@ -212,7 +215,7 @@ type SwapPreviewRouteProps = Readonly<{
   services: AppServices;
   getCurrentSelection: () => SwapCurrentSelection | undefined;
   subscribeToSelection: (listener: () => void) => () => void;
-  navigation: NativeStackNavigationProp<HomeStackParamList, 'exchange'>;
+  navigation: NativeStackNavigationProp<HomeStackParamList, 'swap'>;
 }>;
 
 function SwapPreviewRoute({

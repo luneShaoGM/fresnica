@@ -666,7 +666,7 @@
   "swap.form.retrySpendable": "Retry available balance",
   "swap.form.payAmount": "Amount to pay",
   "swap.form.receiveAmount": "Amount to receive",
-  "swap.form.exchangeAssets": "Exchange pay and receive assets",
+  "swap.form.switchAssets": "Switch pay and receive assets",
   "swap.quote.automatic": "Quotes update automatically after editing. Review and authorization are separate steps.",
   "networkHealth.currentNode": "Current node",
   "networkHealth.phase.checking": "Checking connection…",
