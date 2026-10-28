@@ -14,11 +14,12 @@ type Props = Readonly<{
   origin: string;
   intent: DappTransactionIntent;
   passphraseRequired: boolean;
+  failed: boolean;
   onConfirm: (appPassphrase: string) => void;
   onReject: () => void;
 }>;
 
-export function DappSignSheet({ visible, origin, intent, passphraseRequired, onConfirm, onReject }: Props) {
+export function DappSignSheet({ visible, origin, intent, passphraseRequired, failed, onConfirm, onReject }: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createConnectSheetStyles);
   const secureInput = useRef<SwapPassphraseInputHandle>(null);
@@ -105,6 +106,7 @@ export function DappSignSheet({ visible, origin, intent, passphraseRequired, onC
           style={styles.passphraseInput}
         />
         {passphraseRequired ? <Text style={styles.hint}>{t('dapps.sign.passphraseRequired')}</Text> : null}
+        {failed ? <Text style={styles.hint}>{t('dapps.sign.retryError')}</Text> : null}
         <View style={styles.actions}>
           <Pressable accessibilityRole="button" onPress={reject} style={[styles.action, styles.secondary]}>
             <Text style={styles.actionText}>{t('dapps.sign.reject')}</Text>

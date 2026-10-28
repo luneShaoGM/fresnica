@@ -110,6 +110,85 @@ import java.util.Set;`,
                     }`,
   },
   {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java',
+    applied: 'import java.net.URISyntaxException;',
+    from: 'import java.util.concurrent.atomic.AtomicReference;',
+    to: `import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Locale;
+import java.util.concurrent.atomic.AtomicReference;`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java',
+    applied: 'Fresnica native public HTTPS navigation gate',
+    from: `    @Override
+    public boolean shouldOverrideUrlLoading(WebView view, String url) {
+        final RNCWebView rncWebView = (RNCWebView) view;`,
+    to: `    // Fresnica native public HTTPS navigation gate. JavaScript can time out
+    // after 250ms, so reject unsafe targets before entering that wait.
+    private static boolean isPublicNavigation(String url) {
+        if (url == null || url.isEmpty() || url.length() > 2048) return false;
+        if ("about:blank".equals(url)) return true;
+        try {
+            URI parsed = new URI(url);
+            if (!"https".equalsIgnoreCase(parsed.getScheme()) || parsed.getRawUserInfo() != null ||
+                parsed.getPort() > 65535) return false;
+            String host = parsed.getHost();
+            if (host == null) return false;
+            host = host.toLowerCase(Locale.ROOT);
+            if (host.endsWith(".") || host.indexOf(':') >= 0 || host.matches("[0-9.]+")) return false;
+            String[] labels = host.split("[.]", -1);
+            if (labels.length < 2) return false;
+            for (String label : labels) {
+                if (label.length() > 63 || !label.matches("[a-z0-9](?:[a-z0-9-]*[a-z0-9])?") ||
+                    label.equals("localhost")) return false;
+            }
+            String suffix = labels[labels.length - 1];
+            return !suffix.equals("localhost") && !suffix.equals("local") &&
+                !suffix.equals("internal") && !suffix.equals("invalid") &&
+                !suffix.equals("test") && !suffix.equals("onion");
+        } catch (URISyntaxException error) {
+            return false;
+        }
+    }
+
+    @Override
+    public boolean shouldOverrideUrlLoading(WebView view, String url) {
+        if (!isPublicNavigation(url)) return true;
+        final RNCWebView rncWebView = (RNCWebView) view;`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java',
+    applied: 'event.putBoolean("isDocumentStart", false);',
+    from: `      ((RNCWebView) webView).dispatchEvent(
+        webView,
+        new TopLoadingStartEvent(
+          RNCWebViewWrapper.getReactTagFromWebView(webView),
+          createWebViewEvent(webView, url)));`,
+    to: `      // History API mutations update navigation UI but are not new documents.
+      WritableMap event = createWebViewEvent(webView, url);
+      event.putBoolean("isDocumentStart", false);
+      ((RNCWebView) webView).dispatchEvent(
+        webView,
+        new TopLoadingStartEvent(
+          RNCWebViewWrapper.getReactTagFromWebView(webView),
+          event));`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java',
+    applied: 'event.putBoolean("isDocumentStart", true);',
+    from: `      RNCWebView reactWebView = (RNCWebView) webView;
+      reactWebView.callInjectedJavaScriptBeforeContentLoaded();
+    }`,
+    to: `      RNCWebView reactWebView = (RNCWebView) webView;
+      WritableMap event = createWebViewEvent(webView, url);
+      event.putBoolean("isDocumentStart", true);
+      reactWebView.dispatchEvent(webView, new TopLoadingStartEvent(
+        RNCWebViewWrapper.getReactTagFromWebView(webView), event));
+      reactWebView.callInjectedJavaScriptBeforeContentLoaded();
+    }`,
+  },
+  {
     file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
     applied: 'static NSString *FresnicaVerifiedHttpsOrigin',
     from: `@implementation RNCWebViewImpl`,
@@ -203,7 +282,7 @@ if (pending && checkOnly) {
 
 if (!checkOnly && pending) {
   const android = readFileSync(resolve(root, edits[0].file), 'utf8');
-  const apple = readFileSync(resolve(root, edits[6].file), 'utf8');
+  const apple = readFileSync(resolve(root, 'node_modules/react-native-webview/apple/RNCWebViewImpl.m'), 'utf8');
   if (!android.includes('onVerifiedMessage') || !apple.includes('FresnicaVerifiedHttpsOrigin')) {
     console.error('WebView bridge patch did not land.');
     process.exit(1);

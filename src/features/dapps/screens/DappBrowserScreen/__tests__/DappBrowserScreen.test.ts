@@ -114,6 +114,7 @@ type NodeProps = Readonly<{
   onDocumentStart?: DappBrowserSurfaceProps['onDocumentStart'];
   shouldLoad?: DappBrowserSurfaceProps['shouldLoad'];
   disabled?: boolean;
+  failed?: boolean;
 }>;
 function find(
   root: React.ReactNode,
@@ -278,6 +279,114 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     expect(replies).toHaveBeenCalledWith(
       expect.objectContaining({ signedTransaction: 'BBBB', signerAddress: 'GSOURCE', messagedId: 4 }),
     );
+  });
+
+  it('keeps pending permission across History API changes until a real document starts', () => {
+    render();
+    refs[1].current = { reply: replies };
+    const webview = find(render(), node => node.type === BrowserSurface);
+    webview?.props.onMessage?.(request('REQUEST_ACCESS', 31), 'https://demo.example.org/start');
+    expect(find(render(), node => node.type === DappConnectSheet)).toBeDefined();
+    // Android history.pushState must not emit onDocumentStart.
+    webview?.props.onNavigation?.({ url: 'https://demo.example.org/new-route', canGoBack: true, canGoForward: false });
+    find(render(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ publicKey: 'GSOURCE', messagedId: 31 }));
+    webview?.props.onDocumentStart?.('https://demo.example.org/reloaded');
+    expect(find(render(), node => node.type === DappConnectSheet)).toBeUndefined();
+  });
+
+  it('rejects a system-auth cancellation and allows a new sign request', async () => {
+    const signTransaction: DappTransactionSigner = async input => {
+      if (input.phase === 'inspect')
+        return {
+          status: 'ready',
+          intent: {
+            hash: 'mockhash',
+            source: 'GSOURCE',
+            sequence: '7',
+            fee: '100',
+            memo: null,
+            operations: [{ type: 'payment', source: 'GSOURCE', destination: 'GDEST', amount: '2', assetCode: 'XLM' }],
+          },
+        };
+      throw { code: 'user-cancel' };
+    };
+    render(true, signTransaction);
+    refs[1].current = { reply: replies };
+    const browser = find(render(true, signTransaction), node => node.type === BrowserSurface);
+    browser?.props.onMessage?.(request('REQUEST_ACCESS', 2), 'https://demo.example.org/start');
+    find(render(true, signTransaction), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
+    const submit = (messageId: number) =>
+      browser?.props.onMessage?.(
+        JSON.stringify({
+          source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
+          token,
+          messageId,
+          type: 'SUBMIT_TRANSACTION',
+          transactionXdr: 'AAAA',
+        }),
+        'https://demo.example.org/start',
+      );
+    submit(4);
+    await Promise.resolve();
+    await Promise.resolve();
+    const { DappSignSheet } = require('../DappSignSheet') as typeof import('../DappSignSheet');
+    find(render(true, signTransaction), node => node.type === DappSignSheet)?.props.onConfirm?.('');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ error: 'user-declined', messagedId: 4 }));
+    expect(find(render(true, signTransaction), node => node.type === DappSignSheet)).toBeUndefined();
+    submit(5);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(find(render(true, signTransaction), node => node.type === DappSignSheet)).toBeDefined();
+  });
+
+  it('shows a retryable signing error for non-cancel exceptions', async () => {
+    let calls = 0;
+    const signTransaction: DappTransactionSigner = async input => {
+      if (input.phase === 'inspect')
+        return {
+          status: 'ready',
+          intent: {
+            hash: 'mockhash',
+            source: 'GSOURCE',
+            sequence: '7',
+            fee: '100',
+            memo: null,
+            operations: [{ type: 'payment', source: 'GSOURCE', destination: 'GDEST', amount: '2', assetCode: 'XLM' }],
+          },
+        };
+      calls += 1;
+      if (calls === 1) throw new Error('temporary-native-error');
+      return { status: 'signed', signedTransaction: 'BBBB', signerAddress: input.accountAddress };
+    };
+    render(true, signTransaction);
+    refs[1].current = { reply: replies };
+    const browser = find(render(true, signTransaction), node => node.type === BrowserSurface);
+    browser?.props.onMessage?.(request('REQUEST_ACCESS', 2), 'https://demo.example.org/start');
+    find(render(true, signTransaction), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
+    browser?.props.onMessage?.(
+      JSON.stringify({
+        source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
+        token,
+        messageId: 4,
+        type: 'SUBMIT_TRANSACTION',
+        transactionXdr: 'AAAA',
+      }),
+      'https://demo.example.org/start',
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+    const { DappSignSheet } = require('../DappSignSheet') as typeof import('../DappSignSheet');
+    find(render(true, signTransaction), node => node.type === DappSignSheet)?.props.onConfirm?.('');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(find(render(true, signTransaction), node => node.type === DappSignSheet)?.props.failed).toBe(true);
+    find(render(true, signTransaction), node => node.type === DappSignSheet)?.props.onConfirm?.('');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 4, signedTransaction: 'BBBB' }));
   });
 
   it('unmounts the WebView and invalidates permission on any App account revision', () => {

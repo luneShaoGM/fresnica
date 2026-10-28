@@ -633,6 +633,7 @@
   "dapps.sign.issuer": "Issuer",
   "dapps.sign.confirm": "Sign",
   "dapps.sign.reject": "Reject",
+  "dapps.sign.retryError": "Signing failed. Check authorization and try again, or reject this request.",
   "node.read.checking": "Checking the configured network connection…",
   "node.read.wrongNetwork": "This node belongs to another network. Balances have not been refreshed.",
   "node.read.rateLimited": "The node has limited requests. Waiting before checking again.",
