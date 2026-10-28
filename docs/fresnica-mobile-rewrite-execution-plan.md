@@ -1,4 +1,4 @@
-> 2026-10-28：唯一实时执行入口是 [完整重写执行清单](fresnica-mobile-current-progress-and-next-plan.md)，含全范围工作包、依赖、在途 Swap/dApp 和验收要求。本文件保留历史 Stage 设计与证据；以下旧状态/推荐 PR 序列不是当前待办，不能覆盖新清单或当前 GitHub 事实。
+> 当前任务顺序与集成事实请先读 [当前基线与执行队列](fresnica-mobile-current-progress-and-next-plan.md)（2026-10-27 校准）。本文件保留完整产品覆盖和历史阶段证据；历史推荐 PR 序列不代表实时待办。
 
 # Fresnica Mobile 重写评估与执行计划
 
@@ -11,7 +11,7 @@
 > - 产品行为基线：`origin/Stellar@stellar-migration`
 > - 工程成熟度参考：`origin/Xaman-App`
 >
-> 本文是历史施工设计与阶段证据账本，不维护另一条实时顺序。`docs/fresnica-mobile-current-progress-and-next-plan.md` 负责当前执行；产品指南拥有范围与完成标准，traceability ledger 保存稳定 ID/证据，provenance 保存 clean-room 门。
+> 本文是唯一施工顺序与状态账本。`docs/stellar-product-information-architecture.md` 继续拥有产品范围、信息架构与完成标准；`docs/product-traceability-ledger.md` 保存稳定产品 ID 与验收映射；`docs/provenance/README.md` 保存 clean-room 门；`docs/mobile-capability-status.md` 只记录实现证据。历史路线文档不得覆盖本文的当前顺序。
 
 ## 1. 最终判断
 

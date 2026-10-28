@@ -1,137 +1,121 @@
-# Fresnica Mobile 完整重写执行清单
+# Fresnica Mobile｜当前基线与执行队列
 
-> 修订：2026-10-28；核对基线：GitHub main `1c67467254d11e536b10113a8823d54ba2d632d2`（已包含 #123 与 #124）。
-> 本文件是唯一执行入口和当前任务队列。原 Stage 计划保留历史和范围理由，不另排实时顺序。
-> 本次只调整计划，不修改功能、不停止或覆盖在途 Swap/dApp 工作，不升级原生验收状态。
+> 基线更新：2026-10-28（Asia/Shanghai），保留原章节与第 4 节五项依赖队列。GitHub main、当前源码和 exact-HEAD Review 为事实源；本文件是执行索引。实现、审查、合并、自动化验证、原生验收分别记录，不能互相替代。
 
-## 1. 旧计划评估
+## 1. 集成基线
 
-旧计划有广泛产品范围，但**尚不能证明逐元素完整，也不是可靠的当前执行清单**：
+- 当前核对基线：`main@859ed0efdf661c3e1f288725d6589db2802b9872`，已包含 PR #122、#124 网络基础、#123 FChain 目录/分区缓存及 #126 Swap 入口/路由统一。
+- #122 的独立 Work Review 核对 `f83195bd00453372c90d3ac0b2038a26dc1350b4`：APPROVED，P1/P2/P3 为零；CI check 为 155 suites / 1260 tests。只证明自动化范围，S24 原生验收仍未执行。
+- 最近已合并：#111–116 生命周期/缓存/读取恢复，#117 资产弹层，#118 Swap 输入与结果，#119 双向金额与自动报价，#120 路由/滑点，#121 live spendable / Pay Max，#122 连接健康。每项合并不自动升级产品成熟度。
+- PR #123 已合并为 `1c67467254d11e536b10113a8823d54ba2d632d2`，并包含在当前 main；合入前 HEAD `ba9fbf6b4c46b36834510da69d8ae5b7bd530aa6`。FChain catalog 与 network-scoped Realm cache 已交付代码；不代表受信浏览器、权限或签名完成。原生证据仍单列。
+- 开放旧 PR：#78 Automation V2.2 暂停；#14 / #25 历史分支，不作为新工作基线。
 
-- 本文件与 execution-plan 同时声称拥有施工顺序，历史证据和旧阻塞混入当前状态。
-- S09/S10 等 ledger 行停留在 L0/机制阶段，代码已推进；#124 已合并，进度仍写候选/待审。
-- Advanced 在规格中必达，实际仍为占位；网络门控实现被口头表述成 Developer Mode 整体完成。
-- 缺少固定参考版本的页面/步骤/overlay 清单、逐控件差异与任务绑定。
-- SDEX 已在范围内但无独立稳定产品 ID；不能算进 Path Payment Swap。
+## 2. 本地工作与事实边界
 
-本修订给出全范围任务、依赖、并行安排、交付和验收要求。**没有声称本次已经人工核对所有 Stellar 控件。** 路径清单只防表面遗漏；逐元素/操作/逻辑审计属于 R00 的持续交付和每个产品包的开工/退出条件。
-
-## 2. 文档权威与完成口径
-
-| 文档 | 职责 |
-| --- | --- |
-| 本文件 | 全部任务、当前状态、执行顺序、并行依赖、下一步 |
-| [产品指南](stellar-product-information-architecture.md) | 功能范围、Adopt/Adapt/Exclude、页面分组、§8/§9/§14 完成合同 |
-| [参考表面清单](stellar-surface-coverage.tsv) | 固定参考 screens 全部非测试 TSX/JSX 路径/blob、S ID、R 任务、逐元素核对状态 |
-| [产品追踪账本](product-traceability-ledger.md) | 稳定 S ID、成熟度和证据；为既有 SDEX 范围追加 S31 |
-| [原执行计划](fresnica-mobile-rewrite-execution-plan.md) | 历史阶段、架构理由和历史证据，不是第二条当前队列 |
-| behavior-specs / 验收记录 | 字段、状态机、Capability 边界、异常分支及对应测试/设备证据 |
-| GitHub 与当前源码 | 实际合并、HEAD、CI、Review 和实现事实；与文档冲突时校准文档 |
-
-状态分别记录：待调查、规格明确、实现中、PR/审查、已合并、原生验收待完成、产品验收通过。阻塞附在具体任务/依赖上，不用“完成百分比”掩盖它。
-
-每项分别记录：**代码合并 / 入口实测 / 自动化 / Android 原生 / iOS 原生 / 无障碍**。未验证填未验证；helper、JS bundle、CI、skipped heavy job 不代替产品操作。沿用 L 成熟度定义。
-
-## 3. 当前基线与在途工作
-
-| 工作线 | 核对事实 | 接续任务 |
+| 工作 | 已核实状态 | 处理 |
 | --- | --- | --- |
-| 共享网络/安全 | #122/#124 已合并；#124 reviewed HEAD `6fcb2fae5a2a176c81c05548a5344454c8e45319` APPROVED，两项 P2 已解决；CI 162 suites/1305 tests | R01/R02 正式设置入口和原生闭环；不重写已有门控 |
-| Swap | #118–121 已合并，已有 quote/review/sign/submit/recovery、Max/滑点/路由等改进 | R03 接续在途改动；直接复验 #124 影响的网络/账户/报价身份，不能据旧 L1 重做 |
-| dApp 目录 | #123 在整理期间已合并，合入前 HEAD `ba9fbf6b4c46b36834510da69d8ae5b7bd530aa6`；main 为上述 `1c67467…` | R04 复用已合入 FChain 目录/分区 Realm cache 和 #124 会话接线，继续剩余产品对齐/验收，不重复实现 |
-| dApp 浏览器/权限 | 主工作区有未提交实验，不算已合并交付 | R05/R06 登记已有改动后继续安全闭合的用户流，不删除或覆盖 |
-| 本地运行 | 主工作区核对时在 `dd5574a75ec5485a549448c4b4fa50ce35d744a3` 且有大量 dApp 修改 | R00/R01 记录构建来源/安装版本/入口；不直接 reset/pull 覆盖该目录 |
-| 自动化/旧 PR | #78 暂停；#14/#25 不能自动算当前依赖 | 不恢复 Controller/worker/label 流；旧 PR 是否已被取代须另核对 |
+| 主目录 `fresnica` | `stage7/s15-untrusted-website-handoff-2026-10-22@dd5574a75ec5485a549448c4b4fa50ce35d744a3`；大量未提交 dApp、WebView、Realm、导航和文案改动 | 保留原样，不能当作 main 或已交付功能；不得 reset/clean/覆盖 |
+| dApp 集成目录 | #123 已合并；本地与远端是否继续有新改动在每次开工核对 | 复用已合入目录/缓存；浏览器/权限/签名继续按原任务 5 推进，不重做 #123 |
+| Swap | #118–121、#126 已合并；旧工作目录仍保留 | 继续原任务 4，在最新 main 接续；#126 的入口/路由改进不重做，聚合原生验收仍单列 |
+| Network | #122/#124 已合并；模式鉴权、偏好、节点管理、会话切换及两项 P2 修复已进入 main | 原任务 3 仍需正式设置入口、直接相关双端原生流和无障碍证据，不以底层实现代表整项产品完成 |
+| 本轮基础建设 | #124 已合并；最终 reviewed HEAD `6fcb2fae5a2a176c81c05548a5344454c8e45319` APPROVED | 原任务 1/2 交付、3 代码合入；产品入口/原生验收单列，其他工作区继续保留 |
 
-以上是时间点快照。每次开工重读远端；本计划不冻结正在前进的 PR HEAD，不要求 Swap/dApp 返回历史阶段起点。
+## 3. 产品覆盖与证据账本
 
-## 4. Stellar 同步范围与完整性门
-
-参考固定为 `luneShaoGM/Stellar@bd0f4540b2496a57314e4e29bc6fcf8ff691b60f`，与 provenance 基线一致。本次读取完整 Git tree（未截断）。参考版本变化必须记录树差异与新任务映射，不能默认为已覆盖新版。
-
-同步的是**页面结构、功能元素、操作、业务逻辑、共享交互、异常与恢复、生命周期、持久化、语言与可访问性**。保留 Fresnica 品牌、SDK/Capability 安全权威；不是复制源码/资源或逐像素复刻。XRPL/Tangem/IAP/Realm Viewer 等既定排除项不因目录存在自动进入范围。
-
-每个 adopted/adapted 表面在实现前补齐以下元素与行为表，实际差异在所属包验收时关闭：
-
-| 字段 | 必须记录 |
-| --- | --- |
-| 参考 | 固定版本路径、用户可见角色、共享组件/协议/生命周期依赖 |
-| 元素 | 标题/提示/字段/列表/余额金额/按钮/开关/菜单/弹层/图标语义/读屏名称 |
-| 操作 | 输入/选择/点击/长按/扫码/确认/取消/系统返回/关闭/重试/防重复 |
-| 逻辑 | 校验、enabled 条件、鉴权/权限、精度、状态迁移、链上/服务端权威 |
-| 边界 | loading/empty/error/offline/timeout/stale/busy，后台/重入/账户网络切换/重启；写路径含 uncertain/recovery |
-| 落点 | Fresnica 页面入口、Capability、Platform/SDK；Adopt/Adapt/Exclude 和理由 |
-| 证据/结论 | 代码/双端产品操作/无障碍，已对齐/缺失/适配/阻塞/排除；缺口绑定 R/S |
-
-清单含步骤、widget、overlay、模板，**不能把文件数量当页面完成数量**。screens 之外的组件、Freighter、系统权限、locale、AppTheme 和服务角色由指南 §2.1/§14、R15 继续覆盖。尚未人工核对元素的行保持待核对，不批量宣称完成。
-
-## 5. 全范围可执行工作包
-
-R 是执行包；S 是稳定产品 ID。每包可按安全边界分多个完整切片，不强制一行一个 PR。Owner 是功能责任，不代表创建新的 Codex 会话。
-
-| 包/Owner | S ID | 页面元素、操作及逻辑范围 | 前置和退出条件 |
-| --- | --- | --- | --- |
-| R00 计划/集成 | 全部 | 固定参考清单、逐元素差异表、当前源码/PR/分支/运行构建、缺口/责任映射 | 先交付清单和三条在途线登记；各包继续补元素证据，缺口不能只留聊天 |
-| R01 设置/导航 | S23/S24/S25/S26 | Settings 分组；General/Advanced/Security/语言/账户/地址簿/支持/条款/About 入口与返回 | 复用现有实现；符合指南 §7.5；指定构建实际点击可达，未实现项诚实标记，不导向错误页面 |
-| R02 Network/Application Security | S04/S24 | 模式警告/口令/取消/错误/重试；节点列表/当前节点/健康/添加/测试/选择/删除；关闭回 Mainnet；遗留分区和最后账户删除 | 依赖 #124/R01，补直接缺失证据；双端验证持久化/离线/后台取消/旧会话失效/原 hash 恢复；无 signer 不伪鉴权 |
-| R03 Swap | S10 | 资产对/方向、Pay/Receive/Max/精度、strict send/receive、报价/路由/滑点/过期/重新报价、exact review/授权/提交/结果 | 接续 #118–121 和在途切片；账户/网络/输入/资产变更失效旧 quote/XDR；取消/失败/uncertain/restart 不重复交易，补缺失双端聚合证据 |
-| R04 dApp 目录 | S14/S15 | FChain/分类/搜索/icon/Home/Recent/刷新/缓存/离线/custom URL/disclaimer/重复进入/取消 | 复用已合入 #123 与 #124 的目录/cache/session 接线；仅补差异与证据；目录不等于可信 origin，OS 外部浏览器不等于内嵌桥 |
-| R05 dApp 浏览器/权限 | S16/S17/S21 | WebView/origin/导航/重定向/返回/关闭、权限范围/撤销/Connected dApps、device/share/data 命令 | 依赖 R04 输入边界；原生依赖重建；iframe/origin变化/后台/重启/切网不能沿用失效授权；无许可不读账户不签名 |
-| R06 dApp 请求/签名 | S18/S19/S20 | Freighter 账户/网络/交易请求及逐操作审阅、SEP-53 消息、Soroban auth entry、拒绝/取消/并发/重复 | 依赖 R05；每类核对 SDK/Capability，复用标准交易与恢复；S20 安全交付缺口只阻塞 S20，不伪造能力 |
-| R07 账户/备份 | S01/S02/S28 | onboarding/setup/create/import/watch-only/HD/hardware 入口，备份说明/验证/继续，选择/默认/排序/标签/隐藏/删除/空分区 | 复用账户生命周期；原网络 pending backup、pending 删除保护、无 visible account、restart、共享 signer 不变量成立；硬件执行归 R17 |
-| R08 安全维护/应用锁 | S03/S04/S27 | 助记词/secret 揭示、修改 App Passphrase、System Auth 注册/修复/关闭确认、自动锁定/解锁、截屏/隐私 | fresh auth/失败/取消/重试；秘密不进入普通 JS State/Realm/导航；generic System Auth challenge 独立上游阻塞，enrollment/dummy sign 不当解锁 |
-| R09 Home/资产/Trustline | S05/S06/S30 | 账户/主操作/资产类别/余额/可用额/解释、inactive/Friendbot、资产发现/详情/风险/TOML/icon、Add/Limit/Remove | 复用 Balance/Trustline；metadata 非账本权威；reserve/liability/issuer/LP检查、提交后重读、offline/stale 区分；LP/claimable 不当普通代币 |
-| R10 Send/目的地/通讯录 | S07/S08/S22 | 地址/扫码/粘贴/联系人、Classic/CreateAccount/muxed、金额/memo/fee/风险提示、review/授权/结果、联系人增删改选 | 核对 destination/muxed 契约；S08 缺能力只阻塞该分支；精度/身份/只读/多签/硬件失败、uncertain/restart/返回路径通过 |
-| R11 Request/系统输入 | S09/S27 | 公开身份/金额/资产/memo/QR/分享、相机/相册单QR、Deep Link/SEP-7/Decline、权限/取消/重复交付 | 复用已有 parser/router；冷/热启动/后台/账户网络不匹配/分享失败无误操作；核对 HomeActions 扫描，不能据旧 L0 重做 |
-| R12 Activity | S13 | 下拉/分页/搜索/当前加载集过滤、empty/error/cache/offline/Retry、operation families/金额/参与者菜单/Explorer/detail | 复用证据；只补缺失 iOS 真实 Retry→page1→cold restart 与新增 operation family；cache 非完整历史，helper 不代按钮 |
-| R13 Claimable/LP/SDEX | S11/S12/S31 | claimable 列表/风险/详情/claim、LP列表/详情/withdraw、独立SDEX订单列表/详情/创建/撤销 | 三类独立语义切片；先核对 Capability；reads/writes分别过门，写路径复用 exact review/sign/submit/recovery，SDEX不算Swap |
-| R14 设置/内容/诊断 | S23/S25/S26 | General语言/法币/触感/系统外观/主题/图片色板、About/ChangeLog/Help/Terms/Credits/支持、Session Logs/开发者工具 | 依赖 R01；重启持久化/全App重绘、日志脱敏/导出失败取消；内容缺失标待提供；Realm Viewer/IAP保持排除 |
-| R15 横切运行时/数据 | S04/S23/S24/S27 | modal/picker/alert/help/Vault角色、键盘/手势/返回、safe-area/statusbar/locale/精确数字/日期时区、AppState/剪贴板/权限/cache/前台读/错误 | 指南 §2.1/§14；核对 LC1–LC6 与旧证据，只补受影响缺口；禁止第二套服务/签名管线；随各包推进，不等最后才做 |
-| R16 通知/Backend | S14/S17/S24/S27 | 前台事件/本地通知、权限/系统设置/点击路由；目录/权限/节点 Backend、远端推送/可信发送者/token生命周期 | Backend非当前主线；先端口与诚实 unavailable/degraded；无可信协议不开远端载荷或自动签名，不能阻塞独立本地钱包/Swap |
-| R17 Hardware/外部 signer | S28 | 添加/发现/连接/超时/取消/设备拒绝、账户标识、review→设备签名→SDK验证应用→提交 | 指南 §7.7 Ledger BLE 候选矩阵，按 provider/device/transport/OS/固件真机证明；未测不称支持；不搬Tangem/PIN/secret-number |
-| R18 发布/聚合 | 全部，重点S04/S24/S27/S29 | app identity/legacy检测、无静默导入旧数据、release签名/安装升级、隐私/法律/SBOM/provenance、关键用户流/无障碍 | adopted表面与横切均有结论；Stage9 iOS真机SystemAuth取消/重试单列；未关发布阻塞不称完整重写/可发布 |
-
-## 6. 设置作为完整产品包
-
-R01/R02/R08/R14 共同闭合设置，不再用一个 Developer Mode 按钮的交付代表整个设置完成。
-
-| 分组 | 必须覆盖的元素与行为 | 责任 |
+| 范围 | 已实现/已有证据 | 未完成/阻塞 |
 | --- | --- | --- |
-| Settings 根 | Accounts/Address Book/General/Security/Advanced/支持/Terms/About，副标题/可用状态/返回 | R01；实际点击去向，General 不能替代 Network |
-| General | 语言/法币/主题/系统外观/触感/图片色板 | R14；缺能力诚实状态，持久化和全App更新 |
-| Security | App Passphrase/System Auth/自动锁定/隐私截屏/Connected dApps | R08/R05；每项独立鉴权/确认/失败政策，不以页面位置代替权限 |
-| Advanced | Developer Mode/网络节点/Session Logs/开发者工具 | R01/R02/R14；模式fresh口令；节点原子提交，后台取消不生效；工具逐项限定 |
-| 特殊入口 | 首次遗留网络确认/待备份/无signer/最后Testnet账户删除/pending恢复 | R02/R07/R08；不死锁、不扩大保留例外、不默许跨网新钱包 |
-| 全组 | i18n/字体/读屏/busy/错误取消重试/重启 | 对应包分别记录双端证据，配置单测或单张截图不代表全组 |
+| S01/S02 账户与 Signer 生命周期 | Create/Import/HD、备份验证、选择/排序/隐藏/删除；历史双端子流程证据 | 可重复聚合 gate、动态字体/读屏等；既有未受影响证据不重跑 |
+| S04 共享安全 | System Auth 注册/修复/关闭；交易 routine 与 fresh-passphrase 策略；Native verification-only 口令验证 | 应用解锁缺 generic System Auth challenge；#124 敏感设置鉴权已审查合并，原生验收与设置入口仍待闭合 |
+| S05/S13 数据生命周期 | #111–116 的分区缓存、Effects、节点恢复和提交后读取收敛 | LC6 原生聚合、历史 iOS Activity 真正离线 Retry 证据仍需逐项核对，helper 证据不算产品验收 |
+| S07/S30 Send/Trustline | exact-XDR、授权、提交/uncertain/原交易哈希恢复；历史子流程验收 | Stage 9 iOS 真机 System Auth 取消/重试延期；必要无障碍/可重复验收未封板 |
+| S09 请求与系统入口 | 已有 QR/Share/Deep Link/Photo QR 和生命周期接线 | 相机/相册权限与真实输入、取消/重复交付/后台入口等聚合证据按当前验收记录核对；不以旧 L0 行判断当前源码 |
+| S10 Swap | quote/review/submit/recovery 与 #118–121 的输入、路由、滑点、Pay Max 改进已集成 | 完整原生产品流、取消/账户网络变更/uncertain 恢复等聚合验收未封板 |
+| S14–S21 dApp | main 已含 #123 FChain 目录/分区缓存及外部链接基础；本地未提交浏览器实现不算交付 | 未合并内容不算交付；可信 origin、权限/撤销、各请求与标准签名管线需逐项闭合；Soroban 等独立上游缺口保留 |
+| S24/S25 网络与开发者工具 | #122/#124 健康/Retry、模式鉴权、网络偏好、节点管理、统一会话已合并 | 按指南 §7.5 对齐 Advanced/General/Security 入口；模式/节点双端产品验收、日志和开发者工具仍分项未完 |
+| S03/S06/S08/S11/S12/S22–S29 其他范围 | 以 ledger 与代码为准，部分只有机制或角色 | 不因当前三条功能线而删除；muxed/hardware/Soroban/发布身份等各自依赖继续保留 |
 
-## 7. 顺序、并行与在途工作接入
+## 4. 依赖队列（本轮用户确认）
 
-不要求所有基础设施“封板”后再继续 Swap/dApp。三条在途线保留，可并行开发，共享文件和集成顺序串行协调。
+| 顺序 | 任务 | 退出条件 |
+| --- | --- | --- |
+| 1 | 校准基线与未提交工作 | 当前 main、PR、分支、工作树及事实边界明确；过期阻塞叙述纠正 |
+| 2 | 共享鉴权基础设计 | 区分交易授权、应用会话解锁、敏感设置鉴权；SDK/Capability/UI 权威和 cancel/failure/retry/失效条件明确 |
+| 3 | 网络会话与节点管理 | Developer Mode 门控；偏好持久化；节点增删/测试/启用/当前节点删除回退；切换使旧任务失效并重建全部网关；账户与恢复记录保留；关闭先恢复 Mainnet |
+| 4 | Swap 聚合收口 | 仅补当前主线直接影响的报价→review→授权→提交→恢复与原生证据 |
+| 5 | dApp 敏感操作闭环 | 权限/撤销/请求→标准签名管线；只读目录可作为独立并行线 |
 
-| 波次 | 基础/集成线 | Swap线 | dApp线 | 出口 |
-| --- | --- | --- | --- | --- |
-| W0 立即 | R00固定基线、登记构建/变更/覆盖、清理文档权威冲突 | 继续既定S10切片，登记branch/HEAD/范围/证据 | 保留已合入#123，继续既定browser切片，同样登记 | 在途工作均有R/S归属，不丢弃未知修改 |
-| W1 当前 | R01→R02正式设置/模式节点闭环；R15仅修直接阻塞 | R03当前闭环和#124直接影响验证 | R04补已合入目录的产品差异/验收；R05可并行规格与安全闭合实现 | 按实际依赖选合并顺序，不强迫等待全部设置完成 |
-| W2 接续 | R07–R12复用证据补差；R08上游缺口单列 | 关闭剩余S10聚合差异，不扩成SDEX | R05→R06按请求类型开放 | 钱包核心流和具体dApp请求子集可复查，未实现请求拒绝 |
-| W3 剩余产品 | R13/R14/R17，R15持续核对 | 直接回归 | 已有安全子流/内容完善 | adopted表面逐元素有结论，阻塞保持显式 |
-| W4 发布 | R16远端部分具备条件再接，R18聚合 | 必要集成验收 | 同左 | 未关闭发布阻塞不宣称可发布 |
+**五项状态补充：** 1 已完成本轮基线校准、仍需随合并维护；2 鉴权设计已交付、应用锁上游缺口未消失；3 代码已合并、入口/原生验收未闭合；4 Swap 已在推进，接续现有切片；5 dApp 继续推进，#123 目录/缓存已合并，浏览器/权限/请求按实际依赖接续。保留上述任务编号与退出条件，不用另起一套工作包替代。
 
-- feature/spec/test 由各线继续；共享组合根、导航、鉴权、network/account偏好、Realm schema 变更先登记并协调。同一共享文件不叠加互不知情的设计。
-- 先合入的共享变更成为其他线基线；后合入者处理冲突，只复验直接受影响范围，不反复重跑全部历史验收。
-- 仅实际缺失的安全依赖阻塞其消费者；“计划还有待办”不是停工理由。
-- 新缺口先映射R/S，新增产品行为才追加S编号；不能随手补一按钮而不更新用户流。
-- 本次不向其他任务发送消息，也不创建/暂停任务。正在开发的工作区没有被修改。
+阶段编号仍是产品覆盖/验收分类，不再把历史 PR 推荐清单当实时队列。本节是当前执行顺序；后续开工从第一个具备前置条件的任务开始。任何无法实现的依赖标明阻塞与安全边界，不能伪装完成。
 
-## 8. 每次任务的执行卡与退出条件
+## 5. 并行与遗漏控制
 
-开工先填写，由 Chat 推进到可审查结果：
+- 最多一条共享基础主线，加一条不依赖未完成基础的功能线。导航组合根、共享鉴权、网络会话和持久化边界由基础主线统一处理。
+- 每个任务记录 S ID、依赖、交付物、自动化/原生验收、未测/阻塞、下一步。新发现缺口回填所属 S 行；只有当前阻塞或明确安全问题立即扩入当前切片。
+- 文档职责：本文管当前顺序；execution plan 管完整覆盖；traceability ledger 管 S ID 与证据；behavior spec 管行为和验收。旧历史记录保留日期，不用历史结论覆盖当前实现。
+- PR → 必要 CI → exact-HEAD 独立 Work Review → 修复 P1/P2 → 用户决定 Merge。不得自行 Merge。Automation V2.2 保持暂停。
 
-1. R/S ID、用户闭环/owner、当前main/branch/local和remote HEAD/working tree/PR/base。
-2. 参考表面、元素行为表、具体差异、Adopt/Adapt/Exclude理由。
-3. 依赖、允许修改范围、共享文件冲突与集成顺序。
-4. 正常/取消/失败/超时/重试/后台/重启/账户网络变化；写路径附exact-XDR/uncertain/recovery/防重复。
-5. 定向自动化、可复用旧证据、需执行的双端/无障碍、未执行/阻塞。
-6. commit/push/PR→exact-HEAD独立Work review→修P1/P2→新HEAD复审；用户决定merge。
-7. 合并回写当前状态和ledger证据；入口与设备验收单列。
+## 6. 本轮前三项交付状态（#124 已合并，产品验收单列）
 
-R00 的本次计划交付：全S范围可排程、参考screens无未分配行、三条在途线有接续安排、权威冲突消除。**逐控件人工对齐和设备验收是后续各包的硬退出条件，不能冒充本次文档已完成它们。**
+1. 基线校准完成：核对 main、最近合并 PR、未提交 dApp 和独立目录；纠正旧口令验证阻塞叙述。
+2. 共享鉴权设计完成：[行为契约](behavior-specs/shared-auth-network-session.md)，明确交易授权、应用解锁和敏感设置鉴权；原生通用 challenge 仍缺失。
+3. 网络会话与节点管理代码已审查合并，正式入口/原生验收尚未闭合：fresh App Passphrase 开启模式、HTTPS 节点校验/增删/测试/选择、当前节点删除回退、关闭先返回内置 Mainnet、持久化和不可变服务会话。旧钱包进入显式网络选择门控，不静默切网；待确认交易和签名/广播保护保持有效。
+
+最终 #124 reviewed HEAD 的 CI：`npm run check` 162 suites / 1305 tests，lint 0 errors / 31 既有 warnings。此前开发方 real-Realm 3 tests 和辅助双端 JS bundle 为各自范围的历史证据，不等于新 HEAD 的原生构建或产品验收。独立复审记录见 [PR #124 评论](https://github.com/luneShaoGM/fresnica/pull/124#issuecomment-6459038853)。
+
+已完成：#124 当前合入 HEAD 的 CI 与独立审查；#123 已适配不可变 network session 并合并。待完成：正式设置分组/入口、Android/iOS 模式与节点产品流、无障碍、通用应用生物解锁、Developer Session Logs、Stage 9 iOS 真机 System Auth 取消/重试。S24 不升级 L4；不把“前三项代码交付”写成全部产品验收完成。
+
+## PR #124 审查修复
+
+- 旧 HEAD `41ade33bdb5dbc96e59f50e491d11dfef727e822`：Work NEEDS_FIX，P2 1（已有 Testnet 只读/外部 signer 钱包被首次网络选择阻挡）。
+- 修复：已有 Testnet 分区可显式选择内置节点并持久保留访问；不启用 Developer Mode，不开放自定义节点，不创建/导入无关 signer。新钱包默认和原有交易/恢复隔离保持不变。
+- 最终 HEAD `6fcb2fae5a2a176c81c05548a5344454c8e45319`：Work APPROVED，两项 P2 均已解决；#124 已合并。原生验收仍未执行。以后有新代码仍须新的 exact-HEAD review。
+
+## 7. 同名文档差异与原任务保留（2026-10-28 核对）
+
+主工作区同名文件含 10 月 15 日历史章节及 10 月 21 日覆盖更新；main 是后来的五项依赖队列；PR #125 初稿曾整体改成新工作包并调整文档权威。用户指出不一致后，本修订撤回该替代结构和权威变更，保留 main 原章节/五项编号，只更新事实并追加核对表。
+
+主工作区文件仍有未提交修改，不覆盖、不删除、不把历史 FAIL/OPEN/阻塞直接当当前事实。以下明确保留其具体未完成事项；先核对实际证据，再更新状态，不得因缩写成 S 范围而丢掉细项。
+
+| 原清单事项 | 继承位置/下一步 | 证据边界 |
+| --- | --- | --- |
+| UI-01～UI-05 已迁移的原语/页面 | 保留 UI 编号，查 `ui-native-consumer-integration.md`；不重新迁移已合并控件 | 代码合并与原生 UI 验收分开 |
+| Send Review、Memo/资产、Request Continue/分享/扫描等剩余 UI 边界 | 沿 UI-05 原任务，核对逐项消费者/行为；与所属 S07/S09 切片一起验收 | 不混入无关鉴权/交易重构，不按单按钮机械拆 PR |
+| UI-06/UI-07 后续 dApp 页面及双端聚合 | 随原任务 5 接续，再完成 UI 聚合 | 字体/点击/主题/对比度/读屏/焦点与 Settings 滚动指示条继续保留 |
+| S09-06 Android 分享取消/重试 | 保留原 ID，核对新构建实际 chooser/取消结果 | 不能由 OS handoff 推断已分享 |
+| S09-07 Photo QR | 已有源码/代码交付不重做；核对双端相册权限、取消、重复选图与失败恢复 | 相册不是相机；未测不能 PASS |
+| S09-21 真相机 | 保留设备/真实相机访问条件 | 离线 QR 解码不替代相机产品流 |
+| S09-25/27 前台/后台 Deep Link | 保留各自历史成功/失败记录，按实际后续修改决定直接复测 | 不把旧 FAIL 当当前结论，也不自动抹掉未复测记录 |
+| S09-42 失焦异步竞态 | 原 ID 保留，受控时序验证账户/路由/卸载后的旧回调 | helper/单测不等于产品路径 |
+| S13 Hermes 修复与 iOS Activity 缺失证据 | 已合并兼容性修复不重做；保留真实 cached offline→Retry→page1→restart 验收 | 不再把 formatToParts 旧 blocker 当未修；Helper 不替代 Retry 按钮 |
+| Stage 3 Dark/System/Image Theme | 继续原完整执行计划/主题合同 | Native UI 包不做图片取色，不代表 Mobile 可删该范围 |
+| S10 A/B/C1/C2/D1/D2a/b/c 与 #118–121 | 原任务 4 继续在途工作，复用已合并交易/恢复和交互改进 | 原生/Testnet/物理设备证据分别列，不返回已解除的上游阻塞 |
+| Stage 7 URL/origin→浏览器→权限/撤销→读取/签名 | 原任务 5 继续；#123 目录/缓存已经合并，不能再当待做 | 外部浏览器不是受信 WebView；未提交原型不是产品交付 |
+| Stage 8 剩余产品和 Stage 9 发布/真机 | 继续原 execution-plan、指南和 ledger；不被当前五项吞掉 | 通讯录、资产、设置、日志、硬件、通知/Backend、app identity/签名/旧数据边界均保留 |
+| Automation V2.2/#78、iOS System Auth cancel/retry | 原暂停/延期规则不变 | 不因新计划恢复自动化或冒充真机通过 |
+
+本地证据入口（未合入 GitHub，内容/日期需在实际验收前核对）：
+- `docs/test/Fresnica_UI_Native_Acceptance_Checklist_20261019.md`
+- `docs/test/Fresnica_S09_Test_Checklist_40be444b.md`
+- `docs/test/Fresnica_S09_Test_Checklist_Prioritized_20261014.md`
+- `docs/test/Fresnica_S13_Hermes_Activity_Acceptance_20261021.md`
+
+## 8. 完整覆盖核对附表（不替代原队列）
+
+全范围继续由原 `fresnica-mobile-rewrite-execution-plan.md`、产品指南 §7/§9/§14 和 traceability ledger 管理。下面用于查漏/定位，不另设执行编号、变更已确认的并行策略或抹掉已有证据。Swap/dApp 正在开发的切片保持推进；共享文件按当前依赖协调。
+
+| 既有范围 | 必核对元素/操作/逻辑 | 承接 |
+| --- | --- | --- |
+| S01/S02/S03/S04/S28 账户/安全 | 创建/导入/HD/备份/列表选择/隐藏删除、揭示/改口令、System Auth/锁/硬件入口和设备拒绝 | 原账户/安全/硬件阶段；原任务 2 的设计不冒充应用锁已实现 |
+| S05/S06/S30 Home/资产/Trustline | 余额/类别/可用额/资产详情风险、Add/Limit/Remove、issuer/reserve/liability、交易后权威重读 | 原 Stage 4/8；复用已验收证据 |
+| S07/S08/S22 Send/目的地/通讯录 | 地址/muxed/联系人、金额/memo/fee/风险、精确审阅/授权/结果/恢复 | 原 Stage 4/8；缺失 Capability 只阻塞其消费者 |
+| S09/S13 Request/Activity | 原生输入、分享/链接、缓存分页筛选详情/参与者/Explorer、离线 Retry | 保留上节具体子项 ID |
+| S10 Swap | 双向金额/Max/资产/报价路由滑点/过期、review/sign/submit/uncertain/restart | 原任务 4，在途继续 |
+| S14–S21 dApp | FChain/分类/Recent/custom URL/disclaimer、真实 origin/WebView、权限/撤销、Freighter/SEP-53/Soroban、device/share/data 命令 | 原任务 5；按 Native/Capability 契约逐类开放 |
+| S23/S24/S25/S26 Settings | 根目录/General/Advanced/Security、主题语言法币触感、模式鉴权/节点、日志/帮助/About/Terms/Credits | 原任务 3 的网络收口 + 原 Stage 8；Developer Mode 不是独立补丁 |
+| S11/S12 与既有 SDEX 范围 | Claimable/LP 列表详情/claim/withdraw、独立订单列表/创建/撤销 | 原 Stage 8/指南 §7.8；SDEX 不算 Swap，稳定 ID 缺口先登记而不擅自重编号 |
+| S27/S29 与指南 §14 | AppState/权限/隐私/通知/Backend、safe-area/statusbar/键盘/locale/精确格式/共享modal、legacy识别/发布identity/签名 | 原横切/Stage 8B/9；不复制 donor 服务或秘密机制 |
+
+[参考表面清单](stellar-surface-coverage.tsv) 记录固定 Stellar `bd0f4540b2496a57314e4e29bc6fcf8ff691b60f` 的全部 298 个非测试 screens TSX/JSX 文件（包括步骤/widget/overlay/模板），71 项登记为指南既定排除。路径/blob 覆盖不是逐元素对齐证明；screens 外组件、Freighter 和运行时还须核对指南 §14。不得把 298 个文件称为已完成页面，也不默认覆盖后续 Stellar 新版本。
+
+每个表面沿原 S/UI/验收 ID 补：**参考路径 → 可见元素 → 用户操作 → 校验/状态迁移/Capability → 取消/失败/超时/重试/后台/重启/账户网络变化 → 自动化/双端/无障碍证据 → 缺口归属**。保持 Adopt/Adapt/Exclude 及理由。仅从清单查出缺口不能直接扩入在途 PR，先落到所属任务和安全边界。

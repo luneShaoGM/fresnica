@@ -1,7 +1,5 @@
 # Stellar source-parity rewrite
 
-> 2026-10-28 authority clarification: this is a historical source-to-target audit, not a current queue or acceptance claim. Execute from [the complete checklist](fresnica-mobile-current-progress-and-next-plan.md), using guide §7/§9/§14 and the [fixed-reference inventory](stellar-surface-coverage.tsv). Historical “authoritative/current” wording below cannot override those documents.
-
 > Historical source→target inventory. Product shell, naming, Adopt/Adapt/Exclude, and rewrite order live in `docs/stellar-product-information-architecture.md`. Ignore Events/XApps ids and the “retain XApps label” note when they conflict.
 
 ## Purpose

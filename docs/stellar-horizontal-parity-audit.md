@@ -1,7 +1,5 @@
 # Stellar horizontal source-parity audit
 
-> 2026-10-28 authority clarification: the rows below are historical audit evidence. Current execution lives only in [the complete checklist](fresnica-mobile-current-progress-and-next-plan.md); the product guide owns scope/DoD. Historical “authoritative/current/complete” descriptions do not establish current parity or override current GitHub facts.
-
 > Historical cross-cutting audit. Product shell, naming, foundation order (F0–F4), and definition of done live in `docs/stellar-product-information-architecture.md`. Ignore Events/XApps labels and H-lane order when they conflict.
 
 ## 1. Purpose

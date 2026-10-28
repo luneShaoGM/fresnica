@@ -5,9 +5,7 @@ All new or materially rewritten Mobile code must follow:
 - `docs/stellar-product-information-architecture.md` — rewrite guide (maturity table is the start gate; product tables and §8/§9 are definition of done)
 - `docs/mobile-architecture-style-guide.md` — layer, style, and packaging rules
 - `docs/mobile-development-workflow.md` — risk-based Slice/PR sizing, local Chat development, exact-HEAD independent Work review, merge and acceptance gates
-- `docs/fresnica-mobile-current-progress-and-next-plan.md` — sole current execution queue, full product work packages, in-flight integration and acceptance requirements
-- `docs/fresnica-mobile-rewrite-execution-plan.md` — historical stage design/evidence; not a second live queue
-- `docs/stellar-surface-coverage.tsv` — fixed-reference screen/step/overlay inventory and execution mapping; element-level audit status must remain explicit
+- `docs/fresnica-mobile-rewrite-execution-plan.md` — current construction order, status ledger, provenance and release sequencing
 - `docs/product-traceability-ledger.md` and `docs/provenance/README.md` — stable product IDs, stage/acceptance mapping and clean-room source gate
 - `docs/mobile-capability-status.md` and `docs/fresnica-mobile-stage-plan.md` — Capability/security evidence and historical upstream gates
 
