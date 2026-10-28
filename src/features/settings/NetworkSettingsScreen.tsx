@@ -1,6 +1,8 @@
 import React from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
+import type { NetworkSettings } from '@capabilities/network/createNetworkSettings';
+import { NetworkManagement } from './NetworkManagement';
 import type { NodeHealthMonitor } from '@capabilities/network/NodeHealthMonitor';
 import { Screen } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
@@ -12,18 +14,20 @@ import { createStyles } from './NetworkSettingsScreen.styles';
 
 type Props = Readonly<{
   onBack: () => void;
+  showBack?: boolean;
   monitor: NodeHealthMonitor;
+  settings?: NetworkSettings;
   network: Readonly<{ id: string; horizonUrl: string; isMainnet: boolean }>;
 }>;
 
-export function NetworkSettingsScreen({ onBack, network, monitor }: Props) {
+export function NetworkSettingsScreen({ onBack, network, monitor, settings, showBack = true }: Props) {
   const styles = useThemedStyles(createStyles);
 
   return (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
         <View style={styles.headerSide}>
-          <NativeButton label="Back" onPress={onBack} size="sm" variant="quiet" />
+          {showBack ? <NativeButton label="Back" onPress={onBack} size="sm" variant="quiet" /> : null}
         </View>
         <Text style={styles.title}>Network</Text>
         <View style={styles.headerSide} />
@@ -54,14 +58,18 @@ export function NetworkSettingsScreen({ onBack, network, monitor }: Props) {
 
         <NetworkNodeHealth monitor={monitor} />
 
-        <View style={styles.notice}>
-          <Text style={styles.noticeTitle}>Network switching is read-only for now</Text>
-          <Text style={styles.noticeText}>
-            The release policy is Mainnet by default. Testnet and custom Horizon/RPC endpoints become available only
-            through authenticated Developer Mode. This development build is still configured for Testnet until that
-            switching flow reaches its product gate.
-          </Text>
-        </View>
+        {settings ? (
+          <NetworkManagement settings={settings} />
+        ) : (
+          <View style={styles.notice}>
+            <Text style={styles.noticeTitle}>Network switching is read-only for now</Text>
+            <Text style={styles.noticeText}>
+              The release policy is Mainnet by default. Testnet and custom Horizon/RPC endpoints become available only
+              through authenticated Developer Mode. This development build is still configured for Testnet until that
+              switching flow reaches its product gate.
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </Screen>
   );

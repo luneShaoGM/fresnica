@@ -13,6 +13,7 @@ import {useLocalization} from '../../locale';
 import type {AppRuntimeState} from '../runtimeState';
 import type {RequestDeepLinkResolved} from '../requestDeepLinkRouting';
 import {createStyles} from './AppNavigator.styles';
+import {NetworkSettingsScreen} from '@features/settings/NetworkSettingsScreen';
 import {MainTabsNavigator} from './MainTabsNavigator';
 import {selectPersistedAccountAndDefault} from './accountSelection';
 import type {RootStackParamList} from './navigationTypes';
@@ -86,6 +87,14 @@ function renderRootScreen(
   }
 
   const {bootstrap} = runtime;
+  const settings = runtime.services.networkSettings;
+  if (bootstrap.kind !== 'pending-mnemonic-backup' && settings?.getSnapshot().preferences.selectionConfirmed === false) {
+    return (
+      <RootStack.Screen name="network-setup">
+        {() => <NetworkSettingsScreen network={runtime.services.networkProfile} monitor={runtime.services.nodeReadSession} settings={settings} showBack={false} onBack={() => undefined} />}
+      </RootStack.Screen>
+    );
+  }
   if (bootstrap.kind === 'ready' && deepLink !== undefined) {
     const source =
       isContinuing && deepLink.kind === 'ready'
@@ -149,7 +158,8 @@ function renderRootScreen(
                 selectPersistedAccountAndDefault(
                   runtime.services.onboarding.repository,
                   bootstrap.accountId,
-                  runtime.services.onboarding.networkId,
+                  runtime.services.onboarding.repository.getAccount(bootstrap.accountId)?.networkId ??
+                    runtime.services.onboarding.networkId,
                   runtime.services.accountSelectionPreferences,
                 );
               } catch (error) {

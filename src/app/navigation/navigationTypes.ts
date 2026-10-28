@@ -4,6 +4,7 @@ import type {ProductRouteParams} from './productRoutes';
 
 export type RootStackParamList = {
   bootstrap: undefined;
+  'network-setup': undefined;
   onboarding: undefined;
   locked: undefined;
   main: undefined;

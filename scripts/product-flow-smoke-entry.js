@@ -93,7 +93,7 @@ async function waitForConfirmedSubmission(services, submission) {
 
 async function runProductFlow(setRuntime, onServicesReady, onStage) {
   onStage('create-services');
-  const services = await createAppServices({ realmPath: PRODUCT_REALM_PATH });
+  const services = await createAppServices({ fixedNetwork: 'stellar-testnet', realmPath: PRODUCT_REALM_PATH });
   onServicesReady(services);
 
   onStage('cold-bootstrap');

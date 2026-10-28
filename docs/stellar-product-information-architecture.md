@@ -141,7 +141,7 @@ Stellar 里有某个屏幕，只证明需要审计该产品行为，不代表可
 | 历史操作 | Horizon 仍是权威；**允许**上次已拉页面的 UX 缓存（先展示再后台刷新） | 用本地缓存宣称「历史已完整 / 缺口已补全」（那是 donor 缺口恢复，History 契约没有） |
 | 慢变数据（资产图标/名称、目录 etag、claimable 快照 TTL） | 本地缓存 + 过期再拉 | 当账本余额或精确 XDR |
 | 用户 RPC / 网络列表 | 本地持久化（Settings）；当前连接走 gateway | 未开 Dev Mode 时伪装已在 Mainnet |
-| 可见网络（Mainnet 等） | Developer Mode 门控 + 用户添加的 node | 未开门时的假 Mainnet 开关 |
+| 可见网络 | Mainnet 正常默认；Testnet/custom node 由鉴权 Developer Mode 门控 | 未鉴权开放 Testnet/custom node，或把网络偏好当签名授权 |
 
 **交易后怎么更新余额（也适用于 Trustline / 任何已上链结果）：**
 
@@ -167,7 +167,7 @@ Stage 2.5 已把 submitted/uncertain 写入 network/account-scoped invalidation�
 | Tab id | `home`、`activity`、`dapps`、`settings` | 已是这些 id |
 | Activity | 完整列表 / 筛选 / 详情 | `features/activity` + History capability；列表与单 operation detail 已接，筛选/搜索/完整 operation-family projection 未完 |
 | dApps | clean-room 重写 Stellar 已形成的目录、Recent、浏览器、权限、Freighter 桥行为 | `features/dapps` 预览壳，未接目录 |
-| Developer Mode | 采用 Stellar/Xaman 设计（鉴权开启、网络可见性、日志、开发者页） | **未做** |
+| Developer Mode | 采用 Stellar/Xaman 设计（鉴权开启、网络可见性、日志、开发者页） | 鉴权/网络门控候选已实现；Session Logs/完整开发者工具未完成，原生验收待执行 |
 | 硬件钱包 | 产品内一等 signer（添加、签名、账户列表） | 类型里有 `hardware`，产品流 **未做** |
 | Vault / 加密 | 参考 Stellar Vault overlay 与 native 加密；Core 管密钥 | 无 Vault overlay；Realm 不存密钥 |
 | 自定义主题 | 上传图片 → 提取主色 / 次主色等 → `AppTheme` 全 app 应用 | semantic `AppTheme` 与可替换 seed 接口已建立；当前功能型 UI 消费语义 token。dark/system/image-generated theme、最终视觉与品牌资产仍未完成 |
@@ -289,7 +289,7 @@ Stellar 的「编排」是全局 `services/` + Repository。Fresnica 对应是 `
 | --- | --- | --- | --- |
 | `AccountService` | 订 Horizon stream；`getAccountInfo` 后把余额 / trustline **写进 Realm AccountDetails**；提交后 `refreshAfterSubmittedTx` | 删载体；留「交易后刷新」角色 | Balance / History 失效再拉；**禁止**把链上快照当 Realm 真值 |
 | `LedgerService` | Horizon 账户/操作/submit；部分仍带 XRPL 方法名 | 重构 | `StellarSdkGateway` + Payment/Trustline/Transaction capability |
-| `NetworkService` | Horizon 连接、通断、当前网络、**用户增删 RPC**、节点健康、切换网络 | 留完整角色，重构载体 | 产品要做。现 `APP_CONFIG` 钉死 Testnet **不是**完成态。Mainnet 可见性仍走 Dev Mode |
+| `NetworkService` | Horizon 连接、通断、当前网络、**用户增删 RPC**、节点健康、切换网络 | 留完整角色，重构载体 | 当前候选以持久化网络偏好创建不可变网关会话；Mainnet 默认，Testnet/custom node 由 Developer Mode 门控。`APP_CONFIG.network` 仅保留显式 Testnet helper fixture；原生验收未完成 |
 | `AuthenticationService` | 口令 / 生物识别；超时后弹出 Lock overlay | 重构 + 交 Core | System Auth 已有；**应用锁**卡上游会话 API |
 | `AppService` | AppState、NetInfo、后台 15s 无操作后标 Inactive（给鉴权去决定要不要锁） | 留角色 | 见下「进锁」；不要抄 IAP 例外 |
 | `NavigationService` | 全局导航单例 | 删载体 | React Navigation |
@@ -472,7 +472,7 @@ Advanced
 | 地址簿 | 留 | 行在，无流程 |
 | General 主题 / 触感 / 显示法币 | 留 | **缺**（主题契约在 2c） |
 | Advanced 整组 | 留 | 行在，Dev Mode / RPC / logs **缺** |
-| 网络增删 RPC | 留（你已确认） | Network 屏只展示钉死的 Testnet |
+| 网络增删 RPC | 留（你已确认） | 当前候选已提供鉴权门控增删/测试/选择与回退；原生验收未完成 |
 | 自动锁时长 | 留角色 | 锁卡上游，设置项可先留 |
 | 截屏保护 | 留，Dev Mode 可关 | 未做 |
 | Realm Viewer | 仍 Exclude（开发工具） | — |
@@ -695,7 +695,7 @@ Settings
 
 ### 7.6 Developer Mode
 
-Stellar 保留了 Xaman 的 Developer Mode，Fresnica **要做**。当前代码没有。
+Stellar 保留了 Xaman 的 Developer Mode，Fresnica **要做**。当前候选已实现模式鉴权和网络工具；Session Logs/完整开发者页仍待后续切片，见共享行为契约。
 
 参考 `origin/Stellar`：`Settings/Advanced/AdvancedSettingsView`、`CoreRepository.isDeveloperModeEnabled`、`NetworkRepository.getVisibleNetworks`。
 
@@ -797,7 +797,7 @@ Stellar 有、§7.1–§7.7 原先没逐行写的表面。这里给决定，避�
 
 ### Settings / Security / Language / Network / About / Developer Mode / 主题
 
-- 分组符合 §7.5。**Developer Mode 是必要项**，不是推迟项。当前仓库没有，按 §7.6 补。
+- 分组符合 §7.5。**Developer Mode 是必要项**，不是推迟项。当前候选的鉴权/网络门控按 §7.6 与共享行为契约验收；日志等未实现范围继续保留。
 - 自定义主题入口在 General；实现依赖 F3 的 `AppTheme` 可替换契约。
 - 不要在未开 Dev Mode 时提供假 Mainnet 开关。用户仍可在已可见网络上 **增删 RPC**。
 - 推送是产品项（§7.1 已提升）；不要搬 Xaman SignRequest 云载荷。

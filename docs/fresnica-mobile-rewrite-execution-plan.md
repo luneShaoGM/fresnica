@@ -1069,3 +1069,7 @@ Backend 交付并完成身份/滥用验证后才可支持：
 - Developer Mode authentication is a planned dependency, not an implemented flow. Before custom nodes: define authenticated enable/cancel/failure/retry and no-signer behavior, persisted preferences, and return-to-Mainnet-before-disable. SDK verification-only App Passphrase support exists; generic System Auth challenge remains upstream-blocked. Do not infer a successful challenge from availability/enrollment checks.
 - Next network batch: authenticated Developer Mode, then gated same-network node add/test/default/remove and consistent read/quote/preflight/submit gateway binding. Mainnet/Testnet switching remains a separate network-identity/recovery boundary.
 - S24 stays L1; automated checks and native product acceptance must be reported separately. Stage 9 iOS System Auth cancel/retry remains deferred.
+
+### Shared foundation execution candidate (2026-10-28)
+
+The user-approved current order is baseline reconciliation → shared authentication design → network session/node management. All three have candidate deliverables on `feat/shared-auth-network-foundation-2026-10-27`; implementation and evidence boundaries are in the current-progress index and shared-auth-network-session behavior spec. Generic biometric session unlock and Developer Session Logs remain separate incomplete work. Before further Swap/dApp sensitive expansion, review this exact remote HEAD, align shared composition with S14 PR #123, and perform the affected native acceptance. This does not restart Automation V2.2 or authorize merge.
