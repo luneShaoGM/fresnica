@@ -253,6 +253,44 @@ describe('DAppsScreen native field and retry', () => {
     expect(searchedNodes.some(node => node.props.title === 'dapps.catalog.noMatch')).toBe(true);
   });
 
+  it('labels offline fallback rows stale and offers retry without hiding the catalog', async () => {
+    const catalog: DappCatalogPort = {
+      load: jest.fn().mockResolvedValue({ kind: 'ready', stale: true, entries: [entry] }),
+    };
+    const nodes = elements(await renderCatalog(catalog));
+    expect(nodes.some(node => node.props.children === 'dapps.catalog.stale')).toBe(true);
+    expect(nodes.some(node => node.props.label === 'dapps.catalog.retry')).toBe(true);
+    expect(nodes.some(node => node.props.children === 'Demo Exchange')).toBe(true);
+  });
+
+  it('shows persisted public catalog on offline startup, without starting a network request', async () => {
+    const load = jest.fn();
+    const readCached = jest.fn(() => ({ kind: 'ready' as const, stale: true as const, entries: [entry] }));
+    const catalog: DappCatalogPort = { load, readCached };
+    const nodes = elements(await renderCatalog(catalog, false, true, false));
+    expect(readCached).toHaveBeenCalledTimes(1);
+    expect(load).not.toHaveBeenCalled();
+    expect(nodes.some(node => node.props.children === 'dapps.catalog.cached')).toBe(true);
+    expect(nodes.some(node => node.props.children === 'Demo Exchange')).toBe(true);
+    expect(nodes.find(node => node.props.label === 'dapps.catalog.retry')?.props.disabled).toBe(true);
+  });
+
+  it('never shows the previous catalog after a source change while offline', async () => {
+    const original: DappCatalogPort = {
+      load: jest.fn().mockResolvedValue({ kind: 'ready', entries: [entry] }),
+    };
+    const first = elements(await renderCatalog(original));
+    expect(first.some(node => node.props.children === 'Demo Exchange')).toBe(true);
+    const other: DappCatalogPort = {
+      load: jest.fn(),
+      readCached: jest.fn(() => ({ kind: 'unavailable' as const })),
+    };
+    const second = elements(await renderCatalog(other, false, true, false));
+    expect(second.some(node => node.props.children === 'Demo Exchange')).toBe(false);
+    expect(second.some(node => node.props.title === 'dapps.catalog.offline')).toBe(true);
+    expect(other.load).not.toHaveBeenCalled();
+  });
+
   it('retries a failed catalog load from the native button', async () => {
     const load = jest.fn().mockRejectedValue(new Error('catalog-down'));
     const catalog = { load };

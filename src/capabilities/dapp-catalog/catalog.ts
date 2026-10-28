@@ -9,10 +9,12 @@ export type DappCatalogEntry = Readonly<{
 
 export type DappCatalogLoadResult =
   | Readonly<{ kind: 'unavailable' }>
-  | Readonly<{ kind: 'ready'; entries: readonly DappCatalogEntry[] }>;
+  | Readonly<{ kind: 'ready'; entries: readonly DappCatalogEntry[]; stale?: boolean }>;
 
 export type DappCatalogPort = Readonly<{
   load: () => Promise<DappCatalogLoadResult>;
+  // An optional, synchronous public-only snapshot for offline startup. Never a grant.
+  readCached?: () => DappCatalogLoadResult;
 }>;
 
 export function catalogCategories(entries: readonly DappCatalogEntry[]): readonly string[] {
@@ -28,8 +30,6 @@ export function filterCatalogEntries(
   return entries.filter(entry => {
     if (category !== undefined && entry.category !== category) return false;
     if (!query) return true;
-    return [entry.title, entry.description, entry.category].some(value =>
-      value.toLowerCase().includes(query),
-    );
+    return [entry.title, entry.description, entry.category].some(value => value.toLowerCase().includes(query));
   });
 }

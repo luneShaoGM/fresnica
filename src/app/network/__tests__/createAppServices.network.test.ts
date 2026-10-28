@@ -22,6 +22,17 @@ const mockRepository = {
     mockAccounts = mockAccounts.filter(account => account.id !== id);
   },
 };
+const mockCatalogRead = jest.fn((networkId: string) => {
+  if (networkId !== 'stellar-mainnet') return undefined;
+  return {
+    schemaVersion: 1 as const,
+    networkId,
+    savedAtUnixMs: 20,
+    entries: [
+      { id: 'main', title: 'Main', description: 'Public', category: 'Tools', websiteUrl: 'https://main.example.org/' },
+    ],
+  };
+});
 const mockSave = jest.fn((next: NetworkPreferences) => {
   mockPreferences = next;
 });
@@ -57,6 +68,7 @@ jest.mock('../../../platform/persistence/realm', () => ({
   })),
   RealmHistoryCacheRepository: jest.fn(),
   RealmBalanceCacheRepository: jest.fn(),
+  RealmDappCatalogRepository: jest.fn(() => ({ read: mockCatalogRead, replace: jest.fn() })),
   createRealmRecordId: () => 'id',
 }));
 jest.mock('../../../platform/persistence/realm/RealmNetworkPreferenceStore', () => ({
@@ -194,6 +206,30 @@ describe('production network composition and retirement', () => {
     expect(mockPreferences?.retainedTestnet).toBeUndefined();
     reopened.close();
   });
+  it('binds public dApp cache to the selected network profile and closes it with its service generation', async () => {
+    const mainnet = await createAppServices();
+    expect(mainnet.networkProfile.id).toBe('stellar-mainnet');
+    expect(mainnet.dappCatalog.readCached?.()).toMatchObject({
+      kind: 'ready',
+      stale: true,
+      entries: [{ id: 'main' }],
+    });
+    expect(mockCatalogRead).toHaveBeenLastCalledWith('stellar-mainnet');
+    mainnet.close();
+    expect(mainnet.dappCatalog.readCached?.()).toEqual({ kind: 'unavailable' });
+
+    mockPreferences = {
+      ...DEFAULT_NETWORK_PREFERENCES,
+      networkId: 'stellar-testnet',
+      developerMode: true,
+    };
+    const testnet = await createAppServices();
+    expect(testnet.networkProfile.id).toBe('stellar-testnet');
+    expect(testnet.dappCatalog.readCached?.()).toEqual({ kind: 'unavailable' });
+    expect(mockCatalogRead).toHaveBeenLastCalledWith('stellar-testnet');
+    testnet.close();
+  });
+
   it('binds every transaction consumer and the public-read session to the same Mainnet profile', async () => {
     const services = await createAppServices();
     const network = { id: 'stellar-mainnet', networkPassphrase: NETWORKS['stellar-mainnet'].networkPassphrase };

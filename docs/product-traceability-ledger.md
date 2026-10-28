@@ -19,7 +19,7 @@
 | S11 | Claimable balance list/risk/claim | claimables + capability | Adapt | clean-room | write semantics to define | L0 |
 | S12 | Liquidity pool list/details/withdraw | liquidity + pool capability | Adapt | clean-room | shared LP write contract required | L1 read mechanism only |
 | S13 | Activity list/filter/search/detail/participants/offline UX cache | activity + History | Adapt | clean-room | Horizon authority + replaceable network/account-scoped Realm cache; Android aggregate closed, iOS reconnect product evidence still open | L3 partial |
-| S14 | dApp catalog/search/category/icons | dapps + Catalog ports | Adapt | clean-room | Remote catalog contract unverified; read-only loading/search/category + explicit unconfigured state wired, no catalog source or browser | L1 partial |
+| S14 | dApp catalog/search/category/icons | dapps + Catalog ports | Adapt | clean-room | PR #123 S14 candidate, aligned with #124: public HTTPS catalog, networkProfile.id-scoped Realm v7, offline cache hydration and retired-generation request cancellation; Work exact-HEAD review, icons and native acceptance pending; no permission/browser trust | L1 partial |
 | S15 | Recent/disclaimer/custom URL | dapps + preferences | Adapt | clean-room | persistence + origin policy | L1 scaffold |
 | S16 | dApp browser/origin/navigation lifecycle | dapps + platform/dapp-browser | Adapt | clean-room | WebView/origin security | L0 |
 | S17 | dApp permissions/session/revoke | dapps/security + permission capability | Adapt | clean-room | permission contract/persistence | L0 |

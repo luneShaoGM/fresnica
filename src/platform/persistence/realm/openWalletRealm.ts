@@ -15,7 +15,8 @@ export function walletRealmConfiguration(options: OpenWalletRealmOptions = {}): 
       // PendingSubmissionEntity recovery metadata; v4 added network-scoped
       // DefaultAccountPreferenceEntity; v5 adds replaceable History cache snapshots.
       // Existing records require no transformation because each change adds a new
-      // top-level entity. Schema v6 adds replaceable Balance display snapshots.
+      // top-level entity. Schema v6 adds replaceable Balance display snapshots;
+      // v7 adds per-network public dApp catalog snapshots (not permissions).
     },
   };
 }

@@ -1,6 +1,6 @@
 import type Realm from 'realm';
 
-export const WALLET_REALM_SCHEMA_VERSION = 6;
+export const WALLET_REALM_SCHEMA_VERSION = 7;
 
 export const ACCOUNT_ENTITY = 'AccountEntity';
 export const SIGNER_ENTITY = 'SignerEntity';
@@ -9,6 +9,7 @@ export const LOCALE_PREFERENCE_ENTITY = 'LocalePreferenceEntity';
 export const DEFAULT_ACCOUNT_PREFERENCE_ENTITY = 'DefaultAccountPreferenceEntity';
 export const PENDING_SUBMISSION_ENTITY = 'PendingSubmissionEntity';
 export const BALANCE_CACHE_SNAPSHOT_ENTITY = 'BalanceCacheSnapshotEntity';
+export const DAPP_CATALOG_CACHE_ENTITY = 'DappCatalogCacheEntity';
 export const HISTORY_CACHE_SNAPSHOT_ENTITY = 'HistoryCacheSnapshotEntity';
 
 export const ACCOUNT_SCHEMA = {
@@ -123,6 +124,17 @@ export const BALANCE_CACHE_SNAPSHOT_SCHEMA = {
   },
 } satisfies Realm.ObjectSchema;
 
+export const DAPP_CATALOG_CACHE_SCHEMA = {
+  name: DAPP_CATALOG_CACHE_ENTITY,
+  primaryKey: 'networkId',
+  properties: {
+    networkId: 'string',
+    schemaVersion: 'int',
+    savedAt: 'date',
+    payloadJson: 'string',
+  },
+} satisfies Realm.ObjectSchema;
+
 export const WALLET_REALM_SCHEMAS = [
   ACCOUNT_SCHEMA,
   SIGNER_SCHEMA,
@@ -132,4 +144,5 @@ export const WALLET_REALM_SCHEMAS = [
   PENDING_SUBMISSION_SCHEMA,
   HISTORY_CACHE_SNAPSHOT_SCHEMA,
   BALANCE_CACHE_SNAPSHOT_SCHEMA,
+  DAPP_CATALOG_CACHE_SCHEMA,
 ] as const;
