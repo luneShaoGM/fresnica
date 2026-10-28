@@ -122,17 +122,18 @@ export function catalogEntriesFromFchain(value: unknown, networkId: string): rea
   const seen = new Set<string>();
   const entries: DappCatalogEntry[] = [];
   for (const raw of value.all) {
-    if (entries.length >= MAX_ENTRIES) break;
     const entry = readEntry(raw, networkId);
     if (!entry || seen.has(entry.id)) continue;
     seen.add(entry.id);
-    entries.push(entry);
+    if (entries.length < MAX_ENTRIES) entries.push(entry);
   }
   return Object.freeze(entries);
 }
 
 function readEntry(value: unknown, networkId: string): DappCatalogEntry | undefined {
-  if (!isObject(value) || (value.stage !== 'production' && value.stage !== 'beta')) return undefined;
+  if (!isObject(value) || !text(value.stage, 64)) throw new Error('dapp-catalog-entry');
+  // Inactive listings are intentionally excluded; active entries must be structurally valid.
+  if (value.stage !== 'production' && value.stage !== 'beta') return undefined;
   if (
     !text(value.identifier, 128) ||
     !text(value.name, 128) ||
@@ -140,9 +141,11 @@ function readEntry(value: unknown, networkId: string): DappCatalogEntry | undefi
     !text(value.primaryCategory, 64) ||
     !isObject(value.launchUrls)
   )
-    return undefined;
+    throw new Error('dapp-catalog-entry');
   const rawUrl = networkId === 'stellar-mainnet' ? value.launchUrls.mainnet : value.launchUrls.testnet;
-  if (typeof rawUrl !== 'string' || !/^https:\/\//i.test(rawUrl)) return undefined;
+  // A valid listing can have no launch URL for this Stellar network.
+  if (rawUrl === undefined || rawUrl === null || rawUrl === '') return undefined;
+  if (typeof rawUrl !== 'string' || !/^https:\/\//i.test(rawUrl)) throw new Error('dapp-catalog-entry');
   try {
     const destination = normalizeUntrustedDappUrl(rawUrl);
     return Object.freeze({
@@ -153,7 +156,7 @@ function readEntry(value: unknown, networkId: string): DappCatalogEntry | undefi
       websiteUrl: destination.url,
     });
   } catch {
-    return undefined;
+    throw new Error('dapp-catalog-entry');
   }
 }
 

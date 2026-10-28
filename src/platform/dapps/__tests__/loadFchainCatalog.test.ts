@@ -55,12 +55,12 @@ describe('S14 FChain public catalog', () => {
       },
     ]);
     expect(catalogEntriesFromFchain(payload, 'stellar-mainnet').map(e => e.id)).toEqual(['demo', 'main-only']);
-    expect(
+    expect(() =>
       catalogEntriesFromFchain(
         { ...payload, all: [{ ...payload.all[0], launchUrls: { testnet: 'http://localhost/' } }] },
         'stellar-testnet',
       ),
-    ).toEqual([]);
+    ).toThrow('dapp-catalog-entry');
   });
 
   it('rejects unsupported networks without fetching or reusing testnet URLs', async () => {
@@ -164,6 +164,134 @@ describe('S14 FChain public catalog', () => {
     await expect(catalog.load()).resolves.toMatchObject({ kind: 'ready', stale: true, entries: [{ id: 'old' }] });
     expect(cache.snapshot('stellar-testnet')?.entries[0].id).toBe('old');
   });
+  it.each([
+    ['missing active fields', { schemaVersion: 1, all: [{ stage: 'production' }] }],
+    [
+      'bad active URL',
+      { schemaVersion: 1, all: [{ ...payload.all[0], launchUrls: { testnet: 'http://localhost/' } }] },
+    ],
+    ['mixed valid and malformed active rows', { schemaVersion: 1, all: [payload.all[0], { stage: 'beta' }] }],
+    ['nonobject catalog row', { schemaVersion: 1, all: [null] }],
+    ['missing stage', { schemaVersion: 1, all: [{ ...payload.all[0], stage: undefined }] }],
+  ])('keeps valid cache and offline restart after %s', async (_case, body) => {
+    const cache = memoryCache();
+    const old = {
+      schemaVersion: 1 as const,
+      networkId: 'stellar-testnet',
+      savedAtUnixMs: 123,
+      entries: [
+        {
+          id: 'saved',
+          title: 'Saved',
+          description: 'Old verified cache',
+          category: 'Tools',
+          websiteUrl: 'https://saved.example.org/',
+        },
+      ],
+    };
+    cache.replace(old);
+    const catalog = createFchainCatalog({
+      cache,
+      networkId: 'stellar-testnet',
+      fetchImpl: jest.fn(async () => new Response(JSON.stringify(body), { status: 200 })) as unknown as typeof fetch,
+      now: () => 999,
+    });
+    await expect(catalog.load()).resolves.toMatchObject({
+      kind: 'ready',
+      stale: true,
+      entries: [{ id: 'saved' }],
+    });
+    expect(cache.snapshot('stellar-testnet')).toEqual(old);
+
+    // Simulated offline restart: a new Catalog instance must hydrate the same previous cache.
+    const fetchImpl = jest.fn();
+    const restarted = createFchainCatalog({
+      cache,
+      networkId: 'stellar-testnet',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    expect(restarted.readCached()).toMatchObject({
+      kind: 'ready',
+      stale: true,
+      entries: [{ id: 'saved' }],
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('accepts a deliberately empty catalog, and excludes inactive and other-network rows', async () => {
+    const cache = memoryCache();
+    cache.replace({
+      schemaVersion: 1,
+      networkId: 'stellar-testnet',
+      savedAtUnixMs: 10,
+      entries: [
+        { id: 'old', title: 'Old', description: 'Old', category: 'Tools', websiteUrl: 'https://old.example.org/' },
+      ],
+    });
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            schemaVersion: 1,
+            all: [{ stage: 'archived' }, payload.all[1]],
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ schemaVersion: 1, all: [] }), { status: 200 }));
+    const catalog = createFchainCatalog({
+      cache,
+      networkId: 'stellar-testnet',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      now: () => 20,
+    });
+    await expect(catalog.load()).resolves.toEqual({ kind: 'ready', entries: [] });
+    expect(cache.snapshot('stellar-testnet')?.entries).toEqual([]);
+    await expect(catalog.load()).resolves.toEqual({ kind: 'ready', entries: [] });
+    expect(cache.snapshot('stellar-testnet')?.entries).toEqual([]);
+  });
+
+  it('rejects a malformed active entry when no cache exists', async () => {
+    const cache = memoryCache();
+    const catalog = createFchainCatalog({
+      cache,
+      networkId: 'stellar-mainnet',
+      fetchImpl: jest.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              schemaVersion: 1,
+              all: [{ stage: 'production' }],
+            }),
+            { status: 200 },
+          ),
+      ) as unknown as typeof fetch,
+    });
+    await expect(catalog.load()).rejects.toThrow('dapp-catalog-unavailable');
+    expect(cache.snapshot('stellar-mainnet')).toBeUndefined();
+  });
+
+  it('validates the whole response even when more than 500 entries are returned', async () => {
+    const cache = memoryCache();
+    const entries = Array.from({ length: 500 }, (_, index) => ({
+      ...payload.all[0],
+      identifier: 'item-' + index,
+    }));
+    const catalog = createFchainCatalog({
+      cache,
+      networkId: 'stellar-testnet',
+      fetchImpl: jest.fn(
+        async () =>
+          new Response(JSON.stringify({ schemaVersion: 1, all: [...entries, { stage: 'production' }] }), {
+            status: 200,
+          }),
+      ) as unknown as typeof fetch,
+    });
+    await expect(catalog.load()).rejects.toThrow('dapp-catalog-unavailable');
+    expect(cache.snapshot('stellar-testnet')).toBeUndefined();
+  });
+
   it('hydrates public cached catalog offline without fetching or leaking to another network', () => {
     const cache = memoryCache();
     cache.replace({

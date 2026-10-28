@@ -4,6 +4,8 @@ import { join } from 'node:path';
 
 import Realm from 'realm';
 
+import { createFchainCatalog } from '../../../dapps/loadFchainCatalog';
+
 import { RealmAccountSignerRepository } from '../RealmAccountSignerRepository';
 import { RealmDappCatalogRepository } from '../RealmDappCatalogRepository';
 import { openWalletRealm } from '../openWalletRealm';
@@ -26,6 +28,45 @@ const testnetCatalog = {
 
 describe('Realm S14 public catalog integration', () => {
   afterAll(() => Realm.shutdown());
+
+  it('keeps the prior on-disk snapshot after malformed HTTP catalog and hydrates it offline on reopen', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'fresnica-dapp-catalog-malformed-'));
+    const path = join(directory, 'wallet.realm');
+    let realm: Realm | undefined;
+    try {
+      realm = await openWalletRealm({ path });
+      const cache = new RealmDappCatalogRepository(realm);
+      cache.replace(testnetCatalog);
+      const catalog = createFchainCatalog({
+        cache,
+        networkId: 'stellar-testnet',
+        fetchImpl: jest.fn(
+          async () =>
+            new Response(JSON.stringify({ schemaVersion: 1, all: [{ stage: 'production' }] }), { status: 200 }),
+        ) as unknown as typeof fetch,
+      });
+      await expect(catalog.load()).resolves.toMatchObject({ kind: 'ready', stale: true, entries: [{ id: 'testnet' }] });
+      expect(cache.read('stellar-testnet')).toEqual(testnetCatalog);
+      realm.close();
+
+      realm = await openWalletRealm({ path });
+      const fetchImpl = jest.fn();
+      const reopened = createFchainCatalog({
+        cache: new RealmDappCatalogRepository(realm),
+        networkId: 'stellar-testnet',
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      });
+      expect(reopened.readCached()).toEqual({
+        kind: 'ready',
+        entries: testnetCatalog.entries,
+        stale: true,
+      });
+      expect(fetchImpl).not.toHaveBeenCalled();
+    } finally {
+      if (realm && !realm.isClosed) realm.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
 
   it('migrates v6 to v7, preserves an existing account and persists per-network cache across restart', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'fresnica-dapp-catalog-'));
