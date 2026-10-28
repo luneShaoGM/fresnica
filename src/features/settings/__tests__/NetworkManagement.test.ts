@@ -34,10 +34,15 @@ function nodes(root: React.ReactNode): React.ReactElement<Props>[] {
   if (!React.isValidElement<Props>(root)) return [];
   return [root, ...React.Children.toArray(root.props.children).flatMap(nodes)];
 }
-function setup(developerMode = false, retainedTestnet = false) {
+function setup(developerMode = false, retainedTestnet = false, selectionConfirmed = true) {
   const authorize = jest.fn(async () => {});
   const settings = createNetworkSettings({
-    initial: { ...DEFAULT_NETWORK_PREFERENCES, developerMode, ...(retainedTestnet ? { retainedTestnet: true } : {}) },
+    initial: {
+      ...DEFAULT_NETWORK_PREFERENCES,
+      developerMode,
+      selectionConfirmed,
+      ...(retainedTestnet ? { retainedTestnet: true } : {}),
+    },
     store: { load: () => undefined, save: jest.fn() },
     authorize,
     probe: async () => NETWORKS['stellar-mainnet'].networkPassphrase,
@@ -57,6 +62,19 @@ describe('network management presentation and event wiring', () => {
     expect(labels).not.toContain('Add node');
     expect(labels).not.toContain('Remove node');
     expect(all.some(n => String(n.props.children).includes('Stellar Testnet'))).toBe(false);
+  });
+  it('continues directly on an available built-in network before the first choice', () => {
+    const { settings } = setup(false, true, false);
+    const select = jest.spyOn(settings, 'selectNode').mockResolvedValue(undefined);
+    const labels = nodes(NetworkManagement({ settings }))
+      .filter(node => node.type === NativeButton)
+      .map(node => node.props.label);
+    expect(labels[0]).toBe('Continue on Stellar Testnet');
+    expect(labels).toContain('Continue on Stellar Mainnet');
+    nodes(NetworkManagement({ settings }))
+      .find(node => node.type === NativeButton && node.props.label === 'Continue on Stellar Testnet')
+      ?.props.onPress?.();
+    expect(select).toHaveBeenCalledWith('stellar-testnet', NETWORKS['stellar-testnet'].horizonUrl);
   });
   it('shows the retained built-in Testnet partition without revealing custom-node controls', () => {
     const { settings } = setup(false, true);

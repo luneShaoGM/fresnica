@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useSyncExternalStore } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
 import type { NetworkSettings } from '@capabilities/network/createNetworkSettings';
@@ -33,34 +33,31 @@ export function NetworkSettingsScreen({ onBack, network, monitor, settings, show
         <View style={styles.headerSide} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionLabel}>CURRENT NETWORK</Text>
-        <View style={styles.networkCard}>
-          <View style={styles.networkIdentity}>
-            <View style={styles.networkIcon}>
-              <View style={styles.networkDot} />
-            </View>
-            <View style={styles.flex}>
-              <Text style={styles.networkTitle}>{network.isMainnet ? 'Stellar Mainnet' : 'Stellar Testnet'}</Text>
-              <Text style={styles.networkSubtitle}>{network.isMainnet ? 'Active' : 'Active development network'}</Text>
-            </View>
-            <View style={styles.selectedMark}>
-              <Text style={styles.selectedGlyph}>✓</Text>
+      {settings ? (
+        <ManagedNetworkSettings monitor={monitor} network={network} settings={settings} />
+      ) : (
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <Text style={styles.sectionLabel}>CURRENT NETWORK</Text>
+          <View style={styles.networkCard}>
+            <View style={styles.networkIdentity}>
+              <View style={styles.networkIcon}>
+                <View style={styles.networkDot} />
+              </View>
+              <View style={styles.flex}>
+                <Text style={styles.networkTitle}>{network.isMainnet ? 'Stellar Mainnet' : 'Stellar Testnet'}</Text>
+                <Text style={styles.networkSubtitle}>{network.isMainnet ? 'Active' : 'Active development network'}</Text>
+              </View>
+              <View style={styles.selectedMark}>
+                <Text style={styles.selectedGlyph}>✓</Text>
+              </View>
             </View>
           </View>
-        </View>
-
-        <Text style={styles.sectionLabel}>CONNECTION</Text>
-        <View style={styles.rows}>
-          <InfoRow label="Network ID" value={network.id} />
-          <InfoRow label="Horizon" value={network.horizonUrl} multiline />
-        </View>
-
-        <NetworkNodeHealth monitor={monitor} />
-
-        {settings ? (
-          <NetworkManagement settings={settings} />
-        ) : (
+          <Text style={styles.sectionLabel}>CONNECTION</Text>
+          <View style={styles.rows}>
+            <InfoRow label="Network ID" value={network.id} />
+            <InfoRow label="Horizon" value={network.horizonUrl} multiline />
+          </View>
+          <NetworkNodeHealth monitor={monitor} />
           <View style={styles.notice}>
             <Text style={styles.noticeTitle}>Network switching is read-only for now</Text>
             <Text style={styles.noticeText}>
@@ -69,9 +66,67 @@ export function NetworkSettingsScreen({ onBack, network, monitor, settings, show
               switching flow reaches its product gate.
             </Text>
           </View>
-        )}
-      </ScrollView>
+        </ScrollView>
+      )}
     </Screen>
+  );
+}
+
+function ManagedNetworkSettings({
+  monitor,
+  network,
+  settings,
+}: Readonly<{
+  monitor: NodeHealthMonitor;
+  network: Props['network'];
+  settings: NetworkSettings;
+}>) {
+  const styles = useThemedStyles(createStyles);
+  const choosing = !useSyncExternalStore(settings.subscribe, settings.getSnapshot).preferences.selectionConfirmed;
+  return (
+    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      {choosing ? <NetworkManagement settings={settings} /> : null}
+      {choosing ? null : <CurrentNetwork network={network} />}
+      <ConnectionDetails network={network} />
+      <NetworkNodeHealth monitor={monitor} />
+      {choosing ? null : <NetworkManagement settings={settings} />}
+    </ScrollView>
+  );
+}
+
+function CurrentNetwork({ network }: Readonly<{ network: Props['network'] }>) {
+  const styles = useThemedStyles(createStyles);
+  return (
+    <>
+      <Text style={styles.sectionLabel}>CURRENT NETWORK</Text>
+      <View style={styles.networkCard}>
+        <View style={styles.networkIdentity}>
+          <View style={styles.networkIcon}>
+            <View style={styles.networkDot} />
+          </View>
+          <View style={styles.flex}>
+            <Text style={styles.networkTitle}>{network.isMainnet ? 'Stellar Mainnet' : 'Stellar Testnet'}</Text>
+            <Text style={styles.networkSubtitle}>{network.isMainnet ? 'Active' : 'Active development network'}</Text>
+          </View>
+          <View style={styles.selectedMark}>
+            <Text style={styles.selectedGlyph}>✓</Text>
+          </View>
+        </View>
+      </View>
+    </>
+  );
+}
+
+function ConnectionDetails({ network }: Readonly<{ network: Props['network'] }>) {
+  const styles = useThemedStyles(createStyles);
+  return (
+    <>
+      <Text style={styles.sectionLabel}>CONNECTION</Text>
+      <View style={styles.rows}>
+        <InfoRow label="Network ID" value={network.id} />
+        <InfoRow label="Horizon" value={network.horizonUrl} multiline />
+      </View>
+    </>
   );
 }
 

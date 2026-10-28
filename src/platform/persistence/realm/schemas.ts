@@ -1,6 +1,6 @@
 import type Realm from 'realm';
 
-export const WALLET_REALM_SCHEMA_VERSION = 7;
+export const WALLET_REALM_SCHEMA_VERSION = 8;
 
 export const ACCOUNT_ENTITY = 'AccountEntity';
 export const SIGNER_ENTITY = 'SignerEntity';

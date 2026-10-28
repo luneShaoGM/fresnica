@@ -1,6 +1,6 @@
-import type {NavigatorScreenParams} from '@react-navigation/native';
+import type { NavigatorScreenParams } from '@react-navigation/native';
 
-import type {ProductRouteParams} from './productRoutes';
+import type { ProductRouteParams } from './productRoutes';
 
 export type RootStackParamList = {
   bootstrap: undefined;
@@ -28,6 +28,7 @@ export type ActivityStackParamList = {
 
 export type DAppsStackParamList = {
   dapps: ProductRouteParams['dapps'];
+  'dapp-browser': { url: string };
 };
 
 export type SettingsStackParamList = {

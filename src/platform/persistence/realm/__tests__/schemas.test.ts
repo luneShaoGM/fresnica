@@ -21,9 +21,9 @@ import {
   WALLET_REALM_SCHEMA_VERSION,
 } from '../schemas';
 
-describe('Realm wallet schema v7', () => {
+describe('Realm wallet schema v8', () => {
   it('adds replaceable Balance cache persistence without changing wallet entity identities', () => {
-    expect(WALLET_REALM_SCHEMA_VERSION).toBe(7);
+    expect(WALLET_REALM_SCHEMA_VERSION).toBe(8);
     expect(WALLET_REALM_SCHEMAS).toEqual([
       ACCOUNT_SCHEMA,
       SIGNER_SCHEMA,
