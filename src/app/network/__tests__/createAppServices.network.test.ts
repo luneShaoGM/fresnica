@@ -1,4 +1,5 @@
 import { createAppServices } from '../../createAppServices';
+import { deleteLocalAccount } from '@capabilities/account/deleteLocalAccount';
 import {
   NETWORKS,
   DEFAULT_NETWORK_PREFERENCES,
@@ -12,8 +13,15 @@ let mockUnresolved: unknown[] = [];
 let mockSigners: { id: string; publicKey: string; kind: string; envelopeJson?: string; backupState?: string }[] = [
   { id: 's', publicKey: 'GS', kind: 'protected-software', envelopeJson: '{encrypted}', backupState: 'confirmed' },
 ];
-let mockAccounts: { networkId: string }[] = [];
-const mockRepository = { listAccounts: () => mockAccounts, listSigners: () => mockSigners };
+let mockAccounts: { networkId: string; id?: string }[] = [];
+const mockRepository = {
+  listAccounts: () => mockAccounts,
+  listSigners: () => mockSigners,
+  getAccount: (id: string) => mockAccounts.find(account => account.id === id),
+  deleteAccount: (id: string) => {
+    mockAccounts = mockAccounts.filter(account => account.id !== id);
+  },
+};
 const mockSave = jest.fn((next: NetworkPreferences) => {
   mockPreferences = next;
 });
@@ -92,6 +100,100 @@ beforeEach(() => {
   mockSdk.verifyProtectedSignerPassphrase.mockImplementation(async () => true);
 });
 describe('production network composition and retirement', () => {
+  it.each([false, true])(
+    'revokes retention after deleting the last Testnet account (Mainnet account=%s)',
+    async mainnet => {
+      mockPreferences = { ...DEFAULT_NETWORK_PREFERENCES, networkId: 'stellar-testnet', retainedTestnet: true };
+      mockAccounts = [
+        { id: 'old', networkId: 'stellar-testnet' },
+        ...(mainnet ? [{ id: 'main', networkId: 'stellar-mainnet' }] : []),
+      ];
+      mockUnresolved = [
+        { accountId: 'main', networkId: 'stellar-mainnet', transactionHash: 'unchanged', state: 'uncertain' },
+      ];
+      const changed = jest.fn();
+      const services = await createAppServices({ onNetworkChanged: changed });
+      deleteLocalAccount(services.accountManagement, 'old');
+      expect(changed).toHaveBeenCalledTimes(1);
+      expect(() =>
+        services.onboarding.sdk.verifyProtectedSignerPassphrase({
+          envelopeJson: '',
+          appPassphrase: '',
+          expectedSignerPublicKey: '',
+        }),
+      ).toThrow('network-session-retired');
+      const reopened = await createAppServices();
+      expect(reopened.onboarding.networkId).toBe('stellar-mainnet');
+      expect(reopened.networkSettings?.getSnapshot().preferences.selectionConfirmed).toBe(false);
+      expect(mockPreferences?.retainedTestnet).toBeUndefined();
+      expect(mockPreferences?.networkId).toBe('stellar-mainnet');
+      await expect(
+        reopened.networkSettings?.selectNode('stellar-testnet', NETWORKS['stellar-testnet'].horizonUrl),
+      ).rejects.toThrow('developer-mode-required');
+      expect(mockUnresolved).toEqual([
+        { accountId: 'main', networkId: 'stellar-mainnet', transactionHash: 'unchanged', state: 'uncertain' },
+      ]);
+      reopened.close();
+      const relaunched = await createAppServices();
+      expect(relaunched.onboarding.networkId).toBe('stellar-mainnet');
+      relaunched.close();
+    },
+  );
+  it('reconciles a stale flag on cold start and fails closed if saving that correction fails', async () => {
+    mockPreferences = { ...DEFAULT_NETWORK_PREFERENCES, networkId: 'stellar-testnet', retainedTestnet: true };
+    mockSave.mockImplementationOnce(() => {
+      throw new Error('disk-full');
+    });
+    await expect(createAppServices()).rejects.toThrow('disk-full');
+    expect(mockStellarConfig).not.toHaveBeenCalled();
+    const services = await createAppServices();
+    expect(services.onboarding.networkId).toBe('stellar-mainnet');
+    expect(mockPreferences?.retainedTestnet).toBeUndefined();
+    services.close();
+  });
+  it('keeps an accountless unresolved Testnet record intact and blocks startup rather than abandoning it', async () => {
+    mockPreferences = { ...DEFAULT_NETWORK_PREFERENCES, networkId: 'stellar-testnet', retainedTestnet: true };
+    mockUnresolved = [{ networkId: 'stellar-testnet', transactionHash: 'original', state: 'uncertain' }];
+    await expect(createAppServices()).rejects.toThrow('pending-submission');
+    expect(mockSave).not.toHaveBeenCalled();
+    expect(mockUnresolved).toHaveLength(1);
+  });
+  it('preserves retained access and recovery when another Testnet account remains, and blocks deleting its pending account', async () => {
+    mockPreferences = { ...DEFAULT_NETWORK_PREFERENCES, networkId: 'stellar-testnet', retainedTestnet: true };
+    mockAccounts = [
+      { id: 'old', networkId: 'stellar-testnet' },
+      { id: 'remaining', networkId: 'stellar-testnet' },
+    ];
+    mockUnresolved = [
+      { accountId: 'remaining', networkId: 'stellar-testnet', transactionHash: 'original', state: 'uncertain' },
+    ];
+    const changed = jest.fn();
+    const services = await createAppServices({ onNetworkChanged: changed });
+    deleteLocalAccount(services.accountManagement, 'old');
+    expect(() => deleteLocalAccount(services.accountManagement, 'remaining')).toThrow(
+      'account-delete-blocked-by-pending-submission',
+    );
+    expect(changed).not.toHaveBeenCalled();
+    expect(services.networkSettings?.getSnapshot().preferences.retainedTestnet).toBe(true);
+    expect(mockUnresolved).toHaveLength(1);
+    services.close();
+  });
+  it('keeps authenticated Developer Mode Testnet onboarding after the last account is deleted', async () => {
+    mockPreferences = {
+      ...DEFAULT_NETWORK_PREFERENCES,
+      developerMode: true,
+      networkId: 'stellar-testnet',
+      retainedTestnet: true,
+    };
+    mockAccounts = [{ id: 'old', networkId: 'stellar-testnet' }];
+    const services = await createAppServices();
+    deleteLocalAccount(services.accountManagement, 'old');
+    const reopened = await createAppServices();
+    expect(reopened.onboarding.networkId).toBe('stellar-testnet');
+    expect(mockPreferences).toMatchObject({ developerMode: true, networkId: 'stellar-testnet' });
+    expect(mockPreferences?.retainedTestnet).toBeUndefined();
+    reopened.close();
+  });
   it('binds every transaction consumer and the public-read session to the same Mainnet profile', async () => {
     const services = await createAppServices();
     const network = { id: 'stellar-mainnet', networkPassphrase: NETWORKS['stellar-mainnet'].networkPassphrase };

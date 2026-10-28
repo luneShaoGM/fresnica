@@ -4,6 +4,7 @@ import {
   DEFAULT_NETWORK_PREFERENCES,
   NETWORKS,
   selectedNetwork,
+  validateNetworkPreferences,
   type NetworkId,
   type NetworkProfile,
 } from '../capabilities/network/networkPreferences';
@@ -131,6 +132,10 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     closePreferences();
     realm.close();
   };
+  const restartNetworkSession = () => {
+    close();
+    options.onNetworkChanged?.();
+  };
   try {
     const nativeModule = loadNativeFresnicaModule(NativeModules);
     const sdk = session.bind(new ReactNativeFresnicaSdk(nativeModule), true);
@@ -151,17 +156,39 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     closePreferences = () => preferencesRealm?.close();
     const preferences = preferencesRealm ? new RealmNetworkPreferenceStore(preferencesRealm) : undefined;
     const storedPreferences = preferences?.load();
-    const initialPreferences = {
-      ...(storedPreferences ?? {
-        ...DEFAULT_NETWORK_PREFERENCES,
-        selectionConfirmed:
-          options.fixedNetwork !== undefined ||
-          (repository.listAccounts().length === 0 && pendingSubmissions.listUnresolved().length === 0),
-      }),
-      ...(!options.fixedNetwork && repository.listAccounts().some(account => account.networkId === 'stellar-testnet')
-        ? { retainedTestnet: true }
-        : {}),
+    const previousPreferences = storedPreferences ?? {
+      ...DEFAULT_NETWORK_PREFERENCES,
+      selectionConfirmed:
+        options.fixedNetwork !== undefined ||
+        (repository.listAccounts().length === 0 && pendingSubmissions.listUnresolved().length === 0),
     };
+    const retainedTestnet = repository.listAccounts().some(account => account.networkId === 'stellar-testnet');
+    const revokeSelectedTestnet =
+      !options.fixedNetwork &&
+      !previousPreferences.developerMode &&
+      previousPreferences.networkId === 'stellar-testnet' &&
+      !retainedTestnet;
+    // Never abandon unresolved recovery in an accountless legacy partition.
+    if (revokeSelectedTestnet && pendingSubmissions.listUnresolved('stellar-testnet').length > 0)
+      throw new Error('pending-submission');
+    const initialPreferences = validateNetworkPreferences({
+      ...previousPreferences,
+      retainedTestnet,
+      ...(revokeSelectedTestnet
+        ? {
+            networkId: 'stellar-mainnet',
+            selectionConfirmed: false,
+            endpoints: { ...previousPreferences.endpoints, 'stellar-mainnet': NETWORKS['stellar-mainnet'].horizonUrl },
+          }
+        : {}),
+    });
+    if (
+      preferences &&
+      storedPreferences &&
+      ((storedPreferences.retainedTestnet === true) !== retainedTestnet || revokeSelectedTestnet)
+    ) {
+      preferences.save(initialPreferences);
+    }
     const networkProfile = options.fixedNetwork ? NETWORKS[options.fixedNetwork] : selectedNetwork(initialPreferences);
     const network = Object.freeze({ id: networkProfile.id, networkPassphrase: networkProfile.networkPassphrase });
     const stellarGateway = session.bind(
@@ -282,10 +309,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
           if (target !== network.id && pendingSubmissions.listUnresolved(network.id).length > 0)
             throw new Error('pending-submission');
         },
-        restart: () => {
-          close();
-          options.onNetworkChanged?.();
-        },
+        restart: restartNetworkSession,
       });
       stopSettingsLifecycle = ledgerReadRuntime.subscribe(() => {
         if (!ledgerReadRuntime.getSnapshot().foreground) networkSettings?.cancel();
@@ -304,6 +328,16 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         pendingSubmissions,
         historyCache,
         balanceCache,
+        onDeleted: () => {
+          if (
+            networkSettings?.getSnapshot().preferences.retainedTestnet &&
+            !repository.listAccounts().some(account => account.networkId === 'stellar-testnet')
+          ) {
+            // Retire before the delete flow can expose onboarding on the old Testnet profile.
+            // Reopening derives and persists the new policy from the authoritative account inventory.
+            restartNetworkSession();
+          }
+        },
         now: () => new Date(),
       },
       onboarding: {
