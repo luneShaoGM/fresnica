@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
-import type { DappCatalogEntry, DappCatalogPort } from '@capabilities/dapp-catalog/catalog';
+import type { DappCatalogEntry, DappCatalogLoadResult, DappCatalogPort } from '@capabilities/dapp-catalog/catalog';
 import { catalogCategories, filterCatalogEntries } from '@capabilities/dapp-catalog/catalog';
 import { normalizeUntrustedDappUrl, type UntrustedDappUrl } from '@capabilities/dapp-interaction/externalDappUrl';
 import { Screen } from '@ui/components';
@@ -86,8 +86,17 @@ export function DAppsScreen({
     const changedCatalog = previousCatalog.current !== catalog;
     previousCatalog.current = catalog;
     if (!active || !online) {
+      let cached: DappCatalogLoadResult | undefined;
+      if (!online) {
+        try {
+          cached = catalog.readCached?.();
+        } catch {
+          // A closed/corrupt public cache is unavailable, never an online request.
+        }
+      }
       setState(previous => {
         if (!changedCatalog && previous.kind === 'ready') return { ...previous, stale: true };
+        if (cached?.kind === 'ready') return { kind: 'ready', entries: cached.entries, stale: true };
         if (!online) return { kind: 'offline' };
         return changedCatalog ? { kind: 'loading' } : previous;
       });

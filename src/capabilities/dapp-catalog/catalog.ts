@@ -13,6 +13,8 @@ export type DappCatalogLoadResult =
 
 export type DappCatalogPort = Readonly<{
   load: () => Promise<DappCatalogLoadResult>;
+  // An optional, synchronous public-only snapshot for offline startup. Never a grant.
+  readCached?: () => DappCatalogLoadResult;
 }>;
 
 export function catalogCategories(entries: readonly DappCatalogEntry[]): readonly string[] {

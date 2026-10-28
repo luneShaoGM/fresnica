@@ -16,21 +16,45 @@ export function createFchainCatalog(dependencies: {
   networkId: string;
   fetchImpl?: typeof fetch;
   now?: () => number;
-}): DappCatalogPort {
+}): DappCatalogPort & Readonly<{ readCached: () => DappCatalogLoadResult; close: () => void }> {
   const { networkId, cache } = dependencies;
   const fetchImpl = dependencies.fetchImpl ?? fetch;
   const now = dependencies.now ?? Date.now;
+  const supported = networkId === 'stellar-mainnet' || networkId === 'stellar-testnet';
   let pending: Promise<DappCatalogLoadResult> | undefined;
-
+  let controller: AbortController | undefined;
+  let closed = false;
+  const assertOpen = () => {
+    if (closed) throw new Error('network-session-retired');
+  };
   return {
+    readCached: () => {
+      if (!supported || closed) return { kind: 'unavailable' };
+      try {
+        const cached = cache.read(networkId);
+        return cached?.networkId === networkId
+          ? { kind: 'ready', entries: cached.entries, stale: true }
+          : { kind: 'unavailable' };
+      } catch {
+        return { kind: 'unavailable' };
+      }
+    },
     load: () => {
-      if (networkId !== 'stellar-mainnet' && networkId !== 'stellar-testnet')
-        return Promise.resolve({ kind: 'unavailable' });
+      if (closed) return Promise.reject(new Error('network-session-retired'));
+      if (!supported) return Promise.resolve({ kind: 'unavailable' });
       if (pending) return pending;
-      pending = refresh(cache, networkId, fetchImpl, now).finally(() => {
+      const active = new AbortController();
+      controller = active;
+      pending = refresh(cache, networkId, fetchImpl, now, active, assertOpen).finally(() => {
+        if (controller === active) controller = undefined;
         pending = undefined;
       });
       return pending;
+    },
+    close: () => {
+      closed = true;
+      controller?.abort();
+      controller = undefined;
     },
   };
 }
@@ -40,14 +64,16 @@ async function refresh(
   networkId: string,
   fetchImpl: typeof fetch,
   now: () => number,
+  controller: AbortController,
+  assertOpen: () => void,
 ): Promise<DappCatalogLoadResult> {
+  assertOpen();
   const candidate = cache.read(networkId);
   const previous = candidate?.networkId === networkId ? candidate : undefined;
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (previous?.etag) headers['If-None-Match'] = previous.etag;
   if (previous?.lastModified) headers['If-Modified-Since'] = previous.lastModified;
 
-  const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     const response = await fetchImpl(CATALOG_URL, {
@@ -56,6 +82,7 @@ async function refresh(
       signal: controller.signal,
       redirect: 'error',
     });
+    assertOpen();
     if (response.url && response.url !== CATALOG_URL) throw new Error('dapp-catalog-redirect');
     if (response.status === 304 && previous) return { kind: 'ready', entries: previous.entries };
     if (response.status < 200 || response.status >= 300) throw new Error('dapp-catalog-http');
@@ -63,6 +90,7 @@ async function refresh(
     if (contentLength !== null && (!/^\d+$/.test(contentLength) || Number(contentLength) > MAX_BODY_LENGTH))
       throw new Error('dapp-catalog-size');
     const body = await response.text();
+    assertOpen();
     if (body.length === 0 || body.length > MAX_BODY_LENGTH) throw new Error('dapp-catalog-size');
 
     const entries = catalogEntriesFromFchain(JSON.parse(body), networkId);
@@ -74,9 +102,11 @@ async function refresh(
       ...(header(response, 'etag') ? { etag: header(response, 'etag') } : {}),
       ...(header(response, 'last-modified') ? { lastModified: header(response, 'last-modified') } : {}),
     };
+    assertOpen();
     cache.replace(snapshot);
     return { kind: 'ready', entries };
   } catch {
+    assertOpen();
     if (previous) return { kind: 'ready', entries: previous.entries, stale: true };
     throw new Error('dapp-catalog-unavailable');
   } finally {

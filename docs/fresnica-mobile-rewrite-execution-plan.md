@@ -799,6 +799,21 @@ UI 执行策略：
 | S18–S21（后续） | Freighter、交易签名、SEP-53、Soroban、设备桥 | 统一 exact-XDR 审核与 SDK 授权，禁用普通 React State 中的 App Passphrase |
 
 本批 S14 候选尚无独立 Work 审批和双端原生产品流证据。
+
+**2026-10-28 S14 / PR #123 基础设施对齐候选**：已在独立工作树从
+`main@b96d2e997ff83b41eaa31bbea941750f1186441b`（#124 合并结果）重放 S14。
+Catalog 的网络分区明确来自不可变的 `networkProfile.id`，不再引用仅作 Testnet
+fixtures 的 `APP_CONFIG.network`。Service Generation 退役时先关闭/取消 Catalog
+请求，再关闭 Realm；即使旧网络响应或响应体迟到，也不得写缓存或返回可用结果。
+首次离线进入页面时只允许同步读取本网络已有的公开目录，并标记可能过期；
+不发生 FChain 网络请求，不继承旧网络或旧来源的行。联网后继续复用 LC5
+焦点、前台和网络状态门控进行重新验证。同一网络的 Horizon 节点切换不会清除
+公开 Catalog 的网络分区。#124 的网络偏好使用独立 Realm 文件；S14 的 wallet
+Realm v7 增量实体保持原方案，不迁移账户、授权或含 token 的访问 URL。
+已有行为由新增的网络组合、关闭后迟到请求、离线初次载入、来源更换测试覆盖；
+仅为 Repository / Unit 级证据，不宣称原生双端、真实网络切换点击流完成。
+新的 PR remote HEAD 必须再经过 Work 独立审查。未合并前不得升 S14 成熟度。
+
 未迁移的业务/导航/依赖/文档仍在受保护的原工作树，不等于已放弃。
 
 
