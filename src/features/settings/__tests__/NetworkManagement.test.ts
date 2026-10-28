@@ -1,4 +1,5 @@
 import React from 'react';
+import { Switch } from 'react-native';
 import { Field } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import { NetworkManagement, networkSettingsError } from '../NetworkManagement';
@@ -29,6 +30,8 @@ type Props = {
   onChangeText?: (text: string) => void;
   onPress?: () => void;
   disabled?: boolean;
+  value?: boolean;
+  onValueChange?: (value: boolean) => void;
 };
 function nodes(root: React.ReactNode): React.ReactElement<Props>[] {
   if (!React.isValidElement<Props>(root)) return [];
@@ -49,11 +52,45 @@ function setup(developerMode = false, retainedTestnet = false) {
 }
 beforeEach(() => jest.clearAllMocks());
 describe('network management presentation and event wiring', () => {
+  it('separates Advanced mode and node controls while keeping bootstrap controls together', () => {
+    const { settings } = setup(true);
+    const advanced = nodes(NetworkManagement({ settings, section: 'developer-mode' }));
+    expect(advanced.some(n => n.type === Switch)).toBe(true);
+    expect(advanced.some(n => n.type === NativeButton && n.props.label === 'Add node')).toBe(false);
+    const network = nodes(NetworkManagement({ settings, section: 'nodes' }));
+    expect(network.some(n => n.type === Switch)).toBe(false);
+    expect(network.filter(n => n.type === NativeButton && n.props.label === 'Add node')).toHaveLength(2);
+    const bootstrap = nodes(NetworkManagement({ settings }));
+    expect(bootstrap.some(n => n.type === Switch)).toBe(true);
+    expect(bootstrap.some(n => n.type === NativeButton && n.props.label === 'Add node')).toBe(true);
+  });
+  it('requests a warning first without changing persisted mode or authenticating', () => {
+    const { settings, authorize } = setup();
+    const setPrompt = jest.fn();
+    jest.mocked(React.useState).mockReturnValueOnce([undefined, setPrompt]);
+    const all = nodes(NetworkManagement({ settings, section: 'developer-mode' }));
+    all.find(n => n.type === Switch)?.props.onValueChange?.(true);
+    expect(setPrompt).toHaveBeenCalledWith({ kind: 'enable-warning' });
+    expect(authorize).not.toHaveBeenCalled();
+    expect(settings.getSnapshot().preferences.developerMode).toBe(false);
+  });
+  it('continues from warning to fresh credential entry without authorizing and permits cancellation', async () => {
+    const { settings, authorize } = setup();
+    const setPrompt = jest.fn();
+    jest.mocked(React.useState).mockReturnValueOnce([{ kind: 'enable-warning' }, setPrompt]);
+    const all = nodes(NetworkManagement({ settings, section: 'developer-mode' }));
+    await all.find(n => n.type === NativeButton && n.props.label === 'Continue')?.props.onPress?.();
+    expect(setPrompt).toHaveBeenCalledWith({ kind: 'enable' });
+    expect(authorize).not.toHaveBeenCalled();
+    all.find(n => n.type === NativeButton && n.props.label === 'Cancel')?.props.onPress?.();
+    expect(setPrompt).toHaveBeenLastCalledWith(undefined);
+    expect(settings.getSnapshot().preferences.developerMode).toBe(false);
+  });
   it('hides Testnet and node mutation controls while mode is disabled', () => {
     const { settings } = setup();
     const all = nodes(NetworkManagement({ settings }));
     const labels = all.filter(n => n.type === NativeButton).map(n => n.props.label);
-    expect(labels).toContain('Enable Developer Mode');
+    expect(all.find(n => n.type === Switch)?.props.value).toBe(false);
     expect(labels).not.toContain('Add node');
     expect(labels).not.toContain('Remove node');
     expect(all.some(n => String(n.props.children).includes('Stellar Testnet'))).toBe(false);

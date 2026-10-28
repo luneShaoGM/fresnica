@@ -1,10 +1,6 @@
-import type {ProductRoute} from './productRoutes';
+import type { ProductRoute } from './productRoutes';
 
-export type ProductRouteReadiness =
-  | 'implemented'
-  | 'structure-only'
-  | 'capability-ready'
-  | 'blocked';
+export type ProductRouteReadiness = 'implemented' | 'structure-only' | 'capability-ready' | 'blocked';
 
 export type ProductRouteStatus = Readonly<{
   readiness: ProductRouteReadiness;
@@ -66,7 +62,15 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'settings-home': {
     readiness: 'implemented',
-    note: 'Settings is a live bottom-tab root backed by a native stack for Accounts, Security, Network, Language and About destinations.',
+    note: 'Settings routes General to preferences/Language and Advanced to authenticated Developer Mode/Network; Accounts, Security and About keep their native-stack histories.',
+  },
+  'general-settings': {
+    readiness: 'implemented',
+    note: 'Language is reachable from General; named appearance/currency/haptic/format preferences remain explicitly unavailable. This is not full S23 product acceptance.',
+  },
+  'advanced-settings': {
+    readiness: 'implemented',
+    note: 'Advanced exposes a controlled, warning/authenticated Developer Mode switch and Network entry; release metadata, logs and developer tools remain explicitly unavailable. Native acceptance is recorded separately.',
   },
   'accounts-settings': {
     readiness: 'structure-only',
@@ -77,8 +81,8 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
     note: 'System Auth status/enable/repair/disable is routed through the Stellar-style security surface; app session lock remains upstream-blocked.',
   },
   'network-settings': {
-    readiness: 'structure-only',
-    note: 'The Settings native stack reaches a read-only network destination. The development build remains on Testnet while release policy is Mainnet-default with Testnet/custom endpoints behind authenticated Developer Mode.',
+    readiness: 'implemented',
+    note: 'Advanced reaches current runtime network/health and gated node management. Initial legacy setup retains mode controls until network confirmation; fixed helper sessions are read-only. No native maturity is implied.',
   },
   'language-settings': {
     readiness: 'implemented',

@@ -4,7 +4,7 @@
 
 ## 1. 集成基线
 
-- 当前核对基线：`main@859ed0efdf661c3e1f288725d6589db2802b9872`，已包含 PR #122、#124 网络基础、#123 FChain 目录/分区缓存及 #126 Swap 入口/路由统一。
+- 当前核对基线：`main@651bf7b9eceff4f004bcebbba9de6e7e224c383e`，已包含 PR #122、#124 网络基础、#123 FChain 目录/分区缓存及 #126 Swap 入口/路由统一。
 - #122 的独立 Work Review 核对 `f83195bd00453372c90d3ac0b2038a26dc1350b4`：APPROVED，P1/P2/P3 为零；CI check 为 155 suites / 1260 tests。只证明自动化范围，S24 原生验收仍未执行。
 - 最近已合并：#111–116 生命周期/缓存/读取恢复，#117 资产弹层，#118 Swap 输入与结果，#119 双向金额与自动报价，#120 路由/滑点，#121 live spendable / Pay Max，#122 连接健康。每项合并不自动升级产品成熟度。
 - PR #123 已合并为 `1c67467254d11e536b10113a8823d54ba2d632d2`，并包含在当前 main；合入前 HEAD `ba9fbf6b4c46b36834510da69d8ae5b7bd530aa6`。FChain catalog 与 network-scoped Realm cache 已交付代码；不代表受信浏览器、权限或签名完成。原生证据仍单列。
@@ -66,6 +66,14 @@
 最终 #124 reviewed HEAD 的 CI：`npm run check` 162 suites / 1305 tests，lint 0 errors / 31 既有 warnings。此前开发方 real-Realm 3 tests 和辅助双端 JS bundle 为各自范围的历史证据，不等于新 HEAD 的原生构建或产品验收。独立复审记录见 [PR #124 评论](https://github.com/luneShaoGM/fresnica/pull/124#issuecomment-6459038853)。
 
 已完成：#124 当前合入 HEAD 的 CI 与独立审查；#123 已适配不可变 network session 并合并。待完成：正式设置分组/入口、Android/iOS 模式与节点产品流、无障碍、通用应用生物解锁、Developer Session Logs、Stage 9 iOS 真机 System Auth 取消/重试。S24 不升级 L4；不把“前三项代码交付”写成全部产品验收完成。
+
+### 原任务 3：设置与网络收口候选（2026-10-28）
+
+- 从上述 main 新建 `feat/settings-network-closure-2026-10-28`，独立工作目录开发；未修改主目录中的 dApp 工作。此候选尚未合并，不能以它更新 main 的交付状态。
+- 按 Stellar 固定参考核对后，设置根页分别进入 General/Advanced/Security。General 接已有语言页；Advanced 放置风险提示→fresh App Passphrase 鉴权的 Developer Mode 开关和 Network 入口；Network 复用已合并的节点管理/健康/会话能力。初始网络选择保留必要的组合入口。
+- [行为与逐项证据](behavior-specs/s23-s24-settings-network-closure.md)。自动化通过；Android 独立验收包的实际路径与限制在该规格单列。iOS、读屏、完整自定义节点原生矩阵仍待验收，不升级 S24 至 L4。
+- General 完整偏好、版本/设备信息、Session Logs 和开发者工具依旧明确未实现。通用应用锁及 Stage 9 iOS 真机延期不变。原任务 4/5 的 Swap/dApp 在途工作继续保留，不重排五项队列。
+- 下一步：该候选提交 PR、CI 与新 exact-HEAD Work Review；由用户决定合并。以下 #124 记录是本候选之前的历史审查。
 
 ## PR #124 审查修复
 

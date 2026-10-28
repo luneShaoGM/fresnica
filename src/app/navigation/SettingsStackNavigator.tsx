@@ -1,9 +1,9 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import {moveAccount, orderAccounts} from '@capabilities/account/accountOrder';
-import {setAccountHidden} from '@capabilities/account/accountVisibility';
-import {deleteLocalAccount} from '@capabilities/account/deleteLocalAccount';
+import { moveAccount, orderAccounts } from '@capabilities/account/accountOrder';
+import { setAccountHidden } from '@capabilities/account/accountVisibility';
+import { deleteLocalAccount } from '@capabilities/account/deleteLocalAccount';
 import { renameAccount } from '@capabilities/account/renameAccount';
 import type { AccountRecord } from '@capabilities/account/types';
 import { AccountDetailsScreen } from '@features/accounts/AccountDetailsScreen';
@@ -14,6 +14,8 @@ import { AboutScreen } from '@features/settings/AboutScreen';
 import { LanguageSettingsScreen } from '@features/settings/LanguageSettingsScreen';
 import { NetworkSettingsScreen } from '@features/settings/NetworkSettingsScreen';
 import { SettingsHomeScreen } from '@features/settings/SettingsHomeScreen';
+import { GeneralSettingsScreen } from '@features/settings/GeneralSettingsScreen';
+import { AdvancedSettingsScreen } from '@features/settings/AdvancedSettingsScreen';
 
 import { APP_CONFIG } from '../config/appConfig';
 import type { AppServices } from '../createAppServices';
@@ -49,8 +51,26 @@ export function SettingsStackNavigator({
             accountCount={accounts.length}
             onOpenAccounts={() => navigation.navigate('accounts-settings')}
             onOpenSecurity={() => navigation.navigate('security-settings')}
-            onOpenNetwork={() => navigation.navigate('network-settings')}
+            onOpenGeneral={() => navigation.navigate('general-settings')}
+            onOpenAdvanced={() => navigation.navigate('advanced-settings')}
+            onOpenAbout={() => navigation.navigate('about')}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="general-settings">
+        {({ navigation }) => (
+          <GeneralSettingsScreen
+            onBack={() => navigation.goBack()}
             onOpenLanguage={() => navigation.navigate('language-settings')}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="advanced-settings">
+        {({ navigation }) => (
+          <AdvancedSettingsScreen
+            settings={services.networkSettings}
+            onBack={() => navigation.goBack()}
+            onOpenNetwork={() => navigation.navigate('network-settings')}
             onOpenAbout={() => navigation.navigate('about')}
           />
         )}
@@ -133,12 +153,13 @@ export function SettingsStackNavigator({
         )}
       </Stack.Screen>
       <Stack.Screen name="language-settings">
-        {({navigation}) => <LanguageSettingsScreen onBack={() => navigation.goBack()} />}
+        {({ navigation }) => <LanguageSettingsScreen onBack={() => navigation.goBack()} />}
       </Stack.Screen>
       <Stack.Screen name="about">
         {({ navigation }) => (
           <AboutScreen
             appName={APP_CONFIG.appName}
+            isMainnet={services.networkProfile.isMainnet}
             projectName={APP_CONFIG.projectName}
             onBack={() => navigation.goBack()}
           />

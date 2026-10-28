@@ -81,6 +81,7 @@ export function createStyles(theme: AppTheme) {
       borderRadius: 12,
       backgroundColor: theme.colors.surfaceMuted,
     },
+    developerSection: { marginHorizontal: 0 },
     nodeTitle: { fontSize: 14, lineHeight: 19, fontWeight: '700', color: theme.colors.textPrimary },
     nodeEndpoint: { fontSize: 13, lineHeight: 19, color: theme.colors.textSecondary },
     nodeStatus: { fontSize: 13, lineHeight: 19, fontWeight: '600', color: theme.colors.textSecondary },
