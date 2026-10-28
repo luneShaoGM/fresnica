@@ -57,6 +57,7 @@ import { ReactNativeFresnicaSdk, loadNativeFresnicaModule } from '../platform/fr
 import {
   RealmAccountSignerRepository,
   RealmBalanceCacheRepository,
+  RealmDappCatalogRepository,
   RealmDefaultAccountPreferenceStore,
   RealmHistoryCacheRepository,
   RealmLocalePreferenceStore,
@@ -70,7 +71,7 @@ import { StellarPathPaymentSdkGateway } from '../platform/stellar/StellarPathPay
 import { reactNativeExternalUrlOpener, type ExternalUrlOpener } from '../platform/system/externalUrl';
 import { reactNativeRequestIngress } from '../platform/system/requestIngress';
 import { reactNativeRequestOutput } from '../platform/system/requestOutput';
-import { unconfiguredDappCatalog } from '../platform/dapps/unconfiguredDappCatalog';
+import { createFchainCatalog } from '../platform/dapps/loadFchainCatalog';
 
 export type AccountManagementDependencies = RenameAccountDependencies &
   AccountVisibilityDependencies &
@@ -120,12 +121,14 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
   let closeReadRecovery = () => {};
   let closePreferences = () => {};
   let stopSettingsLifecycle = () => {};
+  let closeDappCatalog = () => {};
   let networkSettings: NetworkSettings | undefined;
   let closed = false;
   const close = () => {
     if (closed) return;
     closed = true;
     session.close();
+    closeDappCatalog();
     networkSettings?.close();
     stopSettingsLifecycle();
     closeReadRecovery();
@@ -315,6 +318,11 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         if (!ledgerReadRuntime.getSnapshot().foreground) networkSettings?.cancel();
       });
     }
+    const dappCatalog = createFchainCatalog({
+      cache: new RealmDappCatalogRepository(realm),
+      networkId: networkProfile.id,
+    });
+    closeDappCatalog = dappCatalog.close;
     diagnostics.info('app-services-ready', { details: { networkId: network.id } });
 
     return {
@@ -410,7 +418,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         output: reactNativeRequestOutput,
         ingress: reactNativeRequestIngress,
       },
-      dappCatalog: unconfiguredDappCatalog,
+      dappCatalog,
       transactionRecovery,
       ledgerReadInvalidation,
       ledgerReadRuntime,
