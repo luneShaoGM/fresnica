@@ -1,0 +1,304 @@
+# Stellar reference surface inventory
+# reference: luneShaoGM/Stellar@bd0f4540b2496a57314e4e29bc6fcf8ff691b60f
+# scope: all non-test TSX/JSX blobs under src/screens from the complete recursive Git tree; includes steps/widgets/templates, not a page count
+# paths/blobs only; no donor implementation copied. Element/action/logic parity is NOT verified by this inventory.
+# source components/freighter/platform roles outside screens: guide section 14 and existing cross-cutting/dApp tasks remain mandatory.
+source_path	source_blob	decision	trace_ids	existing_task_mapping	element_audit	note
+src/screens/Account/Add/AccountAddView.tsx	dedcec7c9fc6306a0ccf5cd9b9ac3e5bdcac5e8b	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/AccountGenerateView.tsx	e9b8cdc336169c056e6dbdb85d1e29a8df4bfa3f	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/Steps/ConfirmMnemonic/ConfirmMnemonicStep.tsx	82b80d1b6de4daf378799faf67ad66c5ee1659bf	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/Steps/ConfirmMnemonic/styles.tsx	b2624280d4def8eef4fc924090d34a6fa3a87e05	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/Steps/ExplainActivation/ExplainActivationStep.tsx	b6eacb1f30a03807e050ee3320f9c226a9aaafd1	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/Steps/ExplainActivation/styles.tsx	9fe58b48588bf28da384b89ef59aa7c65464a087	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/Steps/Finish/FinishStep.tsx	2e04f73e1c31de74974d4931d833b6a284f7b566	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/Steps/Finish/styles.tsx	1b3468be27e5b740c31f7beb4fd22b78d55cadbe	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/Steps/Label/LabelStep.tsx	04171ec6cb89e4a773338efc6d6b52e8e89770d9	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/Steps/Label/styles.tsx	673fcd1e3df5b382c0ff8dd78bdfd6aca19be959	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/Steps/Passphrase/PassphraseStep.tsx	ee6fa002ef1807729ae3ebebe594da77ce1ef110	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/Steps/Passphrase/styles.tsx	276781d6709e3c74993df4c0ab3a05a5a5ddcb57	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/Steps/Security/SecurityStep.tsx	c3f8e9e6c9aa554f904e825fec4f3bf3ffee2731	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/Steps/Security/styles.tsx	276781d6709e3c74993df4c0ab3a05a5a5ddcb57	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/Steps/SeedExplanation/SeedExplanationStep.tsx	8359e6e3cb28b3ca71620af5adf50706a253b512	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/Steps/SeedExplanation/styles.tsx	eeaf31a008e6993d92eea0a1e53e76df11164f17	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/Steps/ViewAccount/PrivateKey/styles.tsx	39b71b2872a1f10db58942e5529c2c02a8b49e89	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/Steps/ViewAccount/PublicKey/ViewPublicKeyStep.tsx	aea8a61a98454d6511263dfa531700266a1593f8	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/Steps/ViewAccount/PublicKey/styles.tsx	1339805950fa3cc490f12bf3465cf5181b2f81e7	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Generate/styles.tsx	51cb7735b2eb26bf4c40ae39fd14edda62902db7	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/AccountImportView.tsx	9a818bda90d07dda77839937f62f91c7ebd948e7	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/AccessLevel/AccessLevelStep.tsx	f54b1ab6ae0b1989d7f075b58fa1db5af47c132a	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/AccessLevel/styles.tsx	276781d6709e3c74993df4c0ab3a05a5a5ddcb57	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/ConfirmPublicKey/ConfirmPublicKeyStep.tsx	8ae5ba7c003abb4bf8cec59807ece9ce82e37bf8	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/ConfirmPublicKey/styles.tsx	2528f749c1ea553348b69132d264fa2b81cd45a1	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/EnterAddress/EnterAddressStep.tsx	e9ed0be84c2d2fd8cdee95bcca721231689a3028	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/EnterAddress/styles.tsx	4cbe0abfe4e5b80d56094e320b4702c3fd9d4367	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/EnterMnemonic/EnterMnemonicStep.tsx	ce8f698b5f4cb6263958a8322238462bb8f1b0ac	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/EnterMnemonic/styles.tsx	e33aee5bc688bbd60651d8de5d298596783f0eae	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/EnterSeed/EnterSeedStep.tsx	3570535bfaac0e0a81e9b5967b8c0ade83d87d74	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/EnterSeed/styles.tsx	c170b8965d9e9d017d6e8b6cec79a5ba05a00e33	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/ExplainActivation/ExplainActivationStep.tsx	fcb6a46a042fa2162074a0250c4f5a6ad1020605	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/ExplainActivation/styles.tsx	9fe58b48588bf28da384b89ef59aa7c65464a087	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/Finish/FinishStep.tsx	4699aed579fe4e37d0c48e07ef03cd6ceba5ee46	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/Finish/styles.tsx	b9e10216de3988d3ace547e8225f7096ef71c3f3	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/Label/LabelStep.tsx	dc45211b4ae887604ea91884bf6aa8bb5533a29c	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/Label/styles.tsx	ffbad7f7893b030cdd4e534628c0782f8c680878	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/MnemonicAlert/MnemonicAlertStep.tsx	cb20e41956a30a0aef384aadaf0184731ab8f445	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/Passphrase/PassphraseStep.tsx	9d5a9c83d552ca026568faa8a73c28b8a3f78879	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/Passphrase/styles.tsx	276781d6709e3c74993df4c0ab3a05a5a5ddcb57	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/SecretType/SecretTypeStep.tsx	865d15382666de03f257f00ad3558d3347ab77aa	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/SecretType/styles.tsx	276781d6709e3c74993df4c0ab3a05a5a5ddcb57	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/Security/SecurityStep.tsx	f0574db76aa29d99b868f7316578f3c964987264	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/Security/styles.tsx	276781d6709e3c74993df4c0ab3a05a5a5ddcb57	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/VerifySignature/VerifySignatureStep.tsx	1222e27bbb21f980fd2cadcafd73aae02c963349	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/Import/Steps/VerifySignature/styles.tsx	7e8a16de669c1941e50f68e2098e4de08caaa6e3	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Add/styles.tsx	973c9f3e73c8f73c7ba3822db438e5d6977c5587	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Edit/AccountSettingsView.tsx	ee61765b21e9cd34f9702efb53e093b539982e36	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Edit/ChangePassphrase/ChangePassphraseView.tsx	22777f1e194e44f52c7ff46188047509a6cb2dd3	Adapt	S03	原安全阶段/应用锁维护	待逐元素核对	安全维护角色；SDK/Core权威
+src/screens/Account/Edit/ChangePassphrase/styles.tsx	bbdbeaeb15d0b08735fa960b66875bb03220a0f5	Adapt	S03	原安全阶段/应用锁维护	待逐元素核对	安全维护角色；SDK/Core权威
+src/screens/Account/Edit/ChangeTangemSecurity/ChangeTangemSecurity.tsx	d9976a16ba94dce5fcd44cc791b684369be8f42e	Exclude	—	原任务1/覆盖核对	排除项；理由复核	指南既定排除；不移植实现
+src/screens/Account/Edit/ChangeTangemSecurity/styles.tsx	ca84043aaf33b5e30efa18d5fa8b7bbbdef46b01	Exclude	—	原任务1/覆盖核对	排除项；理由复核	指南既定排除；不移植实现
+src/screens/Account/Edit/ViewMnemonic/ViewMnemonicView.tsx	f38bdfbb6456778c4e81ac80ef146ecb94f47854	Adapt	S03	原安全阶段/应用锁维护	待逐元素核对	安全维护角色；SDK/Core权威
+src/screens/Account/Edit/ViewMnemonic/styles.tsx	078c1c7c49962de6072b33342a310752677900cf	Adapt	S03	原安全阶段/应用锁维护	待逐元素核对	安全维护角色；SDK/Core权威
+src/screens/Account/Edit/ViewSecretKey/ViewSecretKeyView.tsx	3c11311164e930bac2df9a250cd5b7fd3f931b85	Adapt	S03	原安全阶段/应用锁维护	待逐元素核对	安全维护角色；SDK/Core权威
+src/screens/Account/Edit/ViewSecretKey/styles.tsx	beb32e5b16959cdf94b25b92cf9b995a3510d431	Adapt	S03	原安全阶段/应用锁维护	待逐元素核对	安全维护角色；SDK/Core权威
+src/screens/Account/Edit/styles.tsx	6f9e5813673fbe3450fd581761d54408c723610f	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/List/AccountsListView.tsx	69eb4ad44547a264d2c8af8b082fff9784561682	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/List/styles.tsx	80f493e500aa03380967114f7f4a8342fc47381e	Adapt	S01/S02/S28	原Stage4/账户备份	待逐元素核对	账户/步骤角色；硬件执行另归原硬件阶段/S28
+src/screens/Account/Migration/CipherMigration/CipherMigrationView.tsx	ddcd24cfa4943e750999514d9e3e6f24fe20293c	Adapt	S29	原Stage9/发布	待逐元素核对	只保留fresh-start/旧数据识别；排除旧钱包数据迁移
+src/screens/Account/Migration/CipherMigration/styles.tsx	14f957bf3e91a36d292bc478a0568e6d60be4d87	Adapt	S29	原Stage9/发布	待逐元素核对	只保留fresh-start/旧数据识别；排除旧钱包数据迁移
+src/screens/Events/Details/DetailsView.tsx	a1245ed20083c5ca338b6db433592fc8b49bedb4	Adapt	S13	原Stage4/S13	待逐元素核对	Activity及详情交互
+src/screens/Events/Details/OfferDetailTokenPair.tsx	cf693889c6dacf9f81798cfea2b572d83d92a049	Adapt	S13	原Stage4/S13	待逐元素核对	Activity及详情交互
+src/screens/Events/Details/styles.tsx	d55cd80e336b2a4c72cb3cea6f2c7ee9622df5cf	Adapt	S13	原Stage4/S13	待逐元素核对	Activity及详情交互
+src/screens/Events/Details/widgets/FieldsWidget.tsx	fe89c7ae1f394199a34cf5854c1011b76acc98b7	Adapt	S13	原Stage4/S13	待逐元素核对	Activity及详情交互
+src/screens/Events/Details/widgets/HeroWidget.tsx	99dbcbbc98c7e274126eb3654c17c174bb13e4a0	Adapt	S13	原Stage4/S13	待逐元素核对	Activity及详情交互
+src/screens/Events/Details/widgets/MonetaryWidget.tsx	dfe6ee82eee9d6e01619f4a6047b52d2de3af83f	Adapt	S13	原Stage4/S13	待逐元素核对	Activity及详情交互
+src/screens/Events/Details/widgets/ParticipantsWidget.tsx	929a6d8ae13a2b2835fabfbdadb33ee3728cd7d1	Adapt	S13	原Stage4/S13	待逐元素核对	Activity及详情交互
+src/screens/Events/EventsView.tsx	18f051e9b27271fabbcb13585cc1b22025e886fb	Adapt	S13	原Stage4/S13	待逐元素核对	Activity及详情交互
+src/screens/Events/styles.tsx	f86b1a0976c74ffee195c58799d8fd4947e2d663	Adapt	S13	原Stage4/S13	待逐元素核对	Activity及详情交互
+src/screens/Exchange/ExchangeView.tsx	f124f41875c9c22f0fd27519d4a6d07dc9965e0e	Adapt	S10	原任务4/Swap	待逐元素核对	Path Payment Swap；不是SDEX
+src/screens/Exchange/styles.tsx	78695559b850b5d1013553da4b7ac18422c993a6	Adapt	S10	原任务4/Swap	待逐元素核对	Path Payment Swap；不是SDEX
+src/screens/Global/Picker/PickerModal.tsx	49d3f4053513fe271964c8dd196a79525e0390d0	Adapt	S23/S27	原横切/指南14	待逐元素核对	共享呈现/运行时；HomeActions扫描另归原Stage5/S09
+src/screens/Global/Picker/styles.tsx	617a145af9be440665a95205dd8086cb97bf6864	Adapt	S23/S27	原横切/指南14	待逐元素核对	共享呈现/运行时；HomeActions扫描另归原Stage5/S09
+src/screens/Global/Placeholder/PlaceholderView.tsx	8156e98303e12f7ee864598b3fad8ef2bed30938	Adapt	S23/S27	原横切/指南14	待逐元素核对	共享呈现/运行时；HomeActions扫描另归原Stage5/S09
+src/screens/Home/HomeView.tsx	f3b51f258bcf87a876b3661da3d35e6b635eaf05	Adapt	S02/S05/S06/S30	原Stage4/8/资产	待逐元素核对	资产/账户选择相关角色
+src/screens/Home/styles.tsx	ecaf22fcceb10d58e49a3f8e702a8ae7ab4f206c	Adapt	S02/S05/S06/S30	原Stage4/8/资产	待逐元素核对	资产/账户选择相关角色
+src/screens/Modal/CurrencyPicker/CurrencyPickerModal.tsx	1b4b6695acdc3ecd1358eaea39dfecda93b4fced	Adapt	S23/S27	原横切/指南14	待逐元素核对	共享呈现/运行时；HomeActions扫描另归原Stage5/S09
+src/screens/Modal/CurrencyPicker/styles.tsx	2982845937cc0251a3537f1d7c32cc2c0a1d117b	Adapt	S23/S27	原横切/指南14	待逐元素核对	共享呈现/运行时；HomeActions扫描另归原Stage5/S09
+src/screens/Modal/DestinationPicker/DestinationPickerModal.tsx	0ffb2440857b410b47efca93b412117f736cbca7	Adapt	S22	原Stage4/8/目的地通讯录	待逐元素核对	联系人/目的地选择
+src/screens/Modal/DestinationPicker/styles.tsx	bc8a940935507e90e073cef4d175d3db68ea1847	Adapt	S22	原Stage4/8/目的地通讯录	待逐元素核对	联系人/目的地选择
+src/screens/Modal/FilterEvents/EventsFilterModal.tsx	b9392d2a20d358e42a653e2007156866af9c1fb9	Adapt	S13	原Stage4/S13	待逐元素核对	Activity及详情交互
+src/screens/Modal/FilterEvents/styles.tsx	610b9b81a2cb04d47a6dc931125c051094fc82a3	Adapt	S13	原Stage4/S13	待逐元素核对	Activity及详情交互
+src/screens/Modal/Help/HelpModal.tsx	d65e89d20e4204367675f78ed18e218f34cf25dc	Adapt	S26	原Stage8/设置诊断	待逐元素核对	支持/内容/非dApp浏览器
+src/screens/Modal/Help/styles.tsx	86d0fed1c0a500dcd154dc0ab930561d5eac466a	Adapt	S26	原Stage8/设置诊断	待逐元素核对	支持/内容/非dApp浏览器
+src/screens/Modal/InAppBrowser/InAppBrowserModal.tsx	144606b53bff88a0612a200bdb2b13677727a06f	Adapt	S26	原Stage8/设置诊断	待逐元素核对	支持/内容/非dApp浏览器
+src/screens/Modal/MigrationExplain/MigrationExplainModal.tsx	b084252d01d3ab977d89bc1a2876b7d6c90a9729	Adapt	S29	原Stage9/发布	待逐元素核对	只保留fresh-start/旧数据识别；排除旧钱包数据迁移
+src/screens/Modal/MigrationExplain/styles.tsx	86e50e4d74ec5c8166e6ea45f91df06446e48a37	Adapt	S29	原Stage9/发布	待逐元素核对	只保留fresh-start/旧数据识别；排除旧钱包数据迁移
+src/screens/Modal/PurchaseProduct/PurchaseProductModal.tsx	0fd44fdcbbaf4d7fe044455708cf592a95154763	Exclude	—	原任务1/覆盖核对	排除项；理由复核	指南既定排除；不移植实现
+src/screens/Modal/PurchaseProduct/styles.tsx	dbd76752965efbe2abb02780446af0678cf34a18	Exclude	—	原任务1/覆盖核对	排除项；理由复核	指南既定排除；不移植实现
+src/screens/Modal/ReviewTransaction/ReviewTransactionModal.tsx	dc1275076aa4a674cde71fd6decb88c7e1c1c347	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/ReviewTransaction/Shared/ErrorView/ErrorView.tsx	d1c8a2febc41fe7258819b23b748741905093554	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/ReviewTransaction/Shared/ErrorView/styles.tsx	0025d465ba41c42349a0d3540db32111c45911db	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/ReviewTransaction/Shared/ReviewHeader/ReviewHeader.tsx	fb74e8a2edd0ba4a60314aa6700532227165c50a	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/ReviewTransaction/Shared/ReviewHeader/styles.tsx	024e6249f130110dd2bf73a1ab20938a0661b1da	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/ReviewTransaction/Steps/Preflight/PreflightStep.tsx	a81e99ec886d4355f4aec3f380d8a253aaf93cdd	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/ReviewTransaction/Steps/Preflight/styles.tsx	c8fa106a7e390026a00cabc52313981cf0991ce8	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/ReviewTransaction/Steps/Result/ResultStep.tsx	3063dbd2e152e0e5bf6fbba18fb4e8e743ee72b5	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/ReviewTransaction/Steps/Result/styles.tsx	c01c913bc7cbae391f1490f6ebc4434afe8cd704	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/ReviewTransaction/Steps/Review/ReviewStep.tsx	f33e345a7fbd1fd58e3e3675b9c89f41f0df35cb	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/fallback/FallbackTemplate.tsx	17c0109ce232c702547e4e398af0691e301ba9a1	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/AMMBid.tsx	82b0007a9315ade525de5b3907b54a11c41ae138	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/AMMCreate.tsx	67864643b554dd0c7ee2d8bc3ff76ca662cb03d3	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/AMMDelete.tsx	960246213716ba8b9d21d1c03f40aad6411e5799	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/AMMDeposit.tsx	1950ec8c18699eab0defe520f7eec2406e450705	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/AMMVote.tsx	d263a5074700e88f18024da5c4ef8d6b927f9233	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/AMMWithdraw.tsx	eba7aa4b69aa6a7ba5f1c7d34bc69b6434529f9e	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/AccountDelete.tsx	3a0c6d5280f5b640d58209ed46c039177f82e32a	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/AccountSet.tsx	ada728a2325948429291906a9df453016dcbb2c0	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/CheckCancel.tsx	d7917fffb488cda859b161a562b8b5f3422086bd	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/CheckCash.tsx	535495805dfe1fe7ac15412ae32f9616eb017394	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/CheckCreate.tsx	c4942abe0b8324db51f54d96b6857ba84ec71f76	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/ClaimReward.tsx	0acab5be23d7c2f53e6b6dd3c50ac4be1fda18af	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/Clawback.tsx	fec4d6499fd34debfe134b02c2043aae22d0eaba	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/CredentialAccept.tsx	46ae67e6f30819afb827cf947563f3a5f7e774e3	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/CredentialCreate.tsx	3fb64856e2f55c4050b6d119131d1e5dc523c7a5	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/CredentialDelete.tsx	92767189b50873d5a23308792d96ebb9059b6a1b	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/DIDDelete.tsx	40dd3a1e8faad41a5750226f07986372b9e23860	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/DIDSet.tsx	8625276ecd1672394884013916952da5cf7278f4	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/DelegateSet.tsx	655a42e14a29bf980ab023a6e0be08e3396dea4f	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/DepositPreauth.tsx	5845d24e92f141123bbe7a3de876db3bb2af719c	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/EscrowCancel.tsx	0a6b0f0f1de2915fda8a012df2db33a485bc237c	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/EscrowCreate.tsx	29d46048d6db4094d9b862cc0c1ef262ca74fd3c	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/EscrowFinish.tsx	3e608ddd49c3dd574d254866dbfa21715e114e68	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/Global.tsx	39753d406e4ba39c3a7f3c64cb23b0db70ca6e89	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/Import.tsx	510adc3523afa9b4b7f4ecff22cc7ea172d136b0	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/Invoke.tsx	484806d105a5fe5a3ce210750ad01f522367d2ad	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/MPTokenAuthorize.tsx	4953270dc0344fe1045c2f9760ca42bc947df78c	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/MPTokenIssuanceCreate.tsx	fe09cd1c73a59f881cb8e9cd37302a069a24f619	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/MPTokenIssuanceDestroy.tsx	f994bd7744ba0fa7bcf191597e8778ffb2d027c0	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/MPTokenIssuanceSet.tsx	995e06ad484ce059bc1fa110e9a206c57de18e42	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/NFTokenAcceptOffer.tsx	c49d7cf42953b4c65724d51ae5d5c94fed525fa6	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/NFTokenBurn.tsx	6d2092ed845d1abfec4402d81c541b996bc33649	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/NFTokenCancelOffer.tsx	50ee376704ec9f34a841d460875d60c63e3e6cde	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/NFTokenCreateOffer.tsx	16cf44c9cc8c2863106f48e933897b13ebbe3f48	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/NFTokenMint.tsx	ef0862c40cac0865290278ee687db56efa8a1060	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/NFTokenModify.tsx	5e7170f8de10908bbb3ecefc9a8b9c41f0075326	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/OfferCancel.tsx	49df5bf8718c2934db8e36a8da41b68ca0c51444	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/OfferCreate.tsx	4376f56cf019b289b23c7213d477520934ae15dd	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/OracleDelete.tsx	32fc80a9fd8614486e58fe73147b7d8fbf7caf04	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/OracleSet.tsx	2eec6b9f839d9647e9e4583c4ed0ba6f83743888	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/Payment.tsx	a50e74314f302f9f45c12b499ebd96b485d7734b	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/PaymentChannelClaim.tsx	95fcf8454fe398f8e1690f0f9fe0d61be698576d	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/PaymentChannelCreate.tsx	317d5965da080481ad484b554e859feaa040c627	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/PaymentChannelFund.tsx	79f960ec0648a23f3512530bcd01ed725323c29b	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/Remit.tsx	85390a0f32294f37247205052c0fb46a94b9b7f6	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/SetHook.tsx	68b883b7b419417ba3509213648212f34f894a0d	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/SetRegularKey.tsx	bd1e40a7adbd14600a357ee7b39d9ec461c7a8e7	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/SetRemarks.tsx	b47daae1ffbb75a2a65144f7c3520f349e895444	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/SignerListSet.tsx	c7cc15b5d8d7258f5cc45e554a7e196dbfcf2bd3	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/TicketCreate.tsx	a05130a817e0d0ec37c356d694a439e81f751969	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/TrustSet.tsx	e7b2bcf87074bb5fa5439a43a615060c5e84b41e	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/URITokenBurn.tsx	4ac3fa71f321767e9e13c0782f0b1403c6f4c648	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/URITokenBuy.tsx	75e8ea722ab4d157c331aa47984920f6fd7f05a7	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/URITokenCancelSellOffer.tsx	9d2bb6f5811d4142427777a06f197af44f627db9	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/URITokenCreateSellOffer.tsx	5e287d34215c8c4355d231393bdcb4cf70efbe80	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/genuine/URITokenMint.tsx	65c7dbceee2283f74c5834659f070c2d64e33ae2	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/objects/NFTokenOffer.tsx	456fd876b58a070ca00a1a6f0ef0b5b62bed8dfb	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/objects/URITokenOffer.tsx	6dfa09b322a4dba3e527aacd12bb7a1c38b203b8	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/objects/styles.tsx	cccfcf5873bef4c0e60ac14f1ce146a20798ec5f	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/pseudo/PaymentChannelAuthorize.tsx	7149d4ed72597bea292197cacb6c9e01ba4ac354	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/pseudo/SignIn.tsx	abd75dd6b3e1af5303d557dc2999b9bc29ee78c0	Exclude	—	原任务1/覆盖核对	排除项；理由复核	XRPL模板按指南排除；不代表Stellar操作审阅已覆盖
+src/screens/Modal/ReviewTransaction/Steps/Review/Templates/styles.tsx	d6f4a846c9ac154b09aeb7a07a2990599e72387e	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/ReviewTransaction/Steps/Review/styles.tsx	1b6e59d209fcc97701fe9dce98460a5670f0ccf4	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/ReviewTransaction/Steps/Submitting/SubmittingStep.tsx	e3b937a1b3e63bdcd0be9bf48e3762865073886a	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/ReviewTransaction/Steps/Submitting/styles.tsx	973f88d0bd49c7041e622e6e11cd7143f406d020	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/Scan/ScanModal.tsx	b59a1a6ad5666993d0d17fe78f4bd4be40734112	Adapt	S09/S27	原Stage5/S09	待逐元素核对	请求/系统输入
+src/screens/Modal/Scan/styles.tsx	f05c44e0e0cc2be520b446b1d89d5626728beb4e	Adapt	S09/S27	原Stage5/S09	待逐元素核对	请求/系统输入
+src/screens/Modal/Submit/SubmitModal.tsx	d5cf37ee9ca2f95090745af148197322018f699b	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/Submit/styles.tsx	10651c2682f5a7fe8593806447630cb56f621029	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/TransactionLoader/TransactionLoaderModal.tsx	5defd2ad016c35004fea0eb5c91b8047c73a4bfb	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/TransactionLoader/styles.tsx	15172822bcd57430282ec027fe7f95322dd1d295	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Modal/XAppBrowser/XAppBrowserModal.tsx	f65927bda38ec0b4854cf86baf3d5bd138ede434	Adapt	S14/S15/S16	原任务5/目录/原任务5/浏览器权限	待逐元素核对	目录或浏览器角色；权限归原任务5/浏览器权限，请求归原任务5/请求签名
+src/screens/Modal/XAppBrowser/styles.tsx	b097335c4a779f9c5e9716bdea85424d1c22b179	Adapt	S14/S15/S16	原任务5/目录/原任务5/浏览器权限	待逐元素核对	目录或浏览器角色；权限归原任务5/浏览器权限，请求归原任务5/请求签名
+src/screens/Onboarding/OnboardingView.tsx	f529a5fd6a5b9a305854bf091bc40445b97a83ef	Adapt	S01	原Stage4/账户备份	待逐元素核对	入门角色
+src/screens/Onboarding/styles.tsx	f0fb79a73dac3636e06cbc2bf45eb98654603379	Adapt	S01	原Stage4/账户备份	待逐元素核对	入门角色
+src/screens/Overlay/AddToken/AddTokenOverlay.tsx	856cc5d3961e0cc8ab8a290ef1e64f69198f660b	Adapt	S02/S05/S06/S30	原Stage4/8/资产	待逐元素核对	资产/账户选择相关角色
+src/screens/Overlay/AddToken/styles.tsx	140ce1828b1a3fe46a797244e395ea525774d902	Adapt	S02/S05/S06/S30	原Stage4/8/资产	待逐元素核对	资产/账户选择相关角色
+src/screens/Overlay/Alert/AlertOverlay.tsx	f26ee5bf8086c570d495ec3472764a97190ceb08	Adapt	S23/S27	原横切/指南14	待逐元素核对	共享呈现/运行时；HomeActions扫描另归原Stage5/S09
+src/screens/Overlay/Alert/styles.tsx	4ad09ccd1890f39fd4945dee17bac8991e89a2e5	Adapt	S23/S27	原横切/指南14	待逐元素核对	共享呈现/运行时；HomeActions扫描另归原Stage5/S09
+src/screens/Overlay/Authenticate/AuthenticateOverlay.tsx	96a8939b1f19c1a48b941289d59088713352544e	Adapt	S04	原安全阶段/应用锁维护	待逐元素核对	鉴权/锁/签名角色；不复制PIN和密钥机制
+src/screens/Overlay/Authenticate/styles.tsx	88ff4175507ad1703c91820dff47f46ba65c5411	Adapt	S04	原安全阶段/应用锁维护	待逐元素核对	鉴权/锁/签名角色；不复制PIN和密钥机制
+src/screens/Overlay/ChangeLog/ChangeLogOverlay.tsx	b92731badeaa054452fa27709dd06526838cdb43	Adapt	S26	原Stage8/设置诊断	待逐元素核对	支持/内容/非dApp浏览器
+src/screens/Overlay/ChangeLog/styles.tsx	59fe0ab1d310876291ec3e7acdcd1ac385a321dc	Adapt	S26	原Stage8/设置诊断	待逐元素核对	支持/内容/非dApp浏览器
+src/screens/Overlay/ClaimableDetails/ClaimableDetailsOverlay.tsx	d9e4659d16c303f65445cbf676123f86557d159f	Adapt	S11	原Stage8/Claimable-LP-SDEX	待逐元素核对	Claimable
+src/screens/Overlay/ConfirmDestinationTag/ConfirmDestinationTagOverlay.tsx	4daaa4e7a2ac55b7f16ca25d081a259652d5709e	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Overlay/ConfirmDestinationTag/styles.tsx	d2370e9f308129e0a793f0bd60e616d8df791cea	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Overlay/ConnectionIssue/ConnectionIssueOverlay.tsx	90871bb4764e9d20f4d6ee6e9c28bf2d8f3fe490	Adapt	S23/S27	原横切/指南14	待逐元素核对	共享呈现/运行时；HomeActions扫描另归原Stage5/S09
+src/screens/Overlay/ConnectionIssue/styles.tsx	2e4c3b5c931d62f3cc52b1ae6049a4026b5310d2	Adapt	S23/S27	原横切/指南14	待逐元素核对	共享呈现/运行时；HomeActions扫描另归原Stage5/S09
+src/screens/Overlay/CriticalProcessing/CriticalProcessingOverlay.tsx	5b074642efcaffb55b0d576c917d22cb2db75d3c	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Overlay/CriticalProcessing/styles.tsx	c023b3800d471ae2cd505b45b2a06399e3dc1c49	Adapt	S07/S10/S18/S30	原横切/指南14/原任务5/请求签名	待逐元素核对	共享交易审阅/进度/结果；逐操作Capability权威
+src/screens/Overlay/CustomXAppUrl/CustomXAppUrlOverlay.tsx	3d127fcfbc12933e40b7f25aa4a489aed547f739	Adapt	S14/S15/S16	原任务5/目录/原任务5/浏览器权限	待逐元素核对	目录或浏览器角色；权限归原任务5/浏览器权限，请求归原任务5/请求签名
+src/screens/Overlay/CustomXAppUrl/styles.tsx	307511e15ecd08bbd4357d5abaa07b317146e98b	Adapt	S14/S15/S16	原任务5/目录/原任务5/浏览器权限	待逐元素核对	目录或浏览器角色；权限归原任务5/浏览器权限，请求归原任务5/请求签名
+src/screens/Overlay/DappDisclaimer/DappDisclaimerOverlay.tsx	5933adb3f35e013d082a96abfaf8e2c4e6be8d9c	Adapt	S14/S15/S16	原任务5/目录/原任务5/浏览器权限	待逐元素核对	目录或浏览器角色；权限归原任务5/浏览器权限，请求归原任务5/请求签名
+src/screens/Overlay/DappDisclaimer/styles.tsx	a982b7e278d17d76e712552cf18692114b9a0d62	Adapt	S14/S15/S16	原任务5/目录/原任务5/浏览器权限	待逐元素核对	目录或浏览器角色；权限归原任务5/浏览器权限，请求归原任务5/请求签名
+src/screens/Overlay/DappPermission/DappPermissionOverlay.tsx	c214f097bcbe419d498ded7987f5637ab57dfcb8	Adapt	S17/S21	原任务5/浏览器权限	待逐元素核对	权限/撤销/受控数据交互
+src/screens/Overlay/DappPermission/styles.tsx	c0cbce0594fb41b9a8225767a9efe2a7d2c33e48	Adapt	S17/S21	原任务5/浏览器权限	待逐元素核对	权限/撤销/受控数据交互
+src/screens/Overlay/DappShared/styles.tsx	7d7b9ff50ac3347736a9181576306847c773a27d	Adapt	S17/S21	原任务5/浏览器权限	待逐元素核对	权限/撤销/受控数据交互
+src/screens/Overlay/EnterDestinationTag/EnterDestinationTagOverlay.tsx	ea0d51b0b87a57c74af2690220dc9489e438b62d	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Overlay/EnterDestinationTag/styles.tsx	b2390684e733c4706bbdff05959a65ecc66e09c1	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Overlay/ExplainBalance/ExplainBalanceOverlay.tsx	2ab01c314ecce1014785ed33840353dc4cda3286	Adapt	S02/S05/S06/S30	原Stage4/8/资产	待逐元素核对	资产/账户选择相关角色
+src/screens/Overlay/ExplainBalance/styles.tsx	db965a44382a5904ff41e517c6ac900dee820eb9	Adapt	S02/S05/S06/S30	原Stage4/8/资产	待逐元素核对	资产/账户选择相关角色
+src/screens/Overlay/FlaggedDestination/FlaggedDestinationOverlay.tsx	06ef4eddcab1da67a580d05b7bd196bacead6d94	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Overlay/FlaggedDestination/styles.tsx	8587dd589728a8ec7a6e6861dc65cd1bdef6e39e	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Overlay/HomeActions/HomeActionsOverlay.tsx	754fa51fd58dc453f01d313e3ddd83c4dffbc81a	Adapt	S23/S27	原横切/指南14	待逐元素核对	共享呈现/运行时；HomeActions扫描另归原Stage5/S09
+src/screens/Overlay/HomeActions/styles.tsx	01893a9e6e68b8630a3671c88eff4961f2b36392	Adapt	S23/S27	原横切/指南14	待逐元素核对	共享呈现/运行时；HomeActions扫描另归原Stage5/S09
+src/screens/Overlay/LPDetails/LPDetailsOverlay.tsx	d2e93036a7c99412c5ee73b09bc69be4921ae16d	Adapt	S12	原Stage8/Claimable-LP-SDEX	待逐元素核对	LP
+src/screens/Overlay/Lock/LockOverlay.tsx	a838bf8f4bac0060c07aa59aa2290186d2e3f53d	Adapt	S04	原安全阶段/应用锁维护	待逐元素核对	鉴权/锁/签名角色；不复制PIN和密钥机制
+src/screens/Overlay/Lock/styles.tsx	907c90b2f4f8bf6c884f4f19326ba3f1b17f2c4b	Adapt	S04	原安全阶段/应用锁维护	待逐元素核对	鉴权/锁/签名角色；不复制PIN和密钥机制
+src/screens/Overlay/NetworkRailsSync/NetworkRailsSyncOverlay.tsx	a4795f709500ce10e61e5eb9bd58a78c8bff91dc	Exclude	—	原任务1/覆盖核对	排除项；理由复核	指南既定排除；不移植实现
+src/screens/Overlay/NetworkRailsSync/styles.tsx	b9c0af588b67b9b3db4567046434edd942418ceb	Exclude	—	原任务1/覆盖核对	排除项；理由复核	指南既定排除；不移植实现
+src/screens/Overlay/ParticipantMenu/ParticipantMenuOverlay.tsx	65c43950faa9475e1c95b41efa611037816a30bf	Adapt	S13	原Stage4/S13	待逐元素核对	Activity及详情交互
+src/screens/Overlay/ParticipantMenu/styles.tsx	0025d465ba41c42349a0d3540db32111c45911db	Adapt	S13	原Stage4/S13	待逐元素核对	Activity及详情交互
+src/screens/Overlay/PassphraseAuthentication/PassphraseAuthenticationOverlay.tsx	22bf68485534e4db03149db6987fb0ca718254ff	Adapt	S04	原安全阶段/应用锁维护	待逐元素核对	鉴权/锁/签名角色；不复制PIN和密钥机制
+src/screens/Overlay/PassphraseAuthentication/styles.tsx	15c4c67a81626062721b08fe1a80d4109fb2ba77	Adapt	S04	原安全阶段/应用锁维护	待逐元素核对	鉴权/锁/签名角色；不复制PIN和密钥机制
+src/screens/Overlay/RequestDecline/RequestDeclineOverlay.tsx	e90078f6199b3c9a848584740c05c785877e0ffc	Adapt	S09/S27	原Stage5/S09	待逐元素核对	请求/系统输入
+src/screens/Overlay/RequestDecline/styles.tsx	51758e2bd190c5d52f25f6cd5b5be0a07f272141	Adapt	S09/S27	原Stage5/S09	待逐元素核对	请求/系统输入
+src/screens/Overlay/SelectAccount/SelectAccountOverlay.tsx	2adaf40f35a2cc796b4ef6ed485814619e5badac	Adapt	S02/S05/S06/S30	原Stage4/8/资产	待逐元素核对	资产/账户选择相关角色
+src/screens/Overlay/SelectAccount/styles.tsx	cedfc936ef4e05e25a8284d4a5cd7c39d1455c92	Adapt	S02/S05/S06/S30	原Stage4/8/资产	待逐元素核对	资产/账户选择相关角色
+src/screens/Overlay/SelectCurrency/SelectCurrencyOverlay.tsx	b4e322b01878951703d367f25615300c2de8e584	Adapt	S02/S05/S06/S30	原Stage4/8/资产	待逐元素核对	资产/账户选择相关角色
+src/screens/Overlay/SelectCurrency/styles.tsx	ae7d9f941e195d496c9aecaccd7a8b4146a3d6f1	Adapt	S02/S05/S06/S30	原Stage4/8/资产	待逐元素核对	资产/账户选择相关角色
+src/screens/Overlay/SelectFee/SelectFeeOverlay.tsx	96acbb4a557bc731c90ed51732f5b0b50667fc92	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Overlay/SelectFee/styles.tsx	d143bd9f3c9b48213275980e52a443e2e062e728	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Overlay/ShareAccount/ShareAccountOverlay.tsx	d835d1bb7ceea2e63c2d5397b81941f8a4ffe062	Adapt	S09/S27	原Stage5/S09	待逐元素核对	请求/系统输入
+src/screens/Overlay/ShareAccount/styles.tsx	edc4bc6cb96ab16a3b4ec646827019623013d4a0	Adapt	S09/S27	原Stage5/S09	待逐元素核对	请求/系统输入
+src/screens/Overlay/SwitchAccount/SwitchAccountOverlay.tsx	ad7a0e45ee4e9718bd569c0b90062b9a856f698d	Adapt	S02/S05/S06/S30	原Stage4/8/资产	待逐元素核对	资产/账户选择相关角色
+src/screens/Overlay/SwitchAccount/styles.tsx	83ca66ee88ea27b8436511a67eed59ec92db9212	Adapt	S02/S05/S06/S30	原Stage4/8/资产	待逐元素核对	资产/账户选择相关角色
+src/screens/Overlay/SwitchAssetCategory/SwitchAssetCategoryOverlay.tsx	9236372944f7c5546d29947cd7a5cdcc4ed5f50d	Adapt	S02/S05/S06/S30	原Stage4/8/资产	待逐元素核对	资产/账户选择相关角色
+src/screens/Overlay/SwitchAssetCategory/styles.tsx	67b8df39fa02d2de50d3c3cd83c3d5e2011541b5	Adapt	S02/S05/S06/S30	原Stage4/8/资产	待逐元素核对	资产/账户选择相关角色
+src/screens/Overlay/SwitchNetwork/SwitchNetworkOverlay.tsx	4305c89aadcaedc5a083ca51a0f6b5bf6146809a	Adapt	S24	原任务3/网络节点	待逐元素核对	节点/网络
+src/screens/Overlay/SwitchNetwork/styles.tsx	ae7d6626f897a369ae7ab0f9b7772f34eea9780f	Adapt	S24	原任务3/网络节点	待逐元素核对	节点/网络
+src/screens/Overlay/TokenSettings/TokenSettingsOverlay.tsx	e125fb50d8f513177e88d88c5ab161c8f04bcc2c	Adapt	S02/S05/S06/S30	原Stage4/8/资产	待逐元素核对	资产/账户选择相关角色
+src/screens/Overlay/TokenSettings/styles.tsx	d4caef5eea7be59ad925987ae071c312a84dd71f	Adapt	S02/S05/S06/S30	原Stage4/8/资产	待逐元素核对	资产/账户选择相关角色
+src/screens/Overlay/Vault/Methods/Passcode/PasscodeMethod.tsx	59c7e94f6a24e04e866950c7c71bf7b9d68b4dd0	Adapt	S04	原安全阶段/应用锁维护	待逐元素核对	鉴权/锁/签名角色；不复制PIN和密钥机制
+src/screens/Overlay/Vault/Methods/Passcode/styles.tsx	dde1413ad97384ed842cc618c00aa8bcf99ea6f4	Adapt	S04	原安全阶段/应用锁维护	待逐元素核对	鉴权/锁/签名角色；不复制PIN和密钥机制
+src/screens/Overlay/Vault/Methods/Passphrase/PassphraseMethod.tsx	451e40466ab95783d47dcafd77d5da48e7110b48	Adapt	S04	原安全阶段/应用锁维护	待逐元素核对	鉴权/锁/签名角色；不复制PIN和密钥机制
+src/screens/Overlay/Vault/Methods/Passphrase/styles.tsx	4c4ffe6a75d2dd0a17faede81c998ff840d796ab	Adapt	S04	原安全阶段/应用锁维护	待逐元素核对	鉴权/锁/签名角色；不复制PIN和密钥机制
+src/screens/Overlay/Vault/Methods/Tangem/TangemMethod.tsx	713d86672bd27d44d6a785825e3bfa34c57fcc68	Exclude	—	原任务1/覆盖核对	排除项；理由复核	指南既定排除；不移植实现
+src/screens/Overlay/Vault/Methods/Tangem/styles.tsx	6388cb2fa92ed8d5e8804d7a764a0343a19a97e6	Exclude	—	原任务1/覆盖核对	排除项；理由复核	指南既定排除；不移植实现
+src/screens/Overlay/Vault/SelectSinger/SelectSigner.tsx	1dd793fa0b9c7d917bb94ebd73394ade9aa3c938	Adapt	S04	原安全阶段/应用锁维护	待逐元素核对	鉴权/锁/签名角色；不复制PIN和密钥机制
+src/screens/Overlay/Vault/VaultOverlay.tsx	92b2dc34789b3f87a3be49e0972beeb3a58e8765	Adapt	S04	原安全阶段/应用锁维护	待逐元素核对	鉴权/锁/签名角色；不复制PIN和密钥机制
+src/screens/Overlay/XAppInfo/XAppInfoOverlay.tsx	018e3d103fe2e0df902e441a4466aa8c46fa8fd9	Adapt	S14/S15/S16	原任务5/目录/原任务5/浏览器权限	待逐元素核对	目录或浏览器角色；权限归原任务5/浏览器权限，请求归原任务5/请求签名
+src/screens/Overlay/XAppInfo/styles.tsx	15a89773d8e9b2ae319081cee36e8df4c51d0fb6	Adapt	S14/S15/S16	原任务5/目录/原任务5/浏览器权限	待逐元素核对	目录或浏览器角色；权限归原任务5/浏览器权限，请求归原任务5/请求签名
+src/screens/Request/RequestView.tsx	4bce9cf15578575bdfea89db547492ccb90338bd	Adapt	S09/S27	原Stage5/S09	待逐元素核对	请求/系统输入
+src/screens/Request/styles.tsx	1aa12a667d72dca96ed26bbea5a16b1e88a420af	Adapt	S09/S27	原Stage5/S09	待逐元素核对	请求/系统输入
+src/screens/Send/SendView.tsx	8ca3f7e65ed5d33fbc681e1c03516d2eaf467404	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Send/Steps/Details/DetailsStep.tsx	ea0a8eb34ed901ca9d3420d9cf5f89a79606247f	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Send/Steps/Details/styles.tsx	1a1da872ed735cc609fc97d8ac9ae8d49a1c4729	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Send/Steps/Recipient/RecipientStep.tsx	ab61c993acbf958713a5f7736e11431f28802c11	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Send/Steps/Recipient/styles.tsx	86e107ca3987eb2d50f7181ccff10422c5a0e643	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Send/Steps/Result/ResultStep.tsx	f40f884e56d7902b231f1e72a95685282ee96096	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Send/Steps/Result/styles.tsx	95dff026a6c9f4a6e3a513892b60aad47e912d17	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Send/Steps/Submitting/SubmittingStep.tsx	21807d53397771ba1ff3afac67461a5dd5fd6dae	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Send/Steps/Submitting/styles.tsx	973f88d0bd49c7041e622e6e11cd7143f406d020	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Send/Steps/Summary/SummaryStep.tsx	80180f099039259b3cb5eea43618361c587d84bd	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Send/Steps/Summary/styles.tsx	dd5b5479cb9e8646fe4c50a2caa944d2a1dd88d9	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Send/styles.tsx	392dcc481d3797a7d33cc08cac9d14793bfa12c4	Adapt	S07/S08	原Stage4/8/目的地通讯录	待逐元素核对	DestinationTag按Stellar memo语义核对
+src/screens/Settings/AddressBook/Add/AddContactView.tsx	fa9ef57235229d5b0c7914284f91be1c074a58fb	Adapt	S22	原Stage4/8/目的地通讯录	待逐元素核对	联系人/目的地选择
+src/screens/Settings/AddressBook/Add/styles.tsx	4cbe0abfe4e5b80d56094e320b4702c3fd9d4367	Adapt	S22	原Stage4/8/目的地通讯录	待逐元素核对	联系人/目的地选择
+src/screens/Settings/AddressBook/AddressBookView.tsx	5ba37cd74c829b436c430ceddcfb6c3c30894e6a	Adapt	S22	原Stage4/8/目的地通讯录	待逐元素核对	联系人/目的地选择
+src/screens/Settings/AddressBook/Edit/EditContactView.tsx	18f43e70a1cb7135c22bcee9c22e1e42faf21410	Adapt	S22	原Stage4/8/目的地通讯录	待逐元素核对	联系人/目的地选择
+src/screens/Settings/AddressBook/Edit/styles.tsx	a5164f99343973e748dbf487b8d561d2971230a3	Adapt	S22	原Stage4/8/目的地通讯录	待逐元素核对	联系人/目的地选择
+src/screens/Settings/AddressBook/styles.tsx	2b3a92bb573fb4955e093eaae8af81051ccef86a	Adapt	S22	原Stage4/8/目的地通讯录	待逐元素核对	联系人/目的地选择
+src/screens/Settings/Advanced/AdvancedSettingsView.tsx	298bda2dca9445a0419ed4b35f38e32dcd0ea915	Adapt	S24/S25	原任务3/设置入口/原任务3/网络节点	待逐元素核对	Advanced与Developer Mode入口
+src/screens/Settings/Advanced/DeveloperSettings/DeveloperSettingView.tsx	c858f85f236129f3016c3deb4d3f739cd1dadf19	Adapt	S25	原Stage8/设置诊断	待逐元素核对	开发者工具/日志；工具逐项决定
+src/screens/Settings/Advanced/DeveloperSettings/styles.tsx	9c26239347024f7921185475af6ae6dd46299769	Adapt	S25	原Stage8/设置诊断	待逐元素核对	开发者工具/日志；工具逐项决定
+src/screens/Settings/Advanced/Logs/SessionLogView.tsx	4373c60d53b0d64e9602c3e430d408a58f6c5e5b	Adapt	S25	原Stage8/设置诊断	待逐元素核对	开发者工具/日志；工具逐项决定
+src/screens/Settings/Advanced/Logs/styles.tsx	3cb965b86f81d0c7176fa1cbe6d8d8ce19057918	Adapt	S25	原Stage8/设置诊断	待逐元素核对	开发者工具/日志；工具逐项决定
+src/screens/Settings/Advanced/Network/Add/AddNetworkView.tsx	6a72c7616aa20f793188cd918c91400fa206b3ab	Adapt	S24	原任务3/网络节点	待逐元素核对	节点/网络
+src/screens/Settings/Advanced/Network/NetworkSettingView.tsx	5d1355b86153e8bcc73a13e7da6c761e503dda16	Adapt	S24	原任务3/网络节点	待逐元素核对	节点/网络
+src/screens/Settings/Advanced/Network/styles.tsx	ee44885304ea8c9a67c41ba7e12d38c1515a0353	Adapt	S24	原任务3/网络节点	待逐元素核对	节点/网络
+src/screens/Settings/Advanced/RealmViewer/RealmViewerView.tsx	7562d894d2a4eb258b044336e42c53a58417cf03	Exclude	—	原任务1/覆盖核对	排除项；理由复核	指南既定排除；不移植实现
+src/screens/Settings/Advanced/RealmViewer/styles.tsx	f754a5709deb687705f7bedbd6696b214b6624d4	Exclude	—	原任务1/覆盖核对	排除项；理由复核	指南既定排除；不移植实现
+src/screens/Settings/Advanced/styles.tsx	9c26239347024f7921185475af6ae6dd46299769	Adapt	S24/S25	原任务3/设置入口/原任务3/网络节点	待逐元素核对	Advanced与Developer Mode入口
+src/screens/Settings/Credits/CreditsView.tsx	a18a97c50cee27d1e209564530dbdea83edf72d2	Adapt	S26	原Stage8/设置诊断	待逐元素核对	支持/内容/非dApp浏览器
+src/screens/Settings/Credits/styles.tsx	8d4cf014413289a7f2128532cabb6f56ba243006	Adapt	S26	原Stage8/设置诊断	待逐元素核对	支持/内容/非dApp浏览器
+src/screens/Settings/General/GeneralSettingsView.tsx	c4018217fbcc8801310eb053fce049c22805c430	Adapt	S23	原Stage8/设置诊断	待逐元素核对	语言/主题/显示/触感
+src/screens/Settings/General/styles.tsx	3488e7dabc21b00a40ac474a015f08464590aff9	Adapt	S23	原Stage8/设置诊断	待逐元素核对	语言/主题/显示/触感
+src/screens/Settings/Security/ChangePasscode/ChangePasscodeView.tsx	467a804ae17569a166a5829545212976b1bc13da	Adapt	S03/S04	原安全阶段/应用锁维护	待逐元素核对	安全设置
+src/screens/Settings/Security/ChangePasscode/styles.tsx	c870261344227dad5c07546f76e9597c7dc29ced	Adapt	S03/S04	原安全阶段/应用锁维护	待逐元素核对	安全设置
+src/screens/Settings/Security/ConnectedDapps/ConnectedDappsView.tsx	19c3ca61cd27495456927b8d0f12b7213de4a7a0	Adapt	S17/S21	原任务5/浏览器权限	待逐元素核对	权限/撤销/受控数据交互
+src/screens/Settings/Security/ConnectedDapps/styles.tsx	5c70184006c2d38d7f6804a798ea2d73bdb1341c	Adapt	S17/S21	原任务5/浏览器权限	待逐元素核对	权限/撤销/受控数据交互
+src/screens/Settings/Security/SecuritySettingsView.tsx	ea8ac9c2690cc1b79215b102ba1ed02a4c1bba23	Adapt	S03/S04	原安全阶段/应用锁维护	待逐元素核对	安全设置
+src/screens/Settings/Security/styles.tsx	a0408262b64fedc071adba9110de94307cc5b02f	Adapt	S03/S04	原安全阶段/应用锁维护	待逐元素核对	安全设置
+src/screens/Settings/SettingsView.tsx	263afa1c30d29d2c00a4eb822457a199eb46e4e3	Adapt	S23/S26	原任务3/设置入口	待逐元素核对	设置入口分组
+src/screens/Settings/TermOfUse/TermOfUseView.tsx	0f3b86b936bd32c21cafc945f3d92f5dccd7b164	Adapt	S26	原Stage8/设置诊断	待逐元素核对	支持/内容/非dApp浏览器
+src/screens/Settings/TermOfUse/styles.tsx	9d72d569a19d63e15a9c015a0070505793f7a579	Adapt	S26	原Stage8/设置诊断	待逐元素核对	支持/内容/非dApp浏览器
+src/screens/Settings/ThirdPartyApps/Edit/EditThirdPartyAppView.tsx	28f985443a1705636bccf7f1204afd9d7c2e7e6e	Adapt	S17/S21	原任务5/浏览器权限	待逐元素核对	权限/撤销/受控数据交互
+src/screens/Settings/ThirdPartyApps/Edit/styles.tsx	29fabe13d3043c6c58caaf11ecef8afa42c60d76	Adapt	S17/S21	原任务5/浏览器权限	待逐元素核对	权限/撤销/受控数据交互
+src/screens/Settings/ThirdPartyApps/ThirdPartyAppsView.tsx	0acac332b45561d36600f9dd1be6eade79d8d8c5	Adapt	S17/S21	原任务5/浏览器权限	待逐元素核对	权限/撤销/受控数据交互
+src/screens/Settings/ThirdPartyApps/styles.tsx	3e01e51d821800d8f9104193260762a3d4e43082	Adapt	S17/S21	原任务5/浏览器权限	待逐元素核对	权限/撤销/受控数据交互
+src/screens/Settings/styles.tsx	6bcf7b10e835bb2bd4c0e59e4047d1a5a2bf81c2	Adapt	S23/S26	原任务3/设置入口	待逐元素核对	设置入口分组
+src/screens/Setup/Biometry/BiometryView.tsx	b6e77706bd0b50f02135d6325352d221d428c250	Adapt	S04	原安全阶段/应用锁维护	待逐元素核对	鉴权/锁/签名角色；不复制PIN和密钥机制
+src/screens/Setup/Finish/FinishView.tsx	dc1aa58418203c72c5c83680868ad19d1adcb2db	Adapt	S04	原安全阶段/应用锁维护	待逐元素核对	鉴权/锁/签名角色；不复制PIN和密钥机制
+src/screens/Setup/Passcode/PasscodeView.tsx	d2ba2f4372f7d890a8fa57ff724cccf96aba3e87	Adapt	S04	原安全阶段/应用锁维护	待逐元素核对	鉴权/锁/签名角色；不复制PIN和密钥机制
+src/screens/Setup/PushNotification/PushNotificationView.tsx	ffb043f70c063bbef79ddbc99556f90df9de5c87	Adapt	S27	原Stage8B/通知Backend	待逐元素核对	通知权限/可信推送
+src/screens/xApps/XAppsView.tsx	f79a3885faf4895038db85bc3f77fa4cf441bf69	Adapt	S14/S15/S16	原任务5/目录/原任务5/浏览器权限	待逐元素核对	目录或浏览器角色；权限归原任务5/浏览器权限，请求归原任务5/请求签名
+src/screens/xApps/styles.tsx	8931b8ec583eaf5e79614ca6d0bb48284312ebf4	Adapt	S14/S15/S16	原任务5/目录/原任务5/浏览器权限	待逐元素核对	目录或浏览器角色；权限归原任务5/浏览器权限，请求归原任务5/请求签名
