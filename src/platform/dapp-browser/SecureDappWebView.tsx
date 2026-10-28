@@ -47,7 +47,10 @@ export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowse
         source={{ uri: url }}
         originWhitelist={['https://*']}
         onShouldStartLoadWithRequest={event => shouldLoad(event.url)}
-        onLoadStart={event => onDocumentStart(event.nativeEvent.url)}
+        onLoadStart={event => {
+          const nativeEvent = event.nativeEvent as typeof event.nativeEvent & { isDocumentStart?: boolean };
+          if (nativeEvent.isDocumentStart !== false) onDocumentStart(nativeEvent.url);
+        }}
         onNavigationStateChange={event =>
           onNavigation({
             url: event.url,

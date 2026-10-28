@@ -86,6 +86,7 @@ export function DappBrowserScreen({
   const documentOrigin = useRef<string | undefined>(undefined);
   const signGeneration = useRef(0);
   const signing = useRef(false);
+  const [signError, setSignError] = useState(false);
   const currentSession = () => live.current && !stale && current?.session.isLive() === true;
 
   if (!initial.current) {
@@ -199,6 +200,7 @@ export function DappBrowserScreen({
   const rejectSignature = () => {
     signGeneration.current += 1;
     setPendingSign(undefined);
+    setSignError(false);
     if (!current || !active || stale) return;
     const declined = current.session.finishSign({ status: 'declined' });
     if (declined) reply(declined);
@@ -212,6 +214,7 @@ export function DappBrowserScreen({
     const isCurrent = () =>
       currentSession() && generation === signGeneration.current && request.documentEpoch === documentEpoch.current;
     signing.current = true;
+    setSignError(false);
     try {
       if (!isCurrent()) return;
       const signed = await signTransaction({
@@ -240,6 +243,15 @@ export function DappBrowserScreen({
       );
       setPendingSign(undefined);
       if (completed) reply(completed);
+    } catch (error) {
+      if (!isCurrent()) return;
+      if (error !== null && typeof error === 'object' && 'code' in error && error.code === 'user-cancel') {
+        const declined = current.session.finishSign({ status: 'declined' });
+        setPendingSign(undefined);
+        if (declined) reply(declined);
+      } else {
+        setSignError(true);
+      }
     } finally {
       signing.current = false;
     }
@@ -274,6 +286,7 @@ export function DappBrowserScreen({
     signGeneration.current += 1;
     setPendingOrigin(undefined);
     setPendingSign(undefined);
+    setSignError(false);
   };
 
   const onNavigation = (next: DappBrowserNavigation) => {
@@ -357,8 +370,9 @@ export function DappBrowserScreen({
           <DappSignSheet
             intent={pendingSign.intent}
             onConfirm={passphrase => {
-              confirmSignature(passphrase).catch(() => undefined);
+              confirmSignature(passphrase);
             }}
+            failed={signError}
             onReject={rejectSignature}
             origin={pendingSign.origin}
             passphraseRequired={pendingSign.passphraseRequired}

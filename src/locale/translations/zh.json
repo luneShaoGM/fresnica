@@ -633,6 +633,7 @@
   "dapps.sign.issuer": "发行方",
   "dapps.sign.confirm": "签名",
   "dapps.sign.reject": "拒绝",
+  "dapps.sign.retryError": "签名失败。请检查授权后重试，或拒绝本次请求。",
   "node.read.checking": "正在检查节点网络…",
   "node.read.wrongNetwork": "节点所属网络不匹配，余额尚未刷新。",
   "node.read.rateLimited": "节点已限流，等待冷却后自动重试。",

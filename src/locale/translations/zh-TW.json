@@ -633,6 +633,7 @@
   "dapps.sign.issuer": "發行方",
   "dapps.sign.confirm": "簽名",
   "dapps.sign.reject": "拒絕",
+  "dapps.sign.retryError": "簽名失敗。請檢查授權後重試，或拒絕本次請求。",
   "node.read.checking": "正在檢查節點網路…",
   "node.read.wrongNetwork": "節點所屬網路不符，餘額尚未更新。",
   "node.read.rateLimited": "節點已限制請求，等待冷卻後自動重試。",
