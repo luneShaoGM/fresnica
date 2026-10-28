@@ -81,6 +81,8 @@
 
 ## 5. 新会话恢复与维护
 
+当前执行的唯一入口为 [完整重写执行清单](fresnica-mobile-current-progress-and-next-plan.md)：全范围包、依赖与并行集成均在该文档维护。原 execution-plan 保留历史 Stage/证据，不另排队列。用户当前提供的 Development Rules V3.0 优先于本文历史执行环境、Handoff 与自动化叙述。
+
 - 先从 `AGENTS.md` 找规范；从最新 GitHub PR/HEAD/CI/Review 和本地工作树恢复实际进度；从**当前**执行计划选择下一任务。历史会话与过期进度快照只能辅助定位，不能当当前事实。
 - 文档职责分离：**本文件维护长期规则**，执行计划维护 Stage/Slice 顺序与实时状态，`product-traceability-ledger.md` 维护 S ID/成熟度，测试清单维护未完成设备验收。不要把每次 PR 详细日志堆入本文件。
 - 工作流发生变化（任务粒度、审查门禁、自动化恢复、例外范围）应作为明确的文档变更，经用户确认后更新本文件及 `AGENTS.md` 入口；不要靠旧聊天自行恢复已废弃状态机。

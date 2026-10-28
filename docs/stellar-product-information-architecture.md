@@ -1,6 +1,6 @@
 # Fresnica Mobile 重写指南
 
-> 地位：产品范围、信息架构与完成标准权威。开工同时看本文成熟度总表和 `docs/fresnica-mobile-rewrite-execution-plan.md`；后者是唯一施工顺序与当前状态账本。
+> 地位：产品范围、信息架构与完成标准权威。当前顺序与集成状态只看 [完整重写执行清单](fresnica-mobile-current-progress-and-next-plan.md)；原 execution-plan 保留历史阶段证据。固定参考路径与任务映射见 [表面清单](stellar-surface-coverage.tsv)，未完成人工逐元素核对不能宣称完整对齐。本文的历史“当前脚手架”描述不是实时进度。
 >
 > 产品思路参考：`origin/Stellar@stellar-migration`（`bd0f4540`）。
 >
@@ -471,7 +471,7 @@ Advanced
 | 账户 / 语言 / About / System Auth | 留 | 部分有 |
 | 地址簿 | 留 | 行在，无流程 |
 | General 主题 / 触感 / 显示法币 | 留 | **缺**（主题契约在 2c） |
-| Advanced 整组 | 留 | 行在，Dev Mode / RPC / logs **缺** |
+| Advanced 整组 | 留 | #124 已合入鉴权/网络门控和节点机制；正式 Advanced 入口、完整开发者工具/日志及原生验收仍缺，见执行清单 R01/R02/R14 |
 | 网络增删 RPC | 留（你已确认） | 当前候选已提供鉴权门控增删/测试/选择与回退；原生验收未完成 |
 | 自动锁时长 | 留角色 | 锁卡上游，设置项可先留 |
 | 截屏保护 | 留，Dev Mode 可关 | 未做 |
@@ -736,6 +736,8 @@ Stellar 有、§7.1–§7.7 原先没逐行写的表面。这里给决定，避�
 | CriticalProcessing | Adapt | 并入提交 / 进度角色，不单开产品 |
 | DappShared | 保留行为、clean-room 重写 | 随 dApp 产品一起实现 |
 | SDEX 挂单 | Adopt 独立阶段 | 见 §7.2；不要和 Path Payment Exchange 混成一个产品 |
+
+2026-10-28 追踪补齐：上述既有 SDEX 范围使用稳定 ID **S31**，执行包 R13；这是对已批准范围补编号，不是把 Swap 扩成订单产品。
 
 ---
 

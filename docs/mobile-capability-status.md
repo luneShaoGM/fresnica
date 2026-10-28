@@ -2,7 +2,7 @@
 
 This file records current Mobile implementation evidence against the shared Fresnica Application Capability vocabulary. Upstream maturity labels describe the shared specification, not Mobile implementation quality.
 
-Target product shell, naming, and completion rules: `docs/stellar-product-information-architecture.md`. Current construction order and status ledger: `docs/fresnica-mobile-rewrite-execution-plan.md`. Evidence below describes Git scaffolding as it is. It is **not** the rewrite completion bar (Developer Mode, verified hardware-wallet combinations, clean-room dApp rewrite and custom themes remain incomplete; Stage 2.5 transaction recovery is now verified for S07/S30).
+Target product shell, naming, and completion rules: `docs/stellar-product-information-architecture.md`. Current execution: [complete rewrite checklist](fresnica-mobile-current-progress-and-next-plan.md). The original execution-plan and evidence below preserve historical snapshots, not a second live queue. #124 has merged Developer Mode authentication/network gating; formal settings grouping, complete developer tools and native acceptance remain open. Hardware combinations, full clean-room dApp product and custom themes also remain incomplete; Stage 2.5 evidence is specific to its reviewed S07/S30 recovery gate.
 
 ## Compatibility baseline
 

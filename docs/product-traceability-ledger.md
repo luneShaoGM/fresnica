@@ -2,6 +2,8 @@
 
 > Stage 0 stable product ledger. Source behavior comes from `origin/Stellar@stellar-migration`; security/business semantics come from `origin/fresnica`. Donor implementation is clean-room by default under `docs/provenance/README.md`.
 
+> Current execution: [complete rewrite checklist](fresnica-mobile-current-progress-and-next-plan.md). Fixed-reference surface coverage: [inventory](stellar-surface-coverage.tsv). Historical L values cannot prove later merged code is absent; code/entry/native/accessibility evidence is recorded separately. A merged slice does not establish product acceptance.
+
 | ID | Product behavior | Target owner | Decision | Provenance path | External/upstream dependency | Current maturity |
 | --- | --- | --- | --- | --- | --- | --- |
 | S01 | Create/import/watch-only/HD account entry | accounts/onboarding + Account/Signer | Adapt | clean-room | Create + Import + HD are merged and dual-platform aggregate accepted; repeatable required gate + accessibility closure remain | L3 / L4 partial |
@@ -12,8 +14,8 @@
 | S06 | Asset discovery/details/icons/risk | assets + Asset Discovery | Adapt | clean-room | TOML/catalog authority | L1 partial |
 | S07 | Send/CreateAccount + memo families | send + Payment/Transaction | Adapt | clean-room | 2026-09-18 dual-platform aggregate covers memo families, passphrase fallback, System Auth success, submission outcomes and restart recovery; native iOS System Auth cancel remains unproven | L3 partial |
 | S08 | M-address/muxed identity | send/request + Destination | Adapt | clean-room | shared destination contract required | L0 blocked |
-| S09 | Request/QR/scan/share/deep link | request + Intent/system ports | Adapt | clean-room | SEP-7 + camera/share/deep-link；Request 扫描含系统相册单张 QR。HomeActions 的 `Modal/Scan` 入口仍未接线 | L0 |
-| S10 | Path Payment strict send/receive swap | exchange + Swap/Transaction | Adapt | clean-room | shared Path Payment capability required | L1 mechanism only |
+| S09 | Request/QR/scan/share/deep link | request + Intent/system ports | Adapt | clean-room | Reuse existing Request/QR/share/deep-link/photo-QR code and evidence; R11 checks remaining HomeActions entry and native input/permission gaps | Code exists; aggregate native acceptance open |
+| S10 | Path Payment strict send/receive swap | exchange + Swap/Transaction | Adapt | clean-room | Quote/review/authorize/submit/recovery and #118–121 merged; R03 continues current work and missing aggregate evidence | Code merged; aggregate native acceptance open |
 | S11 | Claimable balance list/risk/claim | claimables + capability | Adapt | clean-room | write semantics to define | L0 |
 | S12 | Liquidity pool list/details/withdraw | liquidity + pool capability | Adapt | clean-room | shared LP write contract required | L1 read mechanism only |
 | S13 | Activity list/filter/search/detail/participants/offline UX cache | activity + History | Adapt | clean-room | Horizon authority + replaceable network/account-scoped Realm cache; Android aggregate closed, iOS reconnect product evidence still open | L3 partial |
@@ -27,13 +29,14 @@
 | S21 | Browser commands/device/share/data bridge | dapps + controlled platform ports | Adapt | clean-room | per-command contract | L0 |
 | S22 | Address book/destination picker | contacts + Contacts capability | Adapt | clean-room | local contacts policy | L0 |
 | S23 | General settings/language/display/theme/feedback | settings + Preferences/locale/AppTheme | Adapt | clean-room | final visual/theme persistence | L2/L3 partial |
-| S24 | Network list/switch/custom endpoint | settings + Network | Adapt | clean-room | Developer Mode auth/persistence | L1 |
+| S24 | Network list/switch/custom endpoint | settings + Network | Adapt | clean-room | #122/#124 merged: authenticated mode, preferences, node controls and immutable sessions; R01/R02 cover formal entry/native acceptance | Code merged; native acceptance open, not L4 |
 | S25 | Developer settings/session logs/diagnostics | settings + Diagnostics | Adapt | clean-room | user-reachable export/policy | L1/L2 partial |
 | S26 | Help/Credits/Terms/ChangeLog/browser | settings/support + system browser | Adapt | clean-room | legal/content inputs | L1 |
 | S27 | AppState/privacy/clipboard/camera/files/share permissions | app/platform/system | Adapt | clean-room | OS lifecycle/permission APIs | L1 partial |
 | S28 | External/hardware signer provider | accounts/security + external signer | Adapt | clean-room | verified Ledger BLE matrix; Fresnica prepare/apply | L2 seam only |
 | S29 | Old Stellar/Xaman data behavior | app/persistence migration guard | Exclude old-data migration; Adapt fresh-start detection | clean-room | final app identity + legacy detection | L0 |
 | S30 | Trustline Add/Set Limit/Remove | trustlines + Trustline/Transaction | Adapt | clean-room | Fresnica Trustline contract; 2026-09-20 post-#59 dual-platform aggregate accepted; required gate + reliable VoiceOver/focus-order depth remain | L3 / L4 partial |
+| S31 | SDEX offer/order list/details/create/cancel | exchange/orders + SDEX/Transaction | Adapt | clean-room | Existing guide §7.2/§7.8 scope, previously missing stable ID; verify normative contract before R13; separate from S10 | Not product-accepted |
 
 ## Delivery and acceptance map
 
@@ -41,14 +44,14 @@ This map assigns construction order without reducing final scope. An ID is compl
 
 | Target stage | Trace IDs | Acceptance anchor |
 | --- | --- | --- |
-| Stage 0 / 0A | S01–S30 | Every implementation PR names IDs; provenance path is recorded; donor-derived behavior has a clean-room behavior specification before code is written. Current target tree passes the fixed donor exact-blob/marker gate, and donor-informed presentation receives a separate human structure review; automated zero-collision is necessary but not sufficient. |
+| Stage 0 / 0A | S01–S31 | Every implementation PR names IDs; provenance path is recorded; donor-derived behavior has a clean-room behavior specification before code is written. Current target tree passes the fixed donor exact-blob/marker gate, and donor-informed presentation receives a separate human structure review; automated zero-collision is necessary but not sufficient. |
 | Stage 2.5 | Current ledger-write IDs S07 and S30; mandatory later for the ledger-write portions of S10–S12 and S18 | **Passed 2026-09-10 for the shared recovery gate.** Pending submission is persisted before broadcast; reconciliation uses the original network-bound transaction hash; unresolved duplicates are blocked by network + account + economic intent with no time expiry. Payment and Trustline prove the shared implementation before another write type is added. |
 | Stage 3 | S04, S23, S24, S25, S27 | Shared shell/theme/modal/error/diagnostic/lifecycle carriers exist; a minimal native-flow E2E harness proves they work across feature boundaries. |
 | Stage 4 | S01–S08, S13, S30 and the local-wallet portion of S04/S23/S24/S27 | Account lifecycle, Home, Send, Trustline, Activity and core Settings meet their §9 flows, failure states, localization/accessibility and native/E2E evidence. S13 additionally proves network/account-isolated cache hydration, honest offline/last-updated presentation and Horizon revalidation without treating cache as complete history or resuming persisted cursors. Blocked memo/muxed/security semantics remain explicit, not silently excluded. S30 additionally proves Add/Set Limit/Remove, exact asset identity, pre-sign ledger revalidation and Stage 2.5 recovery. |
 | Stage 5 | S09 plus the destination/deep-link portions of S08/S27 | QR, share, SEP-7, paste/scan and deep link converge on one typed parser/router and fail closed on network or asset mismatch. |
 | Stage 6 | S10 | Strict-send and strict-receive quote/review/expiry/slippage/submit flows use the shared transaction and recovery pipeline after the upstream capability is authoritative. |
 | Stage 7 | S14–S21 | Catalog, browser, origin policy, permissions, Freighter request matrix, SEP-53/Soroban and controlled system bridges are clean-room, revocable, auditable and routed through standard review/sign/submit. |
-| Stage 8 | S03, S06, S11–S13, S22–S28 | Remaining asset, claimable, LP, contact, diagnostics, support, platform and external-signer behavior reaches the relevant §7/§9 contract. Hardware support is limited to combinations proven on actual devices. |
+| Stage 8 | S03, S06, S11–S13, S22–S28, S31 | Remaining asset, claimable, LP, contact, diagnostics, support, platform and external-signer and independent SDEX behavior reaches the relevant §7/§9 contract. Hardware support is limited to combinations proven on actual devices. |
 | Stage 8B | Backend-dependent portions of S14, S17, S24 and S27 | Versioned backend contracts and threat models exist; unavailable/not-configured/degraded states are honest and do not block unrelated local-wallet capability. |
 | Stage 9 | S04, S24, S27, S29 and all release-critical IDs | Android identity is `com.fresnica.wallet`; the new iOS Bundle ID is frozen; legacy data is never silently adopted or erased; release signing, SBOM/provenance and critical native E2E matrix pass. |
 
