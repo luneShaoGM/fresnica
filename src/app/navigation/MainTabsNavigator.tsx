@@ -227,7 +227,7 @@ function MainTabsWithSelection({
   const actionAvailability = useMemo<Readonly<Record<ProductAction, boolean>>>(
     () => ({
       send: selectedAccount.identityKind === 'classic' && canSign,
-      // Preview-only: no authorization or submission UI in this slice.
+      // An entry can open before balances load; Swap still enforces ledger and signing gates.
       swap: selectedAccount.identityKind === 'classic' && canSign,
       request: selectedAccount.identityKind === 'classic',
     }),
@@ -260,6 +260,7 @@ function MainTabsWithSelection({
             onSelectAccount={selectAccount}
             selectableAccounts={selectableAccounts}
             selectedAccountId={effectiveSelectedAccountId}
+            swapEnabled={actionAvailability.swap}
             getCurrentSwapSelection={getCurrentSwapSelection}
             subscribeToSwapSelection={swapSelectionStore.subscribe}
             services={services}

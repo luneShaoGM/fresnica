@@ -79,20 +79,20 @@ function renderSwap(
   return { navigate, overlay, root };
 }
 
-describe('Swap action product route remains bounded to preview', () => {
+describe('Swap action uses the current account route', () => {
   beforeEach(() => {
     mockPresentOverlay.mockClear();
     mockDismissOverlay.mockClear();
   });
 
-  it('routes eligible Swap to the current account exchange preview only', () => {
+  it('routes eligible Swap to the current account Swap flow only', () => {
     const { navigate, overlay } = renderSwap(true);
     const button = findPressable(overlay, 'nav.swap');
     expect(button?.props.disabled).toBe(false);
     button?.props.onPress?.();
     expect(mockDismissOverlay).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith('home', {
-      screen: 'exchange',
+      screen: 'swap',
       params: { accountId: 'wallet-1' },
     });
   });

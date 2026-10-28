@@ -118,7 +118,7 @@ export function MainTabBar({
     }
     if (action === 'swap') {
       navigation.navigate('home', {
-        screen: 'exchange',
+        screen: 'swap',
         params: { accountId: selectedAccountId },
       });
     }

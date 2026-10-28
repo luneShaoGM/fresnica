@@ -1,4 +1,5 @@
 import {MAIN_TABS, PRODUCT_ACTIONS, PRODUCT_ROUTES} from '../productRoutes';
+import { PRODUCT_ROUTE_STATUS } from '../productRouteStatus';
 
 describe('navigation contract', () => {
   it('uses the approved four selectable tabs', () => {
@@ -26,5 +27,8 @@ describe('navigation contract', () => {
   it('keeps asset detail and Request in Home with stable public route identities', () => {
     expect(PRODUCT_ROUTES.home).toContain('asset-details');
     expect(PRODUCT_ROUTES.home).toContain('request');
+    expect(PRODUCT_ROUTES.home).toContain('swap');
+    expect(PRODUCT_ROUTES.home).not.toContain('exchange');
+    expect(PRODUCT_ROUTE_STATUS.swap.readiness).toBe('implemented');
   });
 });

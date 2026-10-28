@@ -302,7 +302,7 @@ it.each(['0', '-5', '1.23456789', '922337203685.4775808'])('never quotes invalid
   jest.advanceTimersByTime(1000);
   expect(request).not.toHaveBeenCalled();
 });
-it('exchanges assets while clearing the economic amount and quote', async () => {
+it('switches assets while clearing the economic amount and quote', async () => {
   const h = setup();
   let root = await h.mount();
   input(root, 'pay').props.onChangeAmount?.('2');
@@ -310,7 +310,7 @@ it('exchanges assets while clearing the economic amount and quote', async () => 
   jest.advanceTimersByTime(500);
   await settle();
   root = h.draw();
-  button(root, 'swap.form.exchangeAssets').props.onPress?.();
+  button(root, 'swap.form.switchAssets').props.onPress?.();
   root = h.draw();
   expect(input(root, 'pay').props.value).toBe('');
   expect(input(root, 'receive').props.value).toBe('');
