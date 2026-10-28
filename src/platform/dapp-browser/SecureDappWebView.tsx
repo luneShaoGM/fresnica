@@ -15,7 +15,7 @@ const styles = StyleSheet.create({ root: { flex: 1 } });
 /** Transport-only. URL policy, account/session validation and permission
  * decisions are deliberately owned outside this platform component. */
 export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowserSurfaceProps>(
-  function WebViewTransport({ url, shouldLoad, onMessage, onNavigation, onDocumentStart }, ref) {
+  function WebViewTransport({ url, shouldLoad, onMessage, onNavigation, onDocumentStart, onBlockedNavigation }, ref) {
     const webview = useRef<React.ElementRef<typeof WebView>>(null);
     const injected = useMemo(() => buildFreighterInjectionScript(), []);
 
@@ -48,8 +48,15 @@ export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowse
         originWhitelist={['https://*']}
         onShouldStartLoadWithRequest={event => shouldLoad(event.url)}
         onLoadStart={event => {
-          const nativeEvent = event.nativeEvent as typeof event.nativeEvent & { isDocumentStart?: boolean };
-          if (nativeEvent.isDocumentStart !== false) onDocumentStart(nativeEvent.url);
+          const nativeEvent = event.nativeEvent as typeof event.nativeEvent & {
+            isDocumentStart?: boolean;
+            navigationBlocked?: boolean;
+          };
+          if (nativeEvent.navigationBlocked === true) {
+            onBlockedNavigation();
+          } else if (nativeEvent.isDocumentStart !== false) {
+            onDocumentStart(nativeEvent.url);
+          }
         }}
         onNavigationStateChange={event =>
           onNavigation({

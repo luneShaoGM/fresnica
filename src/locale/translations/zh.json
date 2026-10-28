@@ -607,6 +607,7 @@
   "dapps.browser.close": "关闭",
   "dapps.browser.noSigning": "签名前 Fresnica 会再次询问。签名结果交回网站，应用不会代为提交。",
   "dapps.browser.unavailable": "网站当前钱包会话已失效。请返回并重新打开。",
+  "dapps.browser.navigationBlocked": "已阻止不安全的网站跳转，dApp 连接已关闭。请返回后重新打开网站。",
   "dapps.permission.connectTitle": "连接此网站？",
   "dapps.permission.connectMessage": "此网站想查看你的地址。",
   "dapps.permission.network": "网络",

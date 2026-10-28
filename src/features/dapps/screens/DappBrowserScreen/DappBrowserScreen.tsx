@@ -86,6 +86,7 @@ export function DappBrowserScreen({
   const documentOrigin = useRef<string | undefined>(undefined);
   const signGeneration = useRef(0);
   const signing = useRef(false);
+  const blockedNavigation = useRef(false);
   const [signError, setSignError] = useState(false);
   const currentSession = () => live.current && !stale && current?.session.isLive() === true;
 
@@ -270,6 +271,16 @@ export function DappBrowserScreen({
     reply(result.response);
   };
 
+  const onBlockedNavigation = () => {
+    blockedNavigation.current = true;
+    current?.session.revoke();
+    signGeneration.current += 1;
+    setPendingOrigin(undefined);
+    setPendingSign(undefined);
+    setSignError(false);
+    setStale(true);
+  };
+
   const shouldLoad = (candidate: string) => {
     if (!current || !active || stale) return false;
     if (candidate === 'about:blank') return true;
@@ -279,7 +290,10 @@ export function DappBrowserScreen({
   const onDocumentStart = (nextUrl: string) => {
     if (!current || !currentSession() || nextUrl === 'about:blank') return;
     const target = readPublicDappNavigation(nextUrl);
-    if (!target) return;
+    if (!target) {
+      onBlockedNavigation();
+      return;
+    }
     documentEpoch.current += 1;
     documentOrigin.current = target.origin;
     current.session.activateDocument(target.origin);
@@ -292,7 +306,10 @@ export function DappBrowserScreen({
   const onNavigation = (next: DappBrowserNavigation) => {
     if (!current || !active || stale || next.url === 'about:blank') return;
     const target = readPublicDappNavigation(next.url);
-    if (!target) return;
+    if (!target) {
+      onBlockedNavigation();
+      return;
+    }
     setPage({ origin: target.origin, canGoBack: next.canGoBack, canGoForward: next.canGoForward });
   };
 
@@ -305,7 +322,9 @@ export function DappBrowserScreen({
     return (
       <Screen>
         <NativeButton label={t('common.back')} onPress={close} variant="quiet" />
-        <Text style={styles.error}>{t('dapps.browser.unavailable')}</Text>
+        <Text style={styles.error}>
+          {t(blockedNavigation.current ? 'dapps.browser.navigationBlocked' : 'dapps.browser.unavailable')}
+        </Text>
       </Screen>
     );
   }
@@ -352,6 +371,7 @@ export function DappBrowserScreen({
             onMessage={handleMessage}
             onNavigation={onNavigation}
             onDocumentStart={onDocumentStart}
+            onBlockedNavigation={onBlockedNavigation}
             shouldLoad={shouldLoad}
           />
         </View>

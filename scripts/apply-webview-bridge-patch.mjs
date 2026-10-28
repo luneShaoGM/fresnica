@@ -189,6 +189,68 @@ import java.util.concurrent.atomic.AtomicReference;`,
     }`,
   },
   {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java',
+    applied: 'import android.view.View;',
+    from: `import android.util.Log;`,
+    to: `import android.util.Log;
+import android.view.View;`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java',
+    applied: 'import java.io.ByteArrayInputStream;',
+    from: `import java.net.URI;`,
+    to: `import java.io.ByteArrayInputStream;
+import java.net.URI;`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java',
+    applied: 'Fresnica blocked unsafe main-frame navigation',
+    from: `      RNCWebView reactWebView = (RNCWebView) webView;
+      WritableMap event = createWebViewEvent(webView, url);
+      event.putBoolean("isDocumentStart", true);
+      reactWebView.dispatchEvent(webView, new TopLoadingStartEvent(
+        RNCWebViewWrapper.getReactTagFromWebView(webView), event));
+      reactWebView.callInjectedJavaScriptBeforeContentLoaded();`,
+    to: `      RNCWebView reactWebView = (RNCWebView) webView;
+      if (!isPublicNavigation(url)) {
+        // Fresnica blocked unsafe main-frame navigation, including POST forms.
+        webView.stopLoading();
+        webView.setVisibility(View.INVISIBLE);
+        mLastLoadFailed = true;
+        WritableMap blocked = createWebViewEvent(webView, url);
+        blocked.putBoolean("isDocumentStart", false);
+        blocked.putBoolean("navigationBlocked", true);
+        reactWebView.dispatchEvent(webView, new TopLoadingStartEvent(
+          RNCWebViewWrapper.getReactTagFromWebView(webView), blocked));
+        return;
+      }
+      WritableMap event = createWebViewEvent(webView, url);
+      event.putBoolean("isDocumentStart", true);
+      reactWebView.dispatchEvent(webView, new TopLoadingStartEvent(
+        RNCWebViewWrapper.getReactTagFromWebView(webView), event));
+      reactWebView.callInjectedJavaScriptBeforeContentLoaded();`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java',
+    applied: 'new ByteArrayInputStream(new byte[0])',
+    from: `    @Override
+    public boolean shouldOverrideUrlLoading(WebView view, String url) {
+        if (!isPublicNavigation(url)) return true;`,
+    to: `    // Block unsafe main-frame resource fetches too. POST does not enter
+    // shouldOverrideUrlLoading; onPageStarted also hides/stops the document.
+    @Override
+    public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+        if (request.isForMainFrame() && !isPublicNavigation(request.getUrl().toString())) {
+            return new WebResourceResponse("text/plain", "UTF-8", new ByteArrayInputStream(new byte[0]));
+        }
+        return super.shouldInterceptRequest(view, request);
+    }
+
+    @Override
+    public boolean shouldOverrideUrlLoading(WebView view, String url) {
+        if (!isPublicNavigation(url)) return true;`,
+  },
+  {
     file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
     applied: 'static NSString *FresnicaVerifiedHttpsOrigin',
     from: `@implementation RNCWebViewImpl`,

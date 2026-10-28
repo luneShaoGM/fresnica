@@ -112,6 +112,7 @@ type NodeProps = Readonly<{
   onMessage?: DappBrowserSurfaceProps['onMessage'];
   onNavigation?: DappBrowserSurfaceProps['onNavigation'];
   onDocumentStart?: DappBrowserSurfaceProps['onDocumentStart'];
+  onBlockedNavigation?: DappBrowserSurfaceProps['onBlockedNavigation'];
   shouldLoad?: DappBrowserSurfaceProps['shouldLoad'];
   disabled?: boolean;
   failed?: boolean;
@@ -387,6 +388,81 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     await Promise.resolve();
     await Promise.resolve();
     expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 4, signedTransaction: 'BBBB' }));
+  });
+
+  it('retires the session and hides the browser after a blocked native POST navigation', () => {
+    render();
+    refs[1].current = { reply: replies };
+    const browser = find(render(), node => node.type === BrowserSurface);
+    browser?.props.onMessage?.(request('REQUEST_ACCESS', 22), 'https://demo.example.org/start');
+    expect(find(render(), node => node.type === DappConnectSheet)).toBeDefined();
+
+    // Native onPageStarted sends this after stopping and hiding a blocked POST main document.
+    browser?.props.onBlockedNavigation?.();
+    const blocked = render();
+    expect(find(blocked, node => node.type === BrowserSurface)).toBeUndefined();
+    expect(find(blocked, node => node.props.children === 'dapps.browser.navigationBlocked')).toBeDefined();
+    expect(find(blocked, node => node.type === DappConnectSheet)).toBeUndefined();
+
+    replies.mockClear();
+    browser?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 23), 'https://demo.example.org/start');
+    expect(replies).not.toHaveBeenCalled();
+  });
+
+  it('discards a late signature after a blocked native main-document navigation', async () => {
+    let resolveSigning: ((result: Awaited<ReturnType<DappTransactionSigner>>) => void) | undefined;
+    const signTransaction: DappTransactionSigner = async input => {
+      if (input.phase === 'inspect') {
+        return {
+          status: 'ready',
+          intent: {
+            hash: 'mockhash',
+            source: 'GSOURCE',
+            sequence: '7',
+            fee: '100',
+            memo: null,
+            operations: [{ type: 'payment', source: 'GSOURCE', destination: 'GDEST', amount: '2', assetCode: 'XLM' }],
+          },
+        };
+      }
+      return new Promise(resolve => {
+        resolveSigning = resolve;
+      });
+    };
+    render(true, signTransaction);
+    refs[1].current = { reply: replies };
+    const browser = find(render(true, signTransaction), node => node.type === BrowserSurface);
+    browser?.props.onMessage?.(request('REQUEST_ACCESS', 2), 'https://demo.example.org/start');
+    find(render(true, signTransaction), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
+    replies.mockClear();
+    browser?.props.onMessage?.(
+      JSON.stringify({
+        source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
+        token,
+        messageId: 24,
+        type: 'SUBMIT_TRANSACTION',
+        transactionXdr: 'AAAA',
+      }),
+      'https://demo.example.org/start',
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+    const { DappSignSheet } = require('../DappSignSheet') as typeof import('../DappSignSheet');
+    find(render(true, signTransaction), node => node.type === DappSignSheet)?.props.onConfirm?.('');
+    browser?.props.onBlockedNavigation?.();
+    resolveSigning?.({ status: 'signed', signedTransaction: 'BBBB', signerAddress: 'GSOURCE' });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(find(render(true, signTransaction), node => node.type === DappSignSheet)).toBeUndefined();
+    expect(replies).not.toHaveBeenCalledWith(expect.objectContaining({ signedTransaction: 'BBBB' }));
+  });
+
+  it('fails closed if an unsafe main-document URL reaches JS without a native blocked event', () => {
+    const browser = find(render(), node => node.type === BrowserSurface);
+    browser?.props.onDocumentStart?.('http://127.0.0.1/private');
+    const blocked = render();
+    expect(find(blocked, node => node.type === BrowserSurface)).toBeUndefined();
+    expect(find(blocked, node => node.props.children === 'dapps.browser.navigationBlocked')).toBeDefined();
   });
 
   it('unmounts the WebView and invalidates permission on any App account revision', () => {

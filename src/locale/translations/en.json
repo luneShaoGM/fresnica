@@ -607,6 +607,7 @@
   "dapps.browser.close": "Close",
   "dapps.browser.noSigning": "Fresnica asks before signing. The signed transaction is returned to the website and is not submitted by the app.",
   "dapps.browser.unavailable": "This website is no longer available in the active wallet session. Go back and open it again.",
+  "dapps.browser.navigationBlocked": "Unsafe website navigation was blocked. The dApp connection has been closed. Go back to reopen a website.",
   "dapps.permission.connectTitle": "Connect this site?",
   "dapps.permission.connectMessage": "This site wants to view your address.",
   "dapps.permission.network": "Network",
