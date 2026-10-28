@@ -28,6 +28,7 @@ export function DAppsScreen({
   showInterfaceSample = __DEV__,
   openExternalUrl,
   openInApp,
+  inAppUnavailable = false,
   active = true,
   online = true,
   focused = active,
@@ -39,6 +40,7 @@ export function DAppsScreen({
   showInterfaceSample?: boolean;
   openExternalUrl: (url: string) => Promise<void>;
   openInApp?: (url: string) => void;
+  inAppUnavailable?: boolean;
 }>) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
@@ -407,6 +409,9 @@ export function DAppsScreen({
                 }}
                 variant="primary"
               />
+              {inAppUnavailable ? (
+                <Text style={styles.websiteDetail}>{t('dapps.browser.androidUnavailable')}</Text>
+              ) : null}
               {openInApp ? (
                 <NativeButton
                   label={t('dapps.website.openInApp')}

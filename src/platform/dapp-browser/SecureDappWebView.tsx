@@ -8,6 +8,7 @@ import type {
 } from '../../capabilities/dapp-interaction/browserTransport';
 import { readVerifiedDappMessage } from '../../capabilities/dapp-interaction/verifiedDappMessage';
 
+import { canMountDappWebView } from './browserAvailability';
 import { buildFreighterInjectionScript } from './freighterInjection';
 
 const styles = StyleSheet.create({ root: { flex: 1 } });
@@ -39,6 +40,10 @@ export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowse
       }),
       [],
     );
+
+    // Defense in depth for callers bypassing the dApps navigator:
+    // Android never mounts a WebView or injects a Freighter bridge.
+    if (!canMountDappWebView()) return null;
 
     return (
       <WebView

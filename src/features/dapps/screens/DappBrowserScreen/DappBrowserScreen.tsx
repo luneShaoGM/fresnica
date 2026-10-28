@@ -276,10 +276,25 @@ export function DappBrowserScreen({
     return readPublicDappNavigation(candidate) !== undefined;
   };
 
+  const retireInvalidNavigation = () => {
+    // A navigation bypassing the normal URL gate must synchronously revoke
+    // the bridge. Do not keep showing the previous, trusted address.
+    current?.session.revoke();
+    documentEpoch.current += 1;
+    signGeneration.current += 1;
+    setPendingOrigin(undefined);
+    setPendingSign(undefined);
+    setSignError(false);
+    setStale(true);
+  };
+
   const onDocumentStart = (nextUrl: string) => {
     if (!current || !currentSession() || nextUrl === 'about:blank') return;
     const target = readPublicDappNavigation(nextUrl);
-    if (!target) return;
+    if (!target) {
+      retireInvalidNavigation();
+      return;
+    }
     documentEpoch.current += 1;
     documentOrigin.current = target.origin;
     current.session.activateDocument(target.origin);
@@ -292,7 +307,10 @@ export function DappBrowserScreen({
   const onNavigation = (next: DappBrowserNavigation) => {
     if (!current || !active || stale || next.url === 'about:blank') return;
     const target = readPublicDappNavigation(next.url);
-    if (!target) return;
+    if (!target) {
+      retireInvalidNavigation();
+      return;
+    }
     setPage({ origin: target.origin, canGoBack: next.canGoBack, canGoForward: next.canGoForward });
   };
 

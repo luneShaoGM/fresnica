@@ -295,6 +295,38 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     expect(find(render(), node => node.type === DappConnectSheet)).toBeUndefined();
   });
 
+  it.each(['document-start', 'navigation-state'] as const)(
+    'retires the session and removes the previous trusted address after invalid %s',
+    kind => {
+      render();
+      refs[1].current = { reply: replies };
+      const browser = find(render(), node => node.type === BrowserSurface);
+      browser?.props.onMessage?.(request('REQUEST_ACCESS', 41), 'https://demo.example.org/start');
+      const oldPrompt = find(render(), node => node.type === DappConnectSheet);
+      expect(oldPrompt).toBeDefined();
+
+      // A main-frame form POST can bypass shouldOverrideUrlLoading.
+      if (kind === 'document-start') {
+        browser?.props.onDocumentStart?.('https://127.0.0.1/private');
+      } else {
+        browser?.props.onNavigation?.({
+          url: 'https://127.0.0.1/private',
+          canGoBack: true,
+          canGoForward: false,
+        });
+      }
+      oldPrompt?.props.onAllowAlways?.();
+      expect(hasDappReadGrant('https://demo.example.org', 'wallet1', 'stellar-testnet')).toBe(false);
+      replies.mockClear();
+      browser?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 42), 'https://demo.example.org/start');
+      expect(replies).not.toHaveBeenCalled();
+      const retired = render();
+      expect(find(retired, node => node.type === BrowserSurface)).toBeUndefined();
+      expect(find(retired, node => node.props.label === 'common.back')).toBeDefined();
+      expect(find(retired, node => node.props.children === 'https://demo.example.org')).toBeUndefined();
+    },
+  );
+
   it('rejects a system-auth cancellation and allows a new sign request', async () => {
     const signTransaction: DappTransactionSigner = async input => {
       if (input.phase === 'inspect')

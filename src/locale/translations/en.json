@@ -606,6 +606,7 @@
   "dapps.browser.reload": "Reload",
   "dapps.browser.close": "Close",
   "dapps.browser.noSigning": "Fresnica asks before signing. The signed transaction is returned to the website and is not submitted by the app.",
+  "dapps.browser.androidUnavailable": "Android's embedded browser is temporarily disabled because a website could send an unsafe POST before navigation is checked. Use the device browser; wallet connections and signing are unavailable there.",
   "dapps.browser.unavailable": "This website is no longer available in the active wallet session. Go back and open it again.",
   "dapps.permission.connectTitle": "Connect this site?",
   "dapps.permission.connectMessage": "This site wants to view your address.",

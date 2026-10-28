@@ -124,8 +124,10 @@ import java.util.concurrent.atomic.AtomicReference;`,
     from: `    @Override
     public boolean shouldOverrideUrlLoading(WebView view, String url) {
         final RNCWebView rncWebView = (RNCWebView) view;`,
-    to: `    // Fresnica native public HTTPS navigation gate. JavaScript can time out
-    // after 250ms, so reject unsafe targets before entering that wait.
+    to: `    // Fresnica native public HTTPS navigation gate (link/GET defense only).
+    // Defense in depth only: Android embedded dApp WebViews are disabled
+    // because this callback cannot preflight main-frame POST navigations.
+    // Never treat the 250ms JavaScript wait as a URL security barrier.
     private static boolean isPublicNavigation(String url) {
         if (url == null || url.isEmpty() || url.length() > 2048) return false;
         if ("about:blank".equals(url)) return true;

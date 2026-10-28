@@ -606,6 +606,7 @@
   "dapps.browser.reload": "刷新",
   "dapps.browser.close": "关闭",
   "dapps.browser.noSigning": "签名前 Fresnica 会再次询问。签名结果交回网站，应用不会代为提交。",
+  "dapps.browser.androidUnavailable": "Android 内嵌浏览器暂时停用：网站可能在导航检查前发出不安全的 POST 请求。请使用系统浏览器；系统浏览器不提供钱包连接或签名。",
   "dapps.browser.unavailable": "网站当前钱包会话已失效。请返回并重新打开。",
   "dapps.permission.connectTitle": "连接此网站？",
   "dapps.permission.connectMessage": "此网站想查看你的地址。",

@@ -1,4 +1,5 @@
 import React, { useSyncExternalStore } from 'react';
+import { canMountDappWebView } from '../../platform/dapp-browser/browserAvailability';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useIsFocused } from '@react-navigation/native';
 import type { LedgerReadRuntime } from '../readModels/LedgerReadRuntime';
@@ -44,18 +45,20 @@ export function DAppsStackNavigator({
           />
         )}
       </Stack.Screen>
-      <Stack.Screen name="dapp-browser">
-        {({ route, navigation }) => (
-          <DappBrowserRoute
-            url={route.params.url}
-            currentSelection={currentSelection}
-            subscribeSelection={subscribeSelection}
-            signTransaction={signTransaction}
-            foreground={reads.foreground}
-            onClose={() => navigation.goBack()}
-          />
-        )}
-      </Stack.Screen>
+      {canMountDappWebView() ? (
+        <Stack.Screen name="dapp-browser">
+          {({ route, navigation }) => (
+            <DappBrowserRoute
+              url={route.params.url}
+              currentSelection={currentSelection}
+              subscribeSelection={subscribeSelection}
+              signTransaction={signTransaction}
+              foreground={reads.foreground}
+              onClose={() => navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+      ) : null}
     </Stack.Navigator>
   );
 }
@@ -77,7 +80,8 @@ function DAppsRoute({
     <DAppsScreen
       catalog={catalog}
       openExternalUrl={openExternalUrl}
-      openInApp={url => navigation.navigate('dapp-browser', { url })}
+      openInApp={canMountDappWebView() ? url => navigation.navigate('dapp-browser', { url }) : undefined}
+      inAppUnavailable={!canMountDappWebView()}
       active={focused && foreground}
       online={online}
       focused={focused}
