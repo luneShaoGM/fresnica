@@ -106,10 +106,8 @@ describe('S15/S18 Freighter in-WebView read-only wallet bridge', () => {
     expect(session.receive('{', origin).kind).toBe('drop');
     expect(session.receive('x'.repeat(MAX_BRIDGE_MESSAGE_LENGTH + 1), origin).kind).toBe('drop');
     expect(session.receive(request('SUBMIT_TRANSACTION', 6, { transactionXdr: 'XDR' }), origin).kind).toBe('drop');
-    expect(session.receive(request('SUBMIT_BLOB', 7), origin)).toMatchObject({
-      kind: 'respond',
-      response: { error: 'unsupported' },
-    });
+    // Recognized but incomplete requests are malformed, not actionable API calls.
+    expect(session.receive(request('SUBMIT_BLOB', 7), origin)).toEqual({ kind: 'drop' });
     expect(session.receive(request('REQUEST_ACCESS', 9), origin).kind).toBe('permission');
     expect(session.receive(request('REQUEST_ACCESS', 9), origin).kind).toBe('drop');
     session.resolvePermission(true);
@@ -220,6 +218,89 @@ describe('S15/S18 Freighter in-WebView read-only wallet bridge', () => {
         origin,
       ).kind,
     ).toBe('drop');
+  });
+
+  it.each([
+    [
+      'SUBMIT_TOKEN',
+      {
+        contractId: 'USDC:GISSUER',
+        assetType: 'classic',
+        assetCode: 'USDC',
+        issuer: 'GISSUER',
+        symbol: 'USDC',
+        decimals: 7,
+        iconUrl: 'https://assets.example.org/usdc.png',
+        name: 'USD Coin',
+      },
+    ],
+    ['SUBMIT_BLOB', { apiVersion: '1', blob: 'test-payload', accountToSign: selection.address }],
+    ['SUBMIT_AUTH_ENTRY', { apiVersion: '1', entryXdr: 'AAAA', networkPassphrase: selection.networkPassphrase }],
+  ] as const)('responds explicitly to a valid %s envelope instead of leaving a dApp pending', (type, fields) => {
+    const { session } = harness();
+    const received = session.receive(request(type, 42, fields), origin);
+    expect(received).toEqual({
+      kind: 'respond',
+      response: {
+        source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
+        messagedId: 42,
+        error: 'unsupported',
+      },
+    });
+    expect(JSON.stringify(received)).not.toMatch(/signedTransaction|signerAddress|publicKey|secret/);
+    expect(session.receive(request(type, 42, fields), origin).kind).toBe('drop');
+  });
+
+  it('keeps recognized unsupported methods fail-closed for malformed and oversized payloads', () => {
+    const cases: Array<[string, Record<string, unknown>]> = [
+      ['SUBMIT_TOKEN', { assetCode: 'USD', issuer: 'GISSUER' }],
+      ['SUBMIT_TOKEN', { contractId: 'C123', decimals: 19 }],
+      ['SUBMIT_TOKEN', { contractId: 'C123', decimals: 2.5 }],
+      ['SUBMIT_TOKEN', { contractId: 'C123', decimals: '7' }],
+      ['SUBMIT_TOKEN', { contractId: 'C123', assetType: 'unknown' }],
+      ['SUBMIT_TOKEN', { contractId: 'C123', iconUrl: 'x'.repeat(2049) }],
+      ['SUBMIT_BLOB', { blob: 'hi' }],
+      ['SUBMIT_BLOB', { apiVersion: '1', blob: '' }],
+      ['SUBMIT_BLOB', { apiVersion: '1', blob: 'x'.repeat(131_073) }],
+      ['SUBMIT_AUTH_ENTRY', { entryXdr: 'AAAA' }],
+      ['SUBMIT_AUTH_ENTRY', { apiVersion: '', entryXdr: 'AAAA' }],
+      ['SUBMIT_AUTH_ENTRY', { apiVersion: '1', entryXdr: 'A'.repeat(200_001) }],
+      ['SUBMIT_AUTH_ENTRY', { apiVersion: '1', entryXdr: 'AAAA', transactionXdr: 'AAAA' }],
+    ];
+    const { session } = harness();
+    for (const [type, fields] of cases) {
+      expect(session.receive(request(type, 71, fields), origin)).toEqual({ kind: 'drop' });
+    }
+    // None of those rejected frames consumed the message ID or started a signature.
+    expect(
+      session.receive(request('SUBMIT_AUTH_ENTRY', 71, { apiVersion: '1', entryXdr: 'AAAA' }), origin),
+    ).toMatchObject({
+      kind: 'respond',
+      response: { error: 'unsupported', messagedId: 71 },
+    });
+  });
+
+  it('does not expand account permissions or sign when unsupported commands are received', () => {
+    const { session } = harness();
+    const unsupported = request('SUBMIT_BLOB', 32, { blob: 'test-data', apiVersion: '1' });
+    expect(session.receive(unsupported, origin)).toMatchObject({ kind: 'respond', response: { error: 'unsupported' } });
+    expect(session.receive(request('REQUEST_ALLOWED_STATUS', 33), origin)).toMatchObject({
+      kind: 'respond',
+      response: { isAllowed: false },
+    });
+    expect(session.receive(request('REQUEST_PUBLIC_KEY', 34), origin)).toMatchObject({
+      kind: 'respond',
+      response: { error: 'not-authorized' },
+    });
+    session.receive(request('REQUEST_ACCESS', 35), origin);
+    session.resolvePermission(true);
+    expect(session.receive(request('SUBMIT_TOKEN', 36, { contractId: 'C123' }), origin)).toMatchObject({
+      kind: 'respond',
+      response: { error: 'unsupported' },
+    });
+    expect(
+      session.finishSign({ status: 'signed', signedTransaction: 'BBBB', signerAddress: selection.address }),
+    ).toBeNull();
   });
 
   it('reviews an authorized transaction and returns only a matching signature', () => {

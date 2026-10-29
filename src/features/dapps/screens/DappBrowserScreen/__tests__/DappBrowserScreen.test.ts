@@ -173,6 +173,34 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     expect(navigateClose).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    ['SUBMIT_TOKEN', { contractId: 'C123', assetType: 'soroban', decimals: 7 }],
+    ['SUBMIT_BLOB', { blob: 'payload', apiVersion: '1' }],
+    ['SUBMIT_AUTH_ENTRY', { entryXdr: 'AAAA', apiVersion: '1' }],
+  ] as const)('replies with unsupported for a valid %s page request without prompting or signing', (type, fields) => {
+    const signer = jest.fn(async () => ({ status: 'invalid' as const }));
+    render(true, signer);
+    refs[1].current = { reply: replies };
+    const browser = find(render(true, signer), node => node.type === BrowserSurface);
+    browser?.props.onMessage?.(
+      JSON.stringify({
+        source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
+        messageId: 63,
+        type,
+        ...fields,
+      }),
+      'https://demo.example.org/start',
+    );
+    expect(replies).toHaveBeenCalledWith({
+      source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
+      messagedId: 63,
+      error: 'unsupported',
+    });
+    expect(signer).not.toHaveBeenCalled();
+    expect(find(render(true, signer), node => node.type === DappConnectSheet)).toBeUndefined();
+    expect(hasDappReadGrant('https://demo.example.org', 'wallet1', 'stellar-testnet')).toBe(false);
+  });
+
   it('does not reveal the address before a separate read-only permission decision', () => {
     render();
     refs[1].current = { reply: replies };
