@@ -1,3 +1,4 @@
+import { NetworkSwitchModal } from '@features/settings/NetworkSwitchModal';
 import React, { useCallback, useRef, useState, useSyncExternalStore } from 'react';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -51,6 +52,8 @@ export function HomeStackNavigator({
   getCurrentSwapSelection,
   subscribeToSwapSelection,
 }: Props) {
+  const [networkSwitchVisible, setNetworkSwitchVisible] = useState(false);
+  const closeNetworkSwitch = useCallback(() => setNetworkSwitchVisible(false), []);
   const selectedAccount = resolveVisibleAccount(accounts, selectedAccountId);
   const canSign = !services.onboarding.repository.isWatchOnly(selectedAccount.id);
   // Async Continue callbacks must read the latest account selection, not their render's captured value.
@@ -71,30 +74,36 @@ export function HomeStackNavigator({
     <Stack.Navigator initialRouteName="home" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="home">
         {({ navigation }) => (
-          <HomeWithAssetSheets
-            key={JSON.stringify([selectedAccount.id, selectedAccount.networkId])}
-            navigation={navigation}
-            catalog={services.assetCatalog}
-            copyPublicText={services.copyPublicText}
-            foreground={readRuntime.foreground}
-            account={selectedAccount}
-            accountCount={selectableAccounts.length}
-            selectableAccounts={selectableAccounts}
-            balanceDependencies={services.balance}
-            friendbotDependencies={services.friendbot}
-            canSign={canSign}
-            onSelectAccount={onSelectAccount}
-            onAddAccount={() => navigation.navigate('add-account')}
-            onSend={() => navigation.navigate('send-form', { accountId: selectedAccount.id })}
-            onSwap={swapEnabled ? () => navigation.navigate('swap', { accountId: selectedAccount.id }) : undefined}
-            onRequest={
-              selectedAccount.identityKind === 'classic'
-                ? () => navigation.navigate('request', { accountId: selectedAccount.id })
-                : undefined
-            }
-            onManualRefresh={() => services.transactionRecovery.reconcile('manual-refresh')}
-            invalidationRevision={invalidationRevision}
-          />
+          <>
+            <HomeWithAssetSheets
+              key={JSON.stringify([selectedAccount.id, selectedAccount.networkId])}
+              navigation={navigation}
+              catalog={services.assetCatalog}
+              copyPublicText={services.copyPublicText}
+              foreground={readRuntime.foreground}
+              account={selectedAccount}
+              accountCount={selectableAccounts.length}
+              selectableAccounts={selectableAccounts}
+              balanceDependencies={services.balance}
+              friendbotDependencies={services.friendbot}
+              canSign={canSign}
+              onSelectAccount={onSelectAccount}
+              onSwitchNetwork={services.networkSettings ? () => setNetworkSwitchVisible(true) : undefined}
+              onAddAccount={() => navigation.navigate('add-account')}
+              onSend={() => navigation.navigate('send-form', { accountId: selectedAccount.id })}
+              onSwap={swapEnabled ? () => navigation.navigate('swap', { accountId: selectedAccount.id }) : undefined}
+              onRequest={
+                selectedAccount.identityKind === 'classic'
+                  ? () => navigation.navigate('request', { accountId: selectedAccount.id })
+                  : undefined
+              }
+              onManualRefresh={() => services.transactionRecovery.reconcile('manual-refresh')}
+              invalidationRevision={invalidationRevision}
+            />
+            {networkSwitchVisible && services.networkSettings ? (
+              <NetworkSwitchModal settings={services.networkSettings} onClose={closeNetworkSwitch} />
+            ) : null}
+          </>
         )}
       </Stack.Screen>
       <Stack.Screen name="asset-details">

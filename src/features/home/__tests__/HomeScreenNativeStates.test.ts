@@ -1,3 +1,4 @@
+import { NetworkStatus } from '../components/NetworkStatus';
 import { InMemoryBalanceCacheRepository } from '../../../platform/persistence/memory/InMemoryBalanceCacheRepository';
 import React, { useEffect, useState } from 'react';
 import { StateView } from '@fresnica/ui-native';
@@ -107,6 +108,7 @@ function renderHome(state: HomeBalanceState, currentAccount: AccountRecord = acc
   const onSelectAccount = jest.fn();
   const onManualRefresh = jest.fn(async () => undefined);
   const onSend = jest.fn();
+  const onSwitchNetwork = jest.fn();
   let stateIndex = 0;
   mockedUseState.mockImplementation(() => {
     const index = stateIndex;
@@ -126,16 +128,22 @@ function renderHome(state: HomeBalanceState, currentAccount: AccountRecord = acc
     onSelectAccount,
     onAddAccount: jest.fn(),
     onSend,
+    onSwitchNetwork,
     onManageAssets: jest.fn(),
     onOpenAsset: jest.fn(),
     onManualRefresh,
     invalidationRevision: 0,
     active: true,
   });
-  return { root, setBalanceState, onSelectAccount, onManualRefresh, onSend };
+  return { root, setBalanceState, onSelectAccount, onManualRefresh, onSend, onSwitchNetwork };
 }
 
 describe('Home native balance-state presentation', () => {
+  it('connects the Home network button to the chooser callback', () => {
+    const { root, onSwitchNetwork } = renderHome({ kind: 'loading' });
+    findElement(root, node => node.type === NetworkStatus)?.props.onPress?.();
+    expect(onSwitchNetwork).toHaveBeenCalledTimes(1);
+  });
   beforeEach(() => {
     jest.clearAllMocks();
     mockedUseState.mockReset();

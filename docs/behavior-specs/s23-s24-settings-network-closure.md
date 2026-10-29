@@ -93,3 +93,8 @@ Final stable-callback APK SHA-256 `4a66f5a5126a4824c91e25da0a2036b63169cf1b28a52
 ## Product closure correction after wallet/network parity feedback
 
 The blank-screen/tab fixes and their passing tests do not settle the Classic wallet continuity model. The user's expected Stellar flow retains a G-address wallet and changes current-network ledger details/activation; Home's switch entry also remains unwired. The implemented empty-target-partition behavior is not final parity acceptance. See the cross-cutting account/network re-audit at the end of `shared-auth-network-session.md` for pinned source evidence, consumer/lifecycle risks and the original task 3 exit matrix. No runtime or storage policy is changed by this documentation audit.
+
+
+## Classic wallet continuity correction (2026-10-29 candidate)
+
+Main `f8f4c6ae83867f37b5601ba198540cc587694928` and its dApp permission/signing paths are now integrated. The implementation supersedes the older empty-target-Classic-partition assumption above: retained Classic identities have an explicit selected-network AccountContext, with unchanged persisted records/IDs/Signer references and separate chain caches. Home now opens a network chooser and confirmation dialog using the same Network capability. The empty shell remains only for genuinely absent/all-hidden eligible selections. Detailed upstream authority, legacy duplicate policy, selection, deletion/pending protections and validation are in `shared-auth-network-session.md`, **Classic account context implementation**. This is still an unmerged #129 candidate; no L4 promotion or independent approval is implied.

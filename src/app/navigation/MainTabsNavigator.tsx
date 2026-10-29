@@ -114,7 +114,10 @@ function EmptyNetworkTabs({ accounts, services, onAccountsChanged }: Props) {
           <DAppsStackNavigator
             currentSelection={() => undefined}
             subscribeSelection={() => () => undefined}
-            signTransaction={createDappTransactionSigner({ sdk: services.send.sdk, repository: services.onboarding.repository })}
+            signTransaction={createDappTransactionSigner({
+              sdk: services.send.sdk,
+              repository: services.onboarding.repository,
+            })}
             permissions={services.dappPermissions}
             catalog={services.dappCatalog}
             openExternalUrl={services.externalUrl.open}
