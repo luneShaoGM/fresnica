@@ -42,34 +42,37 @@ export function NetworkSettingsScreen({ onBack, network, monitor, settings, show
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.sectionLabel}>{t('settings.currentNetwork')}</Text>
-        <View style={styles.networkCard}>
-          <View style={styles.networkIdentity}>
-            <View style={styles.networkIcon}>
-              <View style={styles.networkDot} />
+        {!settings ? (
+          <>
+            <Text style={styles.sectionLabel}>{t('settings.currentNetwork')}</Text>
+            <View style={styles.networkCard}>
+              <View style={styles.networkIdentity}>
+                <View style={styles.networkIcon}>
+                  <View style={styles.networkDot} />
+                </View>
+                <View style={styles.flex}>
+                  <Text style={styles.networkTitle}>
+                    {t(network.isMainnet ? 'networkManage.name.stellar-mainnet' : 'networkManage.name.stellar-testnet')}
+                  </Text>
+                  <Text style={styles.networkSubtitle}>{t('settings.activeNetwork')}</Text>
+                </View>
+                <View style={styles.selectedMark}>
+                  <Text style={styles.selectedGlyph}>✓</Text>
+                </View>
+              </View>
             </View>
-            <View style={styles.flex}>
-              <Text style={styles.networkTitle}>
-                {t(network.isMainnet ? 'networkManage.name.stellar-mainnet' : 'networkManage.name.stellar-testnet')}
-              </Text>
-              <Text style={styles.networkSubtitle}>{t('settings.activeNetwork')}</Text>
+
+            <Text style={styles.sectionLabel}>{t('settings.connection')}</Text>
+            <View style={styles.rows}>
+              <InfoRow label={t('settings.networkId')} value={network.id} />
+              <InfoRow label="Horizon" value={network.horizonUrl} multiline />
             </View>
-            <View style={styles.selectedMark}>
-              <Text style={styles.selectedGlyph}>✓</Text>
-            </View>
-          </View>
-        </View>
 
-        <Text style={styles.sectionLabel}>{t('settings.connection')}</Text>
-        <View style={styles.rows}>
-          <InfoRow label={t('settings.networkId')} value={network.id} />
-          <InfoRow label="Horizon" value={network.horizonUrl} multiline />
-        </View>
-
-        <NetworkNodeHealth monitor={monitor} />
-
+            <NetworkNodeHealth monitor={monitor} />
+          </>
+        ) : null}
         {settings ? (
-          <NetworkManagement settings={settings} section={showBack ? 'nodes' : 'all'} />
+          <NetworkManagement settings={settings} monitor={monitor} section={showBack ? 'nodes' : 'all'} />
         ) : (
           <View style={styles.notice}>
             <Text style={styles.noticeTitle}>{t('settings.readOnlyNetwork')}</Text>

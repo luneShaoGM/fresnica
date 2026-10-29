@@ -279,6 +279,12 @@ describe('production network composition and retirement', () => {
     expect(changed).toHaveBeenCalledTimes(1);
     expect(mockUnresolved).toEqual([{ networkId: 'stellar-testnet', transactionHash: 'original', state: 'uncertain' }]);
     expect(() => services.send.gateway.isClassicAccountAddress('G')).toThrow('network-session-retired');
+    expect(mockWallet.close).not.toHaveBeenCalled();
+    expect(mockPreferenceRealm.close).not.toHaveBeenCalled();
+    services.close();
+    services.close();
+    expect(mockWallet.close).toHaveBeenCalledTimes(1);
+    expect(mockPreferenceRealm.close).toHaveBeenCalledTimes(1);
   });
   it('blocks switching while native verification is in progress', async () => {
     let finish!: (verified: boolean) => void;

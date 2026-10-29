@@ -73,7 +73,8 @@
 - 按 Stellar 固定参考核对后，设置根页分别进入 General/Advanced/Security。General 接已有语言页；Advanced 放置风险提示→fresh App Passphrase 鉴权的 Developer Mode 开关和 Network 入口；Network 复用已合并的节点管理/健康/会话能力。初始网络选择保留必要的组合入口。
 - [行为与逐项证据](behavior-specs/s23-s24-settings-network-closure.md)。自动化通过；Android 独立验收包的实际路径与限制在该规格单列。iOS、读屏、完整自定义节点原生矩阵仍待验收，不升级 S24 至 L4。
 - General 完整偏好、版本/设备信息、Session Logs 和开发者工具依旧明确未实现。通用应用锁及 Stage 9 iOS 真机延期不变。原任务 4/5 的 Swap/dApp 在途工作继续保留，不重排五项队列。
-- 下一步：该候选提交 PR、CI 与新 exact-HEAD Work Review；由用户决定合并。以下 #124 记录是本候选之前的历史审查。
+- #129 后续修正（2026-10-29）：针对用户 Android 切测试网白屏，调整导航退出与 Realm 释放顺序；节点页按固定参考改为分组行和弹窗确认。六次连续切网通过，最终布局补验与限制见上述行为规格。
+- 下一步：该候选更新 PR、CI 与新 exact-HEAD Work Review；由用户决定合并。以下 #124 记录是本候选之前的历史审查。
 
 ## PR #124 审查修复
 

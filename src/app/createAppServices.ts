@@ -110,6 +110,7 @@ export type AppServices = Readonly<{
 export type CreateAppServicesOptions = Readonly<{
   realmPath?: string;
   fixedNetwork?: NetworkId;
+  // The App owner must close the retired services after its screens unmount.
   onNetworkChanged?: () => void;
 }>;
 
@@ -123,21 +124,29 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
   let stopSettingsLifecycle = () => {};
   let closeDappCatalog = () => {};
   let networkSettings: NetworkSettings | undefined;
+  let retired = false;
   let closed = false;
-  const close = () => {
-    if (closed) return;
-    closed = true;
+  const retire = () => {
+    if (retired) return;
+    retired = true;
     session.close();
     closeDappCatalog();
     networkSettings?.close();
     stopSettingsLifecycle();
     closeReadRecovery();
+  };
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    retire();
     closePreferences();
     realm.close();
   };
   const restartNetworkSession = () => {
-    close();
-    options.onNetworkChanged?.();
+    // Retire authority immediately; the App owner disposes Realm after its old screens unmount.
+    retire();
+    if (options.onNetworkChanged) options.onNetworkChanged();
+    else close();
   };
   try {
     const nativeModule = loadNativeFresnicaModule(NativeModules);
