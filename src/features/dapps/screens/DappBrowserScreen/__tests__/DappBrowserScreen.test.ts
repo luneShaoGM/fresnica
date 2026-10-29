@@ -6,7 +6,11 @@ import type {
 } from '../../../../../capabilities/dapp-interaction/browserTransport';
 import type { DappTransactionSigner } from '../../../../../capabilities/dapp-interaction/dappTransactionSigner';
 import type { DappPublicSelection } from '../../../../../capabilities/dapp-interaction/freighterSession';
-import { clearDappReadGrants, hasDappReadGrant } from '../../../../../capabilities/dapp-interaction/permissionMemory';
+import type {
+  DappGrantScope,
+  DappPermissionEvent,
+  DappPermissionStore,
+} from '../../../../../capabilities/dapp-interaction/dappPermissionStore';
 
 jest.mock('../../../../../locale', () => ({ useLocalization: () => ({ t: (key: string) => key }) }));
 jest.mock('../../../../../ui/components', () => ({
@@ -73,6 +77,37 @@ const request = (method: string, messageId: number) =>
     messageId,
     type: method,
   });
+const grantKeys = new Set<string>();
+const permissionEvents = new Set<(event: DappPermissionEvent) => void>();
+const keyFor = (scope: DappGrantScope) => JSON.stringify([scope.networkId, scope.accountId, scope.origin]);
+let rejectPermissionWrite = false;
+let permissionRevision = 0;
+const permissions: DappPermissionStore = {
+  has: scope => grantKeys.has(keyFor(scope)),
+  grant: scope => {
+    if (rejectPermissionWrite) throw new Error('realm-write-failed');
+    grantKeys.add(keyFor(scope));
+    permissionRevision += 1;
+    for (const listener of permissionEvents) listener({ kind: 'granted', scope });
+  },
+  revoke: scope => {
+    grantKeys.delete(keyFor(scope));
+    permissionRevision += 1;
+    for (const listener of permissionEvents) listener({ kind: 'revoked', scope });
+  },
+  list: () => [],
+  subscribe: listener => {
+    permissionEvents.add(listener);
+    return () => {
+      permissionEvents.delete(listener);
+    };
+  },
+  getRevision: () => permissionRevision,
+};
+function hasDappReadGrant(origin: string, accountId: string, networkId: string): boolean {
+  return permissions.has({ origin, accountId, networkId });
+}
+
 const replies = jest.fn();
 const goBack = jest.fn();
 const goForward = jest.fn();
@@ -96,6 +131,7 @@ function render(active = true, signTransaction: DappTransactionSigner = async ()
     },
     createNonce: () => token,
     signTransaction,
+    permissions,
     BrowserSurface,
   });
 }
@@ -138,7 +174,10 @@ beforeEach(() => {
   reload.mockClear();
   navigateClose.mockClear();
   subscriber = undefined;
-  clearDappReadGrants();
+  grantKeys.clear();
+  permissionEvents.clear();
+  rejectPermissionWrite = false;
+  permissionRevision = 0;
 });
 
 describe('S15 browser product bridge is real but explicitly consent-gated', () => {
@@ -240,6 +279,41 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     subscriber?.();
     sheet?.props.onAllowAlways?.();
     expect(hasDappReadGrant('https://demo.example.org', 'wallet1', 'stellar-testnet')).toBe(false);
+  });
+
+  it('immediately retires the active browser and blocks stale requests after a revoke', () => {
+    render();
+    refs[1].current = { reply: replies };
+    const browser = find(render(), node => node.type === BrowserSurface);
+    browser?.props.onMessage?.(request('REQUEST_ACCESS', 50), 'https://demo.example.org/start');
+    find(render(), node => node.type === DappConnectSheet)?.props.onAllowAlways?.();
+    expect(hasDappReadGrant('https://demo.example.org', 'wallet1', 'stellar-testnet')).toBe(true);
+    for (const effect of effects.splice(0)) effect();
+    permissions.revoke({ origin: 'https://demo.example.org', accountId: 'wallet1', networkId: 'stellar-testnet' });
+    replies.mockClear();
+    browser?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 51), 'https://demo.example.org/start');
+    expect(replies).not.toHaveBeenCalled();
+    expect(find(render(), node => node.type === BrowserSurface)).toBeUndefined();
+    expect(hasDappReadGrant('https://demo.example.org', 'wallet1', 'stellar-testnet')).toBe(false);
+  });
+
+  it('fails closed rather than falling back to allow-once when durable grant storage fails', () => {
+    render();
+    refs[1].current = { reply: replies };
+    const browser = find(render(), node => node.type === BrowserSurface);
+    browser?.props.onMessage?.(request('REQUEST_ACCESS', 55), 'https://demo.example.org/start');
+    rejectPermissionWrite = true;
+    find(render(), node => node.type === DappConnectSheet)?.props.onAllowAlways?.();
+    expect(replies).toHaveBeenCalledWith({
+      source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
+      messagedId: 55,
+      error: 'permission-storage-failed',
+    });
+    expect(hasDappReadGrant('https://demo.example.org', 'wallet1', 'stellar-testnet')).toBe(false);
+    expect(find(render(), node => node.type === BrowserSurface)).toBeUndefined();
+    replies.mockClear();
+    browser?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 56), 'https://demo.example.org/start');
+    expect(replies).not.toHaveBeenCalled();
   });
 
   it('resets message deduplication for a new same-URL document', () => {

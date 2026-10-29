@@ -38,6 +38,14 @@ function screens() {
     currentSelection: () => undefined,
     subscribeSelection: () => () => undefined,
     signTransaction: async () => ({ status: 'invalid' }),
+    permissions: {
+      has: () => false,
+      grant: () => undefined,
+      revoke: () => undefined,
+      list: () => [],
+      subscribe: () => () => undefined,
+      getRevision: () => 0,
+    },
   });
   return React.Children.toArray(stack.props.children)
     .filter(React.isValidElement)

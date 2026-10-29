@@ -9,6 +9,7 @@ import { DappBrowserScreen } from '@features/dapps/screens/DappBrowserScreen/Dap
 import { SecureDappWebView } from '../../platform/dapp-browser/SecureDappWebView';
 import { createDappBridgeNonce } from '../../platform/dapp-browser/secureNonce';
 import type { DappPublicSelection } from '../../capabilities/dapp-interaction/freighterSession';
+import type { DappPermissionStore } from '../../capabilities/dapp-interaction/dappPermissionStore';
 import type { DappTransactionSigner } from '../../capabilities/dapp-interaction/dappTransactionSigner';
 import type { DappCatalogPort } from '@capabilities/dapp-catalog/catalog';
 import { DAppsScreen } from '@features/dapps/screens/DAppsScreen';
@@ -24,6 +25,7 @@ export function DAppsStackNavigator({
   currentSelection,
   subscribeSelection,
   signTransaction,
+  permissions,
 }: Readonly<{
   catalog: DappCatalogPort;
   openExternalUrl: (url: string) => Promise<void>;
@@ -31,6 +33,7 @@ export function DAppsStackNavigator({
   currentSelection: () => DappPublicSelection | undefined;
   subscribeSelection: (listener: () => void) => () => void;
   signTransaction: DappTransactionSigner;
+  permissions: DappPermissionStore;
 }>) {
   const reads = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot, runtime.getSnapshot);
   return (
@@ -53,6 +56,7 @@ export function DAppsStackNavigator({
               currentSelection={currentSelection}
               subscribeSelection={subscribeSelection}
               signTransaction={signTransaction}
+              permissions={permissions}
               foreground={reads.foreground}
               onClose={() => navigation.goBack()}
             />
@@ -94,6 +98,7 @@ function DappBrowserRoute({
   currentSelection,
   subscribeSelection,
   signTransaction,
+  permissions,
   foreground,
   onClose,
 }: Readonly<{
@@ -101,6 +106,7 @@ function DappBrowserRoute({
   currentSelection: () => DappPublicSelection | undefined;
   subscribeSelection: (listener: () => void) => () => void;
   signTransaction: DappTransactionSigner;
+  permissions: DappPermissionStore;
   foreground: boolean;
   onClose: () => void;
 }>) {
@@ -113,6 +119,7 @@ function DappBrowserRoute({
       currentSelection={currentSelection}
       subscribeSelection={subscribeSelection}
       signTransaction={signTransaction}
+      permissions={permissions}
       createNonce={createDappBridgeNonce}
       BrowserSurface={SecureDappWebView}
     />
