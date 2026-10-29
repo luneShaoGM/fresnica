@@ -355,6 +355,28 @@ describe('S15 untrusted URL risk confirmation and in-session Recent', () => {
     expect(openExternalUrl).not.toHaveBeenCalled();
   });
 
+  it('explains the Android fail-closed policy while retaining the consented device-browser option', async () => {
+    const first = elements(await renderCatalog(catalog));
+    first
+      .find(node => node.props.accessibilityLabel === 'dapps.website.input')
+      ?.props.onChangeText?.('https://example.org/');
+    websiteNodes()
+      .find(node => node.props.label === 'dapps.website.preview')
+      ?.props.onPress?.();
+    beginRender();
+    const nodes = elements(
+      DAppsScreen({ catalog, openExternalUrl, inAppUnavailable: true, showInterfaceSample: false }),
+    );
+    expect(nodes.some(node => node.props.children === 'dapps.browser.androidUnavailable')).toBe(true);
+    expect(nodes.some(node => node.props.label === 'dapps.website.openInApp')).toBe(false);
+    const external = nodes.find(node => node.props.label === 'dapps.website.confirm');
+    expect(external).toBeDefined();
+    external?.props.onPress?.();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(openExternalUrl).toHaveBeenCalledWith('https://example.org/');
+  });
+
   it('fails closed for non-HTTPS input without creating a browser route', async () => {
     const initial = elements(await renderCatalog(catalog));
     const input = initial.find(

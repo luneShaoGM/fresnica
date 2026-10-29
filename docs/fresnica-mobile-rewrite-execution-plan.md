@@ -795,6 +795,8 @@ UI 执行策略：
 | S14（本批） | FChain 公开 Catalog、Realm、App 接线和单元测试 | 以最新 Realm v6 升 v7，只持久化按 network 划分的公开目录；保留 LC5 焦点、在线和前后台门控，错误时明确标为旧缓存；无授权或签名 |
 | S15（下批） | Recent、自定义 URL、UI/文档 | 保留已合并的外部浏览器确认；未来 Recent 只存标准化 origin，不持久化完整查询参数 |
 | S16（后续） | WebView、导航、依赖/lockfile、iOS/原生补丁 | 以最新导航生命周期为基线增量接线，原生构建和安全审查后才启用 |
+
+**2026-10-28 PR #128 安全候选（尚未合并）**：Android WebView 的 shouldOverrideUrlLoading 不覆盖 POST 主文档导航，而 onPageStarted/资源回调不能作为发送前门禁。为阻止内嵌网页在原生门禁之前向非公开地址发送 POST，Android 暂时不注册 dApp 内嵌浏览器路由，也不实例化 Freighter WebView；用户仍可在风险确认后使用系统浏览器，但该模式**没有钱包连接或签名**。iOS 内嵌流程不受这项 Android 限制。只有建立确实覆盖 POST/跳转的原生请求前网络安全边界并完成 Android 原生回归验收，才可重新启用 Android 内嵌流程；JS 和 repository 测试不能冒充此验收。
 | S17（后续） | 权限、Realm、Connected dApps | 先解决 grant/revoke 即时一致性；Catalog 不能成为自动授权依据 |
 | S18–S21（后续） | Freighter、交易签名、SEP-53、Soroban、设备桥 | 统一 exact-XDR 审核与 SDK 授权，禁用普通 React State 中的 App Passphrase |
 
