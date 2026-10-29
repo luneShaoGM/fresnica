@@ -17,6 +17,7 @@ export function walletRealmConfiguration(options: OpenWalletRealmOptions = {}): 
       // Existing records require no transformation because each change adds a new
       // top-level entity. Schema v6 adds replaceable Balance display snapshots;
       // v7 adds per-network public dApp catalog snapshots (not permissions).
+      // v8 adds account/network/origin-scoped dApp read grants only.
     },
   };
 }

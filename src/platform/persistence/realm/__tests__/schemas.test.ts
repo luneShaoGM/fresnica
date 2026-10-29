@@ -3,6 +3,8 @@ import {
   BALANCE_CACHE_SNAPSHOT_SCHEMA,
   DAPP_CATALOG_CACHE_ENTITY,
   DAPP_CATALOG_CACHE_SCHEMA,
+  DAPP_PERMISSION_GRANT_ENTITY,
+  DAPP_PERMISSION_GRANT_SCHEMA,
   ACCOUNT_ENTITY,
   ACCOUNT_SCHEMA,
   ACCOUNT_SIGNER_REFERENCE_ENTITY,
@@ -21,9 +23,9 @@ import {
   WALLET_REALM_SCHEMA_VERSION,
 } from '../schemas';
 
-describe('Realm wallet schema v7', () => {
+describe('Realm wallet schema v8', () => {
   it('adds replaceable Balance cache persistence without changing wallet entity identities', () => {
-    expect(WALLET_REALM_SCHEMA_VERSION).toBe(7);
+    expect(WALLET_REALM_SCHEMA_VERSION).toBe(8);
     expect(WALLET_REALM_SCHEMAS).toEqual([
       ACCOUNT_SCHEMA,
       SIGNER_SCHEMA,
@@ -34,9 +36,19 @@ describe('Realm wallet schema v7', () => {
       HISTORY_CACHE_SNAPSHOT_SCHEMA,
       BALANCE_CACHE_SNAPSHOT_SCHEMA,
       DAPP_CATALOG_CACHE_SCHEMA,
+      DAPP_PERMISSION_GRANT_SCHEMA,
     ]);
     expect(BALANCE_CACHE_SNAPSHOT_SCHEMA.name).toBe(BALANCE_CACHE_SNAPSHOT_ENTITY);
     expect(DAPP_CATALOG_CACHE_SCHEMA.name).toBe(DAPP_CATALOG_CACHE_ENTITY);
+    expect(DAPP_PERMISSION_GRANT_SCHEMA.name).toBe(DAPP_PERMISSION_GRANT_ENTITY);
+    expect(DAPP_PERMISSION_GRANT_SCHEMA.primaryKey).toBe('id');
+    expect(DAPP_PERMISSION_GRANT_SCHEMA.properties).toEqual({
+      id: 'string',
+      networkId: 'string',
+      accountId: 'string',
+      origin: 'string',
+      createdAt: 'date',
+    });
     expect(DAPP_CATALOG_CACHE_SCHEMA.primaryKey).toBe('networkId');
     expect(DAPP_CATALOG_CACHE_SCHEMA.properties).not.toHaveProperty('accountId');
     expect(DAPP_CATALOG_CACHE_SCHEMA.properties).not.toHaveProperty('grants');

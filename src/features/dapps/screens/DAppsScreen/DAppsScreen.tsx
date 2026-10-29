@@ -27,6 +27,8 @@ export function DAppsScreen({
   catalog,
   showInterfaceSample = __DEV__,
   openExternalUrl,
+  openInApp,
+  inAppUnavailable = false,
   active = true,
   online = true,
   focused = active,
@@ -37,6 +39,8 @@ export function DAppsScreen({
   focused?: boolean;
   showInterfaceSample?: boolean;
   openExternalUrl: (url: string) => Promise<void>;
+  openInApp?: (url: string) => void;
+  inAppUnavailable?: boolean;
 }>) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
@@ -405,6 +409,30 @@ export function DAppsScreen({
                 }}
                 variant="primary"
               />
+              {inAppUnavailable ? (
+                <Text style={styles.websiteDetail}>{t('dapps.browser.androidUnavailable')}</Text>
+              ) : null}
+              {openInApp ? (
+                <NativeButton
+                  label={t('dapps.website.openInApp')}
+                  disabled={opening}
+                  onPress={() => {
+                    if (
+                      !mountedRef.current ||
+                      !activeRef.current ||
+                      !focusedRef.current ||
+                      proposalRef.current?.value !== preparedWebsite ||
+                      proposalRef.current.epoch !== websiteEpoch.current
+                    )
+                      return;
+                    websiteEpoch.current += 1;
+                    handoffEpoch.current += 1;
+                    setPreparedWebsite(undefined);
+                    openInApp(preparedWebsite.url);
+                  }}
+                  variant="secondary"
+                />
+              ) : null}
               <NativeButton
                 label={t('dapps.website.cancel')}
                 disabled={opening}

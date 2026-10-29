@@ -15,6 +15,7 @@ type Props = Readonly<{
   onOpenSecurity: () => void;
   onOpenGeneral: () => void;
   onOpenAdvanced: () => void;
+  onOpenConnectedDapps: () => void;
   onOpenAbout: () => void;
 }>;
 
@@ -24,6 +25,7 @@ export function SettingsHomeScreen({
   onOpenSecurity,
   onOpenGeneral,
   onOpenAdvanced,
+  onOpenConnectedDapps,
   onOpenAbout,
 }: Props) {
   const { t, tPlural } = useLocalization();
@@ -51,6 +53,11 @@ export function SettingsHomeScreen({
 
           <SettingsGroup>
             <ListRow onPress={onOpenSecurity} title={t('settings.security')} />
+            <ListRow
+              onPress={onOpenConnectedDapps}
+              title={t('settings.connectedDapps')}
+              subtitle={t('dapps.connected.summary')}
+            />
           </SettingsGroup>
 
           <SettingsGroup>

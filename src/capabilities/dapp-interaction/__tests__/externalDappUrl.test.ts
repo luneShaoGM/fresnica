@@ -1,4 +1,4 @@
-import { normalizeUntrustedDappUrl } from '../externalDappUrl';
+import { normalizeUntrustedDappUrl, readPublicDappNavigation } from '../externalDappUrl';
 
 describe('S15 custom dApp URL canonical origin and fail-closed external handoff', () => {
   it.each([
@@ -61,5 +61,17 @@ describe('S15 custom dApp URL canonical origin and fail-closed external handoff'
     expect(normalizeUntrustedDappUrl('https://example.org.evil.example').origin).not.toBe(
       normalizeUntrustedDappUrl('https://example.org').origin,
     );
+  });
+
+  it('allows public HTTPS navigation, including a fragment, and still rejects non-public targets', () => {
+    expect(readPublicDappNavigation('https://other.example.org/app#swap')).toMatchObject({
+      origin: 'https://other.example.org',
+      hostname: 'other.example.org',
+    });
+    expect(readPublicDappNavigation('about:blank')).toBeUndefined();
+    expect(readPublicDappNavigation('example.org')).toBeUndefined();
+    expect(readPublicDappNavigation('http://example.org')).toBeUndefined();
+    expect(readPublicDappNavigation('https://127.0.0.1/')).toBeUndefined();
+    expect(readPublicDappNavigation('https://localhost/')).toBeUndefined();
   });
 });

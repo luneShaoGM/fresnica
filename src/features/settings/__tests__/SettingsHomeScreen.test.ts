@@ -54,6 +54,7 @@ function renderSettings(accountCount = 3) {
   const onOpenGeneral = jest.fn();
   const onOpenAdvanced = jest.fn();
   const onOpenSecurity = jest.fn();
+  const onOpenConnectedDapps = jest.fn();
   const onOpenAbout = jest.fn();
   const root = SettingsHomeScreen({
     accountCount,
@@ -61,11 +62,12 @@ function renderSettings(accountCount = 3) {
     onOpenGeneral,
     onOpenAdvanced,
     onOpenSecurity,
+    onOpenConnectedDapps,
     onOpenAbout,
   });
   return {
     root,
-    callbacks: { onOpenAccounts, onOpenGeneral, onOpenAdvanced, onOpenSecurity, onOpenAbout },
+    callbacks: { onOpenAccounts, onOpenGeneral, onOpenAdvanced, onOpenSecurity, onOpenConnectedDapps, onOpenAbout },
   };
 }
 
@@ -77,7 +79,7 @@ describe('Settings Home native scroll integration', () => {
 
     expect(appScreen?.props).toMatchObject({ scrollable: false, contentInset: 'none' });
     expect(nativeScreen?.props).toMatchObject({ scroll: true, padded: false });
-    expect(collect(root, element => element.type === ListRow)).toHaveLength(8);
+    expect(collect(root, element => element.type === ListRow)).toHaveLength(9);
 
     const styles = createStyles(defaultTheme);
     expect(styles.content.paddingHorizontal).toBe(defaultTheme.spacing.lg);
@@ -94,6 +96,7 @@ describe('Settings Home native scroll integration', () => {
       [t('settings.general'), callbacks.onOpenGeneral],
       [t('settings.advanced'), callbacks.onOpenAdvanced],
       [t('settings.security'), callbacks.onOpenSecurity],
+      [t('settings.connectedDapps'), callbacks.onOpenConnectedDapps],
       [t('settings.about'), callbacks.onOpenAbout],
     ] as const;
     for (const [title, action] of interactive) {

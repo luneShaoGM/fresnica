@@ -68,7 +68,7 @@ describe('Realm S14 public catalog integration', () => {
     }
   });
 
-  it('migrates v6 to v7, preserves an existing account and persists per-network cache across restart', async () => {
+  it('migrates v6 to v8, preserves an existing account and persists per-network cache across restart', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'fresnica-dapp-catalog-'));
     const path = join(directory, 'wallet.realm');
     let realm: Realm | undefined;
@@ -95,7 +95,7 @@ describe('Realm S14 public catalog integration', () => {
       realm.close();
 
       realm = await openWalletRealm({ path });
-      expect(realm.schemaVersion).toBe(7);
+      expect(realm.schemaVersion).toBe(8);
       expect(new RealmAccountSignerRepository(realm).getAccount('old-account')?.label).toBe('Existing');
       const cache = new RealmDappCatalogRepository(realm);
       expect(cache.read('stellar-testnet')).toBeUndefined();

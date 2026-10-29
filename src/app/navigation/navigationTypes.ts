@@ -28,6 +28,7 @@ export type ActivityStackParamList = {
 
 export type DAppsStackParamList = {
   dapps: ProductRouteParams['dapps'];
+  'dapp-browser': { url: string };
 };
 
 export type SettingsStackParamList = {
@@ -38,6 +39,7 @@ export type SettingsStackParamList = {
   'account-details': ProductRouteParams['account-details'];
   'add-account': ProductRouteParams['add-account'];
   'security-settings': ProductRouteParams['security-settings'];
+  'connected-dapps': undefined;
   'network-settings': ProductRouteParams['network-settings'];
   'language-settings': ProductRouteParams['language-settings'];
   about: ProductRouteParams['about'];

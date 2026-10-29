@@ -18,6 +18,8 @@ import {
 } from './accountSelection';
 import { ActivityStackNavigator } from './ActivityStackNavigator';
 import { DAppsStackNavigator } from './DAppsStackNavigator';
+import { createDappTransactionSigner } from './createDappTransactionSigner';
+import type { DappPublicSelection } from '../../capabilities/dapp-interaction/freighterSession';
 import { HomeStackNavigator } from './HomeStackNavigator';
 import { MainTabBar } from './MainTabBar';
 import { bindForegroundAccountSync } from './bindForegroundAccountSync';
@@ -110,6 +112,10 @@ function EmptyNetworkTabs({ accounts, services, onAccountsChanged }: Props) {
       <Tab.Screen name="dapps">
         {() => (
           <DAppsStackNavigator
+            currentSelection={() => undefined}
+            subscribeSelection={() => () => undefined}
+            signTransaction={createDappTransactionSigner({ sdk: services.send.sdk, repository: services.onboarding.repository })}
+            permissions={services.dappPermissions}
             catalog={services.dappCatalog}
             openExternalUrl={services.externalUrl.open}
             runtime={services.ledgerReadRuntime}
@@ -255,15 +261,48 @@ function MainTabsWithSelection({
     [accounts, networkId, onAccountsChanged, services, swapSelectionStore],
   );
 
+  const dappSigner = useMemo(
+    () => createDappTransactionSigner({ sdk: services.send.sdk, repository: services.onboarding.repository }),
+    [services.send.sdk, services.onboarding.repository],
+  );
+  const currentDappSelection = useCallback((): DappPublicSelection | undefined => {
+    const current = swapSelectionStore.getCurrentSelection();
+    if (!current) return undefined;
+    const account = current.accounts.find(
+      item => item.id === current.selectedAccountId && !item.hidden && item.identityKind === 'classic',
+    );
+    if (!account || account.networkId !== current.network.id) return undefined;
+    return Object.freeze({
+      accountId: account.id,
+      address: account.address,
+      networkId: current.network.id,
+      networkPassphrase: current.network.networkPassphrase,
+      networkUrl: services.networkProfile.horizonUrl,
+      revision: current.selectionRevision,
+    });
+  }, [swapSelectionStore, services.networkProfile.horizonUrl]);
+
   const renderDApps = useCallback(
     () => (
       <DAppsStackNavigator
         catalog={services.dappCatalog}
         openExternalUrl={services.externalUrl.open}
         runtime={services.ledgerReadRuntime}
+        currentSelection={currentDappSelection}
+        subscribeSelection={swapSelectionStore.subscribe}
+        signTransaction={dappSigner}
+        permissions={services.dappPermissions}
       />
     ),
-    [services.dappCatalog, services.externalUrl, services.ledgerReadRuntime],
+    [
+      services.dappCatalog,
+      services.externalUrl,
+      services.ledgerReadRuntime,
+      currentDappSelection,
+      swapSelectionStore,
+      dappSigner,
+      services.dappPermissions,
+    ],
   );
 
   const selectedAccount = resolveVisibleAccount(accounts, effectiveSelectedAccountId);
