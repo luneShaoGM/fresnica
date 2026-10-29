@@ -43,6 +43,7 @@ import type { ApplicationSecurityDependencies } from '../capabilities/applicatio
 import type { BalanceProductDependencies } from '../capabilities/balance/BalanceCacheHydration';
 import type { FriendbotDependencies } from '../capabilities/network/fundTestnetAccountWithFriendbot';
 import type { DappCatalogPort } from '../capabilities/dapp-catalog/catalog';
+import type { DappPermissionStore } from '../capabilities/dapp-interaction/dappPermissionStore';
 import type { AccountOrderDependencies } from '../capabilities/account/accountOrder';
 import type { AccountVisibilityDependencies } from '../capabilities/account/accountVisibility';
 import type { DeleteLocalAccountDependencies } from '../capabilities/account/deleteLocalAccount';
@@ -58,6 +59,7 @@ import {
   RealmAccountSignerRepository,
   RealmBalanceCacheRepository,
   RealmDappCatalogRepository,
+  RealmDappPermissionStore,
   RealmDefaultAccountPreferenceStore,
   RealmHistoryCacheRepository,
   RealmLocalePreferenceStore,
@@ -94,6 +96,7 @@ export type AppServices = Readonly<{
   trustline: TrustlineProductDependencies;
   request: RequestProductDependencies;
   dappCatalog: DappCatalogPort;
+  dappPermissions: DappPermissionStore;
   assetCatalog: AssetCatalogPort;
   copyPublicText: (text: string) => Promise<void>;
   transactionRecovery: TransactionReconciliationCoordinator;
@@ -122,6 +125,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
   let closePreferences = () => {};
   let stopSettingsLifecycle = () => {};
   let closeDappCatalog = () => {};
+  let closeDappPermissions = () => {};
   let networkSettings: NetworkSettings | undefined;
   let closed = false;
   const close = () => {
@@ -129,6 +133,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     closed = true;
     session.close();
     closeDappCatalog();
+    closeDappPermissions();
     networkSettings?.close();
     stopSettingsLifecycle();
     closeReadRecovery();
@@ -145,6 +150,8 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const repository = new RealmAccountSignerRepository(realm);
     const localePreferences = new RealmLocalePreferenceStore(realm);
     const accountSelectionPreferences = new RealmDefaultAccountPreferenceStore(realm);
+    const dappPermissions = new RealmDappPermissionStore(realm);
+    closeDappPermissions = () => dappPermissions.close();
     const pendingSubmissions = new RealmPendingSubmissionRepository(realm);
     const historyCache = new RealmHistoryCacheRepository(realm);
     const balanceCache = new RealmBalanceCacheRepository(realm);
@@ -419,6 +426,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         ingress: reactNativeRequestIngress,
       },
       dappCatalog,
+      dappPermissions,
       transactionRecovery,
       ledgerReadInvalidation,
       ledgerReadRuntime,

@@ -18,7 +18,10 @@ import {
   type BridgeResponse,
   type DappPublicSelection,
 } from '../../../../capabilities/dapp-interaction/freighterSession';
-import { hasDappReadGrant, rememberDappReadGrant } from '../../../../capabilities/dapp-interaction/permissionMemory';
+import type {
+  DappGrantScope,
+  DappPermissionStore,
+} from '../../../../capabilities/dapp-interaction/dappPermissionStore';
 import { useLocalization } from '../../../../locale';
 import { Screen } from '../../../../ui/components';
 import { NativeButton } from '../../../../ui/components/NativeButton';
@@ -36,9 +39,7 @@ type Props = Readonly<{
   subscribeSelection: (listener: () => void) => () => void;
   createNonce: () => string;
   signTransaction: DappTransactionSigner;
-  hasPersistentAccess?: (origin: string, accountId: string, networkId: string) => boolean;
-  rememberPersistentAccess?: (origin: string, accountId: string, networkId: string) => void;
-  isCatalogOrigin?: (origin: string) => boolean;
+  permissions: DappPermissionStore;
   BrowserSurface: ComponentType<DappBrowserSurfaceProps & RefAttributes<DappBrowserSurfaceHandle>>;
 }>;
 
@@ -58,9 +59,7 @@ export function DappBrowserScreen({
   subscribeSelection,
   createNonce,
   signTransaction,
-  hasPersistentAccess,
-  rememberPersistentAccess,
-  isCatalogOrigin,
+  permissions,
   BrowserSurface,
 }: Props) {
   const { t } = useLocalization();
@@ -87,6 +86,7 @@ export function DappBrowserScreen({
   const signGeneration = useRef(0);
   const signing = useRef(false);
   const [signError, setSignError] = useState(false);
+  const [permissionStorageError, setPermissionStorageError] = useState(false);
   const currentSession = () => live.current && !stale && current?.session.isLive() === true;
 
   if (!initial.current) {
@@ -109,11 +109,11 @@ export function DappBrowserScreen({
             persistedAllowed: () => {
               const origin = documentOrigin.current;
               if (origin === undefined) return false;
-              return (
-                hasDappReadGrant(origin, selection.accountId, selection.networkId) ||
-                hasPersistentAccess?.(origin, selection.accountId, selection.networkId) === true ||
-                isCatalogOrigin?.(origin) === true
-              );
+              return permissions.has({
+                origin,
+                accountId: selection.accountId,
+                networkId: selection.networkId,
+              });
             },
           }),
         });
@@ -137,6 +137,25 @@ export function DappBrowserScreen({
       current.session.revoke();
     };
   }, [current, subscribeSelection]);
+
+  useEffect(() => {
+    if (!current) return;
+    return permissions.subscribe(event => {
+      if (
+        event.kind === 'closed' ||
+        (event.kind === 'revoked' &&
+          event.scope.origin === documentOrigin.current &&
+          event.scope.accountId === current.selection.accountId &&
+          event.scope.networkId === current.selection.networkId)
+      ) {
+        current.session.revoke();
+        signGeneration.current += 1;
+        setPendingOrigin(undefined);
+        setPendingSign(undefined);
+        setStale(true);
+      }
+    });
+  }, [current, permissions]);
 
   useEffect(() => {
     if (!active && current) {
@@ -264,8 +283,25 @@ export function DappBrowserScreen({
     const result = current.session.resolvePermission(decision !== 'reject');
     if (result?.kind !== 'respond') return;
     if (decision === 'always' && grantedOrigin && !result.response.error && currentSession()) {
-      rememberDappReadGrant(grantedOrigin, current.selection.accountId, current.selection.networkId);
-      rememberPersistentAccess?.(grantedOrigin, current.selection.accountId, current.selection.networkId);
+      const scope: DappGrantScope = {
+        origin: grantedOrigin,
+        accountId: current.selection.accountId,
+        networkId: current.selection.networkId,
+      };
+      try {
+        // Only persist after the current session resolves its consent.
+        permissions.grant(scope);
+      } catch {
+        reply({
+          source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
+          messagedId: result.response.messagedId,
+          error: 'permission-storage-failed',
+        });
+        current.session.revoke();
+        setPermissionStorageError(true);
+        setStale(true);
+        return;
+      }
     }
     reply(result.response);
   };
@@ -323,7 +359,9 @@ export function DappBrowserScreen({
     return (
       <Screen>
         <NativeButton label={t('common.back')} onPress={close} variant="quiet" />
-        <Text style={styles.error}>{t('dapps.browser.unavailable')}</Text>
+        <Text style={styles.error}>
+          {t(permissionStorageError ? 'dapps.permission.storageFailed' : 'dapps.browser.unavailable')}
+        </Text>
       </Screen>
     );
   }

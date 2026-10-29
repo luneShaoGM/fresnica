@@ -1,5 +1,6 @@
 export { RealmBalanceCacheRepository } from './RealmBalanceCacheRepository';
 export { RealmDappCatalogRepository } from './RealmDappCatalogRepository';
+export { RealmDappPermissionStore } from './RealmDappPermissionStore';
 export { RealmAccountSignerRepository } from './RealmAccountSignerRepository';
 export { RealmLocalePreferenceStore } from './RealmLocalePreferenceStore';
 export { RealmDefaultAccountPreferenceStore } from './RealmDefaultAccountPreferenceStore';
@@ -22,6 +23,8 @@ export {
   BALANCE_CACHE_SNAPSHOT_SCHEMA,
   DAPP_CATALOG_CACHE_ENTITY,
   DAPP_CATALOG_CACHE_SCHEMA,
+  DAPP_PERMISSION_GRANT_ENTITY,
+  DAPP_PERMISSION_GRANT_SCHEMA,
   HISTORY_CACHE_SNAPSHOT_ENTITY,
   HISTORY_CACHE_SNAPSHOT_SCHEMA,
   SIGNER_ENTITY,

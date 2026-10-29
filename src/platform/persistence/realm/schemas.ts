@@ -1,6 +1,6 @@
 import type Realm from 'realm';
 
-export const WALLET_REALM_SCHEMA_VERSION = 7;
+export const WALLET_REALM_SCHEMA_VERSION = 8;
 
 export const ACCOUNT_ENTITY = 'AccountEntity';
 export const SIGNER_ENTITY = 'SignerEntity';
@@ -10,6 +10,7 @@ export const DEFAULT_ACCOUNT_PREFERENCE_ENTITY = 'DefaultAccountPreferenceEntity
 export const PENDING_SUBMISSION_ENTITY = 'PendingSubmissionEntity';
 export const BALANCE_CACHE_SNAPSHOT_ENTITY = 'BalanceCacheSnapshotEntity';
 export const DAPP_CATALOG_CACHE_ENTITY = 'DappCatalogCacheEntity';
+export const DAPP_PERMISSION_GRANT_ENTITY = 'DappPermissionGrantEntity';
 export const HISTORY_CACHE_SNAPSHOT_ENTITY = 'HistoryCacheSnapshotEntity';
 
 export const ACCOUNT_SCHEMA = {
@@ -135,6 +136,20 @@ export const DAPP_CATALOG_CACHE_SCHEMA = {
   },
 } satisfies Realm.ObjectSchema;
 
+// Independent from public catalog cache: never derive wallet consent from
+// a catalog entry, local visit history or URL itself.
+export const DAPP_PERMISSION_GRANT_SCHEMA = {
+  name: DAPP_PERMISSION_GRANT_ENTITY,
+  primaryKey: 'id',
+  properties: {
+    id: 'string',
+    networkId: 'string',
+    accountId: 'string',
+    origin: 'string',
+    createdAt: 'date',
+  },
+} satisfies Realm.ObjectSchema;
+
 export const WALLET_REALM_SCHEMAS = [
   ACCOUNT_SCHEMA,
   SIGNER_SCHEMA,
@@ -145,4 +160,5 @@ export const WALLET_REALM_SCHEMAS = [
   HISTORY_CACHE_SNAPSHOT_SCHEMA,
   BALANCE_CACHE_SNAPSHOT_SCHEMA,
   DAPP_CATALOG_CACHE_SCHEMA,
+  DAPP_PERMISSION_GRANT_SCHEMA,
 ] as const;

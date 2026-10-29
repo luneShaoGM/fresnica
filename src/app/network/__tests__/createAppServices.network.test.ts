@@ -69,6 +69,15 @@ jest.mock('../../../platform/persistence/realm', () => ({
   RealmHistoryCacheRepository: jest.fn(),
   RealmBalanceCacheRepository: jest.fn(),
   RealmDappCatalogRepository: jest.fn(() => ({ read: mockCatalogRead, replace: jest.fn() })),
+  RealmDappPermissionStore: jest.fn(() => ({
+    close: jest.fn(),
+    has: () => false,
+    grant: jest.fn(),
+    revoke: jest.fn(),
+    list: () => [],
+    subscribe: () => () => undefined,
+    getRevision: () => 0,
+  })),
   createRealmRecordId: () => 'id',
 }));
 jest.mock('../../../platform/persistence/realm/RealmNetworkPreferenceStore', () => ({

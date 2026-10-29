@@ -798,6 +798,8 @@ UI 执行策略：
 
 **2026-10-28 PR #128 安全候选（尚未合并）**：Android WebView 的 shouldOverrideUrlLoading 不覆盖 POST 主文档导航，而 onPageStarted/资源回调不能作为发送前门禁。为阻止内嵌网页在原生门禁之前向非公开地址发送 POST，Android 暂时不注册 dApp 内嵌浏览器路由，也不实例化 Freighter WebView；用户仍可在风险确认后使用系统浏览器，但该模式**没有钱包连接或签名**。iOS 内嵌流程不受这项 Android 限制。只有建立确实覆盖 POST/跳转的原生请求前网络安全边界并完成 Android 原生回归验收，才可重新启用 Android 内嵌流程；JS 和 repository 测试不能冒充此验收。
 | S17（后续） | 权限、Realm、Connected dApps | 先解决 grant/revoke 即时一致性；Catalog 不能成为自动授权依据 |
+
+**2026-10-29 S17 独立候选（未合并，堆叠于 PR #130）**：见 docs/behavior-specs/s17-dapp-permissions.md。新增钱包 Realm v8 的 origin/account/network 读权限实体，始终允许保存与失败回滚边界、Settings Connected dApps 分区管理与撤销事件即时退役；移除 Catalog 来源自动授权和进程内存持久许可。不放宽已冻结的 XDR/签名门禁。该候选只提供 repository/UI 层与 Realm 集成验证，不冒充 iOS/Android 原生用户流，且不重新启用 Android 内嵌浏览器。
 | S18–S21（后续） | Freighter、交易签名、SEP-53、Soroban、设备桥 | 统一 exact-XDR 审核与 SDK 授权，禁用普通 React State 中的 App Passphrase |
 
 本批 S14 候选尚无独立 Work 审批和双端原生产品流证据。

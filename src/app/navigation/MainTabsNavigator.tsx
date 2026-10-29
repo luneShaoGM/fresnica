@@ -233,6 +233,7 @@ function MainTabsWithSelection({
         currentSelection={currentDappSelection}
         subscribeSelection={swapSelectionStore.subscribe}
         signTransaction={dappSigner}
+        permissions={services.dappPermissions}
       />
     ),
     [
@@ -242,6 +243,7 @@ function MainTabsWithSelection({
       currentDappSelection,
       swapSelectionStore,
       dappSigner,
+      services.dappPermissions,
     ],
   );
 

@@ -20,7 +20,7 @@
 | S14 | dApp catalog/search/category/icons | dapps + Catalog ports | Adapt | clean-room | PR #123 S14 candidate, aligned with #124: public HTTPS catalog, networkProfile.id-scoped Realm v7, offline cache hydration and retired-generation request cancellation; Work exact-HEAD review, icons and native acceptance pending; no permission/browser trust | L1 partial |
 | S15 | Recent/disclaimer/custom URL | dapps + preferences | Adapt | clean-room | persistence + origin policy | L1 scaffold |
 | S16 | dApp browser/origin/navigation lifecycle | dapps + platform/dapp-browser | Adapt | clean-room | WebView/origin security | L0 |
-| S17 | dApp permissions/session/revoke | dapps/security + permission capability | Adapt | clean-room | permission contract/persistence | L0 |
+| S17 | dApp permissions/session/revoke | dapps/security + permission capability | Adapt | clean-room | Realm v8 scoped grants + Connected dApps Settings candidate (unmerged, stacked on PR #130); native acceptance and account-delete grant GC pending | L0 candidate |
 | S18 | Freighter account/network/transaction requests | dapps + Transaction/Signing | Adapt | clean-room | permission + arbitrary reviewed transaction contract | L0 |
 | S19 | SEP-53 message signing | dapps + Fresnica native | Adapt | clean-room | Native SDK 0.3.1 bridge available | L2 mechanism |
 | S20 | Soroban auth-entry request | dapps + Fresnica native | Adapt | clean-room | RN secure delivery missing | L0 blocked |
