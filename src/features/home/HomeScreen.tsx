@@ -65,13 +65,13 @@ export function HomeScreen({
   const theme = useAppTheme();
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
-  const { state: balanceState, refresh: refreshBalances } = useBalanceDisplay(
-    account,
-    balanceDependencies,
-    active,
-    invalidationRevision,
-  );
+  const {
+    state: balanceState,
+    refresh: refreshBalances,
+    verifiedInactive,
+  } = useBalanceDisplay(account, balanceDependencies, active, invalidationRevision);
   const [accountPickerVisible, setAccountPickerVisible] = useState(false);
+  const [manualRefreshing, setManualRefreshing] = useState(false);
   const [friendbotStateByAccount, setFriendbotStateByAccount] = useState<Record<string, FriendbotFundingState>>({});
   const currentAccountId = useRef(account.id);
   const friendbotRequestAccountIds = useRef<Set<string>>(new Set());
@@ -133,8 +133,11 @@ export function HomeScreen({
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
-            onRefresh={() => refreshBalances(onManualRefresh)}
-            refreshing={balanceState.kind === 'loading' || (balanceState.kind === 'ready' && balanceState.refreshing)}
+            onRefresh={() => {
+              setManualRefreshing(true);
+              void Promise.resolve(refreshBalances(onManualRefresh)).finally(() => setManualRefreshing(false));
+            }}
+            refreshing={manualRefreshing}
             tintColor={theme.colors.actionPrimary}
           />
         }
@@ -185,12 +188,15 @@ export function HomeScreen({
           </Pressable>
         </View>
 
-        <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} />
+        {balanceState.kind === 'ready' && balanceState.snapshot.status === 'inactive' && verifiedInactive ? null : (
+          <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} />
+        )}
         {renderPortfolio(
           balanceState,
           viewModel.accountAddress,
           viewModel.canFundWithFriendbot,
           visibleFriendbotState,
+          verifiedInactive === true,
           fundWithFriendbot,
           refreshBalances,
           onOpenAsset,
@@ -242,6 +248,7 @@ function renderPortfolio(
   address: string,
   friendbotAvailable: boolean,
   friendbotState: FriendbotFundingState,
+  verifiedInactive: boolean,
   onFundWithFriendbot: () => void,
   onRefresh: () => void,
   onOpenAsset: (asset: BalanceAsset) => void,
@@ -273,6 +280,7 @@ function renderPortfolio(
       <InactiveAccountPanel
         address={address}
         stale={state.stale}
+        verifiedInactive={verifiedInactive}
         friendbotAvailable={friendbotAvailable}
         friendbotState={friendbotState}
         onFundWithFriendbot={onFundWithFriendbot}

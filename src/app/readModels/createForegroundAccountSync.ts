@@ -10,6 +10,7 @@ export const ACCOUNT_SYNC_TIMING = Object.freeze({
   connect: 10000,
   probe: 8000,
   poll: 15000,
+  inactivePoll: 60000,
   health: 30000,
   retry: 2000,
   maxRetry: 60000,
@@ -59,6 +60,8 @@ export function createForegroundAccountSync(
     let cursor: string | undefined;
     let probeToken: string | undefined;
     let probeInitialized = false;
+    let inactive = false;
+    let tickTimer: ReturnType<typeof setTimeout> | undefined;
     let attempts = 0;
     let probeAgain = false;
     let probing: AbortController | undefined;
@@ -119,6 +122,35 @@ export function createForegroundAccountSync(
       Promise.race([read, expiry])
         .then(token => {
           if (!alive) return;
+          // A probe from a retired stream must not downgrade its replacement.
+          if (token === null && probeStreamVersion !== streamVersion) return;
+          if (token === null) {
+            const newlyInactive = !inactive;
+            inactive = true;
+            streamVersion += 1;
+            cancel(connectTimer);
+            connectTimer = undefined;
+            cancel(retryTimer);
+            retryTimer = undefined;
+            stopStream();
+            stopStream = () => {};
+            publish('inactive');
+            cancel(tickTimer);
+            tickTimer = later(tick, ACCOUNT_SYNC_TIMING.inactivePoll);
+            if (newlyInactive) dirty();
+            probeInitialized = true;
+            probeToken = undefined;
+            return;
+          }
+          if (inactive) {
+            inactive = false;
+            cancel(tickTimer);
+            tickTimer = later(tick, ACCOUNT_SYNC_TIMING.poll);
+            probeInitialized = false;
+            probeToken = undefined;
+            dirty();
+            connect();
+          }
           // A newer REST checkpoint absent from the live stream reveals silent loss.
           if (
             probeInitialized &&
@@ -131,7 +163,7 @@ export function createForegroundAccountSync(
           probeInitialized = true;
           probeToken = token;
           // Even unchanged effects must retry an earlier failed/delayed display read.
-          dirty();
+          if (!inactive) dirty();
         })
         .catch(() => {
           if (!alive) return;
@@ -149,7 +181,7 @@ export function createForegroundAccountSync(
         });
     };
     const fail = (version: number, resetCursor = false) => {
-      if (!alive || version !== streamVersion) return;
+      if (!alive || version !== streamVersion || inactive) return;
       streamVersion += 1;
       cancel(connectTimer);
       connectTimer = undefined;
@@ -171,7 +203,7 @@ export function createForegroundAccountSync(
       }
     };
     const connect = () => {
-      if (!alive) return;
+      if (!alive || inactive) return;
       const version = ++streamVersion;
       if (snapshot.mode !== 'polling') publish('connecting');
       connectTimer = later(() => fail(version), ACCOUNT_SYNC_TIMING.connect);
@@ -208,11 +240,15 @@ export function createForegroundAccountSync(
     let liveTicks = 0;
     const tick = () => {
       // Keep the fallback cadence independent of when the stream last failed.
-      if (snapshot.mode !== 'live' || ++liveTicks >= ACCOUNT_SYNC_TIMING.health / ACCOUNT_SYNC_TIMING.poll) {
+      if (
+        inactive ||
+        snapshot.mode !== 'live' ||
+        ++liveTicks >= ACCOUNT_SYNC_TIMING.health / ACCOUNT_SYNC_TIMING.poll
+      ) {
         liveTicks = 0;
         probe();
       }
-      later(tick, ACCOUNT_SYNC_TIMING.poll);
+      tickTimer = later(tick, inactive ? ACCOUNT_SYNC_TIMING.inactivePoll : ACCOUNT_SYNC_TIMING.poll);
     };
     stopSession = () => {
       if (!alive) return;
@@ -226,7 +262,7 @@ export function createForegroundAccountSync(
     publish('connecting');
     connect();
     if (!probing) probe();
-    later(tick, ACCOUNT_SYNC_TIMING.poll);
+    tickTimer = later(tick, ACCOUNT_SYNC_TIMING.poll);
   }
   const unsubscribe = deps.runtime.subscribe(restart);
   const unsubscribeNode = deps.node?.subscribe(restart);

@@ -14,9 +14,14 @@ export function useBalanceDisplay(
   dependencies: BalanceProductDependencies,
   active: boolean,
   invalidationRevision: number,
-) {
+): {
+  state: BalanceDisplayState;
+  refresh: (beforeLoad?: () => Promise<unknown>) => Promise<void> | undefined;
+  verifiedInactive?: boolean;
+} {
   const [state, setState] = useState<BalanceDisplayState>({ kind: 'loading' });
   const version = useRef(0);
+  const verifiedInactivePartition = useRef<string | undefined>(undefined);
   const enabled = useRef(active);
   const partition = JSON.stringify([dependencies.networkId, account.networkId, account.address, account.identityKind]);
   const displayedPartition = useRef(partition);
@@ -27,6 +32,7 @@ export function useBalanceDisplay(
       const request = ++version.current;
       const changed = displayedPartition.current !== partition;
       displayedPartition.current = partition;
+      if (changed) verifiedInactivePartition.current = undefined;
       const cached =
         dependencies.networkId === account.networkId ? readBalanceCacheBestEffort(dependencies, account) : undefined;
       setState(current => startBalanceRefresh(changed ? { kind: 'loading' } : current, cached));
@@ -35,13 +41,14 @@ export function useBalanceDisplay(
             .then(beforeLoad)
             .catch(() => undefined)
         : Promise.resolve();
-      void before
+      return before
         .then(async () => {
           if (version.current !== request) return;
           const snapshot = await loadBalanceSnapshot(dependencies, account);
           if (version.current !== request) return;
           const updatedAt = dependencies.now();
           cacheBalanceSnapshotBestEffort(dependencies, account, snapshot, updatedAt);
+          verifiedInactivePartition.current = snapshot.status === 'inactive' ? partition : undefined;
           setState({
             kind: 'ready',
             snapshot,
@@ -75,6 +82,7 @@ export function useBalanceDisplay(
 
   return {
     state: displayedPartition.current === partition ? state : ({ kind: 'loading' } as BalanceDisplayState),
+    verifiedInactive: verifiedInactivePartition.current === partition,
     refresh,
   };
 }

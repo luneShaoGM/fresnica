@@ -112,7 +112,7 @@ describe('Horizon Effects SSE adapter', () => {
     const s = setup();
     const controller = new AbortController();
     s.http.mockResolvedValueOnce({ status: 404 });
-    await expect(s.gateway.latest('G+ACCOUNT', controller.signal)).resolves.toBeUndefined();
+    await expect(s.gateway.latest('G+ACCOUNT', controller.signal)).resolves.toBeNull();
     expect(s.http).toHaveBeenCalledWith('https://horizon.test/accounts/G%2BACCOUNT/effects?order=desc&limit=1', {
       signal: controller.signal,
     });

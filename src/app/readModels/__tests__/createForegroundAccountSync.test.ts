@@ -180,6 +180,7 @@ describe('selected-account foreground sync', () => {
     expect(s.streams[0].stop).toHaveBeenCalledTimes(1);
     jest.advanceTimersByTime(timing.retry);
     s.streams[1].onOpen();
+    s.streams[1].onEffect('created');
     await settle();
     expect(s.sync.getSnapshot().mode).toBe('live');
     s.sync.close();
@@ -440,6 +441,74 @@ describe('selected-account foreground sync', () => {
     expect(loadAccountBalances).toHaveBeenCalledTimes(2);
     s.sync.close();
   });
+  it('quietly checks confirmed missing accounts at 60 seconds and restores live sync on funding', async () => {
+    const s = setup();
+    s.latest.mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce('created');
+    s.sync.setAccount(account());
+    await settle();
+    expect(s.sync.getSnapshot().mode).toBe('inactive');
+    expect(s.streams[0].stop).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(timing.coalesce);
+    const firstRevision = s.revision();
+    jest.advanceTimersByTime(59000);
+    await settle();
+    expect(s.latest).toHaveBeenCalledTimes(1);
+    expect(s.revision()).toBe(firstRevision);
+    expect(s.streams).toHaveLength(1);
+    jest.advanceTimersByTime(1000);
+    await settle();
+    expect(s.latest).toHaveBeenCalledTimes(2);
+    expect(s.sync.getSnapshot().mode).toBe('inactive');
+    jest.advanceTimersByTime(60000);
+    await settle();
+    expect(s.latest).toHaveBeenCalledTimes(3);
+    expect(s.streams).toHaveLength(2);
+    s.latest.mockResolvedValue('created');
+    s.streams[1].onOpen();
+    s.streams[1].onEffect('created');
+    await settle();
+    jest.advanceTimersByTime(timing.coalesce);
+    expect(s.sync.getSnapshot().mode).toBe('live');
+    expect(s.revision()).toBeGreaterThan(firstRevision);
+    s.sync.close();
+  });
+
+  it('invalidates once when a previously live account becomes missing, then remains silent', async () => {
+    const s = setup();
+    s.latest.mockResolvedValueOnce('initial').mockResolvedValueOnce('initial').mockResolvedValue(null);
+    s.sync.setAccount(account());
+    await settle();
+    s.streams[0].onOpen();
+    await settle();
+    jest.advanceTimersByTime(timing.coalesce);
+    const before = s.revision();
+    jest.advanceTimersByTime(timing.health);
+    await settle();
+    jest.advanceTimersByTime(timing.coalesce);
+    expect(s.sync.getSnapshot().mode).toBe('inactive');
+    expect(s.revision()).toBe(before + 1);
+    const checked = s.latest.mock.calls.length;
+    jest.advanceTimersByTime(60000);
+    await settle();
+    jest.advanceTimersByTime(timing.coalesce);
+    expect(s.latest).toHaveBeenCalledTimes(checked + 1);
+    expect(s.revision()).toBe(before + 1);
+    s.sync.close();
+  });
+
+  it('does not classify a funded account with an empty effects collection as inactive', async () => {
+    const s = setup();
+    s.sync.setAccount(account());
+    await settle();
+    s.streams[0].onOpen();
+    await settle();
+    expect(s.sync.getSnapshot().mode).toBe('live');
+    jest.advanceTimersByTime(timing.poll);
+    await settle();
+    expect(s.sync.getSnapshot().mode).toBe('live');
+    s.sync.close();
+  });
+
   it('keeps inactive accounts polling until their first funding creates effects', async () => {
     const s = setup();
     s.sync.setAccount(account());
