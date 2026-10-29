@@ -89,3 +89,7 @@ Verification: final `npm run check` 168 suites / 1354 tests passed, lint 0 error
 The native path run used APK `e42c14bfc31f9b19d98e2547e067ffdbd59d70c1c84a8a15f3e6ee6db0727c79`; final follow-up only hoists the empty-tab-bar render callback to a stable function and is checked separately on restart. Existing isolated-build/shared-dependency limits apply. All-hidden partitions and the transition to a visible-account shell have unit coverage; native account creation/unhide was not exercised; iOS, real-device and readers remain unaccepted. No schema, ledger or signing change; no S24 L4 upgrade.
 
 Final stable-callback APK SHA-256 `4a66f5a5126a4824c91e25da0a2036b63169cf1b28a52ca7633799cc5d46c097`: restart confirmed all bottom navigation labels present. Temporary Android entry restored exactly; no tracked native source diff.
+
+## Product closure correction after wallet/network parity feedback
+
+The blank-screen/tab fixes and their passing tests do not settle the Classic wallet continuity model. The user's expected Stellar flow retains a G-address wallet and changes current-network ledger details/activation; Home's switch entry also remains unwired. The implemented empty-target-partition behavior is not final parity acceptance. See the cross-cutting account/network re-audit at the end of `shared-auth-network-session.md` for pinned source evidence, consumer/lifecycle risks and the original task 3 exit matrix. No runtime or storage policy is changed by this documentation audit.
