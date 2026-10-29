@@ -101,7 +101,11 @@ export function HomeStackNavigator({
               invalidationRevision={invalidationRevision}
             />
             {networkSwitchVisible && services.networkSettings ? (
-              <NetworkSwitchModal settings={services.networkSettings} onClose={closeNetworkSwitch} />
+              <NetworkSwitchModal
+                settings={services.networkSettings}
+                monitor={services.nodeReadSession}
+                onClose={closeNetworkSwitch}
+              />
             ) : null}
           </>
         )}

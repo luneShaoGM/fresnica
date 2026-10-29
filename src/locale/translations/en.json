@@ -800,5 +800,15 @@
   "settings.connection": "Connection",
   "settings.networkId": "Network ID",
   "settings.readOnlyNetwork": "Read-only network profile",
-  "networkManage.prompt.enable-warning": "Developer Mode exposes Testnet and custom nodes. Only add nodes you trust. Continue to authenticate with your App Passphrase."
+  "networkManage.prompt.enable-warning": "Developer Mode exposes Testnet and custom nodes. Only add nodes you trust. Continue to authenticate with your App Passphrase.",
+  "networkSwitch.title": "Networks",
+  "networkSwitch.close": "Close",
+  "networkSwitch.testNetworks": "Test networks",
+  "networkSwitch.useNetwork": "Use network",
+  "networkSwitch.endpoints": "Horizon endpoints for {{network}}",
+  "networkSwitch.addEndpoint": "Add Horizon endpoint",
+  "networkSwitch.notTested": "Not tested",
+  "networkSwitch.added": "Node added. Use it now?",
+  "networkSwitch.useNow": "Use now",
+  "networkSwitch.notNow": "Not now"
 }

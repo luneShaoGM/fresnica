@@ -800,5 +800,15 @@
   "settings.connection": "連線",
   "settings.networkId": "網路 ID",
   "settings.readOnlyNetwork": "唯讀網路設定",
-  "networkManage.prompt.enable-warning": "開發者模式會開放測試網路和自訂節點。僅新增你信任的節點。繼續後需驗證應用程式密碼。"
+  "networkManage.prompt.enable-warning": "開發者模式會開放測試網路和自訂節點。僅新增你信任的節點。繼續後需驗證應用程式密碼。",
+  "networkSwitch.title": "網路",
+  "networkSwitch.close": "關閉",
+  "networkSwitch.testNetworks": "測試網路",
+  "networkSwitch.useNetwork": "使用網路",
+  "networkSwitch.endpoints": "{{network}} 的 Horizon 節點",
+  "networkSwitch.addEndpoint": "新增 Horizon 節點",
+  "networkSwitch.notTested": "尚未測試",
+  "networkSwitch.added": "節點已新增。現在使用？",
+  "networkSwitch.useNow": "現在使用",
+  "networkSwitch.notNow": "暫不使用"
 }

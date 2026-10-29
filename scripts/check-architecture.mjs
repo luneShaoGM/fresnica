@@ -16,6 +16,7 @@ const strictPresentationScopes = [
   'src/features/settings/NetworkSettingsScreen',
   'src/features/settings/NetworkNodeHealth',
   'src/features/settings/NetworkManagement',
+  'src/features/settings/NetworkSwitchModal',
   'src/features/settings/SettingsHomeScreen',
   'src/features/settings/SettingsSubpage',
   'src/features/settings/GeneralSettingsScreen',

@@ -800,5 +800,15 @@
   "settings.connection": "连接",
   "settings.networkId": "网络 ID",
   "settings.readOnlyNetwork": "只读网络配置",
-  "networkManage.prompt.enable-warning": "开发者模式会开放测试网和自定义节点。仅添加你信任的节点。继续后需验证应用口令。"
+  "networkManage.prompt.enable-warning": "开发者模式会开放测试网和自定义节点。仅添加你信任的节点。继续后需验证应用口令。",
+  "networkSwitch.title": "网络",
+  "networkSwitch.close": "关闭",
+  "networkSwitch.testNetworks": "测试网络",
+  "networkSwitch.useNetwork": "使用网络",
+  "networkSwitch.endpoints": "{{network}} 的 Horizon 节点",
+  "networkSwitch.addEndpoint": "添加 Horizon 节点",
+  "networkSwitch.notTested": "尚未测试",
+  "networkSwitch.added": "节点已添加。现在使用？",
+  "networkSwitch.useNow": "现在使用",
+  "networkSwitch.notNow": "暂不使用"
 }
