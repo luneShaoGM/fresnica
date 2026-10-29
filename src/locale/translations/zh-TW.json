@@ -12,6 +12,8 @@
   "nav.send": "傳送",
   "nav.swap": "兌換",
   "nav.request": "收款",
+  "nav.emptyNetworkTitle": "目前網路沒有可見帳戶",
+  "nav.emptyNetworkMessage": "請新增帳戶或管理隱藏帳戶後使用此網路。其他網路的帳戶保留在原有分區。",
   "nav.comingSoon": "即將推出",
   "activity.title": "活動",
   "activity.refresh": "重新整理活動",

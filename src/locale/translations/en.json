@@ -12,6 +12,8 @@
   "nav.send": "Send",
   "nav.swap": "Swap",
   "nav.request": "Request",
+  "nav.emptyNetworkTitle": "No visible accounts on this network",
+  "nav.emptyNetworkMessage": "Add an account or manage hidden accounts to use this network. Accounts on other networks stay in their original partitions.",
   "nav.comingSoon": "Coming soon",
   "activity.title": "Activity",
   "activity.refresh": "Refresh activity",

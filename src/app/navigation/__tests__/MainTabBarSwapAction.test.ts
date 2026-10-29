@@ -46,7 +46,7 @@ function findPressable(node: React.ReactNode, label: string): React.ReactElement
 function renderSwap(
   enabled: boolean,
   syncMode?: MainTabBarProps['syncMode'],
-  node: Partial<Pick<MainTabBarProps, 'nodePhase' | 'nodeFailure' | 'onRetryNode'>> = {},
+  node: Partial<Pick<MainTabBarProps, 'nodePhase' | 'nodeFailure' | 'onRetryNode' | 'selectedAccountId'>> = {},
 ) {
   const navigate = jest.fn();
   const props = {
@@ -150,3 +150,16 @@ it.each([
     }
   },
 );
+
+it('keeps the empty-network bar visible but blocks Actions even if an availability flag is stale', () => {
+  mockPresentOverlay.mockClear();
+  const { root, navigate } = renderSwap(true, undefined, { selectedAccountId: undefined });
+  for (const label of ['nav.home', 'nav.activity', 'nav.dapps', 'nav.settings']) {
+    expect(findPressable(root, label)).toBeDefined();
+  }
+  const actions = findPressable(root, 'nav.actions');
+  expect(actions?.props.disabled).toBe(true);
+  actions?.props.onPress?.();
+  expect(mockPresentOverlay).not.toHaveBeenCalled();
+  expect(navigate).not.toHaveBeenCalled();
+});

@@ -12,6 +12,8 @@
   "nav.send": "发送",
   "nav.swap": "兑换",
   "nav.request": "收款",
+  "nav.emptyNetworkTitle": "当前网络没有可见账户",
+  "nav.emptyNetworkMessage": "请添加账户或管理隐藏账户后使用此网络。其他网络的账户保留在原有分区。",
   "nav.comingSoon": "即将推出",
   "activity.title": "活动",
   "activity.refresh": "刷新活动",
