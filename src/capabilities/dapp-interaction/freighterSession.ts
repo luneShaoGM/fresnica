@@ -98,20 +98,74 @@ function isRequest(value: unknown): value is BridgeRequest {
   if (typeof record.type !== 'string' || !REQUEST_TYPES.has(record.type)) return false;
   for (const key of Object.keys(record)) {
     if (key === 'source' || key === 'messageId' || key === 'type') continue;
+    const field = record[key];
+    if (record.type === 'SUBMIT_TOKEN' && key === 'decimals') {
+      if (typeof field !== 'number' || !Number.isInteger(field) || field < 0 || field > 18) return false;
+      continue;
+    }
+    if (record.type === 'SUBMIT_TOKEN' && key === 'assetType') {
+      if (field !== 'classic' && field !== 'soroban') return false;
+      continue;
+    }
     const limit = fieldLimit(record.type, key);
     if (limit === undefined) return false;
-    const field = record[key];
-    if (typeof field !== 'string' || field.length === 0 || field.length > limit) return false;
+    if (typeof field !== 'string' || field.length > limit) return false;
+    if (
+      (requiredField(record.type, key) || COMMON_FIELDS.has(key) || record.type === 'SUBMIT_TRANSACTION') &&
+      field.length === 0
+    )
+      return false;
     if (key === 'transactionXdr' && !isPaddedBase64(field)) return false;
   }
   if (record.type === 'SUBMIT_TRANSACTION' && typeof record.transactionXdr !== 'string') return false;
+  if (record.type === 'SUBMIT_TOKEN' && typeof record.contractId !== 'string') return false;
+  if (record.type === 'SUBMIT_BLOB' && (typeof record.blob !== 'string' || typeof record.apiVersion !== 'string'))
+    return false;
+  if (
+    record.type === 'SUBMIT_AUTH_ENTRY' &&
+    (typeof record.entryXdr !== 'string' || typeof record.apiVersion !== 'string')
+  )
+    return false;
   return true;
+}
+
+function requiredField(type: string, key: string): boolean {
+  return (
+    (type === 'SUBMIT_TRANSACTION' && key === 'transactionXdr') ||
+    (type === 'SUBMIT_TOKEN' && key === 'contractId') ||
+    (type === 'SUBMIT_BLOB' && (key === 'blob' || key === 'apiVersion')) ||
+    (type === 'SUBMIT_AUTH_ENTRY' && (key === 'entryXdr' || key === 'apiVersion'))
+  );
 }
 
 function fieldLimit(type: string, key: string): number | undefined {
   if (COMMON_FIELDS.has(key)) return key === 'networkPassphrase' ? 256 : 128;
-  if (type === 'SUBMIT_TRANSACTION' && key === 'transactionXdr') return MAX_TRANSACTION_XDR_LENGTH;
-  if (type === 'SUBMIT_TRANSACTION' && key === 'network') return 64;
+  if (type === 'SUBMIT_TRANSACTION') {
+    if (key === 'transactionXdr') return MAX_TRANSACTION_XDR_LENGTH;
+    if (key === 'network') return 64;
+  }
+  if (type === 'SUBMIT_TOKEN') {
+    switch (key) {
+      case 'contractId':
+      case 'issuer':
+        return 128;
+      case 'assetCode':
+      case 'symbol':
+        return 32;
+      case 'iconUrl':
+        return 2048;
+      case 'name':
+        return 256;
+    }
+  }
+  if (type === 'SUBMIT_BLOB') {
+    if (key === 'blob') return 131_072;
+    if (key === 'apiVersion') return 32;
+  }
+  if (type === 'SUBMIT_AUTH_ENTRY') {
+    if (key === 'entryXdr') return MAX_TRANSACTION_XDR_LENGTH;
+    if (key === 'apiVersion') return 32;
+  }
   return undefined;
 }
 

@@ -834,7 +834,7 @@ Realm v7 增量实体保持原方案，不迁移账户、授权或含 token 的�
 - Freighter request access/public key/network/user info。
 - transaction XDR 与 Soroban auth entry request。
 - SEP-53 message signing。
-- 为 Freighter/browser command 建立逐方法矩阵：请求参数、响应版本、origin/account/network binding、权限 scope、取消/错误、是否需要签名、是否依赖 backend；不能用“数据互通”四个字替代验收。
+- 为 Freighter/browser command 建立逐方法矩阵：请求参数、响应版本、origin/account/network binding、权限 scope、取消/错误、是否需要签名、是否依赖 backend；不能用“数据互通”四个字替代验收。第一版候选见 `docs/s18-freighter-bridge-compatibility-matrix.md`，按 PR #128 当前未合并基线增量推进，不将未实现的命令宣称为兼容完成。
 - 浏览器分享、剪贴板、相机/扫码、文件、外链和系统权限均通过受控 Platform port；前后台、账户切换、网络切换和 navigation race 必须使不再有效的请求/permission 失效。
 - Connected dApps Settings。
 - dApp transaction 进入统一 review/sign/submit，不能直接调用 Native 签名。
