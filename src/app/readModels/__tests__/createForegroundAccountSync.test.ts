@@ -513,21 +513,74 @@ describe('selected-account foreground sync', () => {
     expect(jest.getTimerCount()).toBe(0);
   });
 
-  it('does not carry unacknowledged event evidence into a replacement stream', async () => {
+  it.each(['failed', 'cursor-rejected', 'background', 'offline'] as const)(
+    'retains account existence evidence across %s until authoritative removal',
+    async reason => {
+      const s = setup();
+      s.sync.setAccount(account());
+      await settle();
+      s.streams[0].onOpen();
+      await settle();
+      s.streams[0].onEffect('created');
+      s.latest.mockResolvedValue(null);
+      if (reason === 'background') {
+        s.runtime.update({ foreground: false, connectivity: 'online' });
+        s.runtime.update({ foreground: true, connectivity: 'online' });
+      } else if (reason === 'offline') {
+        s.runtime.update({ foreground: true, connectivity: 'offline' });
+        s.runtime.update({ foreground: true, connectivity: 'online' });
+      } else {
+        s.streams[0].onFailure(reason);
+        await settle();
+        jest.advanceTimersByTime(timing.retry);
+      }
+      s.streams[1].onOpen();
+      await settle();
+      expect(s.confirmMissing).toHaveBeenCalledWith('Ga');
+      expect(s.sync.getSnapshot().mode).toBe('live');
+      expect(s.streams[1].stop).not.toHaveBeenCalled();
+      for (let i = 0; i < 3; i++) {
+        const confirmations = s.confirmMissing.mock.calls.length;
+        jest.advanceTimersByTime(timing.health);
+        await settle();
+        expect(s.confirmMissing.mock.calls.length).toBeGreaterThan(confirmations);
+        expect(s.sync.getSnapshot().mode).toBe('live');
+        expect(s.streams[1].stop).not.toHaveBeenCalled();
+      }
+      const before = s.revision();
+      s.streams[1].onEffect('new-payment');
+      jest.advanceTimersByTime(timing.coalesce);
+      expect(s.revision()).toBeGreaterThan(before);
+      s.confirmMissing.mockResolvedValue(true);
+      jest.advanceTimersByTime(timing.health);
+      await settle();
+      expect(s.sync.getSnapshot().mode).toBe('inactive');
+      expect(s.streams[1].stop).toHaveBeenCalledTimes(1);
+      const confirmations = s.confirmMissing.mock.calls.length;
+      jest.advanceTimersByTime(timing.inactivePoll);
+      await settle();
+      expect(s.confirmMissing).toHaveBeenCalledTimes(confirmations);
+      s.sync.close();
+      expect(jest.getTimerCount()).toBe(0);
+    },
+  );
+
+  it('does not transfer account existence evidence across selection changes, including A→B→A', async () => {
     const s = setup();
     s.sync.setAccount(account());
     await settle();
     s.streams[0].onOpen();
     await settle();
     s.streams[0].onEffect('created');
-    s.streams[0].onFailure('failed');
-    await settle();
-    jest.advanceTimersByTime(timing.retry);
     s.latest.mockResolvedValue(null);
-    s.streams[1].onOpen();
+    s.sync.setAccount(account('b'));
     await settle();
-    expect(s.sync.getSnapshot().mode).toBe('inactive');
-    expect(s.streams[1].stop).toHaveBeenCalledTimes(1);
+    expect(s.sync.getSnapshot()).toEqual({ accountId: 'b', mode: 'inactive' });
+    expect(s.confirmMissing).not.toHaveBeenCalled();
+    s.sync.setAccount(account());
+    await settle();
+    expect(s.sync.getSnapshot()).toEqual({ accountId: 'a', mode: 'inactive' });
+    expect(s.confirmMissing).not.toHaveBeenCalled();
     s.sync.close();
     expect(jest.getTimerCount()).toBe(0);
   });

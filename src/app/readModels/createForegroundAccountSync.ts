@@ -32,6 +32,7 @@ export function createForegroundAccountSync(
   }>,
 ) {
   let selected: Target | undefined;
+  let accountHasEffects = false;
   let snapshot: Snapshot = Object.freeze({ mode: 'paused' });
   const listeners = new Set<() => void>();
   let closed = false;
@@ -60,7 +61,6 @@ export function createForegroundAccountSync(
     let stopStream = () => {};
     let cursor: string | undefined;
     let effectRevision = 0;
-    let streamHasEffects = false;
     let probeToken: string | undefined;
     let probeInitialized = false;
     let inactive = false;
@@ -129,7 +129,7 @@ export function createForegroundAccountSync(
           if (token === null) {
             // A missing checkpoint must not override a newer connection or delivered effect.
             if (probeStreamVersion !== streamVersion || probeEffectRevision !== effectRevision) return;
-            if (streamHasEffects) {
+            if (accountHasEffects) {
               const missing = await Promise.race([deps.confirmMissing(account.address), expiry]);
               if (
                 !alive ||
@@ -143,6 +143,7 @@ export function createForegroundAccountSync(
                 return;
               }
             }
+            accountHasEffects = false;
             const newlyInactive = !inactive;
             inactive = true;
             streamVersion += 1;
@@ -223,7 +224,6 @@ export function createForegroundAccountSync(
     const connect = () => {
       if (!alive || inactive) return;
       const version = ++streamVersion;
-      streamHasEffects = false;
       if (snapshot.mode !== 'polling') publish('connecting');
       connectTimer = later(() => fail(version), ACCOUNT_SYNC_TIMING.connect);
       try {
@@ -245,7 +245,7 @@ export function createForegroundAccountSync(
             attempts = 0;
             cursor = token;
             effectRevision += 1;
-            streamHasEffects = true;
+            accountHasEffects = true;
             seen.add(token);
             if (seen.size > 512) seen.delete(seen.values().next().value!);
             dirty();
@@ -302,12 +302,14 @@ export function createForegroundAccountSync(
           ? account
           : undefined;
       if (selected?.id === next?.id && selected?.address === next?.address) return;
+      accountHasEffects = false;
       selected = next;
       restart();
     },
     close() {
       if (closed) return;
       closed = true;
+      accountHasEffects = false;
       stopSession();
       unsubscribe();
       unsubscribeNode?.();

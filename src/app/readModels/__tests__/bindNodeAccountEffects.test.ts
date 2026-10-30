@@ -14,7 +14,7 @@ afterEach(() => {
   jest.clearAllTimers();
   jest.useRealTimers();
 });
-it('pauses streams, polling and local retries through shared node cooldown, then reconnects on node recovery', async () => {
+it('preserves account existence evidence across node cooldown and endpoint recovery', async () => {
   const runtime = createLedgerReadRuntime();
   const probe = jest.fn(async () => 'network');
   const node = createNodeReadSession({
@@ -28,7 +28,10 @@ it('pauses streams, polling and local retries through shared node cooldown, then
   await settle();
   const streams: Array<Parameters<AccountEffectsPort['open']>[0]> = [];
   const stop = jest.fn();
-  const latest = jest.fn(async () => undefined);
+  const latest = jest
+    .fn<ReturnType<AccountEffectsPort['latest']>, Parameters<AccountEffectsPort['latest']>>()
+    .mockResolvedValue(undefined);
+  const confirmMissing = jest.fn(async (_address: string) => node.run(async () => false));
   const create = jest.fn((): AccountEffectsPort => ({
     latest,
     open: input => {
@@ -37,7 +40,7 @@ it('pauses streams, polling and local retries through shared node cooldown, then
     },
   }));
   const sync = createForegroundAccountSync({
-    confirmMissing: async () => false,
+    confirmMissing,
     runtime,
     node,
     effects: bindNodeAccountEffects(node, create),
@@ -50,6 +53,8 @@ it('pauses streams, polling and local retries through shared node cooldown, then
   await settle();
   streams[0].onOpen();
   await settle();
+  streams[0].onEffect('created');
+  latest.mockResolvedValue(null);
   streams[0].onFailure('failed', new NodeReadError('rate-limited', 120000));
   await settle();
   expect(node.getSnapshot().phase).toBe('cooldown');
@@ -63,10 +68,17 @@ it('pauses streams, polling and local retries through shared node cooldown, then
   expect(node.getSnapshot().phase).toBe('healthy');
   expect(streams).toHaveLength(2);
   streams[1].onOpen();
+  await settle();
+  expect(confirmMissing).toHaveBeenCalledWith('Ga');
   expect(sync.getSnapshot().mode).toBe('live');
   node.replaceEndpoint('https://second.test');
   await settle();
   expect(create).toHaveBeenLastCalledWith('https://second.test');
+  const confirmations = confirmMissing.mock.calls.length;
+  streams[2].onOpen();
+  await settle();
+  expect(confirmMissing.mock.calls.length).toBeGreaterThan(confirmations);
+  expect(sync.getSnapshot().mode).toBe('live');
   streams[0].onFailure('failed', new NodeReadError('rate-limited', 999999));
   expect(node.getSnapshot().phase).toBe('healthy');
   sync.close();
