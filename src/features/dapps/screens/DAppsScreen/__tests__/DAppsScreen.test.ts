@@ -152,6 +152,7 @@ type NodeProps = Readonly<{
   secureTextEntry?: boolean;
   onPress?: () => void;
   onChangeText?: (value: string) => void;
+  onSubmitEditing?: () => void;
   disabled?: boolean;
   visible?: boolean;
   closeLabel?: string;
@@ -180,6 +181,12 @@ function elements(node: React.ReactNode) {
   const found: React.ReactElement<NodeProps>[] = [];
   walk(node, element => found.push(element));
   return found;
+}
+
+function openUrlSheetFrom(nodes: ReturnType<typeof elements>) {
+  const launcher = nodes.find(node => node.props.accessibilityLabel === 'dapps.website.customTitle');
+  expect(launcher).toBeDefined();
+  launcher?.props.onPress?.();
 }
 
 describe('DAppsScreen native field and retry', () => {
@@ -375,9 +382,68 @@ describe('S15 untrusted URL risk confirmation and in-session Recent', () => {
     expect(openExternalUrl).not.toHaveBeenCalled();
   });
 
+  it('ignores a queued keyboard Go callback after the URL sheet is cancelled', async () => {
+    await renderCatalog(catalog);
+    websiteNodes()
+      .find(node => node.props.accessibilityLabel === 'dapps.website.customTitle')
+      ?.props.onPress?.();
+    websiteNodes()
+      .find(node => node.props.accessibilityLabel === 'dapps.website.input')
+      ?.props.onChangeText?.('https://example.org/path');
+
+    const pending = websiteNodes();
+    const lateGo = pending.find(node => node.props.accessibilityLabel === 'dapps.website.input')?.props.onSubmitEditing;
+    expect(lateGo).toBeDefined();
+    pending.find(node => node.props.closeLabel === 'dapps.website.cancel')?.props.onClose?.();
+    lateGo?.();
+
+    const after = websiteNodes();
+    expect(after.find(node => node.props.closeLabel === 'dapps.website.cancel')?.props.visible).toBe(false);
+    expect(after.some(node => node.props.children === 'dapps.website.unreviewed')).toBe(false);
+    expect(openExternalUrl).not.toHaveBeenCalled();
+  });
+
+  it('rejects stale Go from a closed sheet even after another sheet is opened', async () => {
+    await renderCatalog(catalog);
+    websiteNodes()
+      .find(node => node.props.accessibilityLabel === 'dapps.website.customTitle')
+      ?.props.onPress?.();
+    websiteNodes()
+      .find(node => node.props.accessibilityLabel === 'dapps.website.input')
+      ?.props.onChangeText?.('https://old.example/path');
+
+    const pending = websiteNodes();
+    const lateGo = pending.find(node => node.props.accessibilityLabel === 'dapps.website.input')?.props.onSubmitEditing;
+    const lateText = pending.find(node => node.props.accessibilityLabel === 'dapps.website.input')?.props.onChangeText;
+    pending.find(node => node.props.closeLabel === 'dapps.website.cancel')?.props.onClose?.();
+
+    websiteNodes()
+      .find(node => node.props.accessibilityLabel === 'dapps.website.customTitle')
+      ?.props.onPress?.();
+    lateGo?.();
+    lateText?.('https://old.example/stale');
+
+    const after = websiteNodes();
+    expect(after.find(node => node.props.closeLabel === 'dapps.website.cancel')?.props.visible).toBe(true);
+    expect(after.find(node => node.props.accessibilityLabel === 'dapps.website.input')?.props.value).toBe('');
+    expect(after.some(node => node.props.children === 'dapps.website.unreviewed')).toBe(false);
+    expect(openExternalUrl).not.toHaveBeenCalled();
+
+    after
+      .find(node => node.props.accessibilityLabel === 'dapps.website.input')
+      ?.props.onChangeText?.('https://new.example/path');
+    websiteNodes()
+      .find(node => node.props.accessibilityLabel === 'dapps.website.input')
+      ?.props.onSubmitEditing?.();
+    const reviewed = websiteNodes();
+    expect(reviewed.some(node => node.props.children === 'https://new.example')).toBe(true);
+    expect(openExternalUrl).not.toHaveBeenCalled();
+  });
+
   it('never opens user URL on typing or preview, and Cancel discards the proposed origin', async () => {
     const initial = elements(await renderCatalog(catalog));
-    const input = initial.find(
+    openUrlSheetFrom(initial);
+    const input = websiteNodes().find(
       node => node.type === 'Field' && node.props.accessibilityLabel === 'dapps.website.input',
     );
     input?.props.onChangeText?.('https://EXAMPLE.org/asset?a=1');
@@ -399,7 +465,8 @@ describe('S15 untrusted URL risk confirmation and in-session Recent', () => {
 
   it('explains the Android fail-closed policy while retaining the consented device-browser option', async () => {
     const first = elements(await renderCatalog(catalog));
-    first
+    openUrlSheetFrom(first);
+    websiteNodes()
       .find(node => node.props.accessibilityLabel === 'dapps.website.input')
       ?.props.onChangeText?.('https://example.org/');
     websiteNodes()
@@ -421,7 +488,8 @@ describe('S15 untrusted URL risk confirmation and in-session Recent', () => {
 
   it('fails closed for non-HTTPS input without creating a browser route', async () => {
     const initial = elements(await renderCatalog(catalog));
-    const input = initial.find(
+    openUrlSheetFrom(initial);
+    const input = websiteNodes().find(
       node => node.type === 'Field' && node.props.accessibilityLabel === 'dapps.website.input',
     );
     input?.props.onChangeText?.('java' + 'script:alert(1)');
@@ -437,7 +505,8 @@ describe('S15 untrusted URL risk confirmation and in-session Recent', () => {
   it('handles external browser failure, retains consent review and blocks double-open', async () => {
     openExternalUrl.mockRejectedValueOnce(new Error('os-browser-unavailable')).mockResolvedValueOnce(undefined);
     const initial = elements(await renderCatalog(catalog));
-    initial
+    openUrlSheetFrom(initial);
+    websiteNodes()
       .find(node => node.type === 'Field' && node.props.accessibilityLabel === 'dapps.website.input')
       ?.props.onChangeText?.('https://example.org/path');
     websiteNodes()
@@ -464,7 +533,8 @@ describe('S15 untrusted URL risk confirmation and in-session Recent', () => {
 
   it('opens only after explicit approval and records the origin in session-only Recent', async () => {
     const initial = elements(await renderCatalog(catalog));
-    initial
+    openUrlSheetFrom(initial);
+    websiteNodes()
       .find(node => node.type === 'Field' && node.props.accessibilityLabel === 'dapps.website.input')
       ?.props.onChangeText?.('example.org/path');
     websiteNodes()
@@ -564,7 +634,8 @@ describe('catalog and browser lifecycle', () => {
   it('clears a website proposal on leaving and blocks its queued confirmation callback', async () => {
     const catalog = { load: async () => ({ kind: 'unavailable' as const }) };
     const initial = elements(await renderCatalog(catalog));
-    initial
+    openUrlSheetFrom(initial);
+    elements(await renderCatalog(catalog))
       .find(node => node.props.accessibilityLabel === 'dapps.website.input')
       ?.props.onChangeText?.('https://example.org');
     elements(await renderCatalog(catalog))
@@ -597,7 +668,8 @@ describe('catalog and browser lifecycle', () => {
     );
     const catalog = { load: async () => ({ kind: 'unavailable' as const }) };
     const nodes = elements(await renderCatalog(catalog));
-    nodes
+    openUrlSheetFrom(nodes);
+    elements(await renderCatalog(catalog))
       .find(node => node.props.accessibilityLabel === 'dapps.website.input')
       ?.props.onChangeText?.('https://example.org');
     elements(await renderCatalog(catalog))
@@ -625,6 +697,7 @@ describe('catalog and browser lifecycle', () => {
         }),
     );
     const catalog = { load: async () => ({ kind: 'unavailable' as const }) };
+    openUrlSheetFrom(elements(await renderCatalog(catalog)));
     elements(await renderCatalog(catalog))
       .find(node => node.props.accessibilityLabel === 'dapps.website.input')
       ?.props.onChangeText?.('https://example.org');

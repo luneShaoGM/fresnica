@@ -61,6 +61,8 @@ export function DAppsScreen({
   const activeRef = useRef(active);
   activeRef.current = active;
   const websiteEpoch = useRef(0);
+  const urlSheetSessionRef = useRef(0);
+  const urlSheetActiveRef = useRef(false);
   const handoffEpoch = useRef(0);
   const focusedRef = useRef(focused);
   focusedRef.current = focused;
@@ -137,12 +139,16 @@ export function DAppsScreen({
     return () => {
       websiteEpoch.current += 1;
       handoffEpoch.current += 1;
+      urlSheetSessionRef.current += 1;
+      urlSheetActiveRef.current = false;
       mountedRef.current = false;
     };
   }, []);
 
   useEffect(() => {
     if (!active) {
+      urlSheetSessionRef.current += 1;
+      urlSheetActiveRef.current = false;
       setPreparedWebsite(undefined);
       setWebsiteError(undefined);
       setUrlSheetOpen(false);
@@ -159,6 +165,8 @@ export function DAppsScreen({
     [focused],
   );
 
+  const urlSheetSession = urlSheetSessionRef.current;
+
   const prepareWebsite = (value: string) => {
     if (!mountedRef.current || !activeRef.current || openingRef.current) return;
     try {
@@ -173,7 +181,9 @@ export function DAppsScreen({
   };
 
   const closeUrlSheet = () => {
-    if (openingRef.current) return;
+    if (!urlSheetActiveRef.current || urlSheetSessionRef.current !== urlSheetSession || openingRef.current) return;
+    urlSheetSessionRef.current += 1;
+    urlSheetActiveRef.current = false;
     websiteEpoch.current += 1;
     handoffEpoch.current += 1;
     setUrlSheetOpen(false);
@@ -182,13 +192,25 @@ export function DAppsScreen({
   };
 
   const submitUrlSheet = () => {
-    if (!websiteInput.trim() || openingRef.current) return;
+    if (
+      !urlSheetOpen ||
+      !urlSheetActiveRef.current ||
+      urlSheetSessionRef.current !== urlSheetSession ||
+      !mountedRef.current ||
+      !activeRef.current ||
+      !focusedRef.current ||
+      !websiteInput.trim() ||
+      openingRef.current
+    )
+      return;
     try {
       normalizeUntrustedDappUrl(websiteInput);
     } catch {
       setWebsiteError('invalid');
       return;
     }
+    urlSheetSessionRef.current += 1;
+    urlSheetActiveRef.current = false;
     setUrlSheetOpen(false);
     prepareWebsite(websiteInput);
   };
@@ -198,6 +220,8 @@ export function DAppsScreen({
     // not attach a Recent origin to an unrelated screen after navigation.
     websiteEpoch.current += 1;
     handoffEpoch.current += 1;
+    urlSheetSessionRef.current += 1;
+    urlSheetActiveRef.current = false;
     setPreparedWebsite(undefined);
     setUrlSheetOpen(false);
     setWebsiteInput('');
@@ -264,6 +288,8 @@ export function DAppsScreen({
               onPress={() => {
                 websiteEpoch.current += 1;
                 handoffEpoch.current += 1;
+                urlSheetSessionRef.current += 1;
+                urlSheetActiveRef.current = true;
                 setWebsiteInput('');
                 setWebsiteError(undefined);
                 setPreparedWebsite(undefined);
@@ -423,6 +449,8 @@ export function DAppsScreen({
                 autoCorrect={false}
                 value={websiteInput}
                 onChangeText={value => {
+                  if (!urlSheetOpen || !urlSheetActiveRef.current || urlSheetSessionRef.current !== urlSheetSession)
+                    return;
                   websiteEpoch.current += 1;
                   handoffEpoch.current += 1;
                   setWebsiteInput(value);
