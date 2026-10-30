@@ -103,3 +103,12 @@ describe('legacy-wallet network choice routing', () => {
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 });
+
+it('unmounts the native navigation tree during session loading or failure instead of pushing a bootstrap route', () => {
+  for (const runtime of [{ kind: 'loading' }, { kind: 'error', message: 'test failure' }] as const) {
+    const root = AppNavigator({ runtime, onRefreshBootstrap: jest.fn(), onDismissDeepLink: jest.fn() });
+    expect(elements(root).some(n => n.type === ('navigation' as unknown))).toBe(false);
+    expect(elements(root).some(n => n.type === ('stack' as unknown))).toBe(false);
+    expect(root.props.runtime).toEqual(runtime);
+  }
+});

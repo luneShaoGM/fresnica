@@ -190,12 +190,15 @@ async function persistProtectedSigner(
     throw new Error('unsupported-account-kind');
   }
 
-  const existingAccount =
+  const existingAccounts =
     options.duplicatePolicy === 'upgrade-watch-only'
       ? dependencies.repository
           .listAccounts()
-          .find(account => account.networkId === networkId && account.address === identity.address)
-      : undefined;
+          .filter(account => account.networkId === networkId && account.address === identity.address)
+      : [];
+  // Legacy duplicate identities retain independent metadata and signer references.
+  if (existingAccounts.length > 1) throw new Error('account-already-exists');
+  const existingAccount = existingAccounts[0];
 
   if (existingAccount && !dependencies.repository.isWatchOnly(existingAccount.id)) {
     throw new Error('account-already-exists');

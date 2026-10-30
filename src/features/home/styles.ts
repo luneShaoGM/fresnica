@@ -22,20 +22,27 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.textPrimary,
     },
     networkButton: {
-      minHeight: 36,
+      minHeight: 44,
       justifyContent: 'center',
       borderRadius: theme.radii.md,
-      backgroundColor: theme.colors.surfaceMuted,
+      backgroundColor: theme.colors.actionPrimarySoft,
+      borderWidth: 1,
+      borderColor: theme.colors.actionPrimaryOutline,
       paddingHorizontal: theme.spacing.sm,
       paddingVertical: theme.spacing.xs,
     },
     networkButtonDisabled: {
+      backgroundColor: theme.colors.surfaceMuted,
+      borderColor: theme.colors.border,
       opacity: 0.8,
     },
     networkText: {
       ...theme.typography.caption,
-      color: theme.colors.textSecondary,
+      color: theme.colors.textPrimary,
       fontWeight: '700',
+    },
+    networkTextDisabled: {
+      color: theme.colors.textSecondary,
     },
     accountSwitchContainer: {
       minHeight: 68,

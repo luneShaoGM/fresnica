@@ -11,6 +11,7 @@ import { useThemedStyles } from '../../ui/theme';
 
 import { NetworkNodeHealth } from './NetworkNodeHealth';
 import { createStyles } from './NetworkSettingsScreen.styles';
+import { useLocalization } from '../../locale';
 
 type Props = Readonly<{
   onBack: () => void;
@@ -22,52 +23,60 @@ type Props = Readonly<{
 
 export function NetworkSettingsScreen({ onBack, network, monitor, settings, showBack = true }: Props) {
   const styles = useThemedStyles(createStyles);
+  const { t } = useLocalization();
 
   return (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
         <View style={styles.headerSide}>
-          {showBack ? <NativeButton label="Back" onPress={onBack} size="sm" variant="quiet" /> : null}
+          {showBack ? <NativeButton label={t('common.back')} onPress={onBack} size="sm" variant="quiet" /> : null}
         </View>
-        <Text style={styles.title}>Network</Text>
+        <Text accessibilityRole="header" style={styles.title}>
+          {t('settings.network')}
+        </Text>
         <View style={styles.headerSide} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionLabel}>CURRENT NETWORK</Text>
-        <View style={styles.networkCard}>
-          <View style={styles.networkIdentity}>
-            <View style={styles.networkIcon}>
-              <View style={styles.networkDot} />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {!settings ? (
+          <>
+            <Text style={styles.sectionLabel}>{t('settings.currentNetwork')}</Text>
+            <View style={styles.networkCard}>
+              <View style={styles.networkIdentity}>
+                <View style={styles.networkIcon}>
+                  <View style={styles.networkDot} />
+                </View>
+                <View style={styles.flex}>
+                  <Text style={styles.networkTitle}>
+                    {t(network.isMainnet ? 'networkManage.name.stellar-mainnet' : 'networkManage.name.stellar-testnet')}
+                  </Text>
+                  <Text style={styles.networkSubtitle}>{t('settings.activeNetwork')}</Text>
+                </View>
+                <View style={styles.selectedMark}>
+                  <Text style={styles.selectedGlyph}>✓</Text>
+                </View>
+              </View>
             </View>
-            <View style={styles.flex}>
-              <Text style={styles.networkTitle}>{network.isMainnet ? 'Stellar Mainnet' : 'Stellar Testnet'}</Text>
-              <Text style={styles.networkSubtitle}>{network.isMainnet ? 'Active' : 'Active development network'}</Text>
+
+            <Text style={styles.sectionLabel}>{t('settings.connection')}</Text>
+            <View style={styles.rows}>
+              <InfoRow label={t('settings.networkId')} value={network.id} />
+              <InfoRow label="Horizon" value={network.horizonUrl} multiline />
             </View>
-            <View style={styles.selectedMark}>
-              <Text style={styles.selectedGlyph}>✓</Text>
-            </View>
-          </View>
-        </View>
 
-        <Text style={styles.sectionLabel}>CONNECTION</Text>
-        <View style={styles.rows}>
-          <InfoRow label="Network ID" value={network.id} />
-          <InfoRow label="Horizon" value={network.horizonUrl} multiline />
-        </View>
-
-        <NetworkNodeHealth monitor={monitor} />
-
+            <NetworkNodeHealth monitor={monitor} />
+          </>
+        ) : null}
         {settings ? (
-          <NetworkManagement settings={settings} />
+          <NetworkManagement settings={settings} monitor={monitor} section={showBack ? 'nodes' : 'all'} />
         ) : (
           <View style={styles.notice}>
-            <Text style={styles.noticeTitle}>Network switching is read-only for now</Text>
-            <Text style={styles.noticeText}>
-              The release policy is Mainnet by default. Testnet and custom Horizon/RPC endpoints become available only
-              through authenticated Developer Mode. This development build is still configured for Testnet until that
-              switching flow reaches its product gate.
-            </Text>
+            <Text style={styles.noticeTitle}>{t('settings.readOnlyNetwork')}</Text>
+            <Text style={styles.noticeText}>{t('settings.controlsUnavailable')}</Text>
           </View>
         )}
       </ScrollView>

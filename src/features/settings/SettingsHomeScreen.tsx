@@ -13,9 +13,9 @@ type Props = Readonly<{
   accountCount: number;
   onOpenAccounts: () => void;
   onOpenSecurity: () => void;
+  onOpenGeneral: () => void;
+  onOpenAdvanced: () => void;
   onOpenConnectedDapps: () => void;
-  onOpenNetwork: () => void;
-  onOpenLanguage: () => void;
   onOpenAbout: () => void;
 }>;
 
@@ -23,14 +23,13 @@ export function SettingsHomeScreen({
   accountCount,
   onOpenAccounts,
   onOpenSecurity,
+  onOpenGeneral,
+  onOpenAdvanced,
   onOpenConnectedDapps,
-  onOpenNetwork,
-  onOpenLanguage,
   onOpenAbout,
 }: Props) {
-  const { locale, locales, t, tPlural } = useLocalization();
+  const { t, tPlural } = useLocalization();
   const styles = useThemedStyles(createStyles);
-  const currentLocaleName = locales.find(option => option.code === locale)?.localName ?? locale;
 
   return (
     <Screen scrollable={false} contentInset="none">
@@ -48,9 +47,8 @@ export function SettingsHomeScreen({
           </SettingsGroup>
 
           <SettingsGroup>
-            <ListRow onPress={onOpenNetwork} subtitle={t('settings.generalDetail')} title={t('settings.general')} />
-            <ListRow onPress={onOpenLanguage} subtitle={currentLocaleName} title={t('settings.language')} />
-            <ListRow subtitle={t('settings.soon')} title={t('settings.advanced')} />
+            <ListRow onPress={onOpenGeneral} subtitle={t('settings.generalDetail')} title={t('settings.general')} />
+            <ListRow onPress={onOpenAdvanced} subtitle={t('settings.advancedDetail')} title={t('settings.advanced')} />
           </SettingsGroup>
 
           <SettingsGroup>

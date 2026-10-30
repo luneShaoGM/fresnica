@@ -24,6 +24,8 @@ jest.mock('react', () => {
   const actual = jest.requireActual('react') as typeof import('react');
   return {
     ...actual,
+    useState: (initial: unknown) => [initial, jest.fn()],
+    useCallback: (fn: unknown) => fn,
     useRef: (initial: unknown) => ({ current: initial }),
     useSyncExternalStore: (_subscribe: unknown, snapshot: () => unknown) => snapshot(),
   };
@@ -68,14 +70,19 @@ function renderHomeEntry(swapEnabled: boolean, watchOnly = false, selectedAccoun
   });
   type HomeEntry = Readonly<{
     name: string;
-    children: (props: { navigation: { navigate: typeof navigate } }) => React.ReactElement<{ onSwap?: () => void }>;
+    children: (props: {
+      navigation: { navigate: typeof navigate };
+    }) => React.ReactElement<{ children?: React.ReactNode; onSwap?: () => void }>;
   }>;
   const home = React.Children.toArray(root.props.children)
     .filter((child): child is React.ReactElement<HomeEntry> => React.isValidElement<HomeEntry>(child))
     .find(child => child.props.name === 'home');
   expect(home).toBeDefined();
   const screen = home?.props.children({ navigation: { navigate } });
-  return { navigate, onSwap: screen?.props.onSwap };
+  const homeScreen = React.Children.toArray(screen?.props.children).find(
+    (child): child is React.ReactElement<{ onSwap?: () => void }> => React.isValidElement(child),
+  );
+  return { navigate, onSwap: homeScreen?.props.onSwap };
 }
 
 describe('Home Swap entry wiring', () => {

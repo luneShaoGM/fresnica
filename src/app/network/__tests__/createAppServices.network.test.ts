@@ -121,6 +121,29 @@ beforeEach(() => {
   mockSdk.verifyProtectedSignerPassphrase.mockImplementation(async () => true);
 });
 describe('production network composition and retirement', () => {
+  it('exposes current Classic contexts to every consumer without fabricating retained Testnet access', async () => {
+    mockPreferences = { ...DEFAULT_NETWORK_PREFERENCES, developerMode: true, networkId: 'stellar-testnet' };
+    mockAccounts = [
+      {
+        id: 'main-wallet',
+        networkId: 'stellar-mainnet',
+        identityKind: 'classic',
+        address: 'GMAIN',
+      } as (typeof mockAccounts)[number],
+    ];
+    const services = await createAppServices();
+    expect(services.onboarding.repository.getAccount('main-wallet')).toMatchObject({
+      networkId: 'stellar-testnet',
+      address: 'GMAIN',
+    });
+    expect(services.send.repository).toBe(services.onboarding.repository);
+    expect(services.trustline.repository).toBe(services.onboarding.repository);
+    expect(services.swapExecution.signerRepository).toBe(services.onboarding.repository);
+    expect(services.accountManagement.repository).toBe(services.onboarding.repository);
+    expect(services.networkSettings?.getSnapshot().preferences.retainedTestnet).toBeUndefined();
+    expect(mockAccounts[0].networkId).toBe('stellar-mainnet');
+    services.close();
+  });
   it.each([false, true])(
     'revokes retention after deleting the last Testnet account (Mainnet account=%s)',
     async mainnet => {
@@ -288,6 +311,12 @@ describe('production network composition and retirement', () => {
     expect(changed).toHaveBeenCalledTimes(1);
     expect(mockUnresolved).toEqual([{ networkId: 'stellar-testnet', transactionHash: 'original', state: 'uncertain' }]);
     expect(() => services.send.gateway.isClassicAccountAddress('G')).toThrow('network-session-retired');
+    expect(mockWallet.close).not.toHaveBeenCalled();
+    expect(mockPreferenceRealm.close).not.toHaveBeenCalled();
+    services.close();
+    services.close();
+    expect(mockWallet.close).toHaveBeenCalledTimes(1);
+    expect(mockPreferenceRealm.close).toHaveBeenCalledTimes(1);
   });
   it('blocks switching while native verification is in progress', async () => {
     let finish!: (verified: boolean) => void;

@@ -8,15 +8,19 @@ import { useThemedStyles } from '@ui/theme';
 import { useLocalization } from '../../locale';
 import { createStyles } from './NetworkSettingsScreen.styles';
 
-export function NetworkNodeHealth({ monitor }: Readonly<{ monitor: NodeHealthMonitor }>) {
+export function NetworkNodeHealth({
+  monitor,
+  compact = false,
+}: Readonly<{ monitor: NodeHealthMonitor; compact?: boolean }>) {
   const snapshot = useSyncExternalStore(monitor.subscribe, monitor.getSnapshot);
-  return <NetworkNodeHealthContent snapshot={snapshot} onRetry={monitor.retry} />;
+  return <NetworkNodeHealthContent snapshot={snapshot} onRetry={monitor.retry} compact={compact} />;
 }
 
 export function NetworkNodeHealthContent({
   snapshot,
   onRetry,
-}: Readonly<{ snapshot: NodeHealthSnapshot; onRetry: () => void }>) {
+  compact = false,
+}: Readonly<{ snapshot: NodeHealthSnapshot; onRetry: () => void; compact?: boolean }>) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const retryable = snapshot.phase === 'cooldown' || snapshot.phase === 'wrong-network';
@@ -27,11 +31,15 @@ export function NetworkNodeHealthContent({
       : undefined;
 
   return (
-    <View style={styles.nodeSection} testID="network-node-health">
-      <Text style={styles.nodeTitle}>{t('networkHealth.currentNode')}</Text>
-      <Text selectable style={styles.nodeEndpoint}>
-        {snapshot.endpoint}
-      </Text>
+    <View style={compact ? styles.compactHealth : styles.nodeSection} testID="network-node-health">
+      {!compact ? (
+        <>
+          <Text style={styles.nodeTitle}>{t('networkHealth.currentNode')}</Text>
+          <Text selectable style={styles.nodeEndpoint}>
+            {snapshot.endpoint}
+          </Text>
+        </>
+      ) : null}
       <Text
         accessibilityLiveRegion="polite"
         style={[

@@ -80,6 +80,7 @@ export function App() {
 
   useEffect(() => {
     let mounted = true;
+    let ownedServices: AppServices | undefined;
     let stopLedgerReadLifecycle: (() => void) | undefined;
 
     void createAppServices({
@@ -102,6 +103,7 @@ export function App() {
           return;
         }
 
+        ownedServices = created;
         servicesRef.current = created;
         stopLedgerReadLifecycle = startLedgerReadLifecycle({
           runtime: created.ledgerReadRuntime,
@@ -147,8 +149,8 @@ export function App() {
     return () => {
       mounted = false;
       stopLedgerReadLifecycle?.();
-      servicesRef.current?.close();
-      servicesRef.current = undefined;
+      ownedServices?.close();
+      if (servicesRef.current === ownedServices) servicesRef.current = undefined;
     };
   }, [captureDeepLink, serviceGeneration]);
 
@@ -243,7 +245,6 @@ export function App() {
           <LocalizationProvider locale={locale} onChangeLocale={handleChangeLocale}>
             <OverlayHost>
               <AppNavigator
-                key={serviceGeneration}
                 runtime={runtime}
                 onRefreshBootstrap={refreshBootstrap}
                 deepLink={resolvedDeepLink}

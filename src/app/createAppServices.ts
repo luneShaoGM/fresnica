@@ -1,3 +1,5 @@
+import { createNetworkAccountRepository } from '../capabilities/account/createNetworkAccountRepository';
+import { createWalletSelectionPreferences } from './createWalletSelectionPreferences';
 import { authorizeSensitiveSetting } from '../capabilities/application-security/authorizeSensitiveSetting';
 import { createNetworkSettings, type NetworkSettings } from '../capabilities/network/createNetworkSettings';
 import {
@@ -113,6 +115,7 @@ export type AppServices = Readonly<{
 export type CreateAppServicesOptions = Readonly<{
   realmPath?: string;
   fixedNetwork?: NetworkId;
+  // The App owner must close the retired services after its screens unmount.
   onNetworkChanged?: () => void;
 }>;
 
@@ -127,29 +130,37 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
   let closeDappCatalog = () => {};
   let closeDappPermissions = () => {};
   let networkSettings: NetworkSettings | undefined;
+  let retired = false;
   let closed = false;
-  const close = () => {
-    if (closed) return;
-    closed = true;
+  const retire = () => {
+    if (retired) return;
+    retired = true;
     session.close();
     closeDappCatalog();
     closeDappPermissions();
     networkSettings?.close();
     stopSettingsLifecycle();
     closeReadRecovery();
+  };
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    retire();
     closePreferences();
     realm.close();
   };
   const restartNetworkSession = () => {
-    close();
-    options.onNetworkChanged?.();
+    // Retire authority immediately; the App owner disposes Realm after its old screens unmount.
+    retire();
+    if (options.onNetworkChanged) options.onNetworkChanged();
+    else close();
   };
   try {
     const nativeModule = loadNativeFresnicaModule(NativeModules);
     const sdk = session.bind(new ReactNativeFresnicaSdk(nativeModule), true);
-    const repository = new RealmAccountSignerRepository(realm);
+    const storedAccounts = new RealmAccountSignerRepository(realm);
     const localePreferences = new RealmLocalePreferenceStore(realm);
-    const accountSelectionPreferences = new RealmDefaultAccountPreferenceStore(realm);
+    const storedSelectionPreferences = new RealmDefaultAccountPreferenceStore(realm);
     const dappPermissions = new RealmDappPermissionStore(realm);
     closeDappPermissions = () => dappPermissions.close();
     const pendingSubmissions = new RealmPendingSubmissionRepository(realm);
@@ -170,9 +181,9 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       ...DEFAULT_NETWORK_PREFERENCES,
       selectionConfirmed:
         options.fixedNetwork !== undefined ||
-        (repository.listAccounts().length === 0 && pendingSubmissions.listUnresolved().length === 0),
+        (storedAccounts.listAccounts().length === 0 && pendingSubmissions.listUnresolved().length === 0),
     };
-    const retainedTestnet = repository.listAccounts().some(account => account.networkId === 'stellar-testnet');
+    const retainedTestnet = storedAccounts.listAccounts().some(account => account.networkId === 'stellar-testnet');
     const revokeSelectedTestnet =
       !options.fixedNetwork &&
       !previousPreferences.developerMode &&
@@ -201,6 +212,8 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     }
     const networkProfile = options.fixedNetwork ? NETWORKS[options.fixedNetwork] : selectedNetwork(initialPreferences);
     const network = Object.freeze({ id: networkProfile.id, networkPassphrase: networkProfile.networkPassphrase });
+    const repository = createNetworkAccountRepository(storedAccounts, network.id);
+    const accountSelectionPreferences = createWalletSelectionPreferences(storedSelectionPreferences, repository);
     const stellarGateway = session.bind(
       new StellarSdkGateway({ network, horizonUrl: networkProfile.horizonUrl }),
       new Set(['submitTransaction']),
@@ -341,12 +354,13 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       accountManagement: {
         repository,
         pendingSubmissions,
+        cacheNetworkIds: Object.keys(NETWORKS),
         historyCache,
         balanceCache,
         onDeleted: () => {
           if (
             networkSettings?.getSnapshot().preferences.retainedTestnet &&
-            !repository.listAccounts().some(account => account.networkId === 'stellar-testnet')
+            !storedAccounts.listAccounts().some(account => account.networkId === 'stellar-testnet')
           ) {
             // Retire before the delete flow can expose onboarding on the old Testnet profile.
             // Reopening derives and persists the new policy from the authoritative account inventory.

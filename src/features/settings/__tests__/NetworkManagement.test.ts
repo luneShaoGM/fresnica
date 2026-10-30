@@ -1,5 +1,6 @@
 import React from 'react';
-import { Field } from '@ui/components';
+import { Pressable, Switch } from 'react-native';
+import { AppModal, Field } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import { NetworkManagement, networkSettingsError } from '../NetworkManagement';
 import { createNetworkSettings } from '@capabilities/network/createNetworkSettings';
@@ -29,6 +30,11 @@ type Props = {
   onChangeText?: (text: string) => void;
   onPress?: () => void;
   disabled?: boolean;
+  accessibilityLabel?: string;
+  visible?: boolean;
+  onRequestClose?: () => void;
+  value?: boolean;
+  onValueChange?: (value: boolean) => void;
 };
 function nodes(root: React.ReactNode): React.ReactElement<Props>[] {
   if (!React.isValidElement<Props>(root)) return [];
@@ -49,11 +55,45 @@ function setup(developerMode = false, retainedTestnet = false) {
 }
 beforeEach(() => jest.clearAllMocks());
 describe('network management presentation and event wiring', () => {
+  it('separates Advanced mode and node controls while keeping bootstrap controls together', () => {
+    const { settings } = setup(true);
+    const advanced = nodes(NetworkManagement({ settings, section: 'developer-mode' }));
+    expect(advanced.some(n => n.type === Switch)).toBe(true);
+    expect(advanced.some(n => n.type === Pressable && n.props.accessibilityLabel === 'Add node')).toBe(false);
+    const network = nodes(NetworkManagement({ settings, section: 'nodes' }));
+    expect(network.some(n => n.type === Switch)).toBe(false);
+    expect(network.filter(n => n.type === Pressable && n.props.accessibilityLabel === 'Add node')).toHaveLength(2);
+    const bootstrap = nodes(NetworkManagement({ settings }));
+    expect(bootstrap.some(n => n.type === Switch)).toBe(true);
+    expect(bootstrap.some(n => n.type === Pressable && n.props.accessibilityLabel === 'Add node')).toBe(true);
+  });
+  it('requests a warning first without changing persisted mode or authenticating', () => {
+    const { settings, authorize } = setup();
+    const setPrompt = jest.fn();
+    jest.mocked(React.useState).mockReturnValueOnce([undefined, setPrompt]);
+    const all = nodes(NetworkManagement({ settings, section: 'developer-mode' }));
+    all.find(n => n.type === Switch)?.props.onValueChange?.(true);
+    expect(setPrompt).toHaveBeenCalledWith({ kind: 'enable-warning' });
+    expect(authorize).not.toHaveBeenCalled();
+    expect(settings.getSnapshot().preferences.developerMode).toBe(false);
+  });
+  it('continues from warning to fresh credential entry without authorizing and permits cancellation', async () => {
+    const { settings, authorize } = setup();
+    const setPrompt = jest.fn();
+    jest.mocked(React.useState).mockReturnValueOnce([{ kind: 'enable-warning' }, setPrompt]);
+    const all = nodes(NetworkManagement({ settings, section: 'developer-mode' }));
+    await all.find(n => n.type === NativeButton && n.props.label === 'Continue')?.props.onPress?.();
+    expect(setPrompt).toHaveBeenCalledWith({ kind: 'enable' });
+    expect(authorize).not.toHaveBeenCalled();
+    all.find(n => n.type === NativeButton && n.props.label === 'Cancel')?.props.onPress?.();
+    expect(setPrompt).toHaveBeenLastCalledWith(undefined);
+    expect(settings.getSnapshot().preferences.developerMode).toBe(false);
+  });
   it('hides Testnet and node mutation controls while mode is disabled', () => {
     const { settings } = setup();
     const all = nodes(NetworkManagement({ settings }));
-    const labels = all.filter(n => n.type === NativeButton).map(n => n.props.label);
-    expect(labels).toContain('Enable Developer Mode');
+    const labels = all.filter(n => n.type === Pressable).map(n => n.props.accessibilityLabel);
+    expect(all.find(n => n.type === Switch)?.props.value).toBe(false);
     expect(labels).not.toContain('Add node');
     expect(labels).not.toContain('Remove node');
     expect(all.some(n => String(n.props.children).includes('Stellar Testnet'))).toBe(false);
@@ -62,11 +102,47 @@ describe('network management presentation and event wiring', () => {
     const { settings } = setup(false, true);
     const all = nodes(NetworkManagement({ settings }));
     expect(all.some(node => String(node.props.children).includes('Stellar Testnet'))).toBe(true);
-    const labels = all.filter(node => node.type === NativeButton).map(node => node.props.label);
-    expect(labels).toContain('Use node');
+    const labels = all.filter(node => node.type === Pressable).map(node => node.props.accessibilityLabel);
+    expect(
+      all.some(
+        n =>
+          n.type === Pressable && n.props.accessibilityLabel === `Use node: ${NETWORKS['stellar-testnet'].horizonUrl}`,
+      ),
+    ).toBe(true);
     expect(labels).not.toContain('Add node');
     expect(labels).not.toContain('Remove node');
     expect(settings.getSnapshot().preferences.developerMode).toBe(false);
+  });
+  it('opens selection in a modal and cancels without switching or writing preferences', () => {
+    const { settings } = setup(true);
+    const select = jest.spyOn(settings, 'selectNode');
+    const setPrompt = jest.fn();
+    jest.mocked(React.useState).mockReturnValueOnce([undefined, setPrompt]);
+    const before = nodes(NetworkManagement({ settings, section: 'nodes' }));
+    expect(before.some(n => n.type === AppModal)).toBe(false);
+    before
+      .find(
+        n =>
+          n.type === Pressable && n.props.accessibilityLabel === `Use node: ${NETWORKS['stellar-testnet'].horizonUrl}`,
+      )
+      ?.props.onPress?.();
+    expect(setPrompt).toHaveBeenCalledWith({
+      kind: 'select',
+      id: 'stellar-testnet',
+      endpoint: NETWORKS['stellar-testnet'].horizonUrl,
+    });
+    expect(select).not.toHaveBeenCalled();
+    jest
+      .mocked(React.useState)
+      .mockReturnValueOnce([
+        { kind: 'select', id: 'stellar-testnet', endpoint: NETWORKS['stellar-testnet'].horizonUrl },
+        setPrompt,
+      ]);
+    const dialog = nodes(NetworkManagement({ settings, section: 'nodes' })).find(n => n.type === AppModal);
+    expect(dialog?.props.visible).toBe(true);
+    dialog?.props.onRequestClose?.();
+    expect(setPrompt).toHaveBeenLastCalledWith(undefined);
+    expect(select).not.toHaveBeenCalled();
   });
   it('uses a secure transient field and forwards a fresh credential only on explicit confirmation', async () => {
     const { settings, authorize } = setup();
@@ -89,8 +165,8 @@ describe('network management presentation and event wiring', () => {
   it('exposes built-in nodes without removal controls and projects no raw exception text', () => {
     const { settings } = setup(true);
     const labels = nodes(NetworkManagement({ settings }))
-      .filter(n => n.type === NativeButton)
-      .map(n => n.props.label);
+      .filter(n => n.type === Pressable)
+      .map(n => n.props.accessibilityLabel);
     expect(labels.filter(label => label === 'Add node')).toHaveLength(2);
     expect(labels).not.toContain('Remove node');
     expect(networkSettingsError(new Error('token=private'))).toBe('networkManage.error.failed');

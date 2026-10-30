@@ -87,7 +87,7 @@ async function render() {
   let props: Record<string, unknown> = {};
   function visit(node: React.ReactNode) {
     if (!React.isValidElement<Record<string, unknown>>(node)) return;
-    if (node.type === AppNavigator) props = node.props;
+    if (node.type === AppNavigator) props = { ...node.props, navigatorKey: node.key };
     React.Children.forEach(node.props.children as React.ReactNode, visit);
   }
   visit(tree);
@@ -215,4 +215,27 @@ it('rejects old resolution after replacement or dismissal, and removes subscript
   warm('late');
   expect(unsubscribe).toHaveBeenCalledTimes(1);
   expect(services.close).toHaveBeenCalledTimes(1);
+});
+
+it('keeps the native navigation host stable while a new network session loads, and drops old deep links', async () => {
+  await flush();
+  warm('old-network-request');
+  const before = await flush();
+  expect(before.deepLink).toBeDefined();
+  const next = deferred<AppServices>();
+  jest.mocked(createAppServices).mockReturnValueOnce(next.promise);
+  const options = jest.mocked(createAppServices).mock.calls[0][0];
+  options?.onNetworkChanged?.();
+  const loading = await flush();
+  expect(loading.runtime).toEqual({ kind: 'loading' });
+  expect(loading.deepLink).toBeUndefined();
+  expect(loading.navigatorKey).toBeNull();
+  expect(loading.navigatorKey).toBe(before.navigatorKey);
+  expect(services.close).toHaveBeenCalledTimes(1);
+  const newServices = { ...services, onboarding: { ...services.onboarding, networkId: 'mainnet' } } as AppServices;
+  next.resolve(newServices);
+  const after = await flush();
+  expect(after.runtime).toMatchObject({ kind: 'ready', services: newServices });
+  expect(after.deepLink).toBeUndefined();
+  expect(after.navigatorKey).toBe(before.navigatorKey);
 });

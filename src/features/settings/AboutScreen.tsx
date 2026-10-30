@@ -7,15 +7,18 @@ import { NativeButton } from '@ui/components/NativeButton';
 import { useThemedStyles } from '../../ui/theme';
 
 import { createStyles } from './AboutScreen.styles';
+import { useLocalization } from '../../locale';
 
 type Props = Readonly<{
   onBack: () => void;
   appName: string;
   projectName: string;
+  isMainnet: boolean;
 }>;
 
-export function AboutScreen({ onBack, appName, projectName }: Props) {
+export function AboutScreen({ onBack, appName, projectName, isMainnet }: Props) {
   const styles = useThemedStyles(createStyles);
+  const { t } = useLocalization();
 
   return (
     <Screen scrollable={false} contentInset="none">
@@ -38,7 +41,10 @@ export function AboutScreen({ onBack, appName, projectName }: Props) {
 
         <View style={styles.rows}>
           <InfoRow label="Project" value={projectName} />
-          <InfoRow label="Network" value="Stellar Testnet" />
+          <InfoRow
+            label="Network"
+            value={t(isMainnet ? 'networkManage.name.stellar-mainnet' : 'networkManage.name.stellar-testnet')}
+          />
           <InfoRow label="Runtime" value="React Native 0.87" />
           <InfoRow label="Security" value="Fresnica Native SDK" />
         </View>
