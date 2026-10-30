@@ -8,6 +8,7 @@ import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.PermissionRequest;
 import androidx.webkit.ProxyConfig;
 import androidx.webkit.ProxyController;
 import androidx.webkit.WebViewFeature;
@@ -27,6 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
+import com.reactnativecommunity.webview.RNCWebChromeClient;
 
 /** Actual Android WebView + local TLS receiver. No external site or wallet is used.
  * Tests the network mechanism, not native wallet product-flow acceptance.
@@ -94,6 +96,21 @@ public final class DappBrowserNetworkTest extends Instrumentation {
         for (String ip : blocked) check(!DappTunnelProxy.isPublicAddress(InetAddress.getByName(ip)), "allowed:" + ip);
         check(DappTunnelProxy.isPublicAddress(InetAddress.getByName("8.8.8.8")), "blocked-public-v4");
         check(DappTunnelProxy.isPublicAddress(InetAddress.getByName("2606:4700:4700::1111")), "blocked-public-v6");
+      });
+      test("website-device-permissions-never-inherit-app-grants", () -> {
+        AtomicInteger denied = new AtomicInteger();
+        runOnMainSync(() -> {
+          // A null WebView ensures the callback cannot inspect app permission or
+          // ask Android for one. It must deny without any context/grant path.
+          new RNCWebChromeClient(null).onPermissionRequest(new PermissionRequest() {
+            @Override public android.net.Uri getOrigin() { return android.net.Uri.parse(base()); }
+            @Override public String[] getResources() { return new String[] {
+                RESOURCE_VIDEO_CAPTURE, RESOURCE_AUDIO_CAPTURE, RESOURCE_PROTECTED_MEDIA_ID, RESOURCE_MIDI_SYSEX }; }
+            @Override public void grant(String[] resources) { throw new AssertionError("website-device-granted"); }
+            @Override public void deny() { denied.incrementAndGet(); }
+          });
+        });
+        check(denied.get() == 1, "website-device-permission-not-denied");
       });
       test("raw-proxy-rejects-local-and-cleartext", () -> {
         String[] requests = {
@@ -191,7 +208,7 @@ public final class DappBrowserNetworkTest extends Instrumentation {
     Bundle status = new Bundle();
     status.putString("class", getClass().getName());
     status.putString("test", name);
-    status.putInt("numtests", 16);
+    status.putInt("numtests", 17);
     status.putInt("current", passed + failed + 1);
     sendStatus(1, status);
     try { body.run(); passed++; status.putString("stream", "\nPASS " + name + "\n"); sendStatus(0, status); }

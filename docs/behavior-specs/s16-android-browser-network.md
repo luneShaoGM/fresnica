@@ -36,6 +36,9 @@ native network-mechanism evidence. It does not promote the wallet to L4.
   for this process-wide policy.
 - Proxy workers, headers, connect and idle times are bounded. It binds only to local
   loopback, logs no URL/body and stores no browser payload or wallet material.
+- Native WebChromeClient PermissionRequest is denied until S21 per-origin device
+  consent exists. Websites cannot inherit CAMERA/audio/protected-media grants from
+  the native scanner or another app flow. Native scanner permission is unchanged.
 - No permissions are granted by this restoration. Existing explicit access approval,
   account/network revision checks, persistent grant revocation, exact-XDR review and
   SDK/Core authorization/signing remain authoritative. No automatic transaction
@@ -68,10 +71,10 @@ case uses the unmodified production resolver/dialer against `https://example.com
 The WebViewClient deliberately installs no URL gate, proving the network proxy rather
 than a late navigation callback. TLS verification is active in all cases.
 
-The 16 cases cover address policy; raw proxy denial; normal GET/form POST; direct
+The 17 cases cover address policy; raw proxy denial; normal GET/form POST; direct
 HTTPS/HTTP/IPv6-loopback POST; private/mixed DNS POST; GET and 307 POST redirects to
 loopback; public cross-origin redirect; certificate rejection; fetch POST; forbidden
-fetch; proxy shutdown without DIRECT fallback; production DNS/dial/TLS.
+fetch; proxy shutdown without DIRECT fallback; production DNS/dial/TLS; native device-permission denial without any grant path.
 
 These are native network-mechanism tests. They are not acceptance of the RN browser
 chrome, actual dApp Freighter SDK compatibility, wallet authorization, native signing

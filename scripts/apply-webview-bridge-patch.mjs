@@ -10,6 +10,71 @@ const marker = 'Fresnica verified main-frame HTTPS bridge';
 
 const edits = [
   {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java',
+    applied: 'Fresnica denies browser device permissions',
+    from: `    @Override
+    public void onPermissionRequest(final PermissionRequest request) {
+
+        grantedPermissions = new ArrayList<>();
+
+        ArrayList<String> requestedAndroidPermissions = new ArrayList<>();
+        for (String requestedResource : request.getResources()) {
+            String androidPermission = null;
+
+            if (requestedResource.equals(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
+                androidPermission = Manifest.permission.RECORD_AUDIO;
+            } else if (requestedResource.equals(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
+                androidPermission = Manifest.permission.CAMERA;
+            } else if(requestedResource.equals(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)) {
+                if (mAllowsProtectedMedia) {
+                  grantedPermissions.add(requestedResource);
+                } else {
+                  /**
+                   * Legacy handling (Kept in case it was working under some conditions (given Android version or something))
+                   *
+                   * Try to ask user to grant permission using Activity.requestPermissions
+                   *
+                   * Find more details here: https://github.com/react-native-webview/react-native-webview/pull/2732
+                   */
+                  androidPermission = PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID;
+                }            }
+            // TODO: RESOURCE_MIDI_SYSEX, RESOURCE_PROTECTED_MEDIA_ID.
+            if (androidPermission != null) {
+                if (ContextCompat.checkSelfPermission(this.mWebView.getThemedReactContext(), androidPermission) == PackageManager.PERMISSION_GRANTED) {
+                    grantedPermissions.add(requestedResource);
+                } else {
+                    requestedAndroidPermissions.add(androidPermission);
+                }
+            }
+        }
+
+        // If all the permissions are already granted, send the response to the WebView synchronously
+        if (requestedAndroidPermissions.isEmpty()) {
+            request.grant(grantedPermissions.toArray(new String[0]));
+            grantedPermissions = null;
+            return;
+        }
+
+        // Otherwise, ask to Android System for native permissions asynchronously
+
+        this.permissionRequest = request;
+
+        requestPermissions(requestedAndroidPermissions);
+    }
+
+
+`,
+    to: `    @Override
+    public void onPermissionRequest(final PermissionRequest request) {
+        // Fresnica denies browser device permissions until per-origin S21 consent exists.
+        // An app-level CAMERA grant for the native scanner is not a website grant.
+        request.deny();
+    }
+
+
+`,
+  },
+  {
     file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java',
     applied: 'import java.util.Locale;',
     from: `import java.util.List;
@@ -283,7 +348,13 @@ if (pending && checkOnly) {
 }
 
 if (!checkOnly && pending) {
-  const android = readFileSync(resolve(root, edits[0].file), 'utf8');
+  const android = readFileSync(
+    resolve(
+      root,
+      'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java',
+    ),
+    'utf8',
+  );
   const apple = readFileSync(resolve(root, 'node_modules/react-native-webview/apple/RNCWebViewImpl.m'), 'utf8');
   if (!android.includes('onVerifiedMessage') || !apple.includes('FresnicaVerifiedHttpsOrigin')) {
     console.error('WebView bridge patch did not land.');
