@@ -72,7 +72,7 @@ export function HomeScreen({
     refresh: refreshBalances,
     verifiedInactive,
     hasFreshInactiveSnapshot,
-  } = useBalanceDisplay(account, balanceDependencies, active, invalidationRevision, true);
+  } = useBalanceDisplay(account, balanceDependencies, active, invalidationRevision);
   const [accountPickerVisible, setAccountPickerVisible] = useState(false);
   const [manualRefreshing, setManualRefreshing] = useState(false);
   const [friendbotStateByAccount, setFriendbotStateByAccount] = useState<Record<string, FriendbotFundingState>>({});
@@ -197,12 +197,7 @@ export function HomeScreen({
           </Pressable>
         </View>
 
-        {balanceState.kind === 'ready' &&
-        balanceState.snapshot.status === 'inactive' &&
-        verifiedInactive &&
-        !balanceState.refreshFailed ? null : (
-          <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} />
-        )}
+        <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} showRefreshStatus={false} />
         {renderPortfolio(
           balanceState,
           viewModel.accountAddress,
