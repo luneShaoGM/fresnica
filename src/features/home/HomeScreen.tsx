@@ -91,6 +91,7 @@ export function HomeScreen({
   }, []);
 
   const fundWithFriendbot = useCallback(async () => {
+    if (balanceState.kind !== 'ready' || balanceState.stale || balanceState.snapshot.status !== 'inactive') return;
     const accountId = account.id;
     if (friendbotRequestAccountIds.current.has(accountId)) {
       return;
@@ -114,7 +115,7 @@ export function HomeScreen({
     } finally {
       friendbotRequestAccountIds.current.delete(accountId);
     }
-  }, [account, clearFriendbotState, friendbotDependencies, refreshBalances, t]);
+  }, [account, balanceState, clearFriendbotState, friendbotDependencies, refreshBalances, t]);
 
   const visibleFriendbotState: FriendbotFundingState = friendbotStateByAccount[account.id] ?? 'idle';
   const friendbotAvailable = isFriendbotFundingAvailable(friendbotDependencies, account);
@@ -190,13 +191,16 @@ export function HomeScreen({
           </Pressable>
         </View>
 
-        {balanceState.kind === 'ready' && balanceState.snapshot.status === 'inactive' && verifiedInactive ? null : (
+        {balanceState.kind === 'ready' &&
+        balanceState.snapshot.status === 'inactive' &&
+        verifiedInactive &&
+        !balanceState.refreshFailed ? null : (
           <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} />
         )}
         {renderPortfolio(
           balanceState,
           viewModel.accountAddress,
-          viewModel.canFundWithFriendbot,
+          friendbotAvailable,
           visibleFriendbotState,
           verifiedInactive === true,
           fundWithFriendbot,
