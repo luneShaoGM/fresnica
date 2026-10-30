@@ -291,6 +291,41 @@ describe('DAppsScreen native field and retry', () => {
     expect(other.load).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { stale: false, fresh: true },
+    { stale: true, fresh: false },
+  ])(
+    'opens a selected API directory entry with fresh=$fresh, but never a recent/custom URL',
+    async ({ stale, fresh }) => {
+      const catalog: DappCatalogPort = {
+        load: jest.fn().mockResolvedValue({ kind: 'ready', entries: [entry], ...(stale ? { stale: true } : {}) }),
+      };
+      const openCatalogInApp = jest.fn();
+      await renderCatalog(catalog);
+      beginRender();
+      const view = DAppsScreen({ catalog, openExternalUrl, openCatalogInApp });
+      const nodes = elements(view);
+      const row = nodes.find(node => node.props.accessibilityLabel === entry.title);
+      expect(row?.props.accessibilityRole).toBe('button');
+      row?.props.onPress?.();
+      expect(openCatalogInApp).toHaveBeenCalledTimes(1);
+      expect(openCatalogInApp).toHaveBeenCalledWith(entry, fresh);
+      expect(openExternalUrl).not.toHaveBeenCalled();
+    },
+  );
+
+  it('routes an Android catalog entry through the existing manual external-browser confirmation', async () => {
+    const verifiedEntry = { ...entry, websiteUrl: 'https://dex.example.org/app' };
+    const catalog: DappCatalogPort = { load: jest.fn().mockResolvedValue({ kind: 'ready', entries: [verifiedEntry] }) };
+    const first = elements(await renderCatalog(catalog));
+    first.find(node => node.props.accessibilityLabel === verifiedEntry.title)?.props.onPress?.();
+    beginRender();
+    const reviewed = elements(DAppsScreen({ catalog, openExternalUrl, inAppUnavailable: true }));
+    expect(reviewed.some(node => node.props.children === 'dapps.website.unreviewed')).toBe(true);
+    expect(reviewed.some(node => node.props.children === 'https://dex.example.org')).toBe(true);
+    expect(openExternalUrl).not.toHaveBeenCalled();
+  });
+
   it('retries a failed catalog load from the native button', async () => {
     const load = jest.fn().mockRejectedValue(new Error('catalog-down'));
     const catalog = { load };
