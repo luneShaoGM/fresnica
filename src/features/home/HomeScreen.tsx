@@ -71,7 +71,8 @@ export function HomeScreen({
     state: balanceState,
     refresh: refreshBalances,
     verifiedInactive,
-  } = useBalanceDisplay(account, balanceDependencies, active, invalidationRevision);
+    hasFreshInactiveSnapshot,
+  } = useBalanceDisplay(account, balanceDependencies, active, invalidationRevision, true);
   const [accountPickerVisible, setAccountPickerVisible] = useState(false);
   const [manualRefreshing, setManualRefreshing] = useState(false);
   const [friendbotStateByAccount, setFriendbotStateByAccount] = useState<Record<string, FriendbotFundingState>>({});
@@ -100,6 +101,11 @@ export function HomeScreen({
     friendbotRequestAccountIds.current.add(accountId);
     setFriendbotStateByAccount(current => ({ ...current, [accountId]: 'funding' }));
     try {
+      if (!hasFreshInactiveSnapshot()) await refreshBalances();
+      if (currentAccountId.current !== accountId || !hasFreshInactiveSnapshot()) {
+        clearFriendbotState(accountId);
+        return;
+      }
       await fundTestnetAccountWithFriendbot(friendbotDependencies, account);
       clearFriendbotState(accountId);
       if (currentAccountId.current === accountId) {
@@ -115,7 +121,7 @@ export function HomeScreen({
     } finally {
       friendbotRequestAccountIds.current.delete(accountId);
     }
-  }, [account, balanceState, clearFriendbotState, friendbotDependencies, refreshBalances, t]);
+  }, [account, balanceState, clearFriendbotState, friendbotDependencies, hasFreshInactiveSnapshot, refreshBalances, t]);
 
   const visibleFriendbotState: FriendbotFundingState = friendbotStateByAccount[account.id] ?? 'idle';
   const friendbotAvailable = isFriendbotFundingAvailable(friendbotDependencies, account);
