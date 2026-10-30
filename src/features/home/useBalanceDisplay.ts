@@ -14,7 +14,6 @@ export function useBalanceDisplay(
   dependencies: BalanceProductDependencies,
   active: boolean,
   invalidationRevision: number,
-  silentInactiveRevalidation = false,
 ): {
   state: BalanceDisplayState;
   refresh: (beforeLoad?: () => Promise<unknown>) => Promise<void> | undefined;
@@ -24,23 +23,28 @@ export function useBalanceDisplay(
   const [state, setState] = useState<BalanceDisplayState>({ kind: 'loading' });
   const version = useRef(0);
   const acceptedInactiveRequest = useRef<number | undefined>(undefined);
+  const acceptedPartition = useRef<string | undefined>(undefined);
   const verifiedInactivePartition = useRef<string | undefined>(undefined);
   const enabled = useRef(active);
   const partition = JSON.stringify([dependencies.networkId, account.networkId, account.address, account.identityKind]);
   const displayedPartition = useRef(partition);
 
   const refresh = useCallback(
-    (beforeLoad?: () => Promise<unknown>, background = false) => {
+    (beforeLoad?: () => Promise<unknown>) => {
       if (!enabled.current) return;
       const request = ++version.current;
       const changed = displayedPartition.current !== partition;
       displayedPartition.current = partition;
       if (changed) verifiedInactivePartition.current = undefined;
-      const silent =
-        background && silentInactiveRevalidation && !changed && verifiedInactivePartition.current === partition;
+      const silent = !changed && acceptedPartition.current === partition;
       const cached =
         dependencies.networkId === account.networkId ? readBalanceCacheBestEffort(dependencies, account) : undefined;
-      if (!silent) setState(current => startBalanceRefresh(changed ? { kind: 'loading' } : current, cached));
+      if (!silent)
+        setState(current =>
+          !changed && current.kind === 'error'
+            ? current
+            : startBalanceRefresh(changed ? { kind: 'loading' } : current, cached),
+        );
       const before = beforeLoad
         ? Promise.resolve()
             .then(beforeLoad)
@@ -53,15 +57,14 @@ export function useBalanceDisplay(
           if (version.current !== request) return;
           const updatedAt = dependencies.now();
           cacheBalanceSnapshotBestEffort(dependencies, account, snapshot, updatedAt);
+          acceptedPartition.current = partition;
           verifiedInactivePartition.current = snapshot.status === 'inactive' ? partition : undefined;
           acceptedInactiveRequest.current = snapshot.status === 'inactive' ? request : undefined;
           setState(current => {
             if (
               silent &&
-              snapshot.status === 'inactive' &&
               current.kind === 'ready' &&
-              current.snapshot.status === 'inactive' &&
-              current.snapshot.address === snapshot.address &&
+              JSON.stringify(current.snapshot) === JSON.stringify(snapshot) &&
               !current.stale &&
               !current.refreshFailed
             )
@@ -89,13 +92,13 @@ export function useBalanceDisplay(
           );
         });
     },
-    [account, dependencies, partition, silentInactiveRevalidation],
+    [account, dependencies, partition],
   );
 
   useEffect(() => {
     enabled.current = active;
     if (!active) return;
-    refresh(undefined, true);
+    refresh();
     return () => {
       enabled.current = false;
       version.current += 1;

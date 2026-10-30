@@ -175,7 +175,10 @@ describe('Home native balance-state presentation', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(setBalanceState.mock.calls[0][0]({ kind: 'error', message: 'Previous error' })).toEqual({ kind: 'loading' });
+    expect(setBalanceState.mock.calls[0][0]({ kind: 'error', message: 'Previous error' })).toEqual({
+      kind: 'error',
+      message: 'Previous error',
+    });
     expect(mockedLoadBalanceSnapshot).toHaveBeenCalledWith(balanceDependencies, account);
     expect(onSelectAccount).not.toHaveBeenCalled();
     expect(onManualRefresh).not.toHaveBeenCalled();

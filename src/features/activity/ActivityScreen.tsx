@@ -30,7 +30,6 @@ import {
   createCachedActivityReadyState,
   failActivityLoadMore,
   failActivityRefresh,
-  markActivityStaleForRevalidation,
   startActivityLoadMore,
   startActivityRefresh,
   type ActivityReadyState,
@@ -80,6 +79,7 @@ export function ActivityScreen({
   const [searchText, setSearchText] = useState('');
   const requestVersion = useRef(0);
   const hasHydrated = useRef(false);
+  const revalidating = useRef(false);
 
   useEffect(() => {
     setFilter('all');
@@ -90,19 +90,19 @@ export function ActivityScreen({
     (mode: ActivityLoadMode, beforeLoad?: () => Promise<unknown>) => {
       const version = requestVersion.current + 1;
       requestVersion.current = version;
+      revalidating.current = true;
 
       if (mode === 'hydrate') {
         const snapshot = readHistoryCacheSnapshotBestEffort(dependencies, account);
         setState(snapshot ? { kind: 'ready', ...createCachedActivityReadyState(snapshot) } : { kind: 'loading' });
-      } else {
+      } else if (mode === 'revalidate') {
         setState(current =>
-          current.kind === 'ready'
-            ? {
-                kind: 'ready',
-                ...(mode === 'revalidate' ? markActivityStaleForRevalidation(current) : startActivityRefresh(current)),
-              }
-            : { kind: 'loading' },
+          current.kind === 'ready' && (current.loadingMore || current.refreshing)
+            ? { ...current, loadingMore: false, refreshing: false }
+            : current,
         );
+      } else {
+        setState(current => (current.kind === 'ready' ? { kind: 'ready', ...startActivityRefresh(current) } : current));
       }
 
       const before = beforeLoad
@@ -121,17 +121,33 @@ export function ActivityScreen({
           switch (page.status) {
             case 'inactive':
               clearHistoryCacheBestEffort(dependencies, account);
-              setState({ kind: 'inactive' });
+              setState(current => (current.kind === 'inactive' ? current : { kind: 'inactive' }));
               return;
             case 'unsupported-account':
-              setState({ kind: 'unsupported-account' });
+              setState(current => (current.kind === 'unsupported-account' ? current : { kind: 'unsupported-account' }));
               return;
             case 'active': {
               const updatedAt = dependencies.now();
               cacheHistoryOnlineEntriesBestEffort(dependencies, account, page.entries, updatedAt);
-              setState({
-                kind: 'ready',
-                ...createActivityReadyState(page, updatedAt),
+              setState(current => {
+                if (
+                  mode === 'revalidate' &&
+                  current.kind === 'ready' &&
+                  current.source === 'online' &&
+                  page.nextCursor === current.acceptedCursors[0] &&
+                  (page.nextCursor !== undefined || page.entries.length === current.entries.length) &&
+                  JSON.stringify(page.entries) === JSON.stringify(current.entries.slice(0, page.entries.length))
+                )
+                  return current.stale || current.refreshFailed
+                    ? {
+                        ...current,
+                        stale: false,
+                        refreshFailed: false,
+                        refreshing: false,
+                        lastSuccessfulHorizonUpdateAt: updatedAt,
+                      }
+                    : current;
+                return { kind: 'ready', ...createActivityReadyState(page, updatedAt) };
               });
               return;
             }
@@ -142,8 +158,13 @@ export function ActivityScreen({
             return;
           }
           setState(current =>
-            current.kind === 'ready' ? { kind: 'ready', ...failActivityRefresh(current) } : { kind: 'offline-empty' },
+            current.kind === 'ready'
+              ? { kind: 'ready', ...failActivityRefresh(current), stale: mode === 'revalidate' || current.stale }
+              : { kind: 'offline-empty' },
           );
+        })
+        .finally(() => {
+          if (requestVersion.current === version) revalidating.current = false;
         });
     },
     [account, dependencies],
@@ -164,6 +185,7 @@ export function ActivityScreen({
 
   const loadMore = useCallback(() => {
     if (
+      revalidating.current ||
       state.kind !== 'ready' ||
       state.source !== 'online' ||
       state.stale ||
