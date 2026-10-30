@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application android:networkSecurityConfig="@xml/dapp_fixture_network_security">
+    <activity android:name=".DappBrowserFixtureActivity" android:exported="false" />
+  </application>
+</manifest>

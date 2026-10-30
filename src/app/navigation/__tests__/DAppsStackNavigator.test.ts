@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 
 import type { DappCatalogPort } from '../../../capabilities/dapp-catalog/catalog';
 import type { LedgerReadRuntime } from '../../readModels/LedgerReadRuntime';
@@ -53,9 +53,20 @@ function screens() {
 }
 
 describe('dApps navigation availability by platform', () => {
-  it('does not register an Android embedded browser route', () => {
+  it('does not register an Android browser without native protection', () => {
     Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+    const original = NativeModules.DappNetworkGuard;
+    NativeModules.DappNetworkGuard = undefined;
     expect(screens()).toEqual(['dapps']);
+    NativeModules.DappNetworkGuard = original;
+  });
+
+  it('registers the Android browser only with native protection', () => {
+    Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+    const original = NativeModules.DappNetworkGuard;
+    NativeModules.DappNetworkGuard = { available: true };
+    expect(screens()).toEqual(['dapps', 'dapp-browser']);
+    NativeModules.DappNetworkGuard = original;
   });
 
   it('keeps the iOS browser route', () => {

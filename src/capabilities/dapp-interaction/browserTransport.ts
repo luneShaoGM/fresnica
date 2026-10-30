@@ -14,6 +14,7 @@ export type DappBrowserSurfaceProps = Readonly<{
   onMessage: (data: string, messageUrl: string) => void;
   onNavigation: (navigation: DappBrowserNavigation) => void;
   onDocumentStart: (url: string) => void;
+  onUnavailable?: () => void;
 }>;
 
 export type DappBrowserSurfaceHandle = Readonly<{

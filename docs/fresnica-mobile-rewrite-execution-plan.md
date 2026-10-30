@@ -783,6 +783,8 @@ UI 执行策略：
 
 ### Stage 7：dApps 与 Freighter
 
+**2026-10-30 S16 Android 恢复候选**：从 `main@02667437af22422e0592b22ec2a8130f21bc26e4` 独立开发。以 AndroidX WebView proxy override + 本机 CONNECT 隧道在连接前执行公开域名和 DNS 地址校验；无 DIRECT 或 loopback bypass，原生确认前不挂载 WebView。详见 `docs/behavior-specs/s16-android-browser-network.md`。本轮仅恢复 Android 浏览器入口和请求边界，不纳入 PR #133 的目录自动连接。原生网络机制测试与真实 dApp/签名/真机产品验收分开记录；不因本候选升级成熟度，待 exact-HEAD Work Review 后由用户决定合并。
+
 **2026-10-27 双 Worktree 迁移记录**：从合并 Swap PR #121 后的
 `main@8031a9d3e4dc0a30541a6e91721a00a96544c235` 新建独立 dApp 集成分支；
 随后已无冲突同步 S24 PR #122 后的 `main@a795e440fdc10ff7007a300d3c885d1c6a2c2435`。
