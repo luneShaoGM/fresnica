@@ -37,6 +37,7 @@ it('pauses streams, polling and local retries through shared node cooldown, then
     },
   }));
   const sync = createForegroundAccountSync({
+    confirmMissing: async () => false,
     runtime,
     node,
     effects: bindNodeAccountEffects(node, create),
@@ -139,6 +140,7 @@ it.each(['transport', 'json', 'records', 'token'] as const)(
         },
       });
     const sync = createForegroundAccountSync({
+      confirmMissing: async () => false,
       runtime,
       node,
       effects: bindNodeAccountEffects(node, endpoint => createHorizonAccountEffects(endpoint, createRequest, http)),

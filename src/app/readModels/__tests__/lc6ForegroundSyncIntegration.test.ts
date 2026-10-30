@@ -81,6 +81,7 @@ async function setup() {
     },
   }));
   const sync = createForegroundAccountSync({
+    confirmMissing: async () => false,
     networkId: network.id,
     runtime,
     node,
