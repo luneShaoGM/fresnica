@@ -114,7 +114,7 @@ function renderHome(state: HomeBalanceState, currentAccount: AccountRecord = acc
     const index = stateIndex;
     stateIndex += 1;
     if (index === 0) return [state, setBalanceState];
-    if (index === 1) return [false, jest.fn()];
+    if (index === 1 || index === 2) return [false, jest.fn()];
     return [{}, jest.fn()];
   });
 

@@ -12,6 +12,7 @@ export type FriendbotFundingState = 'idle' | 'funding' | 'error';
 type Props = Readonly<{
   address: string;
   stale: boolean;
+  verifiedInactive?: boolean;
   friendbotAvailable: boolean;
   friendbotState: FriendbotFundingState;
   onFundWithFriendbot: () => void;
@@ -21,6 +22,7 @@ type Props = Readonly<{
 export function InactiveAccountPanel({
   address,
   stale,
+  verifiedInactive = false,
   friendbotAvailable,
   friendbotState,
   onFundWithFriendbot,
@@ -28,11 +30,12 @@ export function InactiveAccountPanel({
 }: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
+  const showStale = stale && !verifiedInactive;
   return (
     <View style={styles.inactiveContainer} testID="not-activated-account-container">
-      <Text style={styles.inactiveTitle}>{t(stale ? 'home.inactive.staleTitle' : 'home.inactive.title')}</Text>
+      <Text style={styles.inactiveTitle}>{t(showStale ? 'home.inactive.staleTitle' : 'home.inactive.title')}</Text>
 
-      {stale ? (
+      {showStale ? (
         <Text style={styles.inactiveStepText}>{t('balance.cache.inactive')}</Text>
       ) : (
         <View style={styles.inactiveStep}>
@@ -45,17 +48,17 @@ export function InactiveAccountPanel({
         {address}
       </Text>
 
-      {!stale && friendbotAvailable ? (
+      {!showStale && friendbotAvailable ? (
         <Button
-          disabled={friendbotState === 'funding'}
+          disabled={stale || friendbotState === 'funding'}
           label={t(friendbotState === 'funding' ? 'home.friendbot.funding' : 'home.friendbot.action')}
           onPress={onFundWithFriendbot}
         />
       ) : null}
-      {!stale && friendbotState === 'error' ? (
+      {!showStale && friendbotState === 'error' ? (
         <Text style={styles.inactiveError}>{t('home.friendbot.error')}</Text>
       ) : null}
-      {stale ? null : (
+      {showStale ? null : (
         <View style={styles.inactiveStep}>
           <Text style={styles.inactiveStepTitle}>{t('home.inactive.refreshTitle')}</Text>
           <Text style={styles.inactiveStepText}>{t('home.inactive.refreshMessage')}</Text>

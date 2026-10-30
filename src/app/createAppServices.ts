@@ -286,6 +286,9 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       runtime: ledgerReadRuntime,
       invalidation: ledgerReadInvalidation,
       effects: bindNodeAccountEffects(nodeReadSession, createHorizonAccountEffects),
+      confirmMissing: async address =>
+        (await nodeReadSession.run((signal, endpoint) => publicReads.loadAccountBalances(endpoint, address, signal)))
+          .status === 'inactive',
       node: nodeReadSession,
       onFailure: () => diagnostics.warn('account-effects-probe-failed'),
       isReading: displayReadGateway.hasPendingReads,

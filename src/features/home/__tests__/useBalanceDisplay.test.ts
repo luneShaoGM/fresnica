@@ -1,3 +1,9 @@
+import React from 'react';
+import { RefreshControl } from 'react-native';
+import { Button } from '@ui/components';
+import { HomeScreen } from '../HomeScreen';
+import { InactiveAccountPanel } from '../components/InactiveAccountPanel';
+import { BalanceFreshnessNotice } from '../components/BalanceFreshnessNotice';
 import type { AccountRecord } from '@capabilities/account/types';
 import type { StellarAccountBalanceResult } from '@capabilities/stellar/types';
 import { InMemoryBalanceCacheRepository } from '../../../platform/persistence/memory/InMemoryBalanceCacheRepository';
@@ -14,6 +20,8 @@ let mockEffects: Array<() => void> = [];
 const mockSameDeps = (a: readonly unknown[] | undefined, b: readonly unknown[]) =>
   a !== undefined && a.length === b.length && a.every((value, i) => Object.is(value, b[i]));
 jest.mock('react', () => ({
+  ...jest.requireActual('react'),
+  useMemo: (factory: () => unknown) => factory(),
   useState: (initial: unknown) => {
     const index = mockCursor++;
     if (!mockSlots[index]) mockSlots[index] = { value: initial };
@@ -46,6 +54,18 @@ jest.mock('react', () => ({
   },
 }));
 
+jest.mock('@fresnica/ui-native', () => ({ StateView: () => null, Button: () => null }));
+
+jest.mock('@ui/theme', () => {
+  const actual = jest.requireActual('@ui/theme') as typeof import('@ui/theme');
+  return {
+    ...actual,
+    useAppTheme: () => actual.defaultTheme,
+    useThemedStyles: (factory: (theme: typeof actual.defaultTheme) => unknown) => factory(actual.defaultTheme),
+  };
+});
+jest.mock('../../../locale', () => ({ useLocalization: () => ({ t: (key: string) => key }) }));
+
 const accountA: AccountRecord = {
   id: 'a',
   networkId: 'stellar-testnet',
@@ -72,13 +92,13 @@ function deferred<T>() {
 async function settle() {
   for (let i = 0; i < 12; i++) await Promise.resolve();
 }
-function setup() {
+function setup(silentInactiveRevalidation = false) {
   const cache = new InMemoryBalanceCacheRepository();
   const gateway = { loadAccountBalances: jest.fn(async (address: string) => active(address)) };
   const deps = { cache, gateway, networkId: 'stellar-testnet', now: () => new Date('2026-10-26T01:00:00Z') };
   const useRender = (account = accountA, activeScreen = true, revision = 0) => {
     mockCursor = 0;
-    return useBalanceDisplay(account, deps, activeScreen, revision);
+    return useBalanceDisplay(account, deps, activeScreen, revision, silentInactiveRevalidation);
   };
   const effects = () => {
     const pending = mockEffects;
@@ -224,4 +244,180 @@ describe('Balance display product lifecycle', () => {
       snapshot: { status: 'active' },
     });
   });
+});
+
+type ElementProps = {
+  children?: React.ReactNode;
+  refreshControl?: React.ReactNode;
+  label?: string;
+  disabled?: boolean;
+  refreshing?: boolean;
+  onPress?: () => void | Promise<void>;
+};
+function elements(node: React.ReactNode): React.ReactElement<ElementProps>[] {
+  if (!React.isValidElement<ElementProps>(node)) return [];
+  return [node, ...React.Children.toArray(node.props.children).flatMap(elements)];
+}
+function homeFrame(current: ReturnType<typeof setup>, revision = 0) {
+  mockCursor = 0;
+  const fundAccount = jest.fn();
+  const root = HomeScreen({
+    account: accountA,
+    accountCount: 1,
+    selectableAccounts: [accountA],
+    balanceDependencies: current.deps,
+    friendbotDependencies: { networkId: 'stellar-testnet', gateway: { fundAccount } },
+    canSign: true,
+    onSelectAccount: jest.fn(),
+    onAddAccount: jest.fn(),
+    onSend: jest.fn(),
+    onManageAssets: jest.fn(),
+    onOpenAsset: jest.fn(),
+    onManualRefresh: async () => undefined,
+    invalidationRevision: revision,
+    active: true,
+  });
+  const panel = elements(root).find(node => node.type === InactiveAccountPanel);
+  const content = panel ? InactiveAccountPanel(panel.props as React.ComponentProps<typeof InactiveAccountPanel>) : null;
+  const controls = elements(root).flatMap(node => elements(node.props.refreshControl));
+  return {
+    fundAccount,
+    state: mockSlots[0].value,
+    buttons: elements(content).filter(node => node.type === Button),
+    text: JSON.stringify(content),
+    notice: elements(root).find(node => node.type === BalanceFreshnessNotice),
+    refreshing: controls.find(node => node.type === RefreshControl)?.props.refreshing,
+  };
+}
+
+it('keeps the real Home Friendbot button mounted through background revalidation, failure and retry', async () => {
+  const current = setup();
+  current.gateway.loadAccountBalances.mockResolvedValue({ status: 'inactive', address: 'GA' });
+  homeFrame(current);
+  current.effects();
+  await settle();
+  const ready = homeFrame(current);
+  expect(ready.buttons.map(button => button.props.label)).toContain('home.friendbot.action');
+  expect(ready.buttons[0].props.disabled).toBe(false);
+  const response = deferred<StellarAccountBalanceResult>();
+  current.gateway.loadAccountBalances.mockReturnValueOnce(response.promise);
+  homeFrame(current, 1);
+  current.effects();
+  await settle();
+  const checking = homeFrame(current, 1);
+  expect(checking.buttons.map(button => button.props.label)).toEqual(ready.buttons.map(button => button.props.label));
+  expect(checking.text).toEqual(ready.text);
+  expect(mockSlots[0].value).toBe(ready.state);
+  expect(checking.refreshing).toBe(false);
+  expect(checking.notice).toBeUndefined();
+  response.resolve({ status: 'inactive', address: 'GA' });
+  await settle();
+  expect(homeFrame(current, 1).text).toEqual(ready.text);
+  expect(homeFrame(current, 1).state).toBe(ready.state);
+  current.gateway.loadAccountBalances.mockRejectedValueOnce(new Error('offline'));
+  homeFrame(current, 2);
+  current.effects();
+  await settle();
+  const failed = homeFrame(current, 2);
+  expect(failed.buttons.map(button => button.props.label)).toEqual(ready.buttons.map(button => button.props.label));
+  expect(failed.buttons[0].props.disabled).toBe(true);
+  expect(failed.notice).toBeDefined();
+  const retry = deferred<StellarAccountBalanceResult>();
+  current.gateway.loadAccountBalances.mockReturnValueOnce(retry.promise);
+  homeFrame(current, 3);
+  current.effects();
+  await settle();
+  expect(homeFrame(current, 3).notice).toBeDefined();
+  retry.resolve({ status: 'inactive', address: 'GA' });
+  await settle();
+  expect(homeFrame(current, 3).notice).toBeUndefined();
+  expect(homeFrame(current, 3).text).toEqual(ready.text);
+});
+
+it('keeps the identical inactive display state across repeated checks while tracking freshness separately', async () => {
+  const current = setup(true);
+  current.gateway.loadAccountBalances.mockResolvedValue({ status: 'inactive', address: 'GA' });
+  current.render();
+  current.effects();
+  await settle();
+  const ready = current.render();
+  expect(ready.hasFreshInactiveSnapshot()).toBe(true);
+  for (let revision = 1; revision <= 3; revision++) {
+    const pending = deferred<StellarAccountBalanceResult>();
+    current.gateway.loadAccountBalances.mockReturnValueOnce(pending.promise);
+    current.render(accountA, true, revision);
+    current.effects();
+    await settle();
+    const checking = current.render(accountA, true, revision);
+    expect(checking.state).toBe(ready.state);
+    expect(checking.hasFreshInactiveSnapshot()).toBe(false);
+    pending.resolve({ status: 'inactive', address: 'GA' });
+    await settle();
+    expect(current.render(accountA, true, revision).state).toBe(ready.state);
+    expect(checking.hasFreshInactiveSnapshot()).toBe(true);
+  }
+  current.dispose();
+  expect(ready.hasFreshInactiveSnapshot()).toBe(false);
+});
+
+it('keeps manual refresh visible and publishes activation instead of suppressing new data', async () => {
+  const current = setup(true);
+  current.gateway.loadAccountBalances.mockResolvedValueOnce({ status: 'inactive', address: 'GA' });
+  current.render();
+  current.effects();
+  await settle();
+  const ready = current.render();
+  const pending = deferred<StellarAccountBalanceResult>();
+  current.gateway.loadAccountBalances.mockReturnValueOnce(pending.promise);
+  const refreshing = ready.refresh();
+  expect(current.render().state).toMatchObject({ stale: true, refreshing: true });
+  expect(ready.hasFreshInactiveSnapshot()).toBe(false);
+  pending.resolve(active());
+  await refreshing;
+  expect(current.render().state).toMatchObject({ stale: false, snapshot: { status: 'active' } });
+  expect(ready.hasFreshInactiveSnapshot()).toBe(false);
+});
+
+it('does not let inactive verification cross account partitions or trust cache-only inactive data', async () => {
+  const current = setup(true);
+  current.cache.replaceSnapshot(balancePartition, {
+    ...balanceSnapshot(),
+    balance: { status: 'inactive', address: 'GA' },
+  });
+  const pending = deferred<StellarAccountBalanceResult>();
+  current.gateway.loadAccountBalances.mockReturnValueOnce(pending.promise);
+  current.render();
+  current.effects();
+  await settle();
+  expect(current.render().state).toMatchObject({ stale: true, refreshing: true });
+  expect(current.render().hasFreshInactiveSnapshot()).toBe(false);
+  pending.resolve({ status: 'inactive', address: 'GA' });
+  await settle();
+  const ready = current.render();
+  const accountB = { ...accountA, id: 'b', address: 'GB' };
+  expect(current.render(accountB).hasFreshInactiveSnapshot()).toBe(false);
+  current.effects();
+  await settle();
+  expect(ready.hasFreshInactiveSnapshot()).toBe(false);
+});
+
+it('revalidates before funding during a silent check and refuses funding when the account has activated', async () => {
+  const current = setup();
+  current.gateway.loadAccountBalances.mockResolvedValueOnce({ status: 'inactive', address: 'GA' });
+  homeFrame(current);
+  current.effects();
+  await settle();
+  const old = deferred<StellarAccountBalanceResult>();
+  current.gateway.loadAccountBalances.mockReturnValueOnce(old.promise);
+  homeFrame(current, 1);
+  current.effects();
+  await settle();
+  const checking = homeFrame(current, 1);
+  current.gateway.loadAccountBalances.mockResolvedValueOnce(active());
+  await checking.buttons[0].props.onPress?.();
+  expect(checking.fundAccount).not.toHaveBeenCalled();
+  expect(homeFrame(current, 1).buttons).toHaveLength(0);
+  old.resolve({ status: 'inactive', address: 'GA' });
+  await settle();
+  expect(homeFrame(current, 1).buttons).toHaveLength(0);
 });

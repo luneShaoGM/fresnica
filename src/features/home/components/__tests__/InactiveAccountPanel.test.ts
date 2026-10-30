@@ -90,6 +90,22 @@ describe('InactiveAccountPanel', () => {
     },
   );
 
+  it('keeps verified inactive copy and button layout stable during silent revalidation without enabling funding', () => {
+    const normal = InactiveAccountPanel({ ...baseProps, friendbotState: 'idle' });
+    const checking = InactiveAccountPanel({
+      ...baseProps,
+      stale: true,
+      verifiedInactive: true,
+      friendbotState: 'idle',
+    });
+    expect(textValues(checking)).toEqual(textValues(normal));
+    expect(buttons(checking).map(button => button.props.label)).toEqual(
+      buttons(normal).map(button => button.props.label),
+    );
+    expect(buttons(checking)[0]?.props.disabled).toBe(true);
+    expect(buttons(normal)[0]?.props.disabled).toBe(false);
+  });
+
   it('disables duplicate funding while Friendbot is in progress', () => {
     const root = InactiveAccountPanel({ ...baseProps, friendbotState: 'funding' });
     const renderedButtons = buttons(root);

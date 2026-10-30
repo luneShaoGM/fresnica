@@ -67,13 +67,14 @@ export function HomeScreen({
   const theme = useAppTheme();
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
-  const { state: balanceState, refresh: refreshBalances } = useBalanceDisplay(
-    account,
-    balanceDependencies,
-    active,
-    invalidationRevision,
-  );
+  const {
+    state: balanceState,
+    refresh: refreshBalances,
+    verifiedInactive,
+    hasFreshInactiveSnapshot,
+  } = useBalanceDisplay(account, balanceDependencies, active, invalidationRevision, true);
   const [accountPickerVisible, setAccountPickerVisible] = useState(false);
+  const [manualRefreshing, setManualRefreshing] = useState(false);
   const [friendbotStateByAccount, setFriendbotStateByAccount] = useState<Record<string, FriendbotFundingState>>({});
   const currentAccountId = useRef(account.id);
   const friendbotRequestAccountIds = useRef<Set<string>>(new Set());
@@ -91,6 +92,7 @@ export function HomeScreen({
   }, []);
 
   const fundWithFriendbot = useCallback(async () => {
+    if (balanceState.kind !== 'ready' || balanceState.stale || balanceState.snapshot.status !== 'inactive') return;
     const accountId = account.id;
     if (friendbotRequestAccountIds.current.has(accountId)) {
       return;
@@ -99,6 +101,11 @@ export function HomeScreen({
     friendbotRequestAccountIds.current.add(accountId);
     setFriendbotStateByAccount(current => ({ ...current, [accountId]: 'funding' }));
     try {
+      if (!hasFreshInactiveSnapshot()) await refreshBalances();
+      if (currentAccountId.current !== accountId || !hasFreshInactiveSnapshot()) {
+        clearFriendbotState(accountId);
+        return;
+      }
       await fundTestnetAccountWithFriendbot(friendbotDependencies, account);
       clearFriendbotState(accountId);
       if (currentAccountId.current === accountId) {
@@ -114,7 +121,7 @@ export function HomeScreen({
     } finally {
       friendbotRequestAccountIds.current.delete(accountId);
     }
-  }, [account, clearFriendbotState, friendbotDependencies, refreshBalances, t]);
+  }, [account, balanceState, clearFriendbotState, friendbotDependencies, hasFreshInactiveSnapshot, refreshBalances, t]);
 
   const visibleFriendbotState: FriendbotFundingState = friendbotStateByAccount[account.id] ?? 'idle';
   const friendbotAvailable = isFriendbotFundingAvailable(friendbotDependencies, account);
@@ -135,8 +142,11 @@ export function HomeScreen({
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
-            onRefresh={() => refreshBalances(onManualRefresh)}
-            refreshing={balanceState.kind === 'loading' || (balanceState.kind === 'ready' && balanceState.refreshing)}
+            onRefresh={() => {
+              setManualRefreshing(true);
+              void Promise.resolve(refreshBalances(onManualRefresh)).finally(() => setManualRefreshing(false));
+            }}
+            refreshing={manualRefreshing}
             tintColor={theme.colors.actionPrimary}
           />
         }
@@ -187,12 +197,18 @@ export function HomeScreen({
           </Pressable>
         </View>
 
-        <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} />
+        {balanceState.kind === 'ready' &&
+        balanceState.snapshot.status === 'inactive' &&
+        verifiedInactive &&
+        !balanceState.refreshFailed ? null : (
+          <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} />
+        )}
         {renderPortfolio(
           balanceState,
           viewModel.accountAddress,
-          viewModel.canFundWithFriendbot,
+          friendbotAvailable,
           visibleFriendbotState,
+          verifiedInactive === true,
           fundWithFriendbot,
           refreshBalances,
           onOpenAsset,
@@ -244,6 +260,7 @@ function renderPortfolio(
   address: string,
   friendbotAvailable: boolean,
   friendbotState: FriendbotFundingState,
+  verifiedInactive: boolean,
   onFundWithFriendbot: () => void,
   onRefresh: () => void,
   onOpenAsset: (asset: BalanceAsset) => void,
@@ -275,6 +292,7 @@ function renderPortfolio(
       <InactiveAccountPanel
         address={address}
         stale={state.stale}
+        verifiedInactive={verifiedInactive}
         friendbotAvailable={friendbotAvailable}
         friendbotState={friendbotState}
         onFundWithFriendbot={onFundWithFriendbot}

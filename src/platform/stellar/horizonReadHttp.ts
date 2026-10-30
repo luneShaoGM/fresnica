@@ -12,14 +12,19 @@ export function horizonHttpError(status: number, retryAfter: string | null): Nod
     retryAfterMilliseconds(retryAfter),
   );
 }
-export async function horizonReadJson(url: string, signal: AbortSignal, http: typeof fetch = fetch): Promise<unknown> {
+export async function horizonReadJson(
+  url: string,
+  signal: AbortSignal,
+  http: typeof fetch = fetch,
+  notFoundValue?: unknown,
+): Promise<unknown> {
   let response: Response;
   try {
     response = await http(url, { signal });
   } catch {
     throw new NodeReadError(signal.aborted ? 'superseded' : 'unavailable');
   }
-  if (response.status === 404) return undefined;
+  if (response.status === 404) return notFoundValue;
   if (!response.ok) throw horizonHttpError(response.status, response.headers.get('Retry-After'));
   try {
     return await response.json();

@@ -24,7 +24,7 @@ export function cachedBalanceState(cached: BalanceCacheSnapshot): BalanceDisplay
   };
 }
 export function startBalanceRefresh(current: BalanceDisplayState, cached?: BalanceCacheSnapshot): BalanceDisplayState {
-  if (current.kind === 'ready') return { ...current, stale: true, refreshing: true, refreshFailed: false };
+  if (current.kind === 'ready') return { ...current, stale: true, refreshing: true };
   return cached ? cachedBalanceState(cached) : { kind: 'loading' };
 }
 export function failBalanceRefresh(current: BalanceDisplayState, message: string): BalanceDisplayState {

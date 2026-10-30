@@ -10,6 +10,7 @@ export const ACCOUNT_SYNC_TIMING = Object.freeze({
   connect: 10000,
   probe: 8000,
   poll: 15000,
+  inactivePoll: 60000,
   health: 30000,
   retry: 2000,
   maxRetry: 60000,
@@ -23,6 +24,7 @@ export function createForegroundAccountSync(
     runtime: LedgerReadRuntime;
     invalidation: LedgerReadInvalidationStore;
     effects: AccountEffectsPort;
+    confirmMissing: (address: string) => Promise<boolean>;
     onFailure: () => void;
     isReading: (address: string) => boolean;
     random?: () => number;
@@ -30,6 +32,7 @@ export function createForegroundAccountSync(
   }>,
 ) {
   let selected: Target | undefined;
+  let hasAccountExistenceEvidence = false;
   let snapshot: Snapshot = Object.freeze({ mode: 'paused' });
   const listeners = new Set<() => void>();
   let closed = false;
@@ -57,8 +60,11 @@ export function createForegroundAccountSync(
     let streamVersion = 0;
     let stopStream = () => {};
     let cursor: string | undefined;
+    let effectRevision = 0;
     let probeToken: string | undefined;
     let probeInitialized = false;
+    let inactive = false;
+    let tickTimer: ReturnType<typeof setTimeout> | undefined;
     let attempts = 0;
     let probeAgain = false;
     let probing: AbortController | undefined;
@@ -102,6 +108,7 @@ export function createForegroundAccountSync(
         return;
       }
       const probeStreamVersion = streamVersion;
+      const probeEffectRevision = effectRevision;
       const controller = new AbortController();
       probing = controller;
       let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -117,8 +124,53 @@ export function createForegroundAccountSync(
         return deps.effects.latest(account.address, controller.signal);
       });
       Promise.race([read, expiry])
-        .then(token => {
+        .then(async token => {
           if (!alive) return;
+          if (token === null) {
+            // A missing checkpoint must not override a newer connection or delivered effect.
+            if (probeStreamVersion !== streamVersion || probeEffectRevision !== effectRevision) return;
+            if (hasAccountExistenceEvidence) {
+              const missing = await Promise.race([deps.confirmMissing(account.address), expiry]);
+              if (
+                !alive ||
+                controller.signal.aborted ||
+                probeStreamVersion !== streamVersion ||
+                probeEffectRevision !== effectRevision
+              )
+                return;
+              if (!missing) {
+                dirty();
+                return;
+              }
+            }
+            hasAccountExistenceEvidence = false;
+            const newlyInactive = !inactive;
+            inactive = true;
+            streamVersion += 1;
+            cancel(connectTimer);
+            connectTimer = undefined;
+            cancel(retryTimer);
+            retryTimer = undefined;
+            stopStream();
+            stopStream = () => {};
+            publish('inactive');
+            cancel(tickTimer);
+            tickTimer = later(tick, ACCOUNT_SYNC_TIMING.inactivePoll);
+            if (newlyInactive) dirty();
+            probeInitialized = true;
+            probeToken = undefined;
+            return;
+          }
+          hasAccountExistenceEvidence = true;
+          if (inactive) {
+            inactive = false;
+            cancel(tickTimer);
+            tickTimer = later(tick, ACCOUNT_SYNC_TIMING.poll);
+            probeInitialized = false;
+            probeToken = undefined;
+            dirty();
+            connect();
+          }
           // A newer REST checkpoint absent from the live stream reveals silent loss.
           if (
             probeInitialized &&
@@ -131,7 +183,7 @@ export function createForegroundAccountSync(
           probeInitialized = true;
           probeToken = token;
           // Even unchanged effects must retry an earlier failed/delayed display read.
-          dirty();
+          if (!inactive) dirty();
         })
         .catch(() => {
           if (!alive) return;
@@ -149,7 +201,7 @@ export function createForegroundAccountSync(
         });
     };
     const fail = (version: number, resetCursor = false) => {
-      if (!alive || version !== streamVersion) return;
+      if (!alive || version !== streamVersion || inactive) return;
       streamVersion += 1;
       cancel(connectTimer);
       connectTimer = undefined;
@@ -171,7 +223,7 @@ export function createForegroundAccountSync(
       }
     };
     const connect = () => {
-      if (!alive) return;
+      if (!alive || inactive) return;
       const version = ++streamVersion;
       if (snapshot.mode !== 'polling') publish('connecting');
       connectTimer = later(() => fail(version), ACCOUNT_SYNC_TIMING.connect);
@@ -193,6 +245,8 @@ export function createForegroundAccountSync(
             if (seen.has(token)) return;
             attempts = 0;
             cursor = token;
+            effectRevision += 1;
+            hasAccountExistenceEvidence = true;
             seen.add(token);
             if (seen.size > 512) seen.delete(seen.values().next().value!);
             dirty();
@@ -208,11 +262,15 @@ export function createForegroundAccountSync(
     let liveTicks = 0;
     const tick = () => {
       // Keep the fallback cadence independent of when the stream last failed.
-      if (snapshot.mode !== 'live' || ++liveTicks >= ACCOUNT_SYNC_TIMING.health / ACCOUNT_SYNC_TIMING.poll) {
+      if (
+        inactive ||
+        snapshot.mode !== 'live' ||
+        ++liveTicks >= ACCOUNT_SYNC_TIMING.health / ACCOUNT_SYNC_TIMING.poll
+      ) {
         liveTicks = 0;
         probe();
       }
-      later(tick, ACCOUNT_SYNC_TIMING.poll);
+      tickTimer = later(tick, inactive ? ACCOUNT_SYNC_TIMING.inactivePoll : ACCOUNT_SYNC_TIMING.poll);
     };
     stopSession = () => {
       if (!alive) return;
@@ -226,7 +284,7 @@ export function createForegroundAccountSync(
     publish('connecting');
     connect();
     if (!probing) probe();
-    later(tick, ACCOUNT_SYNC_TIMING.poll);
+    tickTimer = later(tick, ACCOUNT_SYNC_TIMING.poll);
   }
   const unsubscribe = deps.runtime.subscribe(restart);
   const unsubscribeNode = deps.node?.subscribe(restart);
@@ -245,12 +303,14 @@ export function createForegroundAccountSync(
           ? account
           : undefined;
       if (selected?.id === next?.id && selected?.address === next?.address) return;
+      hasAccountExistenceEvidence = false;
       selected = next;
       restart();
     },
     close() {
       if (closed) return;
       closed = true;
+      hasAccountExistenceEvidence = false;
       stopSession();
       unsubscribe();
       unsubscribeNode?.();

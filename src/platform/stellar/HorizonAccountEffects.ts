@@ -2,6 +2,7 @@ import { horizonHttpError, horizonReadJson } from './horizonReadHttp';
 import { NodeReadError } from '../../capabilities/network/NodeReadError';
 import type { AccountEffectsPort, EffectStreamFailure } from '../../capabilities/account-sync/AccountEffects';
 
+const NOT_FOUND = Symbol('account-effects-not-found');
 const MAX_RESPONSE = 512 * 1024;
 const MAX_EVENT = 32 * 1024;
 
@@ -86,9 +87,10 @@ export function createHorizonAccountEffects(
       return stop;
     },
     async latest(address, signal) {
-      const body = await horizonReadJson(`${endpoint(address)}?order=desc&limit=1`, signal, http);
+      const body = await horizonReadJson(`${endpoint(address)}?order=desc&limit=1`, signal, http, NOT_FOUND);
       if (signal.aborted) throw new NodeReadError('superseded');
       // An unfunded classic account has no effects yet; polling must keep running.
+      if (body === NOT_FOUND) return null;
       if (body === undefined) return undefined;
       const records = (body as { _embedded?: { records?: unknown } } | null)?._embedded?.records;
       if (!Array.isArray(records) || records.length > 1) throw new NodeReadError('protocol');

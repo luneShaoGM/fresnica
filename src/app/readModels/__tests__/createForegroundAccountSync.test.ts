@@ -44,19 +44,21 @@ function setup() {
       return stop;
     },
   };
+  const confirmMissing = jest.fn(async (_address: string) => false);
   const failure = jest.fn();
   const reading = jest.fn(() => false);
   const sync = createForegroundAccountSync({
     runtime,
     invalidation,
     effects,
+    confirmMissing,
     networkId: 'testnet',
     onFailure: failure,
     isReading: reading,
     random: () => 1,
   });
   const revision = (id = 'a') => invalidation.getRevision('testnet', id);
-  return { runtime, invalidation, streams, latest, failure, reading, sync, revision };
+  return { runtime, invalidation, streams, latest, confirmMissing, failure, reading, sync, revision };
 }
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => {
@@ -180,6 +182,7 @@ describe('selected-account foreground sync', () => {
     expect(s.streams[0].stop).toHaveBeenCalledTimes(1);
     jest.advanceTimersByTime(timing.retry);
     s.streams[1].onOpen();
+    s.streams[1].onEffect('created');
     await settle();
     expect(s.sync.getSnapshot().mode).toBe('live');
     s.sync.close();
@@ -440,6 +443,289 @@ describe('selected-account foreground sync', () => {
     expect(loadAccountBalances).toHaveBeenCalledTimes(2);
     s.sync.close();
   });
+  it('quietly checks confirmed missing accounts at 60 seconds and restores live sync on funding', async () => {
+    const s = setup();
+    s.latest.mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce('created');
+    s.sync.setAccount(account());
+    await settle();
+    expect(s.sync.getSnapshot().mode).toBe('inactive');
+    expect(s.streams[0].stop).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(timing.coalesce);
+    const firstRevision = s.revision();
+    jest.advanceTimersByTime(59000);
+    await settle();
+    expect(s.latest).toHaveBeenCalledTimes(1);
+    expect(s.revision()).toBe(firstRevision);
+    expect(s.streams).toHaveLength(1);
+    jest.advanceTimersByTime(1000);
+    await settle();
+    expect(s.latest).toHaveBeenCalledTimes(2);
+    expect(s.sync.getSnapshot().mode).toBe('inactive');
+    jest.advanceTimersByTime(60000);
+    await settle();
+    expect(s.latest).toHaveBeenCalledTimes(3);
+    expect(s.streams).toHaveLength(2);
+    s.latest.mockResolvedValue('created');
+    s.streams[1].onOpen();
+    s.streams[1].onEffect('created');
+    await settle();
+    jest.advanceTimersByTime(timing.coalesce);
+    expect(s.sync.getSnapshot().mode).toBe('live');
+    expect(s.revision()).toBeGreaterThan(firstRevision);
+    s.sync.close();
+  });
+
+  it.each([
+    { initiallyMissing: true, result: 'created' },
+    { initiallyMissing: true, result: undefined },
+    { initiallyMissing: false, result: 'existing-effect' },
+    { initiallyMissing: false, result: undefined },
+  ])('retains successful REST existence evidence before SSE events (%j)', async ({ initiallyMissing, result }) => {
+    const s = setup();
+    if (initiallyMissing) s.latest.mockResolvedValueOnce(null);
+    s.latest.mockResolvedValueOnce(result).mockResolvedValue(null);
+    s.sync.setAccount(account());
+    await settle();
+    if (initiallyMissing) {
+      expect(s.sync.getSnapshot().mode).toBe('inactive');
+      jest.advanceTimersByTime(timing.inactivePoll);
+      await settle();
+    }
+    const stream = s.streams[s.streams.length - 1];
+    stream.onOpen();
+    await settle();
+    expect(s.confirmMissing).toHaveBeenCalledWith('Ga');
+    expect(s.sync.getSnapshot().mode).toBe('live');
+    expect(stream.stop).not.toHaveBeenCalled();
+    for (let i = 0; i < 3; i++) {
+      const confirmations = s.confirmMissing.mock.calls.length;
+      jest.advanceTimersByTime(timing.health);
+      await settle();
+      expect(s.confirmMissing.mock.calls.length).toBeGreaterThan(confirmations);
+      expect(s.sync.getSnapshot().mode).toBe('live');
+      expect(stream.stop).not.toHaveBeenCalled();
+    }
+    const before = s.revision();
+    stream.onEffect('next-payment');
+    jest.advanceTimersByTime(timing.coalesce);
+    expect(s.revision()).toBeGreaterThan(before);
+    s.confirmMissing.mockResolvedValue(true);
+    jest.advanceTimersByTime(timing.health);
+    await settle();
+    expect(s.sync.getSnapshot().mode).toBe('inactive');
+    expect(stream.stop).toHaveBeenCalledTimes(1);
+    s.sync.close();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('keeps live effects through delayed and repeated lagging 404s until REST catches up', async () => {
+    const s = setup();
+    const old = deferred<string | null>();
+    s.latest.mockReturnValueOnce(old.promise).mockResolvedValue(null);
+    s.sync.setAccount(account());
+    await settle();
+    s.streams[0].onOpen();
+    s.streams[0].onEffect('created');
+    old.resolve(null);
+    await settle();
+    expect(s.latest).toHaveBeenCalledTimes(2);
+    expect(s.sync.getSnapshot().mode).toBe('live');
+    expect(s.streams[0].stop).not.toHaveBeenCalled();
+    for (let i = 0; i < 3; i++) {
+      jest.advanceTimersByTime(timing.health);
+      await settle();
+      expect(s.sync.getSnapshot().mode).toBe('live');
+      expect(s.streams[0].stop).not.toHaveBeenCalled();
+    }
+    const before = s.revision();
+    s.streams[0].onEffect('new-payment');
+    jest.advanceTimersByTime(timing.coalesce);
+    expect(s.revision()).toBeGreaterThan(before);
+    s.latest.mockResolvedValue('new-payment');
+    jest.advanceTimersByTime(timing.health);
+    await settle();
+    expect(s.sync.getSnapshot().mode).toBe('live');
+    // A later independently confirmed disappearance still retires the stream.
+    s.confirmMissing.mockResolvedValue(true);
+    s.latest.mockResolvedValue(null);
+    jest.advanceTimersByTime(timing.health);
+    await settle();
+    expect(s.sync.getSnapshot().mode).toBe('inactive');
+    expect(s.streams[0].stop).toHaveBeenCalledTimes(1);
+    s.sync.close();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it.each(['failed', 'cursor-rejected', 'background', 'offline'] as const)(
+    'retains account existence evidence across %s until authoritative removal',
+    async reason => {
+      const s = setup();
+      s.sync.setAccount(account());
+      await settle();
+      s.streams[0].onOpen();
+      await settle();
+      s.streams[0].onEffect('created');
+      s.latest.mockResolvedValue(null);
+      if (reason === 'background') {
+        s.runtime.update({ foreground: false, connectivity: 'online' });
+        s.runtime.update({ foreground: true, connectivity: 'online' });
+      } else if (reason === 'offline') {
+        s.runtime.update({ foreground: true, connectivity: 'offline' });
+        s.runtime.update({ foreground: true, connectivity: 'online' });
+      } else {
+        s.streams[0].onFailure(reason);
+        await settle();
+        jest.advanceTimersByTime(timing.retry);
+      }
+      s.streams[1].onOpen();
+      await settle();
+      expect(s.confirmMissing).toHaveBeenCalledWith('Ga');
+      expect(s.sync.getSnapshot().mode).toBe('live');
+      expect(s.streams[1].stop).not.toHaveBeenCalled();
+      for (let i = 0; i < 3; i++) {
+        const confirmations = s.confirmMissing.mock.calls.length;
+        jest.advanceTimersByTime(timing.health);
+        await settle();
+        expect(s.confirmMissing.mock.calls.length).toBeGreaterThan(confirmations);
+        expect(s.sync.getSnapshot().mode).toBe('live');
+        expect(s.streams[1].stop).not.toHaveBeenCalled();
+      }
+      const before = s.revision();
+      s.streams[1].onEffect('new-payment');
+      jest.advanceTimersByTime(timing.coalesce);
+      expect(s.revision()).toBeGreaterThan(before);
+      s.confirmMissing.mockResolvedValue(true);
+      jest.advanceTimersByTime(timing.health);
+      await settle();
+      expect(s.sync.getSnapshot().mode).toBe('inactive');
+      expect(s.streams[1].stop).toHaveBeenCalledTimes(1);
+      const confirmations = s.confirmMissing.mock.calls.length;
+      jest.advanceTimersByTime(timing.inactivePoll);
+      await settle();
+      expect(s.confirmMissing).toHaveBeenCalledTimes(confirmations);
+      s.sync.close();
+      expect(jest.getTimerCount()).toBe(0);
+    },
+  );
+
+  it('does not transfer account existence evidence across selection changes, including A→B→A', async () => {
+    const s = setup();
+    s.sync.setAccount(account());
+    await settle();
+    s.streams[0].onOpen();
+    await settle();
+    s.streams[0].onEffect('created');
+    s.latest.mockResolvedValue(null);
+    s.sync.setAccount(account('b'));
+    await settle();
+    expect(s.sync.getSnapshot()).toEqual({ accountId: 'b', mode: 'inactive' });
+    expect(s.confirmMissing).not.toHaveBeenCalled();
+    s.sync.setAccount(account());
+    await settle();
+    expect(s.sync.getSnapshot()).toEqual({ accountId: 'a', mode: 'inactive' });
+    expect(s.confirmMissing).not.toHaveBeenCalled();
+    s.sync.close();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('confirms a real account removal even when REST never catches up to its last effect', async () => {
+    const s = setup();
+    s.sync.setAccount(account());
+    await settle();
+    s.streams[0].onOpen();
+    await settle();
+    s.streams[0].onEffect('account-removed');
+    s.latest.mockResolvedValue(null);
+    s.confirmMissing.mockResolvedValue(true);
+    jest.advanceTimersByTime(timing.health);
+    await settle();
+    expect(s.confirmMissing).toHaveBeenCalledWith('Ga');
+    expect(s.sync.getSnapshot().mode).toBe('inactive');
+    expect(s.streams[0].stop).toHaveBeenCalledTimes(1);
+    s.sync.close();
+  });
+
+  it('ignores missing-account confirmation if another effect arrives while it is pending', async () => {
+    const s = setup();
+    s.sync.setAccount(account());
+    await settle();
+    s.streams[0].onOpen();
+    await settle();
+    s.streams[0].onEffect('created');
+    const confirmation = deferred<boolean>();
+    s.confirmMissing.mockReturnValueOnce(confirmation.promise);
+    s.latest.mockResolvedValue(null);
+    jest.advanceTimersByTime(timing.health);
+    await settle();
+    expect(s.confirmMissing).toHaveBeenCalledTimes(1);
+    s.streams[0].onEffect('new-payment');
+    confirmation.resolve(true);
+    await settle();
+    expect(s.sync.getSnapshot().mode).toBe('live');
+    expect(s.streams[0].stop).not.toHaveBeenCalled();
+    s.sync.close();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('bounds missing-account confirmation without treating timeout as an inactive account', async () => {
+    const s = setup();
+    s.sync.setAccount(account());
+    await settle();
+    s.streams[0].onOpen();
+    await settle();
+    s.streams[0].onEffect('created');
+    const confirmation = deferred<boolean>();
+    s.confirmMissing.mockReturnValueOnce(confirmation.promise);
+    s.latest.mockResolvedValue(null);
+    jest.advanceTimersByTime(timing.health);
+    await settle();
+    jest.advanceTimersByTime(timing.probe);
+    await settle();
+    expect(s.sync.getSnapshot().mode).toBe('polling');
+    confirmation.resolve(true);
+    await settle();
+    expect(s.sync.getSnapshot().mode).toBe('polling');
+    s.sync.close();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('invalidates once when a previously live account becomes missing, then remains silent', async () => {
+    const s = setup();
+    s.confirmMissing.mockResolvedValue(true);
+    s.latest.mockResolvedValueOnce('initial').mockResolvedValueOnce('initial').mockResolvedValue(null);
+    s.sync.setAccount(account());
+    await settle();
+    s.streams[0].onOpen();
+    await settle();
+    jest.advanceTimersByTime(timing.coalesce);
+    const before = s.revision();
+    jest.advanceTimersByTime(timing.health);
+    await settle();
+    jest.advanceTimersByTime(timing.coalesce);
+    expect(s.sync.getSnapshot().mode).toBe('inactive');
+    expect(s.revision()).toBe(before + 1);
+    const checked = s.latest.mock.calls.length;
+    jest.advanceTimersByTime(60000);
+    await settle();
+    jest.advanceTimersByTime(timing.coalesce);
+    expect(s.latest).toHaveBeenCalledTimes(checked + 1);
+    expect(s.revision()).toBe(before + 1);
+    s.sync.close();
+  });
+
+  it('does not classify a funded account with an empty effects collection as inactive', async () => {
+    const s = setup();
+    s.sync.setAccount(account());
+    await settle();
+    s.streams[0].onOpen();
+    await settle();
+    expect(s.sync.getSnapshot().mode).toBe('live');
+    jest.advanceTimersByTime(timing.poll);
+    await settle();
+    expect(s.sync.getSnapshot().mode).toBe('live');
+    s.sync.close();
+  });
+
   it('keeps inactive accounts polling until their first funding creates effects', async () => {
     const s = setup();
     s.sync.setAccount(account());
@@ -525,6 +811,7 @@ describe('selected-account foreground sync', () => {
       invalidation: createLedgerReadInvalidationStore(),
       onFailure: jest.fn(),
       isReading: () => false,
+      confirmMissing: async () => false,
       effects: {
         latest: async () => undefined,
         open: input => {

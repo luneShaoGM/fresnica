@@ -1,6 +1,6 @@
 import type { NodeReadError } from '../network/NodeReadError';
 // Public event tokens are invalidation hints, never balance or transaction authority.
-export type AccountSyncMode = 'paused' | 'connecting' | 'live' | 'polling';
+export type AccountSyncMode = 'paused' | 'connecting' | 'live' | 'polling' | 'inactive';
 export type EffectStreamFailure = 'failed' | 'cursor-rejected' | 'rotate';
 export interface AccountEffectsPort {
   open(
@@ -12,5 +12,5 @@ export interface AccountEffectsPort {
       onFailure: (reason: EffectStreamFailure, failure?: NodeReadError) => void;
     }>,
   ): () => void;
-  latest(address: string, signal: AbortSignal): Promise<string | undefined>;
+  latest(address: string, signal: AbortSignal): Promise<string | undefined | null>;
 }

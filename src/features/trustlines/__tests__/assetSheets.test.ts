@@ -148,7 +148,7 @@ beforeEach(() => {
   mockSlots = [];
   mockCursor = 0;
   mockEffects = [];
-  display.mockReturnValue({ state: ready(), refresh: jest.fn() });
+  display.mockReturnValue({ hasFreshInactiveSnapshot: () => false, state: ready(), refresh: jest.fn() });
 });
 afterEach(() => mockSlots.forEach(slot => slot.cleanup?.()));
 
@@ -172,15 +172,23 @@ describe('asset sheet current balance integration', () => {
     let root = render(() => AssetDetailsSheet(props));
     expect(display).toHaveBeenLastCalledWith(account, dependencies, true, 7);
     expect(issued(root)?.props).toMatchObject({ canSend: false, canRemove: true });
-    display.mockReturnValue({ state: ready('1.0000000', true), refresh: jest.fn() });
+    display.mockReturnValue({
+      hasFreshInactiveSnapshot: () => false,
+      state: ready('1.0000000', true),
+      refresh: jest.fn(),
+    });
     root = render(() => AssetDetailsSheet(props));
     expect(issued(root)?.props).toMatchObject({ canSend: false, canRemove: false });
-    display.mockReturnValue({ state: ready('1.0000000'), refresh: jest.fn() });
+    display.mockReturnValue({ hasFreshInactiveSnapshot: () => false, state: ready('1.0000000'), refresh: jest.fn() });
     expect(issued(render(() => AssetDetailsSheet({ ...props, canSign: false })))?.props.canSend).toBe(false);
     render(() => AssetDetailsSheet({ ...props, active: false }));
     expect(display).toHaveBeenLastCalledWith(account, dependencies, false, 7);
     const refresh = jest.fn();
-    display.mockReturnValue({ state: { kind: 'error', message: 'offline' }, refresh });
+    display.mockReturnValue({
+      hasFreshInactiveSnapshot: () => false,
+      state: { kind: 'error', message: 'offline' },
+      refresh,
+    });
     root = render(() => AssetDetailsSheet(props));
     expect(issued(root)).toBeUndefined();
     button(root, 'trustlines.add.retry').props.onPress?.();
@@ -220,7 +228,7 @@ describe('asset sheet current balance integration', () => {
       node => node.type === TextInput && node.props.placeholder === 'trustlines.add.assetCodePlaceholder',
     )?.props.onChangeText?.('usd');
     expect(button(show(), 'trustlines.add.addAndSign').props.disabled).toBe(true);
-    display.mockReturnValue({ state: ready('0', true), refresh: jest.fn() });
+    display.mockReturnValue({ hasFreshInactiveSnapshot: () => false, state: ready('0', true), refresh: jest.fn() });
     expect(button(show(), 'trustlines.add.addAndSign').props.disabled).toBe(true);
     expect(catalog.read).not.toHaveBeenCalled();
   });
