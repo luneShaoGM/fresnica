@@ -43,6 +43,17 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.surfaceStrong,
       fontWeight: '700',
     },
+    urlSheet: {
+      paddingHorizontal: 18,
+      paddingTop: 8,
+      paddingBottom: 24,
+      gap: 14,
+    },
+    urlSheetHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
     websiteSection: {
       gap: 9,
       paddingVertical: 12,

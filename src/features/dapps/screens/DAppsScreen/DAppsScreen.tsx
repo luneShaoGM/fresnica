@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import type { DappCatalogEntry, DappCatalogLoadResult, DappCatalogPort } from '@capabilities/dapp-catalog/catalog';
 import { catalogCategories, filterCatalogEntries } from '@capabilities/dapp-catalog/catalog';
 import { normalizeUntrustedDappUrl, type UntrustedDappUrl } from '@capabilities/dapp-interaction/externalDappUrl';
-import { Screen } from '@ui/components';
+import { BottomSheet, Screen } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import { NativeField } from '@ui/components/NativeField';
 import { NativeScreen } from '@ui/components/NativeScreen';
@@ -52,6 +52,7 @@ export function DAppsScreen({
   const [retryCount, setRetryCount] = useState(0);
   const [state, setState] = useState<CatalogState>({ kind: online ? 'loading' : 'offline' });
   const [websiteInput, setWebsiteInput] = useState('');
+  const [urlSheetOpen, setUrlSheetOpen] = useState(false);
   const [preparedWebsite, setPreparedWebsite] = useState<UntrustedDappUrl>();
   const [recentOrigins, setRecentOrigins] = useState<readonly string[]>([]);
   const [websiteError, setWebsiteError] = useState<'invalid' | 'openFailed'>();
@@ -144,6 +145,7 @@ export function DAppsScreen({
     if (!active) {
       setPreparedWebsite(undefined);
       setWebsiteError(undefined);
+      setUrlSheetOpen(false);
     }
     return () => {
       websiteEpoch.current += 1;
@@ -170,12 +172,35 @@ export function DAppsScreen({
     }
   };
 
+  const closeUrlSheet = () => {
+    if (openingRef.current) return;
+    websiteEpoch.current += 1;
+    handoffEpoch.current += 1;
+    setUrlSheetOpen(false);
+    setWebsiteInput('');
+    setWebsiteError(undefined);
+  };
+
+  const submitUrlSheet = () => {
+    if (!websiteInput.trim() || openingRef.current) return;
+    try {
+      normalizeUntrustedDappUrl(websiteInput);
+    } catch {
+      setWebsiteError('invalid');
+      return;
+    }
+    setUrlSheetOpen(false);
+    prepareWebsite(websiteInput);
+  };
+
   const changeSection = (next: Section) => {
     // A browser handoff cannot be reversed, but its late completion must
     // not attach a Recent origin to an unrelated screen after navigation.
     websiteEpoch.current += 1;
     handoffEpoch.current += 1;
     setPreparedWebsite(undefined);
+    setUrlSheetOpen(false);
+    setWebsiteInput('');
     setWebsiteError(undefined);
     setSection(next);
   };
@@ -231,6 +256,23 @@ export function DAppsScreen({
         <View style={styles.content}>
           <View style={styles.header}>
             <Text style={styles.title}>{t('nav.dapps')}</Text>
+            <Pressable
+              accessibilityLabel={t('dapps.website.customTitle')}
+              accessibilityRole="button"
+              disabled={opening}
+              hitSlop={12}
+              onPress={() => {
+                websiteEpoch.current += 1;
+                handoffEpoch.current += 1;
+                setWebsiteInput('');
+                setWebsiteError(undefined);
+                setPreparedWebsite(undefined);
+                setUrlSheetOpen(true);
+              }}
+              style={styles.headerIcon}
+            >
+              <Text style={styles.headerGlyph}>🌐</Text>
+            </Pressable>
           </View>
 
           <View style={styles.segment}>
@@ -267,32 +309,6 @@ export function DAppsScreen({
             </View>
           ) : (
             <>
-              <View style={styles.websiteSection}>
-                <Text style={styles.sectionTitle}>{t('dapps.website.customTitle')}</Text>
-                <Text style={styles.websiteDetail}>{t('dapps.website.customNotice')}</Text>
-                <NativeField
-                  label={t('dapps.website.input')}
-                  accessibilityLabel={t('dapps.website.input')}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  value={websiteInput}
-                  onChangeText={value => {
-                    websiteEpoch.current += 1;
-                    handoffEpoch.current += 1;
-                    setWebsiteInput(value);
-                    setPreparedWebsite(undefined);
-                    setWebsiteError(undefined);
-                  }}
-                  placeholder={t('dapps.website.placeholder')}
-                  returnKeyType="go"
-                />
-                <NativeButton
-                  label={t('dapps.website.preview')}
-                  disabled={opening || !websiteInput.trim()}
-                  onPress={() => prepareWebsite(websiteInput)}
-                  variant="primary"
-                />
-              </View>
               {state.kind === 'ready' ? (
                 <>
                   {state.stale ? (
@@ -391,6 +407,45 @@ export function DAppsScreen({
               )}
             </>
           )}
+          <BottomSheet closeLabel={t('dapps.website.cancel')} onClose={closeUrlSheet} visible={urlSheetOpen}>
+            <View style={styles.urlSheet}>
+              <View style={styles.urlSheetHeader}>
+                <Text style={styles.sectionTitle}>{t('nav.dapps')}</Text>
+                <NativeButton label={t('dapps.website.cancel')} onPress={closeUrlSheet} variant="quiet" />
+              </View>
+              <Text style={styles.websiteDetail}>{t('dapps.website.input')}</Text>
+              <NativeField
+                label={t('dapps.website.input')}
+                accessibilityLabel={t('dapps.website.input')}
+                autoFocus
+                keyboardType="url"
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={websiteInput}
+                onChangeText={value => {
+                  websiteEpoch.current += 1;
+                  handoffEpoch.current += 1;
+                  setWebsiteInput(value);
+                  setPreparedWebsite(undefined);
+                  setWebsiteError(undefined);
+                }}
+                onSubmitEditing={submitUrlSheet}
+                placeholder={t('dapps.website.placeholder')}
+                returnKeyType="go"
+              />
+              {websiteError === 'invalid' ? (
+                <Text accessibilityLiveRegion="assertive" style={styles.websiteError}>
+                  {t('dapps.website.invalid')}
+                </Text>
+              ) : null}
+              <NativeButton
+                label={t('dapps.website.preview')}
+                disabled={opening || !websiteInput.trim()}
+                onPress={submitUrlSheet}
+                variant="primary"
+              />
+            </View>
+          </BottomSheet>
           {preparedWebsite ? (
             <View style={styles.websiteConfirmation}>
               <Text style={styles.websiteWarning}>{t('dapps.website.unreviewed')}</Text>
@@ -446,9 +501,9 @@ export function DAppsScreen({
               />
             </View>
           ) : null}
-          {websiteError ? (
+          {websiteError === 'openFailed' ? (
             <Text accessibilityLiveRegion="assertive" style={styles.websiteError}>
-              {t(websiteError === 'invalid' ? 'dapps.website.invalid' : 'dapps.website.failed')}
+              {t('dapps.website.failed')}
             </Text>
           ) : null}
         </View>

@@ -153,6 +153,9 @@ type NodeProps = Readonly<{
   onPress?: () => void;
   onChangeText?: (value: string) => void;
   disabled?: boolean;
+  visible?: boolean;
+  closeLabel?: string;
+  onClose?: () => void;
 }>;
 
 function walk(node: React.ReactNode, callback: (element: React.ReactElement<NodeProps>) => void): void {
@@ -312,7 +315,7 @@ describe('DAppsScreen native field and retry', () => {
   it('leaves the catalog search behind when Recent is selected', async () => {
     const catalog: DappCatalogPort = { load: jest.fn().mockResolvedValue({ kind: 'ready', entries: [entry] }) };
     const tree = await renderCatalog(catalog);
-    const recent = elements(tree).filter(node => node.props.accessibilityRole === 'button')[1];
+    const recent = elements(tree).filter(node => node.props.accessibilityState?.selected !== undefined)[1];
 
     recent?.props.onPress?.();
     beginRender();
@@ -320,7 +323,9 @@ describe('DAppsScreen native field and retry', () => {
     const nodes = elements(recentTree);
 
     expect(nodes.some(node => node.props.title === 'dapps.website.recentEmpty')).toBe(true);
-    expect(nodes.some(node => node.type === 'Field')).toBe(false);
+    expect(nodes.some(node => node.type === 'Field' && node.props.accessibilityLabel === 'dapps.catalog.search')).toBe(
+      false,
+    );
   });
 });
 
@@ -336,6 +341,40 @@ describe('S15 untrusted URL risk confirmation and in-session Recent', () => {
     return elements(DAppsScreen({ catalog, openExternalUrl, showInterfaceSample: false }));
   }
 
+  it('opens the URL input in a sheet and dismisses without navigating', async () => {
+    const initial = elements(await renderCatalog(catalog));
+    const launch = initial.find(node => node.props.accessibilityLabel === 'dapps.website.customTitle');
+    expect(launch).toBeDefined();
+    launch?.props.onPress?.();
+    let nodes = websiteNodes();
+    expect(nodes.find(node => node.props.closeLabel === 'dapps.website.cancel')?.props.visible).toBe(true);
+    nodes
+      .find(node => node.props.accessibilityLabel === 'dapps.website.input')
+      ?.props.onChangeText?.('https://example.org');
+    nodes = websiteNodes();
+    nodes.find(node => node.props.closeLabel === 'dapps.website.cancel')?.props.onClose?.();
+    nodes = websiteNodes();
+    expect(nodes.find(node => node.props.closeLabel === 'dapps.website.cancel')?.props.visible).toBe(false);
+    expect(openExternalUrl).not.toHaveBeenCalled();
+  });
+
+  it('submits a URL from the sheet into explicit risk review without opening the browser', async () => {
+    await renderCatalog(catalog);
+    websiteNodes()
+      .find(node => node.props.accessibilityLabel === 'dapps.website.customTitle')
+      ?.props.onPress?.();
+    websiteNodes()
+      .find(node => node.props.accessibilityLabel === 'dapps.website.input')
+      ?.props.onChangeText?.('https://example.org/path');
+    websiteNodes()
+      .find(node => node.props.label === 'dapps.website.preview')
+      ?.props.onPress?.();
+    const nodes = websiteNodes();
+    expect(nodes.find(node => node.props.closeLabel === 'dapps.website.cancel')?.props.visible).toBe(false);
+    expect(nodes.some(node => node.props.children === 'dapps.website.unreviewed')).toBe(true);
+    expect(openExternalUrl).not.toHaveBeenCalled();
+  });
+
   it('never opens user URL on typing or preview, and Cancel discards the proposed origin', async () => {
     const initial = elements(await renderCatalog(catalog));
     const input = initial.find(
@@ -349,7 +388,10 @@ describe('S15 untrusted URL risk confirmation and in-session Recent', () => {
     expect(nodes.some(node => node.props.children === 'dapps.website.unreviewed')).toBe(true);
     expect(nodes.some(node => node.props.children === 'https://example.org')).toBe(true);
     expect(openExternalUrl).not.toHaveBeenCalled();
-    nodes.find(node => node.props.label === 'dapps.website.cancel')?.props.onPress?.();
+    nodes
+      .filter(node => node.props.label === 'dapps.website.cancel')
+      .slice(-1)[0]
+      ?.props.onPress?.();
     nodes = websiteNodes();
     expect(nodes.some(node => node.props.children === 'dapps.website.unreviewed')).toBe(false);
     expect(openExternalUrl).not.toHaveBeenCalled();
@@ -416,7 +458,7 @@ describe('S15 untrusted URL risk confirmation and in-session Recent', () => {
     await Promise.resolve();
     expect(openExternalUrl).toHaveBeenCalledTimes(2);
     const home = websiteNodes();
-    home.filter(node => node.props.accessibilityRole === 'button')[1]?.props.onPress?.();
+    home.filter(node => node.props.accessibilityState?.selected !== undefined)[1]?.props.onPress?.();
     expect(websiteNodes().some(node => node.props.label === 'https://example.org')).toBe(true);
   });
 
@@ -437,7 +479,7 @@ describe('S15 untrusted URL risk confirmation and in-session Recent', () => {
     expect(openExternalUrl).toHaveBeenCalledTimes(1);
     expect(openExternalUrl).toHaveBeenCalledWith('https://example.org/path');
     const home = websiteNodes();
-    const recent = home.filter(node => node.props.accessibilityRole === 'button')[1];
+    const recent = home.filter(node => node.props.accessibilityState?.selected !== undefined)[1];
     recent?.props.onPress?.();
     const nodes = websiteNodes();
     expect(nodes.some(node => node.props.label === 'https://example.org')).toBe(true);
@@ -569,7 +611,7 @@ describe('catalog and browser lifecycle', () => {
     opened();
     await settle();
     elements(await renderCatalog(catalog))
-      .filter(node => node.props.accessibilityRole === 'button')[1]
+      .filter(node => node.props.accessibilityState?.selected !== undefined)[1]
       ?.props.onPress?.();
     const recent = elements(await renderCatalog(catalog));
     expect(recent.some(node => node.props.label === 'https://example.org')).toBe(false);
@@ -596,7 +638,7 @@ describe('catalog and browser lifecycle', () => {
     opened();
     await settle();
     elements(await renderCatalog(catalog))
-      .filter(node => node.props.accessibilityRole === 'button')[1]
+      .filter(node => node.props.accessibilityState?.selected !== undefined)[1]
       ?.props.onPress?.();
     expect(elements(await renderCatalog(catalog)).some(node => node.props.label === 'https://example.org')).toBe(true);
   });
