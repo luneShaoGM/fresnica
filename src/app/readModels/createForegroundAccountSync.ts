@@ -32,7 +32,7 @@ export function createForegroundAccountSync(
   }>,
 ) {
   let selected: Target | undefined;
-  let accountHasEffects = false;
+  let hasAccountExistenceEvidence = false;
   let snapshot: Snapshot = Object.freeze({ mode: 'paused' });
   const listeners = new Set<() => void>();
   let closed = false;
@@ -129,7 +129,7 @@ export function createForegroundAccountSync(
           if (token === null) {
             // A missing checkpoint must not override a newer connection or delivered effect.
             if (probeStreamVersion !== streamVersion || probeEffectRevision !== effectRevision) return;
-            if (accountHasEffects) {
+            if (hasAccountExistenceEvidence) {
               const missing = await Promise.race([deps.confirmMissing(account.address), expiry]);
               if (
                 !alive ||
@@ -143,7 +143,7 @@ export function createForegroundAccountSync(
                 return;
               }
             }
-            accountHasEffects = false;
+            hasAccountExistenceEvidence = false;
             const newlyInactive = !inactive;
             inactive = true;
             streamVersion += 1;
@@ -161,6 +161,7 @@ export function createForegroundAccountSync(
             probeToken = undefined;
             return;
           }
+          hasAccountExistenceEvidence = true;
           if (inactive) {
             inactive = false;
             cancel(tickTimer);
@@ -245,7 +246,7 @@ export function createForegroundAccountSync(
             attempts = 0;
             cursor = token;
             effectRevision += 1;
-            accountHasEffects = true;
+            hasAccountExistenceEvidence = true;
             seen.add(token);
             if (seen.size > 512) seen.delete(seen.values().next().value!);
             dirty();
@@ -302,14 +303,14 @@ export function createForegroundAccountSync(
           ? account
           : undefined;
       if (selected?.id === next?.id && selected?.address === next?.address) return;
-      accountHasEffects = false;
+      hasAccountExistenceEvidence = false;
       selected = next;
       restart();
     },
     close() {
       if (closed) return;
       closed = true;
-      accountHasEffects = false;
+      hasAccountExistenceEvidence = false;
       stopSession();
       unsubscribe();
       unsubscribeNode?.();

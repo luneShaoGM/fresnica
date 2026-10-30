@@ -475,6 +475,49 @@ describe('selected-account foreground sync', () => {
     s.sync.close();
   });
 
+  it.each([
+    { initiallyMissing: true, result: 'created' },
+    { initiallyMissing: true, result: undefined },
+    { initiallyMissing: false, result: 'existing-effect' },
+    { initiallyMissing: false, result: undefined },
+  ])('retains successful REST existence evidence before SSE events (%j)', async ({ initiallyMissing, result }) => {
+    const s = setup();
+    if (initiallyMissing) s.latest.mockResolvedValueOnce(null);
+    s.latest.mockResolvedValueOnce(result).mockResolvedValue(null);
+    s.sync.setAccount(account());
+    await settle();
+    if (initiallyMissing) {
+      expect(s.sync.getSnapshot().mode).toBe('inactive');
+      jest.advanceTimersByTime(timing.inactivePoll);
+      await settle();
+    }
+    const stream = s.streams[s.streams.length - 1];
+    stream.onOpen();
+    await settle();
+    expect(s.confirmMissing).toHaveBeenCalledWith('Ga');
+    expect(s.sync.getSnapshot().mode).toBe('live');
+    expect(stream.stop).not.toHaveBeenCalled();
+    for (let i = 0; i < 3; i++) {
+      const confirmations = s.confirmMissing.mock.calls.length;
+      jest.advanceTimersByTime(timing.health);
+      await settle();
+      expect(s.confirmMissing.mock.calls.length).toBeGreaterThan(confirmations);
+      expect(s.sync.getSnapshot().mode).toBe('live');
+      expect(stream.stop).not.toHaveBeenCalled();
+    }
+    const before = s.revision();
+    stream.onEffect('next-payment');
+    jest.advanceTimersByTime(timing.coalesce);
+    expect(s.revision()).toBeGreaterThan(before);
+    s.confirmMissing.mockResolvedValue(true);
+    jest.advanceTimersByTime(timing.health);
+    await settle();
+    expect(s.sync.getSnapshot().mode).toBe('inactive');
+    expect(stream.stop).toHaveBeenCalledTimes(1);
+    s.sync.close();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
   it('keeps live effects through delayed and repeated lagging 404s until REST catches up', async () => {
     const s = setup();
     const old = deferred<string | null>();
@@ -648,6 +691,7 @@ describe('selected-account foreground sync', () => {
 
   it('invalidates once when a previously live account becomes missing, then remains silent', async () => {
     const s = setup();
+    s.confirmMissing.mockResolvedValue(true);
     s.latest.mockResolvedValueOnce('initial').mockResolvedValueOnce('initial').mockResolvedValue(null);
     s.sync.setAccount(account());
     await settle();
