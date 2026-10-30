@@ -8,6 +8,7 @@
     "start": "react-native start",
     "postinstall": "node scripts/apply-webview-bridge-patch.mjs",
     "test": "jest --runInBand",
+    "test:dapp-browser:android": "bash scripts/run-dapp-browser-native-tests.sh",
     "test:realm": "jest --runInBand --config jest.realm.config.js",
     "smoke:ios": "bash scripts/run-native-runtime-smoke.sh ios",
     "smoke:android": "bash scripts/run-native-runtime-smoke.sh android",

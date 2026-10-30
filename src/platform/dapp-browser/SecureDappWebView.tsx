@@ -1,5 +1,5 @@
-import React, { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
-import { StyleSheet } from 'react-native';
+import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { Platform, StyleSheet } from 'react-native';
 import WebView from 'react-native-webview';
 
 import type {
@@ -9,6 +9,7 @@ import type {
 import { readVerifiedDappMessage } from '../../capabilities/dapp-interaction/verifiedDappMessage';
 
 import { canMountDappWebView } from './browserAvailability';
+import { prepareDappNetworkGuard } from './androidNetworkGuard';
 import { buildFreighterInjectionScript } from './freighterInjection';
 
 const styles = StyleSheet.create({ root: { flex: 1 } });
@@ -16,9 +17,28 @@ const styles = StyleSheet.create({ root: { flex: 1 } });
 /** Transport-only. URL policy, account/session validation and permission
  * decisions are deliberately owned outside this platform component. */
 export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowserSurfaceProps>(
-  function WebViewTransport({ url, shouldLoad, onMessage, onNavigation, onDocumentStart }, ref) {
+  function WebViewTransport({ url, shouldLoad, onMessage, onNavigation, onDocumentStart, onUnavailable }, ref) {
     const webview = useRef<React.ElementRef<typeof WebView>>(null);
     const injected = useMemo(() => buildFreighterInjectionScript(), []);
+    const [ready, setReady] = useState(Platform.OS === 'ios');
+    const unavailable = useRef(onUnavailable);
+    unavailable.current = onUnavailable;
+
+    useEffect(() => {
+      if (Platform.OS !== 'android') return;
+      let live = true;
+      prepareDappNetworkGuard().then(
+        () => {
+          if (live) setReady(true);
+        },
+        () => {
+          if (live) unavailable.current?.();
+        },
+      );
+      return () => {
+        live = false;
+      };
+    }, []);
 
     useImperativeHandle(
       ref,
@@ -41,9 +61,8 @@ export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowse
       [],
     );
 
-    // Defense in depth for callers bypassing the dApps navigator:
-    // Android never mounts a WebView or injects a Freighter bridge.
-    if (!canMountDappWebView()) return null;
+    // No initial request, renderer or injected bridge exists until native ack.
+    if (!canMountDappWebView() || !ready) return null;
 
     return (
       <WebView

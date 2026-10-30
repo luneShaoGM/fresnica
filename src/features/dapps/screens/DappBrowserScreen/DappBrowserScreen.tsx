@@ -408,6 +408,7 @@ export function DappBrowserScreen({
             onMessage={handleMessage}
             onNavigation={onNavigation}
             onDocumentStart={onDocumentStart}
+            onUnavailable={retireInvalidNavigation}
             shouldLoad={shouldLoad}
           />
         </View>

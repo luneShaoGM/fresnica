@@ -148,6 +148,7 @@ type NodeProps = Readonly<{
   onMessage?: DappBrowserSurfaceProps['onMessage'];
   onNavigation?: DappBrowserSurfaceProps['onNavigation'];
   onDocumentStart?: DappBrowserSurfaceProps['onDocumentStart'];
+  onUnavailable?: DappBrowserSurfaceProps['onUnavailable'];
   shouldLoad?: DappBrowserSurfaceProps['shouldLoad'];
   disabled?: boolean;
   failed?: boolean;
@@ -397,7 +398,7 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     expect(find(render(), node => node.type === DappConnectSheet)).toBeUndefined();
   });
 
-  it.each(['document-start', 'navigation-state'] as const)(
+  it.each(['document-start', 'navigation-state', 'transport-unavailable'] as const)(
     'retires the session and removes the previous trusted address after invalid %s',
     kind => {
       render();
@@ -410,12 +411,14 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
       // A main-frame form POST can bypass shouldOverrideUrlLoading.
       if (kind === 'document-start') {
         browser?.props.onDocumentStart?.('https://127.0.0.1/private');
-      } else {
+      } else if (kind === 'navigation-state') {
         browser?.props.onNavigation?.({
           url: 'https://127.0.0.1/private',
           canGoBack: true,
           canGoForward: false,
         });
+      } else {
+        browser?.props.onUnavailable?.();
       }
       oldPrompt?.props.onAllowAlways?.();
       expect(hasDappReadGrant('https://demo.example.org', 'wallet1', 'stellar-testnet')).toBe(false);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 
 import type {
   DappBrowserSurfaceHandle,
@@ -10,12 +10,25 @@ import { canMountDappWebView } from '../browserAvailability';
 jest.mock('react-native-webview', () => 'NativeWebView');
 
 const actual = jest.requireActual<typeof import('react')>('react');
+let ready: boolean | undefined;
+let effect: (() => (() => void) | void) | undefined;
 jest.spyOn(actual, 'useRef').mockImplementation(((value: unknown) => ({ current: value })) as typeof actual.useRef);
 jest.spyOn(actual, 'useMemo').mockImplementation(((factory: () => unknown) => factory()) as typeof actual.useMemo);
 jest.spyOn(actual, 'useImperativeHandle').mockImplementation((() => undefined) as typeof actual.useImperativeHandle);
+jest.spyOn(actual, 'useState').mockImplementation(((initial: boolean) => {
+  ready ??= initial;
+  return [
+    ready,
+    (value: boolean) => {
+      ready = value;
+    },
+  ];
+}) as typeof actual.useState);
+jest.spyOn(actual, 'useEffect').mockImplementation(callback => {
+  effect = callback;
+});
 
 const { SecureDappWebView } = require('../SecureDappWebView') as typeof import('../SecureDappWebView');
-
 const props: DappBrowserSurfaceProps = {
   url: 'https://example.org',
   nonce: 'a'.repeat(64),
@@ -28,28 +41,90 @@ const transport = SecureDappWebView as unknown as {
   render: (input: DappBrowserSurfaceProps, ref: React.Ref<DappBrowserSurfaceHandle>) => React.ReactElement | null;
 };
 const originalOS = Platform.OS;
+const originalGuard = NativeModules.DappNetworkGuard;
+const drain = async () => {
+  for (let i = 0; i < 8; i += 1) await Promise.resolve();
+};
 
+beforeEach(() => {
+  ready = undefined;
+  effect = undefined;
+});
 afterEach(() => {
   Object.defineProperty(Platform, 'OS', { value: originalOS, configurable: true });
+  NativeModules.DappNetworkGuard = originalGuard;
 });
-
 afterAll(() => jest.restoreAllMocks());
 
-describe('Android in-app dApp POST boundary', () => {
-  it('mounts no native WebView, network request or Freighter bridge on Android', () => {
+describe('Android native network readiness boundary', () => {
+  it('mounts no native WebView or bridge when the guard is unavailable', () => {
     Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+    NativeModules.DappNetworkGuard = undefined;
     expect(canMountDappWebView()).toBe(false);
     expect(transport.render(props, null)).toBeNull();
-    // Since the native view is absent, an HTML main-frame form POST can never
-    // be dispatched from this app-owned dApp browser to a blocked target.
   });
 
-  it('retains the approved iOS browser transport', () => {
+  it('waits for the native proxy acknowledgement before the first request', async () => {
+    Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+    let acknowledge: () => void = () => undefined;
+    NativeModules.DappNetworkGuard = {
+      available: true,
+      prepare: () =>
+        new Promise<void>(resolve => {
+          acknowledge = resolve;
+        }),
+    };
+    expect(canMountDappWebView()).toBe(true);
+    expect(transport.render(props, null)).toBeNull();
+    effect?.();
+    await drain();
+    expect(transport.render(props, null)).toBeNull();
+    acknowledge();
+    await drain();
+    expect(
+      (transport.render(props, null) as React.ReactElement<{ source: { uri: string } }> | null)?.props.source,
+    ).toEqual({ uri: props.url });
+  });
+
+  it('retires the browser session if native preparation fails', async () => {
+    Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+    NativeModules.DappNetworkGuard = {
+      available: true,
+      prepare: async () => {
+        throw new Error('failed');
+      },
+    };
+    const onUnavailable = jest.fn();
+    expect(transport.render({ ...props, onUnavailable }, null)).toBeNull();
+    effect?.();
+    await drain();
+    expect(onUnavailable).toHaveBeenCalledTimes(1);
+    expect(transport.render(props, null)).toBeNull();
+  });
+
+  it('does not mount after unmounting while native preparation is pending', async () => {
+    Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+    let acknowledge: () => void = () => undefined;
+    NativeModules.DappNetworkGuard = {
+      available: true,
+      prepare: () =>
+        new Promise<void>(resolve => {
+          acknowledge = resolve;
+        }),
+    };
+    transport.render(props, null);
+    const cleanup = effect?.();
+    cleanup?.();
+    acknowledge();
+    await drain();
+    expect(ready).toBe(false);
+  });
+
+  it('retains the iOS browser transport', () => {
     Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
     expect(canMountDappWebView()).toBe(true);
-    const rendered = transport.render(props, null);
-    expect((rendered as React.ReactElement<{ source: { uri: string } }> | null)?.props.source).toEqual({
-      uri: props.url,
-    });
+    expect(
+      (transport.render(props, null) as React.ReactElement<{ source: { uri: string } }> | null)?.props.source,
+    ).toEqual({ uri: props.url });
   });
 });

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+  <!-- Debug Metro keeps its existing cleartext access. Never included in release. -->
+  <base-config cleartextTrafficPermitted="true">
+    <trust-anchors><certificates src="system" /></trust-anchors>
+  </base-config>
+  <domain-config cleartextTrafficPermitted="false">
+    <domain>public.fixture.example</domain>
+    <domain>redirect.fixture.example</domain>
+    <trust-anchors><certificates src="@raw/dapp_fixture_ca" /></trust-anchors>
+  </domain-config>
+</network-security-config>
