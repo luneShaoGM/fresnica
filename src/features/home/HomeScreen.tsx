@@ -39,6 +39,7 @@ type Props = Readonly<{
   onOpenAsset: (asset: BalanceAsset) => void;
   onManualRefresh: () => Promise<unknown>;
   invalidationRevision: number;
+  onSwitchNetwork?: () => void;
   onSwap?: () => void;
   onRequest?: () => void;
   active: boolean;
@@ -58,6 +59,7 @@ export function HomeScreen({
   onOpenAsset,
   onManualRefresh,
   invalidationRevision,
+  onSwitchNetwork,
   onSwap,
   onRequest,
   active,
@@ -145,7 +147,7 @@ export function HomeScreen({
       >
         <View style={styles.header}>
           <Text style={styles.brand}>Fresnica</Text>
-          <NetworkStatus networkLabel={viewModel.networkLabel} />
+          <NetworkStatus networkLabel={viewModel.networkLabel} onPress={onSwitchNetwork} />
         </View>
 
         <AccountSummary

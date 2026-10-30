@@ -51,23 +51,23 @@ function collect(root: React.ReactNode, predicate: (element: React.ReactElement<
 
 function renderSettings(accountCount = 3) {
   const onOpenAccounts = jest.fn();
-  const onOpenNetwork = jest.fn();
-  const onOpenLanguage = jest.fn();
+  const onOpenGeneral = jest.fn();
+  const onOpenAdvanced = jest.fn();
   const onOpenSecurity = jest.fn();
   const onOpenConnectedDapps = jest.fn();
   const onOpenAbout = jest.fn();
   const root = SettingsHomeScreen({
     accountCount,
     onOpenAccounts,
-    onOpenNetwork,
-    onOpenLanguage,
+    onOpenGeneral,
+    onOpenAdvanced,
     onOpenSecurity,
     onOpenConnectedDapps,
     onOpenAbout,
   });
   return {
     root,
-    callbacks: { onOpenAccounts, onOpenNetwork, onOpenLanguage, onOpenSecurity, onOpenConnectedDapps, onOpenAbout },
+    callbacks: { onOpenAccounts, onOpenGeneral, onOpenAdvanced, onOpenSecurity, onOpenConnectedDapps, onOpenAbout },
   };
 }
 
@@ -79,7 +79,7 @@ describe('Settings Home native scroll integration', () => {
 
     expect(appScreen?.props).toMatchObject({ scrollable: false, contentInset: 'none' });
     expect(nativeScreen?.props).toMatchObject({ scroll: true, padded: false });
-    expect(collect(root, element => element.type === ListRow)).toHaveLength(10);
+    expect(collect(root, element => element.type === ListRow)).toHaveLength(9);
 
     const styles = createStyles(defaultTheme);
     expect(styles.content.paddingHorizontal).toBe(defaultTheme.spacing.lg);
@@ -93,8 +93,8 @@ describe('Settings Home native scroll integration', () => {
 
     const interactive = [
       [t('settings.accounts'), callbacks.onOpenAccounts],
-      [t('settings.general'), callbacks.onOpenNetwork],
-      [t('settings.language'), callbacks.onOpenLanguage],
+      [t('settings.general'), callbacks.onOpenGeneral],
+      [t('settings.advanced'), callbacks.onOpenAdvanced],
       [t('settings.security'), callbacks.onOpenSecurity],
       [t('settings.connectedDapps'), callbacks.onOpenConnectedDapps],
       [t('settings.about'), callbacks.onOpenAbout],
@@ -106,16 +106,16 @@ describe('Settings Home native scroll integration', () => {
       expect(action).toHaveBeenCalledTimes(1);
     }
 
-    for (const title of ['settings.addressBook', 'settings.advanced', 'settings.support', 'settings.terms']) {
+    for (const title of ['settings.addressBook', 'settings.support', 'settings.terms']) {
       const row = rows.find(element => element.props.title === t(title));
       expect(row?.props.onPress).toBeUndefined();
       expect(row?.props.subtitle).toBe(t('settings.soon'));
     }
   });
 
-  it('keeps the localized account count and current language projection', () => {
+  it('keeps the localized account count and labels General truthfully', () => {
     const localization = createLocalization('en');
-    const expectedLanguageName = localization.locales.find(option => option.code === localization.locale)?.localName;
+
     const zero = collect(renderSettings(0).root, element => element.type === ListRow);
     const many = collect(renderSettings(7).root, element => element.type === ListRow);
 
@@ -125,8 +125,8 @@ describe('Settings Home native scroll integration', () => {
     expect(many.find(element => element.props.title === localization.t('settings.accounts'))?.props.subtitle).toBe(
       localization.tPlural('settings.accountCount', 7),
     );
-    expect(many.find(element => element.props.title === localization.t('settings.language'))?.props.subtitle).toBe(
-      expectedLanguageName,
+    expect(many.find(element => element.props.title === localization.t('settings.general'))?.props.subtitle).toBe(
+      localization.t('settings.generalDetail'),
     );
   });
 });

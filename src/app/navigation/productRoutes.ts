@@ -1,22 +1,11 @@
-import type {BalanceAsset} from '@capabilities/balance/types';
-import type {RequestPaymentIntent} from '@capabilities/request/requestUri';
+import type { BalanceAsset } from '@capabilities/balance/types';
+import type { RequestPaymentIntent } from '@capabilities/request/requestUri';
 
-export type RootFlow =
-  | 'bootstrap'
-  | 'onboarding'
-  | 'locked'
-  | 'main';
+export type RootFlow = 'bootstrap' | 'onboarding' | 'locked' | 'main';
 
-export type MainTab =
-  | 'home'
-  | 'activity'
-  | 'dapps'
-  | 'settings';
+export type MainTab = 'home' | 'activity' | 'dapps' | 'settings';
 
-export type ProductAction =
-  | 'send'
-  | 'swap'
-  | 'request';
+export type ProductAction = 'send' | 'swap' | 'request';
 
 export type ProductRoute =
   | 'home'
@@ -33,6 +22,8 @@ export type ProductRoute =
   | 'operation-details'
   | 'dapps'
   | 'settings-home'
+  | 'general-settings'
+  | 'advanced-settings'
   | 'accounts-settings'
   | 'security-settings'
   | 'network-settings'
@@ -52,24 +43,29 @@ export type OnboardingRoute =
 
 export type ProductRouteParams = Readonly<{
   home: undefined;
-  'account-details': Readonly<{accountId: string}>;
+  'account-details': Readonly<{ accountId: string }>;
   // Existing-wallet add account currently has no route payload; the screen
   // reads account creation inputs from local feature state.
   'add-account': undefined;
   // Public domain identity only. Current balance is reloaded by the destination.
-  'asset-details': Readonly<{accountId: string; asset: BalanceAsset}>;
-  'send-form': Readonly<{accountId: string; requestIntent?: RequestPaymentIntent; initialAsset?: BalanceAsset}>;
+  'asset-details': Readonly<{ accountId: string; asset: BalanceAsset }>;
+  'send-form': Readonly<{ accountId: string; requestIntent?: RequestPaymentIntent; initialAsset?: BalanceAsset }>;
   // Review/result state stays in the Send flow. Exact XDR and reviewed
   // transaction data must not be transported as navigation parameters.
   'send-review': undefined;
   'send-result': undefined;
-  request: Readonly<{accountId: string}>;
-  swap: Readonly<{accountId: string}>;
-  'manage-assets': Readonly<{accountId: string; requestedAction?: Readonly<{action: 'add' | 'remove'; code: string; issuer: string}>}>;
+  request: Readonly<{ accountId: string }>;
+  swap: Readonly<{ accountId: string }>;
+  'manage-assets': Readonly<{
+    accountId: string;
+    requestedAction?: Readonly<{ action: 'add' | 'remove'; code: string; issuer: string }>;
+  }>;
   activity: undefined;
-  'operation-details': Readonly<{accountId: string; operationId: string}>;
+  'operation-details': Readonly<{ accountId: string; operationId: string }>;
   dapps: undefined;
   'settings-home': undefined;
+  'general-settings': undefined;
+  'advanced-settings': undefined;
   'accounts-settings': undefined;
   'security-settings': undefined;
   'network-settings': undefined;
@@ -77,18 +73,9 @@ export type ProductRouteParams = Readonly<{
   about: undefined;
 }>;
 
-export const MAIN_TABS: readonly MainTab[] = [
-  'home',
-  'activity',
-  'dapps',
-  'settings',
-];
+export const MAIN_TABS: readonly MainTab[] = ['home', 'activity', 'dapps', 'settings'];
 
-export const PRODUCT_ACTIONS: readonly ProductAction[] = [
-  'send',
-  'swap',
-  'request',
-];
+export const PRODUCT_ACTIONS: readonly ProductAction[] = ['send', 'swap', 'request'];
 
 export const PRODUCT_ROUTES: Readonly<Record<MainTab, readonly ProductRoute[]>> = {
   home: [
@@ -106,6 +93,8 @@ export const PRODUCT_ROUTES: Readonly<Record<MainTab, readonly ProductRoute[]>> 
   dapps: ['dapps'],
   settings: [
     'settings-home',
+    'general-settings',
+    'advanced-settings',
     'accounts-settings',
     'account-details',
     'add-account',

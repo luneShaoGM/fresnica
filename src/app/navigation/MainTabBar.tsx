@@ -38,7 +38,7 @@ const ACTIONS_OVERLAY_ID = 'actions';
 
 export type MainTabBarProps = BottomTabBarProps &
   Readonly<{
-    selectedAccountId: string;
+    selectedAccountId?: string;
     syncMode?: AccountSyncMode;
     nodePhase?: 'checking' | 'healthy' | 'cooldown' | 'wrong-network' | 'paused' | 'closed';
     nodeFailure?: NodeReadFailure;
@@ -106,7 +106,7 @@ export function MainTabBar({
   };
 
   const selectAction = (action: ProductAction) => {
-    if (!actionAvailability[action]) {
+    if (!selectedAccountId || !actionAvailability[action]) {
       return;
     }
     dismiss();
@@ -131,6 +131,7 @@ export function MainTabBar({
   };
 
   const openActions = () => {
+    if (!selectedAccountId) return;
     present(
       ACTIONS_OVERLAY_ID,
       <Pressable style={styles.overlay} onPress={dismiss}>
@@ -139,7 +140,7 @@ export function MainTabBar({
             <Text style={styles.actionsTitle}>{t('nav.actions')}</Text>
             <View style={styles.actionRow}>
               {(['send', 'swap', 'request'] as const).map(action => {
-                const enabled = actionAvailability[action];
+                const enabled = !!selectedAccountId && actionAvailability[action];
                 const label = t(ACTION_LABEL_KEYS[action]);
                 return (
                   <Pressable
@@ -199,9 +200,14 @@ export function MainTabBar({
           <Pressable
             accessibilityLabel={t('nav.actions')}
             accessibilityRole="button"
-            accessibilityState={{ expanded: activeOverlayId === ACTIONS_OVERLAY_ID }}
+            accessibilityState={{ expanded: activeOverlayId === ACTIONS_OVERLAY_ID, disabled: !selectedAccountId }}
+            disabled={!selectedAccountId}
             onPress={openActions}
-            style={({ pressed }) => [styles.actionsButton, pressed ? styles.pressed : undefined]}
+            style={({ pressed }) => [
+              styles.actionsButton,
+              !selectedAccountId ? styles.actionItemDisabled : undefined,
+              pressed ? styles.pressed : undefined,
+            ]}
           >
             <Text accessibilityElementsHidden style={styles.actionsPlus}>
               +

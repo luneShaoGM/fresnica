@@ -1,3 +1,5 @@
+import { createNetworkAccountRepository } from '../../../capabilities/account/createNetworkAccountRepository';
+import { InMemoryAccountSignerRepository } from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
 import { Account, Asset, Networks, Operation, StrKey, TransactionBuilder } from '@stellar/stellar-sdk';
 
 import type { AccountRecord } from '../../../capabilities/account/types';
@@ -40,6 +42,32 @@ function envelope(): string {
 }
 
 describe('createDappTransactionSigner', () => {
+  it('inspects the target-network context of an existing Classic wallet but rejects another network before auth', async () => {
+    const records = new InMemoryAccountSignerRepository();
+    records.createAccountWithSigner({
+      account: { ...account, networkId: 'stellar-mainnet' },
+      signer,
+      attachedAt: account.createdAt,
+    });
+    const sdk = { hasSignerSystemAuth: jest.fn() } as unknown as FresnicaSdkPort;
+    const sign = createDappTransactionSigner({
+      sdk,
+      repository: createNetworkAccountRepository(records, 'stellar-testnet'),
+    });
+    const input = {
+      phase: 'inspect' as const,
+      accountId: account.id,
+      accountAddress: address,
+      networkId: 'stellar-testnet',
+      networkPassphrase,
+      transactionXdrBase64: envelope(),
+    };
+    await expect(sign(input)).resolves.toMatchObject({ status: 'ready' });
+    await expect(sign({ ...input, networkId: 'stellar-mainnet' })).resolves.toEqual({ status: 'unsupported-signer' });
+    expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
+    expect(records.getAccount(account.id)?.networkId).toBe('stellar-mainnet');
+  });
+
   it('inspects the exact envelope and signs that same XDR', async () => {
     const transactionXdrBase64 = envelope();
     const signWithSystemAuth = jest.fn().mockResolvedValue('signed-envelope');

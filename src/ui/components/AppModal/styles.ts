@@ -1,6 +1,6 @@
-import {StyleSheet} from 'react-native';
+import { StyleSheet } from 'react-native';
 
-import type {AppTheme} from '@ui/theme';
+import type { AppTheme } from '@ui/theme';
 
 export function createStyles(theme: AppTheme) {
   const elevation = theme.elevation.high;
@@ -11,6 +11,15 @@ export function createStyles(theme: AppTheme) {
       alignItems: 'center',
       justifyContent: 'center',
       padding: theme.spacing.lg,
+    },
+    sheetOverlay: { justifyContent: 'flex-end', padding: 0 },
+    sheet: {
+      height: '88%',
+      maxWidth: '100%',
+      borderBottomLeftRadius: 0,
+      borderBottomRightRadius: 0,
+      padding: 0,
+      gap: 0,
     },
     backdrop: {
       position: 'absolute',
@@ -28,7 +37,7 @@ export function createStyles(theme: AppTheme) {
       padding: theme.spacing.lg,
       gap: theme.spacing.md,
       shadowColor: theme.colors.secondary,
-      shadowOffset: {width: 0, height: elevation.offsetY},
+      shadowOffset: { width: 0, height: elevation.offsetY },
       shadowOpacity: elevation.opacity,
       shadowRadius: elevation.radius,
       elevation: elevation.androidElevation,

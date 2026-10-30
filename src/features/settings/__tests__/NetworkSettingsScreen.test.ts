@@ -7,12 +7,18 @@ import { NativeButton } from '@ui/components/NativeButton';
 import { defaultTheme } from '../../../ui/theme';
 import { NetworkNodeHealth } from '../NetworkNodeHealth';
 import { NetworkSettingsScreen } from '../NetworkSettingsScreen';
+import { NetworkManagement } from '../NetworkManagement';
+import type { NetworkSettings } from '@capabilities/network/createNetworkSettings';
 import { createStyles } from '../NetworkSettingsScreen.styles';
 
 jest.mock('@react-navigation/native', () => ({ useFocusEffect: jest.fn() }));
 
 jest.mock('@fresnica/ui-native', () => ({
   Button: () => null,
+}));
+
+jest.mock('../../../locale', () => ({
+  useLocalization: () => jest.requireActual('../../../locale/localization').createLocalization('en'),
 }));
 
 jest.mock('../../../ui/theme', () => {
@@ -36,6 +42,7 @@ type NodeProps = Readonly<{
   style?: unknown;
   selectable?: boolean;
   numberOfLines?: number;
+  section?: string;
 }>;
 
 function findAll(
@@ -65,6 +72,19 @@ const monitor = {
 };
 
 describe('Network Settings native Back and read-only contract', () => {
+  it('keeps initial-setup authentication reachable while the Settings child shows only node tools', () => {
+    const settings = {} as NetworkSettings;
+    const render = (showBack: boolean) =>
+      NetworkSettingsScreen({
+        onBack: jest.fn(),
+        showBack,
+        monitor,
+        settings,
+        network: { id: 'stellar-mainnet', horizonUrl: 'https://horizon.stellar.org', isMainnet: true },
+      });
+    expect(findAll(render(false), n => n.type === NetworkManagement)[0]?.props.section).toBe('all');
+    expect(findAll(render(true), n => n.type === NetworkManagement)[0]?.props.section).toBe('nodes');
+  });
   it('keeps Back callback, App-owned safe area, and original hidden-indicator ScrollView', () => {
     const onBack = jest.fn();
     const root = NetworkSettingsScreen({
@@ -133,9 +153,9 @@ describe('Network Settings native Back and read-only contract', () => {
       );
 
       expect(shown).toContain(network.isMainnet ? 'Stellar Mainnet' : 'Stellar Testnet');
-      expect(shown).toContain(network.isMainnet ? 'Active' : 'Active development network');
-      expect(shown).toContain('Network switching is read-only for now');
-      expect(shown.join(' ')).toContain('authenticated Developer Mode');
+      expect(shown).toContain('Active');
+      expect(shown).toContain('Read-only network profile');
+      expect(shown.join(' ')).toContain('read-only');
       expect(infoRows.map(row => [row.props.label, row.props.value])).toEqual([
         ['Network ID', network.id],
         ['Horizon', network.horizonUrl],

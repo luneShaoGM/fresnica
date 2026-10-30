@@ -33,6 +33,8 @@ export type DAppsStackParamList = {
 
 export type SettingsStackParamList = {
   'settings-home': ProductRouteParams['settings-home'];
+  'general-settings': ProductRouteParams['general-settings'];
+  'advanced-settings': ProductRouteParams['advanced-settings'];
   'accounts-settings': ProductRouteParams['accounts-settings'];
   'account-details': ProductRouteParams['account-details'];
   'add-account': ProductRouteParams['add-account'];

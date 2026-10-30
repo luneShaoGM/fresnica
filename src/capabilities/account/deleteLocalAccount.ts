@@ -8,6 +8,7 @@ export type DeleteLocalAccountDependencies = Readonly<{
   pendingSubmissions: PendingSubmissionRepository;
   historyCache: Pick<HistoryCacheRepository, 'clearPartition'>;
   balanceCache: Pick<BalanceCacheRepository, 'clearPartition'>;
+  cacheNetworkIds?: readonly string[];
   onDeleted?: () => void;
 }>;
 
@@ -18,7 +19,7 @@ export function deleteLocalAccount(dependencies: DeleteLocalAccountDependencies,
   }
 
   const hasUnresolvedSubmission = dependencies.pendingSubmissions
-    .listUnresolved(account.networkId)
+    .listUnresolved()
     .some(record => record.accountId === accountId);
   if (hasUnresolvedSubmission) {
     throw new Error('account-delete-blocked-by-pending-submission');
@@ -30,11 +31,10 @@ export function deleteLocalAccount(dependencies: DeleteLocalAccountDependencies,
   }
 
   if (account.identityKind === 'classic') {
-    dependencies.balanceCache.clearPartition({ networkId: account.networkId, accountAddress: account.address });
-    dependencies.historyCache.clearPartition({
-      networkId: account.networkId,
-      accountAddress: account.address,
-    });
+    for (const networkId of new Set(dependencies.cacheNetworkIds ?? [account.networkId])) {
+      dependencies.balanceCache.clearPartition({ networkId, accountAddress: account.address });
+      dependencies.historyCache.clearPartition({ networkId, accountAddress: account.address });
+    }
   }
   dependencies.repository.deleteAccount(accountId);
   dependencies.onDeleted?.();

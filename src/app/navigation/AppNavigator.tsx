@@ -36,9 +36,12 @@ export function AppNavigator({runtime, onRefreshBootstrap, deepLink, onDismissDe
     onDismissDeepLink();
   };
 
+  // Do not reconcile a new network through the native stack that is being detached.
+  if (runtime.kind !== 'ready') return <BootstrapScreen runtime={runtime} />;
+
   return (
     <NavigationContainer theme={navigationTheme}>
-      <RootStack.Navigator screenOptions={{headerShown: false}}>
+      <RootStack.Navigator screenOptions={{headerShown: false, animation: 'none'}}>
         {renderRootScreen(
           runtime,
           onRefreshBootstrap,

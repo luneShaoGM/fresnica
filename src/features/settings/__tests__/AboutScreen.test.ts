@@ -12,6 +12,10 @@ jest.mock('@fresnica/ui-native', () => ({
   Button: () => null,
 }));
 
+jest.mock('../../../locale', () => ({
+  useLocalization: () => jest.requireActual('../../../locale/localization').createLocalization('en'),
+}));
+
 jest.mock('../../../ui/theme', () => {
   const actual = jest.requireActual('../../../ui/theme') as typeof import('../../../ui/theme');
   return {
@@ -50,7 +54,7 @@ function findAll(
 describe('About Settings native Back control', () => {
   it('uses the existing Back handler while retaining the App safe area and hidden-indicator scroll view', () => {
     const onBack = jest.fn();
-    const root = AboutScreen({ onBack, appName: 'Fresnica Wallet', projectName: 'Fresnica Mobile' });
+    const root = AboutScreen({ onBack, appName: 'Fresnica Wallet', projectName: 'Fresnica Mobile', isMainnet: true });
     const [back] = findAll(root, element => element.type === NativeButton);
 
     expect(back?.props).toMatchObject({
@@ -70,7 +74,12 @@ describe('About Settings native Back control', () => {
   });
 
   it('centers About between identical flexible header columns rather than the old fixed 42dp placeholder', () => {
-    const root = AboutScreen({ onBack: jest.fn(), appName: 'Fresnica', projectName: 'Fresnica Mobile' });
+    const root = AboutScreen({
+      onBack: jest.fn(),
+      appName: 'Fresnica',
+      projectName: 'Fresnica Mobile',
+      isMainnet: true,
+    });
     const styles = createStyles(defaultTheme);
     const header = React.Children.toArray(root.props.children).find(
       (child): child is React.ReactElement<NodeProps> => React.isValidElement<NodeProps>(child) && child.type === View,
@@ -97,7 +106,12 @@ describe('About Settings native Back control', () => {
   });
 
   it('preserves supplied names, static info rows, compatibility notice and semantic layout dimensions', () => {
-    const root = AboutScreen({ onBack: jest.fn(), appName: 'App Display Name', projectName: 'Project Display Name' });
+    const root = AboutScreen({
+      onBack: jest.fn(),
+      appName: 'App Display Name',
+      projectName: 'Project Display Name',
+      isMainnet: false,
+    });
     const infoRows = findAll(root, element => typeof element.props.label === 'string' && !!element.props.value);
     const rows = infoRows.map(element => [element.props.label, element.props.value]);
 
@@ -121,4 +135,9 @@ describe('About Settings native Back control', () => {
     expect(styles.infoRow.minHeight).toBe(56);
     expect(styles.headerSide.flex).toBe(1);
   });
+});
+
+it('shows the current Mainnet profile instead of the old Testnet fixture', () => {
+  const root = AboutScreen({ onBack: jest.fn(), appName: 'Fresnica', projectName: 'Mobile', isMainnet: true });
+  expect(findAll(root, n => n.props.label === 'Network')[0]?.props.value).toBe('Stellar Mainnet');
 });

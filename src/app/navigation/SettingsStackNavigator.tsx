@@ -14,6 +14,8 @@ import { AboutScreen } from '@features/settings/AboutScreen';
 import { LanguageSettingsScreen } from '@features/settings/LanguageSettingsScreen';
 import { NetworkSettingsScreen } from '@features/settings/NetworkSettingsScreen';
 import { SettingsHomeScreen } from '@features/settings/SettingsHomeScreen';
+import { GeneralSettingsScreen } from '@features/settings/GeneralSettingsScreen';
+import { AdvancedSettingsScreen } from '@features/settings/AdvancedSettingsScreen';
 import { ConnectedDappsScreen } from '@features/dapps/screens/ConnectedDappsScreen';
 
 import { APP_CONFIG } from '../config/appConfig';
@@ -51,8 +53,26 @@ export function SettingsStackNavigator({
             onOpenAccounts={() => navigation.navigate('accounts-settings')}
             onOpenSecurity={() => navigation.navigate('security-settings')}
             onOpenConnectedDapps={() => navigation.navigate('connected-dapps')}
-            onOpenNetwork={() => navigation.navigate('network-settings')}
+            onOpenGeneral={() => navigation.navigate('general-settings')}
+            onOpenAdvanced={() => navigation.navigate('advanced-settings')}
+            onOpenAbout={() => navigation.navigate('about')}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="general-settings">
+        {({ navigation }) => (
+          <GeneralSettingsScreen
+            onBack={() => navigation.goBack()}
             onOpenLanguage={() => navigation.navigate('language-settings')}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="advanced-settings">
+        {({ navigation }) => (
+          <AdvancedSettingsScreen
+            settings={services.networkSettings}
+            onBack={() => navigation.goBack()}
+            onOpenNetwork={() => navigation.navigate('network-settings')}
             onOpenAbout={() => navigation.navigate('about')}
           />
         )}
@@ -151,6 +171,7 @@ export function SettingsStackNavigator({
         {({ navigation }) => (
           <AboutScreen
             appName={APP_CONFIG.appName}
+            isMainnet={services.networkProfile.isMainnet}
             projectName={APP_CONFIG.projectName}
             onBack={() => navigation.goBack()}
           />

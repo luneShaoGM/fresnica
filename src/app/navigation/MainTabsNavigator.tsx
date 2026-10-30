@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createBottomTabNavigator, type BottomTabBarProps } from '@react-navigation/bottom-tabs';
+
+import { Screen, StateView } from '@ui/components';
+import { useLocalization } from '../../locale';
 
 import type { AccountRecord } from '@capabilities/account/types';
 
@@ -42,31 +45,7 @@ export function MainTabsNavigator({ accounts, services, onAccountsChanged }: Pro
   const selectableAccounts = useMemo(() => selectableAccountsForNetwork(accounts, networkId), [accounts, networkId]);
 
   if (selectableAccounts.length === 0) {
-    return (
-      <SettingsStackNavigator
-        accounts={networkAccounts}
-        services={services}
-        onAccountsChanged={onAccountsChanged}
-        onCreatedAccountReady={async accountId => {
-          try {
-            selectPersistedAccountAndDefault(
-              services.onboarding.repository,
-              accountId,
-              networkId,
-              services.accountSelectionPreferences,
-            );
-          } catch (error) {
-            services.diagnostics.warn('default-account-persistence-failed', {
-              details: { networkId, accountId, error },
-            });
-            throw new Error('default-account-persistence-failed');
-          }
-          onAccountsChanged();
-        }}
-        onSend={() => undefined}
-        onManageAssets={() => undefined}
-      />
-    );
+    return <EmptyNetworkTabs accounts={networkAccounts} services={services} onAccountsChanged={onAccountsChanged} />;
   }
 
   return (
@@ -77,6 +56,88 @@ export function MainTabsNavigator({ accounts, services, onAccountsChanged }: Pro
       selectableAccounts={selectableAccounts}
       services={services}
     />
+  );
+}
+
+function renderEmptyTabBar(props: BottomTabBarProps) {
+  return <MainTabBar {...props} actionAvailability={{ send: false, swap: false, request: false }} />;
+}
+
+function EmptyNetworkTabs({ accounts, services, onAccountsChanged }: Props) {
+  const { t } = useLocalization();
+  const networkId = services.onboarding.networkId;
+  const accountCreated = async (accountId: string) => {
+    try {
+      selectPersistedAccountAndDefault(
+        services.onboarding.repository,
+        accountId,
+        networkId,
+        services.accountSelectionPreferences,
+      );
+    } catch (error) {
+      services.diagnostics.warn('default-account-persistence-failed', { details: { networkId, accountId, error } });
+      throw new Error('default-account-persistence-failed');
+    }
+    onAccountsChanged();
+  };
+  return (
+    <Tab.Navigator
+      initialRouteName="settings"
+      backBehavior="history"
+      screenOptions={{ headerShown: false }}
+      tabBar={renderEmptyTabBar}
+    >
+      {(['home', 'activity'] as const).map(name => (
+        <Tab.Screen key={name} name={name}>
+          {({ navigation }) => (
+            <Screen
+              title={t(`nav.${name}`)}
+              description={t(
+                services.networkProfile.isMainnet
+                  ? 'networkManage.name.stellar-mainnet'
+                  : 'networkManage.name.stellar-testnet',
+              )}
+            >
+              <StateView
+                kind="empty"
+                title={t('nav.emptyNetworkTitle')}
+                message={t('nav.emptyNetworkMessage')}
+                actionLabel={t('settings.accounts')}
+                onAction={() => navigation.navigate('settings', { screen: 'accounts-settings' })}
+              />
+            </Screen>
+          )}
+        </Tab.Screen>
+      ))}
+      <Tab.Screen name="dapps">
+        {() => (
+          <DAppsStackNavigator
+            currentSelection={() => undefined}
+            subscribeSelection={() => () => undefined}
+            signTransaction={createDappTransactionSigner({
+              sdk: services.send.sdk,
+              repository: services.onboarding.repository,
+            })}
+            permissions={services.dappPermissions}
+            catalog={services.dappCatalog}
+            openExternalUrl={services.externalUrl.open}
+            runtime={services.ledgerReadRuntime}
+          />
+        )}
+      </Tab.Screen>
+      <Tab.Screen name="settings">
+        {() => (
+          <SettingsStackNavigator
+            accounts={accounts}
+            services={services}
+            onAccountsChanged={onAccountsChanged}
+            onCreatedAccountReady={accountCreated}
+            onSend={() => undefined}
+            onManageAssets={() => undefined}
+          />
+        )}
+      </Tab.Screen>
+    </Tab.Navigator>
   );
 }
 
