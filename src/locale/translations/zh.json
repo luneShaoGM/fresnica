@@ -491,7 +491,7 @@
   "dapps.catalog.recent": "最近",
   "dapps.catalog.search": "搜索 dApp",
   "dapps.catalog.all": "全部",
-  "dapps.catalog.readOnly": "目录仅供阅读，尚不支持打开 dApp 或连接钱包。",
+  "dapps.catalog.readOnly": "dApp 目录。打开目录网站后可在支持的平台连接 Fresnica；连接不等于授权交易签名。",
   "dapps.catalog.offline": "当前处于离线状态。连接网络后将自动加载 dApp 目录。",
   "dapps.catalog.loading": "正在加载 dApp 目录…",
   "dapps.catalog.unavailable": "尚未配置 dApp 目录。当前没有可展示或背书的条目。",

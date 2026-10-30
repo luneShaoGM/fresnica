@@ -1,4 +1,6 @@
-// Catalog listings are public, untrusted descriptions, not dApp origin attestations.
+// Public catalog entries are descriptions, not permission grants. A live, validated
+// FChain response may separately attest an exact launch origin for a single session;
+// cached entries and manual URLs can never attest that origin.
 export type DappCatalogEntry = Readonly<{
   id: string;
   title: string;
@@ -15,6 +17,9 @@ export type DappCatalogPort = Readonly<{
   load: () => Promise<DappCatalogLoadResult>;
   // An optional, synchronous public-only snapshot for offline startup. Never a grant.
   readCached?: () => DappCatalogLoadResult;
+  // Only the configured live API adapter may attest a freshly fetched entry.
+  // This does not create a durable account permission or authorize signing.
+  isTrustedLiveEntry?: (entry: DappCatalogEntry) => boolean;
 }>;
 
 export function catalogCategories(entries: readonly DappCatalogEntry[]): readonly string[] {

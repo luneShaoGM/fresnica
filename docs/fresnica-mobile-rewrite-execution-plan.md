@@ -796,8 +796,10 @@ UI 执行策略：
 | S15（下批） | Recent、自定义 URL、UI/文档 | 保留已合并的外部浏览器确认；未来 Recent 只存标准化 origin，不持久化完整查询参数 |
 | S16（后续） | WebView、导航、依赖/lockfile、iOS/原生补丁 | 以最新导航生命周期为基线增量接线，原生构建和安全审查后才启用 |
 
+**2026-10-30 S15/S16 可信目录候选（待独立审查、未合并）**：见 docs/behavior-specs/s15-trusted-catalog-launch.md。仅实时 HTTPS FChain API 目录经明确用户点击且 Origin、账户、网络一致时，授予当前会话只读连接免弹窗；不存储持久授权、不免交易签名审核。缓存/离线/手输/Recent/跨源/网络变化均不授予。API 运营者的审核能力是额外安全依赖，尚未独立验收；Android 内嵌仍按 PR #128 暂停，原生功能验收延期。
+
 **2026-10-28 PR #128 安全候选（尚未合并）**：Android WebView 的 shouldOverrideUrlLoading 不覆盖 POST 主文档导航，而 onPageStarted/资源回调不能作为发送前门禁。为阻止内嵌网页在原生门禁之前向非公开地址发送 POST，Android 暂时不注册 dApp 内嵌浏览器路由，也不实例化 Freighter WebView；用户仍可在风险确认后使用系统浏览器，但该模式**没有钱包连接或签名**。iOS 内嵌流程不受这项 Android 限制。只有建立确实覆盖 POST/跳转的原生请求前网络安全边界并完成 Android 原生回归验收，才可重新启用 Android 内嵌流程；JS 和 repository 测试不能冒充此验收。
-| S17（后续） | 权限、Realm、Connected dApps | 先解决 grant/revoke 即时一致性；Catalog 不能成为自动授权依据 |
+| S17（后续） | 权限、Realm、Connected dApps | 维持 grant/revoke 即时一致性；Catalog 缓存不能成为持久授权依据，实时 API 的可信会话例外按 S15 独立约束 |
 
 **2026-10-29 S17 独立候选（未合并，堆叠于 PR #130）**：见 docs/behavior-specs/s17-dapp-permissions.md。新增钱包 Realm v8 的 origin/account/network 读权限实体，始终允许保存与失败回滚边界、Settings Connected dApps 分区管理与撤销事件即时退役；移除 Catalog 来源自动授权和进程内存持久许可。不放宽已冻结的 XDR/签名门禁。该候选只提供 repository/UI 层与 Realm 集成验证，不冒充 iOS/Android 原生用户流，且不重新启用 Android 内嵌浏览器。
 | S18–S21（后续） | Freighter、交易签名、SEP-53、Soroban、设备桥 | 统一 exact-XDR 审核与 SDK 授权，禁用普通 React State 中的 App Passphrase |

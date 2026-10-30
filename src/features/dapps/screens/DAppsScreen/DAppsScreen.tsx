@@ -28,6 +28,7 @@ export function DAppsScreen({
   showInterfaceSample = __DEV__,
   openExternalUrl,
   openInApp,
+  openCatalogInApp,
   inAppUnavailable = false,
   active = true,
   online = true,
@@ -40,6 +41,7 @@ export function DAppsScreen({
   showInterfaceSample?: boolean;
   openExternalUrl: (url: string) => Promise<void>;
   openInApp?: (url: string) => void;
+  openCatalogInApp?: (entry: DappCatalogEntry, fresh: boolean) => void;
   inAppUnavailable?: boolean;
 }>) {
   const { t } = useLocalization();
@@ -218,6 +220,17 @@ export function DAppsScreen({
     }
   };
 
+  const openCatalogEntry = (entry: DappCatalogEntry) => {
+    if (!mountedRef.current || !activeRef.current || !focusedRef.current || openingRef.current) return;
+    if (openCatalogInApp) {
+      openCatalogInApp(entry, state.kind === 'ready' && !state.stale && online);
+      return;
+    }
+    // Android/no WebView: existing user-reviewed device browser handoff,
+    // without wallet identity or bridge.
+    prepareWebsite(entry.websiteUrl);
+  };
+
   const categories = useMemo(() => (state.kind === 'ready' ? catalogCategories(state.entries) : []), [state]);
   const selectedCategory = category !== undefined && categories.includes(category) ? category : undefined;
   const visibleEntries = useMemo(
@@ -344,7 +357,9 @@ export function DAppsScreen({
                   ) : null}
                   <Text style={styles.sectionTitle}>{t('dapps.catalog.readOnly')}</Text>
                   {visibleEntries.length > 0 ? (
-                    visibleEntries.map(entry => <AppRow key={entry.id} entry={entry} styles={styles} />)
+                    visibleEntries.map(entry => (
+                      <AppRow key={entry.id} entry={entry} onOpen={() => openCatalogEntry(entry)} styles={styles} />
+                    ))
                   ) : (
                     <EmptyCatalog
                       message={
@@ -477,9 +492,15 @@ function SegmentButton({
   );
 }
 
-function AppRow({ entry, styles }: Readonly<{ entry: DappCatalogEntry; styles: Styles }>) {
+function AppRow({ entry, onOpen, styles }: Readonly<{ entry: DappCatalogEntry; onOpen?: () => void; styles: Styles }>) {
   return (
-    <View style={styles.appRow}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={entry.title}
+      disabled={!onOpen}
+      onPress={onOpen}
+      style={styles.appRow}
+    >
       <View style={styles.appIcon}>
         <Text style={styles.appInitials}>{entry.title.trim().slice(0, 2).toUpperCase()}</Text>
       </View>
@@ -489,7 +510,7 @@ function AppRow({ entry, styles }: Readonly<{ entry: DappCatalogEntry; styles: S
           {entry.description}
         </Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 

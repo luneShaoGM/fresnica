@@ -115,7 +115,11 @@ const reload = jest.fn();
 const navigateClose = jest.fn();
 let subscriber: (() => void) | undefined;
 
-function render(active = true, signTransaction: DappTransactionSigner = async () => ({ status: 'invalid' })) {
+function render(
+  active = true,
+  signTransaction: DappTransactionSigner = async () => ({ status: 'invalid' }),
+  trustedCatalogOrigin?: string,
+) {
   si = 0;
   ri = 0;
   return DappBrowserScreen({
@@ -132,6 +136,7 @@ function render(active = true, signTransaction: DappTransactionSigner = async ()
     createNonce: () => token,
     signTransaction,
     permissions,
+    trustedCatalogOrigin,
     BrowserSurface,
   });
 }
@@ -238,6 +243,74 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     expect(signer).not.toHaveBeenCalled();
     expect(find(render(true, signer), node => node.type === DappConnectSheet)).toBeUndefined();
     expect(hasDappReadGrant('https://demo.example.org', 'wallet1', 'stellar-testnet')).toBe(false);
+  });
+
+  it('auto-connects read-only on an exact trusted catalog origin without writing durable permission', () => {
+    const signer = jest.fn(async () => ({ status: 'invalid' as const }));
+    const origin = 'https://demo.example.org';
+    render(true, signer, origin);
+    refs[1].current = { reply: replies };
+    const browser = find(render(true, signer, origin), node => node.type === BrowserSurface);
+    browser?.props.onMessage?.(request('REQUEST_ALLOWED_STATUS', 44), origin + '/start');
+    browser?.props.onMessage?.(request('REQUEST_ACCESS', 45), origin + '/start');
+    browser?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 46), origin + '/start');
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 44, isAllowed: true }));
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 45, publicKey: 'GSOURCE' }));
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 46, publicKey: 'GSOURCE' }));
+    expect(find(render(true, signer, origin), node => node.type === DappConnectSheet)).toBeUndefined();
+    expect(hasDappReadGrant(origin, 'wallet1', 'stellar-testnet')).toBe(false);
+    expect(signer).not.toHaveBeenCalled();
+  });
+
+  it('does not trust subdomains or a different origin after catalog navigation', () => {
+    render(true, undefined, 'https://demo.example.org.evil.example');
+    refs[1].current = { reply: replies };
+    let browser = find(
+      render(true, undefined, 'https://demo.example.org.evil.example'),
+      node => node.type === BrowserSurface,
+    );
+    browser?.props.onMessage?.(request('REQUEST_ALLOWED_STATUS', 50), 'https://demo.example.org/start');
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 50, isAllowed: false }));
+
+    // The trusted launch cannot automatically authorize another main document.
+    replies.mockClear();
+    const origin = 'https://demo.example.org';
+    browser?.props.onDocumentStart?.('https://other.example.org/landing');
+    browser = find(
+      render(true, undefined, 'https://demo.example.org.evil.example'),
+      node => node.type === BrowserSurface,
+    );
+    browser?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 51), 'https://other.example.org/landing');
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 51, error: 'not-authorized' }));
+    expect(hasDappReadGrant(origin, 'wallet1', 'stellar-testnet')).toBe(false);
+  });
+
+  it('does not reauthorize a previously trusted origin after leaving and returning to it', () => {
+    const origin = 'https://demo.example.org';
+    render(true, undefined, origin);
+    refs[1].current = { reply: replies };
+    const browser = find(render(true, undefined, origin), node => node.type === BrowserSurface);
+    browser?.props.onDocumentStart?.('https://different.example.org/entry');
+    browser?.props.onDocumentStart?.(origin + '/start');
+    replies.mockClear();
+    browser?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 77), origin + '/start');
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 77, error: 'not-authorized' }));
+    expect(hasDappReadGrant(origin, 'wallet1', 'stellar-testnet')).toBe(false);
+  });
+
+  it('explicit revoke retires a temporary curated connection without leaving a stored grant', () => {
+    const origin = 'https://demo.example.org';
+    render(true, undefined, origin);
+    refs[1].current = { reply: replies };
+    const browser = find(render(true, undefined, origin), node => node.type === BrowserSurface);
+    browser?.props.onMessage?.(request('REQUEST_ACCESS', 61), origin + '/start');
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 61, publicKey: 'GSOURCE' }));
+    for (const effect of effects.splice(0)) effect();
+    permissions.revoke({ origin, accountId: 'wallet1', networkId: 'stellar-testnet' });
+    replies.mockClear();
+    browser?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 62), origin + '/start');
+    expect(replies).not.toHaveBeenCalled();
+    expect(find(render(true, undefined, origin), node => node.type === BrowserSurface)).toBeUndefined();
   });
 
   it('does not reveal the address before a separate read-only permission decision', () => {
