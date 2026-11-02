@@ -14,11 +14,12 @@ export type SendTerminalResult = Exclude<
 >;
 
 type Props = Readonly<{
+  recipientCard?: React.ReactNode;
   result: SendTerminalResult;
   onDone: () => void;
 }>;
 
-export function SendResultScreen({result, onDone}: Props) {
+export function SendResultScreen({result, onDone, recipientCard}: Props) {
   const styles = useThemedStyles(createStyles);
   const {t} = useLocalization();
   const presentation = describeResult(result);
@@ -40,6 +41,7 @@ export function SendResultScreen({result, onDone}: Props) {
           <Text style={styles.description}>{presentation.description}</Text>
         </View>
 
+        {recipientCard}
         {'hash' in result ? <ResultRow label="Transaction hash" value={result.hash} mono /> : null}
         {'transactionHash' in result ? (
           <ResultRow label="Transaction hash" value={result.transactionHash} mono />

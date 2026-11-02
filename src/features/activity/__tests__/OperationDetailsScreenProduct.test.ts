@@ -1,3 +1,5 @@
+jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
+
 import React, { useEffect, useState } from 'react';
 import { AccessibilityInfo, Pressable, Text } from 'react-native';
 
@@ -5,6 +7,8 @@ import type { AccountRecord } from '../../../capabilities/account/types';
 import type { HistoryProductDependencies } from '../../../capabilities/history/HistoryCacheHydration';
 import type { HistoryEntry } from '../../../capabilities/history/types';
 import { createLocalization } from '../../../locale/localization';
+import { ParticipantCard } from '../../contacts/ParticipantCard';
+import type { ContactBook } from '../../contacts/contactBook';
 import { StateView } from '../../../ui/components';
 import { defaultTheme } from '../../../ui/theme';
 import { OperationDetailsScreen, OperationExplorerAction } from '../OperationDetailsScreen';
@@ -71,6 +75,8 @@ function unsupported(reason: 'operation-type' | 'operation-shape' = 'operation-t
 }
 
 type NodeProps = Readonly<{
+  address?: string;
+  memo?: unknown;
   accessible?: boolean;
   accessibilityLabel?: string;
   accessibilityLiveRegion?: string;
@@ -110,6 +116,7 @@ function renderWithState(
   explorerState: 'idle' | 'opening' | 'failed' = 'idle',
   openExternalUrl: (url: string) => Promise<void> = jest.fn(async () => undefined),
   projectExplorerUrl: jest.Mock<string | undefined, [string]> = jest.fn((_transactionHash: string) => trustedUrl),
+  contacts?: ContactBook,
 ) {
   const loadSetter = jest.fn();
   const explorerSetter = jest.fn();
@@ -122,6 +129,7 @@ function renderWithState(
 
   const root = OperationDetailsScreen({
     account,
+    contacts,
     operationId: 'operation-1',
     dependencies,
     active: true,
@@ -321,3 +329,33 @@ describe('OperationDetailsScreen product hardening', () => {
     expect(failureText?.props.children).toBe('Couldn’t open the explorer. Try again.');
   });
 });
+
+it.each(['GVALID', 'CCONTRACT', 'MMUXED'])(
+  'only makes exact Classic account identities actionable in Activity (%s)',
+  identity => {
+    const entry = { ...unsupported(), sourceAccount: identity };
+    const contacts = {
+      network: { id: account.networkId },
+      isClassicAccountAddress: (value: string) => value === 'GVALID',
+    } as unknown as ContactBook;
+    const { root } = renderWithState(
+      {
+        kind: 'loaded',
+        result: { status: 'ready', entry },
+        source: 'online',
+        stale: false,
+        refreshing: false,
+        refreshFailed: false,
+      },
+      'idle',
+      jest.fn(),
+      jest.fn<string | undefined, [string]>(() => trustedUrl),
+      contacts,
+    );
+    const card = findElement(root, element => element.type === ParticipantCard);
+    if (identity === 'GVALID') {
+      expect(card?.props.address).toBe(identity);
+      expect(card?.props.memo).toBeUndefined();
+    } else expect(card).toBeUndefined();
+  },
+);

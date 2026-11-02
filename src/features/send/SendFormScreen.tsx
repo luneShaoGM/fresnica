@@ -33,6 +33,7 @@ type Props = Readonly<{
   onChangeAmount: (value: string) => void;
   onSelectMemoType: (type: 'none' | StellarPaymentMemo['type']) => void;
   onChangeMemoValue: (value: string) => void;
+  onChooseRecipient?: () => void;
   onContinue: () => void;
   onCancel: () => void;
 }>;
@@ -53,6 +54,7 @@ export function SendFormScreen({
   onChangeAmount,
   onSelectMemoType,
   onChangeMemoValue,
+  onChooseRecipient,
   onContinue,
   onCancel,
 }: Props) {
@@ -128,7 +130,16 @@ export function SendFormScreen({
             style={styles.fieldInput}
             value={destination}
           />
-          <View style={styles.fieldAction}><Text style={styles.fieldActionGlyph}>⌕</Text></View>
+          {onChooseRecipient ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('contacts.choose')}
+              disabled={building}
+              onPress={onChooseRecipient}
+              style={styles.fieldAction}>
+              <Text style={styles.fieldActionGlyph}>⌕</Text>
+            </Pressable>
+          ) : null}
         </View>
         <Text style={styles.fieldHint}>Classic Stellar G... destinations are supported.</Text>
 

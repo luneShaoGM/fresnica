@@ -51,6 +51,7 @@ function collect(root: React.ReactNode, predicate: (element: React.ReactElement<
 
 function renderSettings(accountCount = 3) {
   const onOpenAccounts = jest.fn();
+  const onOpenAddressBook = jest.fn();
   const onOpenGeneral = jest.fn();
   const onOpenAdvanced = jest.fn();
   const onOpenSecurity = jest.fn();
@@ -58,6 +59,7 @@ function renderSettings(accountCount = 3) {
   const onOpenAbout = jest.fn();
   const root = SettingsHomeScreen({
     accountCount,
+    onOpenAddressBook,
     onOpenAccounts,
     onOpenGeneral,
     onOpenAdvanced,
@@ -67,7 +69,15 @@ function renderSettings(accountCount = 3) {
   });
   return {
     root,
-    callbacks: { onOpenAccounts, onOpenGeneral, onOpenAdvanced, onOpenSecurity, onOpenConnectedDapps, onOpenAbout },
+    callbacks: {
+      onOpenAddressBook,
+      onOpenAccounts,
+      onOpenGeneral,
+      onOpenAdvanced,
+      onOpenSecurity,
+      onOpenConnectedDapps,
+      onOpenAbout,
+    },
   };
 }
 
@@ -93,6 +103,7 @@ describe('Settings Home native scroll integration', () => {
 
     const interactive = [
       [t('settings.accounts'), callbacks.onOpenAccounts],
+      [t('settings.addressBook'), callbacks.onOpenAddressBook],
       [t('settings.general'), callbacks.onOpenGeneral],
       [t('settings.advanced'), callbacks.onOpenAdvanced],
       [t('settings.security'), callbacks.onOpenSecurity],
@@ -106,7 +117,7 @@ describe('Settings Home native scroll integration', () => {
       expect(action).toHaveBeenCalledTimes(1);
     }
 
-    for (const title of ['settings.addressBook', 'settings.support', 'settings.terms']) {
+    for (const title of ['settings.support', 'settings.terms']) {
       const row = rows.find(element => element.props.title === t(title));
       expect(row?.props.onPress).toBeUndefined();
       expect(row?.props.subtitle).toBe(t('settings.soon'));

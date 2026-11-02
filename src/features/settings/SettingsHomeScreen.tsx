@@ -12,6 +12,7 @@ import { createStyles } from './SettingsHomeScreen.styles';
 type Props = Readonly<{
   accountCount: number;
   onOpenAccounts: () => void;
+  onOpenAddressBook: () => void;
   onOpenSecurity: () => void;
   onOpenGeneral: () => void;
   onOpenAdvanced: () => void;
@@ -22,6 +23,7 @@ type Props = Readonly<{
 export function SettingsHomeScreen({
   accountCount,
   onOpenAccounts,
+  onOpenAddressBook,
   onOpenSecurity,
   onOpenGeneral,
   onOpenAdvanced,
@@ -43,7 +45,7 @@ export function SettingsHomeScreen({
               subtitle={tPlural('settings.accountCount', accountCount)}
               title={t('settings.accounts')}
             />
-            <ListRow subtitle={t('settings.soon')} title={t('settings.addressBook')} />
+            <ListRow onPress={onOpenAddressBook} title={t('settings.addressBook')} />
           </SettingsGroup>
 
           <SettingsGroup>

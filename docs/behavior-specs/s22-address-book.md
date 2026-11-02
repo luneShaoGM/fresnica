@@ -42,3 +42,40 @@ write failure, v8 migration and reopen durability, picker atomic prefill, partic
 Native: Android/iOS list/editor/picker, keyboard/back, delete cancel/retry, Activity return refresh,
 share sheet cancellation, accessibility and narrow-screen layout deferred to final device acceptance.
 S22 is not L3/L4 solely because tests/CI pass. Independent exact-HEAD implementation review required.
+
+## Candidate integration and data lifecycle (2026-11-02)
+
+- Storage/migration baseline: local `fbc02eb1d5f9a33d8288b16c075a692d7150c2ec`, based on
+  `main@0eafeffd0ed13b9c201a4f13165be4d173432a96`. UI is a separate dependent slice;
+  no independent Work approval or merge is asserted here.
+- Settings owns `address-book` navigation; one shared feature editor is reused from participant menus.
+  The existing AccountIdentityCard supplies the presentation, while wallet/contact policy stays in features/capabilities.
+  The pending shared ConfirmDialog PR is not a dependency; contact deletion uses an explicit local confirmation.
+- Activity source/counterparty/issuer and participant identities become cards only when the exact identity
+  validates as a Classic G account. M-addresses are not flattened to base accounts; other values remain selectable text.
+- Send form opens the contact/visible-wallet-account picker. Review retains exact full destination and memo;
+  local labels do not replace those authoritative values. Submitted-result contact metadata comes from that review,
+  never from a newly edited form. Uncertain/rejected/blocked outcomes have no result Add affordance.
+- Contacts are user-authored local records, not a remote ledger cache. There is no TTL or automatic eviction:
+  records survive offline/restart until explicit user deletion. Save/remove synchronously invalidate subscribers;
+  switching network retires old write authority and remounts the network session. Account deletion preserves contacts.
+- No remote contact lookup, contact upload or automatic share occurs. Explicit Share reuses the existing OS output
+  port and SEP-7 encoder; contact names are not sent. A cancelled OS share is not described as delivery success.
+  Public addresses, names and memos use ordinary local Realm metadata; wallet secrets are never stored here.
+- Repeated label/identity roles in Activity keep their existing data fields; this slice does not change Horizon
+  operation projection, fetch behavior, transaction memo authority, authorization, signing or recovery.
+- Native final acceptance includes long names/addresses, keyboard, Android back, iOS swipe/back, screen readers,
+  share cancellation, network switch and participant-menu return refresh. Automated JSX/helper checks are not
+  native-flow or pixel-parity evidence.
+
+## Developer validation (candidate tree, 2026-11-02)
+
+- `npm run check`: 187 suites / 1519 tests; TypeScript, formatting/lint, module aliases,
+  strict architecture, donor-collision provenance, locale and WebView-patch checks passed.
+- `npm run test:realm`: 10 integration suites / 79 tests passed, including v8→v9 contacts upgrade,
+  duplicate rollback, network isolation and reopen durability. These are real Node Realm tests.
+- Android and iOS production-mode JS bundles succeeded with a temporary Metro config that watches
+  the shared worktree dependency directory. The repository build config was unchanged. The React Native
+  private feature-flag export warning uses the dependency's existing file-resolution fallback.
+- No native build, simulator/emulator, real device, OS share flow, keyboard/back or screen-reader
+  acceptance was executed for this candidate. Work must independently review the final remote HEAD.

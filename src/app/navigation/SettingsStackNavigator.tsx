@@ -1,4 +1,5 @@
 import React from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { moveAccount, orderAccounts } from '@capabilities/account/accountOrder';
@@ -6,6 +7,7 @@ import { setAccountHidden } from '@capabilities/account/accountVisibility';
 import { deleteLocalAccount } from '@capabilities/account/deleteLocalAccount';
 import { renameAccount } from '@capabilities/account/renameAccount';
 import type { AccountRecord } from '@capabilities/account/types';
+import { AddressBookScreen } from '@features/contacts/AddressBookScreen';
 import { AccountDetailsScreen } from '@features/accounts/AccountDetailsScreen';
 import { AccountsScreen } from '@features/accounts/AccountsScreen';
 import { AddAccountScreen } from '@features/accounts/AddAccountScreen';
@@ -51,11 +53,21 @@ export function SettingsStackNavigator({
           <SettingsHomeScreen
             accountCount={accounts.length}
             onOpenAccounts={() => navigation.navigate('accounts-settings')}
+            onOpenAddressBook={() => navigation.navigate('address-book')}
             onOpenSecurity={() => navigation.navigate('security-settings')}
             onOpenConnectedDapps={() => navigation.navigate('connected-dapps')}
             onOpenGeneral={() => navigation.navigate('general-settings')}
             onOpenAdvanced={() => navigation.navigate('advanced-settings')}
             onOpenAbout={() => navigation.navigate('about')}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="address-book">
+        {({ navigation }) => (
+          <AddressBookRoute
+            key={services.contacts.network.id}
+            book={services.contacts}
+            onBack={() => navigation.goBack()}
           />
         )}
       </Stack.Screen>
@@ -179,6 +191,11 @@ export function SettingsStackNavigator({
       </Stack.Screen>
     </Stack.Navigator>
   );
+}
+
+function AddressBookRoute(props: React.ComponentProps<typeof AddressBookScreen>) {
+  const active = useIsFocused();
+  return <AddressBookScreen {...props} active={active} />;
 }
 
 function requireAccount(accounts: readonly AccountRecord[], accountId: string): AccountRecord {

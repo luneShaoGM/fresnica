@@ -40,6 +40,7 @@ export type SettingsStackParamList = {
   'add-account': ProductRouteParams['add-account'];
   'security-settings': ProductRouteParams['security-settings'];
   'connected-dapps': undefined;
+  'address-book': ProductRouteParams['address-book'];
   'network-settings': ProductRouteParams['network-settings'];
   'language-settings': ProductRouteParams['language-settings'];
   about: ProductRouteParams['about'];
