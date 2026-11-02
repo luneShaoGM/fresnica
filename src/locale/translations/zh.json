@@ -806,9 +806,10 @@
   "networkSwitch.testNetworks": "测试网络",
   "networkSwitch.useNetwork": "使用网络",
   "networkSwitch.endpoints": "{{network}} 的 Horizon 节点",
-  "networkSwitch.addEndpoint": "添加 Horizon 节点",
+  "networkSwitch.addEndpoint": "添加 RPC URL（Horizon）",
   "networkSwitch.notTested": "尚未测试",
   "networkSwitch.added": "节点已添加。现在使用？",
   "networkSwitch.useNow": "现在使用",
-  "networkSwitch.notNow": "暂不使用"
+  "networkSwitch.notNow": "暂不使用",
+  "networkSwitch.enableCustomNodes": "启用自定义 RPC URL"
 }

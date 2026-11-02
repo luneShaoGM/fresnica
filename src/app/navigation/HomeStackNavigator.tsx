@@ -3,6 +3,7 @@ import React, { useCallback, useRef, useState, useSyncExternalStore } from 'reac
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 
 import { Screen, StateView } from '@ui/components';
 import { useLocalization } from '../../locale';
@@ -23,7 +24,7 @@ import { ReactNativeRequestQrScannerView } from '@platform/system/RequestQrScann
 
 import type { AppServices } from '../createAppServices';
 import { resolveVisibleAccount } from './accountSelection';
-import type { HomeStackParamList } from './navigationTypes';
+import type { HomeStackParamList, MainTabParamList } from './navigationTypes';
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
 
@@ -105,6 +106,12 @@ export function HomeStackNavigator({
                 settings={services.networkSettings}
                 monitor={services.nodeReadSession}
                 onClose={closeNetworkSwitch}
+                onOpenDeveloperMode={() =>
+                  (navigation.getParent() as BottomTabNavigationProp<MainTabParamList> | undefined)?.navigate(
+                    'settings',
+                    { screen: 'advanced-settings' },
+                  )
+                }
               />
             ) : null}
           </>

@@ -806,9 +806,10 @@
   "networkSwitch.testNetworks": "Test networks",
   "networkSwitch.useNetwork": "Use network",
   "networkSwitch.endpoints": "Horizon endpoints for {{network}}",
-  "networkSwitch.addEndpoint": "Add Horizon endpoint",
+  "networkSwitch.addEndpoint": "Add RPC URL (Horizon)",
   "networkSwitch.notTested": "Not tested",
   "networkSwitch.added": "Node added. Use it now?",
   "networkSwitch.useNow": "Use now",
-  "networkSwitch.notNow": "Not now"
+  "networkSwitch.notNow": "Not now",
+  "networkSwitch.enableCustomNodes": "Enable custom RPC URLs"
 }

@@ -35,6 +35,7 @@ type Props = {
   accessibilityRole?: string;
   accessibilityState?: { checked?: boolean; disabled?: boolean };
   value?: string;
+  editable?: boolean;
   disabled?: boolean;
   onPress?: () => Promise<void> | void;
   onRequestClose?: () => void;
@@ -61,7 +62,8 @@ function setup(initial: Partial<NetworkPreferences> = {}, assertCanSwitch = () =
     isForeground: () => true,
   });
   const onClose = jest.fn();
-  return { settings, save, restart, probe, onClose };
+  const onOpenDeveloperMode = jest.fn();
+  return { settings, save, restart, probe, onClose, onOpenDeveloperMode };
 }
 function render(
   deps: ReturnType<typeof setup>,
@@ -99,14 +101,20 @@ describe('Home network panel', () => {
     expect(button(all, `Use node: ${NETWORKS['stellar-mainnet'].horizonUrl}`).accessibilityState?.checked).toBe(true);
     expect(button(all, `Test node: ${NETWORKS['stellar-mainnet'].horizonUrl}`)).toBeDefined();
     expect(all.some(node => node.props.accessibilityLabel?.startsWith('Remove node:'))).toBe(false);
-    expect(all.some(node => node.type === Field && node.props.label === 'Add Horizon endpoint')).toBe(true);
+    expect(all.some(node => node.type === Field && node.props.label === 'Add RPC URL (Horizon)')).toBe(true);
     expect(button(all, 'Add node (Stellar Mainnet)').disabled).toBe(true);
     expect(deps.save).not.toHaveBeenCalled();
   });
   it('hides gated Testnet/custom mutation controls without retention, and opens confirmation before switching', () => {
-    const hidden = render(setup({ developerMode: false }));
+    const gated = setup({ developerMode: false });
+    const hidden = render(gated);
     expect(hidden.all.some(node => node.props.accessibilityLabel?.includes('Stellar Testnet'))).toBe(false);
-    expect(hidden.all.some(node => node.type === Field)).toBe(false);
+    expect(hidden.all.find(node => node.type === Field)?.props.editable).toBe(false);
+    expect(button(hidden.all, 'Add node (Stellar Mainnet)').disabled).toBe(true);
+    button(hidden.all, 'Enable custom RPC URLs').onPress?.();
+    expect(gated.onClose).toHaveBeenCalledTimes(1);
+    expect(gated.onOpenDeveloperMode).toHaveBeenCalledTimes(1);
+    expect(gated.save).not.toHaveBeenCalled();
     const deps = setup();
     const { all, setExpanded, setPrompt } = render(deps);
     button(all, 'Stellar Testnet').onPress?.();
@@ -133,7 +141,7 @@ describe('Home network panel', () => {
     expect(button(all, 'Stellar Testnet')).toBeDefined();
     expect(button(all, NETWORKS['stellar-testnet'].horizonUrl)).toBeDefined();
     expect(all.some(node => node.props.accessibilityLabel?.includes(custom))).toBe(false);
-    expect(all.some(node => node.type === Field)).toBe(false);
+    expect(all.find(node => node.type === Field)?.props.editable).toBe(false);
     button(all, 'Stellar Testnet').onPress?.();
     expect(setPrompt).toHaveBeenCalledWith(testPrompt);
     expect(deps.save).not.toHaveBeenCalled();
