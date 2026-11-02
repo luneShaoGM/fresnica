@@ -604,7 +604,19 @@ function ActivityRow({
   timeFormatter: Intl.DateTimeFormat;
 }>) {
   const presentation = activityEntryPresentation(entry, t, formatNumber);
-  const glyph = presentation.tone === 'positive' ? '↙' : presentation.tone === 'negative' ? '↗' : '•';
+  const glyph =
+    entry.kind === 'change-trust'
+      ? '↔'
+      : entry.kind === 'create-account'
+        ? '+'
+        : entry.kind === 'unsupported'
+          ? '•'
+          : presentation.tone === 'positive'
+            ? '↓'
+            : presentation.tone === 'negative'
+              ? '↑'
+              : '↔';
+  const amountPrefix = presentation.tone === 'positive' ? '+' : presentation.tone === 'negative' ? '−' : '';
 
   return (
     <Pressable
@@ -620,11 +632,16 @@ function ActivityRow({
         <Text numberOfLines={1} style={styles.activitySecondary}>
           {shortAddress(presentation.secondary)}
         </Text>
-        <Text style={styles.activityTime}>{timeFormatter.format(new Date(entry.occurredAt))}</Text>
       </View>
-      <Text numberOfLines={1} style={[styles.activityAmount, toneStyle(presentation.tone, styles, 'amount')]}>
-        {presentation.primary}
-      </Text>
+      <View style={styles.activityTrailing}>
+        <Text numberOfLines={1} style={[styles.activityAmount, toneStyle(presentation.tone, styles, 'amount')]}>
+          {amountPrefix}
+          {presentation.primary}
+        </Text>
+        <Text numberOfLines={1} style={styles.activityTime}>
+          {timeFormatter.format(new Date(entry.occurredAt))}
+        </Text>
+      </View>
     </Pressable>
   );
 }

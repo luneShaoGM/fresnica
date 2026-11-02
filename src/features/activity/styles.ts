@@ -84,6 +84,7 @@ export function createStyles(theme: AppTheme) {
     },
     activityRow: {
       minHeight: 72,
+      paddingVertical: theme.spacing.sm,
       flexDirection: 'row',
       alignItems: 'center',
       gap: theme.spacing.sm,
@@ -112,7 +113,8 @@ export function createStyles(theme: AppTheme) {
     },
     activityIdentity: {
       flex: 1,
-      gap: 2,
+      gap: theme.spacing.xs,
+      justifyContent: 'center',
     },
     activityTitle: {
       ...theme.typography.label,
@@ -123,15 +125,20 @@ export function createStyles(theme: AppTheme) {
       ...theme.typography.caption,
       color: theme.colors.textSecondary,
     },
+    activityTrailing: {
+      maxWidth: '44%',
+      minWidth: 72,
+      alignItems: 'flex-end',
+      justifyContent: 'center',
+      gap: theme.spacing.xs,
+    },
     activityTime: {
-      fontSize: 10,
-      lineHeight: 13,
-      fontWeight: '400',
+      ...theme.typography.caption,
       color: theme.colors.textTertiary,
+      textAlign: 'right',
     },
     activityAmount: {
-      maxWidth: '40%',
-      ...theme.typography.caption,
+      ...theme.typography.label,
       fontWeight: '700',
       color: theme.colors.surfaceStrong,
       textAlign: 'right',
