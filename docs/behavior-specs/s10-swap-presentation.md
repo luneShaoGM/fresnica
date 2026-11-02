@@ -10,6 +10,7 @@ Decision: Adapt the existing Fresnica branch `stage6/add-assets-sheet-2026-10-23
 - Submitted is success; uncertain is unverified; rejected/authorization-blocked/unsupported-signer are failures. Always preserve original hash, result code, authorization and ledger when available. No result page offers a second submission.
 - Keep current pending-history/reconciliation actions and history-read failures, including after an accepted broadcast. Copy and explorer actions operate only on public hashes through injected platform functions; failures allow retry and cannot change transaction status. Explorer links use the original network/hash. Obsolete output callbacks do not update a different screen/session.
 - Preserve explicit slide authorization, transient passphrase handling, quote expiry/slippage, account-selection/focus lifetime, exact-XDR binding, pending/uncertain and recovery semantics.
+- Home and Actions expose Send and Swap only after the selected Classic signer account has an accepted active balance read. Loading, stale/cache-only, failed and inactive reads disable both transaction entries; successful activation and manual refresh revalidate the Actions state. Entry availability is presentation policy, while Swap assets, quote, preflight, authorization and submission remain independent live guards.
 - Strict architecture enforcement adds `features/swap`; UI remains presentation-only. No cache/repository/schema, dependency, signing or submission-capability changes.
 
 ## Remaining branch inventory

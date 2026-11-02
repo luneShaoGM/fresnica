@@ -32,6 +32,7 @@ type Props = Readonly<{
   selectedAccountId: string;
   selectableAccounts: readonly AccountRecord[];
   swapEnabled: boolean;
+  onBalanceReload?: () => void;
   services: AppServices;
   onAccountsChanged: () => void;
   onCreatedAccountReady: (accountId: string) => void | Promise<void>;
@@ -45,6 +46,7 @@ export function HomeStackNavigator({
   selectedAccountId,
   selectableAccounts,
   swapEnabled,
+  onBalanceReload,
   services,
   onAccountsChanged,
   onCreatedAccountReady,
@@ -98,6 +100,7 @@ export function HomeStackNavigator({
                   : undefined
               }
               onManualRefresh={() => services.transactionRecovery.reconcile('manual-refresh')}
+              onBalanceReload={onBalanceReload}
               invalidationRevision={invalidationRevision}
             />
             {networkSwitchVisible && services.networkSettings ? (

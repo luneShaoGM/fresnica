@@ -1,6 +1,6 @@
 import type { NodeReadFailure } from '@capabilities/network/NodeReadError';
 import { NativeButton } from '@ui/components/NativeButton';
-import React from 'react';
+import React, { useCallback, useEffect } from 'react';
 import type { AccountSyncMode } from '@capabilities/account-sync/AccountEffects';
 import { Pressable, Text, View } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -44,6 +44,7 @@ export type MainTabBarProps = BottomTabBarProps &
     nodeFailure?: NodeReadFailure;
     onRetryNode?: () => void;
     actionAvailability: Readonly<Record<ProductAction, boolean>>;
+    actionState?: 'inactive' | 'checking' | 'unavailable';
   }>;
 
 export function MainTabBar({
@@ -52,6 +53,7 @@ export function MainTabBar({
   navigation,
   selectedAccountId,
   actionAvailability,
+  actionState,
   syncMode,
   nodePhase,
   nodeFailure,
@@ -64,9 +66,6 @@ export function MainTabBar({
   const activeRoute = state.routes[state.index];
   const activeTab = activeRoute.name as MainTab;
   const focusedChildRoute = getFocusedRouteNameFromRoute(activeRoute);
-  if (focusedChildRoute && focusedChildRoute !== ROOT_ROUTE_BY_TAB[activeTab]) {
-    return null;
-  }
 
   const renderTab = (index: number) => {
     const route = state.routes[index];
@@ -105,33 +104,39 @@ export function MainTabBar({
     );
   };
 
-  const selectAction = (action: ProductAction) => {
-    if (!selectedAccountId || !actionAvailability[action]) {
+  const selectAction = useCallback(
+    (action: ProductAction) => {
+      if (!selectedAccountId || !actionAvailability[action]) {
+        return;
+      }
+      dismiss();
+      if (action === 'send') {
+        navigation.navigate('home', {
+          screen: 'send-form',
+          params: { accountId: selectedAccountId },
+        });
+      }
+      if (action === 'swap') {
+        navigation.navigate('home', {
+          screen: 'swap',
+          params: { accountId: selectedAccountId },
+        });
+      }
+      if (action === 'request') {
+        navigation.navigate('home', {
+          screen: 'request',
+          params: { accountId: selectedAccountId },
+        });
+      }
+    },
+    [actionAvailability, dismiss, navigation, selectedAccountId],
+  );
+
+  const openActions = useCallback(() => {
+    if (!selectedAccountId) {
+      dismiss();
       return;
     }
-    dismiss();
-    if (action === 'send') {
-      navigation.navigate('home', {
-        screen: 'send-form',
-        params: { accountId: selectedAccountId },
-      });
-    }
-    if (action === 'swap') {
-      navigation.navigate('home', {
-        screen: 'swap',
-        params: { accountId: selectedAccountId },
-      });
-    }
-    if (action === 'request') {
-      navigation.navigate('home', {
-        screen: 'request',
-        params: { accountId: selectedAccountId },
-      });
-    }
-  };
-
-  const openActions = () => {
-    if (!selectedAccountId) return;
     present(
       ACTIONS_OVERLAY_ID,
       <Pressable style={styles.overlay} onPress={dismiss}>
@@ -157,7 +162,19 @@ export function MainTabBar({
                     ]}
                   >
                     <Text style={styles.actionLabel}>{label}</Text>
-                    {!enabled ? <Text style={styles.actionStatus}>{t('nav.comingSoon')}</Text> : null}
+                    {!enabled ? (
+                      <Text style={styles.actionStatus}>
+                        {t(
+                          action === 'request' || !actionState
+                            ? 'nav.comingSoon'
+                            : actionState === 'inactive'
+                              ? 'nav.accountInactive'
+                              : actionState === 'checking'
+                                ? 'nav.accountChecking'
+                                : 'nav.accountUnavailable',
+                        )}
+                      </Text>
+                    ) : null}
                   </Pressable>
                 );
               })}
@@ -167,7 +184,13 @@ export function MainTabBar({
       </Pressable>,
       { statusBarContent: 'light' },
     );
-  };
+  }, [actionAvailability, actionState, dismiss, present, selectedAccountId, styles, t, selectAction]);
+
+  useEffect(() => {
+    if (activeOverlayId === ACTIONS_OVERLAY_ID) openActions();
+  }, [activeOverlayId, openActions]);
+
+  if (focusedChildRoute && focusedChildRoute !== ROOT_ROUTE_BY_TAB[activeTab]) return null;
 
   return (
     <View>

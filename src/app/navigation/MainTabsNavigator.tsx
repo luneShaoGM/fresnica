@@ -5,6 +5,8 @@ import { Screen, StateView } from '@ui/components';
 import { useLocalization } from '../../locale';
 
 import type { AccountRecord } from '@capabilities/account/types';
+import { createHomeViewModel } from '@features/home/homeViewModel';
+import { useBalanceDisplay } from '@features/home/useBalanceDisplay';
 
 import type { AppServices } from '../createAppServices';
 import {
@@ -320,15 +322,57 @@ function MainTabsWithSelection({
     services.nodeReadSession.getSnapshot,
   );
   const canSign = !services.onboarding.repository.isWatchOnly(selectedAccount.id);
-  const actionAvailability = useMemo<Readonly<Record<ProductAction, boolean>>>(
-    () => ({
-      send: selectedAccount.identityKind === 'classic' && canSign,
-      // An entry can open before balances load; Swap still enforces ledger and signing gates.
-      swap: selectedAccount.identityKind === 'classic' && canSign,
-      request: selectedAccount.identityKind === 'classic',
-    }),
-    [canSign, selectedAccount.identityKind],
+  const signerActionAvailable = selectedAccount.identityKind === 'classic' && canSign;
+  const readRuntime = useSyncExternalStore(
+    services.ledgerReadRuntime.subscribe,
+    services.ledgerReadRuntime.getSnapshot,
+    services.ledgerReadRuntime.getSnapshot,
   );
+  const invalidationRevision = useSyncExternalStore(
+    services.ledgerReadInvalidation.subscribe,
+    () => services.ledgerReadInvalidation.getRevision(selectedAccount.networkId, selectedAccount.id),
+    () => 0,
+  );
+  const { state: actionBalanceState, refresh: refreshActionBalance } = useBalanceDisplay(
+    selectedAccount,
+    services.balance,
+    readRuntime.foreground,
+    invalidationRevision,
+  );
+  const actionModel = createHomeViewModel(selectedAccount, canSign, actionBalanceState, {
+    swap: signerActionAvailable,
+    request: selectedAccount.identityKind === 'classic',
+  });
+  const actionState =
+    actionBalanceState.kind === 'ready' &&
+    !actionBalanceState.stale &&
+    actionBalanceState.snapshot.status === 'inactive'
+      ? 'inactive'
+      : actionBalanceState.kind === 'error'
+        ? 'unavailable'
+        : actionBalanceState.kind === 'loading' || (actionBalanceState.kind === 'ready' && actionBalanceState.stale)
+          ? 'checking'
+          : undefined;
+  const actionAvailability = useMemo<Readonly<Record<ProductAction, boolean>>>(
+    () => ({ send: actionModel.canSend, swap: actionModel.canSwap, request: actionModel.canRequest }),
+    [actionModel.canSend, actionModel.canSwap, actionModel.canRequest],
+  );
+  const refreshActionBalanceIfCurrent = useCallback(() => {
+    const current = swapSelectionStore.getCurrentSelection();
+    if (
+      current?.selectedAccountId !== selectedAccount.id ||
+      current.network.id !== selectedAccount.networkId ||
+      !current.accounts.some(
+        candidate =>
+          candidate.id === selectedAccount.id &&
+          candidate.address === selectedAccount.address &&
+          candidate.networkId === selectedAccount.networkId &&
+          !candidate.hidden,
+      )
+    )
+      return;
+    refreshActionBalance();
+  }, [refreshActionBalance, selectedAccount, swapSelectionStore]);
 
   return (
     <Tab.Navigator
@@ -343,6 +387,7 @@ function MainTabsWithSelection({
           nodeFailure={node.failure}
           onRetryNode={services.nodeReadSession.retry}
           actionAvailability={actionAvailability}
+          actionState={actionState}
           selectedAccountId={effectiveSelectedAccountId}
         />
       )}
@@ -356,7 +401,8 @@ function MainTabsWithSelection({
             onSelectAccount={selectAccount}
             selectableAccounts={selectableAccounts}
             selectedAccountId={effectiveSelectedAccountId}
-            swapEnabled={actionAvailability.swap}
+            swapEnabled={signerActionAvailable}
+            onBalanceReload={refreshActionBalanceIfCurrent}
             getCurrentSwapSelection={getCurrentSwapSelection}
             subscribeToSwapSelection={swapSelectionStore.subscribe}
             services={services}

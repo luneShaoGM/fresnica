@@ -38,6 +38,7 @@ type Props = Readonly<{
   onManageAssets: () => void;
   onOpenAsset: (asset: BalanceAsset) => void;
   onManualRefresh: () => Promise<unknown>;
+  onBalanceReload?: () => void;
   invalidationRevision: number;
   onSwitchNetwork?: () => void;
   onSwap?: () => void;
@@ -58,6 +59,7 @@ export function HomeScreen({
   onManageAssets,
   onOpenAsset,
   onManualRefresh,
+  onBalanceReload,
   invalidationRevision,
   onSwitchNetwork,
   onSwap,
@@ -109,6 +111,7 @@ export function HomeScreen({
       await fundTestnetAccountWithFriendbot(friendbotDependencies, account);
       clearFriendbotState(accountId);
       if (currentAccountId.current === accountId) {
+        onBalanceReload?.();
         refreshBalances();
       }
     } catch {
@@ -121,7 +124,16 @@ export function HomeScreen({
     } finally {
       friendbotRequestAccountIds.current.delete(accountId);
     }
-  }, [account, balanceState, clearFriendbotState, friendbotDependencies, hasFreshInactiveSnapshot, refreshBalances, t]);
+  }, [
+    account,
+    balanceState,
+    clearFriendbotState,
+    friendbotDependencies,
+    hasFreshInactiveSnapshot,
+    onBalanceReload,
+    refreshBalances,
+    t,
+  ]);
 
   const visibleFriendbotState: FriendbotFundingState = friendbotStateByAccount[account.id] ?? 'idle';
   const friendbotAvailable = isFriendbotFundingAvailable(friendbotDependencies, account);
@@ -144,7 +156,10 @@ export function HomeScreen({
           <RefreshControl
             onRefresh={() => {
               setManualRefreshing(true);
-              void Promise.resolve(refreshBalances(onManualRefresh)).finally(() => setManualRefreshing(false));
+              void Promise.resolve(refreshBalances(onManualRefresh)).finally(() => {
+                setManualRefreshing(false);
+                onBalanceReload?.();
+              });
             }}
             refreshing={manualRefreshing}
             tintColor={theme.colors.actionPrimary}
