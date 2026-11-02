@@ -66,14 +66,19 @@ export function OperationDetailsScreen({
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [explorerOpenState, setExplorerOpenState] = useState<'idle' | 'opening' | 'failed'>('idle');
   const requestVersion = useRef(0);
+  const partition = JSON.stringify([dependencies.networkId, account.networkId, account.address, operationId]);
+  const displayedPartition = useRef(partition);
 
   const load = useCallback(() => {
     const version = requestVersion.current + 1;
     requestVersion.current = version;
+    const changed = displayedPartition.current !== partition;
+    displayedPartition.current = partition;
 
     const snapshot = readHistoryCacheSnapshotBestEffort(dependencies, account);
     const cachedEntry = readCachedHistoryDetail(snapshot, operationId);
     setState(current => {
+      if (!changed && current.kind !== 'loading') return current;
       if (cachedEntry) {
         return {
           kind: 'loaded',
@@ -87,14 +92,6 @@ export function OperationDetailsScreen({
             : {
                 lastSuccessfulHorizonUpdateAt: new Date(snapshot.lastSuccessfulHorizonUpdateAt),
               }),
-        };
-      }
-      if (current.kind === 'loaded' && current.result.status === 'ready') {
-        return {
-          ...current,
-          stale: true,
-          refreshing: true,
-          refreshFailed: false,
         };
       }
       return { kind: 'loading' };
@@ -112,14 +109,21 @@ export function OperationDetailsScreen({
           removeCachedHistoryDetailBestEffort(dependencies, account, operationId);
         }
 
-        setState({
-          kind: 'loaded',
-          result,
-          source: 'online',
-          stale: false,
-          refreshing: false,
-          refreshFailed: false,
-        });
+        setState(current =>
+          current.kind === 'loaded' &&
+          !current.stale &&
+          !current.refreshFailed &&
+          JSON.stringify(current.result) === JSON.stringify(result)
+            ? current
+            : {
+                kind: 'loaded',
+                result,
+                source: 'online',
+                stale: false,
+                refreshing: false,
+                refreshFailed: false,
+              },
+        );
       })
       .catch(error => {
         if (requestVersion.current !== version) {
@@ -144,7 +148,7 @@ export function OperationDetailsScreen({
           };
         });
       });
-  }, [account, dependencies, operationId, t]);
+  }, [account, dependencies, operationId, partition, t]);
 
   useEffect(() => {
     if (!active) {
@@ -216,7 +220,7 @@ export function OperationDetailsScreen({
       </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {renderContent(
-          state,
+          displayedPartition.current === partition ? state : { kind: 'loading' },
           load,
           dateFormatter,
           formatNumber,
