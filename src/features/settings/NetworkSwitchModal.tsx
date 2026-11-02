@@ -23,10 +23,12 @@ export function NetworkSwitchModal({
   settings,
   monitor,
   onClose,
+  onOpenDeveloperMode,
 }: Readonly<{
   settings: NetworkSettings;
   monitor?: NodeHealthMonitor;
   onClose: () => void;
+  onOpenDeveloperMode: () => void;
 }>) {
   const { preferences, busy, interruption, tests } = useSyncExternalStore(settings.subscribe, settings.getSnapshot);
   const [expanded, setExpanded] = useState<NetworkId>(preferences.networkId);
@@ -284,29 +286,37 @@ export function NetworkSwitchModal({
                           </View>
                         );
                       })}
-                      {preferences.developerMode ? (
+                      <Field
+                        label={t('networkSwitch.addEndpoint')}
+                        placeholder="https://"
+                        value={endpointInput}
+                        onChangeText={setEndpointInput}
+                        keyboardType="url"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        maxLength={2048}
+                        editable={preferences.developerMode && !busy}
+                      />
+                      <NativeButton
+                        label={`${t('networkManage.add')} (${t(`networkManage.name.${id}`)})`}
+                        disabled={!preferences.developerMode || busy || !endpointInput.trim()}
+                        onPress={() => add(id)}
+                        size="sm"
+                      />
+                      {!preferences.developerMode ? (
                         <>
-                          <Field
-                            label={t('networkSwitch.addEndpoint')}
-                            placeholder="https://"
-                            value={endpointInput}
-                            onChangeText={setEndpointInput}
-                            keyboardType="url"
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                            maxLength={2048}
-                            editable={!busy}
-                          />
+                          <Text style={styles.status}>{t('networkManage.error.developer-mode-required')}</Text>
                           <NativeButton
-                            label={`${t('networkManage.add')} (${t(`networkManage.name.${id}`)})`}
-                            disabled={busy || !endpointInput.trim()}
-                            onPress={() => add(id)}
+                            label={t('networkSwitch.enableCustomNodes')}
+                            onPress={() => {
+                              cancel();
+                              onOpenDeveloperMode();
+                            }}
                             size="sm"
+                            variant="quiet"
                           />
                         </>
-                      ) : (
-                        <Text style={styles.status}>{t('networkManage.error.developer-mode-required')}</Text>
-                      )}
+                      ) : null}
                     </View>
                   ) : null}
                 </View>

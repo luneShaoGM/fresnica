@@ -111,6 +111,8 @@ S04/S24; Phase 0 passed, Adapt/clean-room. Fixed Stellar `bd0f4540b2496a57314e4e
 
 The panel initially expands the active network. Network activation and node changes require a centered confirmation; cancel returns to the panel, successful switch retires the session as before. Add validates/saves without silently selecting; after success offer Use now / Not now. Active-node deletion retains verified built-in fallback. Show live public-read state only for the active endpoint and manual test status/time separately; untested endpoints are explicitly unknown. Background/blur/unmount invalidates pending UI work.
 
+When Developer Mode is off, the Home panel shows the add RPC URL field as unavailable and provides a direct route to Advanced Settings to authenticate and enable it. The panel's existing add/test/select/remove controls and public preference persistence remain the single implementation after authorization; deleting a built-in node remains impossible.
+
 Work P2 at `a7ba188ec59f01d88872b8e2d1d2d3644bc98d86`: determine network visibility from policy-allowed endpoints. When a saved default is unavailable in the current mode, use the built-in endpoint consistently in summary, confirmation and selectNode, without rewriting preferences before confirmation. Cover retained Testnet with a historical custom default after disabling mode, as well as normal-mode hiding when retention is absent.
 
 
