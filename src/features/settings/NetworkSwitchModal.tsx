@@ -23,12 +23,11 @@ export function NetworkSwitchModal({
   settings,
   monitor,
   onClose,
-  onOpenDeveloperMode,
 }: Readonly<{
   settings: NetworkSettings;
   monitor?: NodeHealthMonitor;
   onClose: () => void;
-  onOpenDeveloperMode: () => void;
+  onOpenDeveloperMode?: () => void;
 }>) {
   const { preferences, busy, interruption, tests } = useSyncExternalStore(settings.subscribe, settings.getSnapshot);
   const [expanded, setExpanded] = useState<NetworkId>(preferences.networkId);
@@ -103,23 +102,47 @@ export function NetworkSwitchModal({
       },
     );
   };
+  const promptNetwork = prompt ? t(`networkManage.name.${prompt.id}`) : '';
+  const switchingNetwork = prompt?.kind === 'select' && preferences.networkId !== prompt.id;
+  const dialogTitle = !prompt
+    ? undefined
+    : prompt.kind === 'added'
+      ? t('networkSwitch.added')
+      : prompt.kind === 'remove'
+        ? t('networkManage.prompt.remove')
+        : switchingNetwork
+          ? t('networkSwitch.switchTitle', { network: promptNetwork })
+          : t('networkSwitch.useNodeTitle');
+  const dialogDetail =
+    prompt?.kind === 'select'
+      ? t(switchingNetwork ? 'networkSwitch.switchDetail' : 'networkSwitch.useNodeDetail')
+      : undefined;
+  const confirmLabel = !prompt
+    ? ''
+    : busy
+      ? t('networkManage.working')
+      : prompt.kind === 'added'
+        ? t('networkSwitch.useNow')
+        : switchingNetwork
+          ? t('networkSwitch.switchAction')
+          : prompt.kind === 'select'
+            ? t('networkManage.select')
+            : t('networkManage.confirm');
   const networks = (Object.keys(NETWORKS) as NetworkId[])
+    .filter(id => id === 'stellar-mainnet' || preferences.developerMode)
     .map(id => {
       const saved = preferences.endpoints[id];
       // A hidden custom default must not hide the policy-allowed built-in network.
       const endpoint = isNodeAvailable(preferences, id, saved) ? saved : NETWORKS[id].horizonUrl;
       return { id, endpoint };
-    })
-    .filter(item => isNodeAvailable(preferences, item.id, item.endpoint));
+    });
 
   return (
     <AppModal
       visible
       onRequestClose={prompt ? dismissPrompt : cancel}
       presentation={prompt ? 'dialog' : 'sheet'}
-      title={
-        prompt ? t(prompt.kind === 'added' ? 'networkSwitch.added' : `networkManage.prompt.${prompt.kind}`) : undefined
-      }
+      title={dialogTitle}
     >
       {prompt ? (
         <ScrollView
@@ -127,26 +150,30 @@ export function NetworkSwitchModal({
           contentContainerStyle={styles.dialogContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.name}>{t(`networkManage.name.${prompt.id}`)}</Text>
-          <Text selectable style={styles.endpoint}>
+          {prompt.kind === 'select' ? null : <Text style={styles.name}>{promptNetwork}</Text>}
+          <Text selectable style={prompt.kind === 'select' ? styles.dialogEndpoint : styles.endpoint}>
             {prompt.endpoint}
           </Text>
-          <NativeButton
-            disabled={busy}
-            onPress={confirm}
-            label={t(
-              busy
-                ? 'networkManage.working'
-                : prompt.kind === 'added'
-                  ? 'networkSwitch.useNow'
-                  : 'networkManage.confirm',
-            )}
-          />
-          <NativeButton
-            onPress={dismissPrompt}
-            variant="quiet"
-            label={t(prompt.kind === 'added' ? 'networkSwitch.notNow' : 'networkManage.cancel')}
-          />
+          {dialogDetail ? <Text style={styles.dialogDetail}>{dialogDetail}</Text> : null}
+          {prompt.kind === 'select' ? (
+            <View style={styles.dialogActions}>
+              <View style={styles.dialogAction}>
+                <NativeButton onPress={dismissPrompt} variant="quiet" label={t('networkManage.cancel')} />
+              </View>
+              <View style={styles.dialogAction}>
+                <NativeButton disabled={busy} onPress={confirm} label={confirmLabel} />
+              </View>
+            </View>
+          ) : (
+            <>
+              <NativeButton disabled={busy} onPress={confirm} label={confirmLabel} />
+              <NativeButton
+                onPress={dismissPrompt}
+                variant="quiet"
+                label={t(prompt.kind === 'added' ? 'networkSwitch.notNow' : 'networkManage.cancel')}
+              />
+            </>
+          )}
           {error ? (
             <Text accessibilityRole="alert" style={[styles.status, styles.failed]}>
               {t(error)}
@@ -177,10 +204,7 @@ export function NetworkSwitchModal({
                 setError(undefined);
                 if (!current) open({ kind: 'select', id, endpoint });
               };
-              const nodes = [
-                NETWORKS[id].horizonUrl,
-                ...(preferences.developerMode ? preferences.customNodes[id] : []),
-              ];
+              const nodes = [NETWORKS[id].horizonUrl, ...preferences.customNodes[id]];
               return (
                 <View key={id}>
                   {id === 'stellar-testnet' ? (
@@ -234,7 +258,9 @@ export function NetworkSwitchModal({
                                 style={styles.nodeLabel}
                               >
                                 <Text style={styles.endpoint}>{node}</Text>
-                                {selected ? <Text style={styles.status}>{t('networkManage.defaultNode')}</Text> : null}
+                                {selected ? (
+                                  <Text style={styles.defaultBadge}>{t('networkManage.defaultNode')}</Text>
+                                ) : null}
                               </Pressable>
                               <View style={styles.actions}>
                                 <Pressable
@@ -295,28 +321,14 @@ export function NetworkSwitchModal({
                         autoCapitalize="none"
                         autoCorrect={false}
                         maxLength={2048}
-                        editable={preferences.developerMode && !busy}
+                        editable={!busy}
                       />
                       <NativeButton
                         label={`${t('networkManage.add')} (${t(`networkManage.name.${id}`)})`}
-                        disabled={!preferences.developerMode || busy || !endpointInput.trim()}
+                        disabled={busy || !endpointInput.trim()}
                         onPress={() => add(id)}
                         size="sm"
                       />
-                      {!preferences.developerMode ? (
-                        <>
-                          <Text style={styles.status}>{t('networkManage.error.developer-mode-required')}</Text>
-                          <NativeButton
-                            label={t('networkSwitch.enableCustomNodes')}
-                            onPress={() => {
-                              cancel();
-                              onOpenDeveloperMode();
-                            }}
-                            size="sm"
-                            variant="quiet"
-                          />
-                        </>
-                      ) : null}
                     </View>
                   ) : null}
                 </View>
@@ -346,22 +358,14 @@ function CurrentNodeStatus({ monitor }: Readonly<{ monitor: NodeHealthMonitor }>
   const snapshot = useSyncExternalStore(monitor.subscribe, monitor.getSnapshot);
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
+  const failed = snapshot.phase === 'cooldown' || snapshot.phase === 'wrong-network';
+  const tone = snapshot.phase === 'healthy' ? styles.healthy : failed ? styles.failed : undefined;
   return (
     <View>
-      <Text
-        accessibilityLiveRegion="polite"
-        style={[
-          styles.status,
-          snapshot.phase === 'healthy'
-            ? styles.healthy
-            : snapshot.phase === 'cooldown' || snapshot.phase === 'wrong-network'
-              ? styles.failed
-              : undefined,
-        ]}
-      >
-        {t('networkHealth.currentNode')} · {t(`networkHealth.phase.${snapshot.phase}`)}
+      <Text accessibilityLiveRegion="polite" style={[styles.status, tone]}>
+        {`${t('networkHealth.currentNode')} · ${t(`networkHealth.phase.${snapshot.phase}`)}`}
       </Text>
-      {snapshot.phase === 'cooldown' || snapshot.phase === 'wrong-network' ? (
+      {failed ? (
         <NativeButton label={t('networkHealth.retry')} onPress={monitor.retry} size="sm" variant="quiet" />
       ) : null}
     </View>

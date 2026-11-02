@@ -7,6 +7,7 @@ import {
   NETWORKS,
   type NetworkPreferences,
 } from '@capabilities/network/networkPreferences';
+import type { NodeHealthMonitor } from '@capabilities/network/NodeHealthMonitor';
 import { NetworkSwitchModal } from '../NetworkSwitchModal';
 
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
@@ -42,7 +43,11 @@ type Props = {
 };
 function nodes(root: React.ReactNode): React.ReactElement<Props>[] {
   if (!React.isValidElement<Props>(root)) return [];
-  return [root, ...React.Children.toArray(root.props.children).flatMap(nodes)];
+  const rendered =
+    typeof root.type === 'function' && root.type.name === 'CurrentNodeStatus'
+      ? (root.type as (props: Props) => React.ReactElement<Props>)(root.props)
+      : undefined;
+  return [root, ...React.Children.toArray(rendered ?? root.props.children).flatMap(nodes)];
 }
 function setup(initial: Partial<NetworkPreferences> = {}, assertCanSwitch = () => {}) {
   const save = jest.fn();
@@ -70,6 +75,7 @@ function render(
   prompt?: Prompt,
   expanded = deps.settings.getSnapshot().preferences.networkId,
   input = '',
+  monitor?: NodeHealthMonitor,
 ) {
   const setExpanded = jest.fn();
   const setPrompt = jest.fn();
@@ -81,7 +87,14 @@ function render(
     .mockReturnValueOnce([prompt, setPrompt])
     .mockReturnValueOnce([input, setInput])
     .mockReturnValueOnce([undefined, setError]);
-  return { all: nodes(NetworkSwitchModal(deps)), setExpanded, setPrompt, setInput, setError };
+  return { all: nodes(NetworkSwitchModal({ ...deps, monitor })), setExpanded, setPrompt, setInput, setError };
+}
+function text(all: React.ReactElement<Props>[]): string {
+  return all
+    .map(node => node.props.children)
+    .flat(2)
+    .filter((child): child is string => typeof child === 'string')
+    .join('\n');
 }
 function button(all: React.ReactElement<Props>[], label: string) {
   const found = all.find(
@@ -109,11 +122,11 @@ describe('Home network panel', () => {
     const gated = setup({ developerMode: false });
     const hidden = render(gated);
     expect(hidden.all.some(node => node.props.accessibilityLabel?.includes('Stellar Testnet'))).toBe(false);
-    expect(hidden.all.find(node => node.type === Field)?.props.editable).toBe(false);
+    expect(hidden.all.find(node => node.type === Field)?.props.editable).toBe(true);
     expect(button(hidden.all, 'Add node (Stellar Mainnet)').disabled).toBe(true);
-    button(hidden.all, 'Enable custom RPC URLs').onPress?.();
-    expect(gated.onClose).toHaveBeenCalledTimes(1);
-    expect(gated.onOpenDeveloperMode).toHaveBeenCalledTimes(1);
+    const ready = render(gated, undefined, 'stellar-mainnet', 'https://node.example');
+    expect(button(ready.all, 'Add node (Stellar Mainnet)').disabled).toBe(false);
+    expect(ready.all.some(node => node.props.label === 'Enable custom RPC URLs')).toBe(false);
     expect(gated.save).not.toHaveBeenCalled();
     const deps = setup();
     const { all, setExpanded, setPrompt } = render(deps);
@@ -137,18 +150,16 @@ describe('Home network panel', () => {
     deps.save.mockClear();
     deps.restart.mockClear();
     deps.probe.mockClear();
-    const { all, setPrompt } = render(deps, undefined, 'stellar-testnet');
-    expect(button(all, 'Stellar Testnet')).toBeDefined();
-    expect(button(all, NETWORKS['stellar-testnet'].horizonUrl)).toBeDefined();
+    const { all, setPrompt } = render(deps, undefined, 'stellar-mainnet');
+    expect(all.some(node => node.props.accessibilityLabel?.includes('Stellar Testnet'))).toBe(false);
     expect(all.some(node => node.props.accessibilityLabel?.includes(custom))).toBe(false);
-    expect(all.find(node => node.type === Field)?.props.editable).toBe(false);
-    button(all, 'Stellar Testnet').onPress?.();
-    expect(setPrompt).toHaveBeenCalledWith(testPrompt);
+    expect(all.find(node => node.type === Field)?.props.editable).toBe(true);
+    expect(setPrompt).not.toHaveBeenCalled();
     expect(deps.save).not.toHaveBeenCalled();
     expect(deps.settings.getSnapshot().preferences.endpoints['stellar-testnet']).toBe(custom);
     const dialog = render(deps, testPrompt).all;
     expect(dialog.some(node => node.props.children === testPrompt.endpoint)).toBe(true);
-    await button(dialog, 'Confirm').onPress?.();
+    await button(dialog, 'Switch').onPress?.();
     expect(deps.probe).toHaveBeenCalledWith(testPrompt.endpoint, expect.any(AbortSignal));
     expect(deps.settings.getSnapshot().preferences).toMatchObject({
       developerMode: false,
@@ -171,11 +182,11 @@ describe('Home network panel', () => {
     });
     const deps = setup({}, guard);
     const { all, setError } = render(deps, testPrompt);
-    await button(all, 'Confirm').onPress?.();
+    await button(all, 'Switch').onPress?.();
     expect(setError).toHaveBeenLastCalledWith('networkManage.error.pending-submission');
     expect(deps.settings.getSnapshot().preferences.networkId).toBe('stellar-mainnet');
     guard.mockImplementation(() => {});
-    await button(all, 'Confirm').onPress?.();
+    await button(all, 'Switch').onPress?.();
     expect(deps.restart).toHaveBeenCalledTimes(1);
   });
   it('cancels a busy probe and ignores its late result', async () => {
@@ -188,7 +199,7 @@ describe('Home network panel', () => {
         }),
     );
     const { all } = render(deps, testPrompt);
-    const pending = button(all, 'Confirm').onPress?.();
+    const pending = button(all, 'Switch').onPress?.();
     for (let i = 0; i < 6; i++) await Promise.resolve();
     // Native back sees the latest busy snapshot after rerender.
     const cancel = render(deps, testPrompt).all;
@@ -247,5 +258,22 @@ describe('Home network panel', () => {
     expect(setInput).not.toHaveBeenCalled();
     expect(setPrompt).not.toHaveBeenCalled();
     expect(deps.save).not.toHaveBeenCalled();
+  });
+  it('shows the live connection failure and retry after an older successful manual test', async () => {
+    const deps = setup();
+    const endpoint = NETWORKS['stellar-mainnet'].horizonUrl;
+    await deps.settings.testNode('stellar-mainnet', endpoint);
+    const retry = jest.fn();
+    const monitor: NodeHealthMonitor = {
+      getSnapshot: () => ({ endpoint, generation: 2, phase: 'cooldown', failure: 'unavailable' }),
+      subscribe: () => () => undefined,
+      retry,
+    };
+    const { all } = render(deps, undefined, 'stellar-mainnet', '', monitor);
+    const visible = text(all);
+    expect(visible).toContain('Last test: reachable');
+    expect(visible).toContain('Current node · Retrying connection');
+    button(all, 'Retry connection').onPress?.();
+    expect(retry).toHaveBeenCalledTimes(1);
   });
 });

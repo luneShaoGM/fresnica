@@ -94,7 +94,7 @@ describe('network management presentation and event wiring', () => {
     const all = nodes(NetworkManagement({ settings }));
     const labels = all.filter(n => n.type === Pressable).map(n => n.props.accessibilityLabel);
     expect(all.find(n => n.type === Switch)?.props.value).toBe(false);
-    expect(labels).not.toContain('Add node');
+    expect(labels.filter(label => label === 'Add node')).toHaveLength(1);
     expect(labels).not.toContain('Remove node');
     expect(all.some(n => String(n.props.children).includes('Stellar Testnet'))).toBe(false);
   });
@@ -109,7 +109,7 @@ describe('network management presentation and event wiring', () => {
           n.type === Pressable && n.props.accessibilityLabel === `Use node: ${NETWORKS['stellar-testnet'].horizonUrl}`,
       ),
     ).toBe(true);
-    expect(labels).not.toContain('Add node');
+    expect(labels.filter(label => label === 'Add node')).toHaveLength(1);
     expect(labels).not.toContain('Remove node');
     expect(settings.getSnapshot().preferences.developerMode).toBe(false);
   });

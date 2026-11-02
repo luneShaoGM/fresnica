@@ -814,5 +814,10 @@
   "networkSwitch.added": "节点已添加。现在使用？",
   "networkSwitch.useNow": "现在使用",
   "networkSwitch.notNow": "暂不使用",
-  "networkSwitch.enableCustomNodes": "启用自定义 RPC URL"
+  "networkSwitch.enableCustomNodes": "启用自定义 RPC URL",
+  "networkSwitch.switchTitle": "切换到{{network}}？",
+  "networkSwitch.switchDetail": "未完成的复核和报价会关闭。余额、历史和待处理交易仍留在各自的网络。",
+  "networkSwitch.switchAction": "切换",
+  "networkSwitch.useNodeTitle": "使用此节点？",
+  "networkSwitch.useNodeDetail": "之后的读取和新提交都会走这个 Horizon 节点。"
 }

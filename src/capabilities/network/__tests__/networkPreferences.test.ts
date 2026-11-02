@@ -20,6 +20,13 @@ describe('network preference trust boundary', () => {
     expect(selectedNetwork(retained)).toEqual(NETWORKS['stellar-testnet']);
     expect(isNodeAvailable(retained, 'stellar-testnet', NETWORKS['stellar-testnet'].horizonUrl)).toBe(true);
     expect(isNodeAvailable(retained, 'stellar-testnet', 'https://custom.test')).toBe(false);
+    const mainnetCustom = validateNetworkPreferences({
+      ...DEFAULT_NETWORK_PREFERENCES,
+      endpoints: { ...DEFAULT_NETWORK_PREFERENCES.endpoints, 'stellar-mainnet': 'https://custom.example' },
+      customNodes: { ...DEFAULT_NETWORK_PREFERENCES.customNodes, 'stellar-mainnet': ['https://custom.example'] },
+    });
+    expect(isNodeAvailable(mainnetCustom, 'stellar-mainnet', 'https://custom.example')).toBe(true);
+    expect(selectedNetwork(mainnetCustom).horizonUrl).toBe('https://custom.example');
     expect(
       isNodeAvailable(DEFAULT_NETWORK_PREFERENCES, 'stellar-testnet', NETWORKS['stellar-testnet'].horizonUrl),
     ).toBe(false);
