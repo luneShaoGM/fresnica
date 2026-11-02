@@ -195,6 +195,33 @@ describe('asset sheet current balance integration', () => {
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
+  it('lets Testnet open the unconfigured list without reading Mainnet sources, then return to Manual', () => {
+    const read = jest.fn();
+    const props = {
+      account,
+      balanceDependencies: dependencies,
+      catalog: { read },
+      active: true,
+      visible: true,
+      invalidationRevision: 0,
+      onClose: jest.fn(),
+      onAddAndSign: jest.fn(),
+    };
+    let root = render(() => AddAssetSheet(props));
+    effects();
+    expect(button(root, 'trustlines.add.list').props.disabled).not.toBe(true);
+    button(root, 'trustlines.add.list').props.onPress?.();
+    root = render(() => AddAssetSheet(props));
+    expect(hasText(root, 'trustlines.add.networkListUnavailable')).toBe(true);
+    expect(button(root, 'trustlines.add.addAndSign').props.disabled).toBe(true);
+    expect(read).not.toHaveBeenCalled();
+    button(root, 'trustlines.add.manual').props.onPress?.();
+    root = render(() => AddAssetSheet(props));
+    expect(
+      find(root, node => node.type === TextInput && node.props.placeholder === 'trustlines.add.assetCodePlaceholder'),
+    ).toBeDefined();
+  });
+
   it('preserves manual code case and blocks held or stale assets before Trustline review', () => {
     const onAddAndSign = jest.fn();
     const catalog = { read: jest.fn() };

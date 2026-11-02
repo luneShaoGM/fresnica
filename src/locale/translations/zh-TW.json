@@ -691,6 +691,7 @@
   "trustlines.add.listDescription": "從精選列表中選擇資產。",
   "trustlines.add.manualDescription": "輸入資產代碼和發行方，或從網址載入資產。",
   "trustlines.add.search": "搜尋資產",
+  "trustlines.add.networkListUnavailable": "目前網路尚無可用資產列表，請手動新增。",
   "trustlines.add.emptySources": "至少選擇一個列表。",
   "trustlines.add.empty": "沒有可用資產。",
   "trustlines.add.noMatch": "沒有符合的資產。",

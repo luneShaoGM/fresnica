@@ -691,6 +691,7 @@
   "trustlines.add.listDescription": "Choose an asset from the curated lists.",
   "trustlines.add.manualDescription": "Enter an asset code and issuer, or load assets from a URL.",
   "trustlines.add.search": "Search assets",
+  "trustlines.add.networkListUnavailable": "No asset lists are configured for this network. Add an asset manually.",
   "trustlines.add.emptySources": "Select at least one list.",
   "trustlines.add.empty": "No assets available.",
   "trustlines.add.noMatch": "No matching assets.",

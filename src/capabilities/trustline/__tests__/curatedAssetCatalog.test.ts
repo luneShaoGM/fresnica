@@ -1,8 +1,20 @@
-import { matchesCuratedAssetQuery, normalizeCuratedAssets, parseManualAssetDocument } from '../curatedAssetCatalog';
+import {
+  curatedAssetSourcesForNetwork,
+  CURATED_ASSET_SOURCES,
+  matchesCuratedAssetQuery,
+  normalizeCuratedAssets,
+  parseManualAssetDocument,
+} from '../curatedAssetCatalog';
 
 const issuer = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
 
 describe('curated asset catalog', () => {
+  it('selects only sources explicitly configured for the current network', () => {
+    expect(curatedAssetSourcesForNetwork('stellar-mainnet')).toBe(CURATED_ASSET_SOURCES);
+    expect(curatedAssetSourcesForNetwork('stellar-testnet')).toEqual([]);
+    expect(curatedAssetSourcesForNetwork('unknown-network')).toEqual([]);
+  });
+
   it('reads code and issuer from the public list shapes', () => {
     expect(
       normalizeCuratedAssets({
