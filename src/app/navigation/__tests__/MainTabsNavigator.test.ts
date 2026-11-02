@@ -3,9 +3,11 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import type { MainTabBarProps } from '../MainTabBar';
 
 import type { AccountRecord } from '@capabilities/account/types';
+import { failBalanceRefresh, startBalanceRefresh } from '../../../features/home/balanceReadModel';
+import type { HomeBalanceState } from '../../../features/home/homeViewModel';
 
 import type { AppServices } from '../../createAppServices';
-import { MainTabsNavigator } from '../MainTabsNavigator';
+import { getActionAccountState, MainTabsNavigator } from '../MainTabsNavigator';
 import { StateView } from '@ui/components';
 import { MainTabBar } from '../MainTabBar';
 import { SettingsStackNavigator } from '../SettingsStackNavigator';
@@ -115,4 +117,20 @@ describe('MainTabsNavigator empty-network recovery', () => {
     expect(result.props.selectableAccounts).toEqual([current]);
     expect(result.props.networkId).toBe('stellar-testnet');
   });
+});
+
+it('keeps failed Actions reads unavailable through retry until a new result is accepted', () => {
+  const active: HomeBalanceState = {
+    kind: 'ready',
+    stale: false,
+    refreshing: false,
+    refreshFailed: false,
+    snapshot: { status: 'active', address: 'GTEST', balances: [], hiddenLiquidityPoolShareCount: 0 },
+  };
+  expect(getActionAccountState(active)).toBeUndefined();
+  const failed = failBalanceRefresh(active, 'offline');
+  expect(getActionAccountState(failed)).toBe('unavailable');
+  expect(getActionAccountState(startBalanceRefresh(failed))).toBe('unavailable');
+  expect(getActionAccountState({ ...active, stale: true, refreshing: true })).toBe('checking');
+  expect(getActionAccountState({ ...active, snapshot: { status: 'inactive', address: 'GTEST' } })).toBe('inactive');
 });

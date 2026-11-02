@@ -3,10 +3,23 @@ import React from 'react';
 import { Pressable } from 'react-native';
 import type { MainTabBarProps } from '../MainTabBar';
 
+const mockEffects: Array<() => void> = [];
+let mockActiveOverlayId: string | undefined;
+jest.mock('react', () => {
+  const actual = jest.requireActual('react') as typeof import('react');
+  return {
+    ...actual,
+    useCallback: (callback: unknown) => callback,
+    useEffect: (effect: () => void) => {
+      mockEffects.push(effect);
+    },
+  };
+});
+
 jest.mock('@react-navigation/native', () => ({ getFocusedRouteNameFromRoute: () => undefined }));
 jest.mock('../../OverlayHost', () => ({
   useOverlay: () => ({
-    activeOverlayId: undefined,
+    activeOverlayId: mockActiveOverlayId,
     present: mockPresentOverlay,
     dismiss: mockDismissOverlay,
   }),
@@ -47,6 +60,8 @@ function renderSwap(
   enabled: boolean,
   syncMode?: MainTabBarProps['syncMode'],
   node: Partial<Pick<MainTabBarProps, 'nodePhase' | 'nodeFailure' | 'onRetryNode' | 'selectedAccountId'>> = {},
+  actionState?: MainTabBarProps['actionState'],
+  open = true,
 ) {
   const navigate = jest.fn();
   const props = {
@@ -69,13 +84,14 @@ function renderSwap(
     selectedAccountId: 'wallet-1',
     syncMode,
     ...node,
-    actionAvailability: { send: true, swap: enabled, request: true },
+    actionAvailability: { send: enabled, swap: enabled, request: true },
+    actionState,
   } as unknown as MainTabBarProps;
   const root = MainTabBar(props);
   const actionButton = findPressable(root, 'nav.actions');
   expect(actionButton?.props.onPress).toBeDefined();
-  actionButton?.props.onPress?.();
-  const overlay = mockPresentOverlay.mock.calls[0]?.[1] as React.ReactNode;
+  if (open) actionButton?.props.onPress?.();
+  const overlay = mockPresentOverlay.mock.calls.at(-1)?.[1] as React.ReactNode;
   return { navigate, overlay, root };
 }
 
@@ -83,6 +99,8 @@ describe('Swap action uses the current account route', () => {
   beforeEach(() => {
     mockPresentOverlay.mockClear();
     mockDismissOverlay.mockClear();
+    mockEffects.length = 0;
+    mockActiveOverlayId = undefined;
   });
 
   it('routes eligible Swap to the current account Swap flow only', () => {
@@ -103,6 +121,18 @@ describe('Swap action uses the current account route', () => {
     expect(button?.props.disabled).toBe(true);
     button?.props.onPress?.();
     expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('updates an open Actions sheet when a fresh inactive result arrives', () => {
+    renderSwap(true);
+    mockActiveOverlayId = 'actions';
+    mockPresentOverlay.mockClear();
+    renderSwap(false, undefined, {}, 'inactive', false);
+    mockEffects.at(-1)?.();
+    const overlay = mockPresentOverlay.mock.calls.at(-1)?.[1] as React.ReactNode;
+    expect(findPressable(overlay, 'nav.send')?.props.disabled).toBe(true);
+    expect(findPressable(overlay, 'nav.swap')?.props.disabled).toBe(true);
+    expect(textValues(overlay)).toContain('nav.accountInactive');
   });
 });
 
