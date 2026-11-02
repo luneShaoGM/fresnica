@@ -1,4 +1,5 @@
 import {
+  CONTACT_SCHEMA,
   BALANCE_CACHE_SNAPSHOT_ENTITY,
   BALANCE_CACHE_SNAPSHOT_SCHEMA,
   DAPP_CATALOG_CACHE_ENTITY,
@@ -23,10 +24,11 @@ import {
   WALLET_REALM_SCHEMA_VERSION,
 } from '../schemas';
 
-describe('Realm wallet schema v8', () => {
+describe('Realm wallet schema v9', () => {
   it('adds replaceable Balance cache persistence without changing wallet entity identities', () => {
-    expect(WALLET_REALM_SCHEMA_VERSION).toBe(8);
+    expect(WALLET_REALM_SCHEMA_VERSION).toBe(9);
     expect(WALLET_REALM_SCHEMAS).toEqual([
+      CONTACT_SCHEMA,
       ACCOUNT_SCHEMA,
       SIGNER_SCHEMA,
       ACCOUNT_SIGNER_REFERENCE_SCHEMA,
