@@ -179,7 +179,7 @@ export function NetworkManagement({
                     {t(`networkManage.name.${id}`)}
                     {preferences.networkId === id ? ` · ${t('networkManage.currentNetwork')}` : ''}
                   </Text>
-                  {preferences.developerMode ? (
+                  {id === 'stellar-mainnet' || preferences.developerMode ? (
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={t('networkManage.add')}
@@ -192,7 +192,10 @@ export function NetworkManagement({
                     </Pressable>
                   ) : null}
                 </View>
-                {[NETWORKS[id].horizonUrl, ...(preferences.developerMode ? preferences.customNodes[id] : [])].map(
+                {[
+                  NETWORKS[id].horizonUrl,
+                  ...(id === 'stellar-mainnet' || preferences.developerMode ? preferences.customNodes[id] : []),
+                ].map(
                   node => {
                     const selected = preferences.endpoints[id] === node;
                     const current = preferences.networkId === id && selected && preferences.selectionConfirmed;

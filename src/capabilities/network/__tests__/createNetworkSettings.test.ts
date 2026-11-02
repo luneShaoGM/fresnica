@@ -50,7 +50,7 @@ function setup(developerMode = true, initial?: NetworkPreferences) {
 describe('authenticated node and network settings', () => {
   it('requires authorization to enable and keeps old preferences on failure, then permits explicit retry', async () => {
     const s = setup(false);
-    await expect(s.settings.addNode(main, 'https://a.test')).rejects.toThrow('developer-mode-required');
+    await expect(s.settings.addNode(testnet, 'https://a.test')).rejects.toThrow('developer-mode-required');
     s.authorize.mockRejectedValueOnce(new Error('wrong-credential'));
     await expect(s.settings.enableDeveloperMode('wrong')).rejects.toThrow('wrong-credential');
     expect(s.saved().developerMode).toBe(false);
@@ -100,6 +100,17 @@ describe('authenticated node and network settings', () => {
     await s.settings.selectNode(main, NETWORKS[main].horizonUrl);
     expect(s.saved().retainedTestnet).toBe(true);
     expect(s.authorize).not.toHaveBeenCalled();
+  });
+  it('adds and selects a verified Mainnet node without Developer Mode', async () => {
+    const s = setup(false);
+    await s.settings.addNode(main, 'https://a.test');
+    expect(s.saved().developerMode).toBe(false);
+    expect(s.saved().customNodes[main]).toEqual(['https://a.test']);
+    expect(s.authorize).not.toHaveBeenCalled();
+    await s.settings.selectNode(main, 'https://a.test');
+    expect(s.saved().endpoints[main]).toBe('https://a.test');
+    await s.settings.removeNode(main, 'https://a.test');
+    expect(s.saved().customNodes[main]).toEqual([]);
   });
   it('adds only a verified unique node without silently selecting it', async () => {
     const s = setup();

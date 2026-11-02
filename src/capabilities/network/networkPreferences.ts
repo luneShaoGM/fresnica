@@ -82,12 +82,15 @@ export function validateNetworkPreferences(value: unknown): NetworkPreferences {
       return fail();
     }
   }
-  if (
-    !v.developerMode &&
-    (endpoints[v.networkId] !== NETWORKS[v.networkId].horizonUrl ||
-      (v.networkId === 'stellar-testnet' && v.retainedTestnet !== true))
-  )
-    return fail();
+  if (!v.developerMode) {
+    const builtin = NETWORKS[v.networkId].horizonUrl;
+    const selected = endpoints[v.networkId];
+    if (v.networkId === 'stellar-testnet') {
+      if (v.retainedTestnet !== true || selected !== builtin) return fail();
+    } else if (selected !== builtin && !customNodes[v.networkId].includes(selected)) {
+      return fail();
+    }
+  }
   return Object.freeze({
     ...(v.retainedTestnet === true ? { retainedTestnet: true } : {}),
     developerMode: v.developerMode,
@@ -104,10 +107,12 @@ export function selectedNetwork(preferences: NetworkPreferences): NetworkProfile
   }) as NetworkProfile;
 }
 
-// Retaining access to an existing partition grants no developer/custom-node authority.
+// Developer Mode reveals Testnet. Mainnet custom endpoints stay usable without it.
+// A retained Testnet partition may keep its built-in node, not a custom one.
 export function isNodeAvailable(preferences: NetworkPreferences, id: NetworkId, endpoint: string): boolean {
-  return (
-    preferences.developerMode ||
-    (endpoint === NETWORKS[id].horizonUrl && (id === 'stellar-mainnet' || preferences.retainedTestnet === true))
-  );
+  if (preferences.developerMode) return true;
+  if (id === 'stellar-mainnet') {
+    return endpoint === NETWORKS[id].horizonUrl || preferences.customNodes[id].includes(endpoint);
+  }
+  return preferences.retainedTestnet === true && endpoint === NETWORKS[id].horizonUrl;
 }

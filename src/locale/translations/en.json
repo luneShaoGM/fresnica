@@ -811,5 +811,10 @@
   "networkSwitch.added": "Node added. Use it now?",
   "networkSwitch.useNow": "Use now",
   "networkSwitch.notNow": "Not now",
-  "networkSwitch.enableCustomNodes": "Enable custom RPC URLs"
+  "networkSwitch.enableCustomNodes": "Enable custom RPC URLs",
+  "networkSwitch.switchTitle": "Switch to {{network}}?",
+  "networkSwitch.switchDetail": "Open reviews and quotes will close. Balances, history and pending transactions stay on their own network.",
+  "networkSwitch.switchAction": "Switch",
+  "networkSwitch.useNodeTitle": "Use this node?",
+  "networkSwitch.useNodeDetail": "Reads and new submissions will use this Horizon node."
 }

@@ -153,7 +153,7 @@ export function createNetworkSettings(
     },
     addNode(id: NetworkId, input: string) {
       return run(async signal => {
-        requireDeveloper();
+        if (id !== 'stellar-mainnet') requireDeveloper();
         const endpoint = normalizeHorizonEndpoint(input);
         const nodes = snapshot.preferences.customNodes[id];
         if (endpoint === NETWORKS[id].horizonUrl || nodes.includes(endpoint)) throw new Error('duplicate-node');
@@ -193,7 +193,7 @@ export function createNetworkSettings(
     },
     removeNode(id: NetworkId, input: string) {
       return run(async signal => {
-        requireDeveloper();
+        if (id !== 'stellar-mainnet') requireDeveloper();
         const endpoint = normalizeHorizonEndpoint(input);
         requireNode(id, endpoint);
         if (endpoint === NETWORKS[id].horizonUrl) throw new Error('built-in-node');

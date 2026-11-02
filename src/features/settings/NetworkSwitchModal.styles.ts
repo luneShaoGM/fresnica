@@ -26,6 +26,7 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.textSecondary,
       fontWeight: '700',
       marginTop: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
     },
     network: {
       flexDirection: 'row',
@@ -68,11 +69,25 @@ export function createStyles(theme: AppTheme) {
     nodeTop: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
     nodeLabel: { flex: 1, minHeight: 44, justifyContent: 'center', gap: theme.spacing.xs },
     actions: { flexDirection: 'row', alignItems: 'center' },
+    defaultBadge: {
+      alignSelf: 'flex-start',
+      ...theme.typography.eyebrow,
+      color: theme.colors.actionPrimaryPressed,
+      backgroundColor: theme.colors.actionPrimaryMuted,
+      borderRadius: theme.radii.pill,
+      overflow: 'hidden',
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: 2,
+    },
     status: { ...theme.typography.caption, color: theme.colors.textSecondary },
     healthy: { color: theme.colors.actionPrimaryPressed },
     failed: { color: theme.colors.negativeStrong },
     footer: { paddingHorizontal: theme.spacing.lg, paddingVertical: theme.spacing.sm },
     dialog: { maxHeight: 420 },
     dialogContent: { gap: theme.spacing.md, paddingBottom: theme.spacing.sm },
+    dialogEndpoint: { ...theme.typography.body, color: theme.colors.textPrimary, fontWeight: '600' },
+    dialogDetail: { ...theme.typography.caption, color: theme.colors.textSecondary },
+    dialogActions: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
+    dialogAction: { flex: 1 },
   });
 }

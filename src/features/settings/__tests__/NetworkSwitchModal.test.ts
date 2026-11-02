@@ -109,11 +109,11 @@ describe('Home network panel', () => {
     const gated = setup({ developerMode: false });
     const hidden = render(gated);
     expect(hidden.all.some(node => node.props.accessibilityLabel?.includes('Stellar Testnet'))).toBe(false);
-    expect(hidden.all.find(node => node.type === Field)?.props.editable).toBe(false);
+    expect(hidden.all.find(node => node.type === Field)?.props.editable).toBe(true);
     expect(button(hidden.all, 'Add node (Stellar Mainnet)').disabled).toBe(true);
-    button(hidden.all, 'Enable custom RPC URLs').onPress?.();
-    expect(gated.onClose).toHaveBeenCalledTimes(1);
-    expect(gated.onOpenDeveloperMode).toHaveBeenCalledTimes(1);
+    const ready = render(gated, undefined, 'stellar-mainnet', 'https://node.example');
+    expect(button(ready.all, 'Add node (Stellar Mainnet)').disabled).toBe(false);
+    expect(ready.all.some(node => node.props.label === 'Enable custom RPC URLs')).toBe(false);
     expect(gated.save).not.toHaveBeenCalled();
     const deps = setup();
     const { all, setExpanded, setPrompt } = render(deps);
@@ -137,18 +137,16 @@ describe('Home network panel', () => {
     deps.save.mockClear();
     deps.restart.mockClear();
     deps.probe.mockClear();
-    const { all, setPrompt } = render(deps, undefined, 'stellar-testnet');
-    expect(button(all, 'Stellar Testnet')).toBeDefined();
-    expect(button(all, NETWORKS['stellar-testnet'].horizonUrl)).toBeDefined();
+    const { all, setPrompt } = render(deps, undefined, 'stellar-mainnet');
+    expect(all.some(node => node.props.accessibilityLabel?.includes('Stellar Testnet'))).toBe(false);
     expect(all.some(node => node.props.accessibilityLabel?.includes(custom))).toBe(false);
-    expect(all.find(node => node.type === Field)?.props.editable).toBe(false);
-    button(all, 'Stellar Testnet').onPress?.();
-    expect(setPrompt).toHaveBeenCalledWith(testPrompt);
+    expect(all.find(node => node.type === Field)?.props.editable).toBe(true);
+    expect(setPrompt).not.toHaveBeenCalled();
     expect(deps.save).not.toHaveBeenCalled();
     expect(deps.settings.getSnapshot().preferences.endpoints['stellar-testnet']).toBe(custom);
     const dialog = render(deps, testPrompt).all;
     expect(dialog.some(node => node.props.children === testPrompt.endpoint)).toBe(true);
-    await button(dialog, 'Confirm').onPress?.();
+    await button(dialog, 'Switch').onPress?.();
     expect(deps.probe).toHaveBeenCalledWith(testPrompt.endpoint, expect.any(AbortSignal));
     expect(deps.settings.getSnapshot().preferences).toMatchObject({
       developerMode: false,
@@ -171,11 +169,11 @@ describe('Home network panel', () => {
     });
     const deps = setup({}, guard);
     const { all, setError } = render(deps, testPrompt);
-    await button(all, 'Confirm').onPress?.();
+    await button(all, 'Switch').onPress?.();
     expect(setError).toHaveBeenLastCalledWith('networkManage.error.pending-submission');
     expect(deps.settings.getSnapshot().preferences.networkId).toBe('stellar-mainnet');
     guard.mockImplementation(() => {});
-    await button(all, 'Confirm').onPress?.();
+    await button(all, 'Switch').onPress?.();
     expect(deps.restart).toHaveBeenCalledTimes(1);
   });
   it('cancels a busy probe and ignores its late result', async () => {
@@ -188,7 +186,7 @@ describe('Home network panel', () => {
         }),
     );
     const { all } = render(deps, testPrompt);
-    const pending = button(all, 'Confirm').onPress?.();
+    const pending = button(all, 'Switch').onPress?.();
     for (let i = 0; i < 6; i++) await Promise.resolve();
     // Native back sees the latest busy snapshot after rerender.
     const cancel = render(deps, testPrompt).all;
