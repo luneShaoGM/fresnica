@@ -290,3 +290,14 @@ Validation: deterministic hook/component regressions cover active Home Send avai
 
 
 Local validation for this maintenance: full `npm run check -- -- --watchman=false` PASS, 184 suites / 1490 tests, with typecheck, product-flow harness syntax, formatting, lint (0 errors / 32 existing warnings), aliases, architecture, provenance, locales and required WebView patch verification passing. `git diff --check` PASS. The two targeted lifecycle suites have 24 passing tests; running them against the pre-change implementation produced 14 failures, including the active Home Send and History stability cases. Logs: `/private/tmp/fresnica-silent-display-check.log`, `/private/tmp/fresnica-silent-display-before.log`. Main's required WebView postinstall patch was applied only to an isolated local dependency copy; no dependency/lockfile/shipping configuration changed.
+
+
+### PR #136 P3 pagination feedback repair — 2026-11-02
+
+Independent review of `6672cf6269ed58e2421b3eb3997458030258b58b` approved PR #136 with a P3: automatic first-page reads blocked pagination internally while the Load older activity button still appeared enabled. After #136 merged, this S13 maintenance starts from main `6ed24329c31dbf910355287b432ca5ee83d3831f`.
+
+The pagination button now reflects the pending first-page read with disabled styling, a disabled native control and accessible disabled/busy state. No automatic spinner, banner or list replacement is added. The existing immediate ref guard still prevents overlapping pagination; reactive presentation state is cleared only by the latest accepted head request. Equal-head completion restores the button without changing rows; obsolete requests cannot restore it early. Actual failure clears busy but leaves pagination disabled through the existing stale gate until recovery. Manual pagination remains usable after successful validation.
+
+Automated regression cases render the actual ActivityContent button and check pending/completed, superseded-read, failed/recovered states, stable list identity and subsequent real pagination dispatch. This is repository/component evidence; no new native/device visual acceptance or maturity promotion. The new remote HEAD requires its own independent Work review; the prior APPROVED applies only to the reviewed historical HEAD.
+
+P3 repair validation: Activity-focused 6 suites / 42 tests PASS; full `npm run check -- -- --watchman=false` PASS, 184 suites / 1492 tests and all static/format/lint (existing warnings)/architecture/provenance/locale/patch checks. `git diff --check` PASS. Log: `/private/tmp/fresnica-pagination-feedback-check.log`. No new native acceptance was run.
