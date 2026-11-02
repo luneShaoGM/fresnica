@@ -189,13 +189,14 @@ export function createStyles(theme: AppTheme) {
       gap: theme.spacing.xs,
     },
     inactiveStepTitle: {
-      ...theme.typography.label,
+      ...theme.typography.body,
       color: theme.colors.textPrimary,
       fontWeight: '700',
     },
     inactiveStepText: {
-      ...theme.typography.body,
+      ...theme.typography.label,
       color: theme.colors.textSecondary,
+      fontWeight: '400',
     },
     inactiveAddress: {
       ...theme.typography.caption,
