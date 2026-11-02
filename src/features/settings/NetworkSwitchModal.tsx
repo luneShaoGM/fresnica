@@ -297,6 +297,7 @@ export function NetworkSwitchModal({
                                 </Pressable>
                               </View>
                             </View>
+                            {active && monitor ? <CurrentNodeStatus monitor={monitor} /> : null}
                             {result ? (
                               <Text
                                 accessibilityLiveRegion="polite"
@@ -350,6 +351,23 @@ function Radio({ checked }: Readonly<{ checked: boolean }>) {
   return (
     <View style={[styles.radio, checked ? styles.checked : undefined]}>
       {checked ? <View style={styles.radioDot} /> : null}
+    </View>
+  );
+}
+function CurrentNodeStatus({ monitor }: Readonly<{ monitor: NodeHealthMonitor }>) {
+  const snapshot = useSyncExternalStore(monitor.subscribe, monitor.getSnapshot);
+  const { t } = useLocalization();
+  const styles = useThemedStyles(createStyles);
+  const failed = snapshot.phase === 'cooldown' || snapshot.phase === 'wrong-network';
+  const tone = snapshot.phase === 'healthy' ? styles.healthy : failed ? styles.failed : undefined;
+  return (
+    <View>
+      <Text accessibilityLiveRegion="polite" style={[styles.status, tone]}>
+        {`${t('networkHealth.currentNode')} · ${t(`networkHealth.phase.${snapshot.phase}`)}`}
+      </Text>
+      {failed ? (
+        <NativeButton label={t('networkHealth.retry')} onPress={monitor.retry} size="sm" variant="quiet" />
+      ) : null}
     </View>
   );
 }
