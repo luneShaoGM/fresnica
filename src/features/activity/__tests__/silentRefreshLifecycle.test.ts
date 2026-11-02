@@ -335,3 +335,81 @@ it('clears a superseded manual spinner when automatic revalidation takes over', 
   await settle();
   expect(mockSlots[0].value).toMatchObject({ kind: 'ready', refreshing: false });
 });
+
+function pagination(revision = 0) {
+  const content = children(activity(revision)).find(node => node.type === ActivityContent);
+  if (!content) throw new Error('Expected activity content');
+  const props = content.props as React.ComponentProps<typeof ActivityContent>;
+  const button = children(ActivityContent(props)).find(node => node.type === Pressable);
+  if (!button) throw new Error('Expected pagination button');
+  return {
+    props: button.props as {
+      disabled: boolean;
+      accessibilityState: { disabled: boolean; busy: boolean };
+      style: (state: { pressed: boolean }) => unknown[];
+      onPress: () => void;
+    },
+    disabledStyle: props.styles.disabled,
+  };
+}
+it('shows pagination as disabled and busy during a head read, then restores it without changing rows', async () => {
+  const head: HistoryPage = { status: 'active', entries: [entry('2')], nextCursor: 'head' };
+  pageLoad.mockResolvedValueOnce(head);
+  activity();
+  effects();
+  await settle();
+  const ready = mockSlots[0].value;
+  expect(pagination().props.disabled).toBe(false);
+  const pending = deferred<HistoryPage>();
+  pageLoad.mockReturnValueOnce(pending.promise);
+  activity(1);
+  effects();
+  await settle();
+  const checking = pagination(1);
+  expect(checking.props.disabled).toBe(true);
+  expect(checking.props.accessibilityState).toEqual({ disabled: true, busy: true });
+  expect(checking.props.style({ pressed: false })).toContain(checking.disabledStyle);
+  expect(mockSlots[0].value).toBe(ready);
+  pending.resolve(head);
+  await settle();
+  expect(pagination(1).props.disabled).toBe(false);
+  expect(pagination(1).props.accessibilityState).toEqual({ disabled: false, busy: false });
+  expect(mockSlots[0].value).toBe(ready);
+  pageLoad.mockResolvedValueOnce({ status: 'active', entries: [entry('1')] });
+  pagination(1).props.onPress();
+  await settle();
+  expect(mockSlots[0].value).toMatchObject({ entries: [entry('2'), entry('1')] });
+});
+it('keeps pagination blocked for the latest head read and clears busy on failure and recovery', async () => {
+  const head: HistoryPage = { status: 'active', entries: [entry('2')], nextCursor: 'head' };
+  pageLoad.mockResolvedValueOnce(head);
+  activity();
+  effects();
+  await settle();
+  const old = deferred<HistoryPage>();
+  pageLoad.mockReturnValueOnce(old.promise);
+  activity(1);
+  effects();
+  await settle();
+  const pending = deferred<HistoryPage>();
+  pageLoad.mockReturnValueOnce(pending.promise);
+  activity(2);
+  effects();
+  await settle();
+  old.resolve(head);
+  await settle();
+  expect(pagination(2).props.accessibilityState).toEqual({ disabled: true, busy: true });
+  pending.resolve(head);
+  await settle();
+  expect(pagination(2).props.disabled).toBe(false);
+  pageLoad.mockRejectedValueOnce(new Error('offline'));
+  activity(3);
+  effects();
+  await settle();
+  expect(pagination(3).props.accessibilityState).toEqual({ disabled: true, busy: false });
+  pageLoad.mockResolvedValueOnce(head);
+  activity(4);
+  effects();
+  await settle();
+  expect(pagination(4).props.accessibilityState).toEqual({ disabled: false, busy: false });
+});

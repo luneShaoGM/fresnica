@@ -77,6 +77,7 @@ export function ActivityScreen({
   const [state, setState] = useState<ActivityState>({ kind: 'loading' });
   const [filter, setFilter] = useState<ActivityFilter>('all');
   const [searchText, setSearchText] = useState('');
+  const [headReadPending, setHeadReadPending] = useState(false);
   const requestVersion = useRef(0);
   const hasHydrated = useRef(false);
   const revalidating = useRef(false);
@@ -91,6 +92,7 @@ export function ActivityScreen({
       const version = requestVersion.current + 1;
       requestVersion.current = version;
       revalidating.current = true;
+      setHeadReadPending(true);
 
       if (mode === 'hydrate') {
         const snapshot = readHistoryCacheSnapshotBestEffort(dependencies, account);
@@ -164,7 +166,10 @@ export function ActivityScreen({
           );
         })
         .finally(() => {
-          if (requestVersion.current === version) revalidating.current = false;
+          if (requestVersion.current === version) {
+            revalidating.current = false;
+            setHeadReadPending(false);
+          }
         });
     },
     [account, dependencies],
@@ -330,6 +335,7 @@ export function ActivityScreen({
           entries={visibleEntries}
           formatNumber={formatNumber}
           onLoadMore={loadMore}
+          headReadPending={headReadPending}
           onOpenOperation={onOpenOperation}
           onRetry={() => loadInitial('refresh', onManualRefresh)}
           state={state}
@@ -352,6 +358,7 @@ type ActivityContentProps = Readonly<{
   entries: readonly HistoryEntry[];
   onRetry: () => void;
   onLoadMore: () => void;
+  headReadPending?: boolean;
   onOpenOperation: (operationId: string) => void;
   t: Translate;
   formatNumber: FormatNumber;
@@ -366,6 +373,7 @@ export function ActivityContent({
   entries,
   onRetry,
   onLoadMore,
+  headReadPending = false,
   onOpenOperation,
   t,
   formatNumber,
@@ -438,17 +446,19 @@ export function ActivityContent({
         </>
       ) : null;
 
+      const paginationDisabled = headReadPending || state.loadingMore || state.refreshing || state.stale;
       const loadMoreAction =
         state.nextCursor !== undefined ? (
           <Pressable
             accessibilityLabel={t('activity.loadOlder')}
             accessibilityRole="button"
-            disabled={state.loadingMore || state.refreshing || state.stale}
+            accessibilityState={{ disabled: paginationDisabled, busy: headReadPending || state.loadingMore }}
+            disabled={paginationDisabled}
             onPress={onLoadMore}
             style={({ pressed }) => [
               styles.loadMoreButton,
               pressed ? styles.pressed : undefined,
-              state.loadingMore || state.refreshing || state.stale ? styles.disabled : undefined,
+              paginationDisabled ? styles.disabled : undefined,
             ]}
           >
             {state.loadingMore ? (

@@ -139,7 +139,7 @@ function findElement(
 }
 
 function renderScreen(entries: readonly HistoryEntry[], filter = 'all', searchText = '') {
-  const setters = [jest.fn(), jest.fn(), jest.fn()];
+  const setters = [jest.fn(), jest.fn(), jest.fn(), jest.fn()];
   const values = [
     { kind: 'ready' as const, ...createActivityReadyState({ entries, nextCursor: 'cursor-1' }) },
     filter,
