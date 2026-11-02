@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { useAppTheme, useThemedStyles } from '@ui/theme';
 
@@ -87,7 +87,7 @@ export function ConfirmDialog({
 
   return (
     <AppModal dialogStyle={styles.surface} onRequestClose={cancel} visible={visible}>
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} style={styles.scrollArea}>
         <View
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
@@ -121,7 +121,7 @@ export function ConfirmDialog({
             </>
           )}
         </View>
-      </View>
+      </ScrollView>
     </AppModal>
   );
 }

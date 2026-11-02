@@ -6,14 +6,20 @@ export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     surface: {
       alignItems: 'center',
+      maxHeight: '90%',
       borderRadius: theme.radii.lg * 2,
       borderWidth: 1,
       borderColor: theme.colors.border,
       gap: 0,
     },
+    scrollArea: {
+      flexGrow: 0,
+      flexShrink: 1,
+      width: '100%',
+    },
     content: {
       alignItems: 'center',
-      width: '100%',
+      paddingBottom: theme.spacing.xs,
     },
     statusIcon: {
       width: 60,
