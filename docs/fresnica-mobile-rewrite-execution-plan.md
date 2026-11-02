@@ -864,6 +864,17 @@ Realm v7 增量实体保持原方案，不迁移账户、授权或含 token 的�
 
 ### Stage 8：Stellar 扩展产品
 
+#### S13 Activity 列表行为对齐首片候选（2026-11-02）
+
+用户已要求按完整对齐计划开始执行；[S13 list alignment](behavior-specs/s13-activity-list-alignment.md)
+记录六个交付边界及明确保留项。首片基于 `main@0eafeffd0ed13b9c201a4f13165be4d173432a96`
+与 S22 PR #146 `03370ed07029610f48463e41a5741d6c0b52876a`，复用 #145/#146 联系人能力，
+以独立 stacked PR 交付现有支付/账户注资/普通信任线的主体身份、操作时间和金额布局。
+具体日期分组保留；正数 trustline limit 不推测为新增资产；本地身份头像与资产占位图不冒充品牌图片。
+不修改 History/Realm schema、exact-XDR、签名、提交或恢复权威。后续路径支付/Swap、订单/LP、
+Claimable/Clawback、合约及隐藏/失败分类仍是未完成队列。候选实现与验证证据以 PR exact HEAD 为准；
+独立审查、用户合并及原生验收分别记录，不提升 S13 成熟度。
+
 #### S22 Address Book 本地候选（2026-11-02）
 
 分支 `feat/address-book-stellar-align-2026-11-02`，基于 `main@0eafeff`；按持久化边界拆为

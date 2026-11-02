@@ -1,4 +1,4 @@
-import React, { useSyncExternalStore } from 'react';
+import React, { useMemo, useSyncExternalStore } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
@@ -6,6 +6,8 @@ import type { AccountRecord } from '@capabilities/account/types';
 import { transactionExplorerUrl } from '@capabilities/network/transactionExplorer';
 import { ActivityScreen } from '@features/activity/ActivityScreen';
 import { OperationDetailsScreen } from '@features/activity/OperationDetailsScreen';
+import { useContactList } from '@features/contacts/useContactList';
+import { activityIdentityNames } from './activityIdentityNames';
 
 import type { AppServices } from '../createAppServices';
 import { resolveVisibleAccount } from './accountSelection';
@@ -22,6 +24,11 @@ type Props = Readonly<{
 
 export function ActivityStackNavigator({ accounts, selectedAccountId, services }: Props) {
   const account = resolveVisibleAccount(accounts, selectedAccountId);
+  const { contacts } = useContactList(services.contacts);
+  const identityNames = useMemo(
+    () => activityIdentityNames(accounts, contacts, account.networkId),
+    [accounts, contacts, account.networkId],
+  );
   const readRuntime = useSyncExternalStore(
     services.ledgerReadRuntime.subscribe,
     services.ledgerReadRuntime.getSnapshot,
@@ -41,6 +48,7 @@ export function ActivityStackNavigator({ accounts, selectedAccountId, services }
         {({ navigation }) => (
           <ActivityRoute
             foreground={readRuntime.foreground}
+            identityNames={identityNames}
             account={account}
             dependencies={services.history}
             onOpenOperation={operationId =>

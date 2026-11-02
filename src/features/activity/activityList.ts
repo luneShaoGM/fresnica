@@ -96,6 +96,7 @@ export function matchesActivitySearch(
   searchText: string,
   t: Translate,
   formatNumber: FormatNumber,
+  identityNames?: ReadonlyMap<string, string>,
 ): boolean {
   const query = searchText.trim().toLowerCase();
   if (!query) {
@@ -103,7 +104,24 @@ export function matchesActivitySearch(
   }
 
   const presentation = activityEntryPresentation(entry, t, formatNumber);
-  const values = [presentation.title, presentation.primary, presentation.secondary, entry.transactionHash, entry.id];
+  const values = [
+    presentation.title,
+    presentation.primary,
+    presentation.secondary,
+    entry.transactionHash,
+    entry.id,
+    entry.operationType,
+  ];
+
+  if ('counterparty' in entry) values.push(identityNames?.get(entry.counterparty) ?? '');
+  if (entry.kind === 'payment') values.push(entry.amount, formatNumber(entry.amount, 7));
+  if (entry.kind === 'create-account') {
+    values.push(entry.startingBalance, formatNumber(entry.startingBalance, 7), t('activity.entry.createAccount'));
+  }
+  if (entry.kind === 'change-trust') {
+    values.push(entry.limit);
+    if (/^0+(?:\.0+)?$/.test(entry.limit)) values.push(t('activity.entry.trustlineRemoved'));
+  }
 
   if ('participants' in entry) {
     for (const participant of entry.participants) {

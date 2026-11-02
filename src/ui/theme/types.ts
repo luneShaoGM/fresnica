@@ -27,6 +27,7 @@ export type ThemeColors = Readonly<{
   negative: string;
   negativeStrong: string;
   negativeMuted: string;
+  incoming: string;
   positive: string;
   positiveMuted: string;
   warning: string;

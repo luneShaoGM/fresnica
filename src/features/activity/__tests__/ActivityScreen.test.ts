@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable } from 'react-native';
+import { Pressable, Text } from 'react-native';
+import { AccountIdentityCard } from '@ui/components';
+import { IdentityAvatar } from '@ui/components/IdentityAvatar';
 
 import { NativeButton } from '@ui/components/NativeButton';
 import { NativeField } from '@ui/components/NativeField';
@@ -11,7 +13,7 @@ import type { HistoryEntry } from '../../../capabilities/history/types';
 import { HISTORY_CACHE_SCHEMA_VERSION } from '../../../capabilities/history/HistoryCacheRepository';
 import { createLocalization } from '../../../locale/localization';
 import { defaultTheme } from '../../../ui/theme';
-import { ActivityContent, ActivityScreen, StatePanel } from '../ActivityScreen';
+import { ActivityContent, ActivityRow, ActivityScreen, StatePanel } from '../ActivityScreen';
 import { createActivityReadyState, createCachedActivityReadyState, failActivityRefresh } from '../activityReadModel';
 import { createStyles } from '../styles';
 
@@ -119,6 +121,13 @@ type NodeProps = Readonly<{
   onChangeText?: (value: string) => void;
   onPress?: () => void;
   title?: string;
+  name?: string;
+  secondary?: string;
+  identity?: string;
+  small?: boolean;
+  native?: boolean;
+  timeFormatter?: Intl.DateTimeFormat;
+  onOpen?: () => void;
 }>;
 
 function visit(node: React.ReactNode, callback: (element: React.ReactElement<NodeProps>) => void): void {
@@ -138,7 +147,12 @@ function findElement(
   return match;
 }
 
-function renderScreen(entries: readonly HistoryEntry[], filter = 'all', searchText = '') {
+function renderScreen(
+  entries: readonly HistoryEntry[],
+  filter = 'all',
+  searchText = '',
+  identityNames?: ReadonlyMap<string, string>,
+) {
   const setters = [jest.fn(), jest.fn(), jest.fn(), jest.fn()];
   const values = [
     { kind: 'ready' as const, ...createActivityReadyState({ entries, nextCursor: 'cursor-1' }) },
@@ -155,6 +169,7 @@ function renderScreen(entries: readonly HistoryEntry[], filter = 'all', searchTe
   return {
     root: ActivityScreen({
       account,
+      identityNames,
       dependencies,
       active: true,
       onOpenOperation: jest.fn(),
@@ -314,4 +329,104 @@ describe('ActivityScreen filter/search closure', () => {
     expect(findElement(empty, element => element.props.title === 'No activity yet')).toBeDefined();
     expect(findElement(empty, element => element.props.title === 'No activity found')).toBeUndefined();
   });
+});
+
+function textValues(root: React.ReactNode): string[] {
+  const values: string[] = [];
+  visit(root, element => {
+    if (element.type === Text) values.push(React.Children.toArray(element.props.children).join(''));
+  });
+  return values;
+}
+const rowProps = () => ({
+  formatNumber: createLocalization('en').formatNumber,
+  t: createLocalization('en').t,
+  timeFormatter: new Intl.DateTimeFormat('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZone: 'UTC',
+  }),
+  styles: createStyles(defaultTheme),
+  onOpen: jest.fn(),
+});
+const payment: HistoryEntry = {
+  ...unsupported('payment'),
+  kind: 'payment',
+  operationType: 'payment',
+  direction: 'incoming',
+  amount: '12.3456789',
+  asset: { kind: 'native', code: 'XLM' },
+  counterparty: 'GCOUNTERPARTY',
+  occurredAt: '2026-09-21T12:34:56Z',
+  participants: [
+    { role: 'sender', identity: 'GCOUNTERPARTY' },
+    { role: 'recipient', identity: 'GACCOUNT-A' },
+  ],
+};
+it('renders account subject, operation with local seconds, and separate amount/asset under one accessible action', () => {
+  const props = rowProps();
+  const root = ActivityRow({ ...props, entry: payment, identityNames: new Map([['GCOUNTERPARTY', 'Alice']]) });
+  const card = findElement(root, element => element.type === AccountIdentityCard);
+  expect(card?.props.name).toBe('Alice');
+  expect(card?.props.secondary).toBe(`Received · ${props.timeFormatter.format(new Date(payment.occurredAt))}`);
+  expect(textValues(root)).toEqual(['+12.3456789', 'XLM']);
+  const avatar = findElement(root, element => element.type === IdentityAvatar);
+  expect(avatar?.props).toMatchObject({ small: true, native: true });
+  expect(root.props.accessibilityLabel).toContain('Alice');
+  expect(root.props.accessibilityLabel).toContain('12:34:56');
+  root.props.onPress?.();
+  expect(props.onOpen).toHaveBeenCalledTimes(1);
+});
+it('shows trustline asset and removal text without a monetary column, and leaves unsupported rows navigable', () => {
+  const props = rowProps();
+  const trust = trustline('trust');
+  const removed = { ...trust, limit: '0.0000000' } as HistoryEntry;
+  const root = ActivityRow({ ...props, entry: removed });
+  expect(textValues(root)).toEqual(['USD', expect.stringContaining('Trustline removed · ')]);
+  expect(findElement(root, element => element.type === AccountIdentityCard)).toBeUndefined();
+  const unknown = ActivityRow({ ...props, entry: unsupported('unknown') });
+  expect(textValues(unknown)).toEqual([
+    '•',
+    'Operation: future_operation',
+    expect.stringContaining('This operation is recorded'),
+  ]);
+  unknown.props.onPress?.();
+  expect(props.onOpen).toHaveBeenCalledTimes(1);
+});
+it('updates local-name search without history I/O and uses seconds in the screen formatter', () => {
+  const names = new Map([['GCOUNTERPARTY', 'Alice']]);
+  let root = renderScreen([payment], 'all', 'Alice', names).root;
+  expect(findElement(root, element => element.type === ActivityContent)?.props.entries).toEqual([payment]);
+  names.set('GCOUNTERPARTY', 'Bob');
+  root = renderScreen([payment], 'all', 'Alice', names).root;
+  expect(findElement(root, element => element.type === ActivityContent)?.props.entries).toEqual([]);
+  expect(
+    findElement(root, element => element.type === ActivityContent)?.props.timeFormatter?.resolvedOptions().second,
+  ).toBe('2-digit');
+  expect(mockedLoadHistoryPage).not.toHaveBeenCalled();
+});
+it('keeps concrete calendar dates and opens the exact operation ID from the rendered list row', () => {
+  const localization = createLocalization('en');
+  const onOpenOperation = jest.fn();
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+  const root = ActivityContent({
+    ...rowProps(),
+    state: { kind: 'ready', ...createActivityReadyState({ entries: [payment] }) },
+    entries: [payment],
+    onRetry: jest.fn(),
+    onLoadMore: jest.fn(),
+    onOpenOperation,
+    dateFormatter: formatter,
+    indicatorColor: defaultTheme.colors.actionPrimaryPressed,
+    t: localization.t,
+  });
+  expect(textValues(root)).toContain('September 21, 2026');
+  findElement(root, element => element.type === ActivityRow)?.props.onOpen?.();
+  expect(onOpenOperation).toHaveBeenCalledWith('payment');
 });

@@ -29,6 +29,7 @@ export const defaultThemeColors = {
   negative: '#FF5B5B',
   negativeStrong: '#C43C3C',
   negativeMuted: 'rgba(255, 91, 91, 0.09)',
+  incoming: '#2563EB',
   positive: '#00CA8A',
   positiveMuted: 'rgba(0, 202, 138, 0.09)',
   warning: '#F8BF4C',

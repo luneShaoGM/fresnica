@@ -4,6 +4,17 @@ Status: frozen for the Stage 4 S13 Activity closure starting from `main@883cf466
 
 Trace ID: `S13` — Activity list/filter/search/detail/participants/offline UX cache.
 
+List-presentation amendment (2026-11-02):
+[`s13-activity-list-alignment.md`](s13-activity-list-alignment.md) defines the
+user-requested complete alignment inventory and the first implementation slice.
+It supersedes this document's no-contact-lookup restriction only for transient,
+current-network address-only list names/search. Concrete calendar dates remain;
+Today/Yesterday labels are not requested. Trustline limits remain available in
+details/search but are no longer presented as monetary changes in list rows.
+The existing History, cache, cursor and exact-operation identity contracts remain
+authoritative; later operation-family and visibility slices are not implemented
+by this presentation amendment.
+
 Provenance: clean-room behavior rewrite. Donor Activity/Events surfaces are product-role references only; donor source, repositories, helpers, tests, component structure and resources are not implementation templates.
 
 ## Scope and authority

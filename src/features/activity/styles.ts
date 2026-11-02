@@ -88,8 +88,6 @@ export function createStyles(theme: AppTheme) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: theme.spacing.sm,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.border,
     },
     operationIcon: {
       width: 40,
@@ -105,13 +103,16 @@ export function createStyles(theme: AppTheme) {
       fontWeight: '700',
       color: theme.colors.textSecondary,
     },
-    operationGlyphPositive: {
-      color: theme.colors.positive,
-    },
-    operationGlyphNegative: {
-      color: theme.colors.negative,
+    activitySubject: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
+    assetCaption: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      gap: theme.spacing.xs,
     },
     activityIdentity: {
+      minWidth: 0,
       flex: 1,
       gap: theme.spacing.xs,
       justifyContent: 'center',
@@ -132,7 +133,8 @@ export function createStyles(theme: AppTheme) {
       justifyContent: 'center',
       gap: theme.spacing.xs,
     },
-    activityTime: {
+    activityAsset: {
+      flexShrink: 1,
       ...theme.typography.caption,
       color: theme.colors.textTertiary,
       textAlign: 'right',
@@ -140,11 +142,12 @@ export function createStyles(theme: AppTheme) {
     activityAmount: {
       ...theme.typography.label,
       fontWeight: '700',
-      color: theme.colors.surfaceStrong,
+      color: theme.colors.textSecondary,
+      fontVariant: ['tabular-nums'],
       textAlign: 'right',
     },
     amountPositive: {
-      color: theme.colors.positive,
+      color: theme.colors.incoming,
     },
     amountNegative: {
       color: theme.colors.negative,

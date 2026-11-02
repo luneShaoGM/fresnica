@@ -58,6 +58,8 @@
   "activity.entry.payment": "支付",
   "activity.entry.accountFunded": "账户已入资",
   "activity.entry.fundedAccount": "已为账户入资",
+  "activity.entry.createAccount": "创建账户",
+  "activity.entry.trustlineRemoved": "信任线已移除",
   "activity.entry.trustlineChanged": "信任线已变更",
   "activity.entry.operation": "操作：{{operationType}}",
   "activity.entry.unsupported": "该操作已记录，但当前版本尚未提供专门展示。",
