@@ -119,7 +119,7 @@ describe('MainTabsNavigator empty-network recovery', () => {
   });
 });
 
-it('reports failed Actions reads as unavailable, then checking during retry', () => {
+it('keeps failed Actions reads unavailable through retry until a new result is accepted', () => {
   const active: HomeBalanceState = {
     kind: 'ready',
     stale: false,
@@ -130,6 +130,7 @@ it('reports failed Actions reads as unavailable, then checking during retry', ()
   expect(getActionAccountState(active)).toBeUndefined();
   const failed = failBalanceRefresh(active, 'offline');
   expect(getActionAccountState(failed)).toBe('unavailable');
-  expect(getActionAccountState(startBalanceRefresh(failed))).toBe('checking');
+  expect(getActionAccountState(startBalanceRefresh(failed))).toBe('unavailable');
+  expect(getActionAccountState({ ...active, stale: true, refreshing: true })).toBe('checking');
   expect(getActionAccountState({ ...active, snapshot: { status: 'inactive', address: 'GTEST' } })).toBe('inactive');
 });

@@ -43,8 +43,8 @@ export function getActionAccountState(
 ): 'inactive' | 'checking' | 'unavailable' | undefined {
   if (balanceState.kind === 'loading') return 'checking';
   if (balanceState.kind === 'error') return 'unavailable';
-  if (balanceState.refreshing) return 'checking';
   if (balanceState.refreshFailed) return 'unavailable';
+  if (balanceState.refreshing) return 'checking';
   if (balanceState.stale) return 'checking';
   if (balanceState.snapshot.status === 'inactive') return 'inactive';
   return balanceState.snapshot.status === 'active' ? undefined : 'unavailable';
