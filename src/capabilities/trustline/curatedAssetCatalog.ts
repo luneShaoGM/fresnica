@@ -37,6 +37,13 @@ export const CURATED_ASSET_SOURCES: readonly CuratedAssetSource[] = [
   },
 ];
 
+const NO_CURATED_ASSET_SOURCES: readonly CuratedAssetSource[] = [];
+
+/** A network without an explicitly configured catalog must never inherit Mainnet sources. */
+export function curatedAssetSourcesForNetwork(networkId: string): readonly CuratedAssetSource[] {
+  return networkId === 'stellar-mainnet' ? CURATED_ASSET_SOURCES : NO_CURATED_ASSET_SOURCES;
+}
+
 const ASSET_CODE = /^[A-Za-z0-9]{1,12}$/;
 const ACCOUNT_ID = /^G[A-Z2-7]{55}$/;
 

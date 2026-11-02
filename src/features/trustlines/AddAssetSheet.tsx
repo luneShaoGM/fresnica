@@ -10,6 +10,7 @@ import { useBalanceDisplay } from '../home/useBalanceDisplay';
 import { BalanceFreshnessNotice } from '../home/components/BalanceFreshnessNotice';
 import { normalizeUntrustedDappUrl } from '../../capabilities/dapp-interaction/externalDappUrl';
 import {
+  curatedAssetSourcesForNetwork,
   CURATED_ASSET_SOURCES,
   isCuratedAssetCode,
   isCuratedIssuer,
@@ -56,8 +57,8 @@ export function AddAssetSheet({
   const { t } = useLocalization();
   const theme = useAppTheme();
   const styles = useThemedStyles(createAddAssetSheetStyles);
-  const mainnet = account.networkId === 'stellar-mainnet';
-  const [manual, setManual] = useState(!mainnet);
+  const networkSources = curatedAssetSourcesForNetwork(account.networkId);
+  const [manual, setManual] = useState(networkSources.length === 0);
   const { state: balanceState, refresh } = useBalanceDisplay(
     account,
     balanceDependencies,
@@ -94,14 +95,18 @@ export function AddAssetSheet({
   const [urlAssets, setUrlAssets] = useState<readonly ListedAsset[]>([]);
 
   useEffect(() => {
-    if (!visible || !active || !mainnet) return undefined;
+    if (!visible || !active || networkSources.length === 0) return undefined;
     const controller = new AbortController();
     let current = true;
     setLoading(true);
     setAssets([]);
     setSelectedKey(undefined);
     setFailed(false);
-    void loadListedAssets(catalog, sources, controller.signal)
+    void loadListedAssets(
+      catalog,
+      networkSources.filter(source => sources.includes(source.id)),
+      controller.signal,
+    )
       .then(next => {
         if (!current) return;
         setAssets(next);
@@ -118,7 +123,7 @@ export function AddAssetSheet({
       current = false;
       controller.abort();
     };
-  }, [account, catalog, reloadKey, sources, visible, active, mainnet]);
+  }, [account, catalog, reloadKey, sources, visible, active, networkSources]);
 
   useEffect(() => {
     return () => {
@@ -156,12 +161,7 @@ export function AddAssetSheet({
             {t('trustlines.add.title')}
           </Text>
           <View style={styles.headerActions}>
-            <Pressable
-              accessibilityRole="button"
-              disabled={!mainnet}
-              onPress={() => setManual(current => !current)}
-              style={styles.chip}
-            >
+            <Pressable accessibilityRole="button" onPress={() => setManual(current => !current)} style={styles.chip}>
               <Text style={styles.chipText}>{manual ? t('trustlines.add.list') : t('trustlines.add.manual')}</Text>
             </Pressable>
             <Pressable accessibilityRole="button" onPress={onClose} style={styles.chip}>
@@ -283,40 +283,53 @@ export function AddAssetSheet({
           </ScrollView>
         ) : (
           <>
-            <View style={styles.filters}>
-              {CURATED_ASSET_SOURCES.map(source => {
-                const selectedSource = sources.includes(source.id);
-                return (
-                  <Pressable
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: selectedSource }}
-                    key={source.id}
-                    onPress={() =>
-                      setSources(current =>
-                        current.includes(source.id) ? current.filter(id => id !== source.id) : [...current, source.id],
-                      )
-                    }
-                    style={[styles.filter, selectedSource ? styles.filterSelected : undefined]}
-                  >
-                    <Text style={[styles.filterText, selectedSource ? styles.filterTextSelected : undefined]}>
-                      {selectedSource ? '✓ ' : ''}
-                      {source.shortName}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <TextInput
-              autoCapitalize="none"
-              autoCorrect={false}
-              onChangeText={setQuery}
-              accessibilityLabel={t('trustlines.add.search')}
-              placeholder={t('trustlines.add.search')}
-              placeholderTextColor={theme.colors.textTertiary}
-              style={styles.search}
-              value={query}
-            />
-            {sources.length === 0 ? (
+            {networkSources.length > 0 ? (
+              <View style={styles.filters}>
+                {networkSources.map(source => {
+                  const selectedSource = sources.includes(source.id);
+                  return (
+                    <Pressable
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: selectedSource }}
+                      key={source.id}
+                      onPress={() =>
+                        setSources(current =>
+                          current.includes(source.id)
+                            ? current.filter(id => id !== source.id)
+                            : [...current, source.id],
+                        )
+                      }
+                      style={[styles.filter, selectedSource ? styles.filterSelected : undefined]}
+                    >
+                      <Text style={[styles.filterText, selectedSource ? styles.filterTextSelected : undefined]}>
+                        {selectedSource ? '✓ ' : ''}
+                        {source.shortName}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
+            {networkSources.length > 0 ? (
+              <TextInput
+                autoCapitalize="none"
+                autoCorrect={false}
+                onChangeText={setQuery}
+                accessibilityLabel={t('trustlines.add.search')}
+                placeholder={t('trustlines.add.search')}
+                placeholderTextColor={theme.colors.textTertiary}
+                style={styles.search}
+                value={query}
+              />
+            ) : null}
+            {networkSources.length === 0 ? (
+              <View style={styles.status}>
+                <Text style={styles.statusText}>{t('trustlines.add.networkListUnavailable')}</Text>
+                <Pressable accessibilityRole="button" onPress={() => setManual(true)} style={styles.chip}>
+                  <Text style={styles.chipText}>{t('trustlines.add.manual')}</Text>
+                </Pressable>
+              </View>
+            ) : sources.length === 0 ? (
               <View style={styles.status}>
                 <Text style={styles.statusText}>{t('trustlines.add.emptySources')}</Text>
               </View>
@@ -423,10 +436,9 @@ function AssetRow({
 
 async function loadListedAssets(
   catalog: AssetCatalogPort,
-  sources: readonly CuratedAssetSourceId[],
+  selected: readonly (typeof CURATED_ASSET_SOURCES)[number][],
   signal: AbortSignal,
 ): Promise<readonly ListedAsset[]> {
-  const selected = CURATED_ASSET_SOURCES.filter(source => sources.includes(source.id));
   if (selected.length === 0) return [];
   const results = await Promise.allSettled(
     selected.map(async source => normalizeCuratedAssets(JSON.parse(await catalog.read(source.url, signal)) as unknown)),

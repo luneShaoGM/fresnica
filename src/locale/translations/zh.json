@@ -691,6 +691,7 @@
   "trustlines.add.listDescription": "从精选列表中选择资产。",
   "trustlines.add.manualDescription": "输入资产代码和发行方，或从网址加载资产。",
   "trustlines.add.search": "搜索资产",
+  "trustlines.add.networkListUnavailable": "当前网络暂无可用资产列表，请手动添加。",
   "trustlines.add.emptySources": "至少选择一个列表。",
   "trustlines.add.empty": "没有可用资产。",
   "trustlines.add.noMatch": "没有匹配的资产。",
