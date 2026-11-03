@@ -22,6 +22,9 @@ Only behavior is retained; no donor implementation/resources are migrated.
 - Writes/removals are durable atomic Realm transactions; failure leaves the editor open with retry.
   Additive v8 to v9 migration preserves accounts/signers, grants, caches and preferences.
 - Delete requires explicit confirmation. Share uses current-network SEP-7 when memo exists.
+- Each delete confirmation has a distinct interaction generation. Keep, close and a new confirmation
+  retire earlier callbacks: a queued Confirm/Keep from confirmation A cannot delete a contact or
+  cancel confirmation B. A current failed removal remains retryable and successful removal is one-shot.
 - Send destination picker searches saved contacts and visible Classic accounts on the active network.
   Choosing a contact applies its address and typed memo together to the editable form, clearing any
   previous memo when the selected contact has none. Existing review/authorization/submission remain

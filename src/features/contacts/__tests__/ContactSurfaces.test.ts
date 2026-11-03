@@ -146,6 +146,71 @@ it('requires delete confirmation, honors Keep against stale callbacks, and suppo
   expect(book.store.remove).toHaveBeenLastCalledWith('test', row.id);
   expect(onClose).toHaveBeenCalledTimes(1);
 });
+it('requires the current confirmation after Keep and reopening, rejecting old confirm/Keep/open/save callbacks', () => {
+  const onClose = jest.fn();
+  const draw = () => render(() => ContactEditor({ book, initial: row, id: row.id, onClose }));
+  let root = draw();
+  const oldOpen = button(root, 'contacts.delete');
+  const oldSave = button(root, 'contacts.save');
+  oldOpen();
+  root = draw();
+  const confirmA = button(root, 'contacts.delete');
+  const keepA = button(root, 'contacts.keep');
+  keepA();
+  root = draw();
+  button(root, 'contacts.delete')();
+  root = draw();
+  const confirmB = button(root, 'contacts.delete');
+  confirmA();
+  keepA();
+  oldOpen();
+  oldSave();
+  expect(book.store.remove).not.toHaveBeenCalled();
+  expect(book.store.save).not.toHaveBeenCalled();
+  expect(onClose).not.toHaveBeenCalled();
+  expect(nodes(draw(), NativeButton).some(node => node.props.label === 'contacts.keep')).toBe(true);
+  confirmB();
+  confirmB();
+  expect(book.store.remove).toHaveBeenCalledTimes(1);
+  expect(book.store.remove).toHaveBeenCalledWith('test', row.id);
+  expect(onClose).toHaveBeenCalledTimes(1);
+});
+it.each(['close', 'unmount', 'parent'] as const)('retires confirmation callbacks on %s', retirement => {
+  let current = true;
+  const onClose = jest.fn();
+  const draw = () => render(() => ContactEditor({ book, initial: row, id: row.id, onClose, isCurrent: () => current }));
+  button(draw(), 'contacts.delete')();
+  const root = draw();
+  const confirm = button(root, 'contacts.delete');
+  const keep = button(root, 'contacts.keep');
+  if (retirement === 'close') button(root, 'common.cancel')();
+  else if (retirement === 'parent') current = false;
+  else {
+    const mount = jest.mocked(useEffect).mock.calls[0][0];
+    const cleanup = mount();
+    if (typeof cleanup !== 'function') throw new Error('missing editor cleanup');
+    cleanup();
+  }
+  confirm();
+  keep();
+  confirm();
+  expect(book.store.remove).not.toHaveBeenCalled();
+  expect(onClose).toHaveBeenCalledTimes(retirement === 'close' ? 1 : 0);
+});
+it('keeps current editor actions valid through effect setup/cleanup replay', () => {
+  const onClose = jest.fn();
+  const draw = () => render(() => ContactEditor({ book, initial: row, id: row.id, onClose }));
+  const root = draw();
+  const mount = jest.mocked(useEffect).mock.calls[0][0];
+  const cleanup = mount();
+  if (typeof cleanup !== 'function') throw new Error('missing editor cleanup');
+  cleanup();
+  mount();
+  button(root, 'contacts.delete')();
+  button(draw(), 'contacts.delete')();
+  expect(book.store.remove).toHaveBeenCalledTimes(1);
+  expect(onClose).toHaveBeenCalledTimes(1);
+});
 it('cancellation and parent lifetime retirement prevent late editor writes', () => {
   let current = true;
   const draw = () =>
