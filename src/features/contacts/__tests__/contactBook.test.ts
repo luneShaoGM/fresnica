@@ -21,7 +21,7 @@ function book(rows: readonly Contact[] = [row]): ContactBook {
   return {
     network,
     store: {
-      list: id => rows.filter(contact => contact.networkId === id),
+      list: () => rows,
       save: jest.fn(),
       remove: jest.fn(),
       subscribe: () => () => {},
@@ -57,10 +57,13 @@ it('round trips exact address, memo type/value and current network through conta
     ),
   ).toMatchObject({ status: 'rejected', reason: 'network-mismatch' });
 });
-it('re-reads contact identity on selection and fails closed on deletion or another network', () => {
+it('re-reads contact identity and permits selection across networks, but fails closed on deletion', () => {
   expect(contactRecipient(book(), row.id)).toEqual({ address: row.address, memo: row.memo });
   expect(() => contactRecipient(book([]), row.id)).toThrow('contact-not-found');
-  expect(() => contactRecipient(book([{ ...row, networkId: 'other' }]), row.id)).toThrow('contact-not-found');
+  expect(contactRecipient(book([{ ...row, networkId: 'other' }]), row.id)).toEqual({
+    address: row.address,
+    memo: row.memo,
+  });
 });
 it('applies address and memo together and explicitly clears a previous memo for plain destinations', () => {
   expect(recipientFields(row)).toEqual({ destination: row.address, memoType: 'id', memoValue: '7' });
