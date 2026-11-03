@@ -905,11 +905,19 @@ Slice 5a 已按 #152 合并到 `main@1b8aeb6c64d9dab8cf2a67148f44517a3dab15d5`�
 缓存为账本权威。完整验证、当前 HEAD 独立审查和合并以新 PR 证据为准。
 Footprint/其余 classic 家族、历史缺失金额、Slice 6、品牌图片和本轮原生验收继续开放。
 
-Slice 5b 当前候选依据 [Maintenance history](behavior-specs/s13-maintenance-history.md)
+Slice 5b 已按 #154 合并到 `main@f08dba6a3d40e6b9f5537ef97689f7433c643656`，依据 [Maintenance history](behavior-specs/s13-maintenance-history.md)
 增加成功的 TTL 延长、归档条目恢复和序列号调整历史。源账户单独关联，参数保持精确，
 不显示金额列，不推断当前过期时间、受影响条目或当前序列号。沿用列表/详情/Other/
 已加载集搜索、v1 cache 和既有失败/重试机制，不改写能力、依赖、原生配置或 Realm schema。
 其余 classic 家族、构造器变体、历史缺失金额、Slice 6、品牌图片和原生验收继续开放。
+
+Slice 5c 当前候选依据 [Trust/Sponsorship history](behavior-specs/s13-trust-sponsorship-history.md)
+增加成功 allow_trust、set_trust_line_flags、begin/end_sponsoring_future_reserves。
+验证明确的发行方/信任方、赞助方/受益方和历史授权/标志指令；赞助范围结束不表示撤销已有
+赞助。四类记录均无金额列、不猜测余额或当前权限，贯通列表/详情/Other/搜索及 v1 cache。
+既有全局联系人命名、账户/网络分区、写能力、签名/提交/恢复与 Realm schema 保持原权威。
+其余 account merge/options/data/revoke/inflation、合约构造器变体、Slice 6、历史缺失金额、
+品牌图片与原生验收仍开放；完整验证/独立 exact-HEAD 审查及合并以当前 PR 证据为准。
 
 #### S22 Address Book 本地候选（2026-11-02）
 

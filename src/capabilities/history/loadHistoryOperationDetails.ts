@@ -1,5 +1,6 @@
 import { contractAssociated } from './contractHistory';
 import { isMaintenanceType } from './maintenanceHistory';
+import { isTrustSponsorshipType, trustSponsorshipAssociated } from './trustSponsorshipHistory';
 import { isClaimableClawbackType, claimableClawbackAssociated } from './claimableClawbackHistory';
 import { isOfferType, isPoolType } from './offerPoolHistory';
 import type { AccountRecord } from '../account/types';
@@ -48,6 +49,7 @@ export async function loadHistoryOperationDetails(
 }
 
 function isOperationAssociatedWithAccount(record: HistoryOperationRecord, address: string): boolean {
+  if (isTrustSponsorshipType(record.type)) return trustSponsorshipAssociated(record, address);
   if (isMaintenanceType(record.type)) return record.sourceAccount === address;
   if (record.type === 'invoke_host_function') return contractAssociated(record, address);
   if (isClaimableClawbackType(record.type)) return claimableClawbackAssociated(record, address);

@@ -3,6 +3,13 @@ import { historySnapshot } from '../../__tests__/historyCacheRepositoryContract'
 import { runHistoryCacheRepositoryContract } from '../../__tests__/historyCacheRepositoryContract';
 import { InMemoryHistoryCacheRepository } from '../InMemoryHistoryCacheRepository';
 import {
+  trustSponsorshipRecord,
+  trustSponsorshipTypes,
+  trustIssuer,
+  trustor,
+  trustForeign,
+} from '../../../../capabilities/history/__tests__/trustSponsorshipHistory.fixtures';
+import {
   maintenanceRecord,
   maintenanceSource,
   maintenanceForeign,
@@ -17,6 +24,23 @@ import {
 
 describe('InMemoryHistoryCacheRepository', () => {
   runHistoryCacheRepositoryContract(() => new InMemoryHistoryCacheRepository());
+});
+
+it('preserves both viewed sponsorship roles and trust evidence in isolated memory clones', () => {
+  const repository = new InMemoryHistoryCacheRepository();
+  for (const address of [trustIssuer, trustor]) {
+    const partition = { networkId: 'test', accountAddress: address };
+    const entries = trustSponsorshipTypes.map(type => mapHistoryEntry(trustSponsorshipRecord(type), address));
+    const snapshot = historySnapshot(
+      entries,
+      entries.map(entry => ({ operationId: entry.id, entry })),
+    );
+    repository.replaceSnapshot(partition, snapshot);
+    expect(repository.getSnapshot(partition)).toEqual(snapshot);
+    expect(repository.getSnapshot(partition)).not.toBe(repository.getSnapshot(partition));
+    expect(repository.getSnapshot({ ...partition, networkId: 'other' })).toBeUndefined();
+    expect(() => repository.replaceSnapshot({ ...partition, accountAddress: trustForeign }, snapshot)).toThrow();
+  }
 });
 
 it('retains all three maintenance payloads and exact parameters in isolated memory partitions', () => {

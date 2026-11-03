@@ -151,7 +151,36 @@ export type HistoryMaintenanceEntry = HistoryEntryBase &
     extendTo?: number;
     bumpTo?: string;
   }>;
+export type HistoryTrustFlag = 1 | 2 | 4;
+export type HistoryTrustAuthorizationEntry = HistoryEntryBase &
+  Readonly<{
+    kind: 'trust-authorization';
+    successful: true;
+    asset: HistoryCreditAsset;
+    trustor: string;
+    authorization: 'authorized' | 'maintain-liabilities' | 'revoked';
+  }>;
+export type HistoryTrustFlagsEntry = HistoryEntryBase &
+  Readonly<{
+    kind: 'trust-flags';
+    successful: true;
+    asset: HistoryCreditAsset;
+    trustor: string;
+    setFlags: readonly HistoryTrustFlag[];
+    clearFlags: readonly HistoryTrustFlag[];
+  }>;
+export type HistorySponsorshipEntry = HistoryEntryBase &
+  Readonly<{
+    kind: 'sponsorship';
+    successful: true;
+    sponsor: string;
+    beneficiary: string;
+    role: 'sponsor' | 'beneficiary';
+  }>;
 export type HistoryEntry =
+  | HistoryTrustAuthorizationEntry
+  | HistoryTrustFlagsEntry
+  | HistorySponsorshipEntry
   | HistoryMaintenanceEntry
   | HistoryContractEntry
   | HistoryClaimableEntry

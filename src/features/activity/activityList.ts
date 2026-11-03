@@ -41,6 +41,30 @@ export function activityEntryPresentation(
   formatNumber: FormatNumber,
 ): ActivityEntryPresentation {
   switch (entry.kind) {
+    case 'trust-authorization':
+      return {
+        title: t(`activity.trustControl.authorization.${entry.authorization}`),
+        primary: entry.asset.code,
+        secondary: entry.trustor,
+        tone: 'neutral',
+        filter: 'other',
+      };
+    case 'trust-flags':
+      return {
+        title: t('activity.trustControl.flags'),
+        primary: entry.asset.code,
+        secondary: entry.trustor,
+        tone: 'neutral',
+        filter: 'other',
+      };
+    case 'sponsorship':
+      return {
+        title: t(`activity.sponsorship.${entry.operationType}`),
+        primary: entry.role === 'sponsor' ? entry.beneficiary : entry.sponsor,
+        secondary: '',
+        tone: 'neutral',
+        filter: 'other',
+      };
     case 'maintenance':
       return {
         title: t(`activity.maintenance.${entry.operationType}`),
@@ -181,6 +205,9 @@ export function matchesActivityFilter(entry: HistoryEntry, filter: ActivityFilte
       return filter === 'accounts';
     case 'change-trust':
       return filter === 'trustlines';
+    case 'trust-authorization':
+    case 'trust-flags':
+    case 'sponsorship':
     case 'maintenance':
     case 'contract':
     case 'claimable-create':
@@ -216,6 +243,29 @@ export function matchesActivitySearch(
     entry.sourceAccount,
   ];
 
+  if (entry.kind === 'trust-authorization' || entry.kind === 'trust-flags') {
+    values.push(
+      entry.asset.code,
+      entry.asset.issuer,
+      `${entry.asset.code}:${entry.asset.issuer}`,
+      entry.trustor,
+      identityNames?.get(entry.trustor) ?? '',
+      identityNames?.get(entry.sourceAccount) ?? '',
+    );
+    if (entry.kind === 'trust-authorization')
+      values.push(entry.authorization, t(`activity.trustControl.authorization.${entry.authorization}`));
+    else
+      for (const flag of [...entry.setFlags, ...entry.clearFlags])
+        values.push(String(flag), t(`activity.trustControl.flag.${flag}`));
+  }
+  if (entry.kind === 'sponsorship')
+    values.push(
+      entry.sponsor,
+      entry.beneficiary,
+      entry.role,
+      identityNames?.get(entry.sponsor) ?? '',
+      identityNames?.get(entry.beneficiary) ?? '',
+    );
   if (entry.kind === 'maintenance') {
     values.push(
       entry.bumpTo ?? '',

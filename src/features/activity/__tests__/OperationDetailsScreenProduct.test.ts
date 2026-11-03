@@ -8,6 +8,11 @@ import type { HistoryProductDependencies } from '../../../capabilities/history/H
 import { claimPredicateSummary } from '../claimPredicateSummary';
 import { mapHistoryEntry } from '../../../capabilities/history/loadHistoryPage';
 import {
+  trustSponsorshipRecord,
+  trustSponsorshipTypes,
+  trustIssuer,
+} from '../../../capabilities/history/__tests__/trustSponsorshipHistory.fixtures';
+import {
   maintenanceRecord,
   maintenanceSource,
   maintenanceTypes,
@@ -676,6 +681,38 @@ it.each(maintenanceTypes)('shows exact %s parameters and historical limits witho
   if (type === 'extend_footprint_ttl') expect(values).toContain('4294967295');
   if (type === 'bump_sequence') expect(values).toContain('9223372036854775807');
   for (const label of ['Amount', 'Asset', 'Direction', 'Target expiry date']) expect(values).not.toContain(label);
+});
+
+it.each(trustSponsorshipTypes)('shows explicit %s roles/flags and limits without monetary labels', type => {
+  mockedUseState.mockReset();
+  const entry = mapHistoryEntry(trustSponsorshipRecord(type), trustIssuer);
+  const { root } = renderWithState({
+    kind: 'loaded',
+    result: { status: 'ready', entry },
+    source: 'online',
+    stale: false,
+    refreshing: false,
+    refreshFailed: false,
+  });
+  const values: string[] = [];
+  visit(root, element => {
+    const props = element.props as { label?: string; value?: string; children?: unknown; fullValue?: boolean };
+    if (props.label) values.push(props.label);
+    if (props.value) values.push(props.value);
+    if (typeof props.children === 'string') values.push(props.children);
+    if (['Recorded authorization', 'Flags requested on', 'Flags requested off'].includes(props.label ?? ''))
+      expect(props.fullValue).toBe(true);
+  });
+  const { t } = createLocalization('en');
+  if (entry.kind === 'sponsorship') {
+    expect(values).toEqual(expect.arrayContaining(['Sponsor', 'Beneficiary', t('activity.sponsorship.explanation')]));
+  } else {
+    expect(values).toEqual(expect.arrayContaining(['Asset', 'Trustor', t('activity.trustControl.explanation')]));
+    if (entry.kind === 'trust-flags')
+      expect(values).toEqual(expect.arrayContaining(['Maintain liabilities', 'Authorized / Clawback enabled']));
+  }
+  for (const value of ['Amount', 'Direction', 'Current authorization', 'Claim now', 'Revoke sponsorship'])
+    expect(values).not.toContain(value);
 });
 
 it('shows every contract event, exact large quantities and full identities without line caps', () => {

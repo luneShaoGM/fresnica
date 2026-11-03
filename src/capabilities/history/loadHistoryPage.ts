@@ -1,5 +1,6 @@
 import { mapContract } from './contractHistory';
 import { mapMaintenance } from './maintenanceHistory';
+import { mapTrustSponsorship } from './trustSponsorshipHistory';
 import { mapClaimableClawback } from './claimableClawbackHistory';
 import { mapOfferPool } from './offerPoolHistory';
 import { mapPathPayment } from './pathPaymentHistory';
@@ -59,6 +60,11 @@ export function mapHistoryEntry(record: HistoryOperationRecord, accountAddress: 
   const base = mapBase(record);
 
   switch (record.type) {
+    case 'allow_trust':
+    case 'set_trust_line_flags':
+    case 'begin_sponsoring_future_reserves':
+    case 'end_sponsoring_future_reserves':
+      return mapTrustSponsorship(record, accountAddress, base) ?? unsupportedShape(base);
     case 'extend_footprint_ttl':
     case 'restore_footprint':
     case 'bump_sequence':

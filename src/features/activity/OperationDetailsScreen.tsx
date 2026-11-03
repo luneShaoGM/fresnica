@@ -432,6 +432,52 @@ function renderEntry(
         />
         <DetailRow label={t('activity.detail.transactionHash')} value={entry.transactionHash} mono styles={styles} />
         {renderAccount(entry.sourceAccount, t('activity.detail.sourceAccount'))}
+        {entry.kind === 'trust-authorization' || entry.kind === 'trust-flags' ? (
+          <>
+            <DetailRow label={t('activity.detail.asset')} value={entry.asset.code} fullValue styles={styles} />
+            {renderAccount(entry.asset.issuer, t('activity.detail.issuer'))}
+            {renderAccount(entry.trustor, t('activity.trustControl.trustor'))}
+            {entry.kind === 'trust-authorization' ? (
+              <DetailRow
+                label={t('activity.trustControl.authorization')}
+                value={t(`activity.trustControl.authorization.${entry.authorization}`)}
+                fullValue
+                styles={styles}
+              />
+            ) : (
+              <>
+                <DetailRow
+                  label={t('activity.trustControl.setFlags')}
+                  value={
+                    entry.setFlags.length
+                      ? entry.setFlags.map(flag => t(`activity.trustControl.flag.${flag}`)).join(' / ')
+                      : t('activity.trustControl.none')
+                  }
+                  fullValue
+                  styles={styles}
+                />
+                <DetailRow
+                  label={t('activity.trustControl.clearFlags')}
+                  value={
+                    entry.clearFlags.length
+                      ? entry.clearFlags.map(flag => t(`activity.trustControl.flag.${flag}`)).join(' / ')
+                      : t('activity.trustControl.none')
+                  }
+                  fullValue
+                  styles={styles}
+                />
+              </>
+            )}
+            <Text style={styles.warning}>{t('activity.trustControl.explanation')}</Text>
+          </>
+        ) : null}
+        {entry.kind === 'sponsorship' ? (
+          <>
+            {renderAccount(entry.sponsor, t('activity.sponsorship.sponsor'))}
+            {renderAccount(entry.beneficiary, t('activity.sponsorship.beneficiary'))}
+            <Text style={styles.warning}>{t('activity.sponsorship.explanation')}</Text>
+          </>
+        ) : null}
         {entry.kind === 'maintenance' ? (
           <>
             {entry.extendTo === undefined ? null : (
