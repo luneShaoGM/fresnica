@@ -790,6 +790,7 @@ Stellar 有、§7.1–§7.7 原先没逐行写的表面。这里给决定，避�
 ### Activity
 
 - 运行时 id 和目录是 `activity` / `features/activity`。用户文案是 Activity。Capability 仍是 `capabilities/history`。
+- 列表行为对齐按 [S13 list alignment](behavior-specs/s13-activity-list-alignment.md) 分批交付：先补现有 payment/create_account/change_trust 的主体身份与金额布局；具体日期分组保留，不采用 Today/Yesterday。S22 名称仅作当前网络临时展示，不进入 History/cache。后续操作族和可见性规则按同一清单补齐，不能把首片当全量完成。
 - 列表、下拉刷新、加载更多、空态、错误、操作详情都在。
 - FilterEvents：对已加载（含 UX 缓存）条目做呈现筛选。允许上次列表先上屏再刷新。**不要**把本地缓存说成完整链上历史或做 donor 缺口恢复。
 - 从改账本流回到已挂载的列表时，同样失效 / 刷新。

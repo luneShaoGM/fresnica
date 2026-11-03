@@ -58,6 +58,8 @@
   "activity.entry.payment": "Payment",
   "activity.entry.accountFunded": "Account funded",
   "activity.entry.fundedAccount": "Funded account",
+  "activity.entry.createAccount": "Create account",
+  "activity.entry.trustlineRemoved": "Trustline removed",
   "activity.entry.trustlineChanged": "Trustline changed",
   "activity.entry.operation": "Operation: {{operationType}}",
   "activity.entry.unsupported": "This operation is recorded but is not specialized in this version.",

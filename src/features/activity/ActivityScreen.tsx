@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { Screen } from '@ui/components';
+import { AccountIdentityCard, Screen } from '@ui/components';
+import { IdentityAvatar } from '@ui/components/IdentityAvatar';
 import { NativeButton } from '@ui/components/NativeButton';
 import { NativeField } from '@ui/components/NativeField';
 
@@ -17,13 +18,7 @@ import type { HistoryEntry } from '@capabilities/history/types';
 import { useAppTheme, useThemedStyles } from '@ui/theme';
 
 import { useLocalization } from '../../locale';
-import {
-  activityEntryPresentation,
-  matchesActivityFilter,
-  matchesActivitySearch,
-  type ActivityFilter,
-  type ActivityTone,
-} from './activityList';
+import { matchesActivityFilter, matchesActivitySearch, type ActivityFilter } from './activityList';
 import {
   appendActivityHistoryPage,
   createActivityReadyState,
@@ -35,6 +30,7 @@ import {
   type ActivityReadyState,
 } from './activityReadModel';
 import { createStyles } from './styles';
+import { activityAssetIdentity, activityRowPresentation, type ActivityIdentityNames } from './activityRowPresentation';
 
 type ActivityLoadMode = 'hydrate' | 'refresh' | 'revalidate';
 
@@ -52,6 +48,7 @@ type Props = Readonly<{
   onOpenOperation: (operationId: string) => void;
   onManualRefresh: () => Promise<unknown>;
   invalidationRevision: number;
+  identityNames?: ActivityIdentityNames;
 }>;
 
 const FILTERS: readonly ActivityFilter[] = ['all', 'payments', 'accounts', 'trustlines', 'other'];
@@ -70,6 +67,7 @@ export function ActivityScreen({
   onOpenOperation,
   onManualRefresh,
   invalidationRevision,
+  identityNames,
 }: Props) {
   const { formatNumber, locale, t } = useLocalization();
   const theme = useAppTheme();
@@ -240,9 +238,11 @@ export function ActivityScreen({
     }
 
     return state.entries.filter(
-      entry => matchesActivityFilter(entry, filter) && matchesActivitySearch(entry, searchText, t, formatNumber),
+      entry =>
+        matchesActivityFilter(entry, filter) &&
+        matchesActivitySearch(entry, searchText, t, formatNumber, identityNames),
     );
-  }, [filter, formatNumber, searchText, state, t]);
+  }, [filter, formatNumber, identityNames, searchText, state, t]);
 
   const dateFormatter = useMemo(
     () =>
@@ -258,6 +258,7 @@ export function ActivityScreen({
       new Intl.DateTimeFormat(locale, {
         hour: '2-digit',
         minute: '2-digit',
+        second: '2-digit',
       }),
     [locale],
   );
@@ -333,6 +334,7 @@ export function ActivityScreen({
         <ActivityContent
           dateFormatter={dateFormatter}
           entries={visibleEntries}
+          identityNames={identityNames}
           formatNumber={formatNumber}
           onLoadMore={loadMore}
           headReadPending={headReadPending}
@@ -356,6 +358,7 @@ type FormatNumber = ReturnType<typeof useLocalization>['formatNumber'];
 type ActivityContentProps = Readonly<{
   state: ActivityState;
   entries: readonly HistoryEntry[];
+  identityNames?: ActivityIdentityNames;
   onRetry: () => void;
   onLoadMore: () => void;
   headReadPending?: boolean;
@@ -371,6 +374,7 @@ type ActivityContentProps = Readonly<{
 export function ActivityContent({
   state,
   entries,
+  identityNames,
   onRetry,
   onLoadMore,
   headReadPending = false,
@@ -505,7 +509,16 @@ export function ActivityContent({
         <>
           {cacheStatus}
           {refreshFailure}
-          {renderEntries(entries, t, formatNumber, dateFormatter, timeFormatter, onOpenOperation, styles)}
+          {renderEntries(
+            entries,
+            t,
+            formatNumber,
+            dateFormatter,
+            timeFormatter,
+            onOpenOperation,
+            styles,
+            identityNames,
+          )}
           {state.loadMoreFailed ? <Text style={styles.loadMoreError}>{t('activity.loadMoreError')}</Text> : null}
           {loadMoreAction}
         </>
@@ -564,6 +577,7 @@ function renderEntries(
   timeFormatter: Intl.DateTimeFormat,
   onOpenOperation: (operationId: string) => void,
   styles: Styles,
+  identityNames?: ActivityIdentityNames,
 ) {
   let previousDate = '';
 
@@ -577,6 +591,7 @@ function renderEntries(
         {showDate ? <Text style={styles.dateHeader}>{dateLabel}</Text> : null}
         <ActivityRow
           entry={entry}
+          identityNames={identityNames}
           formatNumber={formatNumber}
           onOpen={() => onOpenOperation(entry.id)}
           styles={styles}
@@ -588,13 +603,14 @@ function renderEntries(
   });
 }
 
-function ActivityRow({
+export function ActivityRow({
   entry,
   formatNumber,
   onOpen,
   styles,
   t,
   timeFormatter,
+  identityNames,
 }: Readonly<{
   entry: HistoryEntry;
   formatNumber: FormatNumber;
@@ -602,58 +618,77 @@ function ActivityRow({
   styles: Styles;
   t: Translate;
   timeFormatter: Intl.DateTimeFormat;
+  identityNames?: ActivityIdentityNames;
 }>) {
-  const presentation = activityEntryPresentation(entry, t, formatNumber);
-  const glyph =
-    entry.kind === 'change-trust'
-      ? '↔'
-      : entry.kind === 'create-account'
-        ? '+'
-        : entry.kind === 'unsupported'
-          ? '•'
-          : presentation.tone === 'positive'
-            ? '↓'
-            : presentation.tone === 'negative'
-              ? '↑'
-              : '↔';
-  const amountPrefix = presentation.tone === 'positive' ? '+' : presentation.tone === 'negative' ? '−' : '';
-
+  const presentation = activityRowPresentation(entry, t, formatNumber, identityNames);
+  const secondary = `${presentation.operation} · ${timeFormatter.format(new Date(entry.occurredAt))}`;
+  const money = presentation.money;
   return (
     <Pressable
+      accessible
+      accessibilityLabel={[presentation.title, secondary, money?.amount, money?.asset.code].filter(Boolean).join(', ')}
       accessibilityRole="button"
       onPress={onOpen}
       style={({ pressed }) => [styles.activityRow, pressed ? styles.pressed : undefined]}
     >
-      <View style={styles.operationIcon}>
-        <Text style={[styles.operationGlyph, toneStyle(presentation.tone, styles, 'glyph')]}>{glyph}</Text>
-      </View>
-      <View style={styles.activityIdentity}>
-        <Text style={styles.activityTitle}>{presentation.title}</Text>
-        <Text numberOfLines={1} style={styles.activitySecondary}>
-          {shortAddress(presentation.secondary)}
-        </Text>
-      </View>
-      <View style={styles.activityTrailing}>
-        <Text numberOfLines={1} style={[styles.activityAmount, toneStyle(presentation.tone, styles, 'amount')]}>
-          {amountPrefix}
-          {presentation.primary}
-        </Text>
-        <Text numberOfLines={1} style={styles.activityTime}>
-          {timeFormatter.format(new Date(entry.occurredAt))}
-        </Text>
-      </View>
+      {presentation.subject.kind === 'account' ? (
+        <AccountIdentityCard
+          address={presentation.subject.address}
+          name={presentation.title}
+          label={presentation.operation}
+          presentation="compact"
+          secondary={secondary}
+        />
+      ) : (
+        <View style={styles.activitySubject}>
+          {presentation.subject.kind === 'asset' ? (
+            <IdentityAvatar identity={activityAssetIdentity(presentation.subject.asset)} />
+          ) : (
+            <View
+              accessible={false}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={styles.operationIcon}
+            >
+              <Text style={styles.operationGlyph}>•</Text>
+            </View>
+          )}
+          <View style={styles.activityIdentity}>
+            <Text numberOfLines={1} ellipsizeMode="middle" style={styles.activityTitle}>
+              {presentation.title}
+            </Text>
+            <Text numberOfLines={1} ellipsizeMode="tail" style={styles.activitySecondary}>
+              {secondary}
+            </Text>
+          </View>
+        </View>
+      )}
+      {money ? (
+        <View style={styles.activityTrailing}>
+          <Text
+            style={[
+              styles.activityAmount,
+              money.tone === 'positive'
+                ? styles.amountPositive
+                : money.tone === 'negative'
+                  ? styles.amountNegative
+                  : undefined,
+            ]}
+          >
+            {money.amount}
+          </Text>
+          <View style={styles.assetCaption}>
+            <Text style={styles.activityAsset}>{money.asset.code}</Text>
+            <IdentityAvatar
+              identity={activityAssetIdentity(money.asset)}
+              native={money.asset.kind === 'native'}
+              small
+            />
+          </View>
+        </View>
+      ) : null}
     </Pressable>
   );
-}
-
-function toneStyle(tone: ActivityTone, styles: Styles, target: 'glyph' | 'amount') {
-  if (tone === 'positive') {
-    return target === 'glyph' ? styles.operationGlyphPositive : styles.amountPositive;
-  }
-  if (tone === 'negative') {
-    return target === 'glyph' ? styles.operationGlyphNegative : styles.amountNegative;
-  }
-  return undefined;
 }
 
 export function StatePanel({
