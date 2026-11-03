@@ -869,12 +869,19 @@ Realm v7 增量实体保持原方案，不迁移账户、授权或含 token 的�
 首片与 S22 联系人依赖已按 #145 → #146 → #147 合并到
 `main@c7e525bf0bb64863756078561e6d40feee143c55`。具体日期、联系人名称优先级、
 现有支付/账户注资/普通信任线金额布局与本地头像已交付，原生验收仍待执行。
-当前 Slice 2 候选按 [Path history contract](behavior-specs/s13-path-payment-history.md)
-增加成功 strict-send/strict-receive 的实际发送/收到双腿、self Swap 与外部路径支付、
-列表/详情/搜索及可替换的 v1 History JSON cache；不修改交易管线或 Realm schema。
+Slice 2 已按 #148 合并到 `main@0171f860842b87904761309c749297ddfbf18c83`，
+按 [Path history contract](behavior-specs/s13-path-payment-history.md) 交付成功
+strict-send/strict-receive 的实际发送/收到双腿、self Swap 与外部路径支付、列表/详情/搜索
+及可替换的 v1 History JSON cache，原生验收仍待执行。
+当前 Slice 3 候选按 [Offer/pool history contract](behavior-specs/s13-offer-pool-history.md)
+增加成功 buy/sell/passive/cancellation 委托指令，以及 LP 存取的实际双储备腿与份额；
+订单不显示收支金额，LP 不以 max/min 限额替代实际数量。同步列表/详情/搜索/Other 分类
+与 v1 JSON cache，保留历史 unsupported 记录；不修改交易管线、写能力或 Realm schema。
 实现仅依据行为契约与 Fresnica 代码，不使用 donor source/tests/resources 模板。
-自动验证、exact-HEAD 独立审查、用户合并和原生验收分别记录，以 PR 当前证据为准；
-不提升 S13 成熟度。订单/LP、Claimable/Clawback、合约、失败与隐藏分类仍为 Slice 3–6。
+Slice 3 本地定向自动验证通过（15 suites / 249 tests；真实 Realm History 1 suite / 23 tests；
+typecheck）；完整仓库验证、exact-HEAD 独立审查、用户合并分别以 PR 当前证据为准。
+原生/真机流程、动态字体、屏幕阅读器、live receipt、离线 Retry/切网验收未执行；
+不提升 S13 成熟度。Claimable/Clawback、合约、失败与隐藏分类仍为 Slice 4–6。
 
 #### S22 Address Book 本地候选（2026-11-02）
 

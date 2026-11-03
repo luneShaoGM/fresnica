@@ -1,3 +1,4 @@
+import { mapOfferPool } from './offerPoolHistory';
 import { mapPathPayment } from './pathPaymentHistory';
 import type { AccountRecord } from '../account/types';
 import type { HistoryGatewayPort, HistoryOperationRecord } from './HistoryGateway';
@@ -55,6 +56,12 @@ export function mapHistoryEntry(record: HistoryOperationRecord, accountAddress: 
   const base = mapBase(record);
 
   switch (record.type) {
+    case 'manage_buy_offer':
+    case 'manage_sell_offer':
+    case 'create_passive_sell_offer':
+    case 'liquidity_pool_deposit':
+    case 'liquidity_pool_withdraw':
+      return mapOfferPool(record, accountAddress, base) ?? unsupportedShape(base);
     case 'path_payment_strict_send':
     case 'path_payment_strict_receive':
       return mapPathPayment(record, accountAddress, base) ?? unsupportedShape(base);

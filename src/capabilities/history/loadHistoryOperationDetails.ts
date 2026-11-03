@@ -1,13 +1,14 @@
-import type {AccountRecord} from '../account/types';
-import type {HistoryOperationRecord} from './HistoryGateway';
-import {mapHistoryEntry, type HistoryDependencies} from './loadHistoryPage';
-import type {HistoryEntry} from './types';
+import { isOfferType, isPoolType } from './offerPoolHistory';
+import type { AccountRecord } from '../account/types';
+import type { HistoryOperationRecord } from './HistoryGateway';
+import { mapHistoryEntry, type HistoryDependencies } from './loadHistoryPage';
+import type { HistoryEntry } from './types';
 
 export type HistoryOperationDetails =
-  | Readonly<{status: 'ready'; entry: HistoryEntry}>
-  | Readonly<{status: 'not-found'}>
-  | Readonly<{status: 'not-associated'}>
-  | Readonly<{status: 'unsupported-account'}>;
+  | Readonly<{ status: 'ready'; entry: HistoryEntry }>
+  | Readonly<{ status: 'not-found' }>
+  | Readonly<{ status: 'not-associated' }>
+  | Readonly<{ status: 'unsupported-account' }>;
 
 export async function loadHistoryOperationDetails(
   dependencies: HistoryDependencies,
@@ -18,7 +19,7 @@ export async function loadHistoryOperationDetails(
     throw new Error('history-network-mismatch');
   }
   if (account.identityKind !== 'classic') {
-    return {status: 'unsupported-account'};
+    return { status: 'unsupported-account' };
   }
 
   const operationId = operationIdInput.trim();
@@ -26,15 +27,15 @@ export async function loadHistoryOperationDetails(
     throw new Error('invalid-history-operation-id');
   }
 
-  const result = await dependencies.gateway.loadOperation({operationId, accountAddress: account.address});
+  const result = await dependencies.gateway.loadOperation({ operationId, accountAddress: account.address });
   if (result.status === 'not-found') {
-    return {status: 'not-found'};
+    return { status: 'not-found' };
   }
   if (result.record.id !== operationId) {
     throw new Error('history-operation-id-mismatch');
   }
   if (!isOperationAssociatedWithAccount(result.record, account.address)) {
-    return {status: 'not-associated'};
+    return { status: 'not-associated' };
   }
 
   return {
@@ -44,6 +45,7 @@ export async function loadHistoryOperationDetails(
 }
 
 function isOperationAssociatedWithAccount(record: HistoryOperationRecord, address: string): boolean {
+  if (isOfferType(record.type) || isPoolType(record.type)) return record.sourceAccount === address;
   if (
     [record.sourceAccount, record.from, record.to, record.funder, record.account].some(
       candidate => candidate === address,

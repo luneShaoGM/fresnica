@@ -469,3 +469,55 @@ it('renders a Swap pair with the actual destination leg and retains exact path n
   findElement(content, element => element.type === ActivityRow)?.props.onOpen?.();
   expect(onOpenOperation).toHaveBeenCalledWith('path-700');
 });
+
+it.each(['manage_buy_offer', 'manage_sell_offer', 'create_passive_sell_offer'])(
+  'renders %s as a pair with no monetary column',
+  operationType => {
+    const entry: HistoryEntry = {
+      ...unsupported('offer'),
+      kind: 'offer',
+      successful: true,
+      operationType,
+      buyingAsset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' },
+      sellingAsset: { kind: 'native', code: 'XLM' },
+      amount: '999999.9999999',
+      price: { n: 1, d: 2 },
+      offerId: '0',
+      cancellation: false,
+    };
+    const props = rowProps();
+    const row = ActivityRow({ ...props, entry });
+    expect(textValues(row)).toContain('XLM → USD');
+    expect(textValues(row).join(' ')).not.toContain(entry.amount);
+    expect(findElement(row, element => element.type === IdentityAvatar)?.props.identity).toContain('GISSUER');
+    row.props.onPress?.();
+    expect(props.onOpen).toHaveBeenCalledTimes(1);
+  },
+);
+it.each(['liquidity_pool_deposit', 'liquidity_pool_withdraw'])(
+  'renders both separately signed actual %s legs in its accessible row',
+  operationType => {
+    const entry: HistoryEntry = {
+      ...unsupported('pool'),
+      kind: 'liquidity-pool',
+      successful: true,
+      operationType,
+      poolId: 'a'.repeat(64),
+      shares: '7',
+      reserves: [
+        { asset: { kind: 'native', code: 'XLM' }, amount: '0' },
+        { asset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' }, amount: '922337203685.4775807' },
+      ],
+    };
+    const props = rowProps();
+    const row = ActivityRow({ ...props, entry });
+    const sign = operationType === 'liquidity_pool_deposit' ? '−' : '+';
+    expect(textValues(row)).toEqual(
+      expect.arrayContaining(['XLM / USD', `${sign}0`, `${sign}922,337,203,685.4775807`, 'XLM', 'USD']),
+    );
+    expect(row.props.accessibilityLabel).toContain(`${sign}0 XLM`);
+    expect(row.props.accessibilityLabel).toContain(`${sign}922,337,203,685.4775807 USD`);
+    row.props.onPress?.();
+    expect(props.onOpen).toHaveBeenCalledTimes(1);
+  },
+);

@@ -15,6 +15,7 @@ export type ActivityRowPresentation = Readonly<{
     | Readonly<{ kind: 'asset-pair'; source: HistoryAsset; destination: HistoryAsset }>
     | Readonly<{ kind: 'unsupported' }>;
   money?: Readonly<{ amount: string; asset: HistoryAsset; tone: ActivityTone }>;
+  reserveMoney?: readonly Readonly<{ amount: string; asset: HistoryAsset; tone: ActivityTone }>[];
 }>;
 
 // List presentation is deliberately separate from the exact operation detail summary.
@@ -26,6 +27,25 @@ export function activityRowPresentation(
 ): ActivityRowPresentation {
   const detail = activityEntryPresentation(entry, t, formatNumber);
   switch (entry.kind) {
+    case 'offer':
+      return {
+        title: `${entry.sellingAsset.code} → ${entry.buyingAsset.code}`,
+        operation: detail.title,
+        subject: { kind: 'asset-pair', source: entry.sellingAsset, destination: entry.buyingAsset },
+      };
+    case 'liquidity-pool': {
+      const deposit = entry.operationType === 'liquidity_pool_deposit';
+      return {
+        title: entry.reserves.map(leg => leg.asset.code).join(' / '),
+        operation: detail.title,
+        subject: { kind: 'asset-pair', source: entry.reserves[0].asset, destination: entry.reserves[1].asset },
+        reserveMoney: entry.reserves.map(leg => ({
+          amount: `${deposit ? '−' : '+'}${formatNumber(leg.amount, 7)}`,
+          asset: leg.asset,
+          tone: deposit ? 'negative' : 'positive',
+        })),
+      };
+    }
     case 'path-payment': {
       const swap = isPathSwap(entry);
       const pair = `${entry.sourceAsset.code} → ${entry.destinationAsset.code}`;

@@ -40,6 +40,34 @@ export function activityEntryPresentation(
   formatNumber: FormatNumber,
 ): ActivityEntryPresentation {
   switch (entry.kind) {
+    case 'offer':
+      return {
+        title: t(
+          entry.operationType === 'create_passive_sell_offer'
+            ? 'activity.entry.passiveOffer'
+            : entry.cancellation
+              ? 'activity.entry.offerCancellation'
+              : entry.operationType === 'manage_buy_offer'
+                ? 'activity.entry.buyOfferChanged'
+                : 'activity.entry.sellOfferChanged',
+        ),
+        primary: `${entry.sellingAsset.code} → ${entry.buyingAsset.code}`,
+        secondary: entry.offerId ?? '',
+        tone: 'neutral',
+        filter: 'other',
+      };
+    case 'liquidity-pool':
+      return {
+        title: t(
+          entry.operationType === 'liquidity_pool_deposit'
+            ? 'activity.entry.poolDeposit'
+            : 'activity.entry.poolWithdrawal',
+        ),
+        primary: entry.reserves.map(leg => `${formatNumber(leg.amount, 7)} ${leg.asset.code}`).join(' / '),
+        secondary: entry.poolId,
+        tone: 'neutral',
+        filter: 'other',
+      };
     case 'path-payment': {
       const outgoing = entry.direction === 'outgoing';
       const amount = outgoing ? entry.sourceAmount : entry.destinationAmount;
@@ -100,6 +128,8 @@ export function matchesActivityFilter(entry: HistoryEntry, filter: ActivityFilte
       return filter === 'accounts';
     case 'change-trust':
       return filter === 'trustlines';
+    case 'offer':
+    case 'liquidity-pool':
     case 'unsupported':
       return filter === 'other';
   }
@@ -125,8 +155,27 @@ export function matchesActivitySearch(
     entry.transactionHash,
     entry.id,
     entry.operationType,
+    entry.sourceAccount,
   ];
 
+  if (entry.kind === 'offer' || entry.kind === 'liquidity-pool') {
+    const assets =
+      entry.kind === 'offer' ? [entry.sellingAsset, entry.buyingAsset] : entry.reserves.map(leg => leg.asset);
+    for (const asset of assets) {
+      values.push(asset.code);
+      if (asset.kind === 'credit') values.push(asset.issuer);
+    }
+    const amounts = entry.kind === 'offer' ? [entry.amount] : [entry.shares, ...entry.reserves.map(leg => leg.amount)];
+    for (const amount of amounts) values.push(amount, formatNumber(amount, 7));
+    if (entry.kind === 'offer')
+      values.push(
+        entry.offerId ?? '',
+        String(entry.price.n),
+        String(entry.price.d),
+        `${entry.price.n}/${entry.price.d}`,
+      );
+    else values.push(entry.poolId);
+  }
   if ('counterparty' in entry) values.push(identityNames?.get(entry.counterparty) ?? '');
   if (entry.kind === 'path-payment') {
     values.push(
