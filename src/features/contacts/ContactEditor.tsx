@@ -27,18 +27,23 @@ export function ContactEditor({ book, initial, id, onClose, isCurrent = () => tr
   const [confirmDelete, setConfirmDelete] = useState(false);
   const live = useRef(true);
   const deleting = useRef(false);
+  const generation = useRef(0);
+  const capturedGeneration = generation.current;
   useEffect(() => {
     live.current = true;
     return () => {
       live.current = false;
     };
   }, []);
+  const available = () => live.current && isCurrent() && capturedGeneration === generation.current;
   const close = () => {
+    if (!available()) return;
+    generation.current += 1;
     live.current = false;
     onClose();
   };
   const save = () => {
-    if (!live.current || !isCurrent() || deleting.current) return;
+    if (!available() || deleting.current) return;
     try {
       if (id && !book.store.list(book.network.id).some(row => row.id === id)) throw new Error('contact-not-found');
       saveContact(
@@ -116,13 +121,13 @@ export function ContactEditor({ book, initial, id, onClose, isCurrent = () => tr
             label={t('contacts.share')}
             variant="quiet"
             onPress={async () => {
-              if (!live.current || !isCurrent()) return;
+              if (!available()) return;
               try {
                 const contact = book.store.list(book.network.id).find(row => row.id === id);
                 if (!contact) throw new Error('contact-not-found');
                 await book.output.shareRequestUri(contactShareUri(book, contact));
               } catch (caught) {
-                if (live.current && isCurrent()) setError(contactError(caught, t));
+                if (available()) setError(contactError(caught, t));
               }
             }}
           />
@@ -131,7 +136,8 @@ export function ContactEditor({ book, initial, id, onClose, isCurrent = () => tr
           <NativeButton
             label={t('contacts.delete')}
             onPress={() => {
-              if (live.current) {
+              if (available() && !deleting.current) {
+                generation.current += 1;
                 deleting.current = true;
                 setConfirmDelete(true);
               }
@@ -150,6 +156,8 @@ export function ContactEditor({ book, initial, id, onClose, isCurrent = () => tr
             label={t('contacts.keep')}
             variant="quiet"
             onPress={() => {
+              if (!available() || !deleting.current) return;
+              generation.current += 1;
               deleting.current = false;
               setConfirmDelete(false);
             }}
@@ -158,7 +166,7 @@ export function ContactEditor({ book, initial, id, onClose, isCurrent = () => tr
             label={t('contacts.delete')}
             variant="primary"
             onPress={() => {
-              if (!live.current || !isCurrent() || !deleting.current || !id) return;
+              if (!available() || !deleting.current || !id) return;
               try {
                 book.store.remove(book.network.id, id);
                 close();
