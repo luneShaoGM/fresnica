@@ -97,7 +97,7 @@ beforeEach(() => {
   book = {
     network: { id: 'test', networkPassphrase: 'test-passphrase' },
     store: {
-      list: id => rows.filter(contact => contact.networkId === id),
+      list: () => rows,
       save: jest.fn(),
       remove: jest.fn(),
       subscribe: () => () => {},
@@ -259,11 +259,11 @@ it('does not reopen a cancelled participant menu/editor from a delayed callback,
   root = draw();
   expect(nodes(root, ContactEditor)).toHaveLength(1);
 });
-it('shows sorted/searchable current-network contacts and wires list-to-editor without saving on cancel', () => {
+it('shows sorted/searchable global contacts and wires list-to-editor without saving on cancel', () => {
   rows = [{ ...row, id: 'z', name: 'Zoe' }, row, { ...row, id: 'main', networkId: 'main', name: 'Other' }];
   const draw = () => render(() => AddressBookScreen({ book, onBack: jest.fn() }));
   let root = draw();
-  expect(nodes(root, ListRow).map(node => node.props.title)).toEqual(['Alice', 'Zoe']);
+  expect(nodes(root, ListRow).map(node => node.props.title)).toEqual(['Alice', 'Other', 'Zoe']);
   nodes(root, Field)[0].props.onChangeText!('zo');
   root = draw();
   expect(nodes(root, ListRow)).toHaveLength(1);

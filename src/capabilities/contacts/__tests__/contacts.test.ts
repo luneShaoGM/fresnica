@@ -35,6 +35,10 @@ describe('contact identity', () => {
     expect(() => contactIdentity(row.address, memo as unknown as Contact['memo'])).toThrow('contact-memo-invalid');
     expect(() => findContact([{ ...row, memo: memo as unknown as Contact['memo'] }], row.address)).toThrow();
   });
+  it('does not guess an identity when legacy contacts from two networks conflict', () => {
+    expect(findContact([row, { ...row, id: 'other', networkId: 'main' }], row.address, row.memo)).toBeUndefined();
+    expect(searchContacts([row, { ...row, id: 'other', networkId: 'main' }], 'Exchange')).toHaveLength(2);
+  });
   it('validates before storage and preserves canonical values', () => {
     const save = jest.fn();
     const dependencies: Contacts = {

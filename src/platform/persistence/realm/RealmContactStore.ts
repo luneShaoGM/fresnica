@@ -31,10 +31,11 @@ export class RealmContactStore implements ContactStore {
       }
     }
   }
-  list = (networkId: string): readonly Contact[] => {
+  // v9 records retain their creation network as provenance, not a visibility boundary.
+  // Legacy contacts from different networks are kept separately, including conflicts.
+  list = (_networkId: string): readonly Contact[] => {
     return Array.from(this.realm.objects(CONTACT_ENTITY))
       .map(object => object as unknown as StoredContact)
-      .filter(row => row.networkId === networkId)
       .map(row => {
         let memo: Contact['memo'];
         if (row.memoJson !== null && row.memoJson !== undefined) {
@@ -61,7 +62,6 @@ export class RealmContactStore implements ContactStore {
         CONTACT_ENTITY,
         contact.id,
       ) as unknown as StoredContact | null;
-      if (existing && existing.networkId !== contact.networkId) throw new Error('contact-network-mismatch');
       const identity = contactIdentity(contact.address, memo);
       if (
         this.list(contact.networkId).some(
@@ -74,7 +74,8 @@ export class RealmContactStore implements ContactStore {
         CONTACT_ENTITY,
         {
           id: contact.id,
-          networkId: contact.networkId,
+          // An edit must not rewrite the original network provenance.
+          networkId: existing?.networkId ?? contact.networkId,
           name: contact.name,
           address: contact.address,
           memoJson: memo ? JSON.stringify(memo) : null,
@@ -84,10 +85,9 @@ export class RealmContactStore implements ContactStore {
     });
     this.notify();
   };
-  remove = (networkId: string, id: string): void => {
+  remove = (_networkId: string, id: string): void => {
     this.realm.write(() => {
       const row = this.realm.objectForPrimaryKey<StoredContact>(CONTACT_ENTITY, id);
-      if (row && (row as unknown as StoredContact).networkId !== networkId) throw new Error('contact-network-mismatch');
       if (row) this.realm.delete(row);
     });
     this.notify();

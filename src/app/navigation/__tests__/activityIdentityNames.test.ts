@@ -14,11 +14,11 @@ const account: AccountRecord = {
   updatedAt: now,
 };
 const contact: Contact = { id: 'contact', address: account.address, networkId: 'test', name: 'Alice' };
-it('prioritizes exact current-network address-only contacts over visible local Classic account labels', () => {
+it('prioritizes global address-only contacts over visible local Classic account labels', () => {
   expect(activityIdentityNames([account], [contact], 'test').get(account.address)).toBe('Alice');
   expect(activityIdentityNames([account], [], 'test').get(account.address)).toBe('Wallet');
 });
-it('isolates networks, exact case and muxed identities, and never borrows a memo-specific contact', () => {
+it('shares contacts globally, keeps exact case, and never borrows memo-specific names', () => {
   const names = activityIdentityNames(
     [account],
     [
@@ -27,10 +27,19 @@ it('isolates networks, exact case and muxed identities, and never borrows a memo
     ],
     'test',
   );
-  expect(names.get(account.address)).toBe('Wallet');
+  expect(names.get(account.address)).toBe('Alice');
   expect(names.get('gaddress')).toBeUndefined();
   expect(names.get('MADDRESS')).toBeUndefined();
-  expect(activityIdentityNames([account], [contact], 'other').size).toBe(0);
+  expect(activityIdentityNames([account], [contact], 'other').get(account.address)).toBe('Alice');
+  expect(activityIdentityNames([account], [{ ...contact, memo: { type: 'id', value: '7' } }], 'test').get(account.address)).toBe('Wallet');
+});
+it('keeps wallet label instead of guessing among conflicting legacy contact identities', () => {
+  const names = activityIdentityNames(
+    [account],
+    [contact, { ...contact, id: 'other', name: 'Bob', networkId: 'main' }],
+    'test',
+  );
+  expect(names.get(account.address)).toBe('Wallet');
 });
 it('does not use hidden, contract or foreign-network accounts or empty labels', () => {
   for (const patch of [

@@ -104,6 +104,14 @@ it('subscribes at composition, updates contacts and failures without replacing h
   failed = false;
   const foreign = { ...account, id: 'other', networkId: 'main', label: 'Main local' };
   const switched = render([account, foreign], foreign.id);
-  expect(switched.props.identityNames?.get('GLOCAL')).toBe('Main local');
+  // Contacts are global, but the selected account and history route remain network-scoped.
+  expect(switched.props.identityNames?.get('GLOCAL')).toBe('Bob');
+  expect(switched.props.account.id).toBe(foreign.id);
   expect(switched.props.account.networkId).toBe('main');
+  expect(switched.props.dependencies).toBe(history);
+  switched.props.onOpenOperation('main-op');
+  expect(navigation.navigate).toHaveBeenCalledWith('operation-details', {
+    accountId: foreign.id,
+    operationId: 'main-op',
+  });
 });
