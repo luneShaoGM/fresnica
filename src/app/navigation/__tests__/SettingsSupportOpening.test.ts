@@ -1,6 +1,14 @@
 import { Linking } from 'react-native';
 import { openSupportWebsite } from '../SettingsStackNavigator';
 
+jest.mock('@platform/system/RequestQrScannerView', () => ({ ReactNativeRequestQrScannerView: () => null }));
+jest.mock('@platform/system/requestIngress', () => ({
+  reactNativeRequestIngress: {
+    checkCameraPermission: jest.fn(),
+    requestCameraPermission: jest.fn(),
+    openCameraSettings: jest.fn(),
+  },
+}));
 jest.mock('@react-navigation/native-stack', () => ({
   createNativeStackNavigator: () => ({ Navigator: 'Navigator', Screen: 'Screen' }),
 }));
