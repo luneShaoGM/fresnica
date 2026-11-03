@@ -111,3 +111,33 @@ S22 is not L3/L4 solely because tests/CI pass. Independent exact-HEAD implementa
   validation pipeline before M recipients are selectable for sending; public identity cards, avatar
   candidates, SectionList, scanning, name resolution and Stellar Send step order are separately queued.
 - Validation below must distinguish automated tests from deferred native product-flow acceptance.
+
+
+## Stellar contact directory UI slice (2026-11-03; pending review)
+
+- **Product trace:** S22 (Stage 8), Phase 2a/2b foundations available, 2c partial.
+  Stellar reference: Settings/AddressBook SectionList and shared identity card selectable presentation.
+  Owner: features/contacts plus ui/components, injected platform camera/permission ports.
+  Decision: **Adapt** UI behavior with independent Fresnica implementation; clean-room.
+- Group contacts by the uppercase initial of their visible name, sorted by localized name and stable
+  record ID within sections. Do **not** discard legitimate legacy duplicate identities using a
+  `uniqBy(address, memo)` pattern; each pre-existing record must remain available for explicit
+  user cleanup. Non-Latin initial characters retain their own headings.
+- Reuse and extend the existing `AccountIdentityCard` with a selectable presentation, public
+  address, optional Memo and the same local deterministic `IdentityAvatar` fallback already
+  used by compact cards. Keep unverified local names distinct from authoritative address values.
+  No third-party avatar or image proxy network calls are introduced, avoiding unapproved
+  address disclosure. Trusted asset/issuer avatar candidate parity is deferred.
+- The Settings Address Book Add/Edit editor has an opt-in QR scanner reusing the existing
+  platform camera view and permission port. The feature screen never imports native camera,
+  Realm or SDK adapters. Scanned raw G addresses and valid same-network SEP-7 payment requests
+  populate address and optional Memo, while payment amount/asset/message are *not* saved in
+  contacts. Invalid, unsupported, cross-network and sensitive input fails closed.
+- Starting a scan does not save or submit anything. Closing, canceling or losing focus retires
+  pending permission requests and camera frame callbacks, including callbacks from previous
+  scanner sessions. Permission denied/blocked, camera error and invalid QR have retry/cancel
+  paths. Editing/deleting still requires explicit user action.
+- This slice wires scanning in Settings Address Book only. The Activity participant menu editor,
+  Send picker, remote avatar/asset icon resolution and M-address support are still deferred
+  (M destinations cannot yet pass the existing payment validation pipeline). Do not silently
+  treat the lack of native camera product-flow acceptance as approval.

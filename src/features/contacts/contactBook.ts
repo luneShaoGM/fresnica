@@ -1,4 +1,8 @@
+import type React from 'react';
 import type { AccountRecord } from '@capabilities/account/types';
+import type { RequestIngressPort } from '@capabilities/request/RequestIngressPort';
+import type { RequestScannerViewProps } from '@capabilities/request/RequestScannerViewPort';
+import { parseRequestInput } from '@capabilities/request/requestUri';
 import type { Contact, Contacts } from '@capabilities/contacts/contacts';
 import type { NetworkContext } from '@capabilities/network/types';
 import type { RequestOutputPort } from '@capabilities/request/RequestOutputPort';
@@ -12,6 +16,29 @@ export type ContactBook = Contacts &
     output: RequestOutputPort;
   }>;
 export type Recipient = Readonly<{ address: string; memo?: StellarPaymentMemo }>;
+
+export type ContactScanner = Readonly<{
+  ScannerView: React.ComponentType<RequestScannerViewProps>;
+  ingress: Pick<RequestIngressPort, 'checkCameraPermission' | 'requestCameraPermission' | 'openCameraSettings'>;
+}>;
+
+// A scanned SEP-7 payment request supplies only its destination identity here.
+// Amounts, assets and messages are not contact attributes; unknown or cross-network
+// requests remain rejected by the existing strict request parser.
+export function scannedContactRecipient(
+  book: Pick<ContactBook, 'network' | 'isClassicAccountAddress'>,
+  value: string,
+): Recipient {
+  const parsed = parseRequestInput(
+    { currentNetwork: book.network, isClassicAccountAddress: book.isClassicAccountAddress },
+    value,
+  );
+  if (parsed.status !== 'accepted') throw new Error('contact-scan-invalid');
+  return {
+    address: parsed.intent.destination,
+    ...(parsed.intent.memo ? { memo: parsed.intent.memo } : {}),
+  };
+}
 
 export function contactShareUri(book: ContactBook, recipient: Recipient): string {
   return buildRequestUri(book, { ...recipient, destination: recipient.address, network: book.network });

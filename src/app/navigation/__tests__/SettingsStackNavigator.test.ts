@@ -5,11 +5,20 @@ import { SettingsHomeScreen } from '@features/settings/SettingsHomeScreen';
 import { GeneralSettingsScreen } from '@features/settings/GeneralSettingsScreen';
 import { AdvancedSettingsScreen } from '@features/settings/AdvancedSettingsScreen';
 import { NetworkSettingsScreen } from '@features/settings/NetworkSettingsScreen';
+import { reactNativeRequestIngress } from '@platform/system/requestIngress';
 
 jest.mock('@react-navigation/native-stack', () => ({
   createNativeStackNavigator: () => ({ Navigator: 'Navigator', Screen: 'Screen' }),
 }));
 jest.mock('@react-navigation/native', () => ({ useFocusEffect: jest.fn() }));
+jest.mock('@platform/system/RequestQrScannerView', () => ({ ReactNativeRequestQrScannerView: () => null }));
+jest.mock('@platform/system/requestIngress', () => ({
+  reactNativeRequestIngress: {
+    checkCameraPermission: jest.fn(),
+    requestCameraPermission: jest.fn(),
+    openCameraSettings: jest.fn(),
+  },
+}));
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null, Screen: () => null }));
 jest.mock('@features/accounts/AccountDetailsScreen', () => ({ AccountDetailsScreen: () => null }));
 jest.mock('@features/accounts/AccountsScreen', () => ({ AccountsScreen: () => null }));
@@ -25,12 +34,15 @@ type ScreenProps = {
   settings?: unknown;
   monitor?: unknown;
   network?: unknown;
+  book?: unknown;
+  scanner?: unknown;
 };
 it('wires Settings→General→Language and Settings→Advanced→Network with the live session and back history', () => {
   const navigation = { navigate: jest.fn(), goBack: jest.fn() };
   const services = {
     networkSettings: {},
     nodeReadSession: {},
+    contacts: { network: { id: 'stellar-mainnet' } },
     networkProfile: { id: 'stellar-mainnet', horizonUrl: 'https://chosen.example', isMainnet: true },
   } as unknown as AppServices;
   const root = SettingsStackNavigator({
@@ -53,6 +65,12 @@ it('wires Settings→General→Language and Settings→Advanced→Network with t
     if (!route) throw new Error('missing route: ' + name);
     return route.props.children({ navigation });
   };
+  const addressBook = screen('address-book');
+  expect(addressBook.props.book).toBe(services.contacts);
+  expect(addressBook.props.scanner).toMatchObject({
+    ScannerView: expect.any(Function),
+    ingress: reactNativeRequestIngress,
+  });
   const home = screen('settings-home');
   expect(home.type).toBe(SettingsHomeScreen);
   home.props.onOpenGeneral?.();

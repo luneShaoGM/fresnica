@@ -14,6 +14,7 @@ export function createStyles(theme: AppTheme) {
     side: { flex: 1, alignItems: 'flex-start' },
     title: { ...theme.typography.title, color: theme.colors.textPrimary },
     content: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.xl },
+    fill: { flex: 1, minHeight: 0 },
     section: { marginTop: theme.spacing.lg, gap: theme.spacing.sm },
     label: { ...theme.typography.caption, color: theme.colors.textSecondary },
   });
