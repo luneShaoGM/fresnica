@@ -43,6 +43,8 @@ export type SettingsStackParamList = {
   'address-book': ProductRouteParams['address-book'];
   'network-settings': ProductRouteParams['network-settings'];
   'language-settings': ProductRouteParams['language-settings'];
+  terms: undefined;
+  'support-unavailable': undefined;
   about: ProductRouteParams['about'];
 };
 
