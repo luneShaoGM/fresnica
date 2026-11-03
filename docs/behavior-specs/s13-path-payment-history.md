@@ -1,7 +1,7 @@
 # S13 Path Payment / Swap history
 
-Status: Slice 2 implementation contract, based on main
-`c7e525bf0bb64863756078561e6d40feee143c55`. Slice 1 merged through #147;
+Status: Slice 2 merged through PR #148 at main
+`0171f860842b87904761309c749297ddfbf18c83`. Slice 1 merged through #147;
 native acceptance remains pending. This is read-only History presentation,
 not a change to S10 quote, prepare, authorize, sign, submit or recovery.
 

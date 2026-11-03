@@ -431,6 +431,60 @@ function renderEntry(
         />
         <DetailRow label={t('activity.detail.transactionHash')} value={entry.transactionHash} mono styles={styles} />
         {renderAccount(entry.sourceAccount, t('activity.detail.sourceAccount'))}
+        {entry.kind === 'offer' ? (
+          <>
+            <Text style={styles.warning}>{t('activity.detail.offerExplanation')}</Text>
+            <DetailRow
+              label={t('activity.detail.orderQuantity')}
+              value={`${formatNumber(entry.amount, 7)} ${entry.operationType === 'manage_buy_offer' ? entry.buyingAsset.code : entry.sellingAsset.code}`}
+              styles={styles}
+            />
+            <DetailRow label={t('activity.detail.buyingAsset')} value={entry.buyingAsset.code} styles={styles} />
+            {entry.buyingAsset.kind === 'credit'
+              ? renderAccount(entry.buyingAsset.issuer, t('activity.detail.buyingIssuer'))
+              : null}
+            <DetailRow label={t('activity.detail.sellingAsset')} value={entry.sellingAsset.code} styles={styles} />
+            {entry.sellingAsset.kind === 'credit'
+              ? renderAccount(entry.sellingAsset.issuer, t('activity.detail.sellingIssuer'))
+              : null}
+            <DetailRow
+              label={t('activity.detail.orderPrice')}
+              value={`${entry.price.n}/${entry.price.d}`}
+              styles={styles}
+            />
+            {entry.offerId === undefined ? null : (
+              <DetailRow label={t('activity.detail.offerId')} value={entry.offerId} mono styles={styles} />
+            )}
+          </>
+        ) : null}
+        {entry.kind === 'liquidity-pool' ? (
+          <>
+            <DetailRow label={t('activity.detail.poolId')} value={entry.poolId} mono styles={styles} />
+            {entry.reserves.map((leg, index) => (
+              <React.Fragment key={index}>
+                <DetailRow
+                  label={t(
+                    entry.operationType === 'liquidity_pool_deposit'
+                      ? 'activity.detail.reserveDeposited'
+                      : 'activity.detail.reserveReceived',
+                  )}
+                  value={`${formatNumber(leg.amount, 7)} ${leg.asset.code}`}
+                  styles={styles}
+                />
+                {leg.asset.kind === 'credit' ? renderAccount(leg.asset.issuer, t('activity.detail.issuer')) : null}
+              </React.Fragment>
+            ))}
+            <DetailRow
+              label={t(
+                entry.operationType === 'liquidity_pool_deposit'
+                  ? 'activity.detail.sharesReceived'
+                  : 'activity.detail.sharesRedeemed',
+              )}
+              value={formatNumber(entry.shares, 7)}
+              styles={styles}
+            />
+          </>
+        ) : null}
         {entry.kind === 'path-payment' ? (
           <>
             <DetailRow

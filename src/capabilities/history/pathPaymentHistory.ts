@@ -46,7 +46,7 @@ export function isPathSwap(entry: HistoryPathPaymentEntry): boolean {
   return entry.direction === 'self' && !sameAsset(entry.sourceAsset, entry.destinationAsset);
 }
 
-function sameAsset(left: HistoryAsset, right: HistoryAsset): boolean {
+export function sameAsset(left: HistoryAsset, right: HistoryAsset): boolean {
   return (
     left.kind === right.kind &&
     left.code === right.code &&
@@ -54,13 +54,13 @@ function sameAsset(left: HistoryAsset, right: HistoryAsset): boolean {
   );
 }
 
-export function isPathAmount(value: unknown): value is string {
+export function isPathAmount(value: unknown, allowZero = false): value is string {
   if (typeof value !== 'string' || !/^\d+(?:\.\d{1,7})?$/.test(value)) return false;
   const [whole, fraction = ''] = value.split('.');
   const significantWhole = whole.replace(/^0+/, '') || '0';
   if (significantWhole.length > 12) return false;
   const stroops = BigInt(significantWhole) * 10_000_000n + BigInt(fraction.padEnd(7, '0'));
-  return stroops > 0n && stroops <= 9_223_372_036_854_775_807n;
+  return (allowZero || stroops > 0n) && stroops <= 9_223_372_036_854_775_807n;
 }
 
 function classic(value: unknown): value is string {
@@ -77,7 +77,7 @@ function endpoint(role: 'sender' | 'recipient', base: unknown, muxed: unknown): 
   });
 }
 
-function pathAsset(asset: HistoryOperationAsset | undefined): HistoryAsset | undefined {
+export function pathAsset(asset: HistoryOperationAsset | undefined): HistoryAsset | undefined {
   if (asset?.kind === 'native') return Object.freeze({ kind: 'native', code: 'XLM' });
   if (
     asset?.kind === 'credit' &&

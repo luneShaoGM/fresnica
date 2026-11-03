@@ -67,7 +67,33 @@ export type HistoryUnsupportedEntry = HistoryEntryBase &
     reason: 'operation-type' | 'operation-shape';
   }>;
 
+export type HistoryOfferEntry = HistoryEntryBase &
+  Readonly<{
+    kind: 'offer';
+    successful: true;
+    buyingAsset: HistoryAsset;
+    sellingAsset: HistoryAsset;
+    amount: string;
+    price: Readonly<{ n: number; d: number }>;
+    offerId?: string;
+    cancellation: boolean;
+  }>;
+
+export type HistoryPoolEntry = HistoryEntryBase &
+  Readonly<{
+    kind: 'liquidity-pool';
+    successful: true;
+    poolId: string;
+    reserves: readonly [
+      Readonly<{ asset: HistoryAsset; amount: string }>,
+      Readonly<{ asset: HistoryAsset; amount: string }>,
+    ];
+    shares: string;
+  }>;
+
 export type HistoryEntry =
+  | HistoryOfferEntry
+  | HistoryPoolEntry
   | HistoryPathPaymentEntry
   | HistoryPaymentEntry
   | HistoryCreateAccountEntry

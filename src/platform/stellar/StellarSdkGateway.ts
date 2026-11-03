@@ -35,9 +35,18 @@ export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryO
     occurredAt: input.created_at,
     transactionHash: input.transaction_hash,
     sourceAccount: input.source_account,
-    ...(input.type === 'path_payment_strict_send' || input.type === 'path_payment_strict_receive'
+    ...(input.type === 'path_payment_strict_send' ||
+    input.type === 'path_payment_strict_receive' ||
+    [
+      'manage_buy_offer',
+      'manage_sell_offer',
+      'create_passive_sell_offer',
+      'liquidity_pool_deposit',
+      'liquidity_pool_withdraw',
+    ].includes(input.type)
       ? { successful: input.transaction_successful === true }
       : {}),
+    ...mapOfferPoolFields(input),
     ...(typeof input.source_amount === 'string' ? { sourceAmount: input.source_amount } : {}),
     ...(sourceAsset === undefined ? {} : { sourceAsset }),
     ...(input.from_muxed === undefined ? {} : { fromMuxed: input.from_muxed }),
@@ -53,6 +62,48 @@ export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryO
     ...(input.trustee === undefined ? {} : { trustee: input.trustee }),
     ...(input.limit === undefined ? {} : { limit: input.limit }),
   });
+}
+
+function mapOfferPoolFields(input: HorizonOperationLike): Partial<HistoryOperationRecord> {
+  const buyingAsset = mapHistoryAsset(input.buying_asset_type, input.buying_asset_code, input.buying_asset_issuer);
+  const sellingAsset = mapHistoryAsset(input.selling_asset_type, input.selling_asset_code, input.selling_asset_issuer);
+  const price = input.price_r;
+  const rawReserves = input.type === 'liquidity_pool_deposit' ? input.reserves_deposited : input.reserves_received;
+  const shares = input.type === 'liquidity_pool_deposit' ? input.shares_received : input.shares;
+  const reserves =
+    Array.isArray(rawReserves) && rawReserves.length === 2
+      ? rawReserves.map(value => {
+          if (!value || typeof value !== 'object') return undefined;
+          const leg = value as Record<string, unknown>;
+          if (typeof leg.asset !== 'string' || typeof leg.amount !== 'string') return undefined;
+          const parts = leg.asset.split(':');
+          const asset =
+            leg.asset === 'native'
+              ? { kind: 'native' as const }
+              : parts.length === 2
+                ? { kind: 'credit' as const, code: parts[0], issuer: parts[1] }
+                : undefined;
+          return asset ? Object.freeze({ asset: Object.freeze(asset), amount: leg.amount }) : undefined;
+        })
+      : undefined;
+  return {
+    ...(buyingAsset ? { buyingAsset } : {}),
+    ...(sellingAsset ? { sellingAsset } : {}),
+    ...(input.offer_id === undefined ? {} : { offerId: typeof input.offer_id === 'string' ? input.offer_id : '' }),
+    ...(price &&
+    typeof price === 'object' &&
+    'n' in price &&
+    'd' in price &&
+    typeof price.n === 'number' &&
+    typeof price.d === 'number'
+      ? { price: Object.freeze({ n: price.n, d: price.d }) }
+      : {}),
+    ...(typeof input.liquidity_pool_id === 'string' ? { poolId: input.liquidity_pool_id } : {}),
+    ...(reserves && reserves.every((leg): leg is NonNullable<typeof leg> => leg !== undefined)
+      ? { reserves: Object.freeze(reserves) }
+      : {}),
+    ...(typeof shares === 'string' ? { shares } : {}),
+  };
 }
 
 function mapHistoryAsset(type: unknown, code: unknown, issuer: unknown): HistoryOperationRecord['asset'] {

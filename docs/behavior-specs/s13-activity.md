@@ -19,8 +19,18 @@ Path-history amendment (2026-11-03):
 [`s13-path-payment-history.md`](s13-path-payment-history.md) adds successful strict-send
 and strict-receive actual-leg projection, Swap classification, list/detail/search
 and additive v1 cache payload. Slice 1 merged through #147 at main `c7e525bf...`;
-Slice 2 remains a review candidate, with native acceptance pending. This amendment
+Slice 2 merged through #148 at main `0171f860842b87904761309c749297ddfbf18c83`,
+with native acceptance pending. This amendment
 supersedes the older unsupported-path restriction only for these validated shapes.
+
+Offer/pool-history amendment (2026-11-03):
+[`s13-offer-pool-history.md`](s13-offer-pool-history.md) defines the Slice 3
+candidate: successful source-owned buy/sell/passive/cancellation intent and actual
+liquidity-pool deposit/withdraw reserve legs/shares. It extends read/detail/search
+and v1 JSON cache only. Order quantity is not settlement; LP max/min constraints
+are not actual reserve changes. Older unsupported family records remain readable
+until online revalidation. Exact-HEAD review, merge and native acceptance remain
+separate gates; Claimable/Clawback, contracts and visibility remain later slices.
 
 Provenance: clean-room behavior rewrite. Donor Activity/Events surfaces are product-role references only; donor source, repositories, helpers, tests, component structure and resources are not implementation templates.
 

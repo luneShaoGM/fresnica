@@ -10,6 +10,13 @@ export type HistoryOperationRecord = Readonly<{
   transactionHash: string;
   sourceAccount: string;
   successful?: boolean;
+  buyingAsset?: HistoryOperationAsset;
+  sellingAsset?: HistoryOperationAsset;
+  offerId?: string;
+  price?: Readonly<{ n: number; d: number }>;
+  poolId?: string;
+  reserves?: readonly Readonly<{ asset: HistoryOperationAsset; amount: string }>[];
+  shares?: string;
   sourceAmount?: string;
   sourceAsset?: HistoryOperationAsset;
   fromMuxed?: string;

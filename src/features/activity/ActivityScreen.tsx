@@ -622,11 +622,17 @@ export function ActivityRow({
 }>) {
   const presentation = activityRowPresentation(entry, t, formatNumber, identityNames);
   const secondary = `${presentation.operation} · ${timeFormatter.format(new Date(entry.occurredAt))}`;
-  const money = presentation.money;
+  const amounts = presentation.reserveMoney ?? (presentation.money ? [presentation.money] : []);
   return (
     <Pressable
       accessible
-      accessibilityLabel={[presentation.title, secondary, money?.amount, money?.asset.code].filter(Boolean).join(', ')}
+      accessibilityLabel={[
+        presentation.title,
+        secondary,
+        ...amounts.map(money => `${money.amount} ${money.asset.code}`),
+      ]
+        .filter(Boolean)
+        .join(', ')}
       accessibilityRole="button"
       onPress={onOpen}
       style={({ pressed }) => [styles.activityRow, pressed ? styles.pressed : undefined]}
@@ -670,28 +676,32 @@ export function ActivityRow({
           </View>
         </View>
       )}
-      {money ? (
+      {amounts.length ? (
         <View style={styles.activityTrailing}>
-          <Text
-            style={[
-              styles.activityAmount,
-              money.tone === 'positive'
-                ? styles.amountPositive
-                : money.tone === 'negative'
-                  ? styles.amountNegative
-                  : undefined,
-            ]}
-          >
-            {money.amount}
-          </Text>
-          <View style={styles.assetCaption}>
-            <Text style={styles.activityAsset}>{money.asset.code}</Text>
-            <IdentityAvatar
-              identity={activityAssetIdentity(money.asset)}
-              native={money.asset.kind === 'native'}
-              small
-            />
-          </View>
+          {amounts.map((money, index) => (
+            <View key={index}>
+              <Text
+                style={[
+                  styles.activityAmount,
+                  money.tone === 'positive'
+                    ? styles.amountPositive
+                    : money.tone === 'negative'
+                      ? styles.amountNegative
+                      : undefined,
+                ]}
+              >
+                {money.amount}
+              </Text>
+              <View style={styles.assetCaption}>
+                <Text style={styles.activityAsset}>{money.asset.code}</Text>
+                <IdentityAvatar
+                  identity={activityAssetIdentity(money.asset)}
+                  native={money.asset.kind === 'native'}
+                  small
+                />
+              </View>
+            </View>
+          ))}
         </View>
       ) : null}
     </Pressable>

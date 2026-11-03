@@ -408,3 +408,94 @@ it('exposes both exact path legs, issuers and explicit muxed participant identit
   const props = participantRows?.props as unknown as { participants: readonly { identity: string }[] };
   expect(props.participants.map(participant => participant.identity)).toEqual(['MSENDER', 'MDESTINATION']);
 });
+
+it.each(['manage_buy_offer', 'manage_sell_offer', 'create_passive_sell_offer'])(
+  'denominates %s order quantity explicitly without implying settlement',
+  operationType => {
+    mockedUseState.mockReset();
+    const entry: HistoryEntry = {
+      ...unsupported(),
+      kind: 'offer',
+      successful: true,
+      operationType,
+      buyingAsset: { kind: 'credit', code: 'USD', issuer: 'GBUYISSUER' },
+      sellingAsset: { kind: 'native', code: 'XLM' },
+      amount: '922337203685.4775807',
+      price: { n: 2147483647, d: 3 },
+      offerId: '9223372036854775807',
+      cancellation: false,
+    };
+    const { root } = renderWithState({
+      kind: 'loaded',
+      result: { status: 'ready', entry },
+      source: 'online',
+      stale: false,
+      refreshing: false,
+      refreshFailed: false,
+    });
+    const values: string[] = [];
+    visit(root, element => {
+      const props = element.props as Readonly<{ label?: string; value?: string; children?: unknown }>;
+      if (props.label) values.push(props.label);
+      if (props.value) values.push(props.value);
+      if (typeof props.children === 'string') values.push(props.children);
+    });
+    expect(values).toEqual(
+      expect.arrayContaining([
+        'Order quantity',
+        `922,337,203,685.4775807 ${operationType === 'manage_buy_offer' ? 'USD' : 'XLM'}`,
+        'Buying asset',
+        'Selling asset',
+        'GBUYISSUER',
+        'Order price',
+        '2147483647/3',
+        '9223372036854775807',
+        'Order quantity is an instruction. It does not prove executed volume or the remaining order state.',
+      ]),
+    );
+    expect(values).not.toContain('Direction');
+  },
+);
+it.each(['liquidity_pool_deposit', 'liquidity_pool_withdraw'])(
+  'exposes %s actual ordered reserves, full issuers, pool ID and shares',
+  operationType => {
+    mockedUseState.mockReset();
+    const entry: HistoryEntry = {
+      ...unsupported(),
+      kind: 'liquidity-pool',
+      successful: true,
+      operationType,
+      poolId: 'a'.repeat(64),
+      shares: '0.0000001',
+      reserves: [
+        { asset: { kind: 'native', code: 'XLM' }, amount: '0' },
+        { asset: { kind: 'credit', code: 'USD', issuer: 'GRESERVEISSUER' }, amount: '922337203685.4775807' },
+      ],
+    };
+    const { root } = renderWithState({
+      kind: 'loaded',
+      result: { status: 'ready', entry },
+      source: 'online',
+      stale: false,
+      refreshing: false,
+      refreshFailed: false,
+    });
+    const values: string[] = [];
+    visit(root, element => {
+      const props = element.props as Readonly<{ label?: string; value?: string }>;
+      if (props.label) values.push(props.label);
+      if (props.value) values.push(props.value);
+    });
+    expect(values).toEqual(
+      expect.arrayContaining([
+        'Pool ID',
+        'a'.repeat(64),
+        '0 XLM',
+        '922,337,203,685.4775807 USD',
+        'GRESERVEISSUER',
+        '0.0000001',
+        operationType === 'liquidity_pool_deposit' ? 'Shares received' : 'Shares redeemed',
+      ]),
+    );
+  },
+);

@@ -1,3 +1,4 @@
+import { isOfferType, isPoolType, mapOfferPool } from './offerPoolHistory';
 import { isPathPaymentType, mapPathPayment } from './pathPaymentHistory';
 import type { HistoryAsset, HistoryEntry, HistoryParticipant, HistoryParticipantRole } from './types';
 
@@ -111,6 +112,28 @@ function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): Hi
   };
 
   switch (entry.kind) {
+    case 'offer':
+    case 'liquidity-pool': {
+      if (entry.kind === 'offer') {
+        assertAsset(entry.buyingAsset);
+        assertAsset(entry.sellingAsset);
+      } else {
+        if (!Array.isArray(entry.reserves) || entry.reserves.length !== 2)
+          throw new Error('history-cache-invalid-entry');
+        entry.reserves.forEach(leg => assertAsset(leg.asset));
+      }
+      const reconstructed = mapOfferPool(
+        { ...base, ...entry, type: entry.operationType },
+        accountAddress ?? base.sourceAccount,
+        base,
+      );
+      if (
+        !reconstructed ||
+        (entry.kind === 'offer' && reconstructed.kind === 'offer' && reconstructed.cancellation !== entry.cancellation)
+      )
+        throw new Error('history-cache-invalid-entry');
+      return reconstructed;
+    }
     case 'path-payment': {
       const [sender, recipient] = entry.participants;
       const reconstructed = mapPathPayment(
@@ -226,6 +249,12 @@ function assertHistoryEntry(entry: HistoryEntry): void {
   }
 
   switch (entry.kind) {
+    case 'offer':
+      if (!isOfferType(entry.operationType)) throw new Error('history-cache-invalid-entry');
+      return;
+    case 'liquidity-pool':
+      if (!isPoolType(entry.operationType)) throw new Error('history-cache-invalid-entry');
+      return;
     case 'path-payment':
       assertAsset(entry.sourceAsset);
       assertAsset(entry.destinationAsset);
@@ -283,7 +312,9 @@ function assertHistoryEntry(entry: HistoryEntry): void {
         (entry.reason === 'operation-type' && isSpecializedOperationType(entry.operationType)) ||
         (entry.reason === 'operation-shape' &&
           !isSpecializedOperationType(entry.operationType) &&
-          !isPathPaymentType(entry.operationType))
+          !isPathPaymentType(entry.operationType) &&
+          !isOfferType(entry.operationType) &&
+          !isPoolType(entry.operationType))
       ) {
         throw new Error('history-cache-invalid-entry');
       }

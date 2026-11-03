@@ -7,7 +7,7 @@ import {
 } from '../../../capabilities/history/HistoryCacheHydration';
 import { InMemoryHistoryCacheRepository } from '../../persistence/memory/InMemoryHistoryCacheRepository';
 import { activityRowPresentation } from '../../../features/activity/activityRowPresentation';
-import { matchesActivitySearch } from '../../../features/activity/activityList';
+import { matchesActivityFilter, matchesActivitySearch } from '../../../features/activity/activityList';
 import { createLocalization } from '../../../locale/localization';
 import { createHorizonPublicReadGateway } from '../HorizonPublicReadGateway';
 import { retryAfterMilliseconds } from '../horizonReadHttp';
@@ -261,4 +261,176 @@ it.each([123, null])('retains malformed present sender muxed evidence as unsuppo
   const result = await reads.loadAccountOperations(endpoint, { address, limit: 1 }, signal);
   if (result.status !== 'active') throw new Error('expected-active');
   expect(mapHistoryEntry(result.records[0], address)).toMatchObject({ kind: 'unsupported', reason: 'operation-shape' });
+});
+
+const offerAddress = 'G' + 'A'.repeat(55);
+const offerIssuer = 'G' + 'B'.repeat(55);
+function rawOffer(type = 'manage_buy_offer') {
+  return {
+    ...rawOperation,
+    type,
+    source_account: offerAddress,
+    transaction_successful: true,
+    buying_asset_type: 'credit_alphanum4',
+    buying_asset_code: 'XLM',
+    buying_asset_issuer: offerIssuer,
+    selling_asset_type: 'native',
+    amount: '922337203685.4775807',
+    price_r: { n: 2147483647, d: 3 },
+    offer_id: '9223372036854775807',
+  };
+}
+function rawPool(type = 'liquidity_pool_deposit') {
+  return {
+    ...rawOffer(type),
+    liquidity_pool_id: 'a'.repeat(64),
+    reserves_deposited: [
+      { asset: 'native', amount: '0' },
+      { asset: `XLM:${offerIssuer}`, amount: '922337203685.4775807' },
+    ],
+    reserves_received: [
+      { asset: `USD:${offerIssuer}`, amount: '0.0000001' },
+      { asset: 'native', amount: '2' },
+    ],
+    shares_received: '1.0000000',
+    shares: '2',
+    reserves_max: [{ asset: 'native', amount: '888' }],
+    reserves_min: [{ asset: 'native', amount: '999' }],
+  };
+}
+it.each([
+  'manage_buy_offer',
+  'manage_sell_offer',
+  'create_passive_sell_offer',
+  'liquidity_pool_deposit',
+  'liquidity_pool_withdraw',
+])('takes successful raw %s through PublicRead, History, list/detail cache and presentation', async type => {
+  const raw = type.startsWith('liquidity_pool') ? rawPool(type) : rawOffer(type);
+  const reads = createHorizonPublicReadGateway(
+    jest
+      .fn()
+      .mockResolvedValueOnce(response({ _embedded: { records: [raw] } }))
+      .mockResolvedValueOnce(response(raw)),
+  );
+  const account = {
+    id: 'one',
+    address: offerAddress,
+    identityKind: 'classic' as const,
+    networkId: 'testnet',
+    label: '',
+    sortOrder: 0,
+    hidden: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  const dependencies = {
+    networkId: 'testnet',
+    cache: new InMemoryHistoryCacheRepository(),
+    now: () => new Date(),
+    gateway: {
+      loadAccountOperations: (input: { address: string; limit: number; cursor?: string }) =>
+        reads.loadAccountOperations(endpoint, input, signal),
+      loadOperation: (input: { operationId: string; accountAddress: string }) =>
+        reads.loadOperation(endpoint, input, signal),
+    },
+  };
+  const page = await loadHistoryPage(dependencies, account, { limit: 1 });
+  if (page.status !== 'active') throw new Error('expected-active');
+  expect(page.nextCursor).toBe(raw.paging_token);
+  expect(cacheHistoryOnlineEntriesBestEffort(dependencies, account, page.entries)).toBe(true);
+  const detail = await loadHistoryOperationDetails(dependencies, account, raw.id);
+  if (detail.status !== 'ready') throw new Error('expected-ready');
+  expect(cacheHistoryReadyDetailBestEffort(dependencies, account, detail.entry)).toBe(true);
+  const snapshot = readHistoryCacheSnapshotBestEffort(dependencies, account);
+  expect(snapshot?.details[0].entry).toEqual(page.entries[0]);
+  const entry = snapshot!.entries[0];
+  const { t, formatNumber } = createLocalization('en');
+  const row = activityRowPresentation(entry, t, formatNumber);
+  expect(matchesActivityFilter(entry, 'other')).toBe(true);
+  expect(matchesActivityFilter(entry, 'payments')).toBe(false);
+  if (entry.kind === 'offer') {
+    expect(row.title).toBe('XLM → XLM');
+    expect(row.money).toBeUndefined();
+    expect(row.reserveMoney).toBeUndefined();
+    expect(entry.offerId).toBe('9223372036854775807');
+    for (const query of [
+      entry.amount,
+      '922,337,203,685.4775807',
+      offerIssuer,
+      entry.offerId!,
+      '2147483647',
+      '3',
+      row.operation,
+      offerAddress,
+    ])
+      expect(matchesActivitySearch(entry, query, t, formatNumber)).toBe(true);
+  } else {
+    expect(entry.kind).toBe('liquidity-pool');
+    expect(row.reserveMoney).toMatchObject(
+      type === 'liquidity_pool_deposit'
+        ? [
+            { amount: '−0', tone: 'negative', asset: { kind: 'native' } },
+            { amount: '−922,337,203,685.4775807', tone: 'negative', asset: { kind: 'credit' } },
+          ]
+        : [
+            { amount: '+0.0000001', tone: 'positive', asset: { code: 'USD' } },
+            { amount: '+2', tone: 'positive', asset: { kind: 'native' } },
+          ],
+    );
+    for (const query of [
+      'a'.repeat(64),
+      row.operation,
+      offerIssuer,
+      offerAddress,
+      type === 'liquidity_pool_deposit' ? '1.0000000' : '0.0000001',
+    ])
+      expect(matchesActivitySearch(entry, query, t, formatNumber)).toBe(true);
+    expect(matchesActivitySearch(entry, '888', t, formatNumber)).toBe(false);
+    expect(matchesActivitySearch(entry, '999', t, formatNumber)).toBe(false);
+  }
+});
+it.each([
+  { ...rawOffer(), transaction_successful: undefined },
+  { ...rawOffer(), transaction_successful: 'true' },
+  { ...rawOffer(), transaction_successful: false },
+  { ...rawOffer(), offer_id: 9223372036854775807 },
+  { ...rawOffer('create_passive_sell_offer'), offer_id: 12 },
+  { ...rawOffer(), price_r: { n: '1', d: 2 } },
+  { ...rawOffer(), price_r: [1, 2] },
+  { ...rawPool(), reserves_deposited: undefined },
+  { ...rawPool(), reserves_deposited: [{ asset: 'native', amount: '1' }] },
+  {
+    ...rawPool(),
+    reserves_deposited: [
+      { asset: 'native', amount: '1' },
+      { asset: `USD:${offerIssuer}:extra`, amount: '1' },
+    ],
+  },
+  {
+    ...rawPool(),
+    reserves_deposited: [
+      { asset: 'native', amount: 1 },
+      { asset: `USD:${offerIssuer}`, amount: '1' },
+    ],
+  },
+  { ...rawPool(), reserves_deposited: [null, { asset: 'native', amount: '1' }] },
+  {
+    ...rawPool(),
+    reserves_deposited: [
+      { asset: 'native', amount: '1' },
+      { asset: `USD:${offerIssuer}`, amount: '1' },
+      { asset: 'native', amount: '2' },
+    ],
+  },
+  { ...rawPool(), shares_received: 1 },
+])('does not rescue malformed raw family evidence with quantity/limit fields: %p', async raw => {
+  const reads = createHorizonPublicReadGateway(
+    jest.fn().mockResolvedValue(response({ _embedded: { records: [raw] } })),
+  );
+  const result = await reads.loadAccountOperations(endpoint, { address: offerAddress, limit: 1 }, signal);
+  if (result.status !== 'active') throw new Error('expected-active');
+  expect(mapHistoryEntry(result.records[0], offerAddress)).toMatchObject({
+    kind: 'unsupported',
+    reason: 'operation-shape',
+  });
 });
