@@ -1,6 +1,13 @@
 import type Realm from 'realm';
 
-export const WALLET_REALM_SCHEMA_VERSION = 8;
+export const WALLET_REALM_SCHEMA_VERSION = 9;
+
+export const CONTACT_ENTITY = 'ContactEntity';
+export const CONTACT_SCHEMA = {
+  name: CONTACT_ENTITY,
+  primaryKey: 'id',
+  properties: { id: 'string', networkId: 'string', name: 'string', address: 'string', memoJson: 'string?' },
+} satisfies Realm.ObjectSchema;
 
 export const ACCOUNT_ENTITY = 'AccountEntity';
 export const SIGNER_ENTITY = 'SignerEntity';
@@ -151,6 +158,7 @@ export const DAPP_PERMISSION_GRANT_SCHEMA = {
 } satisfies Realm.ObjectSchema;
 
 export const WALLET_REALM_SCHEMAS = [
+  CONTACT_SCHEMA,
   ACCOUNT_SCHEMA,
   SIGNER_SCHEMA,
   ACCOUNT_SIGNER_REFERENCE_SCHEMA,

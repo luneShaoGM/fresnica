@@ -316,7 +316,7 @@ Stellar 的「编排」是全局 `services/` + Repository。Fresnica 对应是 `
 | Realm `Node` / `Network` | 用户 RPC 列表 | 留 | 未做 |
 | Realm `ClaimableBalance` | 待领快照 TTL 1h | 留（随 Claimable 搬运） | 无 |
 | Realm `Currency` | 资产名/图标，24h 过期 | 留，走 metadata 缓存 | 无 |
-| Realm `Contact` | 地址簿 | 留角色 | Settings 地址簿，未做 |
+| Realm `Contact` | 地址簿 | Adapt | S22 网络隔离、本地联系人与 destination picker；见 `behavior-specs/s22-address-book.md`，候选未验收 |
 | Realm `Core` | Dev Mode、默认账户、网络偏好 | 重构 | 语言 store 已有；Dev Mode 未做 |
 | Native `Vault` | 私钥/助记词密文；Realm 库加密钥也从这来 | 交 Core | Fresnica SDK envelope；Realm 不存密钥 |
 | `common/libs/stellar/keypair.ts` | JS 侧生成/派生密钥 | 交 Core | 禁止 feature 用 Stellar SDK 出密钥 |
