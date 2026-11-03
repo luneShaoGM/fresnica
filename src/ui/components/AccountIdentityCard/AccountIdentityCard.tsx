@@ -46,6 +46,11 @@ export function AccountIdentityCard({
           <Text numberOfLines={1} style={styles.name}>
             {name.trim() || formatPublicAddress(address)}
           </Text>
+          {secondary ? (
+            <Text numberOfLines={1} style={styles.label}>
+              {secondary}
+            </Text>
+          ) : null}
           <Text selectable accessibilityLabel={address} numberOfLines={2} style={styles.address}>
             {address}
           </Text>
@@ -77,6 +82,7 @@ export function AccountIdentityCard({
       <View style={styles.identity}>
         <Text style={styles.label}>{label}</Text>
         <Text style={styles.name}>{name.trim() || address}</Text>
+        {secondary ? <Text style={styles.label}>{secondary}</Text> : null}
         <Text accessibilityLabel={address} selectable style={styles.address}>
           {formatPublicAddress(address)}
         </Text>

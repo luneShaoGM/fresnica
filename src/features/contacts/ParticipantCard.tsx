@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { findContact } from '@capabilities/contacts/contacts';
+import { resolveLocalIdentityDisplay } from '@capabilities/contacts/resolveLocalIdentity';
+import type { AccountRecord } from '@capabilities/account/types';
 import { AccountIdentityCard, BottomSheet } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import { useThemedStyles } from '@ui/theme';
@@ -10,12 +12,35 @@ import { contactError, contactShareUri, type ContactBook, type Recipient } from 
 import { createStyles } from './styles';
 import { useContactList } from './useContactList';
 
-type Props = Recipient & Readonly<{ book: ContactBook; label: string; active?: boolean; editable?: boolean }>;
-export function ParticipantCard({ book, label, address, memo, active = true, editable = true }: Props) {
+type Props = Recipient &
+  Readonly<{
+    book: ContactBook;
+    label: string;
+    account?: AccountRecord;
+    active?: boolean;
+    editable?: boolean;
+  }>;
+export function ParticipantCard({ book, label, address, memo, account, active = true, editable = true }: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const { contacts, failed } = useContactList(book);
+  // Saving/editing stays exact; the display may fall back to a plain-address
+  // contact without ever borrowing that contact's stored memo.
   const contact = findContact(contacts, address, memo);
+  const identity = resolveLocalIdentityDisplay({
+    address,
+    memo,
+    contacts,
+    accounts: account ? [account] : [],
+    networkId: book.network.id,
+  });
+  const displayName = identity.source === 'address' ? '' : identity.name;
+  const sourceLabel =
+    identity.source === 'contact'
+      ? t(identity.match === 'address-only' ? 'contacts.source.addressOnly' : 'contacts.source.contact')
+      : identity.source === 'account'
+        ? t('contacts.source.account')
+        : undefined;
   const [sheet, setSheet] = useState<'menu' | 'editor'>();
   const [error, setError] = useState<string>();
   const current = useRef<typeof sheet>(undefined);
@@ -56,7 +81,7 @@ export function ParticipantCard({ book, label, address, memo, active = true, edi
     <View style={styles.card}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${label}: ${contact?.name ?? address}`}
+        accessibilityLabel={`${label}: ${displayName || address}`}
         onPress={() => {
           if (available() && !current.current) {
             current.current = 'menu';
@@ -64,7 +89,7 @@ export function ParticipantCard({ book, label, address, memo, active = true, edi
           }
         }}
       >
-        <AccountIdentityCard address={address} name={contact?.name ?? ''} label={label} />
+        <AccountIdentityCard address={address} name={displayName} label={label} secondary={sourceLabel} />
       </Pressable>
       {active && sheet ? (
         <BottomSheet visible onClose={close} closeLabel={t('common.cancel')}>
@@ -80,7 +105,7 @@ export function ParticipantCard({ book, label, address, memo, active = true, edi
             ) : (
               <>
                 <Text accessibilityRole="header" style={styles.title}>
-                  {contact?.name || label}
+                  {displayName || label}
                 </Text>
                 <Text selectable style={styles.address}>
                   {address}

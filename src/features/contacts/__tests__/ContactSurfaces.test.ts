@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable } from 'react-native';
-import { AccountIdentityCard, BottomSheet, Field, ListRow, SectionedList } from '@ui/components';
+import { AccountIdentityCard, BottomSheet, Field, SectionedList } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import type { Contact } from '@capabilities/contacts/contacts';
 import { ContactEditor } from '../ContactEditor';
@@ -47,6 +47,7 @@ type Props = {
   isCurrent?: () => boolean;
   presentation?: string;
   memoText?: string;
+  secondary?: string;
   sections?: readonly { title: string; data: readonly Contact[] }[];
   renderItem?: (item: Contact) => React.ReactElement<Props>;
   keyExtractor?: (item: Contact) => string;
@@ -246,6 +247,90 @@ it('does not assign a memo contact name to address-only Activity and offers a fr
   expect(editor.props.id).toBeUndefined();
   expect(editor.props.initial).toEqual({ name: '', address: row.address, memo: undefined });
 });
+it('shows an address-only saved name for a memo recipient but does not copy that contact memo or edit it', () => {
+  rows = [{ ...row, name: 'Plain label' }];
+  const requestedMemo = { type: 'id' as const, value: '9' };
+  const draw = () =>
+    render(() => ParticipantCard({ book, label: 'Recipient', address: row.address, memo: requestedMemo }));
+  let root = draw();
+  expect(nodes(root, AccountIdentityCard)[0].props).toMatchObject({
+    name: 'Plain label',
+    secondary: 'contacts.source.addressOnly',
+  });
+  nodes(root, Pressable)[0].props.onPress!();
+  root = draw();
+  button(root, 'contacts.add')();
+  const editor = nodes(draw(), ContactEditor)[0];
+  expect(editor.props.id).toBeUndefined();
+  expect(editor.props.initial).toEqual({ name: '', address: row.address, memo: requestedMemo });
+  expect(book.store.save).not.toHaveBeenCalled();
+});
+
+it('prefers exact memo contact for display and editor; ambiguous legacy matches do not claim that name', () => {
+  const exact = { ...row, id: 'exact', name: 'Memo subaccount', memo: { type: 'id' as const, value: '7' } };
+  rows = [row, exact];
+  const draw = () =>
+    render(() =>
+      ParticipantCard({ book, label: 'Recipient', address: row.address, memo: { type: 'id', value: '007' } }),
+    );
+  let root = draw();
+  expect(nodes(root, AccountIdentityCard)[0].props.name).toBe('Memo subaccount');
+  nodes(root, Pressable)[0].props.onPress!();
+  button(draw(), 'contacts.edit')();
+  expect(nodes(draw(), ContactEditor)[0].props.id).toBe('exact');
+
+  // Ambiguous identities can use the own-wallet label, not a conflicting
+  // contact label or an unrelated address-only fallback.
+  values = [];
+  refs = [];
+  rows = [row, exact, { ...exact, id: 'legacy', name: 'Other memo', networkId: 'main' }];
+  const account = {
+    address: row.address,
+    networkId: 'test',
+    label: 'My Wallet',
+    identityKind: 'classic',
+    hidden: false,
+  } as AccountRecord;
+  root = render(() =>
+    ParticipantCard({
+      book,
+      label: 'Recipient',
+      account,
+      address: row.address,
+      memo: { type: 'id', value: '7' },
+    }),
+  );
+  expect(nodes(root, AccountIdentityCard)[0].props).toMatchObject({
+    name: 'My Wallet',
+    secondary: 'contacts.source.account',
+  });
+});
+
+it('keeps own-wallet labels network-isolated when no contact is saved', () => {
+  rows = [];
+  const account = {
+    address: row.address,
+    networkId: 'test',
+    label: 'Wallet A',
+    identityKind: 'classic',
+    hidden: false,
+  } as AccountRecord;
+  expect(
+    nodes(
+      render(() => ParticipantCard({ book, label: 'Recipient', account, address: row.address })),
+      AccountIdentityCard,
+    )[0].props.name,
+  ).toBe('Wallet A');
+  expect(
+    nodes(
+      render(() =>
+        ParticipantCard({ book, label: 'Recipient', account: { ...account, networkId: 'main' }, address: row.address }),
+      ),
+      AccountIdentityCard,
+    )[0].props.name,
+  ).toBe('');
+});
+
 it('does not reopen a cancelled participant menu/editor from a delayed callback, including after reopening', () => {
   const draw = () => render(() => ParticipantCard({ book, label: 'Counterparty', address: row.address }));
   let root = draw();
@@ -273,7 +358,9 @@ it('shows sorted/searchable global contacts and wires list-to-editor without sav
   const sections = nodes(root, SectionedList)[0].props;
   expect(sections.sections?.map(section => section.title)).toEqual(['A', 'O', 'Z']);
   expect(sections.sections?.flatMap(section => section.data.map(contact => contact.name))).toEqual([
-    'Alice', 'Other', 'Zoe',
+    'Alice',
+    'Other',
+    'Zoe',
   ]);
   expect(sections.keyExtractor?.(row)).toBe(row.id);
   const card = sections.renderItem!(row);
@@ -313,9 +400,7 @@ it('scans a validated recipient and memo into the editor without saving or accep
   await Promise.resolve();
   let root = draw();
   const first = nodes(root, ScannerView)[0].props.onCode!;
-  first(
-    'web+stellar:pay?destination=GVALID&memo=007&memo_type=MEMO_ID&network_passphrase=test-passphrase',
-  );
+  first('web+stellar:pay?destination=GVALID&memo=007&memo_type=MEMO_ID&network_passphrase=test-passphrase');
   expect(values.slice(1, 4)).toEqual(['GVALID', 'id', '7']);
   expect(book.store.save).not.toHaveBeenCalled();
   expect(nodes(draw(), ScannerView)).toHaveLength(0);
@@ -365,7 +450,10 @@ it('closes the camera on cancel and ignores a late camera permission response', 
     ScannerView,
     ingress: {
       checkCameraPermission: jest.fn(
-        () => new Promise<'granted'>(resolve => { resolvePermission = resolve; }),
+        () =>
+          new Promise<'granted'>(resolve => {
+            resolvePermission = resolve;
+          }),
       ),
       requestCameraPermission: jest.fn(),
       openCameraSettings: jest.fn(),
@@ -498,13 +586,55 @@ it('picker re-reads a selected contact instead of returning stale memo data', ()
   const onSelect = jest.fn();
   const root = render(() => DestinationPicker({ book, accounts: [], onSelect, onClose: jest.fn() }));
   rows = [{ ...row, memo: { type: 'id', value: '8' } }];
-  nodes(root, ListRow)[0].props.onPress!();
+  const selectedCard = nodes(root, AccountIdentityCard)[0];
+  expect(selectedCard.props.presentation).toBe('selectable');
+  expect(selectedCard.props.secondary).toBe('contacts.source.contact');
+  selectedCard.props.onPress!();
   expect(onSelect).toHaveBeenLastCalledWith({ address: row.address, memo: { type: 'id', value: '8' } });
   rows = [];
-  nodes(root, ListRow)[0].props.onPress!();
+  selectedCard.props.onPress!();
   expect(onSelect).toHaveBeenCalledTimes(1);
 });
 
+it('Send picker uses shared identity rows, keeps contacts global and own wallets network-scoped', () => {
+  rows = [
+    { ...row, networkId: 'main', memo: { type: 'text', value: 'ref-7' } },
+    { ...row, id: 'other', name: 'Second', memo: undefined },
+  ];
+  const own = {
+    id: 'own',
+    label: 'Wallet',
+    address: 'GOWN',
+    networkId: 'test',
+    identityKind: 'classic',
+    hidden: false,
+  } as AccountRecord;
+  const foreign = { ...own, id: 'foreign', networkId: 'main', label: 'Wrong network' };
+  const onSelect = jest.fn();
+  const root = render(() =>
+    DestinationPicker({
+      book,
+      accounts: [foreign, own],
+      onSelect,
+      onClose: jest.fn(),
+    }),
+  );
+  const cards = nodes(root, AccountIdentityCard);
+  expect(cards.map(card => card.props.name)).toEqual(['Alice', 'Second', 'Wallet']);
+  expect(cards.map(card => card.props.secondary)).toEqual([
+    'contacts.source.contact',
+    'contacts.source.contact',
+    'contacts.source.account',
+  ]);
+  expect(cards[0].props.memoText).toBe('send.memo.type.text: ref-7');
+  cards[0].props.onPress!();
+  expect(onSelect).toHaveBeenLastCalledWith({
+    address: row.address,
+    memo: { type: 'text', value: 'ref-7' },
+  });
+  cards[2].props.onPress!();
+  expect(onSelect).toHaveBeenLastCalledWith({ address: own.address });
+});
 it('Send picker applies the exact contact memo and ignores late selections after cancel and reopening', () => {
   const asset = { kind: 'native' as const, code: 'XLM' as const };
   values = [

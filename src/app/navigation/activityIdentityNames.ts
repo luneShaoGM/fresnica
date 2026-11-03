@@ -1,5 +1,6 @@
 import type { AccountRecord } from '@capabilities/account/types';
 import type { Contact } from '@capabilities/contacts/contacts';
+import { resolveLocalIdentityDisplay } from '@capabilities/contacts/resolveLocalIdentity';
 import type { ActivityIdentityNames } from '@features/activity/activityRowPresentation';
 
 export function activityIdentityNames(
@@ -7,28 +8,17 @@ export function activityIdentityNames(
   contacts: readonly Contact[],
   networkId: string,
 ): ActivityIdentityNames {
+  // Activity list rows do not carry an authoritative transaction memo.
+  // Only address-only contacts may supply names here; memo-specific contacts
+  // are resolved when an exact memo is known at the presentation boundary.
+  const candidates = new Set<string>([
+    ...accounts.map(account => account.address),
+    ...contacts.filter(contact => contact.memo === undefined).map(contact => contact.address),
+  ]);
   const names = new Map<string, string>();
-  for (const account of accounts) {
-    if (
-      account.networkId === networkId &&
-      account.identityKind === 'classic' &&
-      !account.hidden &&
-      account.label.trim()
-    ) {
-      names.set(account.address, account.label);
-    }
-  }
-  const plainContactNames = new Map<string, string | undefined>();
-  for (const contact of contacts) {
-    if (contact.memo !== undefined || !contact.name.trim()) continue;
-    if (plainContactNames.has(contact.address)) {
-      plainContactNames.set(contact.address, undefined);
-    } else {
-      plainContactNames.set(contact.address, contact.name);
-    }
-  }
-  for (const [address, name] of plainContactNames) {
-    if (name) names.set(address, name);
+  for (const address of candidates) {
+    const resolved = resolveLocalIdentityDisplay({ address, contacts, accounts, networkId });
+    if (resolved.source !== 'address') names.set(address, resolved.name);
   }
   return names;
 }

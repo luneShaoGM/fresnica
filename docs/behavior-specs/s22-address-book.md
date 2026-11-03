@@ -141,3 +141,35 @@ S22 is not L3/L4 solely because tests/CI pass. Independent exact-HEAD implementa
   Send picker, remote avatar/asset icon resolution and M-address support are still deferred
   (M destinations cannot yet pass the existing payment validation pipeline). Do not silently
   treat the lack of native camera product-flow acceptance as approval.
+
+## Local identity display resolver + Send picker slice (2026-11-03; review together with #156)
+
+- **Product trace:** S22 Stage 8 contact UX, using the existing Contacts capability and
+  AccountIdentityCard; behavior reference: Stellar ResolverService/ContactIdentity, adapted
+  independently. No external Resolver backend, remote API, avatar proxy, or new persisted
+  cache is introduced.
+- Pure, synchronous **display-only** lookup priority:
+  1. One exact saved contact by full address + normalized typed Memo.
+  2. With a Memo, if no exact match exists, one address-only saved contact as a **name only**
+     fallback. Label the source explicitly as an address-only match.
+  3. One visible Classic wallet account matching the full address on the **current
+     network** (never a hidden, contract, or cross-network account).
+  4. Raw public address if no unique name is available.
+  Duplicate exact matches must not choose one by insertion order or fall back through
+  to an unrelated plain-address contact; any wallet fallback still follows network
+  boundaries. The returned display data has no transferable recipient/memo values.
+- **Security separation:** Contact editing and Send selection keep strict exact identities
+  and the existing re-read-by-record-ID path; displaying a plain contact's name cannot
+  inject that contact's Memo into Send or switch wallet networks. No modification of
+  payment preparation, memo requirements, exact XDR, signing, or recovery.
+- Activity list rows have no authoritative transaction Memo in their name projection and
+  therefore use **only unique address-only saved names** (or visible wallet labels).
+  In particular, a memo-specific contact cannot be assigned to an unrelated activity
+  participant; Activity detail continues to use explicit participant addresses only.
+- Reuse the shared identity card in Send recipient picker with the original public address,
+  typed Memo and visible contact/own-wallet source labels. Globally shared contacts remain
+  selectable, but own wallet accounts stay scoped to the active network.
+- Validation: unit tests for exact/canonical Memo precedence, plain-address display fallback,
+  legacy duplicate ambiguity, account/network isolation, Activity no-memo attribution,
+  participant Add/Edit exactness, picker session re-read and source labels; full repository
+  check on the final HEAD. Native product-flow acceptance remains deferred.

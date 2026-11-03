@@ -50,6 +50,28 @@ it('renders a single selectable identity with memo and full-address accessibilit
   root.props.onPress();
   expect(onPress).toHaveBeenCalledTimes(1);
 });
+it('shows local identity source as secondary display text without changing the underlying address', () => {
+  const selectable = AccountIdentityCard({
+    address: 'GCOUNTERPARTY',
+    name: 'Alice',
+    label: 'Contact',
+    presentation: 'selectable',
+    secondary: 'Saved contact',
+  });
+  expect(nodes(selectable, Text).map(node => node.props.children)).toEqual(['Alice', 'Saved contact', 'GCOUNTERPARTY']);
+  const normal = AccountIdentityCard({
+    address: 'GCOUNTERPARTY',
+    name: 'Alice',
+    label: 'Recipient',
+    secondary: 'Address-only match',
+  });
+  expect(nodes(normal, Text).map(node => node.props.children)).toEqual([
+    'Recipient',
+    'Alice',
+    'Address-only match',
+    'GCOU****ARTY',
+  ]);
+});
 it('keeps compact account avatars tied to exact address across renames, with masked fallback and no nested selectable control', () => {
   const render = (name: string) =>
     AccountIdentityCard({

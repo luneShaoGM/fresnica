@@ -117,6 +117,7 @@ export function AddressBookScreen({
                   name={contact.name}
                   label={t('contacts.local')}
                   presentation="selectable"
+                  secondary={t('contacts.source.contact')}
                   memoText={
                     contact.memo ? `${t(`send.memo.type.${contact.memo.type}`)}: ${contact.memo.value}` : undefined
                   }

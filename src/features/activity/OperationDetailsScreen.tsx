@@ -239,6 +239,7 @@ export function OperationDetailsScreen({
               <ParticipantCard
                 key={`${account.networkId}:${address}:${label}`}
                 book={contacts}
+                account={account}
                 address={address}
                 label={label}
                 active={active}
