@@ -15,6 +15,8 @@ import {
   RealmNetworkPreferenceStore,
 } from '../platform/persistence/realm/RealmNetworkPreferenceStore';
 import { createServiceSession } from './network/createServiceSession';
+import type { ContactBook } from '../features/contacts/contactBook';
+import { RealmContactStore } from '../platform/persistence/realm/RealmContactStore';
 import { copyPublicText } from '../platform/system/copyPublicText';
 import type { AssetCatalogPort } from '../capabilities/trustline/curatedAssetCatalog';
 import { createHttpAssetCatalog } from '../platform/assets/HttpAssetCatalog';
@@ -97,6 +99,7 @@ export type AppServices = Readonly<{
   history: HistoryProductDependencies;
   trustline: TrustlineProductDependencies;
   request: RequestProductDependencies;
+  contacts: ContactBook;
   dappCatalog: DappCatalogPort;
   dappPermissions: DappPermissionStore;
   assetCatalog: AssetCatalogPort;
@@ -346,6 +349,8 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       networkId: networkProfile.id,
     });
     closeDappCatalog = dappCatalog.close;
+    const contactStore = new RealmContactStore(realm);
+    const guardedContacts = session.bind(contactStore);
     diagnostics.info('app-services-ready', { details: { networkId: network.id } });
 
     return {
@@ -354,6 +359,29 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       networkSettings,
       assetCatalog: createHttpAssetCatalog(),
       copyPublicText,
+      contacts: {
+        store: {
+          list: guardedContacts.list,
+          save: guardedContacts.save,
+          remove: guardedContacts.remove,
+          subscribe: contactStore.subscribe,
+          getRevision: contactStore.getRevision,
+        },
+        network,
+        isClassicAccountAddress: address => {
+          try {
+            return stellarGateway.isClassicAccountAddress(address);
+          } catch {
+            return false;
+          }
+        },
+        createId: () => {
+          session.assertOpen();
+          return createRealmRecordId();
+        },
+        copyPublicText: session.bind({ copy: copyPublicText }).copy,
+        output: session.bind(reactNativeRequestOutput),
+      },
       accountManagement: {
         repository,
         pendingSubmissions,

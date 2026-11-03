@@ -22,6 +22,8 @@ import type {
 import { Header, Screen, StateView } from '@ui/components';
 import { useThemedStyles } from '@ui/theme';
 
+import { ParticipantCard } from '../contacts/ParticipantCard';
+import type { ContactBook } from '../contacts/contactBook';
 import { useLocalization } from '../../locale';
 import { projectFeatureError } from '../featureError';
 import { activityEntryPresentation } from './activityList';
@@ -42,6 +44,7 @@ type LoadState =
 
 type Props = Readonly<{
   account: AccountRecord;
+  contacts?: ContactBook;
   operationId: string;
   dependencies: HistoryProductDependencies;
   active: boolean;
@@ -53,6 +56,7 @@ type Props = Readonly<{
 
 export function OperationDetailsScreen({
   account,
+  contacts,
   operationId,
   dependencies,
   active,
@@ -229,6 +233,18 @@ export function OperationDetailsScreen({
           explorerUrl,
           explorerOpenState,
           openExplorer,
+          (address, label) =>
+            contacts && contacts.network.id === account.networkId && contacts.isClassicAccountAddress(address) ? (
+              <ParticipantCard
+                key={`${account.networkId}:${address}:${label}`}
+                book={contacts}
+                address={address}
+                label={label}
+                active={active}
+              />
+            ) : (
+              <DetailRow label={label} value={address} mono styles={styles} />
+            ),
         )}
       </ScrollView>
     </Screen>
@@ -249,6 +265,7 @@ function renderContent(
   explorerUrl: string | undefined,
   explorerOpenState: 'idle' | 'opening' | 'failed',
   onOpenExplorer: () => void,
+  renderAccount: (address: string, label: string) => React.ReactNode,
 ) {
   if (state.kind === 'loading') {
     return (
@@ -318,6 +335,7 @@ function renderContent(
             explorerUrl,
             explorerOpenState,
             onOpenExplorer,
+            renderAccount,
           )}
         </>
       );
@@ -378,6 +396,7 @@ function renderEntry(
   explorerUrl: string | undefined,
   explorerOpenState: 'idle' | 'opening' | 'failed',
   onOpenExplorer: () => void,
+  renderAccount: (address: string, label: string) => React.ReactNode,
 ) {
   const presentation = activityEntryPresentation(entry, t, formatNumber);
   return (
@@ -411,7 +430,7 @@ function renderEntry(
           styles={styles}
         />
         <DetailRow label={t('activity.detail.transactionHash')} value={entry.transactionHash} mono styles={styles} />
-        <DetailRow label={t('activity.detail.sourceAccount')} value={entry.sourceAccount} mono styles={styles} />
+        {renderAccount(entry.sourceAccount, t('activity.detail.sourceAccount'))}
         {entry.kind === 'payment' ? (
           <>
             <DetailRow
@@ -425,11 +444,9 @@ function renderEntry(
               styles={styles}
             />
             <DetailRow label={t('activity.detail.asset')} value={entry.asset.code} styles={styles} />
-            {entry.asset.kind === 'credit' ? (
-              <DetailRow label={t('activity.detail.issuer')} value={entry.asset.issuer} mono styles={styles} />
-            ) : null}
-            <DetailRow label={t('activity.detail.counterparty')} value={entry.counterparty} mono styles={styles} />
-            <ParticipantRows participants={entry.participants} t={t} styles={styles} />
+            {entry.asset.kind === 'credit' ? renderAccount(entry.asset.issuer, t('activity.detail.issuer')) : null}
+            {renderAccount(entry.counterparty, t('activity.detail.counterparty'))}
+            <ParticipantRows participants={entry.participants} t={t} renderAccount={renderAccount} />
           </>
         ) : null}
         {entry.kind === 'create-account' ? (
@@ -444,16 +461,16 @@ function renderEntry(
               value={`${formatNumber(entry.startingBalance)} XLM`}
               styles={styles}
             />
-            <DetailRow label={t('activity.detail.counterparty')} value={entry.counterparty} mono styles={styles} />
-            <ParticipantRows participants={entry.participants} t={t} styles={styles} />
+            {renderAccount(entry.counterparty, t('activity.detail.counterparty'))}
+            <ParticipantRows participants={entry.participants} t={t} renderAccount={renderAccount} />
           </>
         ) : null}
         {entry.kind === 'change-trust' ? (
           <>
             <DetailRow label={t('activity.detail.asset')} value={entry.asset.code} styles={styles} />
-            <DetailRow label={t('activity.detail.issuer')} value={entry.asset.issuer} mono styles={styles} />
+            {renderAccount(entry.asset.issuer, t('activity.detail.issuer'))}
             <DetailRow label={t('activity.detail.limit')} value={formatNumber(entry.limit)} styles={styles} />
-            <ParticipantRows participants={entry.participants} t={t} styles={styles} />
+            <ParticipantRows participants={entry.participants} t={t} renderAccount={renderAccount} />
           </>
         ) : null}
       </View>
@@ -515,20 +532,16 @@ export function OperationExplorerAction({
 function ParticipantRows({
   participants,
   t,
-  styles,
+  renderAccount,
 }: Readonly<{
   participants: readonly HistoryParticipant[];
   t: Translate;
-  styles: Styles;
+  renderAccount: (address: string, label: string) => React.ReactNode;
 }>) {
   return participants.map((participant, index) => (
-    <DetailRow
-      key={`${participant.role}:${index}`}
-      label={participantRoleLabel(participant.role, t)}
-      value={participant.identity}
-      mono
-      styles={styles}
-    />
+    <React.Fragment key={`${participant.role}:${index}`}>
+      {renderAccount(participant.identity, participantRoleLabel(participant.role, t))}
+    </React.Fragment>
   ));
 }
 

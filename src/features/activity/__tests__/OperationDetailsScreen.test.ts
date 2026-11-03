@@ -1,3 +1,5 @@
+jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
+
 import React from 'react';
 import { Pressable, View } from 'react-native';
 

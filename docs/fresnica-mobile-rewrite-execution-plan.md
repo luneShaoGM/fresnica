@@ -864,6 +864,17 @@ Realm v7 增量实体保持原方案，不迁移账户、授权或含 token 的�
 
 ### Stage 8：Stellar 扩展产品
 
+#### S22 Address Book 本地候选（2026-11-02）
+
+分支 `feat/address-book-stellar-align-2026-11-02`，基于 `main@0eafeff`；按持久化边界拆为
+Realm v9/联系人策略底层与依赖其上的产品界面两份切片，尚未以此记录宣称合并或独立审查通过。
+行为与边界见 [S22 spec](behavior-specs/s22-address-book.md)。本轮覆盖 Settings 搜索/新增/编辑/删除/分享、
+Send 选择联系人并原子填入地址与 typed Memo、Activity Classic 参与方卡片与添加/编辑联系人菜单。
+同一网络内跨钱包账户共用联系人，网络间隔离；不推进 M-address、Federation/Resolver 或旧钱包数据迁移。
+原生 Android/iOS、分享取消、键盘/返回/屏幕阅读器和最终视觉对齐按用户安排留到最后统一验收；
+S09/Stage 9 iOS System Auth 取消/重试延期不变。此候选不升级 S22 的 L3/L4 成熟度。
+
+
 以下均进入完整重写计划的必达范围，按依赖和风险逐项执行；可以分多个 release 交付：
 
 - Asset Metadata 与 Stellar TOML。

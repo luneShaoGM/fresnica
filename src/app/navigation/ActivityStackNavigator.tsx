@@ -57,6 +57,7 @@ export function ActivityStackNavigator({ accounts, selectedAccountId, services }
             foreground={readRuntime.foreground}
             account={requireAccount(accounts, route.params.accountId)}
             dependencies={services.history}
+            contacts={services.contacts}
             operationId={route.params.operationId}
             invalidationRevision={invalidationRevision}
             onBack={() => navigation.goBack()}

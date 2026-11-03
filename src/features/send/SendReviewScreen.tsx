@@ -16,6 +16,7 @@ import {SlideToConfirm} from '../../ui/SlideToConfirm';
 import {createSendReviewStyles} from './styles';
 
 type Props = Readonly<{
+  recipientCard?: React.ReactNode;
   review: PaymentReview;
   submitting: boolean;
   passphraseRequired: boolean;
@@ -28,6 +29,7 @@ type Props = Readonly<{
 
 export function SendReviewScreen({
   review,
+  recipientCard,
   submitting,
   passphraseRequired,
   appPassphrase,
@@ -74,6 +76,7 @@ export function SendReviewScreen({
           <Text style={styles.summaryAsset}>{assetLabel}</Text>
         </View>
 
+        {recipientCard}
         <View style={styles.rows}>
           <ReviewRow
             label="Operation"

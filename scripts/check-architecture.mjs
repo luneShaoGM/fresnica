@@ -24,6 +24,7 @@ const strictPresentationScopes = [
   'src/features/trustlines/',
   'src/features/swap/',
   'src/features/activity/',
+  'src/features/contacts/',
   'src/features/dapps/',
   'src/features/request/',
   'src/features/exchange/',

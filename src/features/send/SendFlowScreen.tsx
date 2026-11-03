@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
+import { DestinationPicker } from '../contacts/DestinationPicker';
+import { ParticipantCard } from '../contacts/ParticipantCard';
+import { recipientFields, type ContactBook, type Recipient } from '../contacts/contactBook';
 import type { AccountRecord } from '../../capabilities/account/types';
 import { loadBalanceSnapshot } from '../../capabilities/balance/loadBalanceSnapshot';
 import type { BalanceAsset, BalanceLine } from '../../capabilities/balance/types';
@@ -7,12 +10,12 @@ import { sameBalanceAsset } from '../home/assetDetails';
 import type { PaymentReview } from '../../capabilities/payment/buildPaymentReview';
 import type { RequestPaymentIntent } from '../../capabilities/request/requestUri';
 import type { StellarPaymentMemo } from '../../capabilities/stellar/types';
-import {useLocalization} from '../../locale';
+import { useLocalization } from '../../locale';
 import { SendFormScreen } from './SendFormScreen';
 import { SendResultScreen, type SendTerminalResult } from './SendResultScreen';
 import { SendReviewScreen } from './SendReviewScreen';
 import { SendStatusScreen } from './SendStatusScreen';
-import {projectFeatureError} from '../featureError';
+import { projectFeatureError } from '../featureError';
 import { buildSendReview, submitSendReview, type SendProductDependencies } from './sendProductFlow';
 import { resolveRequestSendPrefill } from './requestSendPrefill';
 
@@ -24,7 +27,7 @@ type LoadState =
 type FlowState =
   | Readonly<{ kind: 'form' }>
   | Readonly<{ kind: 'review'; review: PaymentReview }>
-  | Readonly<{ kind: 'result'; result: SendTerminalResult }>;
+  | Readonly<{ kind: 'result'; result: SendTerminalResult; recipient: Recipient }>;
 
 type Props = Readonly<{
   account: AccountRecord;
@@ -32,9 +35,21 @@ type Props = Readonly<{
   onDone: () => void;
   requestIntent?: RequestPaymentIntent;
   initialAsset?: BalanceAsset;
+  active?: boolean;
+  contacts?: ContactBook;
+  destinationAccounts?: readonly AccountRecord[];
 }>;
 
-export function SendFlowScreen({ account, dependencies, onDone, requestIntent, initialAsset }: Props) {
+export function SendFlowScreen({
+  account,
+  dependencies,
+  onDone,
+  requestIntent,
+  initialAsset,
+  contacts,
+  active = true,
+  destinationAccounts = [],
+}: Props) {
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [flow, setFlow] = useState<FlowState>({ kind: 'form' });
   const [selectedAsset, setSelectedAsset] = useState<BalanceAsset | undefined>();
@@ -47,8 +62,19 @@ export function SendFlowScreen({ account, dependencies, onDone, requestIntent, i
   const [passphraseRequired, setPassphraseRequired] = useState(false);
   const [appPassphrase, setAppPassphrase] = useState('');
   const [error, setError] = useState<string | undefined>();
-  const {t} = useLocalization();
+  const { t } = useLocalization();
   const loadVersion = useRef(0);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerLive = useRef(false);
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const pickerGeneration = useRef(0);
+  const capturedPickerGeneration = pickerGeneration.current;
+  const closePicker = () => {
+    pickerLive.current = false;
+    pickerGeneration.current += 1;
+    setPickerOpen(false);
+  };
 
   useEffect(() => {
     const version = loadVersion.current + 1;
@@ -120,9 +146,15 @@ export function SendFlowScreen({ account, dependencies, onDone, requestIntent, i
           setMemoType(prefill.memoType);
           setMemoValue(prefill.memoValue);
         } else {
-          const requested = initialAsset ? snapshot.balances.find(line => sameBalanceAsset(line.asset, initialAsset)) : snapshot.balances[0];
+          const requested = initialAsset
+            ? snapshot.balances.find(line => sameBalanceAsset(line.asset, initialAsset))
+            : snapshot.balances[0];
           if (!requested) {
-            setLoadState({ kind: 'blocked', title: t('home.asset.missing'), description: t('send.request.assetUnavailable') });
+            setLoadState({
+              kind: 'blocked',
+              title: t('home.asset.missing'),
+              description: t('send.request.assetUnavailable'),
+            });
             return;
           }
           setSelectedAsset(requested.asset);
@@ -140,9 +172,14 @@ export function SendFlowScreen({ account, dependencies, onDone, requestIntent, i
       });
 
     return () => {
+      pickerLive.current = false;
       loadVersion.current += 1;
     };
   }, [account, dependencies.gateway, dependencies.network, dependencies.repository, initialAsset, requestIntent, t]);
+
+  useEffect(() => {
+    if (!active) closePicker();
+  }, [active]);
 
   const buildReview = useCallback(async () => {
     if (loadState.kind !== 'ready' || !selectedAsset) {
@@ -156,7 +193,7 @@ export function SendFlowScreen({ account, dependencies, onDone, requestIntent, i
         destination,
         amount,
         asset: selectedAsset,
-        ...(memoType === 'none' ? {} : {memo: {type: memoType, value: memoValue}}),
+        ...(memoType === 'none' ? {} : { memo: { type: memoType, value: memoValue } }),
       });
 
       setPassphraseRequired(false);
@@ -189,7 +226,7 @@ export function SendFlowScreen({ account, dependencies, onDone, requestIntent, i
         return;
       }
 
-      setFlow({ kind: 'result', result });
+      setFlow({ kind: 'result', result, recipient: { address: flow.review.destination, memo: flow.review.memo } });
     } catch (caught) {
       setError(readableError(caught, t));
     } finally {
@@ -209,6 +246,18 @@ export function SendFlowScreen({ account, dependencies, onDone, requestIntent, i
     return (
       <SendReviewScreen
         review={flow.review}
+        recipientCard={
+          contacts ? (
+            <ParticipantCard
+              book={contacts}
+              address={flow.review.destination}
+              memo={flow.review.memo}
+              label={t('contacts.recipient')}
+              active={active && !submitting}
+              editable={false}
+            />
+          ) : undefined
+        }
         submitting={submitting}
         passphraseRequired={passphraseRequired}
         appPassphrase={appPassphrase}
@@ -226,39 +275,87 @@ export function SendFlowScreen({ account, dependencies, onDone, requestIntent, i
   }
 
   if (flow.kind === 'result') {
-    return <SendResultScreen result={flow.result} onDone={onDone} />;
+    return (
+      <SendResultScreen
+        result={flow.result}
+        onDone={onDone}
+        recipientCard={
+          contacts && flow.result.status === 'submitted' ? (
+            <ParticipantCard book={contacts} active={active} {...flow.recipient} label={t('contacts.recipient')} />
+          ) : undefined
+        }
+      />
+    );
   }
 
   return (
-    <SendFormScreen
-      accountLabel={account.label || account.address}
-      requestMessage={requestIntent?.message}
-      balances={loadState.balances}
-      selectedAsset={selectedAsset ?? loadState.balances[0].asset}
-      destination={destination}
-      amount={amount}
-      memoType={memoType}
-      memoValue={memoValue}
-      building={building}
-      error={error}
-      onSelectAsset={asset => {
-        setSelectedAsset(asset);
-        setError(undefined);
-      }}
-      onChangeDestination={setDestination}
-      onChangeAmount={setAmount}
-      onSelectMemoType={nextType => {
-        if (nextType === memoType) {
-          return;
+    <>
+      <SendFormScreen
+        accountLabel={account.label || account.address}
+        requestMessage={requestIntent?.message}
+        balances={loadState.balances}
+        selectedAsset={selectedAsset ?? loadState.balances[0].asset}
+        destination={destination}
+        amount={amount}
+        memoType={memoType}
+        memoValue={memoValue}
+        building={building}
+        error={error}
+        onSelectAsset={asset => {
+          setSelectedAsset(asset);
+          setError(undefined);
+        }}
+        onChooseRecipient={
+          contacts && contacts.network.id === account.networkId
+            ? () => {
+                if (activeRef.current && !building) {
+                  pickerLive.current = true;
+                  setPickerOpen(true);
+                }
+              }
+            : undefined
         }
-        setMemoType(nextType);
-        setMemoValue('');
-        setError(undefined);
-      }}
-      onChangeMemoValue={setMemoValue}
-      onContinue={() => void buildReview()}
-      onCancel={onDone}
-    />
+        onChangeDestination={setDestination}
+        onChangeAmount={setAmount}
+        onSelectMemoType={nextType => {
+          if (nextType === memoType) {
+            return;
+          }
+          setMemoType(nextType);
+          setMemoValue('');
+          setError(undefined);
+        }}
+        onChangeMemoValue={setMemoValue}
+        onContinue={() => void buildReview()}
+        onCancel={() => {
+          closePicker();
+          onDone();
+        }}
+      />
+      {active && pickerOpen && contacts ? (
+        <DestinationPicker
+          book={contacts}
+          accounts={destinationAccounts}
+          onClose={closePicker}
+          onSelect={recipient => {
+            if (
+              !activeRef.current ||
+              !pickerLive.current ||
+              capturedPickerGeneration !== pickerGeneration.current ||
+              building ||
+              contacts.network.id !== account.networkId
+            )
+              return;
+            const fields = recipientFields(recipient);
+            closePicker();
+            setDestination(fields.destination);
+            setMemoType(fields.memoType);
+            setMemoValue(fields.memoValue);
+            setError(undefined);
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 

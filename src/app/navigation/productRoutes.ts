@@ -25,6 +25,7 @@ export type ProductRoute =
   | 'general-settings'
   | 'advanced-settings'
   | 'accounts-settings'
+  | 'address-book'
   | 'security-settings'
   | 'network-settings'
   | 'language-settings'
@@ -67,6 +68,7 @@ export type ProductRouteParams = Readonly<{
   'general-settings': undefined;
   'advanced-settings': undefined;
   'accounts-settings': undefined;
+  'address-book': undefined;
   'security-settings': undefined;
   'network-settings': undefined;
   'language-settings': undefined;
@@ -96,6 +98,7 @@ export const PRODUCT_ROUTES: Readonly<Record<MainTab, readonly ProductRoute[]>> 
     'general-settings',
     'advanced-settings',
     'accounts-settings',
+    'address-book',
     'account-details',
     'add-account',
     'security-settings',

@@ -57,6 +57,15 @@ jest.mock('../../../platform/fresnica/native', () => ({
   loadNativeFresnicaModule: () => ({}),
   ReactNativeFresnicaSdk: jest.fn(() => mockSdk),
 }));
+jest.mock('../../../platform/persistence/realm/RealmContactStore', () => ({
+  RealmContactStore: jest.fn(() => ({
+    list: () => [],
+    save: jest.fn(),
+    remove: jest.fn(),
+    getRevision: () => 0,
+    subscribe: () => () => {},
+  })),
+}));
 jest.mock('../../../platform/persistence/realm', () => ({
   openWalletRealm: async () => mockWallet,
   RealmAccountSignerRepository: jest.fn(() => mockRepository),
@@ -311,6 +320,12 @@ describe('production network composition and retirement', () => {
     expect(changed).toHaveBeenCalledTimes(1);
     expect(mockUnresolved).toEqual([{ networkId: 'stellar-testnet', transactionHash: 'original', state: 'uncertain' }]);
     expect(() => services.send.gateway.isClassicAccountAddress('G')).toThrow('network-session-retired');
+    expect(() =>
+      services.contacts.store.save({ id: 'late', networkId: 'stellar-testnet', address: 'G', name: 'Late' }),
+    ).toThrow('network-session-retired');
+    expect(() => services.contacts.store.remove('stellar-testnet', 'late')).toThrow('network-session-retired');
+    expect(services.contacts.isClassicAccountAddress('G')).toBe(false);
+    expect(services.contacts.store.getRevision()).toBe(0);
     expect(mockWallet.close).not.toHaveBeenCalled();
     expect(mockPreferenceRealm.close).not.toHaveBeenCalled();
     services.close();

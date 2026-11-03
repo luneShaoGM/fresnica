@@ -72,6 +72,10 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
     readiness: 'implemented',
     note: 'Advanced exposes a controlled, warning/authenticated Developer Mode switch and Network entry; release metadata, logs and developer tools remain explicitly unavailable. Native acceptance is recorded separately.',
   },
+  'address-book': {
+    readiness: 'implemented',
+    note: 'S22 network-scoped local contacts, typed memo identity, management and destination selection. Native acceptance pending.',
+  },
   'accounts-settings': {
     readiness: 'structure-only',
     note: 'Account list/details surfaces are live, use durable Account records only, and follow the Stellar visual hierarchy; deeper signer/access presentation remains deferred.',

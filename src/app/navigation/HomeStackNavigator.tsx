@@ -162,8 +162,12 @@ export function HomeStackNavigator({
             return <AssetAccountUnavailable onBack={() => navigation.popToTop()} />;
           }
           return (
-            <SendFlowScreen
+            <SendRoute
+              foreground={readRuntime.foreground}
               account={account}
+              key={JSON.stringify([account.id, account.networkId])}
+              contacts={services.contacts}
+              destinationAccounts={accounts}
               dependencies={services.send}
               requestIntent={route.params.requestIntent}
               initialAsset={route.params.initialAsset}
@@ -444,6 +448,14 @@ function HomeWithAssetSheets({
       ) : null}
     </>
   );
+}
+
+function SendRoute({
+  foreground,
+  ...props
+}: Omit<React.ComponentProps<typeof SendFlowScreen>, 'active'> & { foreground: boolean }) {
+  const focused = useIsFocused();
+  return <SendFlowScreen {...props} active={focused && foreground} />;
 }
 
 function AssetDetailsRoute({
