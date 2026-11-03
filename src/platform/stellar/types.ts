@@ -1,4 +1,4 @@
-import type {Asset, TransactionSource} from '@stellar/stellar-sdk';
+import type { Asset, TransactionSource } from '@stellar/stellar-sdk';
 
 import type { BuiltTransaction, StellarPaymentAsset } from '../../capabilities/stellar/types';
 import type {
@@ -68,6 +68,11 @@ export type HorizonOperationLike = {
   transaction_hash: string;
   transaction_successful: boolean;
   source_account: string;
+  from_muxed?: string;
+  source_amount?: string;
+  source_asset_type?: string;
+  source_asset_code?: string;
+  source_asset_issuer?: string;
   from?: string;
   to?: string;
   to_muxed?: string;

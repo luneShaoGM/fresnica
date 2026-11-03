@@ -1,3 +1,4 @@
+import { mapPathPayment } from './pathPaymentHistory';
 import type { AccountRecord } from '../account/types';
 import type { HistoryGatewayPort, HistoryOperationRecord } from './HistoryGateway';
 import type {
@@ -54,6 +55,9 @@ export function mapHistoryEntry(record: HistoryOperationRecord, accountAddress: 
   const base = mapBase(record);
 
   switch (record.type) {
+    case 'path_payment_strict_send':
+    case 'path_payment_strict_receive':
+      return mapPathPayment(record, accountAddress, base) ?? unsupportedShape(base);
     case 'payment':
       return mapPayment(record, accountAddress, base);
     case 'create_account':
@@ -124,11 +128,7 @@ function mapPayment(record: HistoryOperationRecord, accountAddress: string, base
           : sender,
     participants: participantPair(
       participant('sender', sender),
-      participant(
-        'recipient',
-        recipientDisplay,
-        recipientDisplay === recipientBase ? undefined : recipientBase,
-      ),
+      participant('recipient', recipientDisplay, recipientDisplay === recipientBase ? undefined : recipientBase),
     ),
   } satisfies HistoryPaymentEntry);
 }
@@ -151,10 +151,7 @@ function mapCreateAccount(
     direction: flowDirection(accountAddress, funder, createdAccount),
     startingBalance,
     counterparty: funder === accountAddress ? createdAccount : funder,
-    participants: participantPair(
-      participant('funder', funder),
-      participant('created-account', createdAccount),
-    ),
+    participants: participantPair(participant('funder', funder), participant('created-account', createdAccount)),
   } satisfies HistoryCreateAccountEntry);
 }
 
@@ -179,10 +176,7 @@ function mapChangeTrust(record: HistoryOperationRecord, base: HistoryEntryBase):
     kind: 'change-trust',
     asset: Object.freeze(asset),
     limit,
-    participants: participantPair(
-      participant('trustor', trustor),
-      participant('issuer', asset.issuer),
-    ),
+    participants: participantPair(participant('trustor', trustor), participant('issuer', asset.issuer)),
   } satisfies HistoryChangeTrustEntry);
 }
 
@@ -207,15 +201,11 @@ function mapCreditAsset(record: HistoryOperationRecord): HistoryCreditAsset | un
   return asset?.kind === 'credit' ? asset : undefined;
 }
 
-function participant(
-  role: HistoryParticipant['role'],
-  identity: string,
-  baseAccount?: string,
-): HistoryParticipant {
+function participant(role: HistoryParticipant['role'], identity: string, baseAccount?: string): HistoryParticipant {
   return Object.freeze({
     role,
     identity,
-    ...(baseAccount === undefined ? {} : {baseAccount}),
+    ...(baseAccount === undefined ? {} : { baseAccount }),
   });
 }
 

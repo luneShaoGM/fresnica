@@ -36,12 +36,15 @@ export class RealmHistoryCacheRepository implements HistoryCacheRepository {
         throw new Error('history-cache-corrupt-partition');
       }
 
-      return normalizeHistoryCacheSnapshot({
-        schemaVersion: HISTORY_CACHE_SCHEMA_VERSION,
-        lastSuccessfulHorizonUpdateAt: new Date(record.lastSuccessfulHorizonUpdateAt),
-        entries: parseJson<HistoryEntry[]>(record.entriesJson),
-        details: parseJson<HistoryCachedDetail[]>(record.detailsJson),
-      });
+      return normalizeHistoryCacheSnapshot(
+        {
+          schemaVersion: HISTORY_CACHE_SCHEMA_VERSION,
+          lastSuccessfulHorizonUpdateAt: new Date(record.lastSuccessfulHorizonUpdateAt),
+          entries: parseJson<HistoryEntry[]>(record.entriesJson),
+          details: parseJson<HistoryCachedDetail[]>(record.detailsJson),
+        },
+        partition,
+      );
     } catch {
       this.clearPartition(partition);
       return undefined;
@@ -50,7 +53,7 @@ export class RealmHistoryCacheRepository implements HistoryCacheRepository {
 
   replaceSnapshot(partition: HistoryCachePartition, snapshot: HistoryCacheSnapshot): void {
     assertHistoryCachePartition(partition);
-    const normalized = normalizeHistoryCacheSnapshot(snapshot);
+    const normalized = normalizeHistoryCacheSnapshot(snapshot, partition);
     const persisted: PersistedHistoryCacheSnapshot = {
       id: this.partitionId(partition),
       networkId: partition.networkId,

@@ -1,18 +1,10 @@
-export type HistoryCreditAsset = Readonly<{kind: 'credit'; code: string; issuer: string}>;
+export type HistoryCreditAsset = Readonly<{ kind: 'credit'; code: string; issuer: string }>;
 
-export type HistoryAsset =
-  | Readonly<{kind: 'native'; code: 'XLM'}>
-  | HistoryCreditAsset;
+export type HistoryAsset = Readonly<{ kind: 'native'; code: 'XLM' }> | HistoryCreditAsset;
 
 export type HistoryDirection = 'incoming' | 'outgoing' | 'self' | 'neutral';
 
-export type HistoryParticipantRole =
-  | 'sender'
-  | 'recipient'
-  | 'funder'
-  | 'created-account'
-  | 'trustor'
-  | 'issuer';
+export type HistoryParticipantRole = 'sender' | 'recipient' | 'funder' | 'created-account' | 'trustor' | 'issuer';
 
 export type HistoryParticipant = Readonly<{
   role: HistoryParticipantRole;
@@ -35,6 +27,19 @@ export type HistoryPaymentEntry = HistoryEntryBase &
     direction: HistoryDirection;
     amount: string;
     asset: HistoryAsset;
+    counterparty: string;
+    participants: readonly [HistoryParticipant, HistoryParticipant];
+  }>;
+
+export type HistoryPathPaymentEntry = HistoryEntryBase &
+  Readonly<{
+    kind: 'path-payment';
+    successful: true;
+    direction: HistoryDirection;
+    sourceAmount: string;
+    sourceAsset: HistoryAsset;
+    destinationAmount: string;
+    destinationAsset: HistoryAsset;
     counterparty: string;
     participants: readonly [HistoryParticipant, HistoryParticipant];
   }>;
@@ -63,6 +68,7 @@ export type HistoryUnsupportedEntry = HistoryEntryBase &
   }>;
 
 export type HistoryEntry =
+  | HistoryPathPaymentEntry
   | HistoryPaymentEntry
   | HistoryCreateAccountEntry
   | HistoryChangeTrustEntry
@@ -74,5 +80,5 @@ export type HistoryPage =
       entries: readonly HistoryEntry[];
       nextCursor?: string;
     }>
-  | Readonly<{status: 'inactive'}>
-  | Readonly<{status: 'unsupported-account'}>;
+  | Readonly<{ status: 'inactive' }>
+  | Readonly<{ status: 'unsupported-account' }>;

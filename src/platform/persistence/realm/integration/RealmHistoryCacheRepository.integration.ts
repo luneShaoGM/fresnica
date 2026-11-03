@@ -1,3 +1,4 @@
+import { mapHistoryEntry } from '../../../../capabilities/history/loadHistoryPage';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -14,6 +15,7 @@ import {
 } from '../../../../capabilities/history/HistoryCacheHydration';
 import {
   HISTORY_CACHE_SCHEMA_VERSION,
+  normalizeHistoryCacheSnapshot,
   type HistoryCachePartition,
 } from '../../../../capabilities/history/HistoryCacheRepository';
 import type { HistoryEntry } from '../../../../capabilities/history/types';
@@ -372,3 +374,47 @@ function historyEntry(id: string, sourceAccount: string): HistoryEntry {
     reason: 'operation-type',
   };
 }
+
+it('persists exact settled path legs and legacy unsupported paths through real Realm close/reopen', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'fresnica-path-history-reopen-'));
+  const path = join(directory, 'wallet.realm');
+  const address = 'G' + 'A'.repeat(55);
+  const issuer = 'G' + 'B'.repeat(55);
+  const partition = { networkId: 'stellar-testnet', accountAddress: address };
+  const entry = mapHistoryEntry(
+    {
+      id: 'path-1',
+      pagingToken: '100',
+      type: 'path_payment_strict_send',
+      occurredAt: '2026-11-03T00:00:00Z',
+      transactionHash: 'path-tx',
+      sourceAccount: address,
+      successful: true,
+      from: address,
+      to: address,
+      sourceAmount: '922337203685.4775807',
+      sourceAsset: { kind: 'native' },
+      amount: '0.0000001',
+      asset: { kind: 'credit', code: 'XLM', issuer },
+    },
+    address,
+  );
+  const legacy: HistoryEntry = { ...entry, id: 'old-path', kind: 'unsupported', reason: 'operation-type' };
+  const snapshot = historySnapshot([entry, legacy], [{ operationId: entry.id, entry }]);
+  let realm: Awaited<ReturnType<typeof openWalletRealm>> | undefined;
+  try {
+    realm = await openWalletRealm({ path });
+    new RealmHistoryCacheRepository(realm).replaceSnapshot(partition, snapshot);
+    realm.close();
+    realm = undefined;
+    realm = await openWalletRealm({ path });
+    const repository = new RealmHistoryCacheRepository(realm);
+    expect(repository.getSnapshot(partition)).toEqual(normalizeHistoryCacheSnapshot(snapshot));
+    expect(repository.getSnapshot({ ...partition, networkId: 'stellar-mainnet' })).toBeUndefined();
+    expect(repository.getSnapshot({ ...partition, accountAddress: issuer })).toBeUndefined();
+  } finally {
+    realm?.close();
+    Realm.shutdown();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

@@ -431,6 +431,32 @@ function renderEntry(
         />
         <DetailRow label={t('activity.detail.transactionHash')} value={entry.transactionHash} mono styles={styles} />
         {renderAccount(entry.sourceAccount, t('activity.detail.sourceAccount'))}
+        {entry.kind === 'path-payment' ? (
+          <>
+            <DetailRow
+              label={t('activity.detail.direction')}
+              value={directionLabel(entry.direction, t)}
+              styles={styles}
+            />
+            <DetailRow
+              label={t('activity.detail.actualSent')}
+              value={`${formatNumber(entry.sourceAmount, 7)} ${entry.sourceAsset.code}`}
+              styles={styles}
+            />
+            {entry.sourceAsset.kind === 'credit'
+              ? renderAccount(entry.sourceAsset.issuer, t('activity.detail.sourceIssuer'))
+              : null}
+            <DetailRow
+              label={t('activity.detail.actualReceived')}
+              value={`${formatNumber(entry.destinationAmount, 7)} ${entry.destinationAsset.code}`}
+              styles={styles}
+            />
+            {entry.destinationAsset.kind === 'credit'
+              ? renderAccount(entry.destinationAsset.issuer, t('activity.detail.destinationIssuer'))
+              : null}
+            <ParticipantRows participants={entry.participants} t={t} renderAccount={renderAccount} />
+          </>
+        ) : null}
         {entry.kind === 'payment' ? (
           <>
             <DetailRow

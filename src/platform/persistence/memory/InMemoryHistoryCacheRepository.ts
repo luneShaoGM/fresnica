@@ -19,7 +19,7 @@ export class InMemoryHistoryCacheRepository implements HistoryCacheRepository {
 
   replaceSnapshot(partition: HistoryCachePartition, snapshot: HistoryCacheSnapshot): void {
     assertHistoryCachePartition(partition);
-    const normalized = normalizeHistoryCacheSnapshot(snapshot);
+    const normalized = normalizeHistoryCacheSnapshot(snapshot, partition);
     this.snapshots.set(this.partitionId(partition), cloneSnapshot(normalized));
   }
 

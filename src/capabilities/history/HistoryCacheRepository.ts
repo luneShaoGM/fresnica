@@ -1,3 +1,4 @@
+import { isPathPaymentType, mapPathPayment } from './pathPaymentHistory';
 import type { HistoryAsset, HistoryEntry, HistoryParticipant, HistoryParticipantRole } from './types';
 
 export const HISTORY_CACHE_SCHEMA_VERSION = 1 as const;
@@ -39,7 +40,10 @@ export function replaceHistoryCacheSnapshotBestEffort(
   }
 }
 
-export function normalizeHistoryCacheSnapshot(snapshot: HistoryCacheSnapshot): HistoryCacheSnapshot {
+export function normalizeHistoryCacheSnapshot(
+  snapshot: HistoryCacheSnapshot,
+  partition?: HistoryCachePartition,
+): HistoryCacheSnapshot {
   if (snapshot.schemaVersion !== HISTORY_CACHE_SCHEMA_VERSION) {
     throw new Error('history-cache-schema-incompatible');
   }
@@ -51,7 +55,7 @@ export function normalizeHistoryCacheSnapshot(snapshot: HistoryCacheSnapshot): H
   const entries: HistoryEntry[] = [];
   const seenEntryIds = new Set<string>();
   for (const entry of snapshot.entries) {
-    const normalizedEntry = normalizeHistoryEntry(entry);
+    const normalizedEntry = normalizeHistoryEntry(entry, partition?.accountAddress);
     if (seenEntryIds.has(normalizedEntry.id)) {
       continue;
     }
@@ -69,7 +73,7 @@ export function normalizeHistoryCacheSnapshot(snapshot: HistoryCacheSnapshot): H
     if (!isNonEmptyString(detail.operationId) || detail.entry.id !== detail.operationId) {
       throw new Error('history-cache-invalid-detail');
     }
-    const normalizedEntry = normalizeHistoryEntry(detail.entry);
+    const normalizedEntry = normalizeHistoryEntry(detail.entry, partition?.accountAddress);
     const retainedEntry = retainedEntriesById.get(detail.operationId);
     if (!retainedEntry || seenDetailIds.has(detail.operationId)) {
       continue;
@@ -95,7 +99,7 @@ export function assertHistoryCachePartition(partition: HistoryCachePartition): v
   }
 }
 
-function normalizeHistoryEntry(entry: HistoryEntry): HistoryEntry {
+function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): HistoryEntry {
   assertHistoryEntry(entry);
   const base = {
     id: entry.id,
@@ -107,6 +111,40 @@ function normalizeHistoryEntry(entry: HistoryEntry): HistoryEntry {
   };
 
   switch (entry.kind) {
+    case 'path-payment': {
+      const [sender, recipient] = entry.participants;
+      const reconstructed = mapPathPayment(
+        {
+          ...base,
+          type: entry.operationType,
+          successful: entry.successful,
+          from: sender.baseAccount ?? sender.identity,
+          ...(sender.baseAccount === undefined ? {} : { fromMuxed: sender.identity }),
+          to: recipient.baseAccount ?? recipient.identity,
+          ...(recipient.baseAccount === undefined ? {} : { toMuxed: recipient.identity }),
+          sourceAmount: entry.sourceAmount,
+          amount: entry.destinationAmount,
+          sourceAsset: entry.sourceAsset,
+          asset: entry.destinationAsset,
+        },
+        accountAddress ??
+          (entry.direction === 'self' || entry.direction === 'outgoing'
+            ? (sender.baseAccount ?? sender.identity)
+            : entry.direction === 'incoming'
+              ? (recipient.baseAccount ?? recipient.identity)
+              : ''),
+        base,
+      );
+      if (
+        !reconstructed ||
+        reconstructed.direction !== entry.direction ||
+        reconstructed.counterparty !== entry.counterparty ||
+        JSON.stringify(reconstructed.participants) !== JSON.stringify(normalizeParticipantPair(entry.participants))
+      ) {
+        throw new Error('history-cache-invalid-entry');
+      }
+      return reconstructed;
+    }
     case 'payment':
       return Object.freeze({
         ...base,
@@ -188,6 +226,20 @@ function assertHistoryEntry(entry: HistoryEntry): void {
   }
 
   switch (entry.kind) {
+    case 'path-payment':
+      assertAsset(entry.sourceAsset);
+      assertAsset(entry.destinationAsset);
+      assertParticipantPair(entry.participants);
+      if (
+        !isPathPaymentType(entry.operationType) ||
+        entry.successful !== true ||
+        entry.participants[0].role !== 'sender' ||
+        entry.participants[1].role !== 'recipient'
+      ) {
+        throw new Error('history-cache-invalid-entry');
+      }
+      assertDirection(entry.direction);
+      return;
     case 'payment':
       assertOperationFamily(entry.operationType, 'payment', entry.participants, 'sender', 'recipient');
       assertDirection(entry.direction);
@@ -229,7 +281,9 @@ function assertHistoryEntry(entry: HistoryEntry): void {
     case 'unsupported':
       if (
         (entry.reason === 'operation-type' && isSpecializedOperationType(entry.operationType)) ||
-        (entry.reason === 'operation-shape' && !isSpecializedOperationType(entry.operationType))
+        (entry.reason === 'operation-shape' &&
+          !isSpecializedOperationType(entry.operationType) &&
+          !isPathPaymentType(entry.operationType))
       ) {
         throw new Error('history-cache-invalid-entry');
       }

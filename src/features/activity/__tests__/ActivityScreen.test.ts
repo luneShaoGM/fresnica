@@ -430,3 +430,42 @@ it('keeps concrete calendar dates and opens the exact operation ID from the rend
   findElement(root, element => element.type === ActivityRow)?.props.onOpen?.();
   expect(onOpenOperation).toHaveBeenCalledWith('payment');
 });
+it('renders a Swap pair with the actual destination leg and retains exact path navigation', () => {
+  const path: HistoryEntry = {
+    ...unsupported('path-700'),
+    kind: 'path-payment',
+    successful: true,
+    operationType: 'path_payment_strict_send',
+    direction: 'self',
+    sourceAmount: '5.1234567',
+    sourceAsset: { kind: 'native', code: 'XLM' },
+    destinationAmount: '7.7654321',
+    destinationAsset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' },
+    counterparty: 'GACCOUNT-A',
+    participants: [
+      { role: 'sender', identity: 'GACCOUNT-A' },
+      { role: 'recipient', identity: 'GACCOUNT-A' },
+    ],
+  };
+  const props = rowProps();
+  const row = ActivityRow({ ...props, entry: path });
+  expect(textValues(row)).toContain('+7.7654321');
+  expect(textValues(row)).toContain('USD');
+  expect(textValues(row)).toContain('Swap');
+  expect(findElement(row, element => element.type === IdentityAvatar)?.props.identity).toContain('GISSUER');
+  row.props.onPress?.();
+  expect(props.onOpen).toHaveBeenCalledTimes(1);
+  const onOpenOperation = jest.fn();
+  const content = ActivityContent({
+    ...props,
+    state: { kind: 'ready', ...createActivityReadyState({ entries: [path] }) },
+    entries: [path],
+    onRetry: jest.fn(),
+    onLoadMore: jest.fn(),
+    onOpenOperation,
+    dateFormatter: new Intl.DateTimeFormat('en-US'),
+    indicatorColor: defaultTheme.colors.actionPrimaryPressed,
+  });
+  findElement(content, element => element.type === ActivityRow)?.props.onOpen?.();
+  expect(onOpenOperation).toHaveBeenCalledWith('path-700');
+});

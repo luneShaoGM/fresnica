@@ -641,7 +641,14 @@ export function ActivityRow({
         />
       ) : (
         <View style={styles.activitySubject}>
-          {presentation.subject.kind === 'asset' ? (
+          {presentation.subject.kind === 'asset-pair' ? (
+            <IdentityAvatar
+              identity={JSON.stringify([
+                activityAssetIdentity(presentation.subject.source),
+                activityAssetIdentity(presentation.subject.destination),
+              ])}
+            />
+          ) : presentation.subject.kind === 'asset' ? (
             <IdentityAvatar identity={activityAssetIdentity(presentation.subject.asset)} />
           ) : (
             <View
