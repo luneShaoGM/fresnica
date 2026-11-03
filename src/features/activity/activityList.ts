@@ -1,3 +1,4 @@
+import { claimPredicateSummary } from './claimPredicateSummary';
 import { isPathSwap } from '@capabilities/history/pathPaymentHistory';
 import type { HistoryDirection, HistoryEntry } from '@capabilities/history/types';
 
@@ -40,6 +41,36 @@ export function activityEntryPresentation(
   formatNumber: FormatNumber,
 ): ActivityEntryPresentation {
   switch (entry.kind) {
+    case 'claimable-create':
+      return {
+        title: t(
+          `activity.entry.claimable${entry.role === 'funder' ? 'Funded' : entry.role === 'issuer' ? 'Issued' : 'Created'}`,
+        ),
+        primary: `${formatNumber(entry.amount, 7)} ${entry.asset.code}`,
+        secondary: entry.claimants.map(c => c.destination).join(' / '),
+        tone: entry.role === 'funder' ? 'negative' : 'neutral',
+        filter: 'other',
+      };
+    case 'claimable-reference':
+      return {
+        title: t(
+          entry.operationType === 'claim_claimable_balance'
+            ? 'activity.entry.claimableClaimed'
+            : 'activity.entry.claimableClawedBack',
+        ),
+        primary: t('activity.detail.amountUnavailable'),
+        secondary: entry.balanceId,
+        tone: 'neutral',
+        filter: 'other',
+      };
+    case 'clawback':
+      return {
+        title: t('activity.entry.clawback'),
+        primary: `${formatNumber(entry.amount, 7)} ${entry.asset.code}`,
+        secondary: entry.holder,
+        tone: entry.role === 'holder' && !/^0+(?:\.0+)?$/.test(entry.amount) ? 'negative' : 'neutral',
+        filter: 'other',
+      };
     case 'offer':
       return {
         title: t(
@@ -128,6 +159,9 @@ export function matchesActivityFilter(entry: HistoryEntry, filter: ActivityFilte
       return filter === 'accounts';
     case 'change-trust':
       return filter === 'trustlines';
+    case 'claimable-create':
+    case 'claimable-reference':
+    case 'clawback':
     case 'offer':
     case 'liquidity-pool':
     case 'unsupported':
@@ -158,6 +192,22 @@ export function matchesActivitySearch(
     entry.sourceAccount,
   ];
 
+  if (entry.kind === 'claimable-create' || entry.kind === 'clawback') {
+    values.push(entry.amount, formatNumber(entry.amount, 7));
+    if (entry.asset.kind === 'credit') values.push(`${entry.asset.code}:${entry.asset.issuer}`);
+    if (entry.kind === 'claimable-create') {
+      for (const claimant of entry.claimants)
+        values.push(
+          claimant.destination,
+          JSON.stringify(claimant.predicate),
+          claimPredicateSummary(claimant.predicate, t),
+          identityNames?.get(claimant.destination) ?? '',
+        );
+    } else values.push(entry.holder, entry.holderBase, identityNames?.get(entry.holder) ?? '');
+  }
+  if (entry.kind === 'claimable-reference') values.push(entry.balanceId);
+  if (entry.kind === 'claimable-reference' || entry.kind === 'claimable-create' || entry.kind === 'clawback')
+    values.push(identityNames?.get(entry.sourceAccount) ?? '');
   if (entry.kind === 'offer' || entry.kind === 'liquidity-pool') {
     const assets =
       entry.kind === 'offer' ? [entry.sellingAsset, entry.buyingAsset] : entry.reserves.map(leg => leg.asset);

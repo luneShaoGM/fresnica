@@ -13,6 +13,7 @@ export type ActivityRowPresentation = Readonly<{
     | Readonly<{ kind: 'account'; address: string }>
     | Readonly<{ kind: 'asset'; asset: HistoryAsset }>
     | Readonly<{ kind: 'asset-pair'; source: HistoryAsset; destination: HistoryAsset }>
+    | Readonly<{ kind: 'reference'; identity: string }>
     | Readonly<{ kind: 'unsupported' }>;
   money?: Readonly<{ amount: string; asset: HistoryAsset; tone: ActivityTone }>;
   reserveMoney?: readonly Readonly<{ amount: string; asset: HistoryAsset; tone: ActivityTone }>[];
@@ -27,6 +28,30 @@ export function activityRowPresentation(
 ): ActivityRowPresentation {
   const detail = activityEntryPresentation(entry, t, formatNumber);
   switch (entry.kind) {
+    case 'claimable-reference':
+      return {
+        title: formatPublicAddress(entry.balanceId),
+        operation: detail.title,
+        subject: { kind: 'reference', identity: entry.balanceId },
+      };
+    case 'claimable-create':
+    case 'clawback': {
+      const monetary = entry.kind === 'claimable-create' ? entry.role === 'funder' : entry.role === 'holder';
+      return {
+        title: entry.asset.code,
+        operation: detail.title,
+        subject: { kind: 'asset', asset: entry.asset },
+        ...(monetary
+          ? {
+              money: {
+                amount: `${detail.tone === 'negative' ? '−' : ''}${formatNumber(entry.amount, 7)}`,
+                asset: entry.asset,
+                tone: detail.tone,
+              },
+            }
+          : {}),
+      };
+    }
     case 'offer':
       return {
         title: `${entry.sellingAsset.code} → ${entry.buyingAsset.code}`,

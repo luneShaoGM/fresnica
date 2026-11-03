@@ -1,7 +1,9 @@
 # S13 Offer / liquidity-pool history
 
-Status: Slice 3 implementation candidate from main
+Status: Slice 3 merged through #149 at main
+`d6e744a119c9b8eadaab5adc6652d1fabae9112e`, from
 `0171f860842b87904761309c749297ddfbf18c83` (Slice 2 merged through #148).
+Native/device acceptance remains pending; merge does not close that evidence gap.
 Read-only Activity/History projection; no SDEX/LP write action, quote, XDR,
 authorization, signing, submission, recovery or balance mutation is added.
 

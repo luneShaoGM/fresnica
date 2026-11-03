@@ -5,6 +5,8 @@ import { AccessibilityInfo, Pressable, Text } from 'react-native';
 
 import type { AccountRecord } from '../../../capabilities/account/types';
 import type { HistoryProductDependencies } from '../../../capabilities/history/HistoryCacheHydration';
+import { claimPredicateSummary } from '../claimPredicateSummary';
+import type { HistoryClaimPredicate } from '../../../capabilities/history/types';
 import type { HistoryEntry } from '../../../capabilities/history/types';
 import { createLocalization } from '../../../locale/localization';
 import { ParticipantCard } from '../../contacts/ParticipantCard';
@@ -499,3 +501,140 @@ it.each(['liquidity_pool_deposit', 'liquidity_pool_withdraw'])(
     );
   },
 );
+
+it.each(['create', 'claim', 'clawback', 'clawback-reference'])(
+  'renders %s historical evidence and localized warnings without claim/burn actions',
+  family => {
+    mockedUseState.mockReset();
+    let entry: HistoryEntry;
+    if (family === 'create')
+      entry = {
+        ...unsupported(),
+        kind: 'claimable-create',
+        successful: true,
+        operationType: 'create_claimable_balance',
+        asset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' },
+        amount: '922337203685.4775807',
+        role: 'claimant',
+        claimants: [
+          {
+            destination: 'GCLAIMANT',
+            predicate: { and: [{ abs_before: '+39121901036-03-29T15:30:22Z' }, { rel_before: '-1' }] },
+          },
+        ],
+      };
+    else if (family === 'clawback')
+      entry = {
+        ...unsupported(),
+        kind: 'clawback',
+        successful: true,
+        operationType: 'clawback',
+        asset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' },
+        amount: '0',
+        role: 'holder',
+        holder: 'MMUXEDHOLDER',
+        holderBase: 'GBASEHOLDER',
+      };
+    else
+      entry = {
+        ...unsupported(),
+        kind: 'claimable-reference',
+        successful: true,
+        operationType: family === 'claim' ? 'claim_claimable_balance' : 'clawback_claimable_balance',
+        balanceId: `00000000${'a'.repeat(64)}`,
+      };
+    const { root } = renderWithState({
+      kind: 'loaded',
+      result: { status: 'ready', entry },
+      source: 'online',
+      stale: false,
+      refreshing: false,
+      refreshFailed: false,
+    });
+    const values: string[] = [];
+    visit(root, element => {
+      const props = element.props as Readonly<{ label?: string; value?: string; children?: unknown }>;
+      if (props.label) values.push(props.label);
+      if (props.value) values.push(props.value);
+      if (typeof props.children === 'string') values.push(props.children);
+    });
+    if (family === 'create') {
+      expect(values).toEqual(
+        expect.arrayContaining([
+          'Claimable quantity',
+          'Creator',
+          'Claimant',
+          'GCLAIMANT',
+          '922,337,203,685.4775807 USD',
+        ]),
+      );
+      expect(values.some(value => value.includes('+39121901036-03-29T15:30:22Z') && value.includes('-1'))).toBe(true);
+      expect(values).toContain(
+        'This historical creation record does not establish current claim eligibility or whether the balance is still available.',
+      );
+    } else if (family === 'clawback') {
+      expect(values).toEqual(
+        expect.arrayContaining([
+          'Quantity removed',
+          'Holder',
+          'MMUXEDHOLDER',
+          'Holder base account',
+          'GBASEHOLDER',
+          '0 USD',
+        ]),
+      );
+    } else {
+      expect(values).toContain(`00000000${'a'.repeat(64)}`);
+      expect(values).toContain(
+        'This operation records the balance ID only. Its historical asset and quantity are unavailable without additional ledger evidence.',
+      );
+    }
+    if (family.includes('clawback'))
+      expect(values).toContain('The issuer removed and burned these tokens. They were not paid to the issuer.');
+    expect(values).not.toContain('Claim now');
+    expect(values).not.toContain('Direction');
+  },
+);
+
+it('wraps the complete depth-four condition structure without changing other detail line limits', () => {
+  mockedUseState.mockReset();
+  let predicate: HistoryClaimPredicate = { abs_before: '+292277026596-12-04T15:30:22.1234567Z' };
+  for (let depth = 0; depth < 4; depth += 1) predicate = { and: [predicate, predicate] };
+  const entry: HistoryEntry = {
+    ...unsupported(),
+    kind: 'claimable-create',
+    successful: true,
+    operationType: 'create_claimable_balance',
+    asset: { kind: 'native', code: 'XLM' },
+    amount: '1',
+    role: 'claimant',
+    claimants: [{ destination: 'GCLAIMANT', predicate }],
+  };
+  const { root } = renderWithState({
+    kind: 'loaded',
+    result: { status: 'ready', entry },
+    source: 'online',
+    stale: false,
+    refreshing: false,
+    refreshFailed: false,
+  });
+  const { t } = createLocalization('en');
+  const summary = claimPredicateSummary(predicate, t);
+  expect(summary.length).toBeGreaterThan(1000);
+  const renderDetail = (label: string) => {
+    const row = findElement(root, element => (element.props as { label?: string }).label === label);
+    if (!row || typeof row.type !== 'function') throw new Error('expected-detail-row');
+    const component = row.type as (props: NodeProps) => React.ReactNode;
+    return component(row.props);
+  };
+  const condition = renderDetail('Recorded condition');
+  const value = findElement(condition, element => element.type === Text && element.props.children === summary);
+  expect(value?.props.children).toBe(summary);
+  expect((value?.props as { numberOfLines?: number }).numberOfLines).toBeUndefined();
+  const other = renderDetail('Operation type');
+  const otherValue = findElement(
+    other,
+    element => element.type === Text && element.props.children === 'create_claimable_balance',
+  );
+  expect((otherValue?.props as { numberOfLines?: number }).numberOfLines).toBe(2);
+});

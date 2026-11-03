@@ -25,12 +25,25 @@ supersedes the older unsupported-path restriction only for these validated shape
 
 Offer/pool-history amendment (2026-11-03):
 [`s13-offer-pool-history.md`](s13-offer-pool-history.md) defines the Slice 3
-candidate: successful source-owned buy/sell/passive/cancellation intent and actual
+merged through #149 at main `d6e744a119c9b8eadaab5adc6652d1fabae9112e`:
+successful source-owned buy/sell/passive/cancellation intent and actual
 liquidity-pool deposit/withdraw reserve legs/shares. It extends read/detail/search
 and v1 JSON cache only. Order quantity is not settlement; LP max/min constraints
 are not actual reserve changes. Older unsupported family records remain readable
-until online revalidation. Exact-HEAD review, merge and native acceptance remain
-separate gates; Claimable/Clawback, contracts and visibility remain later slices.
+until online revalidation. Native acceptance remains pending.
+
+Claimable/Clawback amendment (2026-11-03):
+[`s13-claimable-clawback-history.md`](s13-claimable-clawback-history.md) defines the
+Slice 4 candidate. Successful create/claim/clawback/claimable-clawback projections
+preserve exact roles and historical predicate structure; creation funding and
+holder clawback quantities remain distinct from issuer issuance/burn and
+conditional claimant evidence. Claim and claimable clawback operation records
+supply only balance references: historical amount/asset enrichment remains open,
+with honest unavailable detail and no list monetary column. Read/cache only;
+independent exact-HEAD review, merge and native acceptance remain separate gates.
+Contracts/remaining families (Slice 5) and failure/visibility rules (Slice 6) remain
+open. These amendments supersede older unsupported-family restrictions only for
+validated read shapes and never add an S11 write action.
 
 Provenance: clean-room behavior rewrite. Donor Activity/Events surfaces are product-role references only; donor source, repositories, helpers, tests, component structure and resources are not implementation templates.
 

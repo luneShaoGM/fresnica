@@ -434,3 +434,119 @@ it.each([
     reason: 'operation-shape',
   });
 });
+
+const claimableCreator = `G${'E'.repeat(55)}`;
+const claimableDestination = `G${'F'.repeat(55)}`;
+const claimableIssuer = `G${'G'.repeat(55)}`;
+const claimableBalanceId = `00000000${'b'.repeat(64)}`;
+function rawClaimable(type: string) {
+  return {
+    id: 'claimable-op',
+    paging_token: '9007199254740999',
+    type,
+    created_at: '2026-11-03T00:00:00Z',
+    transaction_hash: 'claimable-hash',
+    transaction_successful: true,
+    source_account: type === 'clawback' ? claimableIssuer : claimableCreator,
+    asset: `XLM:${claimableIssuer}`,
+    asset_type: 'credit_alphanum4',
+    asset_code: 'XLM',
+    asset_issuer: claimableIssuer,
+    amount: '922337203685.4775807',
+    from: claimableCreator,
+    claimants: [
+      {
+        destination: claimableDestination,
+        predicate: {
+          and: [
+            { absBefore: '+39121901036-03-29T15:30:22Z', absBeforeEpoch: '1234567890123456789' },
+            { not: { rel_before: '-1' } },
+          ],
+        },
+      },
+    ],
+    claimant: claimableCreator,
+    balance_id: claimableBalanceId,
+  };
+}
+it.each(['create_claimable_balance', 'claim_claimable_balance', 'clawback', 'clawback_claimable_balance'])(
+  'takes raw %s through public reads, History, offline cache, list/detail and search without extra lookups',
+  async type => {
+    const raw = rawClaimable(type);
+    const http = jest
+      .fn()
+      .mockResolvedValueOnce(response({ _embedded: { records: [raw] } }))
+      .mockResolvedValueOnce(response(raw));
+    const reads = createHorizonPublicReadGateway(http);
+    const account = {
+      id: 'claimable',
+      address: claimableCreator,
+      networkId: 'testnet',
+      identityKind: 'classic' as const,
+      label: '',
+      sortOrder: 0,
+      hidden: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const dependencies = {
+      networkId: 'testnet',
+      cache: new InMemoryHistoryCacheRepository(),
+      now: () => new Date(),
+      gateway: {
+        loadAccountOperations: (input: { address: string; limit: number; cursor?: string }) =>
+          reads.loadAccountOperations(endpoint, input, signal),
+        loadOperation: (input: { operationId: string; accountAddress: string }) =>
+          reads.loadOperation(endpoint, input, signal),
+      },
+    };
+    const page = await loadHistoryPage(dependencies, account, { limit: 1 });
+    if (page.status !== 'active') throw new Error('expected-active');
+    expect(page.nextCursor).toBe(raw.paging_token);
+    expect(cacheHistoryOnlineEntriesBestEffort(dependencies, account, page.entries)).toBe(true);
+    const detail = await loadHistoryOperationDetails(dependencies, account, raw.id);
+    if (detail.status !== 'ready') throw new Error('expected-ready');
+    expect(detail.entry.kind).not.toBe('unsupported');
+    expect(cacheHistoryReadyDetailBestEffort(dependencies, account, detail.entry)).toBe(true);
+    const cached = readHistoryCacheSnapshotBestEffort(dependencies, account)!;
+    expect(cached.entries[0]).toEqual(detail.entry);
+    expect(cached.details[0].entry).toEqual(detail.entry);
+    const entry = cached.entries[0];
+    const { t, formatNumber } = createLocalization('en');
+    expect(matchesActivityFilter(entry, 'other')).toBe(true);
+    expect(matchesActivitySearch(entry, type, t, formatNumber)).toBe(true);
+    const row = activityRowPresentation(entry, t, formatNumber);
+    if (type === 'create_claimable_balance' || type === 'clawback') {
+      expect(row.subject).toMatchObject({
+        kind: 'asset',
+        asset: { kind: 'credit', code: 'XLM', issuer: claimableIssuer },
+      });
+      expect(row.money?.amount).toBe('−922,337,203,685.4775807');
+      expect(matchesActivitySearch(entry, claimableIssuer, t, formatNumber)).toBe(true);
+    } else {
+      expect(row.money).toBeUndefined();
+      expect(matchesActivitySearch(entry, claimableBalanceId, t, formatNumber)).toBe(true);
+      expect(entry).not.toHaveProperty('asset');
+    }
+    expect(http).toHaveBeenCalledTimes(2);
+  },
+);
+it.each(['create_claimable_balance', 'claim_claimable_balance', 'clawback', 'clawback_claimable_balance'])(
+  'requires literal success for raw %s and keeps unsupported shape visible',
+  async type => {
+    for (const transaction_successful of [false, undefined, 'true']) {
+      const raw = { ...rawClaimable(type), transaction_successful };
+      const reads = createHorizonPublicReadGateway(jest.fn().mockResolvedValue(response(raw)));
+      const result = await reads.loadOperation(
+        endpoint,
+        { operationId: raw.id, accountAddress: claimableCreator },
+        signal,
+      );
+      if (result.status !== 'found') throw new Error('expected-found');
+      expect(mapHistoryEntry(result.record, claimableCreator)).toMatchObject({
+        kind: 'unsupported',
+        reason: 'operation-shape',
+      });
+    }
+  },
+);

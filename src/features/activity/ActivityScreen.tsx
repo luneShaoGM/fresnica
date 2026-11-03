@@ -654,6 +654,8 @@ export function ActivityRow({
                 activityAssetIdentity(presentation.subject.destination),
               ])}
             />
+          ) : presentation.subject.kind === 'reference' ? (
+            <IdentityAvatar identity={`claimable:${presentation.subject.identity}`} />
           ) : presentation.subject.kind === 'asset' ? (
             <IdentityAvatar identity={activityAssetIdentity(presentation.subject.asset)} />
           ) : (
