@@ -115,13 +115,6 @@ export function ContactEditor({ book, initial, id, onClose, isCurrent = () => tr
     setScanError(t('contacts.scan.cameraError'));
     setScanState('error');
   };
-  const retryCamera = () => {
-    if (!available() || scanGeneration !== scanSession.current || scanState !== 'error' || !scanner) return;
-    ++scanSession.current;
-    scanHandled.current = false;
-    setScanError(undefined);
-    setScanState('granted');
-  };
   const editorActionAvailable = () => available() && scanState === 'closed' && scanGeneration === scanSession.current;
   const save = () => {
     if (!editorActionAvailable() || deleting.current) return;
@@ -264,7 +257,7 @@ export function ContactEditor({ book, initial, id, onClose, isCurrent = () => tr
                 onPress={() => setTorchEnabled(value => !value)}
               />
             ) : scanState === 'error' ? (
-              <NativeButton label={t('activity.retry')} onPress={retryCamera} variant="quiet" />
+              <NativeButton label={t('activity.retry')} onPress={() => void beginScan()} variant="quiet" />
             ) : scanState !== 'checking' ? (
               <>
                 <NativeButton label={t('activity.retry')} onPress={() => void beginScan()} variant="quiet" />

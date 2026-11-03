@@ -404,11 +404,73 @@ it('rejects unsupported QR content, permits explicit retry, and does not revive 
   expect(values[1]).toBe('');
   expect(nodes(draw(), ScannerView)).toHaveLength(0);
   button(draw(), 'activity.retry')();
+  expect(scanner.ingress.checkCameraPermission).toHaveBeenCalledTimes(2);
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  await Promise.resolve();
   root = draw();
   stale('GVALID');
   expect(values[1]).toBe('');
   nodes(root, ScannerView)[0].props.onCode!('GVALID');
   expect(values[1]).toBe('GVALID');
+  expect(book.store.save).not.toHaveBeenCalled();
+});
+
+it('rechecks permission after a camera permission query exception before mounting a camera', async () => {
+  const ScannerView = () => null;
+  const scanner: ContactScanner = {
+    ScannerView,
+    ingress: {
+      checkCameraPermission: jest
+        .fn()
+        .mockRejectedValueOnce(new Error('permission-check-failed'))
+        .mockResolvedValueOnce('granted'),
+      requestCameraPermission: jest.fn(),
+      openCameraSettings: jest.fn(),
+    },
+  };
+  const draw = () => render(() => ContactEditor({ book, scanner, onClose: jest.fn() }));
+  button(draw(), 'contacts.scan.open')();
+  await Promise.resolve();
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+
+  button(draw(), 'activity.retry')();
+  expect(scanner.ingress.checkCameraPermission).toHaveBeenCalledTimes(2);
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  await Promise.resolve();
+  expect(nodes(draw(), ScannerView)).toHaveLength(1);
+  expect(scanner.ingress.requestCameraPermission).not.toHaveBeenCalled();
+  expect(book.store.save).not.toHaveBeenCalled();
+});
+
+it('rechecks and requests permission after a camera permission request exception', async () => {
+  const ScannerView = () => null;
+  const scanner: ContactScanner = {
+    ScannerView,
+    ingress: {
+      checkCameraPermission: jest.fn().mockResolvedValue('denied'),
+      requestCameraPermission: jest
+        .fn()
+        .mockRejectedValueOnce(new Error('permission-request-failed'))
+        .mockResolvedValueOnce('blocked'),
+      openCameraSettings: jest.fn(),
+    },
+  };
+  const draw = () => render(() => ContactEditor({ book, scanner, onClose: jest.fn() }));
+  button(draw(), 'contacts.scan.open')();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  expect(scanner.ingress.requestCameraPermission).toHaveBeenCalledTimes(1);
+
+  button(draw(), 'activity.retry')();
+  expect(scanner.ingress.checkCameraPermission).toHaveBeenCalledTimes(2);
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  await Promise.resolve();
+  expect(scanner.ingress.requestCameraPermission).toHaveBeenCalledTimes(2);
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  await Promise.resolve();
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  expect(nodes(draw(), BottomSheet)).toHaveLength(1);
   expect(book.store.save).not.toHaveBeenCalled();
 });
 
