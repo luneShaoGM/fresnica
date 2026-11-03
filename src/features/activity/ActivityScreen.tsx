@@ -654,6 +654,8 @@ export function ActivityRow({
                 activityAssetIdentity(presentation.subject.destination),
               ])}
             />
+          ) : presentation.subject.kind === 'contract' ? (
+            <IdentityAvatar identity={`contract:${presentation.subject.identity}`} />
           ) : presentation.subject.kind === 'reference' ? (
             <IdentityAvatar identity={`claimable:${presentation.subject.identity}`} />
           ) : presentation.subject.kind === 'asset' ? (

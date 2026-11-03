@@ -13,6 +13,7 @@ export type ActivityRowPresentation = Readonly<{
     | Readonly<{ kind: 'account'; address: string }>
     | Readonly<{ kind: 'asset'; asset: HistoryAsset }>
     | Readonly<{ kind: 'asset-pair'; source: HistoryAsset; destination: HistoryAsset }>
+    | Readonly<{ kind: 'contract'; identity: string }>
     | Readonly<{ kind: 'reference'; identity: string }>
     | Readonly<{ kind: 'unsupported' }>;
   money?: Readonly<{ amount: string; asset: HistoryAsset; tone: ActivityTone }>;
@@ -28,6 +29,25 @@ export function activityRowPresentation(
 ): ActivityRowPresentation {
   const detail = activityEntryPresentation(entry, t, formatNumber);
   switch (entry.kind) {
+    case 'contract':
+      return {
+        title: entry.contractId ? formatPublicAddress(entry.contractId) : detail.title,
+        operation: [detail.title, entry.functionName].filter(Boolean).join(' · '),
+        subject: entry.contractId ? { kind: 'contract', identity: entry.contractId } : { kind: 'unsupported' },
+        reserveMoney: (entry.events ?? [])
+          .filter(event => event.direction !== 'neutral')
+          .slice(0, 2)
+          .map(event => {
+            const zero = /^0+(?:\.0+)?$/.test(event.amount);
+            const tone =
+              zero || event.direction === 'self' ? 'neutral' : event.direction === 'incoming' ? 'positive' : 'negative';
+            return {
+              amount: `${tone === 'positive' ? '+' : tone === 'negative' ? '−' : ''}${formatNumber(event.amount, 7)}`,
+              asset: event.asset,
+              tone,
+            };
+          }),
+      };
     case 'claimable-reference':
       return {
         title: formatPublicAddress(entry.balanceId),

@@ -432,6 +432,88 @@ function renderEntry(
         />
         <DetailRow label={t('activity.detail.transactionHash')} value={entry.transactionHash} mono styles={styles} />
         {renderAccount(entry.sourceAccount, t('activity.detail.sourceAccount'))}
+        {entry.kind === 'contract' ? (
+          <>
+            <DetailRow
+              label={t('activity.contract.host')}
+              value={t(
+                `activity.entry.contract${entry.hostFunction === 'invoke' ? 'Invoke' : entry.hostFunction === 'create' ? 'Create' : 'Upload'}`,
+              )}
+              styles={styles}
+            />
+            {entry.contractId ? (
+              <DetailRow
+                label={t('activity.contract.identity')}
+                value={entry.contractId}
+                mono
+                fullValue
+                styles={styles}
+              />
+            ) : null}
+            {entry.functionName ? (
+              <DetailRow label={t('activity.contract.function')} value={entry.functionName} fullValue styles={styles} />
+            ) : null}
+            <Text style={styles.warning}>{t('activity.contract.limitation')}</Text>
+            {entry.hostFunction !== 'invoke' ? (
+              <Text style={styles.warning}>{t('activity.contract.noSummary')}</Text>
+            ) : entry.events === undefined ? (
+              <Text style={styles.warning}>{t('activity.contract.unavailable')}</Text>
+            ) : entry.events.length === 0 ? (
+              <Text style={styles.warning}>{t('activity.contract.empty')}</Text>
+            ) : null}
+            {(entry.events ?? []).map((event, index) => (
+              <React.Fragment key={index}>
+                <DetailRow
+                  label={t('activity.contract.eventType')}
+                  value={t(`activity.contract.event.${event.type}`)}
+                  styles={styles}
+                />
+                <DetailRow
+                  label={t('activity.contract.quantity')}
+                  value={`${formatNumber(event.amount, 7)} ${event.asset.code}`}
+                  fullValue
+                  styles={styles}
+                />
+                {event.asset.kind === 'credit' ? (
+                  <DetailRow
+                    label={t('activity.detail.issuer')}
+                    value={event.asset.issuer}
+                    mono
+                    fullValue
+                    styles={styles}
+                  />
+                ) : null}
+                {event.from ? (
+                  event.from.startsWith('G') ? (
+                    renderAccount(event.from, t('activity.contract.from'))
+                  ) : (
+                    <DetailRow label={t('activity.contract.from')} value={event.from} mono fullValue styles={styles} />
+                  )
+                ) : null}
+                {event.to ? (
+                  event.destinationMuxedId === undefined && event.to.startsWith('G') ? (
+                    renderAccount(event.to, t('activity.contract.to'))
+                  ) : (
+                    <DetailRow label={t('activity.contract.to')} value={event.to} mono fullValue styles={styles} />
+                  )
+                ) : null}
+                <DetailRow
+                  label={t('activity.detail.direction')}
+                  value={t(`activity.contract.direction.${event.direction}`)}
+                  styles={styles}
+                />
+                {event.destinationMuxedId === undefined ? null : (
+                  <DetailRow
+                    label={t('activity.contract.routingId')}
+                    value={event.destinationMuxedId}
+                    mono
+                    styles={styles}
+                  />
+                )}
+              </React.Fragment>
+            ))}
+          </>
+        ) : null}
         {entry.kind === 'claimable-create' || entry.kind === 'clawback' ? (
           <>
             <DetailRow

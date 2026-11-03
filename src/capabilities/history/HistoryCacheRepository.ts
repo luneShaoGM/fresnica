@@ -1,3 +1,4 @@
+import { CONTRACT_HOST_FUNCTIONS, mapContract } from './contractHistory';
 import { isClaimableClawbackType, mapClaimableClawback } from './claimableClawbackHistory';
 import { isOfferType, isPoolType, mapOfferPool } from './offerPoolHistory';
 import { isPathPaymentType, mapPathPayment } from './pathPaymentHistory';
@@ -113,6 +114,31 @@ function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): Hi
   };
 
   switch (entry.kind) {
+    case 'contract': {
+      if (!accountAddress) throw new Error('history-cache-invalid-partition');
+      if (entry.events !== undefined && (!Array.isArray(entry.events) || entry.events.length > 128))
+        throw new Error('history-cache-invalid-entry');
+      entry.events?.forEach(event => assertAsset(event.asset));
+      const reconstructed = mapContract(
+        {
+          ...base,
+          type: entry.operationType,
+          successful: entry.successful,
+          hostFunction: CONTRACT_HOST_FUNCTIONS[entry.hostFunction],
+          contractId: entry.contractId,
+          functionName: entry.functionName,
+          assetBalanceChanges: entry.events,
+        },
+        accountAddress,
+        base,
+      );
+      if (
+        !reconstructed ||
+        reconstructed.events?.some((event, index) => event.direction !== entry.events?.[index]?.direction)
+      )
+        throw new Error('history-cache-invalid-entry');
+      return reconstructed;
+    }
     case 'claimable-create':
     case 'claimable-reference':
     case 'clawback': {
@@ -294,10 +320,14 @@ function assertHistoryEntry(entry: HistoryEntry): void {
   }
 
   switch (entry.kind) {
+    case 'contract':
+      if (entry.operationType !== 'invoke_host_function') throw new Error('history-cache-invalid-entry');
+      return;
     case 'claimable-create':
     case 'claimable-reference':
     case 'clawback':
-      if (!isClaimableClawbackType(entry.operationType)) throw new Error('history-cache-invalid-entry');
+      if (!isClaimableClawbackType(entry.operationType) && entry.operationType !== 'invoke_host_function')
+        throw new Error('history-cache-invalid-entry');
       return;
     case 'offer':
       if (!isOfferType(entry.operationType)) throw new Error('history-cache-invalid-entry');
@@ -365,7 +395,8 @@ function assertHistoryEntry(entry: HistoryEntry): void {
           !isPathPaymentType(entry.operationType) &&
           !isOfferType(entry.operationType) &&
           !isPoolType(entry.operationType) &&
-          !isClaimableClawbackType(entry.operationType))
+          !isClaimableClawbackType(entry.operationType) &&
+          entry.operationType !== 'invoke_host_function')
       ) {
         throw new Error('history-cache-invalid-entry');
       }

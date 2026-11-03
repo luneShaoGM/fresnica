@@ -1,3 +1,4 @@
+import { mapContract } from './contractHistory';
 import { mapClaimableClawback } from './claimableClawbackHistory';
 import { mapOfferPool } from './offerPoolHistory';
 import { mapPathPayment } from './pathPaymentHistory';
@@ -57,6 +58,8 @@ export function mapHistoryEntry(record: HistoryOperationRecord, accountAddress: 
   const base = mapBase(record);
 
   switch (record.type) {
+    case 'invoke_host_function':
+      return mapContract(record, accountAddress, base) ?? unsupportedShape(base);
     case 'create_claimable_balance':
     case 'claim_claimable_balance':
     case 'clawback':

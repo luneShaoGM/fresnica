@@ -555,3 +555,80 @@ it('reopens all four claimable/clawback v1 payloads with roles/predicates/exact 
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+it('reopens contract identity and ordered exact i128 routed events in the original partition', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'fresnica-contract-history-'));
+  const path = join(directory, 'wallet.realm');
+  const address = `G${'A'.repeat(55)}`;
+  const recipient = `G${'B'.repeat(55)}`;
+  const partition = { networkId: 'stellar-testnet', accountAddress: address };
+  const entries = mapHistoryEntry(
+    {
+      id: 'contract',
+      pagingToken: 'contract',
+      type: 'invoke_host_function',
+      occurredAt: '2026-11-03T00:00:00Z',
+      transactionHash: 'hash',
+      sourceAccount: address,
+      successful: true,
+      hostFunction: 'HostFunctionTypeHostFunctionTypeInvokeContract',
+      contractId: `C${'A'.repeat(55)}`,
+      functionName: 'transfer',
+      assetBalanceChanges: [
+        {
+          type: 'transfer',
+          asset: { kind: 'native' },
+          amount: '17014118346046923173168730371588.4105727',
+          from: address,
+          to: recipient,
+          destinationMuxedId: '18446744073709551615',
+        },
+        { type: 'burn', asset: { kind: 'credit', code: 'XLM', issuer: recipient }, amount: '0', from: address },
+      ],
+    },
+    address,
+  );
+  const variants = [
+    entries,
+    ...(['create', 'upload'] as const).map(host =>
+      mapHistoryEntry(
+        {
+          id: `contract-${host}`,
+          pagingToken: `contract-${host}`,
+          type: 'invoke_host_function',
+          occurredAt: '2026-11-03T00:00:00Z',
+          transactionHash: 'hash',
+          sourceAccount: address,
+          successful: true,
+          hostFunction:
+            host === 'create'
+              ? 'HostFunctionTypeHostFunctionTypeCreateContract'
+              : 'HostFunctionTypeHostFunctionTypeUploadContractWasm',
+          contractId: `C${'A'.repeat(55)}`,
+        },
+        address,
+      ),
+    ),
+  ];
+  const snapshot = historySnapshot(
+    variants,
+    variants.map(entry => ({ operationId: entry.id, entry })),
+  );
+  let realm: Awaited<ReturnType<typeof openWalletRealm>> | undefined;
+  try {
+    realm = await openWalletRealm({ path });
+    new RealmHistoryCacheRepository(realm).replaceSnapshot(partition, snapshot);
+    realm.close();
+    realm = undefined;
+    realm = await openWalletRealm({ path });
+    const repository = new RealmHistoryCacheRepository(realm);
+    expect(repository.getSnapshot(partition)).toEqual(normalizeHistoryCacheSnapshot(snapshot, partition));
+    expect(repository.getSnapshot({ ...partition, networkId: 'stellar-mainnet' })).toBeUndefined();
+    expect(repository.getSnapshot({ ...partition, accountAddress: recipient })).toBeUndefined();
+    expect(() => repository.replaceSnapshot({ ...partition, accountAddress: recipient }, snapshot)).toThrow();
+  } finally {
+    realm?.close();
+    Realm.shutdown();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

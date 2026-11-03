@@ -41,6 +41,20 @@ export function activityEntryPresentation(
   formatNumber: FormatNumber,
 ): ActivityEntryPresentation {
   switch (entry.kind) {
+    case 'contract': {
+      const relevant = entry.events?.filter(event => event.direction !== 'neutral') ?? [];
+      const title = t(
+        `activity.entry.contract${entry.hostFunction === 'invoke' ? 'Invoke' : entry.hostFunction === 'create' ? 'Create' : 'Upload'}`,
+      );
+      return {
+        title:
+          relevant.length > 2 ? `${title} · ${t('activity.contract.previewCount', { count: relevant.length })}` : title,
+        primary: entry.contractId ?? title,
+        secondary: entry.functionName ?? '',
+        tone: 'neutral',
+        filter: 'other',
+      };
+    }
     case 'claimable-create':
       return {
         title: t(
@@ -159,6 +173,7 @@ export function matchesActivityFilter(entry: HistoryEntry, filter: ActivityFilte
       return filter === 'accounts';
     case 'change-trust':
       return filter === 'trustlines';
+    case 'contract':
     case 'claimable-create':
     case 'claimable-reference':
     case 'clawback':
@@ -192,6 +207,25 @@ export function matchesActivitySearch(
     entry.sourceAccount,
   ];
 
+  if (entry.kind === 'contract') {
+    values.push(entry.hostFunction, entry.contractId ?? '', entry.functionName ?? '');
+    for (const event of entry.events ?? []) {
+      values.push(
+        event.type,
+        t(`activity.contract.event.${event.type}`),
+        event.amount,
+        formatNumber(event.amount, 7),
+        event.asset.code,
+        event.from ?? '',
+        event.to ?? '',
+        event.destinationMuxedId ?? '',
+      );
+      if (event.asset.kind === 'credit') values.push(event.asset.issuer, `${event.asset.code}:${event.asset.issuer}`);
+      if (event.from?.startsWith('G')) values.push(identityNames?.get(event.from) ?? '');
+      if (event.to?.startsWith('G') && event.destinationMuxedId === undefined)
+        values.push(identityNames?.get(event.to) ?? '');
+    }
+  }
   if (entry.kind === 'claimable-create' || entry.kind === 'clawback') {
     values.push(entry.amount, formatNumber(entry.amount, 7));
     if (entry.asset.kind === 'credit') values.push(`${entry.asset.code}:${entry.asset.issuer}`);

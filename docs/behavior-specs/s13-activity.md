@@ -34,14 +34,20 @@ until online revalidation. Native acceptance remains pending.
 
 Claimable/Clawback amendment (2026-11-03):
 [`s13-claimable-clawback-history.md`](s13-claimable-clawback-history.md) defines the
-Slice 4 candidate. Successful create/claim/clawback/claimable-clawback projections
+Slice 4 merged through #150 at main `61d69a8af760256a84730547cfbbf307d24c4017`.
+Successful create/claim/clawback/claimable-clawback projections
 preserve exact roles and historical predicate structure; creation funding and
 holder clawback quantities remain distinct from issuer issuance/burn and
 conditional claimant evidence. Claim and claimable clawback operation records
 supply only balance references: historical amount/asset enrichment remains open,
 with honest unavailable detail and no list monetary column. Read/cache only;
 independent exact-HEAD review, merge and native acceptance remain separate gates.
-Contracts/remaining families (Slice 5) and failure/visibility rules (Slice 6) remain
+[`s13-contract-history.md`](s13-contract-history.md) defines the Slice 5a candidate:
+successful invoke/create/upload host identity and reported SAC event summaries,
+without inventing complete balance changes from missing or empty events. SDK/XDR
+identity decoding stays in Platform; History owns exact event meaning and cache
+partition revalidation. No raw arguments/salt are persisted. Footprint/remaining
+classic families (remaining Slice 5) and failure/visibility rules (Slice 6) remain
 open. These amendments supersede older unsupported-family restrictions only for
 validated read shapes and never add an S11 write action.
 
