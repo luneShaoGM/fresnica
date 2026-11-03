@@ -16,6 +16,11 @@ Only behavior is retained; no donor implementation/resources are migrated.
   legacy tags, federation/resolver results and memo return are not silently converted.
 - Identity is network + exact G address + canonical memo type/value. Same address with different memos
   is allowed; duplicate exact identities are rejected atomically, including during editing.
+- Persisted Memo JSON is untrusted input: validate its runtime discriminant, string value and
+  canonical typed-Memo rules before exposing a Contact. Invalid present data fails with a stable
+  storage error and is never reinterpreted as absent Memo or erased automatically. Filter the
+  requested network before decoding; corrupt foreign-network records cannot block healthy-network
+  reads/writes. Corruption in the requested network fails closed and preserves records for recovery.
 - Contacts are local public metadata shared by wallet accounts within a network. Network changes
   remount the service session; no other network's contacts are shown or selected. Account deletion
   does not delete contacts. No old Stellar/Xaman database migration or remote sync.

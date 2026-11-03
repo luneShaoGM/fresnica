@@ -1,6 +1,11 @@
 import Realm from 'realm';
 
-import { contactIdentity, type Contact, type ContactStore } from '../../../capabilities/contacts/contacts';
+import {
+  contactIdentity,
+  validateContactMemo,
+  type Contact,
+  type ContactStore,
+} from '../../../capabilities/contacts/contacts';
 import { CONTACT_ENTITY } from './schemas';
 
 type StoredContact = Omit<Contact, 'memo'> & { memoJson?: string | null };
@@ -28,23 +33,36 @@ export class RealmContactStore implements ContactStore {
   }
   list = (networkId: string): readonly Contact[] => {
     return Array.from(this.realm.objects(CONTACT_ENTITY))
-      .map(object => {
-        const row = object as unknown as StoredContact;
+      .map(object => object as unknown as StoredContact)
+      .filter(row => row.networkId === networkId)
+      .map(row => {
+        let memo: Contact['memo'];
+        if (row.memoJson !== null && row.memoJson !== undefined) {
+          try {
+            memo = validateContactMemo(JSON.parse(row.memoJson) as unknown);
+            if (!memo) throw new Error('contact-memo-invalid');
+          } catch {
+            throw new Error('contact-storage-invalid');
+          }
+        }
         return Object.freeze({
           id: row.id,
           networkId: row.networkId,
           name: row.name,
           address: row.address,
-          ...(row.memoJson ? { memo: JSON.parse(row.memoJson) as Contact['memo'] } : {}),
+          ...(memo ? { memo } : {}),
         });
-      })
-      .filter(row => row.networkId === networkId);
+      });
   };
   save = (contact: Contact): void => {
+    const memo = validateContactMemo(contact.memo);
     this.realm.write(() => {
-      const existing = this.realm.objectForPrimaryKey<StoredContact>(CONTACT_ENTITY, contact.id) as unknown as StoredContact | null;
+      const existing = this.realm.objectForPrimaryKey<StoredContact>(
+        CONTACT_ENTITY,
+        contact.id,
+      ) as unknown as StoredContact | null;
       if (existing && existing.networkId !== contact.networkId) throw new Error('contact-network-mismatch');
-      const identity = contactIdentity(contact.address, contact.memo);
+      const identity = contactIdentity(contact.address, memo);
       if (
         this.list(contact.networkId).some(
           row => row.id !== contact.id && contactIdentity(row.address, row.memo) === identity,
@@ -59,7 +77,7 @@ export class RealmContactStore implements ContactStore {
           networkId: contact.networkId,
           name: contact.name,
           address: contact.address,
-          memoJson: contact.memo ? JSON.stringify(contact.memo) : null,
+          memoJson: memo ? JSON.stringify(memo) : null,
         },
         Realm.UpdateMode.Modified,
       );
