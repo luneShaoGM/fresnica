@@ -20,6 +20,7 @@ export function contractAmount(value: unknown): value is string {
 }
 export function contractAssociated(record: HistoryOperationRecord, address: string): boolean {
   if (record.sourceAccount === address) return true;
+  if (record.hostFunction !== CONTRACT_HOST_FUNCTIONS.invoke) return false;
   const events = record.assetBalanceChanges;
   return (
     Array.isArray(events) &&

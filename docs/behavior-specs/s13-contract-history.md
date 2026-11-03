@@ -91,8 +91,10 @@ Do not net, aggregate, reorder, deduplicate or silently merge separate events.
 
 ## Association and presentation
 
-Detail association is operation source or explicit valid event from/to matching
-the viewed Classic account. It never follows arbitrary decoded call arguments,
+Detail association is operation source or, for the exact InvokeContract subtype
+only, explicit valid event from/to matching the viewed Classic account. Creation
+and upload are source-only even with contradictory injected events. It never
+follows arbitrary decoded call arguments,
 generic top-level participants or asset issuer alone. Establish event association
 independently of amount validity so an explicit participant can receive an honest
 unsupported-shape detail if other payload fields are malformed. Inspect bounded

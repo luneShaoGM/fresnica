@@ -157,4 +157,9 @@ it('associates explicit bounded event parties independently from malformed amoun
   expect(
     await detail(contractRecord({ assetBalanceChanges: Array(129).fill({ ...transfer, to: foreign }) }), foreign),
   ).toEqual({ status: 'not-associated' });
+  for (const host of ['create', 'upload'] as const) {
+    const record = contractRecord({ hostFunction: CONTRACT_HOST_FUNCTIONS[host], assetBalanceChanges: [transfer] });
+    expect(await detail(record, recipient)).toEqual({ status: 'not-associated' });
+    expect(await detail(record, source)).toMatchObject({ status: 'ready', entry: { kind: 'unsupported' } });
+  }
 });
