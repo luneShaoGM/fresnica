@@ -873,15 +873,28 @@ Slice 2 已按 #148 合并到 `main@0171f860842b87904761309c749297ddfbf18c83`，
 按 [Path history contract](behavior-specs/s13-path-payment-history.md) 交付成功
 strict-send/strict-receive 的实际发送/收到双腿、self Swap 与外部路径支付、列表/详情/搜索
 及可替换的 v1 History JSON cache，原生验收仍待执行。
-当前 Slice 3 候选按 [Offer/pool history contract](behavior-specs/s13-offer-pool-history.md)
-增加成功 buy/sell/passive/cancellation 委托指令，以及 LP 存取的实际双储备腿与份额；
+Slice 3 已按 #149 合并到 `main@d6e744a119c9b8eadaab5adc6652d1fabae9112e`，
+按 [Offer/pool history contract](behavior-specs/s13-offer-pool-history.md) 增加成功 buy/sell/passive/cancellation 委托指令，以及 LP 存取的实际双储备腿与份额；
 订单不显示收支金额，LP 不以 max/min 限额替代实际数量。同步列表/详情/搜索/Other 分类
 与 v1 JSON cache，保留历史 unsupported 记录；不修改交易管线、写能力或 Realm schema。
 实现仅依据行为契约与 Fresnica 代码，不使用 donor source/tests/resources 模板。
 Slice 3 本地定向自动验证通过（15 suites / 249 tests；真实 Realm History 1 suite / 23 tests；
 typecheck）；完整仓库验证、exact-HEAD 独立审查、用户合并分别以 PR 当前证据为准。
 原生/真机流程、动态字体、屏幕阅读器、live receipt、离线 Retry/切网验收未执行；
-不提升 S13 成熟度。Claimable/Clawback、合约、失败与隐藏分类仍为 Slice 4–6。
+不提升 S13 成熟度。
+
+Slice 4 当前候选依据 [Claimable/Clawback contract](behavior-specs/s13-claimable-clawback-history.md)
+与 Fresnica 契约独立实现四类成功操作：创建、领取、普通收回及可领取余额收回。
+创建区分出资人扣减、发行方发行和有条件领取人；普通收回区分持有人扣减与发行方销毁，
+不把发行/销毁显示为收支。保留有限深度条件树和完整余额 ID；领取/可领取余额收回仅有
+操作级 ID 证据，明确显示历史资产/金额不可用，不以当前余额、其他记录或本地意图补数。
+同步列表/详情/Other/已加载集搜索与可替换 v1 JSON cache，不改 Realm schema、写能力、
+签名/提交/恢复语义。已运行定向自动验证 17 suites / 313 tests、真实 Realm History
+1 suite / 24 tests、typecheck，受影响 lint 无错误；完整仓库检查/双端 JS bundles、
+exact-HEAD 独立审查与用户 Merge 以当前 PR 实际证据为准。
+原生/真机、动态字体/阅读器、live receipts、原生离线 Retry/切网验收仍未执行；
+缺少历史金额的 effects enrichment、合约/剩余家族 Slice 5、失败/可见性 Slice 6 保持开放。
+Stage 9 iOS 真机 System Auth 取消/重试继续延期；本候选不提升成熟度或宣称完整同步。
 
 #### S22 Address Book 本地候选（2026-11-02）
 

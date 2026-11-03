@@ -499,3 +499,97 @@ it.each(['liquidity_pool_deposit', 'liquidity_pool_withdraw'])(
     );
   },
 );
+
+it.each(['create', 'claim', 'clawback', 'clawback-reference'])(
+  'renders %s historical evidence and localized warnings without claim/burn actions',
+  family => {
+    mockedUseState.mockReset();
+    let entry: HistoryEntry;
+    if (family === 'create')
+      entry = {
+        ...unsupported(),
+        kind: 'claimable-create',
+        successful: true,
+        operationType: 'create_claimable_balance',
+        asset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' },
+        amount: '922337203685.4775807',
+        role: 'claimant',
+        claimants: [
+          {
+            destination: 'GCLAIMANT',
+            predicate: { and: [{ abs_before: '+39121901036-03-29T15:30:22Z' }, { rel_before: '-1' }] },
+          },
+        ],
+      };
+    else if (family === 'clawback')
+      entry = {
+        ...unsupported(),
+        kind: 'clawback',
+        successful: true,
+        operationType: 'clawback',
+        asset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' },
+        amount: '0',
+        role: 'holder',
+        holder: 'MMUXEDHOLDER',
+        holderBase: 'GBASEHOLDER',
+      };
+    else
+      entry = {
+        ...unsupported(),
+        kind: 'claimable-reference',
+        successful: true,
+        operationType: family === 'claim' ? 'claim_claimable_balance' : 'clawback_claimable_balance',
+        balanceId: `00000000${'a'.repeat(64)}`,
+      };
+    const { root } = renderWithState({
+      kind: 'loaded',
+      result: { status: 'ready', entry },
+      source: 'online',
+      stale: false,
+      refreshing: false,
+      refreshFailed: false,
+    });
+    const values: string[] = [];
+    visit(root, element => {
+      const props = element.props as Readonly<{ label?: string; value?: string; children?: unknown }>;
+      if (props.label) values.push(props.label);
+      if (props.value) values.push(props.value);
+      if (typeof props.children === 'string') values.push(props.children);
+    });
+    if (family === 'create') {
+      expect(values).toEqual(
+        expect.arrayContaining([
+          'Claimable quantity',
+          'Creator',
+          'Claimant',
+          'GCLAIMANT',
+          '922,337,203,685.4775807 USD',
+        ]),
+      );
+      expect(values.some(value => value.includes('+39121901036-03-29T15:30:22Z') && value.includes('-1'))).toBe(true);
+      expect(values).toContain(
+        'This historical creation record does not establish current claim eligibility or whether the balance is still available.',
+      );
+    } else if (family === 'clawback') {
+      expect(values).toEqual(
+        expect.arrayContaining([
+          'Quantity removed',
+          'Holder',
+          'MMUXEDHOLDER',
+          'Holder base account',
+          'GBASEHOLDER',
+          '0 USD',
+        ]),
+      );
+    } else {
+      expect(values).toContain(`00000000${'a'.repeat(64)}`);
+      expect(values).toContain(
+        'This operation records the balance ID only. Its historical asset and quantity are unavailable without additional ledger evidence.',
+      );
+    }
+    if (family.includes('clawback'))
+      expect(values).toContain('The issuer removed and burned these tokens. They were not paid to the issuer.');
+    expect(values).not.toContain('Claim now');
+    expect(values).not.toContain('Direction');
+  },
+);

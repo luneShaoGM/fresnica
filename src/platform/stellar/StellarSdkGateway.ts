@@ -25,7 +25,10 @@ export type StellarSdkGatewayConfig = Readonly<{
 }>;
 
 export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryOperationRecord {
-  const asset = mapHistoryAsset(input.asset_type, input.asset_code, input.asset_issuer);
+  const asset =
+    input.type === 'create_claimable_balance'
+      ? canonicalHistoryAsset(input.asset)
+      : mapHistoryAsset(input.asset_type, input.asset_code, input.asset_issuer);
   const sourceAsset = mapHistoryAsset(input.source_asset_type, input.source_asset_code, input.source_asset_issuer);
 
   return Object.freeze({
@@ -38,6 +41,10 @@ export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryO
     ...(input.type === 'path_payment_strict_send' ||
     input.type === 'path_payment_strict_receive' ||
     [
+      'create_claimable_balance',
+      'claim_claimable_balance',
+      'clawback',
+      'clawback_claimable_balance',
       'manage_buy_offer',
       'manage_sell_offer',
       'create_passive_sell_offer',
@@ -47,6 +54,9 @@ export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryO
       ? { successful: input.transaction_successful === true }
       : {}),
     ...mapOfferPoolFields(input),
+    ...(input.claimants === undefined ? {} : { claimants: input.claimants }),
+    ...(input.claimant === undefined ? {} : { claimant: input.claimant }),
+    ...(input.balance_id === undefined ? {} : { balanceId: input.balance_id }),
     ...(typeof input.source_amount === 'string' ? { sourceAmount: input.source_amount } : {}),
     ...(sourceAsset === undefined ? {} : { sourceAsset }),
     ...(input.from_muxed === undefined ? {} : { fromMuxed: input.from_muxed }),
@@ -62,6 +72,13 @@ export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryO
     ...(input.trustee === undefined ? {} : { trustee: input.trustee }),
     ...(input.limit === undefined ? {} : { limit: input.limit }),
   });
+}
+
+function canonicalHistoryAsset(value: unknown): HistoryOperationRecord['asset'] {
+  if (value === 'native') return Object.freeze({ kind: 'native' });
+  if (typeof value !== 'string') return undefined;
+  const parts = value.split(':');
+  return parts.length === 2 ? Object.freeze({ kind: 'credit', code: parts[0], issuer: parts[1] }) : undefined;
 }
 
 function mapOfferPoolFields(input: HorizonOperationLike): Partial<HistoryOperationRecord> {

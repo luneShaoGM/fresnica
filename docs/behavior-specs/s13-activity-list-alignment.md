@@ -4,9 +4,11 @@ Status: Slice 1 merged through PR #147 at
 `main@c7e525bf0bb64863756078561e6d40feee143c55`, including S22 #145/#146.
 Slice 2 merged through PR #148 at
 `main@0171f860842b87904761309c749297ddfbf18c83`, specified in
-[`s13-path-payment-history.md`](s13-path-payment-history.md). Slice 3 is the current
+[`s13-path-payment-history.md`](s13-path-payment-history.md). Slice 3 merged through
+PR #149 at `main@d6e744a119c9b8eadaab5adc6652d1fabae9112e`, specified in
+[`s13-offer-pool-history.md`](s13-offer-pool-history.md). Slice 4 is the current
 implementation candidate, specified in
-[`s13-offer-pool-history.md`](s13-offer-pool-history.md). Existing cache,
+[`s13-claimable-clawback-history.md`](s13-claimable-clawback-history.md). Existing cache,
 cursor, detail identity, submission and recovery contracts remain in force.
 
 Trace: S13, with S22 local identity presentation. Decision: Adapt / clean-room
@@ -22,8 +24,8 @@ templates. Independent implementation review is required before merge.
 | --- | --- | --- |
 | 1 | Payment, account funding, ordinary trustline list identity and amount layout | Merged #147; native acceptance pending |
 | 2 | Path-payment and Swap read projection, asset pair, destination-leg summary | Merged #148; successful actual legs only, native acceptance pending |
-| 3 | Buy/sell/passive/cancelled offers and liquidity pool read presentation | Current candidate; intent-only offers and two actual signed reserve legs, independent review/merge/native acceptance pending |
-| 4 | Claimable Balance and Clawback roles, amounts and risk classification | Deferred |
+| 3 | Buy/sell/passive/cancelled offers and liquidity pool read presentation | Merged #149; intent-only offers and two actual signed reserve legs, native acceptance pending |
+| 4 | Claimable Balance and Clawback roles, amounts and risk classification | Current candidate: four operation families, exact roles/conditions, known creation/holder amounts, ID-only claim and claimable clawback; effect-backed missing asset/amount enrichment remains open; review/merge/native acceptance pending |
 | 5 | Contract identity and asset-change summaries; remaining operation families | Deferred |
 | 6 | Failed-operation read contract and controls; Dust/Spam/technical visibility | Deferred; do not invent classifications without data |
 

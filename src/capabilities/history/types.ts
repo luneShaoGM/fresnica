@@ -91,7 +91,45 @@ export type HistoryPoolEntry = HistoryEntryBase &
     shares: string;
   }>;
 
+export type HistoryClaimPredicate = Readonly<
+  | { unconditional: true }
+  | { and: readonly [HistoryClaimPredicate, HistoryClaimPredicate] }
+  | { or: readonly [HistoryClaimPredicate, HistoryClaimPredicate] }
+  | { not: HistoryClaimPredicate }
+  | { abs_before: string; abs_before_epoch?: string }
+  | { abs_before_epoch: string }
+  | { rel_before: string }
+>;
+export type HistoryClaimant = Readonly<{ destination: string; predicate: HistoryClaimPredicate }>;
+export type HistoryClaimableEntry = HistoryEntryBase &
+  Readonly<{
+    kind: 'claimable-create';
+    successful: true;
+    asset: HistoryAsset;
+    amount: string;
+    claimants: readonly HistoryClaimant[];
+    role: 'funder' | 'issuer' | 'claimant';
+  }>;
+export type HistoryBalanceReferenceEntry = HistoryEntryBase &
+  Readonly<{
+    kind: 'claimable-reference';
+    successful: true;
+    balanceId: string;
+  }>;
+export type HistoryClawbackEntry = HistoryEntryBase &
+  Readonly<{
+    kind: 'clawback';
+    successful: true;
+    asset: HistoryCreditAsset;
+    amount: string;
+    holder: string;
+    holderBase: string;
+    role: 'issuer' | 'holder';
+  }>;
 export type HistoryEntry =
+  | HistoryClaimableEntry
+  | HistoryBalanceReferenceEntry
+  | HistoryClawbackEntry
   | HistoryOfferEntry
   | HistoryPoolEntry
   | HistoryPathPaymentEntry

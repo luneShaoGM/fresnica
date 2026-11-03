@@ -489,3 +489,69 @@ it('persists exact offer intents, actual pool legs and legacy families through r
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+it('reopens all four claimable/clawback v1 payloads with roles/predicates/exact IDs and isolated partitions', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'fresnica-history-claimable-'));
+  const path = join(directory, 'wallet.realm');
+  const address = `G${'A'.repeat(55)}`;
+  const issuer = `G${'B'.repeat(55)}`;
+  const claimant = `G${'C'.repeat(55)}`;
+  const partition = { networkId: 'stellar-testnet', accountAddress: address };
+  const entries = ['create_claimable_balance', 'claim_claimable_balance', 'clawback', 'clawback_claimable_balance'].map(
+    (type, index) =>
+      mapHistoryEntry(
+        {
+          id: String(index),
+          pagingToken: String(index),
+          type,
+          occurredAt: '2026-11-03T00:00:00Z',
+          transactionHash: 'hash',
+          sourceAccount: type === 'clawback' ? issuer : address,
+          successful: true,
+          asset: { kind: 'credit', code: 'USD', issuer },
+          amount: '922337203685.4775807',
+          claimants: [
+            {
+              destination: claimant,
+              predicate: { or: [{ absBefore: '+39121901036-03-29T15:30:22Z' }, { rel_before: '-1' }] },
+            },
+          ],
+          from: address,
+          claimant: address,
+          balanceId: `00000000${'c'.repeat(64)}`,
+        },
+        address,
+      ),
+  );
+  expect(entries.every(entry => entry.kind !== 'unsupported')).toBe(true);
+  const snapshot = historySnapshot(
+    entries,
+    entries.map(entry => ({ operationId: entry.id, entry })),
+  );
+  let realm: Awaited<ReturnType<typeof openWalletRealm>> | undefined;
+  try {
+    realm = await openWalletRealm({ path });
+    new RealmHistoryCacheRepository(realm).replaceSnapshot(partition, snapshot);
+    realm.close();
+    realm = undefined;
+    realm = await openWalletRealm({ path });
+    const repository = new RealmHistoryCacheRepository(realm);
+    const reopened = repository.getSnapshot(partition)!;
+    expect(reopened).toEqual(normalizeHistoryCacheSnapshot(snapshot, partition));
+    expect(reopened.entries).toHaveLength(4);
+    expect(repository.getSnapshot({ ...partition, networkId: 'stellar-mainnet' })).toBeUndefined();
+    expect(repository.getSnapshot({ ...partition, accountAddress: claimant })).toBeUndefined();
+    const create = reopened.entries[0];
+    if (create.kind !== 'claimable-create') throw new Error('expected-create');
+    expect(Object.isFrozen(create.claimants[0].predicate)).toBe(true);
+    expect(() => {
+      (create.claimants as unknown[]).push({});
+    }).toThrow();
+    expect(() => repository.replaceSnapshot(partition, historySnapshot([{ ...create, role: 'claimant' }]))).toThrow();
+    expect(repository.getSnapshot(partition)).toEqual(reopened);
+  } finally {
+    realm?.close();
+    Realm.shutdown();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

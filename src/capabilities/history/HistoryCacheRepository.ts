@@ -1,3 +1,4 @@
+import { isClaimableClawbackType, mapClaimableClawback } from './claimableClawbackHistory';
 import { isOfferType, isPoolType, mapOfferPool } from './offerPoolHistory';
 import { isPathPaymentType, mapPathPayment } from './pathPaymentHistory';
 import type { HistoryAsset, HistoryEntry, HistoryParticipant, HistoryParticipantRole } from './types';
@@ -112,6 +113,50 @@ function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): Hi
   };
 
   switch (entry.kind) {
+    case 'claimable-create':
+    case 'claimable-reference':
+    case 'clawback': {
+      if (entry.kind !== 'claimable-reference') assertAsset(entry.asset);
+      const account =
+        accountAddress ??
+        (entry.kind === 'claimable-create' && entry.role === 'claimant'
+          ? entry.claimants[0]?.destination
+          : entry.kind === 'clawback' && entry.role === 'holder'
+            ? entry.holderBase
+            : entry.sourceAccount);
+      const reconstructed = mapClaimableClawback(
+        {
+          ...base,
+          type: entry.operationType,
+          successful: entry.successful,
+          ...(entry.kind === 'claimable-create'
+            ? { asset: entry.asset, amount: entry.amount, claimants: entry.claimants }
+            : entry.kind === 'clawback'
+              ? {
+                  asset: entry.asset,
+                  amount: entry.amount,
+                  from: entry.holderBase,
+                  ...(entry.holder === entry.holderBase ? {} : { fromMuxed: entry.holder }),
+                }
+              : {
+                  balanceId: entry.balanceId,
+                  ...(entry.operationType === 'claim_claimable_balance' ? { claimant: entry.sourceAccount } : {}),
+                }),
+        },
+        account ?? '',
+        base,
+      );
+      if (
+        !reconstructed ||
+        reconstructed.kind !== entry.kind ||
+        (reconstructed.kind === 'clawback' &&
+          entry.kind === 'clawback' &&
+          (reconstructed.holder !== entry.holder || reconstructed.holderBase !== entry.holderBase)) ||
+        ('role' in reconstructed && (!('role' in entry) || reconstructed.role !== entry.role))
+      )
+        throw new Error('history-cache-invalid-entry');
+      return reconstructed;
+    }
     case 'offer':
     case 'liquidity-pool': {
       if (entry.kind === 'offer') {
@@ -249,6 +294,11 @@ function assertHistoryEntry(entry: HistoryEntry): void {
   }
 
   switch (entry.kind) {
+    case 'claimable-create':
+    case 'claimable-reference':
+    case 'clawback':
+      if (!isClaimableClawbackType(entry.operationType)) throw new Error('history-cache-invalid-entry');
+      return;
     case 'offer':
       if (!isOfferType(entry.operationType)) throw new Error('history-cache-invalid-entry');
       return;
@@ -314,7 +364,8 @@ function assertHistoryEntry(entry: HistoryEntry): void {
           !isSpecializedOperationType(entry.operationType) &&
           !isPathPaymentType(entry.operationType) &&
           !isOfferType(entry.operationType) &&
-          !isPoolType(entry.operationType))
+          !isPoolType(entry.operationType) &&
+          !isClaimableClawbackType(entry.operationType))
       ) {
         throw new Error('history-cache-invalid-entry');
       }

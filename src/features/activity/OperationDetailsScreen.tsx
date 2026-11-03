@@ -1,3 +1,4 @@
+import { claimPredicateSummary } from './claimPredicateSummary';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Pressable, ScrollView, Text, View } from 'react-native';
 
@@ -431,6 +432,62 @@ function renderEntry(
         />
         <DetailRow label={t('activity.detail.transactionHash')} value={entry.transactionHash} mono styles={styles} />
         {renderAccount(entry.sourceAccount, t('activity.detail.sourceAccount'))}
+        {entry.kind === 'claimable-create' || entry.kind === 'clawback' ? (
+          <>
+            <DetailRow
+              label={t(
+                entry.kind === 'claimable-create'
+                  ? 'activity.detail.claimableQuantity'
+                  : 'activity.detail.removedQuantity',
+              )}
+              value={`${formatNumber(entry.amount, 7)} ${entry.asset.code}`}
+              styles={styles}
+            />
+            <DetailRow label={t('activity.detail.asset')} value={entry.asset.code} styles={styles} />
+            {entry.asset.kind === 'credit' ? renderAccount(entry.asset.issuer, t('activity.detail.issuer')) : null}
+            {entry.kind === 'claimable-create' ? (
+              <>
+                {renderAccount(entry.sourceAccount, t('activity.detail.creator'))}
+                <Text style={styles.warning}>{t('activity.detail.claimableExplanation')}</Text>
+                {entry.claimants.map((claimant, index) => (
+                  <React.Fragment key={index}>
+                    {renderAccount(claimant.destination, t('activity.detail.claimant'))}
+                    <DetailRow
+                      label={t('activity.detail.condition')}
+                      value={claimPredicateSummary(claimant.predicate, t)}
+                      styles={styles}
+                    />
+                  </React.Fragment>
+                ))}
+              </>
+            ) : (
+              <>
+                {renderAccount(entry.holder, t('activity.detail.holder'))}
+                {entry.holder !== entry.holderBase ? (
+                  <DetailRow label={t('activity.detail.holderBase')} value={entry.holderBase} mono styles={styles} />
+                ) : null}
+                <Text style={styles.warning}>{t('activity.detail.clawbackWarning')}</Text>
+              </>
+            )}
+          </>
+        ) : null}
+        {entry.kind === 'claimable-reference' ? (
+          <>
+            {renderAccount(
+              entry.sourceAccount,
+              t(
+                entry.operationType === 'claim_claimable_balance'
+                  ? 'activity.detail.claimant'
+                  : 'activity.detail.issuer',
+              ),
+            )}
+            <DetailRow label={t('activity.detail.balanceId')} value={entry.balanceId} mono styles={styles} />
+            <Text style={styles.warning}>{t('activity.detail.amountUnavailableExplanation')}</Text>
+            {entry.operationType === 'clawback_claimable_balance' ? (
+              <Text style={styles.warning}>{t('activity.detail.clawbackWarning')}</Text>
+            ) : null}
+          </>
+        ) : null}
         {entry.kind === 'offer' ? (
           <>
             <Text style={styles.warning}>{t('activity.detail.offerExplanation')}</Text>
