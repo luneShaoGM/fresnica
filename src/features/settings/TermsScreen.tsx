@@ -6,7 +6,9 @@ import { useThemedStyles } from '../../ui/theme';
 import type { AppTheme } from '../../ui/theme';
 
 import { SettingsSubpage } from './SettingsSubpage';
-import agreement from './serviceAgreementContent.json';
+
+// The reference agreement cannot be distributed until its rights and product claims are approved.
+export const REFERENCE_AGREEMENT_VERSION = '20260713';
 
 export function TermsScreen({
   onBack,
@@ -17,21 +19,14 @@ export function TermsScreen({
   return (
     <SettingsSubpage title={t(supportError ? 'settings.support' : 'settings.terms')} onBack={onBack}>
       {supportError ? (
-        <Text style={styles.paragraph}>
-          Unable to open the official support website. Please try again when a browser is available.
-        </Text>
+        <Text style={styles.paragraph}>{t('settings.supportOpenFailed')}</Text>
       ) : (
         <View style={styles.document}>
-          <Text style={styles.version}>Agreement version: {agreement.version}</Text>
-          {agreement.sections.map((section, index) => (
-            <Text
-              key={index}
-              accessibilityRole={section.kind === 'heading' ? 'header' : 'text'}
-              style={section.kind === 'heading' ? styles.heading : styles.paragraph}
-            >
-              {section.text}
-            </Text>
-          ))}
+          <Text style={styles.version}>
+            {t('settings.termsReferenceVersion')}: {REFERENCE_AGREEMENT_VERSION}
+          </Text>
+          <Text style={styles.paragraph}>{t('settings.termsPendingApproval')}</Text>
+          <Text style={styles.paragraph}>{t('settings.termsNotAccepted')}</Text>
         </View>
       )}
     </SettingsSubpage>
@@ -42,7 +37,6 @@ function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     document: { paddingTop: theme.spacing.md, gap: theme.spacing.md },
     version: { ...theme.typography.caption, color: theme.colors.textSecondary },
-    heading: { ...theme.typography.title, color: theme.colors.textPrimary },
     paragraph: { ...theme.typography.body, color: theme.colors.textPrimary, lineHeight: 24 },
   });
 }
