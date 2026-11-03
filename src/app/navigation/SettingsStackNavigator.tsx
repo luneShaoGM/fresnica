@@ -1,4 +1,5 @@
 import React from 'react';
+import { Linking } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
@@ -12,6 +13,7 @@ import { AccountDetailsScreen } from '@features/accounts/AccountDetailsScreen';
 import { AccountsScreen } from '@features/accounts/AccountsScreen';
 import { AddAccountScreen } from '@features/accounts/AddAccountScreen';
 import { SecuritySettingsScreen } from '@features/security/SecuritySettingsScreen';
+import { TermsScreen } from '@features/settings/TermsScreen';
 import { AboutScreen } from '@features/settings/AboutScreen';
 import { LanguageSettingsScreen } from '@features/settings/LanguageSettingsScreen';
 import { NetworkSettingsScreen } from '@features/settings/NetworkSettingsScreen';
@@ -58,6 +60,10 @@ export function SettingsStackNavigator({
             onOpenConnectedDapps={() => navigation.navigate('connected-dapps')}
             onOpenGeneral={() => navigation.navigate('general-settings')}
             onOpenAdvanced={() => navigation.navigate('advanced-settings')}
+            onOpenSupport={() => {
+              Linking.openURL('https://fchain.io/').catch(() => navigation.navigate('support-unavailable'));
+            }}
+            onOpenTerms={() => navigation.navigate('terms')}
             onOpenAbout={() => navigation.navigate('about')}
           />
         )}
@@ -178,6 +184,10 @@ export function SettingsStackNavigator({
       </Stack.Screen>
       <Stack.Screen name="language-settings">
         {({ navigation }) => <LanguageSettingsScreen onBack={() => navigation.goBack()} />}
+      </Stack.Screen>
+      <Stack.Screen name="terms">{({ navigation }) => <TermsScreen onBack={() => navigation.goBack()} />}</Stack.Screen>
+      <Stack.Screen name="support-unavailable">
+        {({ navigation }) => <TermsScreen onBack={() => navigation.goBack()} supportError />}
       </Stack.Screen>
       <Stack.Screen name="about">
         {({ navigation }) => (

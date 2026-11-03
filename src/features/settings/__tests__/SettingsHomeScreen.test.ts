@@ -57,6 +57,8 @@ function renderSettings(accountCount = 3) {
   const onOpenSecurity = jest.fn();
   const onOpenConnectedDapps = jest.fn();
   const onOpenAbout = jest.fn();
+  const onOpenSupport = jest.fn();
+  const onOpenTerms = jest.fn();
   const root = SettingsHomeScreen({
     accountCount,
     onOpenAddressBook,
@@ -66,6 +68,8 @@ function renderSettings(accountCount = 3) {
     onOpenSecurity,
     onOpenConnectedDapps,
     onOpenAbout,
+    onOpenSupport,
+    onOpenTerms,
   });
   return {
     root,
@@ -77,6 +81,8 @@ function renderSettings(accountCount = 3) {
       onOpenSecurity,
       onOpenConnectedDapps,
       onOpenAbout,
+      onOpenSupport,
+      onOpenTerms,
     },
   };
 }
@@ -96,7 +102,7 @@ describe('Settings Home native scroll integration', () => {
     expect(styles.content.paddingBottom).toBe(defaultTheme.spacing.xl);
   });
 
-  it('preserves the five existing navigation callbacks without activating unavailable settings', () => {
+  it('wires all settings rows to their navigation actions', () => {
     const { root, callbacks } = renderSettings();
     const rows = collect(root, element => element.type === ListRow);
     const t = createLocalization('en').t;
@@ -109,18 +115,14 @@ describe('Settings Home native scroll integration', () => {
       [t('settings.security'), callbacks.onOpenSecurity],
       [t('settings.connectedDapps'), callbacks.onOpenConnectedDapps],
       [t('settings.about'), callbacks.onOpenAbout],
+      [t('settings.support'), callbacks.onOpenSupport],
+      [t('settings.terms'), callbacks.onOpenTerms],
     ] as const;
     for (const [title, action] of interactive) {
       const row = rows.find(element => element.props.title === title);
       expect(row?.props.onPress).toBe(action);
       row?.props.onPress?.();
       expect(action).toHaveBeenCalledTimes(1);
-    }
-
-    for (const title of ['settings.support', 'settings.terms']) {
-      const row = rows.find(element => element.props.title === t(title));
-      expect(row?.props.onPress).toBeUndefined();
-      expect(row?.props.subtitle).toBe(t('settings.soon'));
     }
   });
 

@@ -18,6 +18,8 @@ type Props = Readonly<{
   onOpenAdvanced: () => void;
   onOpenConnectedDapps: () => void;
   onOpenAbout: () => void;
+  onOpenSupport: () => void;
+  onOpenTerms: () => void;
 }>;
 
 export function SettingsHomeScreen({
@@ -29,6 +31,8 @@ export function SettingsHomeScreen({
   onOpenAdvanced,
   onOpenConnectedDapps,
   onOpenAbout,
+  onOpenSupport,
+  onOpenTerms,
 }: Props) {
   const { t, tPlural } = useLocalization();
   const styles = useThemedStyles(createStyles);
@@ -63,8 +67,8 @@ export function SettingsHomeScreen({
           </SettingsGroup>
 
           <SettingsGroup>
-            <ListRow subtitle={t('settings.soon')} title={t('settings.support')} />
-            <ListRow subtitle={t('settings.soon')} title={t('settings.terms')} />
+            <ListRow onPress={onOpenSupport} title={t('settings.support')} />
+            <ListRow onPress={onOpenTerms} title={t('settings.terms')} />
             <ListRow onPress={onOpenAbout} title={t('settings.about')} />
           </SettingsGroup>
 
