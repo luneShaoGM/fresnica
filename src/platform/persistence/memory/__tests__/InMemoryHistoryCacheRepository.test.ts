@@ -2,9 +2,27 @@ import { mapHistoryEntry } from '../../../../capabilities/history/loadHistoryPag
 import { historySnapshot } from '../../__tests__/historyCacheRepositoryContract';
 import { runHistoryCacheRepositoryContract } from '../../__tests__/historyCacheRepositoryContract';
 import { InMemoryHistoryCacheRepository } from '../InMemoryHistoryCacheRepository';
+import {
+  contractRecord,
+  transfer,
+  source,
+  recipient,
+} from '../../../../capabilities/history/__tests__/contractHistory.fixtures';
 
 describe('InMemoryHistoryCacheRepository', () => {
   runHistoryCacheRepositoryContract(() => new InMemoryHistoryCacheRepository());
+});
+
+it('retains an event recipient partition through contract memory clones', () => {
+  const partition = { networkId: 'test', accountAddress: recipient };
+  const entry = mapHistoryEntry(contractRecord({ assetBalanceChanges: [transfer] }), recipient);
+  const snapshot = historySnapshot([entry], [{ operationId: entry.id, entry }]);
+  const repository = new InMemoryHistoryCacheRepository();
+  repository.replaceSnapshot(partition, snapshot);
+  expect(repository.getSnapshot(partition)).toEqual(snapshot);
+  expect(repository.getSnapshot(partition)).not.toBe(repository.getSnapshot(partition));
+  expect(repository.getSnapshot({ ...partition, accountAddress: source })).toBeUndefined();
+  expect(() => repository.replaceSnapshot({ ...partition, accountAddress: source }, snapshot)).toThrow();
 });
 
 it('retains a later claimant partition when creator is the first claimant during memory clone/read/write', () => {

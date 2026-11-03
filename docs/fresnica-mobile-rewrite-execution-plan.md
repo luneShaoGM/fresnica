@@ -883,7 +883,7 @@ typecheck）；完整仓库验证、exact-HEAD 独立审查、用户合并分别
 原生/真机流程、动态字体、屏幕阅读器、live receipt、离线 Retry/切网验收未执行；
 不提升 S13 成熟度。
 
-Slice 4 当前候选依据 [Claimable/Clawback contract](behavior-specs/s13-claimable-clawback-history.md)
+Slice 4 已按 #150 合并到 `main@61d69a8af760256a84730547cfbbf307d24c4017`，依据 [Claimable/Clawback contract](behavior-specs/s13-claimable-clawback-history.md)
 与 Fresnica 契约独立实现四类成功操作：创建、领取、普通收回及可领取余额收回。
 创建区分出资人扣减、发行方发行和有条件领取人；普通收回区分持有人扣减与发行方销毁，
 不把发行/销毁显示为收支。保留有限深度条件树和完整余额 ID；领取/可领取余额收回仅有
@@ -895,6 +895,15 @@ exact-HEAD 独立审查与用户 Merge 以当前 PR 实际证据为准。
 原生/真机、动态字体/阅读器、live receipts、原生离线 Retry/切网验收仍未执行；
 缺少历史金额的 effects enrichment、合约/剩余家族 Slice 5、失败/可见性 Slice 6 保持开放。
 Stage 9 iOS 真机 System Auth 取消/重试继续延期；本候选不提升成熟度或宣称完整同步。
+
+Slice 5a 当前候选依据 [Contract history](behavior-specs/s13-contract-history.md)
+读取成功合约调用、创建与代码上传：Platform 只解码身份所需的两个 ScVal，History 保留
+明确的 SAC 资产事件及逐事件账户方向，Activity 列表最多预览两项并提示总数，详情显示
+全部已确认事件。金额按精确字符串与 i128 范围验证；事件缺失、空数组和不完整索引均不
+表示零余额变化。路由 ID 不冒充 Memo 或 M-address；不引入新写能力、依赖或 Realm schema。
+合约 checksum 验证由 SDK Platform 负责，Capability/cache 沿用纯结构地址验证，不声称
+缓存为账本权威。完整验证、当前 HEAD 独立审查和合并以新 PR 证据为准。
+Footprint/其余 classic 家族、历史缺失金额、Slice 6、品牌图片和本轮原生验收继续开放。
 
 #### S22 Address Book 本地候选（2026-11-02）
 

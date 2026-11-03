@@ -1,6 +1,7 @@
 # S13 Claimable Balance / Clawback history
 
-Status: Slice 4 implementation candidate, from main
+Status: Slice 4 merged through #150 at
+`main@61d69a8af760256a84730547cfbbf307d24c4017`; historical implementation base
 `d6e744a119c9b8eadaab5adc6652d1fabae9112e` after merged #149.
 S13 / Adapt / clean-room; Foundation 0/2a/2b and Stage 2.5 available, 2c partial.
 History owns read meaning, Platform decodes Horizon, Activity owns presentation;

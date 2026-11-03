@@ -1,3 +1,4 @@
+import { contractAssociated } from './contractHistory';
 import { isClaimableClawbackType, claimableClawbackAssociated } from './claimableClawbackHistory';
 import { isOfferType, isPoolType } from './offerPoolHistory';
 import type { AccountRecord } from '../account/types';
@@ -46,6 +47,7 @@ export async function loadHistoryOperationDetails(
 }
 
 function isOperationAssociatedWithAccount(record: HistoryOperationRecord, address: string): boolean {
+  if (record.type === 'invoke_host_function') return contractAssociated(record, address);
   if (isClaimableClawbackType(record.type)) return claimableClawbackAssociated(record, address);
   if (isOfferType(record.type) || isPoolType(record.type)) return record.sourceAccount === address;
   if (

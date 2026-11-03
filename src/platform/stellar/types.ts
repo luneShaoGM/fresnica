@@ -68,6 +68,10 @@ export type HorizonOperationLike = {
   transaction_hash: string;
   transaction_successful: boolean;
   source_account: string;
+  function?: unknown;
+  parameters?: unknown;
+  address?: unknown;
+  asset_balance_changes?: unknown;
   asset?: unknown;
   claimants?: unknown;
   claimant?: string;

@@ -126,7 +126,26 @@ export type HistoryClawbackEntry = HistoryEntryBase &
     holderBase: string;
     role: 'issuer' | 'holder';
   }>;
+export type HistoryContractEvent = Readonly<{
+  type: 'transfer' | 'mint' | 'burn' | 'clawback';
+  asset: HistoryAsset;
+  amount: string;
+  from?: string;
+  to?: string;
+  destinationMuxedId?: string;
+  direction: HistoryDirection;
+}>;
+export type HistoryContractEntry = HistoryEntryBase &
+  Readonly<{
+    kind: 'contract';
+    successful: true;
+    hostFunction: 'invoke' | 'create' | 'upload';
+    contractId?: string;
+    functionName?: string;
+    events?: readonly HistoryContractEvent[];
+  }>;
 export type HistoryEntry =
+  | HistoryContractEntry
   | HistoryClaimableEntry
   | HistoryBalanceReferenceEntry
   | HistoryClawbackEntry

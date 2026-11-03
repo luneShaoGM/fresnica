@@ -1,4 +1,14 @@
-import { Asset, Horizon, Memo, Operation, StrKey, Transaction, TransactionBuilder } from '@stellar/stellar-sdk/axios';
+import {
+  Address,
+  xdr,
+  Asset,
+  Horizon,
+  Memo,
+  Operation,
+  StrKey,
+  Transaction,
+  TransactionBuilder,
+} from '@stellar/stellar-sdk/axios';
 
 import type { HistoryOperationRecord } from '../../capabilities/history/HistoryGateway';
 import type { NetworkContext } from '../../capabilities/network/types';
@@ -41,6 +51,7 @@ export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryO
     ...(input.type === 'path_payment_strict_send' ||
     input.type === 'path_payment_strict_receive' ||
     [
+      'invoke_host_function',
       'create_claimable_balance',
       'claim_claimable_balance',
       'clawback',
@@ -54,6 +65,7 @@ export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryO
       ? { successful: input.transaction_successful === true }
       : {}),
     ...mapOfferPoolFields(input),
+    ...mapContractFields(input),
     ...(input.claimants === undefined ? {} : { claimants: input.claimants }),
     ...(input.claimant === undefined ? {} : { claimant: input.claimant }),
     ...(input.balance_id === undefined ? {} : { balanceId: input.balance_id }),
@@ -72,6 +84,72 @@ export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryO
     ...(input.trustee === undefined ? {} : { trustee: input.trustee }),
     ...(input.limit === undefined ? {} : { limit: input.limit }),
   });
+}
+
+function mapContractFields(input: HorizonOperationLike): Partial<HistoryOperationRecord> {
+  if (input.type !== 'invoke_host_function') return {};
+  let contractId: string | undefined;
+  let functionName: string | undefined;
+  try {
+    if (input.function === 'HostFunctionTypeHostFunctionTypeInvokeContract') {
+      if (!Array.isArray(input.parameters) || input.parameters.length < 2 || input.parameters.length > 128)
+        throw new Error('invalid-contract-parameters');
+      const parameters = input.parameters;
+      const decode = (index: number, type: string) => {
+        const parameter = parameters[index] as Record<string, unknown>;
+        if (
+          !parameter ||
+          parameter.type !== type ||
+          typeof parameter.value !== 'string' ||
+          parameter.value.length > 512
+        )
+          throw new Error('invalid-contract-parameter');
+        const value = xdr.ScVal.fromXDR(parameter.value, 'base64');
+        if (value.toXDR('base64') !== parameter.value) throw new Error('noncanonical-contract-parameter');
+        return value;
+      };
+      const address = decode(0, 'Address');
+      const symbol = decode(1, 'Sym');
+      if (address.type !== 'scvAddress' || symbol.type !== 'scvSymbol') throw new Error('invalid-contract-identity');
+      contractId = Address.fromScVal(address).toString();
+      functionName = symbol.sym.toString();
+    } else if (
+      input.function === 'HostFunctionTypeHostFunctionTypeCreateContract' &&
+      typeof input.address === 'string'
+    ) {
+      contractId = input.address;
+    }
+    if (
+      contractId !== undefined &&
+      (!StrKey.isValidContract(contractId) || new Address(contractId).toString() !== contractId)
+    )
+      contractId = undefined;
+  } catch {
+    contractId = undefined;
+    functionName = undefined;
+  }
+  const raw = input.asset_balance_changes;
+  const events =
+    Array.isArray(raw) && raw.length <= 128
+      ? raw.map(value => {
+          if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+          const event = value as Record<string, unknown>;
+          return {
+            type: event.type,
+            amount: event.amount,
+            asset: mapHistoryAsset(event.asset_type, event.asset_code, event.asset_issuer),
+            ...(event.from === undefined ? {} : { from: event.from }),
+            ...(event.to === undefined ? {} : { to: event.to }),
+            ...(event.destination_muxed_id === undefined ? {} : { destinationMuxedId: event.destination_muxed_id }),
+          };
+        })
+      : raw;
+  return {
+    hostFunction: input.function,
+    ...(contractId === undefined ? {} : { contractId }),
+    ...(functionName === undefined ? {} : { functionName }),
+    ...(events === undefined ? {} : { assetBalanceChanges: events }),
+  };
 }
 
 function canonicalHistoryAsset(value: unknown): HistoryOperationRecord['asset'] {

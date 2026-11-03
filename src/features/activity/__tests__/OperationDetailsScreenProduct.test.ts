@@ -6,6 +6,13 @@ import { AccessibilityInfo, Pressable, Text } from 'react-native';
 import type { AccountRecord } from '../../../capabilities/account/types';
 import type { HistoryProductDependencies } from '../../../capabilities/history/HistoryCacheHydration';
 import { claimPredicateSummary } from '../claimPredicateSummary';
+import { mapHistoryEntry } from '../../../capabilities/history/loadHistoryPage';
+import {
+  contractRecord,
+  transfer,
+  contractId,
+  source,
+} from '../../../capabilities/history/__tests__/contractHistory.fixtures';
 import type { HistoryClaimPredicate } from '../../../capabilities/history/types';
 import type { HistoryEntry } from '../../../capabilities/history/types';
 import { createLocalization } from '../../../locale/localization';
@@ -637,4 +644,56 @@ it('wraps the complete depth-four condition structure without changing other det
     element => element.type === Text && element.props.children === 'create_claimable_balance',
   );
   expect((otherValue?.props as { numberOfLines?: number }).numberOfLines).toBe(2);
+});
+
+it('shows every contract event, exact large quantities and full identities without line caps', () => {
+  mockedUseState.mockReset();
+  const entry = mapHistoryEntry(
+    contractRecord({
+      assetBalanceChanges: [
+        { ...transfer, amount: '17014118346046923173168730371588.4105727', to: contractId },
+        { ...transfer, type: 'mint', from: '', amount: '2', to: source },
+        { ...transfer, type: 'burn', to: '', amount: '3' },
+        { ...transfer, destinationMuxedId: '42', amount: '4' },
+      ],
+    }),
+    source,
+  );
+  const { root } = renderWithState({
+    kind: 'loaded',
+    result: { status: 'ready', entry },
+    source: 'online',
+    stale: false,
+    refreshing: false,
+    refreshFailed: false,
+  });
+  const values: string[] = [];
+  let eventCount = 0;
+  visit(root, element => {
+    const props = element.props as { label?: string; value?: string; children?: unknown; fullValue?: boolean };
+    if (props.label) values.push(props.label);
+    if (props.value) values.push(props.value);
+    if (typeof props.children === 'string') values.push(props.children);
+    if (props.label === 'Asset event') eventCount += 1;
+    if (props.label === 'Reported quantity' || props.label === 'Contract ID') {
+      expect(props.fullValue).toBe(true);
+      if (typeof element.type !== 'function') throw new Error('expected-detail-row');
+      const rendered = (element.type as (input: NodeProps) => React.ReactNode)(element.props);
+      const text = findElement(rendered, child => child.type === Text && child.props.children === props.value);
+      expect((text?.props as { numberOfLines?: number }).numberOfLines).toBeUndefined();
+    }
+  });
+  expect(eventCount).toBe(4);
+  expect(values).toEqual(
+    expect.arrayContaining([
+      contractId,
+      'Transfer',
+      'Mint',
+      'Burn',
+      '42',
+      '17,014,118,346,046,923,173,168,730,371,588.4105727 XLM',
+      '4 XLM',
+    ]),
+  );
+  expect(values).toContain('Destination routing ID (not a Memo)');
 });
