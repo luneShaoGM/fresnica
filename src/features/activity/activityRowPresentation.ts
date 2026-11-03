@@ -29,6 +29,12 @@ export function activityRowPresentation(
 ): ActivityRowPresentation {
   const detail = activityEntryPresentation(entry, t, formatNumber);
   switch (entry.kind) {
+    case 'maintenance':
+      return {
+        title: names?.get(entry.sourceAccount)?.trim() || formatPublicAddress(entry.sourceAccount),
+        operation: detail.title,
+        subject: { kind: 'account', address: entry.sourceAccount },
+      };
     case 'contract':
       return {
         title: entry.contractId ? formatPublicAddress(entry.contractId) : detail.title,

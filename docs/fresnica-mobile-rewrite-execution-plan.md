@@ -896,7 +896,7 @@ exact-HEAD 独立审查与用户 Merge 以当前 PR 实际证据为准。
 缺少历史金额的 effects enrichment、合约/剩余家族 Slice 5、失败/可见性 Slice 6 保持开放。
 Stage 9 iOS 真机 System Auth 取消/重试继续延期；本候选不提升成熟度或宣称完整同步。
 
-Slice 5a 当前候选依据 [Contract history](behavior-specs/s13-contract-history.md)
+Slice 5a 已按 #152 合并到 `main@1b8aeb6c64d9dab8cf2a67148f44517a3dab15d5`，依据 [Contract history](behavior-specs/s13-contract-history.md)
 读取成功合约调用、创建与代码上传：Platform 只解码身份所需的两个 ScVal，History 保留
 明确的 SAC 资产事件及逐事件账户方向，Activity 列表最多预览两项并提示总数，详情显示
 全部已确认事件。金额按精确字符串与 i128 范围验证；事件缺失、空数组和不完整索引均不
@@ -904,6 +904,12 @@ Slice 5a 当前候选依据 [Contract history](behavior-specs/s13-contract-histo
 合约 checksum 验证由 SDK Platform 负责，Capability/cache 沿用纯结构地址验证，不声称
 缓存为账本权威。完整验证、当前 HEAD 独立审查和合并以新 PR 证据为准。
 Footprint/其余 classic 家族、历史缺失金额、Slice 6、品牌图片和本轮原生验收继续开放。
+
+Slice 5b 当前候选依据 [Maintenance history](behavior-specs/s13-maintenance-history.md)
+增加成功的 TTL 延长、归档条目恢复和序列号调整历史。源账户单独关联，参数保持精确，
+不显示金额列，不推断当前过期时间、受影响条目或当前序列号。沿用列表/详情/Other/
+已加载集搜索、v1 cache 和既有失败/重试机制，不改写能力、依赖、原生配置或 Realm schema。
+其余 classic 家族、构造器变体、历史缺失金额、Slice 6、品牌图片和原生验收继续开放。
 
 #### S22 Address Book 本地候选（2026-11-02）
 

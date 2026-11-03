@@ -1,4 +1,5 @@
 import { mapContract } from './contractHistory';
+import { mapMaintenance } from './maintenanceHistory';
 import { mapClaimableClawback } from './claimableClawbackHistory';
 import { mapOfferPool } from './offerPoolHistory';
 import { mapPathPayment } from './pathPaymentHistory';
@@ -58,6 +59,10 @@ export function mapHistoryEntry(record: HistoryOperationRecord, accountAddress: 
   const base = mapBase(record);
 
   switch (record.type) {
+    case 'extend_footprint_ttl':
+    case 'restore_footprint':
+    case 'bump_sequence':
+      return mapMaintenance(record, accountAddress, base) ?? unsupportedShape(base);
     case 'invoke_host_function':
       return mapContract(record, accountAddress, base) ?? unsupportedShape(base);
     case 'create_claimable_balance':

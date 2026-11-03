@@ -1,4 +1,5 @@
 import { CONTRACT_HOST_FUNCTIONS, mapContract } from './contractHistory';
+import { isMaintenanceType, mapMaintenance } from './maintenanceHistory';
 import { isClaimableClawbackType, mapClaimableClawback } from './claimableClawbackHistory';
 import { isOfferType, isPoolType, mapOfferPool } from './offerPoolHistory';
 import { isPathPaymentType, mapPathPayment } from './pathPaymentHistory';
@@ -114,6 +115,22 @@ function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): Hi
   };
 
   switch (entry.kind) {
+    case 'maintenance': {
+      if (!accountAddress) throw new Error('history-cache-invalid-partition');
+      const reconstructed = mapMaintenance(
+        {
+          ...base,
+          type: entry.operationType,
+          successful: entry.successful,
+          extendTo: entry.extendTo,
+          bumpTo: entry.bumpTo,
+        },
+        accountAddress,
+        base,
+      );
+      if (!reconstructed) throw new Error('history-cache-invalid-entry');
+      return reconstructed;
+    }
     case 'contract': {
       if (!accountAddress) throw new Error('history-cache-invalid-partition');
       if (entry.events !== undefined && (!Array.isArray(entry.events) || entry.events.length > 128))
@@ -320,6 +337,9 @@ function assertHistoryEntry(entry: HistoryEntry): void {
   }
 
   switch (entry.kind) {
+    case 'maintenance':
+      if (!isMaintenanceType(entry.operationType)) throw new Error('history-cache-invalid-entry');
+      return;
     case 'contract':
       if (entry.operationType !== 'invoke_host_function') throw new Error('history-cache-invalid-entry');
       return;
@@ -396,7 +416,8 @@ function assertHistoryEntry(entry: HistoryEntry): void {
           !isOfferType(entry.operationType) &&
           !isPoolType(entry.operationType) &&
           !isClaimableClawbackType(entry.operationType) &&
-          entry.operationType !== 'invoke_host_function')
+          entry.operationType !== 'invoke_host_function' &&
+          !isMaintenanceType(entry.operationType))
       ) {
         throw new Error('history-cache-invalid-entry');
       }

@@ -3,6 +3,12 @@ import { historySnapshot } from '../../__tests__/historyCacheRepositoryContract'
 import { runHistoryCacheRepositoryContract } from '../../__tests__/historyCacheRepositoryContract';
 import { InMemoryHistoryCacheRepository } from '../InMemoryHistoryCacheRepository';
 import {
+  maintenanceRecord,
+  maintenanceSource,
+  maintenanceForeign,
+  maintenanceTypes,
+} from '../../../../capabilities/history/__tests__/maintenanceHistory.fixtures';
+import {
   contractRecord,
   transfer,
   source,
@@ -11,6 +17,21 @@ import {
 
 describe('InMemoryHistoryCacheRepository', () => {
   runHistoryCacheRepositoryContract(() => new InMemoryHistoryCacheRepository());
+});
+
+it('retains all three maintenance payloads and exact parameters in isolated memory partitions', () => {
+  const partition = { networkId: 'test', accountAddress: maintenanceSource };
+  const entries = maintenanceTypes.map(type => mapHistoryEntry(maintenanceRecord(type), maintenanceSource));
+  const snapshot = historySnapshot(
+    entries,
+    entries.map(entry => ({ operationId: entry.id, entry })),
+  );
+  const repository = new InMemoryHistoryCacheRepository();
+  repository.replaceSnapshot(partition, snapshot);
+  expect(repository.getSnapshot(partition)).toEqual(snapshot);
+  expect(repository.getSnapshot({ ...partition, accountAddress: maintenanceForeign })).toBeUndefined();
+  expect(repository.getSnapshot({ ...partition, networkId: 'other' })).toBeUndefined();
+  expect(() => repository.replaceSnapshot({ ...partition, accountAddress: maintenanceForeign }, snapshot)).toThrow();
 });
 
 it('retains an event recipient partition through contract memory clones', () => {

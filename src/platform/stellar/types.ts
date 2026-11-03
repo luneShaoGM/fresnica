@@ -67,6 +67,8 @@ export type HorizonOperationLike = {
   created_at: string;
   transaction_hash: string;
   transaction_successful: boolean;
+  extend_to?: unknown;
+  bump_to?: unknown;
   source_account: string;
   function?: unknown;
   parameters?: unknown;

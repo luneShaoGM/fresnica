@@ -1,7 +1,7 @@
 # S13 contract history — Slice 5a
 
-Status: implementation contract, based on merged #150 at
-`61d69a8af760256a84730547cfbbf307d24c4017`.
+Status: merged through #152 at `main@1b8aeb6c64d9dab8cf2a67148f44517a3dab15d5`;
+historical implementation base #150 at `61d69a8af760256a84730547cfbbf307d24c4017`.
 S13 / Adapt / clean-room. Foundation 0/2a/2b and Stage 2.5 available; 2c partial.
 History owns read meaning, Platform SDK decoding, Activity presentation. Existing
 strict scopes apply. Implement from this specification and Fresnica code without
