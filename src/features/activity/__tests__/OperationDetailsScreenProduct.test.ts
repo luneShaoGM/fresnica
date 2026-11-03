@@ -8,6 +8,11 @@ import type { HistoryProductDependencies } from '../../../capabilities/history/H
 import { claimPredicateSummary } from '../claimPredicateSummary';
 import { mapHistoryEntry } from '../../../capabilities/history/loadHistoryPage';
 import {
+  maintenanceRecord,
+  maintenanceSource,
+  maintenanceTypes,
+} from '../../../capabilities/history/__tests__/maintenanceHistory.fixtures';
+import {
   contractRecord,
   transfer,
   contractId,
@@ -644,6 +649,33 @@ it('wraps the complete depth-four condition structure without changing other det
     element => element.type === Text && element.props.children === 'create_claimable_balance',
   );
   expect((otherValue?.props as { numberOfLines?: number }).numberOfLines).toBe(2);
+});
+
+it.each(maintenanceTypes)('shows exact %s parameters and historical limits without monetary labels', type => {
+  mockedUseState.mockReset();
+  const entry = mapHistoryEntry(maintenanceRecord(type), maintenanceSource);
+  const { root } = renderWithState({
+    kind: 'loaded',
+    result: { status: 'ready', entry },
+    source: 'online',
+    stale: false,
+    refreshing: false,
+    refreshFailed: false,
+  });
+  const values: string[] = [];
+  visit(root, element => {
+    const props = element.props as { label?: string; value?: string; fullValue?: boolean; children?: unknown };
+    if (props.label) values.push(props.label);
+    if (props.value) values.push(props.value);
+    if (typeof props.children === 'string') values.push(props.children);
+    if (props.label === 'Extension horizon (ledgers)' || props.label === 'Target sequence')
+      expect(props.fullValue).toBe(true);
+  });
+  const { t } = createLocalization('en');
+  expect(values).toContain(t(`activity.maintenance.explanation.${type}`));
+  if (type === 'extend_footprint_ttl') expect(values).toContain('4294967295');
+  if (type === 'bump_sequence') expect(values).toContain('9223372036854775807');
+  for (const label of ['Amount', 'Asset', 'Direction', 'Target expiry date']) expect(values).not.toContain(label);
 });
 
 it('shows every contract event, exact large quantities and full identities without line caps', () => {

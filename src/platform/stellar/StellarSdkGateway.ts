@@ -52,6 +52,9 @@ export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryO
     input.type === 'path_payment_strict_receive' ||
     [
       'invoke_host_function',
+      'extend_footprint_ttl',
+      'restore_footprint',
+      'bump_sequence',
       'create_claimable_balance',
       'claim_claimable_balance',
       'clawback',
@@ -66,6 +69,8 @@ export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryO
       : {}),
     ...mapOfferPoolFields(input),
     ...mapContractFields(input),
+    ...(input.extend_to === undefined ? {} : { extendTo: input.extend_to }),
+    ...(input.bump_to === undefined ? {} : { bumpTo: input.bump_to }),
     ...(input.claimants === undefined ? {} : { claimants: input.claimants }),
     ...(input.claimant === undefined ? {} : { claimant: input.claimant }),
     ...(input.balance_id === undefined ? {} : { balanceId: input.balance_id }),

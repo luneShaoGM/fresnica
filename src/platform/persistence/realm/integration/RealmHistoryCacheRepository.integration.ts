@@ -1,4 +1,10 @@
 import { mapHistoryEntry } from '../../../../capabilities/history/loadHistoryPage';
+import {
+  maintenanceRecord,
+  maintenanceSource,
+  maintenanceForeign,
+  maintenanceTypes,
+} from '../../../../capabilities/history/__tests__/maintenanceHistory.fixtures';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -626,6 +632,35 @@ it('reopens contract identity and ordered exact i128 routed events in the origin
     expect(repository.getSnapshot({ ...partition, networkId: 'stellar-mainnet' })).toBeUndefined();
     expect(repository.getSnapshot({ ...partition, accountAddress: recipient })).toBeUndefined();
     expect(() => repository.replaceSnapshot({ ...partition, accountAddress: recipient }, snapshot)).toThrow();
+  } finally {
+    realm?.close();
+    Realm.shutdown();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+it('reopens exact maintenance targets and source-only partitions without monetary fields', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'fresnica-maintenance-history-'));
+  const path = join(directory, 'wallet.realm');
+  const partition = { networkId: 'test', accountAddress: maintenanceSource };
+  const entries = maintenanceTypes.map(type => mapHistoryEntry(maintenanceRecord(type), maintenanceSource));
+  const snapshot = historySnapshot(
+    entries,
+    entries.map(entry => ({ operationId: entry.id, entry })),
+  );
+  let realm: Awaited<ReturnType<typeof openWalletRealm>> | undefined;
+  try {
+    realm = await openWalletRealm({ path });
+    new RealmHistoryCacheRepository(realm).replaceSnapshot(partition, snapshot);
+    realm.close();
+    realm = undefined;
+    realm = await openWalletRealm({ path });
+    const repository = new RealmHistoryCacheRepository(realm);
+    expect(repository.getSnapshot(partition)).toEqual(normalizeHistoryCacheSnapshot(snapshot, partition));
+    expect(repository.getSnapshot({ ...partition, networkId: 'other' })).toBeUndefined();
+    expect(repository.getSnapshot({ ...partition, accountAddress: maintenanceForeign })).toBeUndefined();
+    expect(() => repository.replaceSnapshot({ ...partition, accountAddress: maintenanceForeign }, snapshot)).toThrow();
+    expect(repository.getSnapshot(partition)).toEqual(normalizeHistoryCacheSnapshot(snapshot, partition));
   } finally {
     realm?.close();
     Realm.shutdown();

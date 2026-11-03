@@ -432,6 +432,22 @@ function renderEntry(
         />
         <DetailRow label={t('activity.detail.transactionHash')} value={entry.transactionHash} mono styles={styles} />
         {renderAccount(entry.sourceAccount, t('activity.detail.sourceAccount'))}
+        {entry.kind === 'maintenance' ? (
+          <>
+            {entry.extendTo === undefined ? null : (
+              <DetailRow
+                label={t('activity.maintenance.extendTo')}
+                value={String(entry.extendTo)}
+                fullValue
+                styles={styles}
+              />
+            )}
+            {entry.bumpTo === undefined ? null : (
+              <DetailRow label={t('activity.maintenance.bumpTo')} value={entry.bumpTo} fullValue styles={styles} />
+            )}
+            <Text style={styles.warning}>{t(`activity.maintenance.explanation.${entry.operationType}`)}</Text>
+          </>
+        ) : null}
         {entry.kind === 'contract' ? (
           <>
             <DetailRow

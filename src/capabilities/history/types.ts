@@ -144,7 +144,15 @@ export type HistoryContractEntry = HistoryEntryBase &
     functionName?: string;
     events?: readonly HistoryContractEvent[];
   }>;
+export type HistoryMaintenanceEntry = HistoryEntryBase &
+  Readonly<{
+    kind: 'maintenance';
+    successful: true;
+    extendTo?: number;
+    bumpTo?: string;
+  }>;
 export type HistoryEntry =
+  | HistoryMaintenanceEntry
   | HistoryContractEntry
   | HistoryClaimableEntry
   | HistoryBalanceReferenceEntry

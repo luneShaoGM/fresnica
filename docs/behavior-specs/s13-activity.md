@@ -42,11 +42,14 @@ conditional claimant evidence. Claim and claimable clawback operation records
 supply only balance references: historical amount/asset enrichment remains open,
 with honest unavailable detail and no list monetary column. Read/cache only;
 independent exact-HEAD review, merge and native acceptance remain separate gates.
-[`s13-contract-history.md`](s13-contract-history.md) defines the Slice 5a candidate:
+[`s13-contract-history.md`](s13-contract-history.md) defines Slice 5a merged through #152 at main
+`1b8aeb6c64d9dab8cf2a67148f44517a3dab15d5`:
 successful invoke/create/upload host identity and reported SAC event summaries,
 without inventing complete balance changes from missing or empty events. SDK/XDR
 identity decoding stays in Platform; History owns exact event meaning and cache
-partition revalidation. No raw arguments/salt are persisted. Footprint/remaining
+partition revalidation. No raw arguments/salt are persisted. [`s13-maintenance-history.md`](s13-maintenance-history.md) adds the Slice 5b
+candidate for TTL extension/restoration and exact sequence targets, without money
+or guessed affected entries/current state. Remaining
 classic families (remaining Slice 5) and failure/visibility rules (Slice 6) remain
 open. These amendments supersede older unsupported-family restrictions only for
 validated read shapes and never add an S11 write action.

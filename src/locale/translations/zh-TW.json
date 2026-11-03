@@ -922,5 +922,13 @@
   "activity.contract.direction.incoming": "目前帳戶接收",
   "activity.contract.direction.outgoing": "目前帳戶支出",
   "activity.contract.direction.self": "目前帳戶內部",
-  "activity.contract.direction.neutral": "與目前帳戶無關"
+  "activity.contract.direction.neutral": "與目前帳戶無關",
+  "activity.maintenance.extend_footprint_ttl": "延長帳本條目有效期",
+  "activity.maintenance.restore_footprint": "恢復封存條目",
+  "activity.maintenance.bump_sequence": "調整序號",
+  "activity.maintenance.extendTo": "延長範圍（帳本數）",
+  "activity.maintenance.bumpTo": "目標序號",
+  "activity.maintenance.explanation.extend_footprint_ttl": "此歷史操作記錄相對於執行帳本的延長範圍，不提供受影響條目，也不證明其目前到期時間。",
+  "activity.maintenance.explanation.restore_footprint": "此歷史操作用於恢復封存條目，不提供具體條目、數量或目前可用狀態。",
+  "activity.maintenance.explanation.bump_sequence": "此值為請求的目標序號，不證明目前序號或實際增加。"
 }

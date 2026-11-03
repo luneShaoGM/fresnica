@@ -9,9 +9,15 @@ PR #149 at `main@d6e744a119c9b8eadaab5adc6652d1fabae9112e`, specified in
 [`s13-offer-pool-history.md`](s13-offer-pool-history.md). Slice 4 merged through
 PR #150 at `main@61d69a8af760256a84730547cfbbf307d24c4017`, specified in
 [`s13-claimable-clawback-history.md`](s13-claimable-clawback-history.md).
-Slice 5a is the contract-history candidate in
-[`s13-contract-history.md`](s13-contract-history.md). Existing cache,
+Slice 5a merged through #152 at `main@1b8aeb6c64d9dab8cf2a67148f44517a3dab15d5`, specified in
+[`s13-contract-history.md`](s13-contract-history.md). Slice 5b maintenance candidate is
+specified in [`s13-maintenance-history.md`](s13-maintenance-history.md). Existing cache,
 cursor, detail identity, submission and recovery contracts remain in force.
+
+Contact policy amendment: merged S22 #151 supersedes older network-scoped contact
+wording below. Contacts are global public metadata; ambiguous exact identities
+do not choose a name. Wallet labels and History routes/cache/amount meanings stay
+network/account-scoped, and Memo-specific contacts still cannot match plain rows.
 
 Trace: S13, with S22 local identity presentation. Decision: Adapt / clean-room
 behavior rewrite. Owner: features/activity; History remains ledger authority,
@@ -28,7 +34,7 @@ templates. Independent implementation review is required before merge.
 | 2 | Path-payment and Swap read projection, asset pair, destination-leg summary | Merged #148; successful actual legs only, native acceptance pending |
 | 3 | Buy/sell/passive/cancelled offers and liquidity pool read presentation | Merged #149; intent-only offers and two actual signed reserve legs, native acceptance pending |
 | 4 | Claimable Balance and Clawback roles, amounts and risk classification | Merged #150: four operation families, exact roles/conditions, known creation/holder amounts, ID-only claim and claimable clawback; effect-backed missing asset/amount enrichment and native acceptance remain open |
-| 5 | Contract identity and asset-change summaries; remaining operation families | Slice 5a candidate: invoke/create/upload identity and reported SAC events; footprint and remaining classic families open; review/merge/native acceptance pending |
+| 5 | Contract identity and asset-change summaries; remaining operation families | Slice 5a merged #152: invoke/create/upload identity and reported SAC events; Slice 5b candidate adds TTL extension/restoration and sequence adjustment; remaining classic families and native acceptance open |
 | 6 | Failed-operation read contract and controls; Dust/Spam/technical visibility | Deferred; do not invent classifications without data |
 
 Each later slice updates its owning behavior contract, read/cache projection,
