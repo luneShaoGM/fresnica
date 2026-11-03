@@ -930,5 +930,13 @@
   "activity.contract.direction.incoming": "当前账户接收",
   "activity.contract.direction.outgoing": "当前账户支出",
   "activity.contract.direction.self": "当前账户内部",
-  "activity.contract.direction.neutral": "与当前账户无关"
+  "activity.contract.direction.neutral": "与当前账户无关",
+  "activity.maintenance.extend_footprint_ttl": "延长账本条目有效期",
+  "activity.maintenance.restore_footprint": "恢复归档条目",
+  "activity.maintenance.bump_sequence": "调整序列号",
+  "activity.maintenance.extendTo": "延长范围（账本数）",
+  "activity.maintenance.bumpTo": "目标序列号",
+  "activity.maintenance.explanation.extend_footprint_ttl": "此历史操作记录相对于执行账本的延长范围，不提供受影响条目，也不证明其当前到期时间。",
+  "activity.maintenance.explanation.restore_footprint": "此历史操作用于恢复归档条目，不提供具体条目、数量或当前可用状态。",
+  "activity.maintenance.explanation.bump_sequence": "此值为请求的目标序列号，不证明当前序列号或实际增加。"
 }

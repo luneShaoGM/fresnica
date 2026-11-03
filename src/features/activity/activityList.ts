@@ -41,6 +41,14 @@ export function activityEntryPresentation(
   formatNumber: FormatNumber,
 ): ActivityEntryPresentation {
   switch (entry.kind) {
+    case 'maintenance':
+      return {
+        title: t(`activity.maintenance.${entry.operationType}`),
+        primary: entry.bumpTo ?? (entry.extendTo === undefined ? '' : String(entry.extendTo)),
+        secondary: entry.sourceAccount,
+        tone: 'neutral',
+        filter: 'other',
+      };
     case 'contract': {
       const relevant = entry.events?.filter(event => event.direction !== 'neutral') ?? [];
       const title = t(
@@ -173,6 +181,7 @@ export function matchesActivityFilter(entry: HistoryEntry, filter: ActivityFilte
       return filter === 'accounts';
     case 'change-trust':
       return filter === 'trustlines';
+    case 'maintenance':
     case 'contract':
     case 'claimable-create':
     case 'claimable-reference':
@@ -207,6 +216,13 @@ export function matchesActivitySearch(
     entry.sourceAccount,
   ];
 
+  if (entry.kind === 'maintenance') {
+    values.push(
+      entry.bumpTo ?? '',
+      entry.extendTo === undefined ? '' : String(entry.extendTo),
+      identityNames?.get(entry.sourceAccount) ?? '',
+    );
+  }
   if (entry.kind === 'contract') {
     values.push(entry.hostFunction, entry.contractId ?? '', entry.functionName ?? '');
     for (const event of entry.events ?? []) {

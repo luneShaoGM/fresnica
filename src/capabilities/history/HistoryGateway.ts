@@ -10,6 +10,8 @@ export type HistoryOperationRecord = Readonly<{
   transactionHash: string;
   sourceAccount: string;
   successful?: boolean;
+  extendTo?: unknown;
+  bumpTo?: unknown;
   hostFunction?: unknown;
   contractId?: unknown;
   functionName?: unknown;

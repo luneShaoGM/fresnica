@@ -930,5 +930,13 @@
   "activity.contract.direction.incoming": "Incoming to viewed account",
   "activity.contract.direction.outgoing": "Outgoing from viewed account",
   "activity.contract.direction.self": "Within viewed account",
-  "activity.contract.direction.neutral": "Unrelated to viewed account"
+  "activity.contract.direction.neutral": "Unrelated to viewed account",
+  "activity.maintenance.extend_footprint_ttl": "Ledger entry lifetime extended",
+  "activity.maintenance.restore_footprint": "Archived entries restored",
+  "activity.maintenance.bump_sequence": "Sequence adjustment",
+  "activity.maintenance.extendTo": "Extension horizon (ledgers)",
+  "activity.maintenance.bumpTo": "Target sequence",
+  "activity.maintenance.explanation.extend_footprint_ttl": "This historical operation records a relative extension horizon. It does not identify affected entries or prove their current expiry.",
+  "activity.maintenance.explanation.restore_footprint": "This historical operation restores archived entries. It does not identify the entries, their count, or their present availability.",
+  "activity.maintenance.explanation.bump_sequence": "This is the requested sequence target. The record does not establish the current sequence or prove it increased."
 }
