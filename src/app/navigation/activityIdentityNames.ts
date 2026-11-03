@@ -18,10 +18,17 @@ export function activityIdentityNames(
       names.set(account.address, account.label);
     }
   }
+  const plainContactNames = new Map<string, string | undefined>();
   for (const contact of contacts) {
-    if (contact.networkId === networkId && contact.memo === undefined && contact.name.trim()) {
-      names.set(contact.address, contact.name);
+    if (contact.memo !== undefined || !contact.name.trim()) continue;
+    if (plainContactNames.has(contact.address)) {
+      plainContactNames.set(contact.address, undefined);
+    } else {
+      plainContactNames.set(contact.address, contact.name);
     }
+  }
+  for (const [address, name] of plainContactNames) {
+    if (name) names.set(address, name);
   }
   return names;
 }

@@ -3,6 +3,7 @@ import type { StellarPaymentMemo } from '../stellar/types';
 
 export type Contact = Readonly<{
   id: string;
+  // Legacy creation network, retained for lossless migration; not contact scope.
   networkId: string;
   name: string;
   address: string;
@@ -60,7 +61,9 @@ export function findContact(
   memo?: StellarPaymentMemo,
 ): Contact | undefined {
   const key = contactIdentity(address, memo);
-  return contacts.find(contact => contactIdentity(contact.address, contact.memo) === key);
+  const matches = contacts.filter(contact => contactIdentity(contact.address, contact.memo) === key);
+  // Conflicting legacy network entries must not be resolved by insertion order.
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 export function searchContacts(contacts: readonly Contact[], query: string): readonly Contact[] {
