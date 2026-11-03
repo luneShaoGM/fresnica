@@ -2,7 +2,7 @@
 
 ## User-visible contract
 
-- Settings → Questions & Support opens the known official website `https://fchain.io/` in the system browser. If opening fails, a localized message is shown with a Back action.
+- Settings → Questions & Support opens the known official website `https://fchain.io/` in the system browser. If opening fails while the originating Settings route remains focused and has not blurred, a localized message is shown with a Back action. Late failures after leaving the route are ignored, including when the user later returns.
 - Settings → Terms & Conditions displays the **reference** agreement version `20260713` and explains, in the selected supported locale, that an approved agreement is not yet available. It does not display or distribute the unverified donor legal text.
 - The reference agreement's assertion that the app supports multi-signature sending is inaccurate: current transaction submission rejects unsupported multisig. No legal agreement can be published with that assertion. Legal/content owners must approve an accurate revised agreement and its final version before activating the full Terms reader.
 - Reading Terms does not imply acceptance; it does not write wallet, profile, or signing state. Agreement acceptance and version migration are outside this slice.
@@ -16,7 +16,7 @@
 
 ## Verification and deferred work
 
-- Focus tests: Settings actions/navigation, localized support failure, versioned pending state, no donor agreement content or acceptance behavior.
+- Focus tests: Settings actions/navigation, localized support failure, stale failure after blur/refocus or loss of focus, versioned pending state, no donor agreement content or acceptance behavior.
 - Native product-flow checks for iOS/Android system-browser handoff, scrolling, and back navigation remain deferred.
 - Legal document release is **blocked** by rights and content approval; automated provenance collision checks do not resolve it.
 

@@ -60,9 +60,7 @@ export function SettingsStackNavigator({
             onOpenConnectedDapps={() => navigation.navigate('connected-dapps')}
             onOpenGeneral={() => navigation.navigate('general-settings')}
             onOpenAdvanced={() => navigation.navigate('advanced-settings')}
-            onOpenSupport={() => {
-              Linking.openURL('https://fchain.io/').catch(() => navigation.navigate('support-unavailable'));
-            }}
+            onOpenSupport={() => openSupportWebsite(navigation)}
             onOpenTerms={() => navigation.navigate('terms')}
             onOpenAbout={() => navigation.navigate('about')}
           />
@@ -214,4 +212,25 @@ function requireAccount(accounts: readonly AccountRecord[], accountId: string): 
     throw new Error('account-not-found');
   }
   return account;
+}
+
+// A delayed browser failure must not reopen a settings route after it loses focus.
+export function openSupportWebsite(
+  navigation: Readonly<{
+    isFocused: () => boolean;
+    addListener: (event: 'blur', callback: () => void) => () => void;
+    navigate: (screen: 'support-unavailable') => void;
+  }>,
+) {
+  let active = true;
+  const unsubscribe = navigation.addListener('blur', () => {
+    active = false;
+  });
+  Linking.openURL('https://fchain.io/')
+    .catch(() => {
+      if (active && navigation.isFocused()) {
+        navigation.navigate('support-unavailable');
+      }
+    })
+    .finally(unsubscribe);
 }
