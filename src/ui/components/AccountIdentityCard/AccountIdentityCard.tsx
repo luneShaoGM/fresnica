@@ -47,7 +47,7 @@ export function AccountIdentityCard({
             {name.trim() || formatPublicAddress(address)}
           </Text>
           <Text selectable accessibilityLabel={address} numberOfLines={2} style={styles.address}>
-            {formatPublicAddress(address)}
+            {address}
           </Text>
           {memoText ? (
             <Text numberOfLines={2} style={styles.label}>

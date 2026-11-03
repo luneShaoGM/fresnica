@@ -42,7 +42,7 @@ it('renders a single selectable identity with memo and full-address accessibilit
   });
   expect(nodes(root, Pressable)).toHaveLength(1);
   expect(nodes(root, IdentityAvatar)[0].props.identity).toBe('GCOUNTERPARTY');
-  expect(nodes(root, Text).map(node => node.props.children)).toEqual(['Alice', 'GCOU****ARTY', 'Memo ID: 7']);
+  expect(nodes(root, Text).map(node => node.props.children)).toEqual(['Alice', 'GCOUNTERPARTY', 'Memo ID: 7']);
   expect(root.props).toMatchObject({
     accessibilityRole: 'button',
     accessibilityLabel: 'Alice, GCOUNTERPARTY, Memo ID: 7',
