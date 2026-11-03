@@ -455,6 +455,7 @@ function renderEntry(
                     <DetailRow
                       label={t('activity.detail.condition')}
                       value={claimPredicateSummary(claimant.predicate, t)}
+                      fullValue
                       styles={styles}
                     />
                   </React.Fragment>
@@ -686,12 +687,17 @@ function DetailRow({
   label,
   value,
   mono = false,
+  fullValue = false,
   styles,
-}: Readonly<{ label: string; value: string; mono?: boolean; styles: Styles }>) {
+}: Readonly<{ label: string; value: string; mono?: boolean; fullValue?: boolean; styles: Styles }>) {
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
-      <Text numberOfLines={mono ? 3 : 2} selectable style={[styles.rowValue, mono ? styles.mono : undefined]}>
+      <Text
+        numberOfLines={fullValue ? undefined : mono ? 3 : 2}
+        selectable
+        style={[styles.rowValue, mono ? styles.mono : undefined]}
+      >
         {value}
       </Text>
     </View>

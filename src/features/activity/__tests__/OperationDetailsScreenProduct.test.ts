@@ -5,6 +5,8 @@ import { AccessibilityInfo, Pressable, Text } from 'react-native';
 
 import type { AccountRecord } from '../../../capabilities/account/types';
 import type { HistoryProductDependencies } from '../../../capabilities/history/HistoryCacheHydration';
+import { claimPredicateSummary } from '../claimPredicateSummary';
+import type { HistoryClaimPredicate } from '../../../capabilities/history/types';
 import type { HistoryEntry } from '../../../capabilities/history/types';
 import { createLocalization } from '../../../locale/localization';
 import { ParticipantCard } from '../../contacts/ParticipantCard';
@@ -593,3 +595,46 @@ it.each(['create', 'claim', 'clawback', 'clawback-reference'])(
     expect(values).not.toContain('Direction');
   },
 );
+
+it('wraps the complete depth-four condition structure without changing other detail line limits', () => {
+  mockedUseState.mockReset();
+  let predicate: HistoryClaimPredicate = { abs_before: '+292277026596-12-04T15:30:22.1234567Z' };
+  for (let depth = 0; depth < 4; depth += 1) predicate = { and: [predicate, predicate] };
+  const entry: HistoryEntry = {
+    ...unsupported(),
+    kind: 'claimable-create',
+    successful: true,
+    operationType: 'create_claimable_balance',
+    asset: { kind: 'native', code: 'XLM' },
+    amount: '1',
+    role: 'claimant',
+    claimants: [{ destination: 'GCLAIMANT', predicate }],
+  };
+  const { root } = renderWithState({
+    kind: 'loaded',
+    result: { status: 'ready', entry },
+    source: 'online',
+    stale: false,
+    refreshing: false,
+    refreshFailed: false,
+  });
+  const { t } = createLocalization('en');
+  const summary = claimPredicateSummary(predicate, t);
+  expect(summary.length).toBeGreaterThan(1000);
+  const renderDetail = (label: string) => {
+    const row = findElement(root, element => (element.props as { label?: string }).label === label);
+    if (!row || typeof row.type !== 'function') throw new Error('expected-detail-row');
+    const component = row.type as (props: NodeProps) => React.ReactNode;
+    return component(row.props);
+  };
+  const condition = renderDetail('Recorded condition');
+  const value = findElement(condition, element => element.type === Text && element.props.children === summary);
+  expect(value?.props.children).toBe(summary);
+  expect((value?.props as { numberOfLines?: number }).numberOfLines).toBeUndefined();
+  const other = renderDetail('Operation type');
+  const otherValue = findElement(
+    other,
+    element => element.type === Text && element.props.children === 'create_claimable_balance',
+  );
+  expect((otherValue?.props as { numberOfLines?: number }).numberOfLines).toBe(2);
+});

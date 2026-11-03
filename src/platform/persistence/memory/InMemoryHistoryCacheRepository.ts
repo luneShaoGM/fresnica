@@ -14,13 +14,13 @@ export class InMemoryHistoryCacheRepository implements HistoryCacheRepository {
   getSnapshot(partition: HistoryCachePartition): HistoryCacheSnapshot | undefined {
     assertHistoryCachePartition(partition);
     const snapshot = this.snapshots.get(this.partitionId(partition));
-    return snapshot ? cloneSnapshot(snapshot) : undefined;
+    return snapshot ? cloneSnapshot(snapshot, partition) : undefined;
   }
 
   replaceSnapshot(partition: HistoryCachePartition, snapshot: HistoryCacheSnapshot): void {
     assertHistoryCachePartition(partition);
     const normalized = normalizeHistoryCacheSnapshot(snapshot, partition);
-    this.snapshots.set(this.partitionId(partition), cloneSnapshot(normalized));
+    this.snapshots.set(this.partitionId(partition), cloneSnapshot(normalized, partition));
   }
 
   clearPartition(partition: HistoryCachePartition): void {
@@ -33,16 +33,19 @@ export class InMemoryHistoryCacheRepository implements HistoryCacheRepository {
   }
 }
 
-function cloneSnapshot(snapshot: HistoryCacheSnapshot): HistoryCacheSnapshot {
-  return normalizeHistoryCacheSnapshot({
-    ...snapshot,
-    lastSuccessfulHorizonUpdateAt: new Date(snapshot.lastSuccessfulHorizonUpdateAt),
-    entries: snapshot.entries.map(entry => cloneJson(entry)),
-    details: snapshot.details.map(detail => ({
-      operationId: detail.operationId,
-      entry: cloneJson(detail.entry),
-    })),
-  });
+function cloneSnapshot(snapshot: HistoryCacheSnapshot, partition: HistoryCachePartition): HistoryCacheSnapshot {
+  return normalizeHistoryCacheSnapshot(
+    {
+      ...snapshot,
+      lastSuccessfulHorizonUpdateAt: new Date(snapshot.lastSuccessfulHorizonUpdateAt),
+      entries: snapshot.entries.map(entry => cloneJson(entry)),
+      details: snapshot.details.map(detail => ({
+        operationId: detail.operationId,
+        entry: cloneJson(detail.entry),
+      })),
+    },
+    partition,
+  );
 }
 
 function cloneJson<T>(value: T): T {
