@@ -1,4 +1,12 @@
-import { contactIdentity, findContact, saveContact, searchContacts, type Contacts, type Contact } from '../contacts';
+import {
+  contactIdentity,
+  findContact,
+  saveContact,
+  searchContacts,
+  validateContactMemo,
+  type Contacts,
+  type Contact,
+} from '../contacts';
 
 describe('contact identity', () => {
   const row: Contact = {
@@ -13,6 +21,19 @@ describe('contact identity', () => {
     expect(findContact([row], row.address)).toBeUndefined();
     expect(findContact([row], row.address, { type: 'text', value: '7' })).toBeUndefined();
     expect(findContact([row], row.address, { type: 'id', value: '007' })).toBe(row);
+  });
+  it.each([
+    null,
+    'memo',
+    {},
+    { type: 'return', value: 'ab' },
+    { type: 'none', value: '' },
+    { type: 'id', value: 7 },
+    { type: 'text', value: '' },
+  ])('rejects an unsupported runtime memo instead of treating it as absent: %p', memo => {
+    expect(() => validateContactMemo(memo)).toThrow('contact-memo-invalid');
+    expect(() => contactIdentity(row.address, memo as unknown as Contact['memo'])).toThrow('contact-memo-invalid');
+    expect(() => findContact([{ ...row, memo: memo as unknown as Contact['memo'] }], row.address)).toThrow();
   });
   it('validates before storage and preserves canonical values', () => {
     const save = jest.fn();

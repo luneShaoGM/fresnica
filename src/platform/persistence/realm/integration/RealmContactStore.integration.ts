@@ -69,4 +69,90 @@ describe('S22 contact migration and persistence', () => {
       rmSync(directory, { recursive: true, force: true });
     }
   });
+  it('fails closed on corrupt persisted memo shapes without changing or aliasing the record', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'fresnica-contact-corruption-'));
+    let realm: Realm | undefined;
+    try {
+      realm = await openWalletRealm({ path: join(directory, 'wallet.realm') });
+      const store = new RealmContactStore(realm);
+      const changed = jest.fn();
+      store.subscribe(changed);
+      for (const memoJson of [
+        '{',
+        'null',
+        '"memo"',
+        '{}',
+        '{"type":"return","value":"ab"}',
+        '{"type":"id","value":7}',
+        '{"type":"id","value":"18446744073709551616"}',
+        '{"type":"hash","value":"ab"}',
+        '{"type":"text","value":""}',
+        '',
+      ]) {
+        realm.write(() => {
+          realm!.delete(realm!.objects(CONTACT_ENTITY));
+          realm!.create(CONTACT_ENTITY, {
+            id: 'bad',
+            networkId: 'test',
+            name: 'Exchange',
+            address: 'GDEST',
+            memoJson,
+          });
+        });
+        expect(() => store.list('test')).toThrow('contact-storage-invalid');
+        expect(() => store.save({ id: 'good', networkId: 'test', name: 'Good', address: 'GOTHER' })).toThrow(
+          'contact-storage-invalid',
+        );
+        expect(realm.objects(CONTACT_ENTITY)).toHaveLength(1);
+        expect(realm.objectForPrimaryKey<{ id: string; memoJson: string }>(CONTACT_ENTITY, 'bad')?.memoJson).toBe(
+          memoJson,
+        );
+        expect(changed).not.toHaveBeenCalled();
+      }
+    } finally {
+      if (realm && !realm.isClosed) realm.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+  it('decodes only the requested network and preserves exact canonical memo identity across reopen', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'fresnica-contact-partition-'));
+    const path = join(directory, 'wallet.realm');
+    let realm: Realm | undefined;
+    try {
+      realm = await openWalletRealm({ path });
+      realm.write(() =>
+        realm!.create(CONTACT_ENTITY, {
+          id: 'bad-main',
+          networkId: 'main',
+          name: 'Broken',
+          address: 'GDEST',
+          memoJson: '{',
+        }),
+      );
+      const store = new RealmContactStore(realm);
+      expect(store.list('test')).toEqual([]);
+      store.save({ id: 'plain', networkId: 'test', name: 'Plain', address: 'GDEST' });
+      store.save({ id: 'memo', networkId: 'test', name: 'Memo', address: 'GDEST', memo: { type: 'id', value: '007' } });
+      expect(() => store.list('main')).toThrow('contact-storage-invalid');
+      realm.close();
+      realm = await openWalletRealm({ path });
+      const reopened = new RealmContactStore(realm);
+      expect(reopened.list('test').find(row => row.id === 'memo')?.memo).toEqual({ type: 'id', value: '7' });
+      expect(reopened.list('test').find(row => row.id === 'plain')?.memo).toBeUndefined();
+      expect(() =>
+        reopened.save({
+          id: 'duplicate',
+          networkId: 'test',
+          name: 'Dup',
+          address: 'GDEST',
+          memo: { type: 'id', value: '7' },
+        }),
+      ).toThrow('contact-duplicate');
+      expect(reopened.list('test')).toHaveLength(2);
+      expect(realm.objectForPrimaryKey(CONTACT_ENTITY, 'bad-main')).toBeTruthy();
+    } finally {
+      if (realm && !realm.isClosed) realm.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
 });

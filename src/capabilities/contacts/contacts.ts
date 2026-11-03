@@ -22,8 +22,25 @@ export type Contacts = Readonly<{
   createId(): string;
 }>;
 
+export function validateContactMemo(memo: unknown): StellarPaymentMemo | undefined {
+  if (memo === undefined) return undefined;
+  if (
+    memo === null ||
+    typeof memo !== 'object' ||
+    !('type' in memo) ||
+    !('value' in memo) ||
+    typeof memo.value !== 'string' ||
+    (memo.type !== 'text' && memo.type !== 'id' && memo.type !== 'hash')
+  ) {
+    throw new Error('contact-memo-invalid');
+  }
+  const normalized = validatePaymentMemo({ type: memo.type, value: memo.value });
+  if (!normalized) throw new Error('contact-memo-invalid');
+  return normalized;
+}
+
 export function contactIdentity(address: string, memo?: StellarPaymentMemo): string {
-  const normalized = validatePaymentMemo(memo);
+  const normalized = validateContactMemo(memo);
   return JSON.stringify([address.trim(), normalized?.type ?? '', normalized?.value ?? '']);
 }
 
@@ -32,8 +49,7 @@ export function saveContact(dependencies: Contacts, networkId: string, draft: Co
   const address = draft.address.trim();
   if (!name || name.length > 30 || /[\u0000-\u001f\u007f]/.test(name)) throw new Error('contact-name-invalid');
   if (!dependencies.isClassicAccountAddress(address)) throw new Error('contact-address-invalid');
-  const memo = validatePaymentMemo(draft.memo);
-  if (draft.memo && !memo) throw new Error('contact-memo-invalid');
+  const memo = validateContactMemo(draft.memo);
   dependencies.store.save({ id: id ?? dependencies.createId(), networkId, name, address, ...(memo ? { memo } : {}) });
 }
 
