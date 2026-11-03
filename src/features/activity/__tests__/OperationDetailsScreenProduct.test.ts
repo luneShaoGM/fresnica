@@ -359,3 +359,52 @@ it.each(['GVALID', 'CCONTRACT', 'MMUXED'])(
     } else expect(card).toBeUndefined();
   },
 );
+
+it('exposes both exact path legs, issuers and explicit muxed participant identities', () => {
+  mockedUseState.mockReset();
+  const entry: HistoryEntry = {
+    ...unsupported(),
+    kind: 'path-payment',
+    successful: true,
+    operationType: 'path_payment_strict_receive',
+    direction: 'outgoing',
+    sourceAmount: '922337203685.4775807',
+    sourceAsset: { kind: 'credit', code: 'USD', issuer: 'GSOURCEISSUER' },
+    destinationAmount: '0.0000001',
+    destinationAsset: { kind: 'credit', code: 'EUR', issuer: 'GDESTISSUER' },
+    counterparty: 'MDESTINATION',
+    participants: [
+      { role: 'sender', identity: 'MSENDER', baseAccount: 'GSOURCE' },
+      { role: 'recipient', identity: 'MDESTINATION', baseAccount: 'GDESTINATION' },
+    ],
+  };
+  const { root } = renderWithState({
+    kind: 'loaded',
+    result: { status: 'ready', entry },
+    source: 'online',
+    stale: false,
+    refreshing: false,
+    refreshFailed: false,
+  });
+  const values: string[] = [];
+  visit(root, element => {
+    const props = element.props as Readonly<{ label?: string; value?: string }>;
+    if (props.value) values.push(props.value);
+    if (props.label) values.push(props.label);
+  });
+  expect(values).toEqual(
+    expect.arrayContaining([
+      'Actually sent',
+      '922,337,203,685.4775807 USD',
+      'Actually received',
+      '0.0000001 EUR',
+      'GSOURCEISSUER',
+      'GDESTISSUER',
+      'Outgoing',
+    ]),
+  );
+  // ParticipantRows receives full display identities; the base is never used for contact selection.
+  const participantRows = findElement(root, element => 'participants' in element.props);
+  const props = participantRows?.props as unknown as { participants: readonly { identity: string }[] };
+  expect(props.participants.map(participant => participant.identity)).toEqual(['MSENDER', 'MDESTINATION']);
+});

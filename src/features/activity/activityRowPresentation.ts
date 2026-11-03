@@ -1,3 +1,4 @@
+import { isPathSwap } from '@capabilities/history/pathPaymentHistory';
 import type { HistoryAsset, HistoryEntry } from '@capabilities/history/types';
 import { formatPublicAddress } from '@ui/formatPublicAddress';
 import { activityEntryPresentation, type ActivityTone } from './activityList';
@@ -11,6 +12,7 @@ export type ActivityRowPresentation = Readonly<{
   subject:
     | Readonly<{ kind: 'account'; address: string }>
     | Readonly<{ kind: 'asset'; asset: HistoryAsset }>
+    | Readonly<{ kind: 'asset-pair'; source: HistoryAsset; destination: HistoryAsset }>
     | Readonly<{ kind: 'unsupported' }>;
   money?: Readonly<{ amount: string; asset: HistoryAsset; tone: ActivityTone }>;
 }>;
@@ -24,6 +26,26 @@ export function activityRowPresentation(
 ): ActivityRowPresentation {
   const detail = activityEntryPresentation(entry, t, formatNumber);
   switch (entry.kind) {
+    case 'path-payment': {
+      const swap = isPathSwap(entry);
+      const pair = `${entry.sourceAsset.code} → ${entry.destinationAsset.code}`;
+      const outgoing = entry.direction === 'outgoing';
+      const prefix = detail.tone === 'positive' ? '+' : detail.tone === 'negative' ? '−' : '';
+      return {
+        title: swap
+          ? t('activity.entry.swap')
+          : names?.get(entry.counterparty)?.trim() || formatPublicAddress(entry.counterparty),
+        operation: `${detail.title} · ${pair}`,
+        subject: swap
+          ? { kind: 'asset-pair', source: entry.sourceAsset, destination: entry.destinationAsset }
+          : { kind: 'account', address: entry.counterparty },
+        money: {
+          amount: `${prefix}${formatNumber(outgoing ? entry.sourceAmount : entry.destinationAmount, 7)}`,
+          asset: outgoing ? entry.sourceAsset : entry.destinationAsset,
+          tone: detail.tone,
+        },
+      };
+    }
     case 'payment':
     case 'create-account': {
       const asset: HistoryAsset = entry.kind === 'payment' ? entry.asset : { kind: 'native', code: 'XLM' };

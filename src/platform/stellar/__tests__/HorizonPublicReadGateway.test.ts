@@ -1,3 +1,14 @@
+import { loadHistoryPage, mapHistoryEntry } from '../../../capabilities/history/loadHistoryPage';
+import { loadHistoryOperationDetails } from '../../../capabilities/history/loadHistoryOperationDetails';
+import {
+  cacheHistoryOnlineEntriesBestEffort,
+  cacheHistoryReadyDetailBestEffort,
+  readHistoryCacheSnapshotBestEffort,
+} from '../../../capabilities/history/HistoryCacheHydration';
+import { InMemoryHistoryCacheRepository } from '../../persistence/memory/InMemoryHistoryCacheRepository';
+import { activityRowPresentation } from '../../../features/activity/activityRowPresentation';
+import { matchesActivitySearch } from '../../../features/activity/activityList';
+import { createLocalization } from '../../../locale/localization';
 import { createHorizonPublicReadGateway } from '../HorizonPublicReadGateway';
 import { retryAfterMilliseconds } from '../horizonReadHttp';
 import { StellarSdkGateway } from '../StellarSdkGateway';
@@ -165,4 +176,89 @@ it('rejects malformed balance wire values with safe protocol errors', async () =
       message: 'node-read-protocol',
     });
   }
+});
+
+it('takes settled Horizon path evidence through capability, cache hydration, row and exact search', async () => {
+  const address = 'G' + 'A'.repeat(55);
+  const other = 'G' + 'B'.repeat(55);
+  const raw = {
+    ...rawOperation,
+    type: 'path_payment_strict_receive',
+    source_account: address,
+    from: address,
+    to: other,
+    transaction_successful: true,
+    source_amount: '922337203685.4775807',
+    source_asset_type: 'native',
+    amount: '0.0000001',
+    asset_type: 'credit_alphanum4',
+    asset_code: 'USD',
+    asset_issuer: other,
+    source_max: '999',
+    destination_min: '888',
+  };
+  const http = jest
+    .fn()
+    .mockResolvedValueOnce(response({ _embedded: { records: [raw] } }))
+    .mockResolvedValueOnce(response(raw));
+  const reads = createHorizonPublicReadGateway(http);
+  const account = {
+    id: 'one',
+    address,
+    identityKind: 'classic' as const,
+    networkId: 'testnet',
+    label: '',
+    sortOrder: 0,
+    hidden: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  const dependencies = {
+    networkId: 'testnet',
+    cache: new InMemoryHistoryCacheRepository(),
+    now: () => new Date(),
+    gateway: {
+      loadAccountOperations: (input: Parameters<typeof loadHistoryPage>[2] & { address: string; limit: number }) =>
+        reads.loadAccountOperations(endpoint, input, signal),
+      loadOperation: (input: { operationId: string; accountAddress: string }) =>
+        reads.loadOperation(endpoint, input, signal),
+    },
+  };
+  const page = await loadHistoryPage(dependencies, account, { limit: 1 });
+  if (page.status !== 'active') throw new Error('expected-active');
+  expect(page.nextCursor).toBe(raw.paging_token);
+  expect(cacheHistoryOnlineEntriesBestEffort(dependencies, account, page.entries)).toBe(true);
+  const details = await loadHistoryOperationDetails(dependencies, account, raw.id);
+  if (details.status !== 'ready') throw new Error('expected-ready');
+  expect(cacheHistoryReadyDetailBestEffort(dependencies, account, details.entry)).toBe(true);
+  const cached = readHistoryCacheSnapshotBestEffort(dependencies, account);
+  expect(cached?.details[0].entry).toEqual(page.entries[0]);
+  const { t, formatNumber } = createLocalization('en');
+  expect(activityRowPresentation(cached!.entries[0], t, formatNumber).money).toMatchObject({
+    amount: '−922,337,203,685.4775807',
+    asset: { kind: 'native' },
+  });
+  expect(matchesActivitySearch(cached!.entries[0], '0.0000001', t, formatNumber)).toBe(true);
+});
+
+it.each([123, null])('retains malformed present sender muxed evidence as unsupported: %p', async from_muxed => {
+  const address = 'G' + 'A'.repeat(55);
+  const raw = {
+    ...rawOperation,
+    type: 'path_payment_strict_send',
+    source_account: address,
+    from: address,
+    to: address,
+    transaction_successful: true,
+    source_amount: '2',
+    source_asset_type: 'native',
+    amount: '1',
+    from_muxed,
+  };
+  const reads = createHorizonPublicReadGateway(
+    jest.fn().mockResolvedValue(response({ _embedded: { records: [raw] } })),
+  );
+  const result = await reads.loadAccountOperations(endpoint, { address, limit: 1 }, signal);
+  if (result.status !== 'active') throw new Error('expected-active');
+  expect(mapHistoryEntry(result.records[0], address)).toMatchObject({ kind: 'unsupported', reason: 'operation-shape' });
 });

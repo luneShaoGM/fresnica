@@ -848,5 +848,11 @@
   "contacts.error.memo": "請輸入有效 Memo 或選擇無。",
   "contacts.error.duplicate": "此地址與 Memo 已存在。",
   "contacts.error.missing": "此聯絡人已無法使用。",
-  "contacts.error.storage": "無法讀取聯絡人或完成操作，請重試。"
+  "contacts.error.storage": "無法讀取聯絡人或完成操作，請重試。",
+  "activity.entry.pathPayment": "路徑支付",
+  "activity.entry.swap": "兌換",
+  "activity.detail.actualSent": "實際發送",
+  "activity.detail.actualReceived": "實際收到",
+  "activity.detail.sourceIssuer": "發送資產發行方",
+  "activity.detail.destinationIssuer": "收到資產發行方"
 }

@@ -848,5 +848,11 @@
   "contacts.error.memo": "Enter a valid memo or choose None.",
   "contacts.error.duplicate": "This address and memo are already saved.",
   "contacts.error.missing": "This contact is no longer available.",
-  "contacts.error.storage": "Unable to access contacts or complete this action. Please retry."
+  "contacts.error.storage": "Unable to access contacts or complete this action. Please retry.",
+  "activity.entry.pathPayment": "Path payment",
+  "activity.entry.swap": "Swap",
+  "activity.detail.actualSent": "Actually sent",
+  "activity.detail.actualReceived": "Actually received",
+  "activity.detail.sourceIssuer": "Sent asset issuer",
+  "activity.detail.destinationIssuer": "Received asset issuer"
 }

@@ -15,6 +15,13 @@ The existing History, cache, cursor and exact-operation identity contracts remai
 authoritative; later operation-family and visibility slices are not implemented
 by this presentation amendment.
 
+Path-history amendment (2026-11-03):
+[`s13-path-payment-history.md`](s13-path-payment-history.md) adds successful strict-send
+and strict-receive actual-leg projection, Swap classification, list/detail/search
+and additive v1 cache payload. Slice 1 merged through #147 at main `c7e525bf...`;
+Slice 2 remains a review candidate, with native acceptance pending. This amendment
+supersedes the older unsupported-path restriction only for these validated shapes.
+
 Provenance: clean-room behavior rewrite. Donor Activity/Events surfaces are product-role references only; donor source, repositories, helpers, tests, component structure and resources are not implementation templates.
 
 ## Scope and authority

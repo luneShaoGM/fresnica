@@ -1,4 +1,4 @@
-import {Asset, Horizon, Memo, Operation, StrKey, Transaction, TransactionBuilder} from '@stellar/stellar-sdk/axios';
+import { Asset, Horizon, Memo, Operation, StrKey, Transaction, TransactionBuilder } from '@stellar/stellar-sdk/axios';
 
 import type { HistoryOperationRecord } from '../../capabilities/history/HistoryGateway';
 import type { NetworkContext } from '../../capabilities/network/types';
@@ -25,18 +25,8 @@ export type StellarSdkGatewayConfig = Readonly<{
 }>;
 
 export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryOperationRecord {
-  const asset =
-    input.asset_type === undefined
-      ? undefined
-      : input.asset_type === 'native'
-        ? ({ kind: 'native' } as const)
-        : input.asset_type === 'credit_alphanum4' || input.asset_type === 'credit_alphanum12'
-          ? ({
-              kind: 'credit',
-              ...(input.asset_code === undefined ? {} : { code: input.asset_code }),
-              ...(input.asset_issuer === undefined ? {} : { issuer: input.asset_issuer }),
-            } as const)
-          : ({ kind: 'unsupported' } as const);
+  const asset = mapHistoryAsset(input.asset_type, input.asset_code, input.asset_issuer);
+  const sourceAsset = mapHistoryAsset(input.source_asset_type, input.source_asset_code, input.source_asset_issuer);
 
   return Object.freeze({
     id: input.id,
@@ -45,6 +35,12 @@ export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryO
     occurredAt: input.created_at,
     transactionHash: input.transaction_hash,
     sourceAccount: input.source_account,
+    ...(input.type === 'path_payment_strict_send' || input.type === 'path_payment_strict_receive'
+      ? { successful: input.transaction_successful === true }
+      : {}),
+    ...(typeof input.source_amount === 'string' ? { sourceAmount: input.source_amount } : {}),
+    ...(sourceAsset === undefined ? {} : { sourceAsset }),
+    ...(input.from_muxed === undefined ? {} : { fromMuxed: input.from_muxed }),
     ...(input.from === undefined ? {} : { from: input.from }),
     ...(input.to === undefined ? {} : { to: input.to }),
     ...(input.to_muxed === undefined ? {} : { toMuxed: input.to_muxed }),
@@ -57,6 +53,19 @@ export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryO
     ...(input.trustee === undefined ? {} : { trustee: input.trustee }),
     ...(input.limit === undefined ? {} : { limit: input.limit }),
   });
+}
+
+function mapHistoryAsset(type: unknown, code: unknown, issuer: unknown): HistoryOperationRecord['asset'] {
+  if (type === undefined) return undefined;
+  if (type === 'native') return Object.freeze({ kind: 'native' });
+  if (type === 'credit_alphanum4' || type === 'credit_alphanum12') {
+    return Object.freeze({
+      kind: 'credit',
+      ...(typeof code === 'string' ? { code } : {}),
+      ...(typeof issuer === 'string' ? { issuer } : {}),
+    });
+  }
+  return Object.freeze({ kind: 'unsupported' });
 }
 
 function createDefaultServer(horizonUrl: string, networkPassphrase: string): HorizonServerLike {

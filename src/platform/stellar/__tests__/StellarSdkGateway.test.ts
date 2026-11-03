@@ -406,7 +406,7 @@ describe('StellarSdkGateway', () => {
         occurredAt: '2026-08-31T00:00:00Z',
         transactionHash: 'tx-778',
         sourceAccount: sourceAddress,
-        asset: {kind: 'credit', code: 'MiXeD', issuer: signerAddress},
+        asset: { kind: 'credit', code: 'MiXeD', issuer: signerAddress },
         trustor: sourceAddress,
         trustee: signerAddress,
         limit: '100.0000000',
@@ -863,4 +863,40 @@ describe('StellarSdkGateway', () => {
     });
     expect(horizon.submitTransaction).toHaveBeenCalledTimes(1);
   });
+});
+
+it('carries successful actual path legs, never substituting path limits', () => {
+  const { mapHistoryOperationRecord } = jest.requireActual(
+    '../StellarSdkGateway',
+  ) as typeof import('../StellarSdkGateway');
+  for (const type of ['path_payment_strict_send', 'path_payment_strict_receive']) {
+    const input = {
+      ...operation('path'),
+      type,
+      source_amount: '3.1234567',
+      source_asset_type: 'native',
+      source_max: '999',
+      destination_min: '0.1',
+      amount: '2.0000001',
+      asset_type: 'credit_alphanum4',
+      asset_code: 'USD',
+      asset_issuer: signerAddress,
+      from_muxed: 'M' + 'A'.repeat(68),
+    };
+    const result = mapHistoryOperationRecord(input);
+    expect(result).toMatchObject({
+      successful: true,
+      sourceAmount: '3.1234567',
+      amount: '2.0000001',
+      sourceAsset: { kind: 'native' },
+      asset: { kind: 'credit', code: 'USD', issuer: signerAddress },
+      fromMuxed: input.from_muxed,
+    });
+    expect(result).not.toHaveProperty('sourceMax');
+    for (const transaction_successful of [false, undefined, 'true', 1]) {
+      expect(mapHistoryOperationRecord({ ...input, transaction_successful } as HorizonOperationLike).successful).toBe(
+        false,
+      );
+    }
+  }
 });

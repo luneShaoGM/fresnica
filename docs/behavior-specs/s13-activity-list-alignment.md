@@ -1,10 +1,10 @@
 # S13 Activity list alignment
 
-Status: implementation contract for the first Activity alignment slice, based on
-`main@0eafeffd0ed13b9c201a4f13165be4d173432a96` and the S22 contact presentation
-candidate `03370ed07029610f48463e41a5741d6c0b52876a` (PR #146, depends on #145).
-This document amends only list presentation in `s13-activity.md`; existing History,
-cache, cursor, detail identity, submission and recovery contracts remain in force.
+Status: Slice 1 merged through PR #147 at
+`main@c7e525bf0bb64863756078561e6d40feee143c55`, including S22 #145/#146.
+Slice 2 is the current implementation candidate, specified in
+[`s13-path-payment-history.md`](s13-path-payment-history.md). Existing cache,
+cursor, detail identity, submission and recovery contracts remain in force.
 
 Trace: S13, with S22 local identity presentation. Decision: Adapt / clean-room
 behavior rewrite. Owner: features/activity; History remains ledger authority,
@@ -17,8 +17,8 @@ templates. Independent implementation review is required before merge.
 
 | Slice | Target | Current delivery |
 | --- | --- | --- |
-| 1 | Payment, account funding, ordinary trustline list identity and amount layout | This candidate; native acceptance pending |
-| 2 | Path-payment and Swap read projection, asset pair, destination-leg summary | Deferred; unsupported fallback remains visible |
+| 1 | Payment, account funding, ordinary trustline list identity and amount layout | Merged #147; native acceptance pending |
+| 2 | Path-payment and Swap read projection, asset pair, destination-leg summary | Current candidate; settled actual legs only, unsupported fallback retained |
 | 3 | Buy/sell/passive/cancelled offers and liquidity pool read presentation | Deferred; order quantity must not imply settlement |
 | 4 | Claimable Balance and Clawback roles, amounts and risk classification | Deferred |
 | 5 | Contract identity and asset-change summaries; remaining operation families | Deferred |

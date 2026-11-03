@@ -864,16 +864,17 @@ Realm v7 增量实体保持原方案，不迁移账户、授权或含 token 的�
 
 ### Stage 8：Stellar 扩展产品
 
-#### S13 Activity 列表行为对齐首片候选（2026-11-02）
+#### S13 Activity 列表行为对齐（2026-11-03）
 
-用户已要求按完整对齐计划开始执行；[S13 list alignment](behavior-specs/s13-activity-list-alignment.md)
-记录六个交付边界及明确保留项。首片基于 `main@0eafeffd0ed13b9c201a4f13165be4d173432a96`
-与 S22 PR #146 `03370ed07029610f48463e41a5741d6c0b52876a`，复用 #145/#146 联系人能力，
-以独立 stacked PR 交付现有支付/账户注资/普通信任线的主体身份、操作时间和金额布局。
-具体日期分组保留；正数 trustline limit 不推测为新增资产；本地身份头像与资产占位图不冒充品牌图片。
-不修改 History/Realm schema、exact-XDR、签名、提交或恢复权威。后续路径支付/Swap、订单/LP、
-Claimable/Clawback、合约及隐藏/失败分类仍是未完成队列。候选实现与验证证据以 PR exact HEAD 为准；
-独立审查、用户合并及原生验收分别记录，不提升 S13 成熟度。
+首片与 S22 联系人依赖已按 #145 → #146 → #147 合并到
+`main@c7e525bf0bb64863756078561e6d40feee143c55`。具体日期、联系人名称优先级、
+现有支付/账户注资/普通信任线金额布局与本地头像已交付，原生验收仍待执行。
+当前 Slice 2 候选按 [Path history contract](behavior-specs/s13-path-payment-history.md)
+增加成功 strict-send/strict-receive 的实际发送/收到双腿、self Swap 与外部路径支付、
+列表/详情/搜索及可替换的 v1 History JSON cache；不修改交易管线或 Realm schema。
+实现仅依据行为契约与 Fresnica 代码，不使用 donor source/tests/resources 模板。
+自动验证、exact-HEAD 独立审查、用户合并和原生验收分别记录，以 PR 当前证据为准；
+不提升 S13 成熟度。订单/LP、Claimable/Clawback、合约、失败与隐藏分类仍为 Slice 3–6。
 
 #### S22 Address Book 本地候选（2026-11-02）
 

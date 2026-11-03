@@ -1,3 +1,4 @@
+import { isPathSwap } from '@capabilities/history/pathPaymentHistory';
 import type { HistoryDirection, HistoryEntry } from '@capabilities/history/types';
 
 export type ActivityFilter = 'all' | 'payments' | 'accounts' | 'trustlines' | 'other';
@@ -39,6 +40,18 @@ export function activityEntryPresentation(
   formatNumber: FormatNumber,
 ): ActivityEntryPresentation {
   switch (entry.kind) {
+    case 'path-payment': {
+      const outgoing = entry.direction === 'outgoing';
+      const amount = outgoing ? entry.sourceAmount : entry.destinationAmount;
+      const asset = outgoing ? entry.sourceAsset : entry.destinationAsset;
+      return {
+        title: t(isPathSwap(entry) ? 'activity.entry.swap' : 'activity.entry.pathPayment'),
+        primary: `${formatNumber(amount, 7)} ${asset.code}`,
+        secondary: `${entry.sourceAsset.code} → ${entry.destinationAsset.code}`,
+        tone: isPathSwap(entry) ? 'positive' : directionTone(entry.direction),
+        filter: 'payments',
+      };
+    }
     case 'payment':
       return {
         title: paymentTitle(entry.direction, t),
@@ -80,6 +93,7 @@ export function matchesActivityFilter(entry: HistoryEntry, filter: ActivityFilte
   }
 
   switch (entry.kind) {
+    case 'path-payment':
     case 'payment':
       return filter === 'payments';
     case 'create-account':
@@ -114,6 +128,20 @@ export function matchesActivitySearch(
   ];
 
   if ('counterparty' in entry) values.push(identityNames?.get(entry.counterparty) ?? '');
+  if (entry.kind === 'path-payment') {
+    values.push(
+      entry.sourceAmount,
+      entry.destinationAmount,
+      formatNumber(entry.sourceAmount, 7),
+      formatNumber(entry.destinationAmount, 7),
+      t('activity.entry.pathPayment'),
+    );
+    for (const asset of [entry.sourceAsset, entry.destinationAsset]) {
+      values.push(asset.code);
+      if (asset.kind === 'credit') values.push(asset.issuer);
+    }
+    for (const participant of entry.participants) values.push(identityNames?.get(participant.identity) ?? '');
+  }
   if (entry.kind === 'payment') values.push(entry.amount, formatNumber(entry.amount, 7));
   if (entry.kind === 'create-account') {
     values.push(entry.startingBalance, formatNumber(entry.startingBalance, 7), t('activity.entry.createAccount'));

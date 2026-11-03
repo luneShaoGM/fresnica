@@ -1,7 +1,5 @@
 export type HistoryOperationAsset = Readonly<
-  | { kind: 'native' }
-  | { kind: 'credit'; code?: string; issuer?: string }
-  | { kind: 'unsupported' }
+  { kind: 'native' } | { kind: 'credit'; code?: string; issuer?: string } | { kind: 'unsupported' }
 >;
 
 export type HistoryOperationRecord = Readonly<{
@@ -11,6 +9,10 @@ export type HistoryOperationRecord = Readonly<{
   occurredAt: string;
   transactionHash: string;
   sourceAccount: string;
+  successful?: boolean;
+  sourceAmount?: string;
+  sourceAsset?: HistoryOperationAsset;
+  fromMuxed?: string;
   from?: string;
   to?: string;
   toMuxed?: string;
@@ -25,8 +27,7 @@ export type HistoryOperationRecord = Readonly<{
 }>;
 
 export type HistoryOperationLookupResult =
-  | Readonly<{status: 'found'; record: HistoryOperationRecord}>
-  | Readonly<{status: 'not-found'}>;
+  Readonly<{ status: 'found'; record: HistoryOperationRecord }> | Readonly<{ status: 'not-found' }>;
 
 export type HistoryOperationResult =
   | Readonly<{
@@ -38,7 +39,9 @@ export type HistoryOperationResult =
   | Readonly<{ status: 'inactive'; address: string }>;
 
 export interface HistoryGatewayPort {
-  loadOperation(input: Readonly<{operationId: string; accountAddress: string}>): Promise<HistoryOperationLookupResult>;
+  loadOperation(
+    input: Readonly<{ operationId: string; accountAddress: string }>,
+  ): Promise<HistoryOperationLookupResult>;
   loadAccountOperations(
     input: Readonly<{
       address: string;
