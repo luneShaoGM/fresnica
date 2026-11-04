@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useThemedStyles } from '@ui/theme';
@@ -13,6 +13,7 @@ export type AppModalProps = React.PropsWithChildren<
     onRequestClose: () => void;
     title?: string;
     description?: string;
+    dialogStyle?: StyleProp<ViewStyle>;
   }>
 >;
 
@@ -21,6 +22,7 @@ export function AppModal({
   onRequestClose,
   title,
   description,
+  dialogStyle,
   children,
   presentation = 'dialog',
 }: AppModalProps) {
@@ -35,7 +37,7 @@ export function AppModal({
         <Container
           {...containerProps}
           accessibilityViewIsModal
-          style={[styles.dialog, presentation === 'sheet' ? styles.sheet : undefined]}
+          style={[styles.dialog, presentation === 'sheet' ? styles.sheet : dialogStyle]}
         >
           {title ? <Text style={styles.title}>{title}</Text> : null}
           {description ? <Text style={styles.description}>{description}</Text> : null}

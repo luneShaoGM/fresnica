@@ -1,4 +1,5 @@
 export * from './AppModal';
+export * from './ConfirmDialog';
 export * from './BottomAction';
 export * from './Button';
 export * from './Card';
