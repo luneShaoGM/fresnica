@@ -4,14 +4,6 @@ import type { AppTheme } from '@ui/theme';
 export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     sheet: { flex: 1 },
-    handle: {
-      alignSelf: 'center',
-      width: 40,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: theme.colors.border,
-      marginTop: theme.spacing.sm,
-    },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
