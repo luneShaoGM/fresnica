@@ -34,7 +34,7 @@ function raw(type: string): HorizonOperationLike {
     trustor,
     trustee: trustIssuer,
     authorize: true,
-    authorize_to_maintain_liabilities: false,
+    authorize_to_maintain_liabilities: true,
     set_flags: [2],
     clear_flags: [1, 4],
     sponsored_id: trustor,
@@ -63,6 +63,13 @@ it.each(trustSponsorshipTypes)(
     expect(page.records[0]).toEqual(mapHistoryOperationRecord(wire));
     const entry = mapHistoryEntry(page.records[0], trustIssuer);
     expect(entry.kind).not.toBe('unsupported');
+    if (type === 'allow_trust') {
+      expect(entry).toMatchObject({ kind: 'trust-authorization', authorization: 'authorized' });
+      expect(mapHistoryEntry(page.records[0], trustor)).toMatchObject({
+        kind: 'trust-authorization',
+        authorization: 'authorized',
+      });
+    }
     const normalized = normalizeHistoryCacheSnapshot(
       {
         schemaVersion: 1,

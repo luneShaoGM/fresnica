@@ -142,7 +142,7 @@ function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): Hi
                   ? {
                       trustee: entry.sourceAccount,
                       authorize: entry.authorization === 'authorized',
-                      authorizeToMaintainLiabilities: entry.authorization === 'maintain-liabilities',
+                      authorizeToMaintainLiabilities: entry.authorization !== 'revoked',
                     }
                   : { setFlags: entry.setFlags, clearFlags: entry.clearFlags }),
               }),

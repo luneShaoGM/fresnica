@@ -43,7 +43,7 @@ it.each(trustSponsorshipTypes)('renders %s for both roles with no money and sear
 it('preserves three distinct authorization labels and never mistakes issued XLM for native', () => {
   const { t, formatNumber } = createLocalization('en');
   const labels = [
-    [true, false],
+    [true, true],
     [false, true],
     [false, false],
   ].map(([authorize, authorizeToMaintainLiabilities]) => {

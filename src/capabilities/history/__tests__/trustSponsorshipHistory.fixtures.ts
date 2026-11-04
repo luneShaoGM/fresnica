@@ -24,7 +24,7 @@ export function trustSponsorshipRecord(
     trustor,
     trustee: trustIssuer,
     authorize: true,
-    authorizeToMaintainLiabilities: false,
+    authorizeToMaintainLiabilities: true,
     setFlags: [2],
     clearFlags: [1, 4],
     sponsoredId: trustor,

@@ -49,7 +49,7 @@ it.each(trustSponsorshipTypes)(
   },
 );
 it.each([
-  [true, false, 'authorized'],
+  [true, true, 'authorized'],
   [false, true, 'maintain-liabilities'],
   [false, false, 'revoked'],
 ])('preserves authorization %j / %j', (authorize, authorizeToMaintainLiabilities, authorization) => {
@@ -68,7 +68,7 @@ it.each([
   { authorize: undefined },
   { authorizeToMaintainLiabilities: undefined },
   { authorizeToMaintainLiabilities: 'false' },
-  { authorize: true, authorizeToMaintainLiabilities: true },
+  { authorize: true, authorizeToMaintainLiabilities: false },
   { trustee: undefined },
   { trustee: trustForeign },
   { trustor: trustIssuer },

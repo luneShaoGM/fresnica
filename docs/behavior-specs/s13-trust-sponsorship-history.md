@@ -40,9 +40,9 @@ generic from/to. Association is source or explicit valid trustor, independently
 of other shape validity so malformed records remain honest unsupported details
 for their actual participants. Foreign injected generic participants are denied.
 
-AllowTrust requires both explicit booleans. true/false means authorized;
+AllowTrust requires both explicit booleans. true/true means authorized;
 false/true means maintain liabilities only; false/false means authorization
-revoked. Both true, missing, numeric, null or other values fail closed rather
+revoked. true/false, missing, numeric, null or other values fail closed rather
 than silently choosing full/restricted/revoked meaning. No payment is implied.
 
 SetTrustLineFlags preserves exact set/clear bit arrays in order, max three
@@ -111,3 +111,6 @@ dynamic-font/reader/pixel/live-ledger/offline Retry/switch/performance acceptanc
 and Stage 9 iOS auth cancel/retry remain deferred. Remaining account merge,
 options/data/revoke/inflation families, contract constructor variants, Slice 6
 failure/visibility, missing claimable amounts and branded imagery stay open.
+
+Horizon full authorization sets both booleans true, including when adapting old
+stored operations: https://github.com/stellar/stellar-horizon/blob/6a13f41808586884c9a7b1beecd92088b7284070/internal/resourceadapter/operations.go

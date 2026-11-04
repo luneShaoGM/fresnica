@@ -84,7 +84,7 @@ export function mapTrustSponsorship(
       record.trustee !== base.sourceAccount ||
       typeof record.authorize !== 'boolean' ||
       typeof record.authorizeToMaintainLiabilities !== 'boolean' ||
-      (record.authorize && record.authorizeToMaintainLiabilities)
+      (record.authorize && !record.authorizeToMaintainLiabilities)
     )
       return undefined;
     return Object.freeze({
