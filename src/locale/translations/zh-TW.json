@@ -1007,5 +1007,10 @@
   "activity.entry.contractConstructor": "透過建構器建立合約",
   "activity.contract.deployer": "部署者",
   "activity.contract.originAsset": "來源資產",
-  "activity.contract.createdIdUnavailable": "此操作記錄未提供新合約地址。部署者不代表新建立的合約。"
+  "activity.contract.createdIdUnavailable": "此操作記錄未提供新合約地址。部署者不代表新建立的合約。",
+  "activity.filter.failed": "失敗",
+  "activity.entry.failed": "操作失敗",
+  "activity.detail.failed": "交易失敗。此記錄表示嘗試執行的操作，不代表已完成的付款或餘額變化。",
+  "activity.visibility.hideTechnical": "隱藏技術類記錄",
+  "activity.visibility.showTechnical": "顯示技術類記錄"
 }

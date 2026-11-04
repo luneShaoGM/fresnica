@@ -13,6 +13,7 @@ export type HistoryParticipant = Readonly<{
 }>;
 
 export type HistoryEntryBase = Readonly<{
+  successful?: boolean;
   id: string;
   pagingToken: string;
   operationType: string;
@@ -185,7 +186,9 @@ export type HistoryControlParameters = Readonly<Record<string, string | number |
 export type HistoryControlEntry = HistoryEntryBase & Readonly<{
   kind: 'account-control'; successful: true; parameters: HistoryControlParameters; counterparty?: string;
 }>;
+export type HistoryFailedEntry = HistoryEntryBase & Readonly<{ kind: 'failed'; successful: false; relatedAccounts: readonly string[] }>;
 export type HistoryEntry =
+  | HistoryFailedEntry
   | HistoryControlEntry
   | HistoryTrustAuthorizationEntry
   | HistoryTrustFlagsEntry

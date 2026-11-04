@@ -825,3 +825,18 @@ it.each(['create', 'create-v2'] as const)('labels %s deployer explicitly and nev
   expect(labels).toContain('Deployer');
   expect(labels).not.toContain('Contract identity');
 });
+
+it('shows failed intent limits without any completed monetary or direction rows', () => {
+  mockedUseState.mockReset();
+  const entry = mapHistoryEntry(controlRecord('payment', {}, { successful: false, amount: '999' }), controlSource);
+  const { root } = renderWithState({ kind: 'loaded', result: { status: 'ready', entry }, source: 'online', stale: false, refreshing: false, refreshFailed: false });
+  const labels: string[] = [];
+  const messages: string[] = [];
+  visit(root, element => {
+    const props = element.props as { label?: string; children?: unknown };
+    if (props.label) labels.push(props.label);
+    if (typeof props.children === 'string') messages.push(props.children);
+  });
+  expect(messages).toContain(createLocalization('en').t('activity.detail.failed'));
+  for (const label of ['Amount', 'Asset', 'Direction']) expect(labels).not.toContain(label);
+});

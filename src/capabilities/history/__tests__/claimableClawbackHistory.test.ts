@@ -48,7 +48,6 @@ function snapshot(entry: HistoryEntry, address = creator) {
 }
 
 it.each([
-  { successful: false },
   { successful: undefined },
   { successful: 'true' },
   { sourceAccount: ` ${creator}` },
@@ -164,7 +163,7 @@ it('strips unknown owned cache fields and rejects partition, native code, role, 
   expect(Object.isFrozen(normalized.claimants)).toBe(true);
   expect(Object.isFrozen(normalized.claimants[0].predicate)).toBe(true);
   expect(() => snapshot(entry, foreign)).toThrow('history-cache-invalid-entry');
-  expect(() => snapshot({ ...entry, role: 'claimant' })).toThrow('history-cache-invalid-entry');
+  expect(() => snapshot({ ...entry, role: 'claimant' as const })).toThrow('history-cache-invalid-entry');
   expect(() => snapshot({ ...entry, asset: { kind: 'native', code: 'USD' } } as unknown as HistoryEntry)).toThrow();
   expect(() => snapshot({ ...entry, operationType: 'clawback_claimable_balance' })).toThrow();
   const legacy = { ...entry, kind: 'unsupported', reason: 'operation-type' } as HistoryEntry;

@@ -1206,3 +1206,8 @@ S13 Slice 5d merged #158; Slice 5e candidate covers remaining classic controls
 (account merge/options/revoke/inflation) under `behavior-specs/s13-classic-control-history.md`.
 No native acceptance or maturity promotion. Constructor/effects/visibility/images
 remain the next slices in the continuous Activity completion round.
+
+S13 constructor/create-identity fix merged #161. Slice6 failed history/technical
+visibility candidate uses `behavior-specs/s13-failed-visibility-history.md`;
+known false is non-monetary, raw unknown stays unsupported, legacy cache preserved.
+No native/maturity promotion; effects/images/explicitDustSpam policy follow.

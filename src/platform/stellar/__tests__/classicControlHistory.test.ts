@@ -34,7 +34,7 @@ it.each(controlCases)('reads canonical raw %s %j through both public adapters', 
   expect(mapHistoryEntry(page.records[0], controlSource)).toMatchObject({ kind: 'account-control', parameters });
   expect(
     mapHistoryEntry(mapHistoryOperationRecord({ ...wire, transaction_successful: false }), controlSource),
-  ).toMatchObject({ kind: 'unsupported' });
+  ).toMatchObject({ kind: 'failed' });
 });
 it.each([1, 64])('preserves SDK-valid %s-byte signed payload through raw projection', length => {
   const bytes = new Uint8Array(36 + Math.ceil(length / 4) * 4);

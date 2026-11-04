@@ -48,31 +48,7 @@ export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryO
     occurredAt: input.created_at,
     transactionHash: input.transaction_hash,
     sourceAccount: input.source_account,
-    ...(input.type === 'path_payment_strict_send' ||
-    input.type === 'path_payment_strict_receive' ||
-    [
-      'invoke_host_function',
-      'extend_footprint_ttl',
-      'restore_footprint',
-      'bump_sequence',
-      'manage_data',
-      'account_merge', 'set_options', 'revoke_sponsorship', 'inflation',
-      'allow_trust',
-      'set_trust_line_flags',
-      'begin_sponsoring_future_reserves',
-      'end_sponsoring_future_reserves',
-      'create_claimable_balance',
-      'claim_claimable_balance',
-      'clawback',
-      'clawback_claimable_balance',
-      'manage_buy_offer',
-      'manage_sell_offer',
-      'create_passive_sell_offer',
-      'liquidity_pool_deposit',
-      'liquidity_pool_withdraw',
-    ].includes(input.type)
-      ? { successful: input.transaction_successful === true }
-      : {}),
+    ...(typeof input.transaction_successful === 'boolean' ? { successful: input.transaction_successful } : { outcomeUnknown: true as const }),
     ...mapOfferPoolFields(input),
     ...mapContractFields(input),
     ...mapClassicControlFields(input),
@@ -243,7 +219,7 @@ function createDefaultServer(horizonUrl: string, networkPassphrase: string): Hor
     loadOperation: async operationId =>
       (await server.operations().operation(operationId).call()) as unknown as HorizonOperationLike,
     loadAccountOperations: async input => {
-      let request = server.operations().forAccount(input.address).order('desc').limit(input.limit);
+      let request = server.operations().forAccount(input.address).includeFailed(true).order('desc').limit(input.limit);
       if (input.cursor !== undefined) {
         request = request.cursor(input.cursor);
       }

@@ -66,6 +66,7 @@ function operation(id: string): HorizonOperationLike {
 
 function normalizedOperation(id: string) {
   return {
+    successful: true,
     id,
     pagingToken: id,
     type: 'payment',
@@ -400,6 +401,7 @@ describe('StellarSdkGateway', () => {
     ).resolves.toEqual({
       status: 'found',
       record: {
+        successful: true,
         id: '778',
         pagingToken: '778',
         type: 'change_trust',
@@ -907,7 +909,7 @@ it('carries successful actual path legs, never substituting path limits', () => 
     expect(result).not.toHaveProperty('sourceMax');
     for (const transaction_successful of [false, undefined, 'true', 1]) {
       expect(mapHistoryOperationRecord({ ...input, transaction_successful } as HorizonOperationLike).successful).toBe(
-        false,
+        transaction_successful === false ? false : undefined,
       );
     }
   }
