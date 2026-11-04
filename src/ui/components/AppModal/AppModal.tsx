@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, Modal, PanResponder, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -35,7 +35,13 @@ export function AppModal({
 }: AppModalProps) {
   const styles = useThemedStyles(createStyles);
   const offsetY = useRef(new Animated.Value(0)).current;
-  const draggable = presentation === 'sheet' && swipeToDismiss;
+  const draggable = visible && presentation === 'sheet' && swipeToDismiss;
+  useEffect(() => {
+    if (!draggable) {
+      offsetY.stopAnimation();
+      offsetY.setValue(0);
+    }
+  }, [draggable, offsetY]);
   const responder = useMemo(
     () =>
       PanResponder.create({
@@ -66,7 +72,7 @@ export function AppModal({
           style={[
             styles.dialog,
             presentation === 'sheet' ? styles.sheet : undefined,
-            { transform: [{ translateY: offsetY }] },
+            draggable ? { transform: [{ translateY: offsetY }] } : undefined,
           ]}
         >
           <Container
