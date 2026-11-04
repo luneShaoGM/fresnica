@@ -484,6 +484,7 @@ function renderEntry(
             <Text style={styles.warning}>{t('activity.sponsorship.explanation')}</Text>
           </>
         ) : null}
+        {entry.kind === 'failed' ? <Text style={styles.warning}>{t('activity.detail.failed')}</Text> : null}
         {entry.kind === 'account-control' ? (
           <>
             {Object.entries(entry.parameters).map(([key, value]) => <DetailRow key={key} label={t(`activity.control.field.${key}`)} value={Array.isArray(value) ? value.join(', ') || t('activity.trustControl.none') : String(value)} fullValue styles={styles} />)}
@@ -514,10 +515,13 @@ function renderEntry(
             <DetailRow
               label={t('activity.contract.host')}
               value={t(
-                `activity.entry.contract${entry.hostFunction === 'invoke' ? 'Invoke' : entry.hostFunction === 'create' ? 'Create' : 'Upload'}`,
+                `activity.entry.contract${entry.hostFunction === 'invoke' ? 'Invoke' : entry.hostFunction === 'create' ? 'Create' : entry.hostFunction === 'create-v2' ? 'Constructor' : 'Upload'}`,
               )}
               styles={styles}
             />
+            {entry.deployer ? <DetailRow label={t('activity.contract.deployer')} value={entry.deployer} fullValue styles={styles} /> : null}
+            {entry.creationAsset ? <DetailRow label={t('activity.contract.originAsset')} value={entry.creationAsset.kind === 'native' ? 'XLM' : `${entry.creationAsset.code}:${entry.creationAsset.issuer}`} fullValue styles={styles} /> : null}
+            {entry.creationOrigin ? <Text style={styles.warning}>{t('activity.contract.createdIdUnavailable')}</Text> : null}
             {entry.contractId ? (
               <DetailRow
                 label={t('activity.contract.identity')}
@@ -531,7 +535,7 @@ function renderEntry(
               <DetailRow label={t('activity.contract.function')} value={entry.functionName} fullValue styles={styles} />
             ) : null}
             <Text style={styles.warning}>{t('activity.contract.limitation')}</Text>
-            {entry.hostFunction !== 'invoke' ? (
+            {entry.hostFunction !== 'invoke' && entry.hostFunction !== 'create-v2' ? (
               <Text style={styles.warning}>{t('activity.contract.noSummary')}</Text>
             ) : entry.events === undefined ? (
               <Text style={styles.warning}>{t('activity.contract.unavailable')}</Text>

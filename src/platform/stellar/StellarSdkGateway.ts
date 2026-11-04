@@ -48,31 +48,7 @@ export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryO
     occurredAt: input.created_at,
     transactionHash: input.transaction_hash,
     sourceAccount: input.source_account,
-    ...(input.type === 'path_payment_strict_send' ||
-    input.type === 'path_payment_strict_receive' ||
-    [
-      'invoke_host_function',
-      'extend_footprint_ttl',
-      'restore_footprint',
-      'bump_sequence',
-      'manage_data',
-      'account_merge', 'set_options', 'revoke_sponsorship', 'inflation',
-      'allow_trust',
-      'set_trust_line_flags',
-      'begin_sponsoring_future_reserves',
-      'end_sponsoring_future_reserves',
-      'create_claimable_balance',
-      'claim_claimable_balance',
-      'clawback',
-      'clawback_claimable_balance',
-      'manage_buy_offer',
-      'manage_sell_offer',
-      'create_passive_sell_offer',
-      'liquidity_pool_deposit',
-      'liquidity_pool_withdraw',
-    ].includes(input.type)
-      ? { successful: input.transaction_successful === true }
-      : {}),
+    ...(typeof input.transaction_successful === 'boolean' ? { successful: input.transaction_successful } : { outcomeUnknown: true as const }),
     ...mapOfferPoolFields(input),
     ...mapContractFields(input),
     ...mapClassicControlFields(input),
@@ -134,11 +110,6 @@ function mapContractFields(input: HorizonOperationLike): Partial<HistoryOperatio
       if (address.type !== 'scvAddress' || symbol.type !== 'scvSymbol') throw new Error('invalid-contract-identity');
       contractId = Address.fromScVal(address).toString();
       functionName = symbol.sym.toString();
-    } else if (
-      input.function === 'HostFunctionTypeHostFunctionTypeCreateContract' &&
-      typeof input.address === 'string'
-    ) {
-      contractId = input.address;
     }
     if (
       contractId !== undefined &&
@@ -167,6 +138,11 @@ function mapContractFields(input: HorizonOperationLike): Partial<HistoryOperatio
       : raw;
   return {
     hostFunction: input.function,
+    ...(['HostFunctionTypeHostFunctionTypeCreateContract', 'HostFunctionTypeHostFunctionTypeCreateContractV2'].some(kind => kind === input.function) ? {
+      creationOrigin: input.from,
+      ...(input.from === 'address' && typeof input.address === 'string' && (StrKey.isValidEd25519PublicKey(input.address) || StrKey.isValidContract(input.address)) ? { deployer: input.address } : {}),
+      ...(input.from === 'asset' ? { creationAsset: canonicalHistoryAsset(input.asset) } : {}),
+    } : {}),
     ...(contractId === undefined ? {} : { contractId }),
     ...(functionName === undefined ? {} : { functionName }),
     ...(events === undefined ? {} : { assetBalanceChanges: events }),
@@ -243,7 +219,7 @@ function createDefaultServer(horizonUrl: string, networkPassphrase: string): Hor
     loadOperation: async operationId =>
       (await server.operations().operation(operationId).call()) as unknown as HorizonOperationLike,
     loadAccountOperations: async input => {
-      let request = server.operations().forAccount(input.address).order('desc').limit(input.limit);
+      let request = server.operations().forAccount(input.address).includeFailed(true).order('desc').limit(input.limit);
       if (input.cursor !== undefined) {
         request = request.cursor(input.cursor);
       }
@@ -613,15 +589,15 @@ export class StellarSdkGateway implements StellarGateway {
       projectedMemo = { type: 'text', value: decodeUtf8(memo.value as Uint8Array) };
     } else if (memo.type === 'id') {
       projectedMemo = { type: 'id', value: String(memo.value) };
-    } else if (memo.type === 'hash') {
+    } else if (memo.type === 'hash' || memo.type === 'return') {
       projectedMemo = {
-        type: 'hash',
+        type: memo.type,
         value: Array.from(memo.value as Uint8Array)
           .map(byte => byte.toString(16).padStart(2, '0'))
           .join(''),
       };
     } else if (memo.type !== 'none') {
-      throw new Error('Payment review supports only none, text, id, or hash memo');
+      throw new Error('Payment review supports only none, text, id, hash, or return memo');
     }
 
     const maxTime = transaction.timeBounds?.maxTime;
@@ -700,12 +676,23 @@ export class StellarSdkGateway implements StellarGateway {
     }).addOperation(operation);
 
     if (input.memo !== undefined) {
-      const memo =
-        input.memo.type === 'text'
-          ? Memo.text(input.memo.value)
-          : input.memo.type === 'id'
-            ? Memo.id(input.memo.value)
-            : Memo.hash(input.memo.value);
+      let memo: Memo;
+      switch (input.memo.type) {
+        case 'text':
+          memo = Memo.text(input.memo.value);
+          break;
+        case 'id':
+          memo = Memo.id(input.memo.value);
+          break;
+        case 'hash':
+          memo = Memo.hash(input.memo.value);
+          break;
+        case 'return':
+          memo = Memo.return(input.memo.value);
+          break;
+        default:
+          throw new Error('unsupported-payment-memo-type');
+      }
       builder = builder.addMemo(memo);
     }
 

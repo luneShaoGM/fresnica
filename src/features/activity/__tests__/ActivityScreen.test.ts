@@ -152,12 +152,15 @@ function renderScreen(
   filter = 'all',
   searchText = '',
   identityNames?: ReadonlyMap<string, string>,
+  showTechnical = true,
 ) {
-  const setters = [jest.fn(), jest.fn(), jest.fn(), jest.fn()];
+  const setters = [jest.fn(), jest.fn(), jest.fn(), jest.fn(), jest.fn()];
   const values = [
     { kind: 'ready' as const, ...createActivityReadyState({ entries, nextCursor: 'cursor-1' }) },
     filter,
     searchText,
+    false,
+    showTechnical,
   ];
   let call = 0;
   mockedUseState.mockImplementation((initial: unknown) => {
@@ -521,3 +524,17 @@ it.each(['liquidity_pool_deposit', 'liquidity_pool_withdraw'])(
     expect(props.onOpen).toHaveBeenCalledTimes(1);
   },
 );
+
+it('hides technical records reversibly without losing loaded rows, cursor or issuing I/O', () => {
+  const technical = { ...unsupported('technical'), operationType: 'manage_data' };
+  const ordinary = unsupported('ordinary');
+  const hidden = renderScreen([technical, ordinary], 'all', '', undefined, false);
+  const content = findElement(hidden.root, element => element.type === ActivityContent);
+  expect(content?.props.entries?.map(entry => entry.id)).toEqual(['ordinary']);
+  const toggle = findElement(hidden.root, element => element.type === NativeButton && element.props.label === 'Show technical records');
+  toggle?.props.onPress?.();
+  expect(hidden.setters[4]).toHaveBeenCalled();
+  const restored = renderScreen([technical, ordinary], 'all', '', undefined, true);
+  expect(findElement(restored.root, element => element.type === ActivityContent)?.props.entries?.length).toBe(2);
+  expect(mockedLoadHistoryPage).not.toHaveBeenCalled();
+});

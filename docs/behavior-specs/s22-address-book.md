@@ -187,8 +187,9 @@ S22 is not L3/L4 solely because tests/CI pass. Independent exact-HEAD implementa
   Settings/AddressBook, Activity participant and Send Details/Recipient/Summary behavior.
   The user confirmed on 2026-11-04 that **M-address delivery is paused**. Do not introduce
   M-address contact selection, muxed ID or altered CreateAccount rules here.
-  Separate pending PR #159 (G-address Memo Return) is not incorporated into this PR's
-  base or code; once merged, reconfirm Memo Return works in the new Recipient step.
+  PR #159 (G-address Memo Return) was independently reviewed and merged into main.
+  This integration candidate preserves its distinct Return/Hash semantics through
+  Recipient selection, Request/QR prefill, manual editing, Summary and exact-XDR review.
 - Reuse merged #156 global v9 Contacts, unique full G + typed Memo identity, existing
   AccountIdentityCard, IdentityAvatar and SectionedList; do not fork a new data model,
   Realm store or native camera. Legacy duplicates remain visible by stable ID,
@@ -221,3 +222,35 @@ S22 is not L3/L4 solely because tests/CI pass. Independent exact-HEAD implementa
   on final exact HEAD; actual Android/iOS permissions, keyboard/back/large-font/reader
   product flow and real Send submission are **not** proven by Jest/CI. Stage 9
   iOS System Auth cancel/retry remains deferred.
+
+## Memo Return G-address vertical slice (2026-11-04; merged as PR #159)
+
+- **Product ID / maturity:** S22 (Stage 8, Phase 2c partial); source role: Stellar typed Memo
+  behavior, adapted through original Fresnica Capability/SDK/feature code. This work extends
+  the validated single-operation Classic Payment pipeline without adding another signer,
+  authorization path, or duplicating Stellar/Xaman sources.
+- Add 'return' as a distinct typed 32-byte Memo (64 hexadecimal characters in editable
+  text; lowercased canonical identity). Never alias 'return' to 'hash', even with identical
+  bytes; 'text', 'id', 'hash', absent Memo and 'return' remain distinct identity keys.
+  Invalid runtime types/length/non-hex inputs fail closed. Existing Realm v9 stores
+  canonical typed JSON as before; no schema migration, contact merge or rewrite.
+- **End-to-end for G-address Classic Payment only:** Send and Request editable memo choices,
+  contact add/edit/share, SEP-7 MEMO_RETURN parse/build (strict 32-byte base64 wire),
+  Request to Send prefill, Stellar SDK unsigned Payment XDR build/inspection, and exact-XDR
+  review all retain the 'return' discriminant. A forged XDR projection with 'hash' instead
+  of 'return' is rejected at payment review. The network/account/fee and amount validations,
+  signer authorization, submit/uncertain/recovery remain unchanged.
+- **Fail-closed deferrals:** M-addresses are still rejected at contact/Request/Send
+  boundaries. Swap/PathPayment still explicitly rejects Return in its quote/preflight
+  Capability; its SDK adapter also throws if an unsupported Return ever reaches it.
+  Do not advertise Memo Return for Swap. M-address support requires an independent
+  exact-destination account lookup/XDR/muxed-ID policy and subsequent Work review.
+- UI adds a fifth Return option with localized input/hint/error copy in en/zh/zh-TW.
+  Send's selector wraps on narrow screens. The 32-byte Memo is transaction metadata,
+  never a contact secret or an inferred Activity participant Memo.
+- Automated evidence includes typed validator identity, real Realm reopen/duplicate,
+  Base64 SEP-7 round trip + cross-network rejection, SDK unsigned XDR build/inspect,
+  preflighted review projection type equality, Swap exclusion, Send/Request selector
+  and prefill. Native Android/iOS flow, small-screen visual/readability, QR camera and
+  genuine transaction submission acceptance remain deferred; unit/Realm/CI evidence
+  cannot be presented as native product acceptance.

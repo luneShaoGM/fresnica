@@ -82,7 +82,7 @@ export function createSendFormStyles(theme: AppTheme) {
     fieldAction: {width: 45, height: 52, alignItems: 'center', justifyContent: 'center'},
     fieldActionGlyph: {fontSize: 18, color: theme.colors.textSecondary},
     fieldHint: {paddingHorizontal: 22, paddingTop: 5, fontSize: 9, lineHeight: 13, color: theme.colors.textTertiary},
-    memoTypeRow: {flexDirection: 'row', gap: 8, paddingHorizontal: 18, paddingBottom: 8},
+    memoTypeRow: {flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 18, paddingBottom: 8},
     memoTypeButton: {
       minHeight: 36,
       minWidth: 64,

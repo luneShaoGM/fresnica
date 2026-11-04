@@ -67,7 +67,7 @@ it('preserves the established SDK public read projections and opaque paging acro
     await old.loadOperation({ accountAddress: 'Ga', operationId: 'op' }),
   );
   expect(http.mock.calls[1]).toEqual([
-    'https://node.test/accounts/Ga/operations?order=desc&limit=1&cursor=opaque%2Bcursor',
+    'https://node.test/accounts/Ga/operations?include_failed=true&order=desc&limit=1&cursor=opaque%2Bcursor',
     { signal },
   ]);
 });
@@ -392,7 +392,6 @@ it.each([
 it.each([
   { ...rawOffer(), transaction_successful: undefined },
   { ...rawOffer(), transaction_successful: 'true' },
-  { ...rawOffer(), transaction_successful: false },
   { ...rawOffer(), offer_id: 9223372036854775807 },
   { ...rawOffer('create_passive_sell_offer'), offer_id: 12 },
   { ...rawOffer(), price_r: { n: '1', d: 2 } },
@@ -534,7 +533,7 @@ it.each(['create_claimable_balance', 'claim_claimable_balance', 'clawback', 'cla
 it.each(['create_claimable_balance', 'claim_claimable_balance', 'clawback', 'clawback_claimable_balance'])(
   'requires literal success for raw %s and keeps unsupported shape visible',
   async type => {
-    for (const transaction_successful of [false, undefined, 'true']) {
+    for (const transaction_successful of [undefined, 'true']) {
       const raw = { ...rawClaimable(type), transaction_successful };
       const reads = createHorizonPublicReadGateway(jest.fn().mockResolvedValue(response(raw)));
       const result = await reads.loadOperation(

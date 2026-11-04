@@ -2,7 +2,7 @@ import { claimPredicateSummary } from './claimPredicateSummary';
 import { isPathSwap } from '@capabilities/history/pathPaymentHistory';
 import type { HistoryDirection, HistoryEntry } from '@capabilities/history/types';
 
-export type ActivityFilter = 'all' | 'payments' | 'accounts' | 'trustlines' | 'other';
+export type ActivityFilter = 'all' | 'payments' | 'accounts' | 'trustlines' | 'other' | 'failed';
 
 export type ActivityTone = 'positive' | 'negative' | 'neutral';
 
@@ -41,6 +41,8 @@ export function activityEntryPresentation(
   formatNumber: FormatNumber,
 ): ActivityEntryPresentation {
   switch (entry.kind) {
+    case 'failed':
+      return { title: t('activity.entry.failed'), primary: entry.operationType, secondary: entry.sourceAccount, tone: 'neutral', filter: 'other' };
     case 'account-control':
       return { title: t(`activity.control.${entry.operationType}`), primary: entry.counterparty ?? entry.sourceAccount, secondary: '', tone: 'neutral', filter: 'other' };
     case 'trust-authorization':
@@ -78,7 +80,7 @@ export function activityEntryPresentation(
     case 'contract': {
       const relevant = entry.events?.filter(event => event.direction !== 'neutral') ?? [];
       const title = t(
-        `activity.entry.contract${entry.hostFunction === 'invoke' ? 'Invoke' : entry.hostFunction === 'create' ? 'Create' : 'Upload'}`,
+        `activity.entry.contract${entry.hostFunction === 'invoke' ? 'Invoke' : entry.hostFunction === 'create' ? 'Create' : entry.hostFunction === 'create-v2' ? 'Constructor' : 'Upload'}`,
       );
       return {
         title:
@@ -195,6 +197,7 @@ export function activityEntryPresentation(
 }
 
 export function matchesActivityFilter(entry: HistoryEntry, filter: ActivityFilter): boolean {
+  if (filter === 'failed') return entry.kind === 'failed';
   if (filter === 'all') {
     return true;
   }
@@ -210,6 +213,7 @@ export function matchesActivityFilter(entry: HistoryEntry, filter: ActivityFilte
     case 'trust-authorization':
     case 'trust-flags':
     case 'sponsorship':
+    case 'failed':
     case 'account-control':
     case 'maintenance':
     case 'contract':
@@ -269,6 +273,7 @@ export function matchesActivitySearch(
       identityNames?.get(entry.sponsor) ?? '',
       identityNames?.get(entry.beneficiary) ?? '',
     );
+  if (entry.kind === 'failed') values.push(identityNames?.get(entry.sourceAccount) ?? '');
   if (entry.kind === 'account-control') {
     values.push(identityNames?.get(entry.sourceAccount) ?? '');
     for (const [key, value] of Object.entries(entry.parameters)) values.push(t(`activity.control.field.${key}`), String(value));
@@ -282,7 +287,9 @@ export function matchesActivitySearch(
     );
   }
   if (entry.kind === 'contract') {
-    values.push(entry.hostFunction, entry.contractId ?? '', entry.functionName ?? '');
+    values.push(entry.hostFunction, entry.contractId ?? '', entry.functionName ?? '', entry.deployer ?? '', entry.creationOrigin ?? '');
+    if (entry.creationAsset) values.push(entry.creationAsset.code, entry.creationAsset.kind === 'credit' ? entry.creationAsset.issuer : '', entry.creationAsset.kind === 'credit' ? `${entry.creationAsset.code}:${entry.creationAsset.issuer}` : 'native');
+    if (entry.deployer?.startsWith('G')) values.push(identityNames?.get(entry.deployer) ?? '');
     for (const event of entry.events ?? []) {
       values.push(
         event.type,

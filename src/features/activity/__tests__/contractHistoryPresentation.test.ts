@@ -1,3 +1,4 @@
+import { CONTRACT_HOST_FUNCTIONS } from '../../../capabilities/history/contractHistory';
 import {
   contractRecord,
   source,
@@ -57,4 +58,23 @@ it('keeps native and issued XLM asset identities distinct in preview/search', ()
     'credit',
   ]);
   expect(matchesActivitySearch(entry, `XLM:${foreign}`, t, formatNumber)).toBe(true);
+});
+
+it.each(['create', 'create-v2'] as const)('shows %s deployer without claiming a created address', host => {
+  const names = new Map([[source, 'Actual deployer']]);
+  const entry = mapHistoryEntry(contractRecord({ hostFunction: CONTRACT_HOST_FUNCTIONS[host], assetBalanceChanges: host === 'create-v2' ? [transfer] : undefined }), source);
+  const row = activityRowPresentation(entry, t, formatNumber, names);
+  expect(row.subject).toEqual({ kind: 'account', address: source });
+  expect(row.title).toBe('Actual deployer');
+  expect(matchesActivitySearch(entry, 'Actual deployer', t, formatNumber, names)).toBe(true);
+  expect(row.reserveMoney).toHaveLength(host === 'create-v2' ? 1 : 0);
+  expect(entry).not.toHaveProperty('contractId');
+});
+
+it.each(['create', 'create-v2'] as const)('searches canonical origin asset identity for %s in every locale', host => {
+  const entry = mapHistoryEntry(contractRecord({ hostFunction: CONTRACT_HOST_FUNCTIONS[host], creationOrigin: 'asset', creationAsset: { kind: 'credit', code: 'USD', issuer: foreign } }), source);
+  for (const locale of ['en', 'zh', 'zh-TW']) {
+    const localization = createLocalization(locale);
+    expect(matchesActivitySearch(entry, `USD:${foreign}`, localization.t, localization.formatNumber)).toBe(true);
+  }
 });

@@ -35,7 +35,7 @@ it.each(controlCases)('normalizes %s target %j and reconstructs owned partitione
     kind: 'unsupported',
   });
   expect(mapHistoryEntry(controlRecord(type, parameters, { successful: false }), controlSource)).toMatchObject({
-    kind: 'unsupported',
+    kind: 'failed',
   });
 });
 it.each([

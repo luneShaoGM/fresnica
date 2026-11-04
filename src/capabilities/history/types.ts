@@ -13,6 +13,7 @@ export type HistoryParticipant = Readonly<{
 }>;
 
 export type HistoryEntryBase = Readonly<{
+  successful?: boolean;
   id: string;
   pagingToken: string;
   operationType: string;
@@ -139,7 +140,10 @@ export type HistoryContractEntry = HistoryEntryBase &
   Readonly<{
     kind: 'contract';
     successful: true;
-    hostFunction: 'invoke' | 'create' | 'upload';
+    hostFunction: 'invoke' | 'create' | 'create-v2' | 'upload';
+    creationOrigin?: 'address' | 'asset';
+    deployer?: string;
+    creationAsset?: HistoryAsset;
     contractId?: string;
     functionName?: string;
     events?: readonly HistoryContractEvent[];
@@ -182,7 +186,9 @@ export type HistoryControlParameters = Readonly<Record<string, string | number |
 export type HistoryControlEntry = HistoryEntryBase & Readonly<{
   kind: 'account-control'; successful: true; parameters: HistoryControlParameters; counterparty?: string;
 }>;
+export type HistoryFailedEntry = HistoryEntryBase & Readonly<{ kind: 'failed'; successful: false; relatedAccounts: readonly string[] }>;
 export type HistoryEntry =
+  | HistoryFailedEntry
   | HistoryControlEntry
   | HistoryTrustAuthorizationEntry
   | HistoryTrustFlagsEntry

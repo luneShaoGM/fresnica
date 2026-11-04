@@ -70,7 +70,7 @@ it('preserves zero and maximum values exactly and does not adopt the old TTL typ
   });
 });
 it.each(maintenanceTypes)('requires literal success and source-only association for %s', async type => {
-  for (const successful of [false, undefined])
+  for (const successful of [undefined])
     expect(mapHistoryEntry(maintenanceRecord(type, { successful }), maintenanceSource)).toMatchObject({
       kind: 'unsupported',
     });

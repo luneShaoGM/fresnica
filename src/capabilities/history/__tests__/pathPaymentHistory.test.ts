@@ -89,7 +89,6 @@ it('preserves both explicit muxed identities and Classic bases', () => {
   });
 });
 it.each([
-  { successful: false },
   { successful: undefined },
   { successful: 'true' },
   { from: undefined },
@@ -124,8 +123,8 @@ it('normalizes cache payload, strips extra fields and preserves legacy unsupport
   const legacy = { ...entry, kind: 'unsupported', reason: 'operation-type' } as const;
   expect(normalizeHistoryCacheSnapshot(snapshot(legacy)).entries[0]).toMatchObject({ kind: 'unsupported' });
   expect(
-    normalizeHistoryCacheSnapshot(snapshot(mapHistoryEntry({ ...record, successful: false }, sender))).entries[0],
-  ).toMatchObject({ kind: 'unsupported', reason: 'operation-shape' });
+    normalizeHistoryCacheSnapshot(snapshot(mapHistoryEntry({ ...record, successful: false }, sender)), { networkId: 'test', accountAddress: sender }).entries[0],
+  ).toMatchObject({ kind: 'failed', successful: false });
 });
 it.each([
   { successful: false },

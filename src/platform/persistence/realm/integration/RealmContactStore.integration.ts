@@ -122,6 +122,36 @@ describe('S22 contact migration and persistence', () => {
       rmSync(directory, { recursive: true, force: true });
     }
   });
+  it('stores typed Return memo distinctly from Hash across reopen without changing Realm v9', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'fresnica-contact-return-'));
+    const path = join(directory, 'wallet.realm');
+    let realm: Realm | undefined;
+    try {
+      realm = await openWalletRealm({ path });
+      const store = new RealmContactStore(realm);
+      const hex = 'ab'.repeat(32);
+      store.save({ id: 'return', networkId: 'test', name: 'Exchange Return', address: 'GDEST',
+        memo: { type: 'return', value: hex } });
+      store.save({ id: 'hash', networkId: 'main', name: 'Exchange Hash', address: 'GDEST',
+        memo: { type: 'hash', value: hex } });
+      expect(() => store.save({ id: 'duplicate', networkId: 'main', name: 'Same Return', address: 'GDEST',
+        memo: { type: 'return', value: hex.toUpperCase() } })).toThrow('contact-duplicate');
+      expect(realm.schemaVersion).toBe(9);
+      realm.close();
+      realm = await openWalletRealm({ path });
+      const reopened = new RealmContactStore(realm);
+      expect(reopened.list('test')).toEqual([
+        expect.objectContaining({ id: 'return', memo: { type: 'return', value: hex } }),
+        expect.objectContaining({ id: 'hash', memo: { type: 'hash', value: hex } }),
+      ]);
+      expect(reopened.list('main').map(row => row.id)).toEqual(['return', 'hash']);
+      expect(realm.schemaVersion).toBe(9);
+    } finally {
+      if (realm && !realm.isClosed) realm.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it('fails closed on corrupt persisted memo shapes without changing or aliasing the record', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'fresnica-contact-corruption-'));
     let realm: Realm | undefined;

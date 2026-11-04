@@ -6,18 +6,17 @@ import type { AccountRecord } from '../../account/types';
 import type { HistoryEntry } from '../types';
 
 import { source, recipient, foreign, contractId, contractRecord, transfer, cache } from './contractHistory.fixtures';
-it.each(['invoke', 'create', 'upload'] as const)('maps exact %s variant', host => {
+it.each(['invoke', 'create', 'create-v2', 'upload'] as const)('maps exact %s variant', host => {
   const entry = mapHistoryEntry(contractRecord({ hostFunction: CONTRACT_HOST_FUNCTIONS[host] }), source);
   expect(entry).toMatchObject({ kind: 'contract', hostFunction: host, successful: true });
   expect(entry).toEqual(cache(entry).entries[0]);
-  expect('contractId' in entry).toBe(host !== 'upload');
+  expect('contractId' in entry).toBe(host === 'invoke');
   expect('functionName' in entry).toBe(host === 'invoke');
 });
 it.each([
-  { successful: false },
   { successful: undefined },
   { hostFunction: 'invoke' },
-  { hostFunction: 'HostFunctionTypeHostFunctionTypeCreateContractV2' },
+  { hostFunction: 'unknown-constructor' },
   { contractId: source },
   { contractId: ` ${contractId}` },
   { functionName: '' },
@@ -162,4 +161,22 @@ it('associates explicit bounded event parties independently from malformed amoun
     expect(await detail(record, recipient)).toEqual({ status: 'not-associated' });
     expect(await detail(record, source)).toMatchObject({ status: 'ready', entry: { kind: 'unsupported' } });
   }
+});
+
+it('keeps deployer separate from new identity and allows only V2 constructor events', () => {
+  for (const host of ['create', 'create-v2'] as const) {
+    const entry = mapHistoryEntry(contractRecord({ hostFunction: CONTRACT_HOST_FUNCTIONS[host], deployer: source }), source);
+    expect(entry).toMatchObject({ kind: 'contract', deployer: source, creationOrigin: 'address' });
+    expect(entry).not.toHaveProperty('contractId');
+    expect(entry).not.toHaveProperty('functionName');
+    expect(cache(entry).entries[0]).toEqual(entry);
+    expect(() => cache({ ...entry, deployer: undefined } as HistoryEntry)).toThrow();
+    const asset = mapHistoryEntry(contractRecord({ hostFunction: CONTRACT_HOST_FUNCTIONS[host], creationOrigin: 'asset', creationAsset: { kind: 'native' } }), source);
+    expect(asset).toMatchObject({ creationAsset: { kind: 'native', code: 'XLM' } });
+    expect(cache(asset).entries[0]).toEqual(asset);
+  }
+  const eventEntry = mapHistoryEntry(contractRecord({ hostFunction: CONTRACT_HOST_FUNCTIONS['create-v2'], assetBalanceChanges: [transfer] }), recipient);
+  expect(eventEntry).toMatchObject({ kind: 'contract', hostFunction: 'create-v2', events: [{ direction: 'incoming' }] });
+  expect(cache(eventEntry, recipient).entries[0]).toEqual(eventEntry);
+  expect(mapHistoryEntry(contractRecord({ hostFunction: CONTRACT_HOST_FUNCTIONS['create-v2'], creationOrigin: 'bad' }), source)).toMatchObject({ kind: 'unsupported' });
 });

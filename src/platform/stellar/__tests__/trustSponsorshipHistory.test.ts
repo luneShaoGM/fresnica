@@ -101,5 +101,5 @@ it('retains invalid present values, treats wire-omitted masks as empty and never
   for (const type of trustSponsorshipTypes)
     expect(
       mapHistoryEntry(mapHistoryOperationRecord({ ...raw(type), transaction_successful: false }), trustIssuer),
-    ).toMatchObject({ kind: 'unsupported' });
+    ).toMatchObject({ kind: 'failed' });
 });

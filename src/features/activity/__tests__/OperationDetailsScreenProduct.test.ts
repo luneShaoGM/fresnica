@@ -1,3 +1,4 @@
+import { CONTRACT_HOST_FUNCTIONS } from '../../../capabilities/history/contractHistory';
 import { controlCases, controlRecord, controlSource } from '../../../capabilities/history/__tests__/classicControlHistory.fixtures';
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
 
@@ -809,4 +810,33 @@ it.each(controlCases)('renders exact %s parameters in full with historical limit
     if (props.label && labels.has(props.label)) { expect(props.fullValue).toBe(true); seen.add(props.label); }
   });
   expect(seen).toEqual(labels);
+});
+
+it.each(['create', 'create-v2'] as const)('labels %s deployer explicitly and never as created contract ID', host => {
+  mockedUseState.mockReset();
+  const entry = mapHistoryEntry(contractRecord({ hostFunction: CONTRACT_HOST_FUNCTIONS[host] }), source);
+  const { root } = renderWithState({ kind: 'loaded', result: { status: 'ready', entry }, source: 'online', stale: false, refreshing: false, refreshFailed: false });
+  const labels: string[] = [];
+  visit(root, element => {
+    const props = element.props as { label?: string; value?: string; fullValue?: boolean };
+    if (props.label) labels.push(props.label);
+    if (props.label === 'Deployer') { expect(props.value).toBe(source); expect(props.fullValue).toBe(true); }
+  });
+  expect(labels).toContain('Deployer');
+  expect(labels).not.toContain('Contract identity');
+});
+
+it('shows failed intent limits without any completed monetary or direction rows', () => {
+  mockedUseState.mockReset();
+  const entry = mapHistoryEntry(controlRecord('payment', {}, { successful: false, amount: '999' }), controlSource);
+  const { root } = renderWithState({ kind: 'loaded', result: { status: 'ready', entry }, source: 'online', stale: false, refreshing: false, refreshFailed: false });
+  const labels: string[] = [];
+  const messages: string[] = [];
+  visit(root, element => {
+    const props = element.props as { label?: string; children?: unknown };
+    if (props.label) labels.push(props.label);
+    if (typeof props.children === 'string') messages.push(props.children);
+  });
+  expect(messages).toContain(createLocalization('en').t('activity.detail.failed'));
+  for (const label of ['Amount', 'Asset', 'Direction']) expect(labels).not.toContain(label);
 });

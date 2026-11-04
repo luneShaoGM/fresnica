@@ -8,6 +8,7 @@ import { ParticipantCard } from '../ParticipantCard';
 import { AddressBookScreen } from '../AddressBookScreen';
 import { DestinationPicker } from '../DestinationPicker';
 import { RecipientScanSheet } from '../RecipientScanSheet';
+import { contactShareUri } from '../contactBook';
 import { SendFlowScreen } from '../../send/SendFlowScreen';
 import { SendResultScreen } from '../../send/SendResultScreen';
 import { SendReviewScreen } from '../../send/SendReviewScreen';
@@ -809,6 +810,77 @@ it('Activity participant editor receives the injected scanner without changing t
   button(draw(), 'contacts.edit')();
   const editor = nodes(draw(), ContactEditor)[0];
   expect(editor.props).toMatchObject({ scanner, id: row.id, initial: row });
+  expect(book.store.save).not.toHaveBeenCalled();
+});
+
+it('keeps Return and Hash contacts distinct through Send selection, Back, and manual destination edits', () => {
+  const value = 'ab'.repeat(32);
+  rows = [
+    { ...row, id: 'return-contact', name: 'Return', memo: { type: 'return', value } },
+    { ...row, id: 'hash-contact', name: 'Hash', memo: { type: 'hash', value } },
+  ];
+  const selected: Recipient[] = [];
+  const contactPicker = render(() => DestinationPicker({
+    book, accounts: [], onSelect: recipient => selected.push(recipient), onClose: jest.fn(),
+  }));
+  const contactRows = nodes(contactPicker, AccountIdentityCard);
+  expect(contactRows).toHaveLength(2);
+  contactRows.find(card => card.props.name === 'Return')?.props.onPress!();
+  contactRows.find(card => card.props.name === 'Hash')?.props.onPress!();
+  expect(selected).toEqual([
+    { address: row.address, memo: { type: 'return', value } },
+    { address: row.address, memo: { type: 'hash', value } },
+  ]);
+  const asset = { kind: 'native' as const, code: 'XLM' as const };
+  values = [{ kind: 'ready', balances: [{ asset, balance: '10' }] }, { kind: 'form' },
+    asset, '', '1', 'none', '', false, false, false, '', undefined, false];
+  const account = { id: 'sender', networkId: book.network.id } as AccountRecord;
+  const draw = () => render(() => SendFlowScreen({
+    account, dependencies: { network: book.network } as SendProductDependencies,
+    contacts: book, onDone: jest.fn(),
+  }));
+  nodes(draw(), SendFormScreen)[0].props.onContinue!();
+  nodes(draw(), SendFormScreen)[0].props.onChooseRecipient!();
+  let picker = nodes(draw(), DestinationPicker)[0];
+  picker.props.onSelect!(selected[0]);
+  expect([values[3], values[5], values[6]]).toEqual([row.address, 'return', value]);
+  nodes(draw(), SendFormScreen)[0].props.onBack!();
+  expect(nodes(draw(), SendFormScreen)[0].props.step).toBe('details');
+  nodes(draw(), SendFormScreen)[0].props.onContinue!();
+  expect([values[3], values[5], values[6]]).toEqual([row.address, 'return', value]);
+  nodes(draw(), SendFormScreen)[0].props.onChangeDestination!('GCHANGED');
+  expect([values[3], values[5], values[6]]).toEqual(['GCHANGED', 'none', '']);
+  nodes(draw(), SendFormScreen)[0].props.onChooseRecipient!();
+  picker = nodes(draw(), DestinationPicker)[0];
+  picker.props.onSelect!(selected[1]);
+  expect([values[3], values[5], values[6]]).toEqual([row.address, 'hash', value]);
+  expect(book.store.save).not.toHaveBeenCalled();
+});
+
+it('retains SEP-7 MEMO_RETURN as typed hex when the Send scanner fills Recipient', async () => {
+  const ScannerView = () => null;
+  const scanner: ContactScanner = {
+    ScannerView,
+    ingress: {
+      checkCameraPermission: jest.fn().mockResolvedValue('granted'),
+      requestCameraPermission: jest.fn(),
+      openCameraSettings: jest.fn(),
+    },
+  };
+  const recipient = { address: row.address, memo: { type: 'return' as const, value: 'AB'.repeat(32) } };
+  const qr = contactShareUri(book, recipient);
+  expect(qr).toContain('memo_type=MEMO_RETURN');
+  const onSelect = jest.fn();
+  const draw = () => render(() =>
+    RecipientScanSheet({ book, scanner, active: true, onClose: jest.fn(), onSelect }),
+  );
+  draw();
+  jest.mocked(useEffect).mock.calls[0][0]();
+  await Promise.resolve();
+  nodes(draw(), ScannerView)[0].props.onCode!(qr);
+  expect(onSelect).toHaveBeenCalledWith({
+    address: row.address, memo: { type: 'return', value: 'ab'.repeat(32) },
+  });
   expect(book.store.save).not.toHaveBeenCalled();
 });
 

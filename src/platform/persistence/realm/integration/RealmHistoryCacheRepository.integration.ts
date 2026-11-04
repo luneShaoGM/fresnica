@@ -1,4 +1,4 @@
-import { controlCases, controlRecord, controlSource } from '../../../../capabilities/history/__tests__/classicControlHistory.fixtures';
+import { controlCases, controlRecord, controlSource, controlPeer } from '../../../../capabilities/history/__tests__/classicControlHistory.fixtures';
 import { mapHistoryEntry } from '../../../../capabilities/history/loadHistoryPage';
 import {
   trustSponsorshipRecord,
@@ -561,7 +561,7 @@ it('reopens all four claimable/clawback v1 payloads with roles/predicates/exact 
     expect(() => {
       (create.claimants as unknown[]).push({});
     }).toThrow();
-    expect(() => repository.replaceSnapshot(partition, historySnapshot([{ ...create, role: 'claimant' }]))).toThrow();
+    expect(() => repository.replaceSnapshot(partition, historySnapshot([{ ...create, role: 'claimant' as const }]))).toThrow();
     expect(repository.getSnapshot(partition)).toEqual(reopened);
   } finally {
     realm?.close();
@@ -604,7 +604,7 @@ it('reopens contract identity and ordered exact i128 routed events in the origin
   );
   const variants = [
     entries,
-    ...(['create', 'upload'] as const).map(host =>
+    ...(['create', 'create-v2', 'upload'] as const).map(host =>
       mapHistoryEntry(
         {
           id: `contract-${host}`,
@@ -617,13 +617,16 @@ it('reopens contract identity and ordered exact i128 routed events in the origin
           hostFunction:
             host === 'create'
               ? 'HostFunctionTypeHostFunctionTypeCreateContract'
-              : 'HostFunctionTypeHostFunctionTypeUploadContractWasm',
+              : host === 'create-v2' ? 'HostFunctionTypeHostFunctionTypeCreateContractV2' : 'HostFunctionTypeHostFunctionTypeUploadContractWasm',
+          creationOrigin: 'address', deployer: address,
+          ...(host === 'create-v2' ? { assetBalanceChanges: [{ type: 'transfer', asset: { kind: 'native' as const }, amount: '1', from: address, to: recipient }] } : {}),
           contractId: `C${'A'.repeat(55)}`,
         },
         address,
       ),
     ),
   ];
+  expect(variants.every(entry => entry.kind === 'contract')).toBe(true);
   const snapshot = historySnapshot(
     variants,
     variants.map(entry => ({ operationId: entry.id, entry })),
@@ -727,5 +730,25 @@ it('reopens classic controls without losing parameters or partition isolation', 
     expect(repository.getSnapshot(partition)).toEqual(normalizeHistoryCacheSnapshot(snapshot, partition));
     expect(repository.getSnapshot({ ...partition, networkId: 'other' })).toBeUndefined();
     expect(repository.getSnapshot({ ...partition, accountAddress: `G${'Z'.repeat(55)}` })).toBeUndefined();
+  } finally { realm?.close(); Realm.shutdown(); rmSync(directory, { recursive: true, force: true }); }
+});
+
+it('reopens failed attempted operations without money or foreign-partition reuse', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'fresnica-failed-history-'));
+  const partition = { networkId: 'test', accountAddress: controlSource };
+  const entry = mapHistoryEntry(controlRecord('payment', {}, { successful: false, to: controlPeer, amount: '999' }), controlSource);
+  const snapshot = historySnapshot([entry], [{ operationId: entry.id, entry }]);
+  let realm: Awaited<ReturnType<typeof openWalletRealm>> | undefined;
+  try {
+    const path = join(directory, 'wallet.realm');
+    realm = await openWalletRealm({ path });
+    new RealmHistoryCacheRepository(realm).replaceSnapshot(partition, snapshot);
+    realm.close(); realm = undefined;
+    realm = await openWalletRealm({ path });
+    const repository = new RealmHistoryCacheRepository(realm);
+    expect(repository.getSnapshot(partition)).toEqual(normalizeHistoryCacheSnapshot(snapshot, partition));
+    expect(repository.getSnapshot({ ...partition, networkId: 'other' })).toBeUndefined();
+    expect(repository.getSnapshot({ ...partition, accountAddress: controlPeer })).toBeUndefined();
+    expect(repository.getSnapshot(partition)?.entries[0]).not.toHaveProperty('amount');
   } finally { realm?.close(); Realm.shutdown(); rmSync(directory, { recursive: true, force: true }); }
 });

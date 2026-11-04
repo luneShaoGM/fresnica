@@ -28,6 +28,7 @@ jest.mock('../../../locale', () => ({
         'send.memo.type.text': 'Text',
         'send.memo.type.id': 'ID',
         'send.memo.type.hash': 'Hash',
+        'send.memo.type.return': 'Return',
         'send.memo.input.id': 'ID memo',
         'send.memo.placeholder.id': 'Unsigned 64-bit decimal ID',
         'send.memo.hint.id': 'Decimal ID hint',
@@ -90,6 +91,7 @@ describe('SendFormScreen memo families', () => {
     building => {
       const { root, onCancel } = renderForm(jest.fn(), building, 'details');
       const styles = createSendFormStyles(defaultTheme);
+      expect(styles.memoTypeRow.flexWrap).toBe('wrap');
       expect(root.type).toBe(Screen);
       expect(root.props).toMatchObject({ scrollable: false, contentInset: 'none' });
 
@@ -158,13 +160,13 @@ describe('SendFormScreen memo families', () => {
     expect(strings(recipient)).toContain('send.step.recipient');
   });
 
-  it('renders None/Text/ID/Hash choices with ID selected and a numeric ID input', () => {
+  it('renders None/Text/ID/Hash/Return choices with ID selected and a numeric ID input', () => {
     const { root } = renderForm();
     const memoChoices: Array<React.ReactElement<NodeProps>> = [];
     let idInput: React.ReactElement<NodeProps> | undefined;
 
     visit(root, element => {
-      if (['None', 'Text', 'ID', 'Hash'].includes(element.props.accessibilityLabel ?? '')) {
+      if (['None', 'Text', 'ID', 'Hash', 'Return'].includes(element.props.accessibilityLabel ?? '')) {
         memoChoices.push(element);
       }
       if (element.type === TextInput && element.props.accessibilityLabel === 'ID memo') {
@@ -172,7 +174,7 @@ describe('SendFormScreen memo families', () => {
       }
     });
 
-    expect(memoChoices.map(element => element.props.accessibilityLabel)).toEqual(['None', 'Text', 'ID', 'Hash']);
+    expect(memoChoices.map(element => element.props.accessibilityLabel)).toEqual(['None', 'Text', 'ID', 'Hash', 'Return']);
     expect(memoChoices.find(element => element.props.accessibilityLabel === 'ID')?.props.accessibilityState).toEqual({
       selected: true,
     });
@@ -188,6 +190,25 @@ describe('SendFormScreen memo families', () => {
     });
     hashChoice?.props.onPress?.();
     expect(onSelectMemoType).toHaveBeenCalledWith('hash');
+  });
+
+  it('keeps Return separate from Hash in Recipient, but unavailable as a Details input', () => {
+    const onSelectMemoType = jest.fn();
+    const recipient = renderForm(onSelectMemoType, false, 'recipient').root;
+    const details = renderForm(onSelectMemoType, false, 'details').root;
+    let selected: React.ReactElement<NodeProps> | undefined;
+    let detailsChoice: React.ReactElement<NodeProps> | undefined;
+    visit(recipient, node => {
+      if (node.props.accessibilityLabel === 'Return') selected = node;
+    });
+    visit(details, node => {
+      if (node.props.accessibilityLabel === 'Return') detailsChoice = node;
+    });
+    expect(detailsChoice).toBeUndefined();
+    expect(selected?.props.accessibilityState).toEqual({ selected: false });
+    selected?.props.onPress?.();
+    expect(onSelectMemoType).toHaveBeenCalledTimes(1);
+    expect(onSelectMemoType).toHaveBeenCalledWith('return');
   });
 
   it('does not re-select the active memo family', () => {

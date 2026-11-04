@@ -40,6 +40,8 @@ export function activityRowPresentation(
         subject: { kind: 'account', address: peer },
       };
     }
+    case 'failed':
+      return { title: names?.get(entry.sourceAccount)?.trim() || formatPublicAddress(entry.sourceAccount), operation: `${detail.title} · ${entry.operationType}`, subject: { kind: 'account', address: entry.sourceAccount } };
     case 'account-control':
       return { title: names?.get(entry.counterparty ?? entry.sourceAccount)?.trim() || formatPublicAddress(entry.counterparty ?? entry.sourceAccount),
         operation: detail.title, subject: { kind: 'account', address: entry.counterparty ?? entry.sourceAccount } };
@@ -49,11 +51,12 @@ export function activityRowPresentation(
         operation: detail.title,
         subject: { kind: 'account', address: entry.sourceAccount },
       };
-    case 'contract':
+    case 'contract': {
+      const identity = entry.contractId ?? entry.deployer;
       return {
-        title: entry.contractId ? formatPublicAddress(entry.contractId) : detail.title,
+        title: entry.creationAsset?.code ?? (identity ? (identity.startsWith('G') ? names?.get(identity)?.trim() : undefined) || formatPublicAddress(identity) : detail.title),
         operation: [detail.title, entry.functionName].filter(Boolean).join(' · '),
-        subject: entry.contractId ? { kind: 'contract', identity: entry.contractId } : { kind: 'unsupported' },
+        subject: entry.creationAsset ? { kind: 'asset', asset: entry.creationAsset } : identity ? (identity.startsWith('G') ? { kind: 'account', address: identity } : { kind: 'contract', identity }) : { kind: 'unsupported' },
         reserveMoney: (entry.events ?? [])
           .filter(event => event.direction !== 'neutral')
           .slice(0, 2)
@@ -68,6 +71,7 @@ export function activityRowPresentation(
             };
           }),
       };
+    }
     case 'claimable-reference':
       return {
         title: formatPublicAddress(entry.balanceId),

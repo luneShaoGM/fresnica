@@ -1,3 +1,4 @@
+import { mapFailedHistory } from './failedHistory';
 import { isClassicControlType, classicControlAssociated } from './classicControlHistory';
 import { contractAssociated } from './contractHistory';
 import { isMaintenanceType } from './maintenanceHistory';
@@ -50,6 +51,7 @@ export async function loadHistoryOperationDetails(
 }
 
 function isOperationAssociatedWithAccount(record: HistoryOperationRecord, address: string): boolean {
+  if (record.successful === false) return !!mapFailedHistory(record, address, { id: record.id, pagingToken: record.pagingToken, operationType: record.type, occurredAt: record.occurredAt, transactionHash: record.transactionHash, sourceAccount: record.sourceAccount });
   if (isClassicControlType(record.type)) return classicControlAssociated(record, address);
   if (isTrustSponsorshipType(record.type)) return trustSponsorshipAssociated(record, address);
   if (isMaintenanceType(record.type)) return record.sourceAccount === address;
