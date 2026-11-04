@@ -94,13 +94,13 @@ it.each(['page', 'detail'] as const)('%s rejects lifecycle changes during enrich
         });
         const dependencies = { gateway, networkId: 'test' };
         const request = path === 'page' ? loadHistoryPage(dependencies, lifecycleAccount) : loadHistoryOperationDetails(dependencies, lifecycleAccount, raw.id);
-        const rejected = expect(request).rejects.toThrow('ledger-read-superseded');
+        const outcome = request.then(() => undefined, (error: unknown) => error);
         await pending;
         if (change === 'revision') revision = '2';
         else runtime.update({ foreground: change !== 'background', connectivity: change === 'offline' ? 'offline' : 'unknown' });
         if (timeout) await jest.advanceTimersByTimeAsync(6000);
         else complete();
-        await rejected;
+        expect(await outcome).toEqual(new Error('ledger-read-superseded'));
         complete();
       }
     }
