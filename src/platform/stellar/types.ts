@@ -204,6 +204,7 @@ export type HorizonPathServerLike = {
 export type HorizonServerLike = {
   loadAccount(address: string): Promise<HorizonAccountLike>;
   loadAccountOperations(input: LoadAccountOperationsInput): Promise<HorizonOperationPageLike>;
+  loadOperationEffects?(operationId: string, cursor?: string): Promise<readonly unknown[]>;
   loadOperation(operationId: string): Promise<HorizonOperationLike>;
   loadLedgerParameters(): Promise<HorizonLedgerParametersLike>;
   loadLiquidityPool(id: string): Promise<HorizonLiquidityPoolLike>;

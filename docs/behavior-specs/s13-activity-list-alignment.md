@@ -155,3 +155,8 @@ S13 constructor/create-identity fix merged #161. Slice6 failed history/technical
 visibility candidate uses `s13-failed-visibility-history.md`;
 known false is non-monetary, raw unknown stays unsupported, legacy cache preserved.
 No native/maturity promotion; effects/images/explicitDustSpam policy follow.
+
+Slice6 failed/technical visibility merged #163. Claimable quantity enrichment is
+specified in `s13-claimable-effects-history.md`; exact operation/balance/account
+proof, bounded reads, burn neutrality and cache identity upgrades are mandatory.
+No native acceptance or maturity upgrade follows from automated evidence.

@@ -1012,5 +1012,7 @@
   "activity.entry.failed": "操作失败",
   "activity.detail.failed": "交易失败。此记录表示尝试执行的操作，不代表已完成的付款或余额变化。",
   "activity.visibility.hideTechnical": "隐藏技术类记录",
-  "activity.visibility.showTechnical": "显示技术类记录"
+  "activity.visibility.showTechnical": "显示技术类记录",
+  "activity.detail.claimedQuantity": "已领取数量",
+  "activity.detail.effectsEvidence": "资产和数量来自此历史操作的效果记录，不代表当前余额。"
 }

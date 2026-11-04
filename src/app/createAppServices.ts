@@ -246,6 +246,8 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
           nodeReadSession.run((signal, endpoint) => publicReads.loadAccountBalances(endpoint, address, signal)),
         loadAccountOperations: input =>
           nodeReadSession.run((signal, endpoint) => publicReads.loadAccountOperations(endpoint, input, signal)),
+        loadOperationEffects: input =>
+          nodeReadSession.run((signal, endpoint) => publicReads.loadOperationEffects(endpoint, input, signal)),
         loadOperation: input =>
           nodeReadSession.run((signal, endpoint) => publicReads.loadOperation(endpoint, input, signal)),
       },

@@ -224,6 +224,10 @@ function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): Hi
     case 'claimable-reference':
     case 'clawback': {
       if (entry.kind !== 'claimable-reference') assertAsset(entry.asset);
+      else {
+        if (entry.asset) assertAsset(entry.asset);
+        if (Array.isArray(entry.evidence?.records)) entry.evidence.records.forEach(effect => { if (effect?.asset) assertAsset(effect.asset); });
+      }
       const account =
         accountAddress ??
         (entry.kind === 'claimable-create' && entry.role === 'claimant'
@@ -247,6 +251,7 @@ function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): Hi
                 }
               : {
                   balanceId: entry.balanceId,
+                  claimableEffects: entry.evidence,
                   ...(entry.operationType === 'claim_claimable_balance' ? { claimant: entry.sourceAccount } : {}),
                 }),
         },
@@ -259,6 +264,7 @@ function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): Hi
         (reconstructed.kind === 'clawback' &&
           entry.kind === 'clawback' &&
           (reconstructed.holder !== entry.holder || reconstructed.holderBase !== entry.holderBase)) ||
+        (entry.kind === 'claimable-reference' && reconstructed.kind === 'claimable-reference' && (entry.amount !== reconstructed.amount || JSON.stringify(entry.asset) !== JSON.stringify(reconstructed.asset) || (entry.evidence !== undefined && reconstructed.evidence === undefined))) ||
         ('role' in reconstructed && (!('role' in entry) || reconstructed.role !== entry.role))
       )
         throw new Error('history-cache-invalid-entry');

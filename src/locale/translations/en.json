@@ -1012,5 +1012,7 @@
   "activity.entry.failed": "Operation failed",
   "activity.detail.failed": "The transaction failed. This record describes an attempted operation, not an applied payment or balance change.",
   "activity.visibility.hideTechnical": "Hide technical records",
-  "activity.visibility.showTechnical": "Show technical records"
+  "activity.visibility.showTechnical": "Show technical records",
+  "activity.detail.claimedQuantity": "Quantity claimed",
+  "activity.detail.effectsEvidence": "Asset and quantity are reported by effects for this exact historical operation. They do not establish a current balance."
 }

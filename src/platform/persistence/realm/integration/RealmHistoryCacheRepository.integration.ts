@@ -1,3 +1,4 @@
+import { effectsRecord, effectsSource } from '../../../../capabilities/history/__tests__/claimableEffects.fixtures';
 import { controlCases, controlRecord, controlSource, controlPeer } from '../../../../capabilities/history/__tests__/classicControlHistory.fixtures';
 import { mapHistoryEntry } from '../../../../capabilities/history/loadHistoryPage';
 import {
@@ -750,5 +751,26 @@ it('reopens failed attempted operations without money or foreign-partition reuse
     expect(repository.getSnapshot({ ...partition, networkId: 'other' })).toBeUndefined();
     expect(repository.getSnapshot({ ...partition, accountAddress: controlPeer })).toBeUndefined();
     expect(repository.getSnapshot(partition)?.entries[0]).not.toHaveProperty('amount');
+  } finally { realm?.close(); Realm.shutdown(); rmSync(directory, { recursive: true, force: true }); }
+});
+it('reopens effect-backed claim and burn quantities without losing proof or isolation', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'fresnica-claimable-effects-'));
+  const partition = { networkId: 'test', accountAddress: effectsSource };
+  const entries = ['claim_claimable_balance', 'clawback_claimable_balance'].map(type => mapHistoryEntry(effectsRecord(type), effectsSource));
+  const snapshot = historySnapshot(entries, entries.map(entry => ({ operationId: entry.id, entry })));
+  let realm: Awaited<ReturnType<typeof openWalletRealm>> | undefined;
+  try {
+    const path = join(directory, 'wallet.realm');
+    realm = await openWalletRealm({ path });
+    new RealmHistoryCacheRepository(realm).replaceSnapshot(partition, snapshot);
+    realm.close(); realm = undefined;
+    realm = await openWalletRealm({ path });
+    const repository = new RealmHistoryCacheRepository(realm);
+    expect(repository.getSnapshot(partition)).toEqual(normalizeHistoryCacheSnapshot(snapshot, partition));
+    expect(repository.getSnapshot({ ...partition, networkId: 'other' })).toBeUndefined();
+    const entry = repository.getSnapshot(partition)!.entries[0];
+    expect(entry).toMatchObject({ kind: 'claimable-reference', amount: '922337203685.4775807' });
+    expect(() => repository.replaceSnapshot(partition, historySnapshot([{ ...entry, amount: '1' } as HistoryEntry]))).toThrow();
+    expect(repository.getSnapshot(partition)?.entries).toEqual(entries);
   } finally { realm?.close(); Realm.shutdown(); rmSync(directory, { recursive: true, force: true }); }
 });

@@ -111,9 +111,13 @@ export type HistoryClaimableEntry = HistoryEntryBase &
     claimants: readonly HistoryClaimant[];
     role: 'funder' | 'issuer' | 'claimant';
   }>;
+export type HistoryEffectEvidence = Readonly<{ operationId: string; complete: true; records: readonly Readonly<{type: string; account: string; balanceId?: string; asset?: HistoryAsset; amount?: string }>[] }>;
 export type HistoryBalanceReferenceEntry = HistoryEntryBase &
   Readonly<{
     kind: 'claimable-reference';
+    asset?: HistoryAsset;
+    amount?: string;
+    evidence?: HistoryEffectEvidence;
     successful: true;
     balanceId: string;
   }>;

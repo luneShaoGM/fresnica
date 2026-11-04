@@ -1,3 +1,4 @@
+import { enrichClaimableRecords, seedCachedClaimableProof } from './claimableEffects';
 import { mapFailedHistory } from './failedHistory';
 import { isClassicControlType, classicControlAssociated } from './classicControlHistory';
 import { contractAssociated } from './contractHistory';
@@ -46,7 +47,7 @@ export async function loadHistoryOperationDetails(
 
   return {
     status: 'ready',
-    entry: mapHistoryEntry(result.record, account.address),
+    entry: mapHistoryEntry((await enrichClaimableRecords(dependencies.gateway, seedCachedClaimableProof(dependencies, [result.record], account.address), account.address))[0], account.address),
   };
 }
 

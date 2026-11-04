@@ -1,3 +1,5 @@
+import type { HistoryCacheRepository } from './HistoryCacheRepository';
+import { enrichClaimableRecords, seedCachedClaimableProof } from './claimableEffects';
 import { mapFailedHistory } from './failedHistory';
 import { mapClassicControl } from './classicControlHistory';
 import { mapContract } from './contractHistory';
@@ -23,6 +25,7 @@ import type {
 } from './types';
 
 export type HistoryDependencies = Readonly<{
+  cache?: Pick<HistoryCacheRepository, 'getSnapshot'>;
   gateway: HistoryGatewayPort;
   networkId: string;
 }>;
@@ -53,7 +56,7 @@ export async function loadHistoryPage(
 
   return {
     status: 'active',
-    entries: page.records.map(record => mapHistoryEntry(record, account.address)),
+    entries: (await enrichClaimableRecords(dependencies.gateway, seedCachedClaimableProof(dependencies, page.records, account.address), account.address)).map(record => mapHistoryEntry(record, account.address)),
     ...(page.nextCursor === undefined ? {} : { nextCursor: page.nextCursor }),
   };
 }

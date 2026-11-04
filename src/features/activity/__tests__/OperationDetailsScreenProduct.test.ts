@@ -1,3 +1,4 @@
+import { effectsRecord, effectsSource } from '../../../capabilities/history/__tests__/claimableEffects.fixtures';
 import { CONTRACT_HOST_FUNCTIONS } from '../../../capabilities/history/contractHistory';
 import { controlCases, controlRecord, controlSource } from '../../../capabilities/history/__tests__/classicControlHistory.fixtures';
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
@@ -839,4 +840,20 @@ it('shows failed intent limits without any completed monetary or direction rows'
   });
   expect(messages).toContain(createLocalization('en').t('activity.detail.failed'));
   for (const label of ['Amount', 'Asset', 'Direction']) expect(labels).not.toContain(label);
+});
+it.each(['claim_claimable_balance', 'clawback_claimable_balance'])('shows verified %s historical quantity and preserves burn explanation', type => {
+  mockedUseState.mockReset();
+  const entry = mapHistoryEntry(effectsRecord(type), effectsSource);
+  const { root } = renderWithState({ kind: 'loaded', result: { status: 'ready', entry }, source: 'online', stale: false, refreshing: false, refreshFailed: false });
+  const labels: string[] = [];
+  const messages: string[] = [];
+  visit(root, element => {
+    const props = element.props as { label?: string; children?: unknown; fullValue?: boolean };
+    if (props.label) labels.push(props.label);
+    if (typeof props.children === 'string') messages.push(props.children);
+    if (props.label === 'Quantity claimed' || props.label === 'Quantity removed') expect(props.fullValue).toBe(true);
+  });
+  expect(labels).toContain(type === 'claim_claimable_balance' ? 'Quantity claimed' : 'Quantity removed');
+  expect(messages).not.toContain(createLocalization('en').t('activity.detail.amountUnavailableExplanation'));
+  if (type === 'clawback_claimable_balance') expect(messages).toContain(createLocalization('en').t('activity.detail.clawbackWarning'));
 });

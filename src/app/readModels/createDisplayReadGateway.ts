@@ -11,6 +11,7 @@ export function createDisplayReadGateway(
     getAccountRevision: (address: string) => string;
   }>,
 ): BalanceGatewayPort & HistoryGatewayPort & { hasPendingReads: (address: string) => boolean } {
+  let effectsReadId = 0;
   const inFlight = new Map<
     string,
     Readonly<{
@@ -67,6 +68,8 @@ export function createDisplayReadGateway(
       read(['history', input.address, input.cursor, input.limit], input.address, () =>
         dependencies.gateway.loadAccountOperations(input),
       ),
+    ...(dependencies.gateway.loadOperationEffects ? { loadOperationEffects: (input: { operationId: string; accountAddress: string; signal?: AbortSignal }) =>
+      read(['effects', input.accountAddress, input.operationId, ++effectsReadId], input.accountAddress, () => dependencies.gateway.loadOperationEffects!(input)) } : {}),
     loadOperation: input =>
       read(['operation', input.accountAddress, input.operationId], input.accountAddress, () =>
         dependencies.gateway.loadOperation(input),
