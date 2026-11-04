@@ -611,15 +611,15 @@ export class StellarSdkGateway implements StellarGateway {
       projectedMemo = { type: 'text', value: decodeUtf8(memo.value as Uint8Array) };
     } else if (memo.type === 'id') {
       projectedMemo = { type: 'id', value: String(memo.value) };
-    } else if (memo.type === 'hash') {
+    } else if (memo.type === 'hash' || memo.type === 'return') {
       projectedMemo = {
-        type: 'hash',
+        type: memo.type,
         value: Array.from(memo.value as Uint8Array)
           .map(byte => byte.toString(16).padStart(2, '0'))
           .join(''),
       };
     } else if (memo.type !== 'none') {
-      throw new Error('Payment review supports only none, text, id, or hash memo');
+      throw new Error('Payment review supports only none, text, id, hash, or return memo');
     }
 
     const maxTime = transaction.timeBounds?.maxTime;
@@ -698,12 +698,23 @@ export class StellarSdkGateway implements StellarGateway {
     }).addOperation(operation);
 
     if (input.memo !== undefined) {
-      const memo =
-        input.memo.type === 'text'
-          ? Memo.text(input.memo.value)
-          : input.memo.type === 'id'
-            ? Memo.id(input.memo.value)
-            : Memo.hash(input.memo.value);
+      let memo: Memo;
+      switch (input.memo.type) {
+        case 'text':
+          memo = Memo.text(input.memo.value);
+          break;
+        case 'id':
+          memo = Memo.id(input.memo.value);
+          break;
+        case 'hash':
+          memo = Memo.hash(input.memo.value);
+          break;
+        case 'return':
+          memo = Memo.return(input.memo.value);
+          break;
+        default:
+          throw new Error('unsupported-payment-memo-type');
+      }
       builder = builder.addMemo(memo);
     }
 

@@ -85,6 +85,7 @@ export function contactError(error: unknown, t: (key: string) => string): string
     'payment-memo-too-long': 'send.memo.error.textTooLong',
     'payment-memo-id-invalid': 'send.memo.error.idInvalid',
     'payment-memo-hash-invalid': 'send.memo.error.hashInvalid',
+    'payment-memo-return-invalid': 'send.memo.error.returnInvalid',
   };
   return t(error instanceof Error ? (messages[error.message] ?? 'contacts.error.storage') : 'contacts.error.storage');
 }

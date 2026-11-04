@@ -114,6 +114,39 @@ describe('Request URI domain', () => {
     }
   });
 
+  it('round-trips 32-byte Return Memo as canonical SEP-7 base64 without conflating Hash', () => {
+    const deps = dependencies(TEST_NETWORK);
+    const original = 'AB'.repeat(32);
+    const canonical = 'ab'.repeat(32);
+    const expectedBase64 = Buffer.from(canonical, 'hex').toString('base64');
+    const uri = buildRequestUri(deps, {
+      destination,
+      memo: { type: 'return', value: original },
+      network: TEST_NETWORK,
+    });
+    expect(uri).toContain('memo=' + encodeURIComponent(expectedBase64) + '&memo_type=MEMO_RETURN');
+    expect(uri).not.toContain(original);
+    expect(parseRequestInput(deps, uri)).toMatchObject({
+      status: 'accepted',
+      intent: { memo: { type: 'return', value: canonical }, destination, networkId: TEST_NETWORK.id },
+    });
+    const hashUri = buildRequestUri(deps, {
+      destination, memo: { type: 'hash', value: original }, network: TEST_NETWORK,
+    });
+    expect(hashUri).not.toBe(uri);
+    expect(parseRequestInput(deps, hashUri)).toMatchObject({
+      status: 'accepted', intent: { memo: { type: 'hash', value: canonical } },
+    });
+    for (const memo of ['not-base64', Buffer.from('short').toString('base64'), '']) {
+      const invalid = 'web+stellar:pay?destination=' + destination + '&memo=' + encodeURIComponent(memo) +
+        '&memo_type=MEMO_RETURN&network_passphrase=' + encodeURIComponent(TEST_NETWORK.networkPassphrase);
+      expect(parseRequestInput(deps, invalid)).toMatchObject({ status: 'rejected', reason: 'invalid-memo' });
+    }
+    expect(parseRequestInput(dependencies(PUBLIC_NETWORK), uri)).toMatchObject({
+      status: 'rejected', reason: 'network-mismatch',
+    });
+  });
+
   it('enforces the signed-int64 amount ceiling in both build and parse', () => {
     const deps = dependencies(PUBLIC_NETWORK);
     const max = '922337203685.4775807';
@@ -161,7 +194,7 @@ describe('Request URI domain', () => {
     });
   });
 
-  it('rejects invalid memo pairing and classifies MEMO_RETURN as unsupported', () => {
+  it('rejects invalid memo pairing and unsupported memo types', () => {
     const deps = dependencies(PUBLIC_NETWORK);
     expect(parseRequestInput(deps, `web+stellar:pay?destination=${destination}&memo=7`)).toMatchObject({
       status: 'rejected',
@@ -169,7 +202,7 @@ describe('Request URI domain', () => {
     });
     expect(
       parseRequestInput(deps, `web+stellar:pay?destination=${destination}&memo=AAAA&memo_type=MEMO_RETURN`),
-    ).toMatchObject({ status: 'unsupported', feature: 'memo-return' });
+    ).toMatchObject({ status: 'rejected', reason: 'invalid-memo' });
     expect(
       parseRequestInput(deps, `web+stellar:pay?destination=${destination}&memo=value&memo_type=MEMO_UNKNOWN`),
     ).toMatchObject({ status: 'rejected', reason: 'invalid-memo' });

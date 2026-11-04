@@ -26,7 +26,6 @@ describe('contact identity', () => {
     null,
     'memo',
     {},
-    { type: 'return', value: 'ab' },
     { type: 'none', value: '' },
     { type: 'id', value: 7 },
     { type: 'text', value: '' },
@@ -34,6 +33,18 @@ describe('contact identity', () => {
     expect(() => validateContactMemo(memo)).toThrow('contact-memo-invalid');
     expect(() => contactIdentity(row.address, memo as unknown as Contact['memo'])).toThrow('contact-memo-invalid');
     expect(() => findContact([{ ...row, memo: memo as unknown as Contact['memo'] }], row.address)).toThrow();
+  });
+  it('preserves canonical Return Memo identity separately from Hash and rejects malformed Return', () => {
+    const hex = 'AB'.repeat(32);
+    const canonical = 'ab'.repeat(32);
+    expect(validateContactMemo({ type: 'return', value: hex })).toEqual({ type: 'return', value: canonical });
+    expect(contactIdentity('GVALID', { type: 'return', value: hex })).not.toBe(
+      contactIdentity('GVALID', { type: 'hash', value: canonical }),
+    );
+    expect(() => validateContactMemo({ type: 'return', value: 'ab' })).toThrow('payment-memo-return-invalid');
+    expect(findContact([{ ...row, memo: { type: 'return', value: canonical } }], 'GVALID', {
+      type: 'hash', value: canonical,
+    })).toBeUndefined();
   });
   it('does not guess an identity when legacy contacts from two networks conflict', () => {
     expect(findContact([row, { ...row, id: 'other', networkId: 'main' }], row.address, row.memo)).toBeUndefined();

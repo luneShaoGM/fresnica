@@ -423,10 +423,57 @@ describe('preparePayment', () => {
     );
   });
 
+  it('canonicalizes Return memo independently of Hash and binds it to exact Payment review', async () => {
+    const uppercase = 'AB'.repeat(32);
+    expect(validatePaymentMemo({ type: 'return', value: ` ${uppercase} ` })).toEqual({
+      type: 'return',
+      value: 'ab'.repeat(32),
+    });
+    for (const invalid of ['', 'ab'.repeat(31), 'zz'.repeat(32), '00'.repeat(33)]) {
+      expect(() => validatePaymentMemo({ type: 'return', value: invalid })).toThrow(
+        'payment-memo-return-invalid',
+      );
+    }
+    const stellar = gateway();
+    const review = await preparePayment(dependencies(stellar), account(), {
+      destination: destinationAddress,
+      amount: '1',
+      asset: { kind: 'native' },
+      memo: { type: 'return', value: uppercase },
+    });
+    expect(stellar.buildPayment).toHaveBeenCalledWith(expect.objectContaining({
+      memo: { type: 'return', value: 'ab'.repeat(32) },
+    }));
+    expect(review.memo).toEqual({ type: 'return', value: 'ab'.repeat(32) });
+    expect(review.destination).toBe(destinationAddress);
+    expect(review.networkId).toBe(TEST_NETWORK.id);
+  });
+
+  it('rejects an XDR projection whose memo type changes from Return to Hash', async () => {
+    const stellar = gateway();
+    const encoded = 'aa'.repeat(32);
+    stellar.inspectPaymentTransaction.mockReturnValueOnce({
+      source: sourceAddress,
+      fee: '100',
+      operation: 'payment',
+      destination: destinationAddress,
+      amount: '1.0000000',
+      asset: { kind: 'native' },
+      memo: { type: 'hash', value: encoded },
+    });
+    await expect(preparePayment(dependencies(stellar), account(), {
+      destination: destinationAddress,
+      amount: '1',
+      asset: { kind: 'native' },
+      memo: { type: 'return', value: encoded },
+    })).rejects.toThrow('payment-review-context-mismatch');
+  });
+
   it.each([
     { type: 'text' as const, value: 'required' },
     { type: 'id' as const, value: '0007' },
     { type: 'hash' as const, value: 'AB'.repeat(32) },
+    { type: 'return' as const, value: 'AB'.repeat(32) },
   ])('accepts $type memo for a SEP-29 memo-required destination', async memo => {
     const stellar = gateway({ destination: activeAccount(destinationAddress, { memoRequired: true }) });
 

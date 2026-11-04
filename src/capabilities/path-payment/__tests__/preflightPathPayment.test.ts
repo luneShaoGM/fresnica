@@ -133,6 +133,14 @@ function fixture(
 }
 
 describe('Swap-C1 account/ledger preflight, no executable transaction', () => {
+  it('keeps Return memo out of unverified Swap / PathPayment preflight', async () => {
+    const { dependencies, gateway } = fixture();
+    const withReturn = quote({}, { memo: { type: 'return', value: 'aa'.repeat(32) } });
+    await expect(assertPathPaymentPreflight(dependencies, localAccount(), withReturn, 100))
+      .rejects.toThrow('invalid_request');
+    expect(gateway.loadAccountState).not.toHaveBeenCalled();
+  });
+
   it('permits strict-send with valid source balance, authorized destination trustline and active issuer', async () => {
     const { dependencies, gateway } = fixture();
     await expect(assertPathPaymentPreflight(dependencies, localAccount(), quote(), 100)).resolves.toBeUndefined();

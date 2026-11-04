@@ -155,7 +155,7 @@ export function RequestFormScreen(props: Props) {
 
         <Text style={styles.sectionLabel}>{t('request.memo')}</Text>
         <View style={styles.optionRow}>
-          {(['none', 'text', 'id', 'hash'] as const).map(type => {
+          {(['none', 'text', 'id', 'hash', 'return'] as const).map(type => {
             const selected = props.memoType === type;
             return (
               <Pressable
@@ -182,7 +182,7 @@ export function RequestFormScreen(props: Props) {
           <View style={styles.fieldBox}>
             <TextInput
               accessibilityLabel={t(`request.memo.input.${props.memoType}`)}
-              autoCapitalize={props.memoType === 'hash' ? 'characters' : 'none'}
+              autoCapitalize={props.memoType === 'hash' || props.memoType === 'return' ? 'characters' : 'none'}
               autoCorrect={false}
               editable={!props.busy}
               keyboardType={props.memoType === 'id' ? 'number-pad' : 'default'}

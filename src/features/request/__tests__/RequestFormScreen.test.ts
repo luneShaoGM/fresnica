@@ -199,6 +199,18 @@ describe('RequestFormScreen', () => {
     expect(visibleText).toContain(maskRequestIssuer(issuerB));
   });
 
+  it('offers Return memo as its own request family and passes the exact selector type', () => {
+    const onSelectMemoType = jest.fn();
+    const { root } = renderForm({ onSelectMemoType });
+    let choice: React.ReactElement<NodeProps> | undefined;
+    visit(root, element => {
+      if (element.props.accessibilityLabel === 'request.memo.type.return') choice = element;
+    });
+    expect(choice?.props.accessibilityState).toEqual({ selected: false });
+    choice?.props.onPress?.();
+    expect(onSelectMemoType).toHaveBeenCalledWith('return');
+  });
+
   it('routes Copy, Share and QR actions without rebuilding request semantics', () => {
     const { root, onCopy, onShare, onToggleQr } = renderForm();
     const actions = new Map<string, React.ReactElement<NodeProps>>();

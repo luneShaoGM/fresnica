@@ -75,6 +75,7 @@ export type StellarPaymentMemo = Readonly<
   | { type: 'text'; value: string }
   | { type: 'id'; value: string }
   | { type: 'hash'; value: string }
+  | { type: 'return'; value: string }
 >;
 
 export type BuildPaymentInput = Readonly<{
