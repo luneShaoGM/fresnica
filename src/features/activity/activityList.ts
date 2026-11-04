@@ -283,7 +283,7 @@ export function matchesActivitySearch(
   }
   if (entry.kind === 'contract') {
     values.push(entry.hostFunction, entry.contractId ?? '', entry.functionName ?? '', entry.deployer ?? '', entry.creationOrigin ?? '');
-    if (entry.creationAsset) values.push(entry.creationAsset.code, entry.creationAsset.kind === 'credit' ? entry.creationAsset.issuer : '');
+    if (entry.creationAsset) values.push(entry.creationAsset.code, entry.creationAsset.kind === 'credit' ? entry.creationAsset.issuer : '', entry.creationAsset.kind === 'credit' ? `${entry.creationAsset.code}:${entry.creationAsset.issuer}` : 'native');
     if (entry.deployer?.startsWith('G')) values.push(identityNames?.get(entry.deployer) ?? '');
     for (const event of entry.events ?? []) {
       values.push(
