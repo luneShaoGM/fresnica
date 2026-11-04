@@ -1,3 +1,4 @@
+import { controlCases, controlRecord, controlSource } from '../../../../capabilities/history/__tests__/classicControlHistory.fixtures';
 import { mapHistoryEntry } from '../../../../capabilities/history/loadHistoryPage';
 import {
   trustSponsorshipRecord,
@@ -708,4 +709,23 @@ it('reopens trust permissions and both sponsorship roles without mixing partitio
     Realm.shutdown();
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+it('reopens classic controls without losing parameters or partition isolation', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'fresnica-classic-controls-'));
+  const partition = { networkId: 'test', accountAddress: controlSource };
+  const entries = controlCases.map(([type, parameters], index) => mapHistoryEntry(controlRecord(type, parameters, { id: String(index) }), controlSource));
+  const snapshot = historySnapshot(entries, entries.map(entry => ({ operationId: entry.id, entry })));
+  let realm: Awaited<ReturnType<typeof openWalletRealm>> | undefined;
+  try {
+    const path = join(directory, 'wallet.realm');
+    realm = await openWalletRealm({ path });
+    new RealmHistoryCacheRepository(realm).replaceSnapshot(partition, snapshot);
+    realm.close(); realm = undefined;
+    realm = await openWalletRealm({ path });
+    const repository = new RealmHistoryCacheRepository(realm);
+    expect(repository.getSnapshot(partition)).toEqual(normalizeHistoryCacheSnapshot(snapshot, partition));
+    expect(repository.getSnapshot({ ...partition, networkId: 'other' })).toBeUndefined();
+    expect(repository.getSnapshot({ ...partition, accountAddress: `G${'Z'.repeat(55)}` })).toBeUndefined();
+  } finally { realm?.close(); Realm.shutdown(); rmSync(directory, { recursive: true, force: true }); }
 });

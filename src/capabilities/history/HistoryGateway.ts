@@ -19,6 +19,7 @@ export type HistoryOperationRecord = Readonly<{
   extendTo?: unknown;
   bumpTo?: unknown;
   dataName?: unknown;
+  controlParameters?: unknown;
   hostFunction?: unknown;
   contractId?: unknown;
   functionName?: unknown;

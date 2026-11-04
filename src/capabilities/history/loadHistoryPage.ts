@@ -1,3 +1,4 @@
+import { mapClassicControl } from './classicControlHistory';
 import { mapContract } from './contractHistory';
 import { mapMaintenance } from './maintenanceHistory';
 import { mapTrustSponsorship } from './trustSponsorshipHistory';
@@ -65,6 +66,11 @@ export function mapHistoryEntry(record: HistoryOperationRecord, accountAddress: 
     case 'begin_sponsoring_future_reserves':
     case 'end_sponsoring_future_reserves':
       return mapTrustSponsorship(record, accountAddress, base) ?? unsupportedShape(base);
+    case 'account_merge':
+    case 'set_options':
+    case 'revoke_sponsorship':
+    case 'inflation':
+      return mapClassicControl(record, accountAddress, base) ?? unsupportedShape(base);
     case 'extend_footprint_ttl':
     case 'restore_footprint':
     case 'manage_data':

@@ -56,6 +56,7 @@ export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryO
       'restore_footprint',
       'bump_sequence',
       'manage_data',
+      'account_merge', 'set_options', 'revoke_sponsorship', 'inflation',
       'allow_trust',
       'set_trust_line_flags',
       'begin_sponsoring_future_reserves',
@@ -74,6 +75,7 @@ export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryO
       : {}),
     ...mapOfferPoolFields(input),
     ...mapContractFields(input),
+    ...mapClassicControlFields(input),
     ...(input.authorize === undefined ? {} : { authorize: input.authorize }),
     ...(input.authorize_to_maintain_liabilities === undefined
       ? {}
@@ -786,4 +788,13 @@ export class StellarSdkGateway implements StellarGateway {
       return { status: 'uncertain', transactionHash };
     }
   }
+}
+
+function mapClassicControlFields(input: HorizonOperationLike): Partial<HistoryOperationRecord> {
+  if (!['account_merge', 'set_options', 'revoke_sponsorship', 'inflation'].includes(input.type)) return {};
+  const keys = ['account', 'into', 'inflation_dest', 'home_domain', 'master_key_weight', 'low_threshold',
+    'med_threshold', 'high_threshold', 'signer_key', 'signer_weight', 'set_flags', 'clear_flags',
+    'account_id', 'claimable_balance_id', 'data_account_id', 'data_name', 'offer_id',
+    'trustline_account_id', 'trustline_asset', 'trustline_liquidity_pool_id', 'signer_account_id'] as const;
+  return { controlParameters: Object.fromEntries(keys.filter(key => input[key] !== undefined).map(key => [key, input[key]])) };
 }
