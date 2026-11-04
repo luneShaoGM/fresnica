@@ -270,6 +270,7 @@ export function matchesActivitySearch(
       identityNames?.get(entry.beneficiary) ?? '',
     );
   if (entry.kind === 'account-control') {
+    values.push(identityNames?.get(entry.sourceAccount) ?? '');
     for (const [key, value] of Object.entries(entry.parameters)) values.push(t(`activity.control.field.${key}`), String(value));
   }
   if (entry.kind === 'maintenance') {

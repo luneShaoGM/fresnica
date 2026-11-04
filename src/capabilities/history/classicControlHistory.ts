@@ -21,7 +21,12 @@ function classic(value: unknown): value is string {
   return typeof value === 'string' && /^G[A-Z2-7]{55}$/.test(value);
 }
 function signer(value: unknown): value is string {
-  return typeof value === 'string' && /^[GTX][A-Z2-7]{55}$/.test(value);
+  if (typeof value !== 'string') return false;
+  if (/^[GTX][A-Z2-7]{55}$/.test(value)) return true;
+  return (
+    /^P[A-Z2-7]{68,164}$/.test(value) &&
+    Array.from({ length: 16 }, (_, index) => Math.ceil(((43 + index * 4) * 8) / 5)).includes(value.length)
+  );
 }
 function text(value: unknown, max: number, empty = false): value is string {
   if (typeof value !== 'string' || (!empty && !value)) return false;

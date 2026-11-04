@@ -13,7 +13,9 @@ it.each(controlCases)(
     const entry = mapHistoryEntry(controlRecord(type, parameters), controlSource);
     for (const locale of ['en', 'zh', 'zh-TW']) {
       const { t, formatNumber } = createLocalization(locale);
-      const row = activityRowPresentation(entry, t, formatNumber);
+      const names = new Map([[controlSource, 'Control source']]);
+      const row = activityRowPresentation(entry, t, formatNumber, names);
+      expect(matchesActivitySearch(entry, 'Control source', t, formatNumber, names)).toBe(true);
       expect(row.money).toBeUndefined();
       expect(row.operation).toBe(t(`activity.control.${type}`));
       expect(row.operation).not.toBe(`activity.control.${type}`);

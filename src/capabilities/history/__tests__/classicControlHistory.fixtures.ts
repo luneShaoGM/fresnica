@@ -2,7 +2,10 @@ import type { HistoryOperationRecord } from '../HistoryGateway';
 export const controlSource = `G${'A'.repeat(55)}`;
 export const controlPeer = `G${'B'.repeat(55)}`;
 export const controlForeign = `G${'C'.repeat(55)}`;
+export const payloadSigner = 'PAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAAAAAASUAAAAA5SS';
 export const controlCases = [
+  ['set_options', { signer_key: payloadSigner, signer_weight: 0 }],
+  ['revoke_sponsorship', { signer_account_id: controlPeer, signer_key: payloadSigner }],
   ['account_merge', { account: controlSource, into: controlPeer }],
   [
     'set_options',

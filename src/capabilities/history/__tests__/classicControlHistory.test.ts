@@ -78,8 +78,28 @@ it('associates only the actual merge parties or explicit revocation owner', asyn
       entry: { kind: 'account-control' },
     });
   }
-  const entry = mapHistoryEntry(controlRecord('account_merge', controlCases[0][1]), controlPeer);
+  const entry = mapHistoryEntry(
+    controlRecord('account_merge', { account: controlSource, into: controlPeer }),
+    controlPeer,
+  );
   expect(entry).toMatchObject({ counterparty: controlSource });
   expect(cache(entry, controlPeer).entries[0]).toEqual(entry);
   expect(() => cache({ ...entry, counterparty: controlForeign } as HistoryEntry, controlPeer)).toThrow();
+});
+it.each([69, 165])('keeps bounded P display shape of length %s in cache', length => {
+  const signer_key = `P${'A'.repeat(length - 1)}`;
+  const entry = mapHistoryEntry(controlRecord('set_options', { signer_key, signer_weight: 0 }), controlSource);
+  expect(entry).toMatchObject({ kind: 'account-control' });
+  expect(cache(entry).entries[0]).toEqual(entry);
+});
+it.each([
+  `P${'A'.repeat(67)}`,
+  `P${'A'.repeat(69)}`,
+  `P${'A'.repeat(165)}`,
+  `P${'a'.repeat(68)}`,
+  `P${'1'.repeat(68)}`,
+])('rejects invalid P shape %s', signer_key => {
+  expect(mapHistoryEntry(controlRecord('set_options', { signer_key, signer_weight: 0 }), controlSource)).toMatchObject({
+    kind: 'unsupported',
+  });
 });

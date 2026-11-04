@@ -14,7 +14,7 @@ associate source only. All require literal success and exact Classic source.
 Keep applicable validated public parameters, strip unknown/inapplicable fields.
 Merge preserves account/into. Options preserves optional inflation_dest Classic,
 master_key_weight/low_threshold/med_threshold/high_threshold and signer_weight
-integer 0..255, signer_key G/T/X StrKey-shaped string paired with signer_weight,
+integer 0..255, signer_key G/T/X/P StrKey-shaped string paired with signer_weight,
 home_domain exact printable UTF-8 <=32 bytes including empty (clear), and optional
 set/clear flag arrays containing distinct known 1/2/4/8 with no overlap. Empty
 options are valid. Do not interpret weights/flags as present account state.
@@ -23,7 +23,7 @@ Revoke requires exactly one target family: account_id; claimable_balance_id;
 data_account_id plus data_name (1..64 UTF-8 bytes); offer_id canonical positive
 i64 string; trustline_account_id plus either canonical CODE:G issuer asset or
 64-hex trustline_liquidity_pool_id; signer_account_id plus signer_key. Validate
-owners as Classic, balance ID 00000000+64hex, signer G/T/X shape, asset code1..12
+owners as Classic, balance ID 00000000+64hex, signer G/T/X/P shape, asset code1..12
 alphanumerics; prevent mixed/incomplete target fields. Actual reserve/payout or
 new sponsorship cannot be inferred. Inflation has no operation-specific payload
 and must not invent payout, amount or present support for creating inflation.
@@ -45,3 +45,8 @@ success, source/foreign/target association, cache ownership/stripping/reopen,
 neutral/no money/Other/search/locales/full details. Exact-HEAD independent review
 and CI required; user has authorized merge after clean review and required CI.
 Unit/NodeRealm/bundles are not native acceptance. Stage9 iOS auth stays deferred.
+
+P signed-payload keys retain the full public encoded identity, with bounded
+base32 and framing-compatible encoded lengths for 1..64-byte payloads. This is
+the same display-only shape boundary as G/T/X, not a signature/authorization
+validator; SDK/Core remain authoritative. Source-name search is transient.
