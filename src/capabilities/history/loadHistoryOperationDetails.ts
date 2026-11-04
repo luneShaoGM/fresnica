@@ -34,6 +34,7 @@ export async function loadHistoryOperationDetails(
     throw new Error('invalid-history-operation-id');
   }
 
+  const assertCurrent = dependencies.gateway.captureHistoryReadLease?.(account.address);
   const result = await dependencies.gateway.loadOperation({ operationId, accountAddress: account.address });
   if (result.status === 'not-found') {
     return { status: 'not-found' };
@@ -45,9 +46,11 @@ export async function loadHistoryOperationDetails(
     return { status: 'not-associated' };
   }
 
+  const records = await enrichClaimableRecords(dependencies.gateway, seedCachedClaimableProof(dependencies, [result.record], account.address), account.address);
+  assertCurrent?.();
   return {
     status: 'ready',
-    entry: mapHistoryEntry((await enrichClaimableRecords(dependencies.gateway, seedCachedClaimableProof(dependencies, [result.record], account.address), account.address))[0], account.address),
+    entry: mapHistoryEntry(records[0], account.address),
   };
 }
 

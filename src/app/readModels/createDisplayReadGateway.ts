@@ -55,6 +55,18 @@ export function createDisplayReadGateway(
   }
 
   return {
+    captureHistoryReadLease: address => {
+      const snapshot = dependencies.runtime.getSnapshot();
+      const revision = dependencies.getAccountRevision(address);
+      if (!snapshot.foreground || snapshot.connectivity === 'offline') {
+        throw new Error(snapshot.foreground ? 'ledger-read-offline' : 'ledger-read-paused');
+      }
+      return () => {
+        if (dependencies.runtime.getSnapshot() !== snapshot || dependencies.getAccountRevision(address) !== revision) {
+          throw new Error('ledger-read-superseded');
+        }
+      };
+    },
     hasPendingReads: address => {
       const snapshot = dependencies.runtime.getSnapshot();
       const revision = dependencies.getAccountRevision(address);

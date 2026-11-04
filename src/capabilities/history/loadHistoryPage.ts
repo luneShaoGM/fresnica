@@ -44,6 +44,7 @@ export async function loadHistoryPage(
     return { status: 'unsupported-account' };
   }
 
+  const assertCurrent = dependencies.gateway.captureHistoryReadLease?.(account.address);
   const page = await dependencies.gateway.loadAccountOperations({
     address: account.address,
     ...(input?.cursor === undefined ? {} : { cursor: input.cursor }),
@@ -54,9 +55,11 @@ export async function loadHistoryPage(
     return { status: 'inactive' };
   }
 
+  const records = await enrichClaimableRecords(dependencies.gateway, seedCachedClaimableProof(dependencies, page.records, account.address), account.address);
+  assertCurrent?.();
   return {
     status: 'active',
-    entries: (await enrichClaimableRecords(dependencies.gateway, seedCachedClaimableProof(dependencies, page.records, account.address), account.address)).map(record => mapHistoryEntry(record, account.address)),
+    entries: records.map(record => mapHistoryEntry(record, account.address)),
     ...(page.nextCursor === undefined ? {} : { nextCursor: page.nextCursor }),
   };
 }

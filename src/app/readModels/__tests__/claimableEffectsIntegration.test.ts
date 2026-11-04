@@ -1,4 +1,6 @@
-import { effectsRecord, effectsSource } from '../../../capabilities/history/__tests__/claimableEffects.fixtures';
+import { createDisplayReadGateway } from '../createDisplayReadGateway';
+import { createLedgerReadRuntime } from '../LedgerReadRuntime';
+import { effectsProof, effectsRecord, effectsSource } from '../../../capabilities/history/__tests__/claimableEffects.fixtures';
 import { mapHistoryEntry, loadHistoryPage } from '../../../capabilities/history/loadHistoryPage';
 import { loadHistoryOperationDetails } from '../../../capabilities/history/loadHistoryOperationDetails';
 import { cacheHistoryOnlineEntriesBestEffort, cacheHistoryReadyDetailBestEffort, buildHistoryCacheSnapshotFromOnlineEntries } from '../../../capabilities/history/HistoryCacheHydration';
@@ -34,4 +36,75 @@ it('upgrades list and detail atomically, retains immutable validated proof, and 
   expect(await loadHistoryPage(dependencies, account)).toMatchObject({ status: 'active', entries: [rich] });
   expect(loadOperationEffects).not.toHaveBeenCalled();
   expect(repository.getSnapshot({ ...partition, networkId: 'other' })).toBeUndefined();
+});
+
+const lifecycleAccount = { networkId: 'test', identityKind: 'classic', address: effectsSource } as AccountRecord;
+it.each(['page', 'detail'] as const)('%s preserves optional effects failure and timeout fallback', async path => {
+  jest.useFakeTimers();
+  try {
+    const raw = effectsRecord(undefined, false);
+    for (const timeout of [false, true]) {
+      const runtime = createLedgerReadRuntime();
+      const gateway = createDisplayReadGateway({
+        runtime, getAccountRevision: () => '1',
+        gateway: {
+          loadAccountBalances: jest.fn(),
+          loadAccountOperations: async () => ({ status: 'active', address: effectsSource, records: [raw] }),
+          loadOperation: async () => ({ status: 'found', record: raw }),
+          loadOperationEffects: async () => {
+            if (timeout) return new Promise(() => {});
+            throw new Error('node-read-unavailable');
+          },
+        },
+      });
+      const dependencies = { gateway, networkId: 'test' };
+      const request = path === 'page' ? loadHistoryPage(dependencies, lifecycleAccount) : loadHistoryOperationDetails(dependencies, lifecycleAccount, raw.id);
+      await jest.advanceTimersByTimeAsync(6000);
+      const result = await request;
+      expect(result).toMatchObject(path === 'page' ? { status: 'active', entries: [{ kind: 'claimable-reference' }] } : { status: 'ready', entry: { kind: 'claimable-reference' } });
+      expect(JSON.stringify(result)).not.toContain('evidence');
+    }
+  } finally {
+    jest.useRealTimers();
+  }
+});
+it.each(['page', 'detail'] as const)('%s rejects lifecycle changes during enrichment, including the budget race', async path => {
+  jest.useFakeTimers();
+  try {
+    for (const change of ['offline', 'background', 'revision'] as const) {
+      for (const timeout of [false, true]) {
+        const raw = effectsRecord(undefined, false);
+        const runtime = createLedgerReadRuntime();
+        let revision = '1';
+        let complete!: () => void;
+        let started!: () => void;
+        const pending = new Promise<void>(resolve => { started = resolve; });
+        const gateway = createDisplayReadGateway({
+          runtime, getAccountRevision: () => revision,
+          gateway: {
+            loadAccountBalances: jest.fn(),
+            loadAccountOperations: async () => ({ status: 'active', address: effectsSource, records: [raw] }),
+            loadOperation: async () => ({ status: 'found', record: raw }),
+            loadOperationEffects: async () => {
+              started();
+              await new Promise<void>(resolve => { complete = resolve; });
+              return effectsProof();
+            },
+          },
+        });
+        const dependencies = { gateway, networkId: 'test' };
+        const request = path === 'page' ? loadHistoryPage(dependencies, lifecycleAccount) : loadHistoryOperationDetails(dependencies, lifecycleAccount, raw.id);
+        const rejected = expect(request).rejects.toThrow('ledger-read-superseded');
+        await pending;
+        if (change === 'revision') revision = '2';
+        else runtime.update({ foreground: change !== 'background', connectivity: change === 'offline' ? 'offline' : 'unknown' });
+        if (timeout) await jest.advanceTimersByTimeAsync(6000);
+        else complete();
+        await rejected;
+        complete();
+      }
+    }
+  } finally {
+    jest.useRealTimers();
+  }
 });

@@ -68,6 +68,7 @@ export type HistoryOperationResult =
   | Readonly<{ status: 'inactive'; address: string }>;
 
 export interface HistoryGatewayPort {
+  captureHistoryReadLease?(accountAddress: string): () => void;
   loadOperationEffects?(input: Readonly<{ operationId: string; accountAddress: string; signal?: AbortSignal }>): Promise<HistoryOperationEffects>;
   loadOperation(
     input: Readonly<{ operationId: string; accountAddress: string }>,

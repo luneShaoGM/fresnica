@@ -61,7 +61,7 @@ export function claimableEffectQuantity(
   return Object.freeze({ asset, amount, evidence: Object.freeze({ operationId: record.id, complete: true, records }) });
 }
 
-// Extra historical reads never turn an otherwise readable operation page into an error.
+// Optional evidence failures retain ID-only data; lifecycle invalidation still aborts the read.
 export async function enrichClaimableRecords(
   gateway: HistoryGatewayPort,
   records: readonly HistoryOperationRecord[],
@@ -99,7 +99,10 @@ export async function enrichClaimableRecords(
         });
         const candidate = { ...record, claimableEffects: proof };
         if (!controller.signal.aborted && claimableEffectQuantity(candidate)) result[index] = candidate;
-      } catch {
+      } catch (error) {
+        if (error instanceof Error && /^(ledger-read-(offline|paused|superseded)|node-read-(paused|superseded))$/.test(error.message)) {
+          throw error;
+        }
         /* ID-only evidence remains available. */
       }
     }
