@@ -136,6 +136,7 @@ function renderWithState(
   openExternalUrl: (url: string) => Promise<void> = jest.fn(async () => undefined),
   projectExplorerUrl: jest.Mock<string | undefined, [string]> = jest.fn((_transactionHash: string) => trustedUrl),
   contacts?: ContactBook,
+  accounts?: readonly AccountRecord[],
 ) {
   const loadSetter = jest.fn();
   const explorerSetter = jest.fn();
@@ -148,6 +149,7 @@ function renderWithState(
 
   const root = OperationDetailsScreen({
     account,
+    accounts: accounts ?? [account],
     contacts,
     operationId: 'operation-1',
     dependencies,
@@ -347,6 +349,32 @@ describe('OperationDetailsScreen product hardening', () => {
     expect(failureText?.props.accessibilityLiveRegion).toBeUndefined();
     expect(failureText?.props.children).toBe('Couldn’t open the explorer. Try again.');
   });
+});
+
+it('provides all current-network wallet identities for Activity participant cards, not only the viewed wallet', () => {
+  const recipient = { ...account, id: 'account-b', address: 'GVALID', label: 'Wallet B' };
+  const contacts = {
+    network: { id: account.networkId },
+    isClassicAccountAddress: (address: string) => address === recipient.address,
+  } as unknown as ContactBook;
+  const { root } = renderWithState(
+    {
+      kind: 'loaded',
+      result: { status: 'ready', entry: { ...unsupported(), sourceAccount: recipient.address } },
+      source: 'online',
+      stale: false,
+      refreshing: false,
+      refreshFailed: false,
+    },
+    'idle',
+    jest.fn(),
+    jest.fn<string | undefined, [string]>(() => trustedUrl),
+    contacts,
+    [account, recipient],
+  );
+  const card = findElement(root, element => element.type === ParticipantCard);
+  expect(card?.props.address).toBe(recipient.address);
+  expect((card?.props as { accounts?: readonly AccountRecord[] }).accounts).toEqual([account, recipient]);
 });
 
 it.each(['GVALID', 'CCONTRACT', 'MMUXED'])(

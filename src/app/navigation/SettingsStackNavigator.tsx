@@ -9,6 +9,8 @@ import { deleteLocalAccount } from '@capabilities/account/deleteLocalAccount';
 import { renameAccount } from '@capabilities/account/renameAccount';
 import type { AccountRecord } from '@capabilities/account/types';
 import { AddressBookScreen } from '@features/contacts/AddressBookScreen';
+import { ReactNativeRequestQrScannerView } from '@platform/system/RequestQrScannerView';
+import { reactNativeRequestIngress } from '@platform/system/requestIngress';
 import { AccountDetailsScreen } from '@features/accounts/AccountDetailsScreen';
 import { AccountsScreen } from '@features/accounts/AccountsScreen';
 import { AddAccountScreen } from '@features/accounts/AddAccountScreen';
@@ -71,6 +73,7 @@ export function SettingsStackNavigator({
           <AddressBookRoute
             key={services.contacts.network.id}
             book={services.contacts}
+            scanner={{ ScannerView: ReactNativeRequestQrScannerView, ingress: reactNativeRequestIngress }}
             onBack={() => navigation.goBack()}
           />
         )}

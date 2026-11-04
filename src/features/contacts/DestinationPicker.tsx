@@ -2,18 +2,11 @@ import React, { useState } from 'react';
 import { ScrollView, Text } from 'react-native';
 import type { AccountRecord } from '@capabilities/account/types';
 import { searchContacts } from '@capabilities/contacts/contacts';
-import { BottomSheet, Field, ListRow } from '@ui/components';
+import { AccountIdentityCard, BottomSheet, Field } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import { useThemedStyles } from '@ui/theme';
 import { useLocalization } from '../../locale';
-import {
-  contactError,
-  contactRecipient,
-  contactSubtitle,
-  destinationAccounts,
-  type ContactBook,
-  type Recipient,
-} from './contactBook';
+import { contactError, contactRecipient, destinationAccounts, type ContactBook, type Recipient } from './contactBook';
 import { createStyles } from './styles';
 import { useContactList } from './useContactList';
 
@@ -56,10 +49,14 @@ export function DestinationPicker({
         ) : null}
         <Text style={styles.title}>{t('settings.addressBook')}</Text>
         {matches.map(contact => (
-          <ListRow
+          <AccountIdentityCard
             key={contact.id}
-            title={contact.name}
-            subtitle={contactSubtitle(contact)}
+            address={contact.address}
+            name={contact.name}
+            label={t('settings.addressBook')}
+            presentation="selectable"
+            secondary={t('contacts.source.contact')}
+            memoText={contact.memo ? `${t(`send.memo.type.${contact.memo.type}`)}: ${contact.memo.value}` : undefined}
             onPress={() => {
               try {
                 onSelect(contactRecipient(book, contact.id));
@@ -71,10 +68,13 @@ export function DestinationPicker({
         ))}
         <Text style={styles.title}>{t('settings.accounts')}</Text>
         {own.map(account => (
-          <ListRow
+          <AccountIdentityCard
             key={account.id}
-            title={account.label || account.address}
-            subtitle={account.address}
+            address={account.address}
+            name={account.label}
+            label={t('settings.accounts')}
+            presentation="selectable"
+            secondary={t('contacts.source.account')}
             onPress={() => onSelect({ address: account.address })}
           />
         ))}

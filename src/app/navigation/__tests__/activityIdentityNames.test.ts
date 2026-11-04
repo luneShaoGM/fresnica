@@ -31,7 +31,9 @@ it('shares contacts globally, keeps exact case, and never borrows memo-specific 
   expect(names.get('gaddress')).toBeUndefined();
   expect(names.get('MADDRESS')).toBeUndefined();
   expect(activityIdentityNames([account], [contact], 'other').get(account.address)).toBe('Alice');
-  expect(activityIdentityNames([account], [{ ...contact, memo: { type: 'id', value: '7' } }], 'test').get(account.address)).toBe('Wallet');
+  expect(
+    activityIdentityNames([account], [{ ...contact, memo: { type: 'id', value: '7' } }], 'test').get(account.address),
+  ).toBe('Wallet');
 });
 it('keeps wallet label instead of guessing among conflicting legacy contact identities', () => {
   const names = activityIdentityNames(
@@ -40,6 +42,24 @@ it('keeps wallet label instead of guessing among conflicting legacy contact iden
     'test',
   );
   expect(names.get(account.address)).toBe('Wallet');
+});
+it('keeps Activity names address-only even when a typed memo contact has the same account address', () => {
+  const withMemo = { ...contact, id: 'memo', name: 'Exchange subaccount', memo: { type: 'id' as const, value: '7' } };
+  const withDifferentMemo = {
+    ...withMemo,
+    id: 'memo-2',
+    name: 'Other subaccount',
+    memo: { type: 'text' as const, value: '7' },
+  };
+  expect(activityIdentityNames([account], [withMemo, withDifferentMemo], 'test').get(account.address)).toBe('Wallet');
+  expect(activityIdentityNames([account], [contact, withMemo, withDifferentMemo], 'test').get(account.address)).toBe(
+    'Alice',
+  );
+  // An ambiguous plain-contact label must not be picked based on insertion order.
+  expect(
+    activityIdentityNames([], [contact, { ...contact, id: 'legacy-main', name: 'Bob', networkId: 'main' }], 'test')
+      .size,
+  ).toBe(0);
 });
 it('does not use hidden, contract or foreign-network accounts or empty labels', () => {
   for (const patch of [

@@ -250,6 +250,7 @@ export function SendFlowScreen({
           contacts ? (
             <ParticipantCard
               book={contacts}
+              accounts={destinationAccounts}
               address={flow.review.destination}
               memo={flow.review.memo}
               label={t('contacts.recipient')}
@@ -281,7 +282,13 @@ export function SendFlowScreen({
         onDone={onDone}
         recipientCard={
           contacts && flow.result.status === 'submitted' ? (
-            <ParticipantCard book={contacts} active={active} {...flow.recipient} label={t('contacts.recipient')} />
+            <ParticipantCard
+              book={contacts}
+              accounts={destinationAccounts}
+              active={active}
+              {...flow.recipient}
+              label={t('contacts.recipient')}
+            />
           ) : undefined
         }
       />

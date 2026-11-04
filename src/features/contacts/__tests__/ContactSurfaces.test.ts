@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable } from 'react-native';
-import { AccountIdentityCard, BottomSheet, Field, ListRow } from '@ui/components';
+import { AccountIdentityCard, BottomSheet, Field, SectionedList } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import type { Contact } from '@capabilities/contacts/contacts';
 import { ContactEditor } from '../ContactEditor';
@@ -9,11 +9,12 @@ import { AddressBookScreen } from '../AddressBookScreen';
 import { DestinationPicker } from '../DestinationPicker';
 import { SendFlowScreen } from '../../send/SendFlowScreen';
 import { SendResultScreen } from '../../send/SendResultScreen';
+import { SendReviewScreen } from '../../send/SendReviewScreen';
 import { SendFormScreen } from '../../send/SendFormScreen';
 import type { SendProductDependencies } from '../../send/sendProductFlow';
 import type { AccountRecord } from '@capabilities/account/types';
 import type { Recipient } from '../contactBook';
-import type { ContactBook } from '../contactBook';
+import type { ContactBook, ContactScanner } from '../contactBook';
 
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
 jest.mock('react', () => ({
@@ -43,8 +44,17 @@ type Props = {
   onClose?: () => void;
   onChooseRecipient?: () => void;
   onSelect?: (recipient: Recipient) => void;
+  accounts?: readonly AccountRecord[];
   onChangeText?: (text: string) => void;
   isCurrent?: () => boolean;
+  presentation?: string;
+  memoText?: string;
+  secondary?: string;
+  sections?: readonly { title: string; data: readonly Contact[] }[];
+  renderItem?: (item: Contact) => React.ReactElement<Props>;
+  keyExtractor?: (item: Contact) => string;
+  onCode?: (value: string) => void;
+  onError?: () => void;
 };
 function nodes(root: React.ReactNode, type: unknown): React.ReactElement<Props>[] {
   const result: React.ReactElement<Props>[] = [];
@@ -239,6 +249,95 @@ it('does not assign a memo contact name to address-only Activity and offers a fr
   expect(editor.props.id).toBeUndefined();
   expect(editor.props.initial).toEqual({ name: '', address: row.address, memo: undefined });
 });
+it('shows an address-only saved name for a memo recipient but does not copy that contact memo or edit it', () => {
+  rows = [{ ...row, name: 'Plain label' }];
+  const requestedMemo = { type: 'id' as const, value: '9' };
+  const draw = () =>
+    render(() => ParticipantCard({ book, label: 'Recipient', address: row.address, memo: requestedMemo }));
+  let root = draw();
+  expect(nodes(root, AccountIdentityCard)[0].props).toMatchObject({
+    name: 'Plain label',
+    secondary: 'contacts.source.addressOnly',
+  });
+  nodes(root, Pressable)[0].props.onPress!();
+  root = draw();
+  button(root, 'contacts.add')();
+  const editor = nodes(draw(), ContactEditor)[0];
+  expect(editor.props.id).toBeUndefined();
+  expect(editor.props.initial).toEqual({ name: '', address: row.address, memo: requestedMemo });
+  expect(book.store.save).not.toHaveBeenCalled();
+});
+
+it('prefers exact memo contact for display and editor; ambiguous legacy matches do not claim that name', () => {
+  const exact = { ...row, id: 'exact', name: 'Memo subaccount', memo: { type: 'id' as const, value: '7' } };
+  rows = [row, exact];
+  const draw = () =>
+    render(() =>
+      ParticipantCard({ book, label: 'Recipient', address: row.address, memo: { type: 'id', value: '007' } }),
+    );
+  let root = draw();
+  expect(nodes(root, AccountIdentityCard)[0].props.name).toBe('Memo subaccount');
+  nodes(root, Pressable)[0].props.onPress!();
+  button(draw(), 'contacts.edit')();
+  expect(nodes(draw(), ContactEditor)[0].props.id).toBe('exact');
+
+  // Ambiguous identities can use the own-wallet label, not a conflicting
+  // contact label or an unrelated address-only fallback.
+  values = [];
+  refs = [];
+  rows = [row, exact, { ...exact, id: 'legacy', name: 'Other memo', networkId: 'main' }];
+  const account = {
+    address: row.address,
+    networkId: 'test',
+    label: 'My Wallet',
+    identityKind: 'classic',
+    hidden: false,
+  } as AccountRecord;
+  root = render(() =>
+    ParticipantCard({
+      book,
+      label: 'Recipient',
+      accounts: [account],
+      address: row.address,
+      memo: { type: 'id', value: '7' },
+    }),
+  );
+  expect(nodes(root, AccountIdentityCard)[0].props).toMatchObject({
+    name: 'My Wallet',
+    secondary: 'contacts.source.account',
+  });
+});
+
+it('keeps own-wallet labels network-isolated when no contact is saved', () => {
+  rows = [];
+  const account = {
+    address: row.address,
+    networkId: 'test',
+    label: 'Wallet A',
+    identityKind: 'classic',
+    hidden: false,
+  } as AccountRecord;
+  expect(
+    nodes(
+      render(() => ParticipantCard({ book, label: 'Recipient', accounts: [account], address: row.address })),
+      AccountIdentityCard,
+    )[0].props.name,
+  ).toBe('Wallet A');
+  expect(
+    nodes(
+      render(() =>
+        ParticipantCard({
+          book,
+          label: 'Recipient',
+          accounts: [{ ...account, networkId: 'main' }],
+          address: row.address,
+        }),
+      ),
+      AccountIdentityCard,
+    )[0].props.name,
+  ).toBe('');
+});
+
 it('does not reopen a cancelled participant menu/editor from a delayed callback, including after reopening', () => {
   const draw = () => render(() => ParticipantCard({ book, label: 'Counterparty', address: row.address }));
   let root = draw();
@@ -263,11 +362,29 @@ it('shows sorted/searchable global contacts and wires list-to-editor without sav
   rows = [{ ...row, id: 'z', name: 'Zoe' }, row, { ...row, id: 'main', networkId: 'main', name: 'Other' }];
   const draw = () => render(() => AddressBookScreen({ book, onBack: jest.fn() }));
   let root = draw();
-  expect(nodes(root, ListRow).map(node => node.props.title)).toEqual(['Alice', 'Other', 'Zoe']);
+  const sections = nodes(root, SectionedList)[0].props;
+  expect(sections.sections?.map(section => section.title)).toEqual(['A', 'O', 'Z']);
+  expect(sections.sections?.flatMap(section => section.data.map(contact => contact.name))).toEqual([
+    'Alice',
+    'Other',
+    'Zoe',
+  ]);
+  expect(sections.keyExtractor?.(row)).toBe(row.id);
+  const card = sections.renderItem!(row);
+  expect(card.type).toBe(AccountIdentityCard);
+  expect(card.props.presentation).toBe('selectable');
   nodes(root, Field)[0].props.onChangeText!('zo');
   root = draw();
-  expect(nodes(root, ListRow)).toHaveLength(1);
-  nodes(root, ListRow)[0].props.onPress!();
+  const filtered = nodes(root, SectionedList)[0].props;
+  expect(filtered.sections?.map(section => section.title)).toEqual(['Z']);
+  expect(filtered.sections?.[0].data).toHaveLength(1);
+  nodes(root, Field)[0].props.onChangeText!('no match');
+  root = draw();
+  expect(nodes(root, SectionedList)[0].props.sections).toEqual([]);
+  nodes(root, Field)[0].props.onChangeText!('zo');
+  root = draw();
+  const matching = nodes(root, SectionedList)[0].props;
+  matching.renderItem!(matching.sections![0].data[0]).props.onPress!();
   root = draw();
   const editor = nodes(root, ContactEditor)[0];
   expect(editor.props.id).toBe('z');
@@ -275,15 +392,326 @@ it('shows sorted/searchable global contacts and wires list-to-editor without sav
   expect(editor.props.isCurrent!()).toBe(false);
   expect(book.store.save).not.toHaveBeenCalled();
 });
+it('scans a validated recipient and memo into the editor without saving or accepting stale scan events', async () => {
+  const ScannerView = () => null;
+  const scanner: ContactScanner = {
+    ScannerView,
+    ingress: {
+      checkCameraPermission: jest.fn().mockResolvedValue('granted'),
+      requestCameraPermission: jest.fn(),
+      openCameraSettings: jest.fn(),
+    },
+  };
+  const draw = () => render(() => ContactEditor({ book, scanner, onClose: jest.fn() }));
+  button(draw(), 'contacts.scan.open')();
+  await Promise.resolve();
+  let root = draw();
+  const first = nodes(root, ScannerView)[0].props.onCode!;
+  first('web+stellar:pay?destination=GVALID&memo=007&memo_type=MEMO_ID&network_passphrase=test-passphrase');
+  expect(values.slice(1, 4)).toEqual(['GVALID', 'id', '7']);
+  expect(book.store.save).not.toHaveBeenCalled();
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+
+  button(draw(), 'contacts.scan.open')();
+  await Promise.resolve();
+  root = draw();
+  first('GVALID');
+  expect(values.slice(1, 4)).toEqual(['GVALID', 'id', '7']);
+  const second = nodes(root, ScannerView)[0].props.onCode!;
+  second('GVALID');
+  expect(values.slice(1, 4)).toEqual(['GVALID', 'none', '']);
+  expect(book.store.save).not.toHaveBeenCalled();
+});
+
+it('cannot save from a stale editor callback while scanning or after scanner cancellation', async () => {
+  const ScannerView = () => null;
+  const scanner: ContactScanner = {
+    ScannerView,
+    ingress: {
+      checkCameraPermission: jest.fn().mockResolvedValue('granted'),
+      requestCameraPermission: jest.fn(),
+      openCameraSettings: jest.fn(),
+    },
+  };
+  const onClose = jest.fn();
+  const draw = () => render(() => ContactEditor({ book, scanner, initial: row, id: row.id, onClose }));
+  const old = draw();
+  const staleSave = button(old, 'contacts.save');
+  button(old, 'contacts.scan.open')();
+  await Promise.resolve();
+  staleSave();
+  button(draw(), 'contacts.save')();
+  expect(book.store.save).not.toHaveBeenCalled();
+  nodes(draw(), BottomSheet)[0].props.onClose!();
+  staleSave();
+  expect(book.store.save).not.toHaveBeenCalled();
+  button(draw(), 'contacts.save')();
+  expect(book.store.save).toHaveBeenCalledTimes(1);
+  expect(onClose).toHaveBeenCalledTimes(1);
+});
+
+it('closes the camera on cancel and ignores a late camera permission response', async () => {
+  let resolvePermission: (value: 'granted') => void = () => {};
+  const ScannerView = () => null;
+  const scanner: ContactScanner = {
+    ScannerView,
+    ingress: {
+      checkCameraPermission: jest.fn(
+        () =>
+          new Promise<'granted'>(resolve => {
+            resolvePermission = resolve;
+          }),
+      ),
+      requestCameraPermission: jest.fn(),
+      openCameraSettings: jest.fn(),
+    },
+  };
+  const draw = () => render(() => ContactEditor({ book, scanner, onClose: jest.fn() }));
+  button(draw(), 'contacts.scan.open')();
+  let root = draw();
+  expect(nodes(root, ScannerView)).toHaveLength(0);
+  nodes(root, BottomSheet)[0].props.onClose!();
+  resolvePermission('granted');
+  await Promise.resolve();
+  root = draw();
+  expect(nodes(root, BottomSheet)).toHaveLength(0);
+  expect(nodes(root, ScannerView)).toHaveLength(0);
+  expect(book.store.save).not.toHaveBeenCalled();
+});
+
+it('rejects unsupported QR content, permits explicit retry, and does not revive the old scanner frame', async () => {
+  const ScannerView = () => null;
+  const scanner: ContactScanner = {
+    ScannerView,
+    ingress: {
+      checkCameraPermission: jest.fn().mockResolvedValue('granted'),
+      requestCameraPermission: jest.fn(),
+      openCameraSettings: jest.fn(),
+    },
+  };
+  const draw = () => render(() => ContactEditor({ book, scanner, onClose: jest.fn() }));
+  button(draw(), 'contacts.scan.open')();
+  await Promise.resolve();
+  let root = draw();
+  const stale = nodes(root, ScannerView)[0].props.onCode!;
+  stale('web+stellar:tx?xdr=private');
+  expect(values[7]).toBe('contacts.scan.invalid');
+  expect(values[1]).toBe('');
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  button(draw(), 'activity.retry')();
+  expect(scanner.ingress.checkCameraPermission).toHaveBeenCalledTimes(2);
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  await Promise.resolve();
+  root = draw();
+  stale('GVALID');
+  expect(values[1]).toBe('');
+  nodes(root, ScannerView)[0].props.onCode!('GVALID');
+  expect(values[1]).toBe('GVALID');
+  expect(book.store.save).not.toHaveBeenCalled();
+});
+
+it('rechecks permission after a camera permission query exception before mounting a camera', async () => {
+  const ScannerView = () => null;
+  const scanner: ContactScanner = {
+    ScannerView,
+    ingress: {
+      checkCameraPermission: jest
+        .fn()
+        .mockRejectedValueOnce(new Error('permission-check-failed'))
+        .mockResolvedValueOnce('granted'),
+      requestCameraPermission: jest.fn(),
+      openCameraSettings: jest.fn(),
+    },
+  };
+  const draw = () => render(() => ContactEditor({ book, scanner, onClose: jest.fn() }));
+  button(draw(), 'contacts.scan.open')();
+  await Promise.resolve();
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+
+  button(draw(), 'activity.retry')();
+  expect(scanner.ingress.checkCameraPermission).toHaveBeenCalledTimes(2);
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  await Promise.resolve();
+  expect(nodes(draw(), ScannerView)).toHaveLength(1);
+  expect(scanner.ingress.requestCameraPermission).not.toHaveBeenCalled();
+  expect(book.store.save).not.toHaveBeenCalled();
+});
+
+it('rechecks and requests permission after a camera permission request exception', async () => {
+  const ScannerView = () => null;
+  const scanner: ContactScanner = {
+    ScannerView,
+    ingress: {
+      checkCameraPermission: jest.fn().mockResolvedValue('denied'),
+      requestCameraPermission: jest
+        .fn()
+        .mockRejectedValueOnce(new Error('permission-request-failed'))
+        .mockResolvedValueOnce('blocked'),
+      openCameraSettings: jest.fn(),
+    },
+  };
+  const draw = () => render(() => ContactEditor({ book, scanner, onClose: jest.fn() }));
+  button(draw(), 'contacts.scan.open')();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  expect(scanner.ingress.requestCameraPermission).toHaveBeenCalledTimes(1);
+
+  button(draw(), 'activity.retry')();
+  expect(scanner.ingress.checkCameraPermission).toHaveBeenCalledTimes(2);
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  await Promise.resolve();
+  expect(scanner.ingress.requestCameraPermission).toHaveBeenCalledTimes(2);
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  await Promise.resolve();
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  expect(nodes(draw(), BottomSheet)).toHaveLength(1);
+  expect(book.store.save).not.toHaveBeenCalled();
+});
+
+it('keeps camera denied and blocked permissions out of camera view and supports settings handoff', async () => {
+  const ScannerView = () => null;
+  const scanner: ContactScanner = {
+    ScannerView,
+    ingress: {
+      checkCameraPermission: jest.fn().mockResolvedValue('denied'),
+      requestCameraPermission: jest.fn().mockResolvedValue('blocked'),
+      openCameraSettings: jest.fn().mockResolvedValue(undefined),
+    },
+  };
+  const draw = () => render(() => ContactEditor({ book, scanner, onClose: jest.fn() }));
+  button(draw(), 'contacts.scan.open')();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  button(draw(), 'contacts.scan.settings')();
+  expect(scanner.ingress.openCameraSettings).toHaveBeenCalledTimes(1);
+  nodes(draw(), BottomSheet)[0].props.onClose!();
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+});
 it('picker re-reads a selected contact instead of returning stale memo data', () => {
   const onSelect = jest.fn();
   const root = render(() => DestinationPicker({ book, accounts: [], onSelect, onClose: jest.fn() }));
   rows = [{ ...row, memo: { type: 'id', value: '8' } }];
-  nodes(root, ListRow)[0].props.onPress!();
+  const selectedCard = nodes(root, AccountIdentityCard)[0];
+  expect(selectedCard.props.presentation).toBe('selectable');
+  expect(selectedCard.props.secondary).toBe('contacts.source.contact');
+  selectedCard.props.onPress!();
   expect(onSelect).toHaveBeenLastCalledWith({ address: row.address, memo: { type: 'id', value: '8' } });
   rows = [];
-  nodes(root, ListRow)[0].props.onPress!();
+  selectedCard.props.onPress!();
   expect(onSelect).toHaveBeenCalledTimes(1);
+});
+
+it('Send picker uses shared identity rows, keeps contacts global and own wallets network-scoped', () => {
+  rows = [
+    { ...row, networkId: 'main', memo: { type: 'text', value: 'ref-7' } },
+    { ...row, id: 'other', name: 'Second', memo: undefined },
+  ];
+  const own = {
+    id: 'own',
+    label: 'Wallet',
+    address: 'GOWN',
+    networkId: 'test',
+    identityKind: 'classic',
+    hidden: false,
+  } as AccountRecord;
+  const foreign = { ...own, id: 'foreign', networkId: 'main', label: 'Wrong network' };
+  const onSelect = jest.fn();
+  const root = render(() =>
+    DestinationPicker({
+      book,
+      accounts: [foreign, own],
+      onSelect,
+      onClose: jest.fn(),
+    }),
+  );
+  const cards = nodes(root, AccountIdentityCard);
+  expect(cards.map(card => card.props.name)).toEqual(['Alice', 'Second', 'Wallet']);
+  expect(cards.map(card => card.props.secondary)).toEqual([
+    'contacts.source.contact',
+    'contacts.source.contact',
+    'contacts.source.account',
+  ]);
+  expect(cards[0].props.memoText).toBe('send.memo.type.text: ref-7');
+  cards[0].props.onPress!();
+  expect(onSelect).toHaveBeenLastCalledWith({
+    address: row.address,
+    memo: { type: 'text', value: 'ref-7' },
+  });
+  cards[2].props.onPress!();
+  expect(onSelect).toHaveBeenLastCalledWith({ address: own.address });
+});
+it('keeps another same-network wallet name from recipient selection through Send review and submitted result', () => {
+  rows = [];
+  const asset = { kind: 'native' as const, code: 'XLM' as const };
+  const sender = {
+    id: 'a',
+    address: 'GSENDER',
+    label: 'Sender A',
+    networkId: 'test',
+    identityKind: 'classic',
+    hidden: false,
+  } as AccountRecord;
+  const receiver = { ...sender, id: 'b', address: 'GRECEIVER', label: 'Wallet B' };
+  const foreign = { ...receiver, id: 'other-network', networkId: 'main', label: 'Foreign label' };
+  const dependencies = { network: book.network } as SendProductDependencies;
+  values = [
+    { kind: 'ready', balances: [{ asset, balance: '10' }] },
+    { kind: 'form' },
+    asset,
+    '',
+    '1',
+    'none',
+    '',
+    false,
+    false,
+    false,
+    '',
+    undefined,
+    false,
+  ];
+  const props = {
+    account: sender,
+    dependencies,
+    contacts: book,
+    destinationAccounts: [sender, receiver, foreign],
+    onDone: jest.fn(),
+  };
+  const draw = () => render(() => SendFlowScreen(props));
+  nodes(draw(), SendFormScreen)[0].props.onChooseRecipient!();
+  const picker = nodes(draw(), DestinationPicker)[0];
+  expect(picker.props.accounts).toEqual([sender, receiver, foreign]);
+  picker.props.onSelect!({ address: receiver.address });
+  expect(values[3]).toBe(receiver.address);
+  expect(values[5]).toBe('none');
+  expect(values[6]).toBe('');
+
+  const display = (card: React.ReactElement) => {
+    values = [];
+    refs = [];
+    const rendered = render(() => ParticipantCard(card.props as React.ComponentProps<typeof ParticipantCard>));
+    return nodes(rendered, AccountIdentityCard)[0].props;
+  };
+  const state = values;
+  const sharedRefs = refs;
+  state[1] = { kind: 'review', review: { destination: receiver.address, memo: undefined } };
+  const reviewCard = nodes(draw(), SendReviewScreen)[0].props.recipientCard as React.ReactElement<
+    React.ComponentProps<typeof ParticipantCard>
+  >;
+  expect(display(reviewCard)).toMatchObject({ name: 'Wallet B', secondary: 'contacts.source.account' });
+
+  values = state;
+  refs = sharedRefs;
+  state[1] = { kind: 'result', result: { status: 'submitted' }, recipient: { address: receiver.address } };
+  const resultCard = nodes(draw(), SendResultScreen)[0].props.recipientCard as React.ReactElement<
+    React.ComponentProps<typeof ParticipantCard>
+  >;
+  expect(display(resultCard)).toMatchObject({ name: 'Wallet B', secondary: 'contacts.source.account' });
+  expect(reviewCard.props.address).toBe(receiver.address);
+  expect(resultCard.props.address).toBe(receiver.address);
+  expect(reviewCard.props.memo).toBeUndefined();
+  expect(resultCard.props.memo).toBeUndefined();
 });
 
 it('Send picker applies the exact contact memo and ignores late selections after cancel and reopening', () => {

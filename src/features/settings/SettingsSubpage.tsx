@@ -10,7 +10,8 @@ export function SettingsSubpage({
   title,
   onBack,
   children,
-}: Readonly<{ title: string; onBack: () => void; children: React.ReactNode }>) {
+  scrollable = true,
+}: Readonly<{ title: string; onBack: () => void; children: React.ReactNode; scrollable?: boolean }>) {
   const styles = useThemedStyles(createStyles);
   const { t } = useLocalization();
   return (
@@ -24,13 +25,17 @@ export function SettingsSubpage({
         </Text>
         <View style={styles.side} />
       </View>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {children}
-      </ScrollView>
+      {scrollable ? (
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {children}
+        </ScrollView>
+      ) : (
+        <View style={[styles.content, styles.fill]}>{children}</View>
+      )}
     </Screen>
   );
 }

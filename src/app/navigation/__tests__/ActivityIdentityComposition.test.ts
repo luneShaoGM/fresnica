@@ -67,6 +67,7 @@ it('subscribes at composition, updates contacts and failures without replacing h
     ledgerReadRuntime: { subscribe: () => () => {}, getSnapshot: () => ({ foreground: true }) },
     ledgerReadInvalidation: { subscribe: () => () => {}, getRevision: () => 0 },
     history,
+    externalUrl: { open: jest.fn(async () => undefined) },
     transactionRecovery: { reconcile: jest.fn() },
   } as unknown as AppServices;
   const navigation = { navigate: jest.fn() };
@@ -114,4 +115,29 @@ it('subscribes at composition, updates contacts and failures without replacing h
     accountId: foreign.id,
     operationId: 'main-op',
   });
+
+  // The list and its operation detail must see the same set of visible-wallet
+  // candidates: B is a counterparty, not the currently selected account A.
+  const recipient = { ...account, id: 'b', address: 'GRECIPIENT', label: 'Wallet B' };
+  const activity = render([account, recipient], account.id);
+  expect(activity.props.identityNames?.get(recipient.address)).toBe('Wallet B');
+  const stack = ActivityStackNavigator({
+    accounts: [account, recipient],
+    selectedAccountId: account.id,
+    services,
+  });
+  const detailRoute = React.Children.toArray(stack.props.children).find(
+    child => React.isValidElement<RouteProps>(child) && child.props.name === 'operation-details',
+  ) as React.ReactElement<{
+    children(context: {
+      navigation: { goBack: jest.Mock };
+      route: { params: { accountId: string; operationId: string } };
+    }): React.ReactElement<{ account: AccountRecord; accounts?: readonly AccountRecord[] }>;
+  }>;
+  const detail = detailRoute.props.children({
+    navigation: { goBack: jest.fn() },
+    route: { params: { accountId: account.id, operationId: 'recipient-op' } },
+  });
+  expect(detail.props.account).toBe(account);
+  expect(detail.props.accounts).toEqual([account, recipient]);
 });

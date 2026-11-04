@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Text } from 'react-native';
 import { searchContacts, type Contact } from '@capabilities/contacts/contacts';
-import { Field, ListRow, StateView } from '@ui/components';
+import { AccountIdentityCard, Field, SectionedList, StateView } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import { useThemedStyles } from '@ui/theme';
 import { useLocalization } from '../../locale';
 import { SettingsSubpage } from '../settings/SettingsSubpage';
 import { ContactEditor } from './ContactEditor';
-import { contactSubtitle, type ContactBook } from './contactBook';
+import type { ContactBook, ContactScanner } from './contactBook';
+import { groupContactsByInitial } from './contactSections';
 import { createStyles } from './styles';
 import { useContactList } from './useContactList';
 
@@ -16,7 +17,8 @@ export function AddressBookScreen({
   book,
   onBack,
   active = true,
-}: Readonly<{ book: ContactBook; onBack(): void; active?: boolean }>) {
+  scanner,
+}: Readonly<{ book: ContactBook; onBack(): void; active?: boolean; scanner?: ContactScanner }>) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const [query, setQuery] = useState('');
@@ -41,6 +43,7 @@ export function AddressBookScreen({
   const [, retry] = useState(0);
   const { contacts, failed } = useContactList(book);
   const matches = searchContacts(contacts, query);
+  const sections = groupContactsByInitial(matches);
   const close = () => {
     selectionRef.current = undefined;
     setSelection(undefined);
@@ -51,7 +54,11 @@ export function AddressBookScreen({
   const selected =
     selection?.kind === 'contact' ? contacts.find(contact => contact.id === selection.contact.id) : undefined;
   return (
-    <SettingsSubpage title={t('settings.addressBook')} onBack={selection ? close : onBack}>
+    <SettingsSubpage
+      title={t('settings.addressBook')}
+      onBack={selection ? close : onBack}
+      scrollable={Boolean(selection)}
+    >
       {selection ? (
         <>
           {selection.kind === 'contact' && !selected ? (
@@ -66,6 +73,7 @@ export function AddressBookScreen({
             <ContactEditor
               key={selected?.id ?? 'new'}
               book={book}
+              scanner={scanner}
               initial={selected}
               id={selected?.id}
               onClose={close}
@@ -92,21 +100,31 @@ export function AddressBookScreen({
               actionLabel={t('activity.retry')}
               onAction={() => retry(value => value + 1)}
             />
-          ) : matches.length === 0 ? (
-            <StateView
-              kind="empty"
-              title={t('contacts.empty')}
-              message={t(query ? 'contacts.noMatches' : 'contacts.emptyDetail')}
-            />
           ) : (
-            matches.map(contact => (
-              <ListRow
-                key={contact.id}
-                title={contact.name}
-                subtitle={contactSubtitle(contact)}
-                onPress={() => choose({ kind: 'contact', contact })}
-              />
-            ))
+            <SectionedList
+              sections={sections}
+              empty={
+                <StateView
+                  kind="empty"
+                  title={t('contacts.empty')}
+                  message={t(query ? 'contacts.noMatches' : 'contacts.emptyDetail')}
+                />
+              }
+              keyExtractor={contact => contact.id}
+              renderItem={contact => (
+                <AccountIdentityCard
+                  address={contact.address}
+                  name={contact.name}
+                  label={t('contacts.local')}
+                  presentation="selectable"
+                  secondary={t('contacts.source.contact')}
+                  memoText={
+                    contact.memo ? `${t(`send.memo.type.${contact.memo.type}`)}: ${contact.memo.value}` : undefined
+                  }
+                  onPress={() => choose({ kind: 'contact', contact })}
+                />
+              )}
+            />
           )}
         </>
       )}

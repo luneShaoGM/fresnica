@@ -6,6 +6,7 @@ import {
   contactShareUri,
   destinationAccounts,
   recipientFields,
+  scannedContactRecipient,
   type ContactBook,
 } from '../contactBook';
 
@@ -90,4 +91,24 @@ it('offers only visible Classic accounts in the selected network, with searchabl
   ];
   expect(destinationAccounts(accounts, network.id, 'ali')).toEqual([account]);
   expect(destinationAccounts(accounts, network.id, 'unknown')).toEqual([]);
+});
+
+it('scans raw G addresses or same-network SEP-7 memo identities without keeping payment fields', () => {
+  const dependencies = book();
+  expect(scannedContactRecipient(dependencies, row.address)).toEqual({ address: row.address });
+  const uri =
+    'web+stellar:pay?destination=GVALID&memo=007&memo_type=MEMO_ID&amount=2&network_passphrase=' +
+    encodeURIComponent(network.networkPassphrase);
+  expect(scannedContactRecipient(dependencies, uri)).toEqual({
+    address: row.address,
+    memo: { type: 'id', value: '7' },
+  });
+  expect(() => scannedContactRecipient(dependencies, 'web+stellar:pay?destination=GVALID')).toThrow(
+    'contact-scan-invalid',
+  );
+  expect(() => scannedContactRecipient(dependencies, 'web+stellar:tx?xdr=secret')).toThrow(
+    'contact-scan-invalid',
+  );
+  expect(() => scannedContactRecipient(dependencies, 'MUNSUPPORTED')).toThrow('contact-scan-invalid');
+  expect(() => scannedContactRecipient(dependencies, 'secret seed phrase')).toThrow('contact-scan-invalid');
 });

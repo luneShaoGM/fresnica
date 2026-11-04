@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { AccountIdentityCard } from '../AccountIdentityCard';
 import { IdentityAvatar } from '../IdentityAvatar';
@@ -26,8 +26,51 @@ function nodes(root: React.ReactNode, type: unknown): React.ReactElement<Props>[
 it('keeps the default account card address selectable with its public full-address accessibility label', () => {
   const root = AccountIdentityCard({ address: 'GCOUNTERPARTY', name: 'Alice', label: 'Recipient' });
   const text = nodes(root, Text);
-  expect(text.map(node => node.props.children)).toEqual(['A', 'Recipient', 'Alice', 'GCOU****ARTY']);
+  expect(text.map(node => node.props.children)).toEqual(['Recipient', 'Alice', 'GCOU****ARTY']);
+  expect(nodes(root, IdentityAvatar)[0].props.identity).toBe('GCOUNTERPARTY');
   expect(text.find(node => node.props.selectable)?.props.accessibilityLabel).toBe('GCOUNTERPARTY');
+});
+it('renders a single selectable identity with memo and full-address accessibility, preserving its click handler', () => {
+  const onPress = jest.fn();
+  const root = AccountIdentityCard({
+    address: 'GCOUNTERPARTY',
+    name: 'Alice',
+    label: 'Local',
+    presentation: 'selectable',
+    memoText: 'Memo ID: 7',
+    onPress,
+  });
+  expect(nodes(root, Pressable)).toHaveLength(1);
+  expect(nodes(root, IdentityAvatar)[0].props.identity).toBe('GCOUNTERPARTY');
+  expect(nodes(root, Text).map(node => node.props.children)).toEqual(['Alice', 'GCOUNTERPARTY', 'Memo ID: 7']);
+  expect(root.props).toMatchObject({
+    accessibilityRole: 'button',
+    accessibilityLabel: 'Alice, GCOUNTERPARTY, Memo ID: 7',
+  });
+  root.props.onPress();
+  expect(onPress).toHaveBeenCalledTimes(1);
+});
+it('shows local identity source as secondary display text without changing the underlying address', () => {
+  const selectable = AccountIdentityCard({
+    address: 'GCOUNTERPARTY',
+    name: 'Alice',
+    label: 'Contact',
+    presentation: 'selectable',
+    secondary: 'Saved contact',
+  });
+  expect(nodes(selectable, Text).map(node => node.props.children)).toEqual(['Alice', 'Saved contact', 'GCOUNTERPARTY']);
+  const normal = AccountIdentityCard({
+    address: 'GCOUNTERPARTY',
+    name: 'Alice',
+    label: 'Recipient',
+    secondary: 'Address-only match',
+  });
+  expect(nodes(normal, Text).map(node => node.props.children)).toEqual([
+    'Recipient',
+    'Alice',
+    'Address-only match',
+    'GCOU****ARTY',
+  ]);
 });
 it('keeps compact account avatars tied to exact address across renames, with masked fallback and no nested selectable control', () => {
   const render = (name: string) =>
