@@ -1229,3 +1229,15 @@ S13 constructor/create-identity fix merged #161. Slice6 failed history/technical
 visibility candidate uses `behavior-specs/s13-failed-visibility-history.md`;
 known false is non-monetary, raw unknown stays unsupported, legacy cache preserved.
 No native/maturity promotion; effects/images/explicitDustSpam policy follow.
+
+### Settings / Terms & Conditions — pre-content closure (2026-11-04)
+
+- Baseline: #155 merged. Questions & Support entry, official browser handoff, stale-failure guard, and localized Terms pending screen are implemented; native iOS/Android acceptance remains deferred to the consolidated device round.
+- This slice: add a safe, theme-aware and scrollable read-only Terms renderer for approved structured plain-text content, explicit unavailable/invalid/ready validation, version display, and focused automated tests. Do **not** confuse test fixture presentation with published agreement acceptance. No legal content is bundled or fetched; the production view must remain in pending state.
+- **Waiting for product owner / legal-content owner (required before formal Terms publication):**
+  1. Provide the final Fresnica Terms & Conditions / Service Agreement text, with the exact legal entity, jurisdiction, contact information and effective date reviewed by the responsible party. Confirm the text accurately describes current Fresnica capabilities, especially that multisignature submission is not currently supported; do not reuse the inaccurate 2026-07-13 donor wording without revision.
+  2. Provide the rights/provenance basis for distributing this text (original approved document or file-level authorization from the copyright holder). Selecting an old agreement version alone is insufficient.
+  3. Approve the publication version identifier (`YYYYMMDD`) and the language policy for legal content (approved translations versus an explicitly identified source-language original). UI localization alone is not a legal translation.
+  4. Decide whether users must explicitly accept Terms at onboarding or on version updates. If required, approve the user gesture, cancellation/decline consequences, persistence scope, migration, repeat prompt and version-change semantics before implementing acceptance.
+- **After inputs arrive:** integrate the approved content, prove byte-for-byte content/version integrity and rollback/error paths, independently review the exact new HEAD, then include native scrolling/accessibility/dynamic-type and browser handoff in the final iOS/Android acceptance round.
+- **State:** Questions & Support code complete / native pending; Terms reader foundation implementable without legal text; official Terms publication and acceptance remain blocked by owner-provided inputs, not L4 complete.

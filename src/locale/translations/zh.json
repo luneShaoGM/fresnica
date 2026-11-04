@@ -233,6 +233,8 @@
   "settings.terms": "条款与条件",
   "settings.supportOpenFailed": "无法打开官方支持网站。请在浏览器可用时重试。",
   "settings.termsReferenceVersion": "参考协议版本",
+  "settings.termsDocumentVersion": "协议版本",
+  "settings.termsInvalidDocument": "无法显示条款：提供的协议内容无效，且尚未接受任何协议。",
   "settings.termsPendingApproval": "条款暂不可用。参考协议尚需完成再分发授权核验，并根据钱包当前实际功能修订。请在正式协议发布后重新查看。",
   "settings.termsNotAccepted": "查看此页面不会记录任何协议的接受状态。",
   "settings.about": "关于",
