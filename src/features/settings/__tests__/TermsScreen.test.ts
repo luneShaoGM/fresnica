@@ -44,3 +44,36 @@ it.each(['en', 'zh', 'zh-TW'] as const)('has localized support and reference cop
   expect(t('settings.termsPendingApproval')).not.toBe('settings.termsPendingApproval');
   expect(t('settings.termsNotAccepted')).not.toBe('settings.termsNotAccepted');
 });
+
+it('renders approved long-form content as separate accessible read-only paragraphs', () => {
+  const longText = 'Legal detail '.repeat(500);
+  const node = TermsScreen({
+    onBack: jest.fn(),
+    approvedDocument: {
+      version: '20261104',
+      title: 'Approved for test only',
+      sections: [
+        { kind: 'heading', text: 'Scope' },
+        { kind: 'paragraph', text: longText },
+      ],
+    },
+  });
+  const content = node.props.children as React.ReactElement<{ children: React.ReactNode }>;
+  const lines = React.Children.toArray(content.props.children) as React.ReactElement<{
+    children: React.ReactNode;
+    accessibilityRole?: string;
+  }>[];
+  expect(lines).toHaveLength(5);
+  expect(lines[0].props.accessibilityRole).toBe('header');
+  expect(lines[2].props.accessibilityRole).toBe('header');
+  expect(lines[3].props.children).toBe(longText);
+  expect(lines[4].props.children).toBe(createLocalization('en').t('settings.termsNotAccepted'));
+});
+
+it('keeps malformed documents fail-closed with no legal paragraphs or accept controls', () => {
+  const node = TermsScreen({ onBack: jest.fn(), approvedDocument: { version: '20261104', title: '', sections: [] } });
+  const content = node.props.children as React.ReactElement<{ children: React.ReactNode }>;
+  const lines = React.Children.toArray(content.props.children) as React.ReactElement<{ children: React.ReactNode }>[];
+  expect(lines).toHaveLength(3);
+  expect(lines[1].props.children).toBe(createLocalization('en').t('settings.termsInvalidDocument'));
+});

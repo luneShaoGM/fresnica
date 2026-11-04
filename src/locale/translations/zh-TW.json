@@ -233,6 +233,8 @@
   "settings.terms": "條款與條件",
   "settings.supportOpenFailed": "無法開啟官方支援網站。請在瀏覽器可用時重試。",
   "settings.termsReferenceVersion": "參考協議版本",
+  "settings.termsDocumentVersion": "協議版本",
+  "settings.termsInvalidDocument": "無法顯示條款：提供的協議內容無效，且尚未接受任何協議。",
   "settings.termsPendingApproval": "條款暫不可用。參考協議尚需完成再散布授權查核，並依錢包目前的實際功能修訂。請於正式協議發布後再次查看。",
   "settings.termsNotAccepted": "檢視此頁面不會記錄對任何協議的接受狀態。",
   "settings.about": "關於",
