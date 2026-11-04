@@ -1,3 +1,4 @@
+import { normalizeFailedHistory } from './failedHistory';
 import { isClassicControlType, mapClassicControl } from './classicControlHistory';
 import { CONTRACT_HOST_FUNCTIONS, mapContract } from './contractHistory';
 import { isMaintenanceType, mapMaintenance } from './maintenanceHistory';
@@ -114,9 +115,13 @@ function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): Hi
     occurredAt: entry.occurredAt,
     transactionHash: entry.transactionHash,
     sourceAccount: entry.sourceAccount,
+    ...(typeof entry.successful === 'boolean' ? { successful: entry.successful } : {}),
   };
 
   switch (entry.kind) {
+    case 'failed':
+      if (!accountAddress) throw new Error('history-cache-invalid-partition');
+      return normalizeFailedHistory(entry, accountAddress);
     case 'account-control': {
       if (!accountAddress) throw new Error('history-cache-invalid-partition');
       const result = mapClassicControl({ ...base, type: entry.operationType, successful: entry.successful, controlParameters: entry.parameters }, accountAddress, base);
@@ -395,7 +400,11 @@ function assertHistoryEntry(entry: HistoryEntry): void {
     throw new Error('history-cache-invalid-entry');
   }
 
+  if (entry.kind !== 'failed' && entry.kind !== 'unsupported' && entry.successful === false) throw new Error('history-cache-invalid-entry');
   switch (entry.kind) {
+    case 'failed':
+      if (entry.successful !== false) throw new Error('history-cache-invalid-entry');
+      return;
     case 'account-control':
       if (!isClassicControlType(entry.operationType)) throw new Error('history-cache-invalid-entry');
       return;

@@ -14,7 +14,6 @@ it.each(['invoke', 'create', 'create-v2', 'upload'] as const)('maps exact %s var
   expect('functionName' in entry).toBe(host === 'invoke');
 });
 it.each([
-  { successful: false },
   { successful: undefined },
   { hostFunction: 'invoke' },
   { hostFunction: 'unknown-constructor' },

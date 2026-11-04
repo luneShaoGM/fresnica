@@ -38,7 +38,7 @@ it.each(trustSponsorshipTypes)(
       expect(() => cache({ ...entry, successful: false } as unknown as HistoryEntry, address)).toThrow();
       expect(() => cache({ ...entry, operationType: 'payment' }, address)).toThrow();
     }
-    for (const successful of [false, undefined])
+    for (const successful of [undefined])
       expect(mapHistoryEntry(trustSponsorshipRecord(type, { successful }), trustIssuer)).toMatchObject({
         kind: 'unsupported',
         reason: 'operation-shape',

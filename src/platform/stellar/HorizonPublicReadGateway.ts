@@ -58,7 +58,7 @@ export function createHorizonPublicReadGateway(http: typeof fetch = fetch) {
       signal: AbortSignal,
     ) {
       if (!Number.isInteger(input.limit) || input.limit < 1 || input.limit > 200) throw new NodeReadError('request');
-      const query = `order=desc&limit=${input.limit}${input.cursor === undefined ? '' : `&cursor=${encodeURIComponent(input.cursor)}`}`;
+      const query = `include_failed=true&order=desc&limit=${input.limit}${input.cursor === undefined ? '' : `&cursor=${encodeURIComponent(input.cursor)}`}`;
       const value = await get(endpoint, `/accounts/${encodeURIComponent(input.address)}/operations?${query}`, signal);
       if (value === undefined) return { status: 'inactive' as const, address: input.address };
       const records = object(object(value)._embedded).records;

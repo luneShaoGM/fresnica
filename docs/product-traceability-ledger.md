@@ -374,3 +374,8 @@ Slice 5f corrects the earlier create-address assumption and adds constructors;
 `behavior-specs/s13-contract-constructor-history.md` supersedes the older creation identity contract.
 Horizon address is the deployer, never proof of the newly created contract ID.
 Slice5e classic controls merged #160. No native/maturity promotion.
+
+S13 constructor/create-identity fix merged #161. Slice6 failed history/technical
+visibility candidate uses `behavior-specs/s13-failed-visibility-history.md`;
+known false is non-monetary, raw unknown stays unsupported, legacy cache preserved.
+No native/maturity promotion; effects/images/explicitDustSpam policy follow.

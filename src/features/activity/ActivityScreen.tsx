@@ -1,3 +1,4 @@
+import { isTechnicalHistoryOperation } from '@capabilities/history/failedHistory';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
@@ -51,13 +52,14 @@ type Props = Readonly<{
   identityNames?: ActivityIdentityNames;
 }>;
 
-const FILTERS: readonly ActivityFilter[] = ['all', 'payments', 'accounts', 'trustlines', 'other'];
+const FILTERS: readonly ActivityFilter[] = ['all', 'payments', 'accounts', 'trustlines', 'other', 'failed'];
 const FILTER_LABEL_KEYS: Readonly<Record<ActivityFilter, string>> = {
   all: 'activity.filter.all',
   payments: 'activity.filter.payments',
   accounts: 'activity.filter.accounts',
   trustlines: 'activity.filter.trustlines',
   other: 'activity.filter.other',
+  failed: 'activity.filter.failed',
 };
 
 export function ActivityScreen({
@@ -76,6 +78,7 @@ export function ActivityScreen({
   const [filter, setFilter] = useState<ActivityFilter>('all');
   const [searchText, setSearchText] = useState('');
   const [headReadPending, setHeadReadPending] = useState(false);
+  const [showTechnical, setShowTechnical] = useState(true);
   const requestVersion = useRef(0);
   const hasHydrated = useRef(false);
   const revalidating = useRef(false);
@@ -83,6 +86,7 @@ export function ActivityScreen({
   useEffect(() => {
     setFilter('all');
     setSearchText('');
+    setShowTechnical(true);
   }, [account.address, account.networkId]);
 
   const loadInitial = useCallback(
@@ -239,10 +243,11 @@ export function ActivityScreen({
 
     return state.entries.filter(
       entry =>
+        (showTechnical || !isTechnicalHistoryOperation(entry.operationType)) &&
         matchesActivityFilter(entry, filter) &&
         matchesActivitySearch(entry, searchText, t, formatNumber, identityNames),
     );
-  }, [filter, formatNumber, identityNames, searchText, state, t]);
+  }, [filter, formatNumber, identityNames, searchText, showTechnical, state, t]);
 
   const dateFormatter = useMemo(
     () =>
@@ -305,6 +310,7 @@ export function ActivityScreen({
           returnKeyType="search"
           value={searchText}
         />
+        <NativeButton label={t(showTechnical ? 'activity.visibility.hideTechnical' : 'activity.visibility.showTechnical')} size="sm" variant="secondary" onPress={() => setShowTechnical(value => !value)} />
         <ScrollView contentContainerStyle={styles.filters} horizontal showsHorizontalScrollIndicator={false}>
           {FILTERS.map(item => {
             const selected = filter === item;

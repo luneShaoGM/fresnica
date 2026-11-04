@@ -73,7 +73,7 @@ it('preserves invalid present parameters for fail-closed mapping and never coerc
   for (const type of maintenanceTypes)
     expect(
       mapHistoryEntry(mapHistoryOperationRecord({ ...wire(type), transaction_successful: false }), maintenanceSource),
-    ).toMatchObject({ kind: 'unsupported' });
+    ).toMatchObject({ kind: 'failed' });
 });
 
 it.each([undefined, null, '', 'MQ==', 'not-base64', { secret: 'ignored' }])(

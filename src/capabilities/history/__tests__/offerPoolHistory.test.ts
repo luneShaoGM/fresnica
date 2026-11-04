@@ -77,7 +77,6 @@ it('accepts passive with no ID, distinguishes asset issuers and code case', () =
     expect(mapHistoryEntry({ ...base, sellingAsset }, address).kind).toBe('offer');
 });
 it.each([
-  { successful: false },
   { successful: undefined },
   { successful: 'true' },
   { amount: '-1' },

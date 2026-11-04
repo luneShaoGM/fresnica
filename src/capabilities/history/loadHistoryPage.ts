@@ -1,3 +1,4 @@
+import { mapFailedHistory } from './failedHistory';
 import { mapClassicControl } from './classicControlHistory';
 import { mapContract } from './contractHistory';
 import { mapMaintenance } from './maintenanceHistory';
@@ -59,6 +60,8 @@ export async function loadHistoryPage(
 
 export function mapHistoryEntry(record: HistoryOperationRecord, accountAddress: string): HistoryEntry {
   const base = mapBase(record);
+  if (record.outcomeUnknown === true) return unsupportedShape(base);
+  if (record.successful === false) return mapFailedHistory(record, accountAddress, base) ?? unsupportedShape(base);
 
   switch (record.type) {
     case 'allow_trust':
@@ -134,6 +137,7 @@ function mapBase(record: HistoryOperationRecord): HistoryEntryBase {
     occurredAt,
     transactionHash,
     sourceAccount,
+    ...(typeof record.successful === 'boolean' ? { successful: record.successful } : {}),
   });
 }
 

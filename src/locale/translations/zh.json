@@ -1007,5 +1007,10 @@
   "activity.entry.contractConstructor": "通过构造器创建合约",
   "activity.contract.deployer": "部署者",
   "activity.contract.originAsset": "来源资产",
-  "activity.contract.createdIdUnavailable": "此操作记录未提供新合约地址。部署者不代表新创建的合约。"
+  "activity.contract.createdIdUnavailable": "此操作记录未提供新合约地址。部署者不代表新创建的合约。",
+  "activity.filter.failed": "失败",
+  "activity.entry.failed": "操作失败",
+  "activity.detail.failed": "交易失败。此记录表示尝试执行的操作，不代表已完成的付款或余额变化。",
+  "activity.visibility.hideTechnical": "隐藏技术类记录",
+  "activity.visibility.showTechnical": "显示技术类记录"
 }

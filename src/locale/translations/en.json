@@ -1007,5 +1007,10 @@
   "activity.entry.contractConstructor": "Contract created with constructor",
   "activity.contract.deployer": "Deployer",
   "activity.contract.originAsset": "Origin asset",
-  "activity.contract.createdIdUnavailable": "The new contract address is not provided by this operation record. The deployer is not the created contract."
+  "activity.contract.createdIdUnavailable": "The new contract address is not provided by this operation record. The deployer is not the created contract.",
+  "activity.filter.failed": "Failed",
+  "activity.entry.failed": "Operation failed",
+  "activity.detail.failed": "The transaction failed. This record describes an attempted operation, not an applied payment or balance change.",
+  "activity.visibility.hideTechnical": "Hide technical records",
+  "activity.visibility.showTechnical": "Show technical records"
 }
