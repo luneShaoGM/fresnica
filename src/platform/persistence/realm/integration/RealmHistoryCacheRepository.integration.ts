@@ -604,7 +604,7 @@ it('reopens contract identity and ordered exact i128 routed events in the origin
   );
   const variants = [
     entries,
-    ...(['create', 'upload'] as const).map(host =>
+    ...(['create', 'create-v2', 'upload'] as const).map(host =>
       mapHistoryEntry(
         {
           id: `contract-${host}`,
@@ -617,13 +617,16 @@ it('reopens contract identity and ordered exact i128 routed events in the origin
           hostFunction:
             host === 'create'
               ? 'HostFunctionTypeHostFunctionTypeCreateContract'
-              : 'HostFunctionTypeHostFunctionTypeUploadContractWasm',
+              : host === 'create-v2' ? 'HostFunctionTypeHostFunctionTypeCreateContractV2' : 'HostFunctionTypeHostFunctionTypeUploadContractWasm',
+          creationOrigin: 'address', deployer: address,
+          ...(host === 'create-v2' ? { assetBalanceChanges: [{ type: 'transfer', asset: { kind: 'native' as const }, amount: '1', from: address, to: recipient }] } : {}),
           contractId: `C${'A'.repeat(55)}`,
         },
         address,
       ),
     ),
   ];
+  expect(variants.every(entry => entry.kind === 'contract')).toBe(true);
   const snapshot = historySnapshot(
     variants,
     variants.map(entry => ({ operationId: entry.id, entry })),

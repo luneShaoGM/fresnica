@@ -995,5 +995,9 @@
   "activity.control.revoke_sponsorship": "撤銷贊助",
   "activity.control.explanation.revoke_sponsorship": "此記錄標識歷史撤銷贊助操作的目標，不代表目前贊助關係、儲備變化或轉帳。",
   "activity.control.inflation": "歷史通膨操作",
-  "activity.control.explanation.inflation": "此歷史通膨操作未標識分配接收方或金額。"
+  "activity.control.explanation.inflation": "此歷史通膨操作未標識分配接收方或金額。",
+  "activity.entry.contractConstructor": "透過建構器建立合約",
+  "activity.contract.deployer": "部署者",
+  "activity.contract.originAsset": "來源資產",
+  "activity.contract.createdIdUnavailable": "此操作記錄未提供新合約地址。部署者不代表新建立的合約。"
 }

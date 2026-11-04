@@ -139,7 +139,10 @@ export type HistoryContractEntry = HistoryEntryBase &
   Readonly<{
     kind: 'contract';
     successful: true;
-    hostFunction: 'invoke' | 'create' | 'upload';
+    hostFunction: 'invoke' | 'create' | 'create-v2' | 'upload';
+    creationOrigin?: 'address' | 'asset';
+    deployer?: string;
+    creationAsset?: HistoryAsset;
     contractId?: string;
     functionName?: string;
     events?: readonly HistoryContractEvent[];
