@@ -16,6 +16,11 @@ export function createSendFormStyles(theme: AppTheme) {
     headerSide: {flex: 1, alignItems: 'flex-start'},
     headerTitle: {fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary},
     content: {paddingBottom: 28},
+    stepIndicator: {paddingHorizontal: 18, paddingTop: 12, fontSize: 11, color: theme.colors.textSecondary},
+    recipientSummary: {
+      paddingHorizontal: 18, paddingTop: 18, fontSize: 22, lineHeight: 28,
+      fontWeight: '700', color: theme.colors.textPrimary,
+    },
     fromLabel: {paddingHorizontal: 18, paddingTop: 14, fontSize: 11, lineHeight: 15, color: theme.colors.textTertiary},
     sectionLabel: {
       paddingHorizontal: 18,

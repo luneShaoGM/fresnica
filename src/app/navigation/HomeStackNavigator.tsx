@@ -21,6 +21,7 @@ import { RequestFlowScreen } from '@features/request/RequestFlowScreen';
 import { ManageAssetsScreen } from '@features/trustlines/ManageAssetsScreen';
 import { SwapPreviewScreen, SwapUnavailableScreen } from '@features/swap/SwapPreviewScreen';
 import { ReactNativeRequestQrScannerView } from '@platform/system/RequestQrScannerView';
+import { reactNativeRequestIngress } from '@platform/system/requestIngress';
 
 import type { AppServices } from '../createAppServices';
 import { resolveVisibleAccount } from './accountSelection';
@@ -167,6 +168,7 @@ export function HomeStackNavigator({
               account={account}
               key={JSON.stringify([account.id, account.networkId])}
               contacts={services.contacts}
+              scanner={{ ScannerView: ReactNativeRequestQrScannerView, ingress: reactNativeRequestIngress }}
               destinationAccounts={accounts}
               dependencies={services.send}
               requestIntent={route.params.requestIntent}

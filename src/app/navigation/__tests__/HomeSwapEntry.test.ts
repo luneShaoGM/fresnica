@@ -19,6 +19,13 @@ jest.mock('@features/swap/SwapPreviewScreen', () => ({
   SwapUnavailableScreen: () => null,
 }));
 jest.mock('@platform/system/RequestQrScannerView', () => ({ ReactNativeRequestQrScannerView: () => null }));
+jest.mock('@platform/system/requestIngress', () => ({
+  reactNativeRequestIngress: {
+    checkCameraPermission: jest.fn(),
+    requestCameraPermission: jest.fn(),
+    openCameraSettings: jest.fn(),
+  },
+}));
 
 jest.mock('react', () => {
   const actual = jest.requireActual('react') as typeof import('react');

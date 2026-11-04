@@ -58,12 +58,13 @@ function visit(node: React.ReactNode, callback: (element: React.ReactElement<Nod
   React.Children.forEach(node.props.children, child => visit(child, callback));
 }
 
-function renderForm(onSelectMemoType = jest.fn(), building = false) {
+function renderForm(onSelectMemoType = jest.fn(), building = false, step: 'details' | 'recipient' = 'recipient') {
   const onCancel = jest.fn();
   return {
     onSelectMemoType,
     onCancel,
     root: SendFormScreen({
+      step,
       accountLabel: 'Primary',
       balances: [{ asset: { kind: 'native', code: 'XLM' }, balance: '10.0000000' }],
       selectedAsset: { kind: 'native', code: 'XLM' },
@@ -78,6 +79,7 @@ function renderForm(onSelectMemoType = jest.fn(), building = false) {
       onSelectMemoType,
       onChangeMemoValue: jest.fn(),
       onContinue: jest.fn(),
+      onBack: jest.fn(),
       onCancel,
     }),
   };
@@ -86,7 +88,7 @@ describe('SendFormScreen memo families', () => {
   it.each([false, true])(
     'keeps Cancel send available when building=%s, without altering the form or scroll controls',
     building => {
-      const { root, onCancel } = renderForm(jest.fn(), building);
+      const { root, onCancel } = renderForm(jest.fn(), building, 'details');
       const styles = createSendFormStyles(defaultTheme);
       expect(root.type).toBe(Screen);
       expect(root.props).toMatchObject({ scrollable: false, contentInset: 'none' });
@@ -102,7 +104,7 @@ describe('SendFormScreen memo families', () => {
       );
       expect(left?.type).toBe(View);
       expect(title?.type).toBe(Text);
-      expect(title?.props.children).toBe('Send');
+      expect(title?.props.children).toBe('send.step.details');
       expect(right?.type).toBe(View);
       expect(left?.props.style).toEqual(styles.headerSide);
       expect(right?.props.style).toEqual(styles.headerSide);
@@ -134,6 +136,27 @@ describe('SendFormScreen memo families', () => {
       });
     },
   );
+
+  it('shows amount and asset only in Details, and destination/Memo only in Recipient', () => {
+    const details = renderForm(jest.fn(), false, 'details').root;
+    const recipient = renderForm(jest.fn(), false, 'recipient').root;
+    const strings = (root: React.ReactNode) => {
+      const results: string[] = [];
+      visit(root, node => {
+        if (node.type === Text && typeof node.props.children === 'string') results.push(node.props.children);
+      });
+      return results;
+    };
+    expect(strings(details)).toContain('ASSET');
+    expect(strings(details)).toContain('AMOUNT');
+    expect(strings(details)).not.toContain('RECIPIENT');
+    expect(strings(details)).not.toContain('MEMO');
+    expect(strings(recipient)).not.toContain('ASSET');
+    expect(strings(recipient)).not.toContain('AMOUNT');
+    expect(strings(recipient)).toContain('RECIPIENT');
+    expect(strings(recipient)).toContain('MEMO');
+    expect(strings(recipient)).toContain('send.step.recipient');
+  });
 
   it('renders None/Text/ID/Hash choices with ID selected and a numeric ID input', () => {
     const { root } = renderForm();

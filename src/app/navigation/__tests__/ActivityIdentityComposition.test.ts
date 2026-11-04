@@ -5,6 +5,15 @@ import type { AppServices } from '../../createAppServices';
 import { ActivityStackNavigator } from '../ActivityStackNavigator';
 import { ActivityScreen } from '@features/activity/ActivityScreen';
 
+jest.mock('@platform/system/RequestQrScannerView', () => ({ ReactNativeRequestQrScannerView: () => null }));
+jest.mock('@platform/system/requestIngress', () => ({
+  reactNativeRequestIngress: {
+    checkCameraPermission: jest.fn(),
+    requestCameraPermission: jest.fn(),
+    openCameraSettings: jest.fn(),
+  },
+}));
+
 jest.mock('react', () => ({
   ...jest.requireActual('react'),
   useMemo: (factory: () => unknown) => factory(),

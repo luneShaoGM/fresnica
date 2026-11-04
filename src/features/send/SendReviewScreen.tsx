@@ -60,7 +60,7 @@ export function SendReviewScreen({
           style={styles.backButton}>
           <Text style={styles.backGlyph}>‹</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>Review</Text>
+        <Text style={styles.headerTitle}>{t('send.step.summary')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
