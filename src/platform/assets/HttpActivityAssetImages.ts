@@ -55,10 +55,9 @@ function toBase64(bytes: Uint8Array): string {
 
 async function boundedBytes(response: Response, signal: AbortSignal): Promise<Uint8Array | undefined> {
   const reader = response.body?.getReader?.();
-  if (!reader) {
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    return !signal.aborted && bytes.length <= MAX_BYTES ? bytes : undefined;
-  }
+  // Some native fetch implementations have no streaming reader. Never buffer
+  // their entire response: Content-Length may be missing or incorrect.
+  if (!reader) return undefined;
   const parts: Uint8Array[] = [];
   let total = 0;
   try {

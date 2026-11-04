@@ -20,7 +20,22 @@ function response(bytes: Uint8Array, url = icon) {
     redirected: false,
     url,
     headers: { get: () => null },
-    arrayBuffer: async () => bytes.buffer,
+    body: {
+      getReader: () => {
+        let delivered = false;
+        return {
+          read: async () => {
+            if (delivered) return { done: true as const, value: undefined };
+            delivered = true;
+            return { done: false as const, value: bytes };
+          },
+          cancel: async () => undefined,
+        };
+      },
+    },
+    arrayBuffer: jest.fn(() => {
+      throw new Error('unbounded-read-not-allowed');
+    }),
   } as unknown as Response;
 }
 
@@ -91,6 +106,63 @@ describe('opt-in Activity asset images', () => {
       const port = createHttpActivityAssetImages(source, jest.fn(async () => result) as unknown as typeof fetch);
       expect(await port.resolve('stellar-mainnet', asset, signal())).toBeUndefined();
     }
+  });
+
+  it.each([null, {}, { getReader: undefined }])(
+    'never reads a response without a streaming reader, even with a claimed small Content-Length',
+    async body => {
+      const source = catalog([{ code: asset.code, issuer: asset.issuer, icon }]);
+      const arrayBuffer = jest.fn(() => {
+        throw new Error('unbounded-read-not-allowed');
+      });
+      const unstreamable = {
+        ...response(png()),
+        body,
+        headers: { get: () => '32' },
+        arrayBuffer,
+      } as unknown as Response;
+      const http = jest.fn(async () => unstreamable);
+      const port = createHttpActivityAssetImages(source, http as unknown as typeof fetch);
+      expect(await port.resolve('stellar-mainnet', asset, signal())).toBeUndefined();
+      expect(arrayBuffer).not.toHaveBeenCalled();
+    },
+  );
+
+  it('never reads an unstreamable response with unknown length and preserves the fallback', async () => {
+    const source = catalog([{ code: asset.code, issuer: asset.issuer, icon }]);
+    const arrayBuffer = jest.fn(() => {
+      throw new Error('would allocate unbounded body');
+    });
+    const unstreamable = { ...response(png()), body: null, arrayBuffer } as unknown as Response;
+    const http = jest.fn(async () => unstreamable);
+    const port = createHttpActivityAssetImages(source, http as unknown as typeof fetch);
+    expect(await port.resolve('stellar-mainnet', asset, signal())).toBeUndefined();
+    expect(arrayBuffer).not.toHaveBeenCalled();
+    expect(http).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels a streaming response as soon as it exceeds 64 KiB', async () => {
+    const source = catalog([{ code: asset.code, issuer: asset.issuer, icon }]);
+    const cancel = jest.fn(async () => undefined);
+    const read = jest
+      .fn()
+      .mockResolvedValueOnce({ done: false, value: new Uint8Array(40_000) })
+      .mockResolvedValueOnce({ done: false, value: new Uint8Array(25_537) })
+      .mockResolvedValue({ done: false, value: new Uint8Array(1) });
+    const arrayBuffer = jest.fn(() => {
+      throw new Error('unbounded-read-not-allowed');
+    });
+    const streamed = {
+      ...response(png()),
+      body: { getReader: () => ({ read, cancel }) },
+      arrayBuffer,
+    } as unknown as Response;
+    const http = jest.fn(async () => streamed);
+    const port = createHttpActivityAssetImages(source, http as unknown as typeof fetch);
+    expect(await port.resolve('stellar-mainnet', asset, signal())).toBeUndefined();
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(arrayBuffer).not.toHaveBeenCalled();
   });
 
   it('rejects conflicting public catalog images for the exact same asset', async () => {
