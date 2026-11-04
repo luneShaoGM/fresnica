@@ -134,11 +134,6 @@ function mapContractFields(input: HorizonOperationLike): Partial<HistoryOperatio
       if (address.type !== 'scvAddress' || symbol.type !== 'scvSymbol') throw new Error('invalid-contract-identity');
       contractId = Address.fromScVal(address).toString();
       functionName = symbol.sym.toString();
-    } else if (
-      input.function === 'HostFunctionTypeHostFunctionTypeCreateContract' &&
-      typeof input.address === 'string'
-    ) {
-      contractId = input.address;
     }
     if (
       contractId !== undefined &&
@@ -167,6 +162,11 @@ function mapContractFields(input: HorizonOperationLike): Partial<HistoryOperatio
       : raw;
   return {
     hostFunction: input.function,
+    ...(['HostFunctionTypeHostFunctionTypeCreateContract', 'HostFunctionTypeHostFunctionTypeCreateContractV2'].some(kind => kind === input.function) ? {
+      creationOrigin: input.from,
+      ...(input.from === 'address' && typeof input.address === 'string' && (StrKey.isValidEd25519PublicKey(input.address) || StrKey.isValidContract(input.address)) ? { deployer: input.address } : {}),
+      ...(input.from === 'asset' ? { creationAsset: canonicalHistoryAsset(input.asset) } : {}),
+    } : {}),
     ...(contractId === undefined ? {} : { contractId }),
     ...(functionName === undefined ? {} : { functionName }),
     ...(events === undefined ? {} : { assetBalanceChanges: events }),

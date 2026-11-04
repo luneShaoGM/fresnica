@@ -22,6 +22,9 @@ export type HistoryOperationRecord = Readonly<{
   controlParameters?: unknown;
   hostFunction?: unknown;
   contractId?: unknown;
+  creationOrigin?: unknown;
+  deployer?: unknown;
+  creationAsset?: HistoryOperationAsset;
   functionName?: unknown;
   assetBalanceChanges?: unknown;
   claimants?: unknown;

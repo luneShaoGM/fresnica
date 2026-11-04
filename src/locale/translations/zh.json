@@ -995,5 +995,9 @@
   "activity.control.revoke_sponsorship": "撤销赞助",
   "activity.control.explanation.revoke_sponsorship": "此记录标识历史撤销赞助操作的目标，不代表当前赞助关系、储备变化或转账。",
   "activity.control.inflation": "历史通胀操作",
-  "activity.control.explanation.inflation": "此历史通胀操作未标识分配接收方或金额。"
+  "activity.control.explanation.inflation": "此历史通胀操作未标识分配接收方或金额。",
+  "activity.entry.contractConstructor": "通过构造器创建合约",
+  "activity.contract.deployer": "部署者",
+  "activity.contract.originAsset": "来源资产",
+  "activity.contract.createdIdUnavailable": "此操作记录未提供新合约地址。部署者不代表新创建的合约。"
 }

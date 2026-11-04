@@ -17,6 +17,8 @@ export function contractRecord(overrides: Partial<HistoryOperationRecord> = {}):
     successful: true,
     hostFunction: CONTRACT_HOST_FUNCTIONS.invoke,
     contractId,
+    creationOrigin: 'address',
+    deployer: source,
     functionName: 'transfer',
     ...overrides,
   };

@@ -5,6 +5,7 @@ import type { HistoryContractEntry, HistoryContractEvent, HistoryEntryBase } fro
 export const CONTRACT_HOST_FUNCTIONS = {
   invoke: 'HostFunctionTypeHostFunctionTypeInvokeContract',
   create: 'HostFunctionTypeHostFunctionTypeCreateContract',
+  'create-v2': 'HostFunctionTypeHostFunctionTypeCreateContractV2',
   upload: 'HostFunctionTypeHostFunctionTypeUploadContractWasm',
 } as const;
 function object(value: unknown): value is Record<string, unknown> {
@@ -20,7 +21,11 @@ export function contractAmount(value: unknown): value is string {
 }
 export function contractAssociated(record: HistoryOperationRecord, address: string): boolean {
   if (record.sourceAccount === address) return true;
-  if (record.hostFunction !== CONTRACT_HOST_FUNCTIONS.invoke) return false;
+  if (
+    record.hostFunction !== CONTRACT_HOST_FUNCTIONS.invoke &&
+    record.hostFunction !== CONTRACT_HOST_FUNCTIONS['create-v2']
+  )
+    return false;
   const events = record.assetBalanceChanges;
   return (
     Array.isArray(events) &&
@@ -91,7 +96,7 @@ export function mapContract(
   );
   if (!hostFunction) return undefined;
   if (
-    hostFunction !== 'upload' &&
+    hostFunction === 'invoke' &&
     (typeof record.contractId !== 'string' || !/^C[A-Z2-7]{55}$/.test(record.contractId))
   )
     return undefined;
@@ -100,10 +105,24 @@ export function mapContract(
     (typeof record.functionName !== 'string' || !/^[A-Za-z0-9_]{1,32}$/.test(record.functionName))
   )
     return undefined;
+  const creation = hostFunction === 'create' || hostFunction === 'create-v2';
+  const creationAsset = creation && record.creationOrigin === 'asset' ? pathAsset(record.creationAsset) : undefined;
+  if (
+    creation &&
+    !(record.creationOrigin === 'address'
+      ? contractParty(record.deployer)
+      : record.creationOrigin === 'asset' && creationAsset)
+  )
+    return undefined;
   const raw = record.assetBalanceChanges;
   let events: readonly HistoryContractEvent[] | undefined;
   if (raw !== undefined && raw !== null) {
-    if (!Array.isArray(raw) || raw.length > 128 || (hostFunction !== 'invoke' && raw.length > 0)) return undefined;
+    if (
+      !Array.isArray(raw) ||
+      raw.length > 128 ||
+      (hostFunction !== 'invoke' && hostFunction !== 'create-v2' && raw.length > 0)
+    )
+      return undefined;
     const normalized = raw.map(value => event(value, account));
     if (normalized.some(value => !value)) return undefined;
     events = Object.freeze(normalized as HistoryContractEvent[]);
@@ -113,7 +132,15 @@ export function mapContract(
     kind: 'contract',
     successful: true,
     hostFunction,
-    ...(hostFunction === 'upload' ? {} : { contractId: record.contractId as string }),
+    ...(hostFunction === 'invoke' ? { contractId: record.contractId as string } : {}),
+    ...(creation
+      ? {
+          creationOrigin: record.creationOrigin as 'address' | 'asset',
+          ...(record.creationOrigin === 'address'
+            ? { deployer: record.deployer as string }
+            : { creationAsset: creationAsset! }),
+        }
+      : {}),
     ...(hostFunction === 'invoke' ? { functionName: record.functionName as string } : {}),
     ...(events === undefined ? {} : { events }),
   });

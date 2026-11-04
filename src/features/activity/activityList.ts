@@ -78,7 +78,7 @@ export function activityEntryPresentation(
     case 'contract': {
       const relevant = entry.events?.filter(event => event.direction !== 'neutral') ?? [];
       const title = t(
-        `activity.entry.contract${entry.hostFunction === 'invoke' ? 'Invoke' : entry.hostFunction === 'create' ? 'Create' : 'Upload'}`,
+        `activity.entry.contract${entry.hostFunction === 'invoke' ? 'Invoke' : entry.hostFunction === 'create' ? 'Create' : entry.hostFunction === 'create-v2' ? 'Constructor' : 'Upload'}`,
       );
       return {
         title:
@@ -282,7 +282,9 @@ export function matchesActivitySearch(
     );
   }
   if (entry.kind === 'contract') {
-    values.push(entry.hostFunction, entry.contractId ?? '', entry.functionName ?? '');
+    values.push(entry.hostFunction, entry.contractId ?? '', entry.functionName ?? '', entry.deployer ?? '', entry.creationOrigin ?? '');
+    if (entry.creationAsset) values.push(entry.creationAsset.code, entry.creationAsset.kind === 'credit' ? entry.creationAsset.issuer : '');
+    if (entry.deployer?.startsWith('G')) values.push(identityNames?.get(entry.deployer) ?? '');
     for (const event of entry.events ?? []) {
       values.push(
         event.type,

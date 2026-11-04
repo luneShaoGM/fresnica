@@ -174,3 +174,8 @@ Local Jest used `--watchman=false`. Final CI and independent exact-HEAD review a
 recorded on the PR separately; this evidence is not native product acceptance.
 Remaining Slice 5 families, Slice 6, missing historical money enrichment, branded
 imagery and unobserved device/accessibility/performance acceptance remain open.
+
+Slice 5f corrects the earlier create-address assumption and adds constructors;
+`s13-contract-constructor-history.md` supersedes the older creation identity contract.
+Horizon address is the deployer, never proof of the newly created contract ID.
+Slice5e classic controls merged #160. No native/maturity promotion.

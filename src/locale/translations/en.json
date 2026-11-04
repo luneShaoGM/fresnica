@@ -995,5 +995,9 @@
   "activity.control.revoke_sponsorship": "Sponsorship revoked",
   "activity.control.explanation.revoke_sponsorship": "This record identifies a historical sponsorship-revocation target. It does not establish current sponsorship, reserve changes or a payment.",
   "activity.control.inflation": "Historical inflation operation",
-  "activity.control.explanation.inflation": "This historical inflation operation does not identify payout recipients or amounts."
+  "activity.control.explanation.inflation": "This historical inflation operation does not identify payout recipients or amounts.",
+  "activity.entry.contractConstructor": "Contract created with constructor",
+  "activity.contract.deployer": "Deployer",
+  "activity.contract.originAsset": "Origin asset",
+  "activity.contract.createdIdUnavailable": "The new contract address is not provided by this operation record. The deployer is not the created contract."
 }

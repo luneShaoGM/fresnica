@@ -187,6 +187,7 @@ function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): Hi
       return reconstructed;
     }
     case 'contract': {
+      if (entry.creationAsset) assertAsset(entry.creationAsset);
       if (!accountAddress) throw new Error('history-cache-invalid-partition');
       if (entry.events !== undefined && (!Array.isArray(entry.events) || entry.events.length > 128))
         throw new Error('history-cache-invalid-entry');
@@ -198,6 +199,9 @@ function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): Hi
           successful: entry.successful,
           hostFunction: CONTRACT_HOST_FUNCTIONS[entry.hostFunction],
           contractId: entry.contractId,
+          creationOrigin: entry.creationOrigin,
+          deployer: entry.deployer,
+          creationAsset: entry.creationAsset,
           functionName: entry.functionName,
           assetBalanceChanges: entry.events,
         },

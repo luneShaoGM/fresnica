@@ -54,22 +54,24 @@ it.each(
     reason: 'operation-shape',
   }),
 );
-it('requires checksum on explicit created identity and does not guess upload identity', () => {
+it('requires checksum on explicit deployer and never mistakes it for created identity', () => {
   expect(
     mapHistoryEntry(
       mapHistoryOperationRecord({
         ...raw,
         function: 'HostFunctionTypeHostFunctionTypeCreateContract',
+        from: 'address',
         address: contract,
       }),
       source,
     ),
-  ).toMatchObject({ kind: 'contract', contractId: contract });
+  ).toMatchObject({ kind: 'contract', deployer: contract });
   expect(
     mapHistoryEntry(
       mapHistoryOperationRecord({
         ...raw,
         function: 'HostFunctionTypeHostFunctionTypeCreateContract',
+        from: 'address',
         address: contract.slice(0, -1) + 'A',
       }),
       source,
@@ -128,4 +130,26 @@ it('projects raw PublicRead events through History, normalized cache and present
   const { t, formatNumber } = createLocalization('en');
   expect(activityRowPresentation(entry, t, formatNumber).reserveMoney?.[0]).toMatchObject({ tone: 'negative' });
   expect(JSON.stringify(entry)).not.toContain('parameters');
+});
+
+it.each(['HostFunctionTypeHostFunctionTypeCreateContract', 'HostFunctionTypeHostFunctionTypeCreateContractV2'])(
+  'projects %s deployer without decoding constructor arguments as identity', host => {
+    for (const address of [source, contract]) {
+      const record = mapHistoryOperationRecord({ ...raw, function: host, from: 'address', address, parameters: [{ type: 'Bool', value: 'ignored' }] });
+      const entry = mapHistoryEntry(record, source);
+      expect(entry).toMatchObject({ kind: 'contract', deployer: address, creationOrigin: 'address' });
+      expect(entry).not.toHaveProperty('contractId');
+      expect(entry).not.toHaveProperty('functionName');
+      expect(entry).not.toHaveProperty('parameters');
+    }
+    const entry = mapHistoryEntry(mapHistoryOperationRecord({ ...raw, function: host, from: 'asset', asset: 'native' }), source);
+    expect(entry).toMatchObject({ kind: 'contract', creationAsset: { kind: 'native', code: 'XLM' } });
+  },
+);
+it('retains V2 reported asset events without interpreting deployment address as new contract', () => {
+  const record = mapHistoryOperationRecord({ ...raw, function: 'HostFunctionTypeHostFunctionTypeCreateContractV2', from: 'address', address: source,
+    asset_balance_changes: [{ type: 'transfer', asset_type: 'native', amount: '1', from: source, to: recipient }] });
+  const entry = mapHistoryEntry(record, recipient);
+  expect(entry).toMatchObject({ kind: 'contract', hostFunction: 'create-v2', events: [{ direction: 'incoming' }] });
+  expect(entry).not.toHaveProperty('contractId');
 });
