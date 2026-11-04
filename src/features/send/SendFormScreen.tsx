@@ -160,7 +160,7 @@ export function SendFormScreen({
 
         <Text style={styles.sectionLabel}>MEMO</Text>
         <View style={styles.memoTypeRow}>
-          {(['none', 'text', 'id', 'hash'] as const).map(type => {
+          {(['none', 'text', 'id', 'hash', 'return'] as const).map(type => {
             const selected = memoType === type;
             return (
               <Pressable
@@ -193,7 +193,7 @@ export function SendFormScreen({
             <View style={styles.fieldBox}>
               <TextInput
                 accessibilityLabel={t(`send.memo.input.${memoType}`)}
-                autoCapitalize={memoType === 'hash' ? 'characters' : 'none'}
+                autoCapitalize={memoType === 'hash' || memoType === 'return' ? 'characters' : 'none'}
                 autoCorrect={false}
                 editable={!building}
                 keyboardType={memoType === 'id' ? 'number-pad' : 'default'}

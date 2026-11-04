@@ -84,7 +84,7 @@ export function SendReviewScreen({
           />
           <ReviewRow label="From" value={review.source} mono />
           <ReviewRow label="To" value={review.destination} mono />
-          <ReviewRow label="Memo" value={memoLabel} mono={review.memo?.type === 'hash'} />
+          <ReviewRow label="Memo" value={memoLabel} mono={review.memo?.type === 'hash' || review.memo?.type === 'return'} />
           <ReviewRow label="Fee" value={`${review.fee} stroops`} />
           {review.expiresAtUnixSeconds === undefined ? null : (
             <ReviewRow

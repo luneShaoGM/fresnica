@@ -158,7 +158,7 @@ export function ContactEditor({ book, initial, id, onClose, isCurrent = () => tr
       <Text style={styles.hint}>{t('contacts.classicOnly')}</Text>
       <Text style={styles.title}>{t('contacts.memo')}</Text>
       <View style={styles.types}>
-        {(['none', 'text', 'id', 'hash'] as const).map(type => (
+        {(['none', 'text', 'id', 'hash', 'return'] as const).map(type => (
           <NativeButton
             key={type}
             label={t(`send.memo.type.${type}`)}
@@ -178,7 +178,7 @@ export function ContactEditor({ book, initial, id, onClose, isCurrent = () => tr
           label={t(`send.memo.input.${memoType}`)}
           accessibilityLabel={t(`send.memo.input.${memoType}`)}
           hint={t(`send.memo.hint.${memoType}`)}
-          autoCapitalize="none"
+          autoCapitalize={memoType === 'hash' || memoType === 'return' ? 'characters' : 'none'}
           autoCorrect={false}
           keyboardType={memoType === 'id' ? 'number-pad' : 'default'}
           value={memoValue}

@@ -930,6 +930,22 @@ Send 选择联系人并原子填入地址与 typed Memo、Activity Classic 参�
 S09/Stage 9 iOS System Auth 取消/重试延期不变。此候选不升级 S22 的 L3/L4 成熟度。
 
 
+#### S22 Memo Return（G 地址）端到端安全切片（2026-11-04）
+
+基于 main@248f5052dfc556ef18f5d08e7b472c46cab45380 新建分支。
+已合并的 #156 提供全局联系人、目录/扫码、公共身份卡片和本地名称解析基础。
+本切片仅把 Return 作为与 Hash 不同的 32 字节 typed Memo 接入联系人
+v9 JSON、Send/Request 表单、SEP-7 Base64、Stellar SDK Payment exact-XDR
+构建/解码和复核；允许从有效 G 收款地址按既有签名管线发送。PathPayment/Swap
+继续 fail-closed 禁用 Return，M 收款地址（含 G 基址查询、muxed ID 与 memo
+兼容性、CreateAccount 禁止）独立后续实现。仅相同的 32 字节内容不能把
+Hash/Return 类型互换。
+
+验证：TypeScript / Jest、真实 Realm close/reopen、架构/来源、完整 npm run check
+与 PR exact-HEAD Work 独立审查须在最终提交确认。Android/iOS 原生付款、扫码、
+键盘、窄屏和 Stage 9 iOS System Auth 取消/重试验收继续统一延期；
+不以 CI 或模拟验证替代真机产品流。
+
 以下均进入完整重写计划的必达范围，按依赖和风险逐项执行；可以分多个 release 交付：
 
 - Asset Metadata 与 Stellar TOML。

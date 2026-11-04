@@ -37,6 +37,7 @@ type NodeProps = Readonly<{
   disabled?: boolean;
   label?: string;
   loading?: boolean;
+  mono?: boolean;
   value?: string;
 }>;
 function visit(node: React.ReactNode, callback: (element: React.ReactElement<NodeProps>) => void): void {
@@ -131,6 +132,18 @@ describe('SendReviewScreen authorization stages', () => {
       expect(slider?.props.label).toBe('Slide to send');
     },
   );
+
+  it('labels Return distinctly from Hash while rendering the canonical transaction memo', () => {
+    const memo = 'ab'.repeat(32);
+    const root = renderReview({ review: { ...review, memo: { type: 'return', value: memo } } });
+    let memoRow: React.ReactElement<NodeProps> | undefined;
+    visit(root, element => {
+      if (element.props.label === 'Memo') memoRow = element;
+    });
+    expect(memoRow?.props.value).toBe('send.memo.type.return · ' + memo);
+    expect(memoRow?.props.value).not.toBe('send.memo.type.hash · ' + memo);
+    expect(memoRow?.props.mono).toBe(true);
+  });
 
   it('keeps the normal Send slide before passphrase fallback is required', () => {
     const root = renderReview();

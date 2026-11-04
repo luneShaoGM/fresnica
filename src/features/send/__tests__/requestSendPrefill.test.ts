@@ -61,6 +61,7 @@ describe('Request into Send prefill', () => {
     ['text', ' memo text '],
     ['id', '42'],
     ['hash', 'ab'.repeat(32)],
+    ['return', 'ab'.repeat(32)],
   ] as const)('preserves %s memo but never promotes the public message to transaction memo', (type, value) => {
     const result = resolveRequestSendPrefill(
       intent({ memo: { type, value }, message: 'Public untrusted request context' }),

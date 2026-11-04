@@ -53,7 +53,6 @@ export type RequestUnsupportedFeature =
   | 'unsupported-operation'
   | 'callback'
   | 'signed-origin'
-  | 'memo-return'
   | 'unsupported-parameter';
 
 export type RequestParseResult =
@@ -179,7 +178,6 @@ function parsePayIntent(
   if (assetResult.status !== 'ok') return rejected('invalid-asset');
 
   const memoResult = parseMemo(entries);
-  if (memoResult.status === 'unsupported') return unsupported('memo-return');
   if (memoResult.status === 'sensitive') return rejected('sensitive-input');
   if (memoResult.status === 'invalid') return rejected('invalid-memo');
 
@@ -227,13 +225,11 @@ function parseMemo(
 ):
   | Readonly<{ status: 'ok'; memo?: StellarPaymentMemo }>
   | Readonly<{ status: 'invalid' }>
-  | Readonly<{ status: 'sensitive' }>
-  | Readonly<{ status: 'unsupported' }> {
+  | Readonly<{ status: 'sensitive' }> {
   const value = firstValue(entries, 'memo');
   const type = firstValue(entries, 'memo_type');
   if ((value === undefined) !== (type === undefined)) return { status: 'invalid' };
   if (value === undefined || type === undefined) return { status: 'ok' };
-  if (type === 'MEMO_RETURN') return { status: 'unsupported' };
   if (type === 'MEMO_TEXT' && looksSensitive(value)) return { status: 'sensitive' };
 
   try {
@@ -243,9 +239,12 @@ function parseMemo(
       case 'MEMO_ID':
         return { status: 'ok', memo: requireMemo(validatePaymentMemo({ type: 'id', value })) };
       case 'MEMO_HASH':
+      case 'MEMO_RETURN':
         return {
           status: 'ok',
-          memo: requireMemo(validatePaymentMemo({ type: 'hash', value: decodeHashMemo(value) })),
+          memo: requireMemo(
+            validatePaymentMemo({ type: type === 'MEMO_RETURN' ? 'return' : 'hash', value: decodeHashMemo(value) }),
+          ),
         };
       default:
         return { status: 'invalid' };
@@ -317,6 +316,8 @@ function memoToWire(memo: StellarPaymentMemo): Readonly<{ value: string; type: s
       return { value: memo.value, type: 'MEMO_ID' };
     case 'hash':
       return { value: encodeHashMemo(memo.value), type: 'MEMO_HASH' };
+    case 'return':
+      return { value: encodeHashMemo(memo.value), type: 'MEMO_RETURN' };
   }
 }
 function parseQuery(rawQuery: string): ReadonlyMap<string, readonly string[]> | undefined {

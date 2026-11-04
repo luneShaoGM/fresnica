@@ -207,13 +207,16 @@ export function validatePaymentMemo(memo?: StellarPaymentMemo): StellarPaymentMe
       }
       return Object.freeze({ type: 'id', value: canonical.toString() });
     }
-    case 'hash': {
+    case 'hash':
+    case 'return': {
       const value = memo.value.trim();
       if (!/^[0-9a-fA-F]{64}$/.test(value)) {
-        throw new Error('payment-memo-hash-invalid');
+        throw new Error(memo.type === 'return' ? 'payment-memo-return-invalid' : 'payment-memo-hash-invalid');
       }
-      return Object.freeze({ type: 'hash', value: value.toLowerCase() });
+      return Object.freeze({ type: memo.type, value: value.toLowerCase() });
     }
+    default:
+      throw new Error('payment-memo-unsupported');
   }
 }
 

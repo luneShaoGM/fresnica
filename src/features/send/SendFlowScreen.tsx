@@ -373,6 +373,7 @@ function readableError(error: unknown, t: (key: string) => string): string {
       'payment-memo-too-long': t('send.memo.error.textTooLong'),
       'payment-memo-id-invalid': t('send.memo.error.idInvalid'),
       'payment-memo-hash-invalid': t('send.memo.error.hashInvalid'),
+      'payment-memo-return-invalid': t('send.memo.error.returnInvalid'),
       'payment-destination-requires-memo': t('send.memo.error.required'),
     },
   }).message;

@@ -646,6 +646,7 @@ describe('StellarSdkGateway', () => {
   it.each([
     { memo: { type: 'id' as const, value: '7' }, expectedType: 'id', expectedValue: '7' },
     { memo: { type: 'hash' as const, value: 'AB'.repeat(32) }, expectedType: 'hash', expectedValue: 'ab'.repeat(32) },
+    { memo: { type: 'return' as const, value: 'AB'.repeat(32) }, expectedType: 'return', expectedValue: 'ab'.repeat(32) },
   ])('builds and inspects exact $expectedType memo XDR', async ({ memo, expectedType, expectedValue }) => {
     const gateway = new StellarSdkGateway(TEST_GATEWAY_CONFIG, server());
     const built = await gateway.buildPayment({
@@ -666,7 +667,7 @@ describe('StellarSdkGateway', () => {
     ).toEqual({ type: expectedType, value: expectedValue });
   });
 
-  it('rejects Payment review XDR with MEMO_RETURN', () => {
+  it('inspects pre-existing MEMO_RETURN XDR without erasing its distinct memo type', () => {
     const gateway = new StellarSdkGateway(TEST_GATEWAY_CONFIG, server());
     const unsupportedMemo = new TransactionBuilder(new Account(sourceAddress, '50'), {
       fee: '100',
@@ -684,12 +685,23 @@ describe('StellarSdkGateway', () => {
       .build()
       .toXdr();
 
-    expect(() =>
-      gateway.inspectPaymentTransaction({
-        transactionXdrBase64: unsupportedMemo,
-        networkPassphrase: Networks.TESTNET,
-      }),
-    ).toThrow('Payment review supports only none, text, id, or hash memo');
+    expect(gateway.inspectPaymentTransaction({
+      transactionXdrBase64: unsupportedMemo,
+      networkPassphrase: Networks.TESTNET,
+    }).memo).toEqual({ type: 'return', value: 'ab'.repeat(32) });
+  });
+
+  it('rejects unknown runtime memo discriminants rather than encoding them as Return', async () => {
+    const gateway = new StellarSdkGateway(TEST_GATEWAY_CONFIG, server());
+    await expect(gateway.buildPayment({
+      operation: 'payment',
+      source: sourceAddress,
+      destination: destinationAddress,
+      asset: { kind: 'native' },
+      amount: '1.0000000',
+      memo: { type: 'unknown', value: 'aa'.repeat(32) } as unknown as import('../../../capabilities/stellar/types').StellarPaymentMemo,
+      baseFee: '100',
+    })).rejects.toThrow('unsupported-payment-memo-type');
   });
 
   it('builds an unsigned ordinary ChangeTrust transaction with the requested limit', async () => {

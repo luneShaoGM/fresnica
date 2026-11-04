@@ -105,6 +105,9 @@ function toSdkMemo(memo: NonNullable<BuildPathPaymentStrictSendInput['memo']>): 
       return Memo.id(memo.value);
     case 'hash':
       return Memo.hash(memo.value);
+    case 'return':
+      // Swap/PathPayment preflight does not yet accept MEMO_RETURN.
+      throw new Error('unsupported-path-payment-memo-return');
   }
 }
 

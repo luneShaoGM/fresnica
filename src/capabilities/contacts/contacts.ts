@@ -31,7 +31,7 @@ export function validateContactMemo(memo: unknown): StellarPaymentMemo | undefin
     !('type' in memo) ||
     !('value' in memo) ||
     typeof memo.value !== 'string' ||
-    (memo.type !== 'text' && memo.type !== 'id' && memo.type !== 'hash')
+    (memo.type !== 'text' && memo.type !== 'id' && memo.type !== 'hash' && memo.type !== 'return')
   ) {
     throw new Error('contact-memo-invalid');
   }
