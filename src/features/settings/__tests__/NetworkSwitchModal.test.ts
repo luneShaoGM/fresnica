@@ -32,6 +32,7 @@ type Props = {
   children?: React.ReactNode;
   label?: string;
   presentation?: string;
+  swipeToDismiss?: boolean;
   accessibilityLabel?: string;
   accessibilityRole?: string;
   accessibilityState?: { checked?: boolean; disabled?: boolean };
@@ -110,6 +111,7 @@ describe('Home network panel', () => {
     const deps = setup();
     const { all } = render(deps);
     expect(all.find(node => node.type === AppModal)?.props.presentation).toBe('sheet');
+    expect(all.find(node => node.type === AppModal)?.props.swipeToDismiss).toBe(true);
     expect(button(all, 'Use network: Stellar Mainnet').accessibilityState?.checked).toBe(true);
     expect(button(all, `Use node: ${NETWORKS['stellar-mainnet'].horizonUrl}`).accessibilityState?.checked).toBe(true);
     expect(button(all, `Test node: ${NETWORKS['stellar-mainnet'].horizonUrl}`)).toBeDefined();
@@ -171,6 +173,7 @@ describe('Home network panel', () => {
     const deps = setup();
     const { all, setPrompt } = render(deps, testPrompt);
     expect(all.find(node => node.type === AppModal)?.props.presentation).toBe('dialog');
+    expect(all.find(node => node.type === AppModal)?.props.swipeToDismiss).toBe(false);
     button(all, 'Cancel').onPress?.();
     expect(setPrompt).toHaveBeenCalledWith(undefined);
     expect(deps.onClose).not.toHaveBeenCalled();

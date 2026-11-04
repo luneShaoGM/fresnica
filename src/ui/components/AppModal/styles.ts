@@ -21,6 +21,15 @@ export function createStyles(theme: AppTheme) {
       padding: 0,
       gap: 0,
     },
+    sheetContent: { flex: 1 },
+    dialogContent: { gap: theme.spacing.md },
+    dragTarget: { alignItems: 'center', justifyContent: 'center', height: 28 },
+    dragHandle: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: theme.colors.border,
+    },
     backdrop: {
       position: 'absolute',
       top: 0,
