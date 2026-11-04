@@ -8,6 +8,8 @@ import { ActivityScreen } from '@features/activity/ActivityScreen';
 import { OperationDetailsScreen } from '@features/activity/OperationDetailsScreen';
 import { useContactList } from '@features/contacts/useContactList';
 import { activityIdentityNames } from './activityIdentityNames';
+import { ReactNativeRequestQrScannerView } from '@platform/system/RequestQrScannerView';
+import { reactNativeRequestIngress } from '@platform/system/requestIngress';
 
 import type { AppServices } from '../createAppServices';
 import { resolveVisibleAccount } from './accountSelection';
@@ -67,6 +69,7 @@ export function ActivityStackNavigator({ accounts, selectedAccountId, services }
             accounts={accounts}
             dependencies={services.history}
             contacts={services.contacts}
+            scanner={{ ScannerView: ReactNativeRequestQrScannerView, ingress: reactNativeRequestIngress }}
             operationId={route.params.operationId}
             invalidationRevision={invalidationRevision}
             onBack={() => navigation.goBack()}

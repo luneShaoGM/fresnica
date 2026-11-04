@@ -7,6 +7,8 @@ import { ContactEditor } from '../ContactEditor';
 import { ParticipantCard } from '../ParticipantCard';
 import { AddressBookScreen } from '../AddressBookScreen';
 import { DestinationPicker } from '../DestinationPicker';
+import { RecipientScanSheet } from '../RecipientScanSheet';
+import { contactShareUri } from '../contactBook';
 import { SendFlowScreen } from '../../send/SendFlowScreen';
 import { SendResultScreen } from '../../send/SendResultScreen';
 import { SendReviewScreen } from '../../send/SendReviewScreen';
@@ -43,6 +45,15 @@ type Props = {
   onPress?: () => void;
   onClose?: () => void;
   onChooseRecipient?: () => void;
+  onContinue?: () => void;
+  step?: 'details' | 'recipient';
+  amount?: string;
+  memoType?: string;
+  memoValue?: string;
+  onBack?: () => void;
+  onScanRecipient?: () => void;
+  onChangeDestination?: (value: string) => void;
+  onChangeMemoValue?: (value: string) => void;
   onSelect?: (recipient: Recipient) => void;
   accounts?: readonly AccountRecord[];
   onChangeText?: (text: string) => void;
@@ -589,6 +600,290 @@ it('keeps camera denied and blocked permissions out of camera view and supports 
   nodes(draw(), BottomSheet)[0].props.onClose!();
   expect(nodes(draw(), ScannerView)).toHaveLength(0);
 });
+it('Send QR scan requires camera permission and returns only address and exact typed memo', async () => {
+  const ScannerView = () => null;
+  const scanner: ContactScanner = {
+    ScannerView,
+    ingress: {
+      checkCameraPermission: jest.fn().mockResolvedValue('granted'),
+      requestCameraPermission: jest.fn(),
+      openCameraSettings: jest.fn(),
+    },
+  };
+  const onSelect = jest.fn();
+  const draw = () => render(() =>
+    RecipientScanSheet({ book, scanner, active: true, onClose: jest.fn(), onSelect }),
+  );
+  draw();
+  const mount = jest.mocked(useEffect).mock.calls[0][0];
+  mount();
+  await Promise.resolve();
+  const root = draw();
+  expect(nodes(root, ScannerView)).toHaveLength(1);
+  const code = nodes(root, ScannerView)[0].props.onCode!;
+  code('web+stellar:pay?destination=GVALID&memo=007&memo_type=MEMO_ID&amount=2&network_passphrase=test-passphrase');
+  expect(onSelect).toHaveBeenCalledWith({ address: row.address, memo: { type: 'id', value: '7' } });
+  expect(onSelect).toHaveBeenCalledTimes(1);
+  code('GVALID');
+  expect(onSelect).toHaveBeenCalledTimes(1);
+  expect(scanner.ingress.requestCameraPermission).not.toHaveBeenCalled();
+  expect(book.store.save).not.toHaveBeenCalled();
+});
+
+it('Send QR retry rechecks and requests OS permission instead of promoting an error to granted', async () => {
+  const ScannerView = () => null;
+  const scanner: ContactScanner = {
+    ScannerView,
+    ingress: {
+      checkCameraPermission: jest.fn().mockRejectedValueOnce(new Error('OS error')).mockResolvedValueOnce('denied'),
+      requestCameraPermission: jest.fn().mockResolvedValue('blocked'),
+      openCameraSettings: jest.fn().mockResolvedValue(undefined),
+    },
+  };
+  const onSelect = jest.fn();
+  const draw = () => render(() =>
+    RecipientScanSheet({ book, scanner, active: true, onClose: jest.fn(), onSelect }),
+  );
+  draw();
+  jest.mocked(useEffect).mock.calls[0][0]();
+  await Promise.resolve();
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  button(draw(), 'activity.retry')();
+  expect(scanner.ingress.checkCameraPermission).toHaveBeenCalledTimes(2);
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  await Promise.resolve();
+  expect(scanner.ingress.requestCameraPermission).toHaveBeenCalledTimes(1);
+  await Promise.resolve();
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  button(draw(), 'contacts.scan.settings')();
+  expect(scanner.ingress.openCameraSettings).toHaveBeenCalledTimes(1);
+  expect(onSelect).not.toHaveBeenCalled();
+});
+
+it('Send QR rejects foreign-network/unsupported QR without filling a recipient', async () => {
+  const ScannerView = () => null;
+  const scanner: ContactScanner = {
+    ScannerView,
+    ingress: {
+      checkCameraPermission: jest.fn().mockResolvedValue('granted'),
+      requestCameraPermission: jest.fn(),
+      openCameraSettings: jest.fn(),
+    },
+  };
+  const onSelect = jest.fn();
+  const draw = () => render(() =>
+    RecipientScanSheet({ book, scanner, active: true, onClose: jest.fn(), onSelect }),
+  );
+  draw();
+  jest.mocked(useEffect).mock.calls[0][0]();
+  await Promise.resolve();
+  let root = draw();
+  const stale = nodes(root, ScannerView)[0].props.onCode!;
+  stale('web+stellar:pay?destination=GVALID&memo=7&memo_type=MEMO_ID&network_passphrase=foreign');
+  expect(onSelect).not.toHaveBeenCalled();
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  button(draw(), 'activity.retry')();
+  await Promise.resolve();
+  root = draw();
+  stale('GVALID');
+  expect(onSelect).not.toHaveBeenCalled();
+  nodes(root, ScannerView)[0].props.onCode!('GVALID');
+  expect(onSelect).toHaveBeenCalledWith({ address: row.address });
+});
+
+it('Send QR cancel retires an in-flight permission check and late camera callbacks', async () => {
+  let grant: (permission: 'granted') => void = () => {};
+  const ScannerView = () => null;
+  const scanner: ContactScanner = {
+    ScannerView,
+    ingress: {
+      checkCameraPermission: jest.fn(
+        () => new Promise<'granted'>(resolve => { grant = resolve; }),
+      ),
+      requestCameraPermission: jest.fn(),
+      openCameraSettings: jest.fn(),
+    },
+  };
+  const onClose = jest.fn();
+  const onSelect = jest.fn();
+  const draw = () => render(() => RecipientScanSheet({ book, scanner, active: true, onClose, onSelect }));
+  draw();
+  jest.mocked(useEffect).mock.calls[0][0]();
+  const checking = draw();
+  nodes(checking, BottomSheet)[0].props.onClose!();
+  grant('granted');
+  await Promise.resolve();
+  expect(nodes(draw(), ScannerView)).toHaveLength(0);
+  expect(onSelect).not.toHaveBeenCalled();
+  expect(onClose).toHaveBeenCalledTimes(1);
+});
+
+it('Send amount and asset step precedes recipient selection and supports Back without losing the draft', () => {
+  const asset = { kind: 'native' as const, code: 'XLM' as const };
+  values = [{ kind: 'ready', balances: [{ asset, balance: '12' }] }, { kind: 'form' },
+    asset, 'GVALID', '0', 'id', '007', false, false, false, '', undefined, false];
+  const account = { id: 'sender', networkId: book.network.id } as AccountRecord;
+  const dependencies = { network: book.network } as SendProductDependencies;
+  const draw = () => render(() => SendFlowScreen({ account, dependencies, contacts: book, onDone: jest.fn() }));
+  let form = nodes(draw(), SendFormScreen)[0];
+  expect(form.props.step).toBe('details');
+  form.props.onContinue!();
+  expect(nodes(draw(), SendFormScreen)[0].props.step).toBe('details');
+  expect(values[11]).toBe('send.step.amountInvalid');
+  values[4] = '1.5';
+  form = nodes(draw(), SendFormScreen)[0];
+  form.props.onContinue!();
+  expect(nodes(draw(), SendFormScreen)[0].props.step).toBe('recipient');
+  form = nodes(draw(), SendFormScreen)[0];
+  expect(form.props.amount).toBe('1.5');
+  expect(form.props.memoType).toBe('id');
+  expect(form.props.memoValue).toBe('007');
+  form.props.onBack!();
+  expect(nodes(draw(), SendFormScreen)[0].props.step).toBe('details');
+  expect([values[3], values[4], values[5], values[6]]).toEqual(['GVALID', '1.5', 'id', '007']);
+});
+
+it('Recipient QR fills an exact address/memo and retires a cancelled scan frame', () => {
+  const asset = { kind: 'native' as const, code: 'XLM' as const };
+  values = [{ kind: 'ready', balances: [{ asset, balance: '12' }] }, { kind: 'form' },
+    asset, '', '1', 'none', '', false, false, false, '', undefined, false];
+  const account = { id: 'sender', networkId: book.network.id } as AccountRecord;
+  const scanner: ContactScanner = {
+    ScannerView: () => null,
+    ingress: {
+      checkCameraPermission: jest.fn().mockResolvedValue('granted'),
+      requestCameraPermission: jest.fn(),
+      openCameraSettings: jest.fn(),
+    },
+  };
+  const draw = (active = true) => render(() =>
+    SendFlowScreen({ account, dependencies: { network: book.network } as SendProductDependencies,
+      contacts: book, scanner, active, onDone: jest.fn() }),
+  );
+  nodes(draw(), SendFormScreen)[0].props.onContinue!();
+  nodes(draw(), SendFormScreen)[0].props.onScanRecipient!();
+  const sheet = nodes(draw(), RecipientScanSheet)[0];
+  expect(sheet.props).toBeDefined();
+  expect(values[3]).toBe('');
+  sheet.props.onSelect!({ address: 'GVALID', memo: { type: 'id', value: '007' } });
+  expect([values[3], values[5], values[6]]).toEqual(['GVALID', 'id', '007']);
+  expect(nodes(draw(), RecipientScanSheet)).toHaveLength(0);
+  sheet.props.onSelect!({ address: 'GWRONG' });
+  expect(values[3]).toBe('GVALID');
+  expect(book.store.save).not.toHaveBeenCalled();
+});
+
+it('removing or editing a previously selected contact address does not reuse its original saved Memo', () => {
+  const asset = { kind: 'native' as const, code: 'XLM' as const };
+  values = [{ kind: 'ready', balances: [{ asset, balance: '12' }] }, { kind: 'form' },
+    asset, '', '1', 'none', '', false, false, false, '', undefined, false];
+  const account = { id: 'sender', networkId: book.network.id } as AccountRecord;
+  const draw = () => render(() =>
+    SendFlowScreen({ account, dependencies: { network: book.network } as SendProductDependencies,
+      contacts: book, onDone: jest.fn() }),
+  );
+  nodes(draw(), SendFormScreen)[0].props.onContinue!();
+  nodes(draw(), SendFormScreen)[0].props.onChooseRecipient!();
+  nodes(draw(), DestinationPicker)[0].props.onSelect!({ address: 'GVALID', memo: { type: 'id', value: '7' } });
+  expect([values[3], values[5], values[6]]).toEqual(['GVALID', 'id', '7']);
+  nodes(draw(), SendFormScreen)[0].props.onChangeDestination!('GCHANGED');
+  expect([values[3], values[5], values[6]]).toEqual(['GCHANGED', 'none', '']);
+  // A memo subsequently entered deliberately by the user is no longer treated as a contact prefill.
+  nodes(draw(), SendFormScreen)[0].props.onChangeMemoValue!('my-memo');
+  nodes(draw(), SendFormScreen)[0].props.onChangeDestination!('GANOTHER');
+  expect([values[3], values[6]]).toEqual(['GANOTHER', 'my-memo']);
+});
+
+it('Activity participant editor receives the injected scanner without changing the contact identity', () => {
+  const scanner: ContactScanner = {
+    ScannerView: () => null,
+    ingress: {
+      checkCameraPermission: jest.fn(),
+      requestCameraPermission: jest.fn(),
+      openCameraSettings: jest.fn(),
+    },
+  };
+  const draw = () => render(() =>
+    ParticipantCard({ book, address: row.address, label: 'Counterparty', scanner }),
+  );
+  nodes(draw(), Pressable)[0].props.onPress!();
+  button(draw(), 'contacts.edit')();
+  const editor = nodes(draw(), ContactEditor)[0];
+  expect(editor.props).toMatchObject({ scanner, id: row.id, initial: row });
+  expect(book.store.save).not.toHaveBeenCalled();
+});
+
+it('keeps Return and Hash contacts distinct through Send selection, Back, and manual destination edits', () => {
+  const value = 'ab'.repeat(32);
+  rows = [
+    { ...row, id: 'return-contact', name: 'Return', memo: { type: 'return', value } },
+    { ...row, id: 'hash-contact', name: 'Hash', memo: { type: 'hash', value } },
+  ];
+  const selected: Recipient[] = [];
+  const contactPicker = render(() => DestinationPicker({
+    book, accounts: [], onSelect: recipient => selected.push(recipient), onClose: jest.fn(),
+  }));
+  const contactRows = nodes(contactPicker, AccountIdentityCard);
+  expect(contactRows).toHaveLength(2);
+  contactRows.find(card => card.props.name === 'Return')?.props.onPress!();
+  contactRows.find(card => card.props.name === 'Hash')?.props.onPress!();
+  expect(selected).toEqual([
+    { address: row.address, memo: { type: 'return', value } },
+    { address: row.address, memo: { type: 'hash', value } },
+  ]);
+  const asset = { kind: 'native' as const, code: 'XLM' as const };
+  values = [{ kind: 'ready', balances: [{ asset, balance: '10' }] }, { kind: 'form' },
+    asset, '', '1', 'none', '', false, false, false, '', undefined, false];
+  const account = { id: 'sender', networkId: book.network.id } as AccountRecord;
+  const draw = () => render(() => SendFlowScreen({
+    account, dependencies: { network: book.network } as SendProductDependencies,
+    contacts: book, onDone: jest.fn(),
+  }));
+  nodes(draw(), SendFormScreen)[0].props.onContinue!();
+  nodes(draw(), SendFormScreen)[0].props.onChooseRecipient!();
+  let picker = nodes(draw(), DestinationPicker)[0];
+  picker.props.onSelect!(selected[0]);
+  expect([values[3], values[5], values[6]]).toEqual([row.address, 'return', value]);
+  nodes(draw(), SendFormScreen)[0].props.onBack!();
+  expect(nodes(draw(), SendFormScreen)[0].props.step).toBe('details');
+  nodes(draw(), SendFormScreen)[0].props.onContinue!();
+  expect([values[3], values[5], values[6]]).toEqual([row.address, 'return', value]);
+  nodes(draw(), SendFormScreen)[0].props.onChangeDestination!('GCHANGED');
+  expect([values[3], values[5], values[6]]).toEqual(['GCHANGED', 'none', '']);
+  nodes(draw(), SendFormScreen)[0].props.onChooseRecipient!();
+  picker = nodes(draw(), DestinationPicker)[0];
+  picker.props.onSelect!(selected[1]);
+  expect([values[3], values[5], values[6]]).toEqual([row.address, 'hash', value]);
+  expect(book.store.save).not.toHaveBeenCalled();
+});
+
+it('retains SEP-7 MEMO_RETURN as typed hex when the Send scanner fills Recipient', async () => {
+  const ScannerView = () => null;
+  const scanner: ContactScanner = {
+    ScannerView,
+    ingress: {
+      checkCameraPermission: jest.fn().mockResolvedValue('granted'),
+      requestCameraPermission: jest.fn(),
+      openCameraSettings: jest.fn(),
+    },
+  };
+  const recipient = { address: row.address, memo: { type: 'return' as const, value: 'AB'.repeat(32) } };
+  const qr = contactShareUri(book, recipient);
+  expect(qr).toContain('memo_type=MEMO_RETURN');
+  const onSelect = jest.fn();
+  const draw = () => render(() =>
+    RecipientScanSheet({ book, scanner, active: true, onClose: jest.fn(), onSelect }),
+  );
+  draw();
+  jest.mocked(useEffect).mock.calls[0][0]();
+  await Promise.resolve();
+  nodes(draw(), ScannerView)[0].props.onCode!(qr);
+  expect(onSelect).toHaveBeenCalledWith({
+    address: row.address, memo: { type: 'return', value: 'ab'.repeat(32) },
+  });
+  expect(book.store.save).not.toHaveBeenCalled();
+});
+
 it('picker re-reads a selected contact instead of returning stale memo data', () => {
   const onSelect = jest.fn();
   const root = render(() => DestinationPicker({ book, accounts: [], onSelect, onClose: jest.fn() }));
@@ -679,6 +974,9 @@ it('keeps another same-network wallet name from recipient selection through Send
     onDone: jest.fn(),
   };
   const draw = () => render(() => SendFlowScreen(props));
+  expect(nodes(draw(), SendFormScreen)[0].props.step).toBe('details');
+  nodes(draw(), SendFormScreen)[0].props.onContinue!();
+  expect(nodes(draw(), SendFormScreen)[0].props.step).toBe('recipient');
   nodes(draw(), SendFormScreen)[0].props.onChooseRecipient!();
   const picker = nodes(draw(), DestinationPicker)[0];
   expect(picker.props.accounts).toEqual([sender, receiver, foreign]);
@@ -735,6 +1033,9 @@ it('Send picker applies the exact contact memo and ignores late selections after
   const dependencies = { network: book.network, gateway: {}, repository: {} } as unknown as SendProductDependencies;
   const draw = () => render(() => SendFlowScreen({ account, dependencies, contacts: book, onDone: jest.fn() }));
   let root = draw();
+  nodes(root, SendFormScreen)[0].props.onContinue!();
+  root = draw();
+  expect(nodes(root, SendFormScreen)[0].props.step).toBe('recipient');
   nodes(root, SendFormScreen)[0].props.onChooseRecipient!();
   root = draw();
   const delayed = nodes(root, DestinationPicker)[0].props.onSelect!;
@@ -777,6 +1078,8 @@ it('route blur immediately blocks a queued picker selection and hides the sheet'
   const draw = (active: boolean) =>
     render(() => SendFlowScreen({ account, dependencies, contacts: book, active, onDone: jest.fn() }));
   let root = draw(true);
+  nodes(root, SendFormScreen)[0].props.onContinue!();
+  root = draw(true);
   nodes(root, SendFormScreen)[0].props.onChooseRecipient!();
   root = draw(true);
   const delayed = nodes(root, DestinationPicker)[0].props.onSelect!;

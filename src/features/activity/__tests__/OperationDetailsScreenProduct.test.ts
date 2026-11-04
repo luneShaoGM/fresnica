@@ -30,7 +30,7 @@ import type { HistoryClaimPredicate } from '../../../capabilities/history/types'
 import type { HistoryEntry } from '../../../capabilities/history/types';
 import { createLocalization } from '../../../locale/localization';
 import { ParticipantCard } from '../../contacts/ParticipantCard';
-import type { ContactBook } from '../../contacts/contactBook';
+import type { ContactBook, ContactScanner } from '../../contacts/contactBook';
 import { StateView } from '../../../ui/components';
 import { defaultTheme } from '../../../ui/theme';
 import { OperationDetailsScreen, OperationExplorerAction } from '../OperationDetailsScreen';
@@ -140,6 +140,7 @@ function renderWithState(
   projectExplorerUrl: jest.Mock<string | undefined, [string]> = jest.fn((_transactionHash: string) => trustedUrl),
   contacts?: ContactBook,
   accounts?: readonly AccountRecord[],
+  scanner?: ContactScanner,
 ) {
   const loadSetter = jest.fn();
   const explorerSetter = jest.fn();
@@ -154,6 +155,7 @@ function renderWithState(
     account,
     accounts: accounts ?? [account],
     contacts,
+    scanner,
     operationId: 'operation-1',
     dependencies,
     active: true,
@@ -844,7 +846,23 @@ it('shows failed intent limits without any completed monetary or direction rows'
 it.each(['claim_claimable_balance', 'clawback_claimable_balance'])('shows verified %s historical quantity and preserves burn explanation', type => {
   mockedUseState.mockReset();
   const entry = mapHistoryEntry(effectsRecord(type), effectsSource);
-  const { root } = renderWithState({ kind: 'loaded', result: { status: 'ready', entry }, source: 'online', stale: false, refreshing: false, refreshFailed: false });
+  const scanner = { ScannerView: () => null, ingress: {} } as unknown as ContactScanner;
+  const contacts = {
+    network: { id: account.networkId },
+    isClassicAccountAddress: (address: string) => address === effectsSource,
+  } as ContactBook;
+  const { root } = renderWithState(
+    { kind: 'loaded', result: { status: 'ready', entry }, source: 'online', stale: false, refreshing: false, refreshFailed: false },
+    'idle',
+    jest.fn(async () => undefined),
+    jest.fn<string | undefined, [string]>(() => trustedUrl),
+    contacts,
+    [account],
+    scanner,
+  );
+  // Participant actions must coexist with effect-verified historical amounts.
+  const participant = findElement(root, element => element.type === ParticipantCard && element.props.address === effectsSource);
+  expect(participant?.props).toMatchObject({ address: effectsSource, scanner, accounts: [account], active: true });
   const labels: string[] = [];
   const messages: string[] = [];
   visit(root, element => {

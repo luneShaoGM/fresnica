@@ -4,6 +4,15 @@ import type { AppRuntimeState } from '../../runtimeState';
 import { selectPersistedAccountAndDefault } from '../accountSelection';
 import { NETWORKS } from '@capabilities/network/networkPreferences';
 
+jest.mock('@platform/system/RequestQrScannerView', () => ({ ReactNativeRequestQrScannerView: () => null }));
+jest.mock('@platform/system/requestIngress', () => ({
+  reactNativeRequestIngress: {
+    checkCameraPermission: jest.fn(),
+    requestCameraPermission: jest.fn(),
+    openCameraSettings: jest.fn(),
+  },
+}));
+
 jest.mock('react', () => ({
   ...jest.requireActual('react'),
   useMemo: (fn: () => unknown) => fn(),

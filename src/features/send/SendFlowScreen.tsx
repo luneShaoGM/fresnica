@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { DestinationPicker } from '../contacts/DestinationPicker';
+import { RecipientScanSheet } from '../contacts/RecipientScanSheet';
 import { ParticipantCard } from '../contacts/ParticipantCard';
-import { recipientFields, type ContactBook, type Recipient } from '../contacts/contactBook';
+import { recipientFields, type ContactBook, type ContactScanner, type Recipient } from '../contacts/contactBook';
 import type { AccountRecord } from '../../capabilities/account/types';
 import { loadBalanceSnapshot } from '../../capabilities/balance/loadBalanceSnapshot';
 import type { BalanceAsset, BalanceLine } from '../../capabilities/balance/types';
@@ -16,7 +17,12 @@ import { SendResultScreen, type SendTerminalResult } from './SendResultScreen';
 import { SendReviewScreen } from './SendReviewScreen';
 import { SendStatusScreen } from './SendStatusScreen';
 import { projectFeatureError } from '../featureError';
-import { buildSendReview, submitSendReview, type SendProductDependencies } from './sendProductFlow';
+import {
+  buildSendReview,
+  submitSendReview,
+  validateStellarAmount,
+  type SendProductDependencies,
+} from './sendProductFlow';
 import { resolveRequestSendPrefill } from './requestSendPrefill';
 
 type LoadState =
@@ -37,6 +43,7 @@ type Props = Readonly<{
   initialAsset?: BalanceAsset;
   active?: boolean;
   contacts?: ContactBook;
+  scanner?: ContactScanner;
   destinationAccounts?: readonly AccountRecord[];
 }>;
 
@@ -47,6 +54,7 @@ export function SendFlowScreen({
   requestIntent,
   initialAsset,
   contacts,
+  scanner,
   active = true,
   destinationAccounts = [],
 }: Props) {
@@ -65,11 +73,23 @@ export function SendFlowScreen({
   const { t } = useLocalization();
   const loadVersion = useRef(0);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [entryStep, setEntryStep] = useState<'details' | 'recipient'>('details');
+  const [scanOpen, setScanOpen] = useState(false);
   const pickerLive = useRef(false);
   const activeRef = useRef(active);
   activeRef.current = active;
   const pickerGeneration = useRef(0);
   const capturedPickerGeneration = pickerGeneration.current;
+  const scanLive = useRef(false);
+  const scanGeneration = useRef(0);
+  const buildGeneration = useRef(0);
+  const pickedRecipientAddress = useRef<string | undefined>(undefined);
+  const capturedScanGeneration = scanGeneration.current;
+  const closeScan = () => {
+    scanLive.current = false;
+    scanGeneration.current += 1;
+    setScanOpen(false);
+  };
   const closePicker = () => {
     pickerLive.current = false;
     pickerGeneration.current += 1;
@@ -81,8 +101,10 @@ export function SendFlowScreen({
     loadVersion.current = version;
     setLoadState({ kind: 'loading' });
     setFlow({ kind: 'form' });
+    setEntryStep('details');
     setSelectedAsset(undefined);
     setDestination('');
+    pickedRecipientAddress.current = undefined;
     setAmount('');
     setMemoType('none');
     setMemoValue('');
@@ -142,6 +164,7 @@ export function SendFlowScreen({
           }
           setSelectedAsset(prefill.asset);
           setDestination(prefill.destination);
+          pickedRecipientAddress.current = prefill.destination;
           setAmount(prefill.amount);
           setMemoType(prefill.memoType);
           setMemoValue(prefill.memoValue);
@@ -173,19 +196,28 @@ export function SendFlowScreen({
 
     return () => {
       pickerLive.current = false;
+      scanLive.current = false;
+      scanGeneration.current += 1;
+      buildGeneration.current += 1;
       loadVersion.current += 1;
     };
   }, [account, dependencies.gateway, dependencies.network, dependencies.repository, initialAsset, requestIntent, t]);
 
   useEffect(() => {
-    if (!active) closePicker();
+    if (!active) {
+      closePicker();
+      closeScan();
+      buildGeneration.current += 1;
+      setBuilding(false);
+    }
   }, [active]);
 
   const buildReview = useCallback(async () => {
-    if (loadState.kind !== 'ready' || !selectedAsset) {
+    if (!activeRef.current || building || entryStep !== 'recipient' || loadState.kind !== 'ready' || !selectedAsset) {
       return;
     }
-
+    const version = loadVersion.current;
+    const generation = ++buildGeneration.current;
     setBuilding(true);
     setError(undefined);
     try {
@@ -196,15 +228,47 @@ export function SendFlowScreen({
         ...(memoType === 'none' ? {} : { memo: { type: memoType, value: memoValue } }),
       });
 
+      if (loadVersion.current !== version || generation !== buildGeneration.current || !activeRef.current) return;
       setPassphraseRequired(false);
       setAppPassphrase('');
       setFlow({ kind: 'review', review });
     } catch (caught) {
-      setError(readableError(caught, t));
+      if (loadVersion.current === version && generation === buildGeneration.current && activeRef.current) {
+        setError(readableError(caught, t));
+      }
     } finally {
-      setBuilding(false);
+      if (loadVersion.current === version && generation === buildGeneration.current && activeRef.current) {
+        setBuilding(false);
+      }
     }
-  }, [account, amount, dependencies, destination, loadState.kind, memoType, memoValue, selectedAsset, t]);
+  }, [
+    account,
+    amount,
+    building,
+    dependencies,
+    destination,
+    entryStep,
+    loadState.kind,
+    memoType,
+    memoValue,
+    selectedAsset,
+    t,
+  ]);
+
+  const continueForm = () => {
+    if (!activeRef.current || building || pickerOpen || scanOpen) return;
+    if (entryStep === 'details') {
+      try {
+        validateStellarAmount(amount);
+        setError(undefined);
+        setEntryStep('recipient');
+      } catch {
+        setError(t('send.step.amountInvalid'));
+      }
+      return;
+    }
+    void buildReview();
+  };
 
   const submitReview = useCallback(async () => {
     if (flow.kind !== 'review') {
@@ -270,6 +334,7 @@ export function SendFlowScreen({
           setPassphraseRequired(false);
           setError(undefined);
           setFlow({ kind: 'form' });
+          setEntryStep('recipient');
         }}
       />
     );
@@ -298,6 +363,7 @@ export function SendFlowScreen({
   return (
     <>
       <SendFormScreen
+        step={entryStep}
         accountLabel={account.label || account.address}
         requestMessage={requestIntent?.message}
         balances={loadState.balances}
@@ -315,30 +381,89 @@ export function SendFlowScreen({
         onChooseRecipient={
           contacts && contacts.network.id === account.networkId
             ? () => {
-                if (activeRef.current && !building) {
+                if (activeRef.current && !building && entryStep === 'recipient') {
                   pickerLive.current = true;
                   setPickerOpen(true);
                 }
               }
             : undefined
         }
-        onChangeDestination={setDestination}
+        onChangeDestination={value => {
+          if (pickedRecipientAddress.current && value !== pickedRecipientAddress.current) {
+            pickedRecipientAddress.current = undefined;
+            setMemoType('none');
+            setMemoValue('');
+          }
+          setDestination(value);
+          setError(undefined);
+        }}
         onChangeAmount={setAmount}
         onSelectMemoType={nextType => {
           if (nextType === memoType) {
             return;
           }
+          pickedRecipientAddress.current = undefined;
           setMemoType(nextType);
           setMemoValue('');
           setError(undefined);
         }}
-        onChangeMemoValue={setMemoValue}
-        onContinue={() => void buildReview()}
+        onChangeMemoValue={value => {
+          pickedRecipientAddress.current = undefined;
+          setMemoValue(value);
+          setError(undefined);
+        }}
+        onContinue={continueForm}
+        onScanRecipient={
+          scanner && contacts && contacts.network.id === account.networkId
+            ? () => {
+                if (activeRef.current && !building && entryStep === 'recipient' && !pickerOpen) {
+                  scanLive.current = true;
+                  setScanOpen(true);
+                }
+              }
+            : undefined
+        }
+        onBack={() => {
+          if (!building) {
+            closePicker();
+            closeScan();
+            setError(undefined);
+            setEntryStep('details');
+          }
+        }}
         onCancel={() => {
           closePicker();
+          closeScan();
+          loadVersion.current += 1;
+          buildGeneration.current += 1;
           onDone();
         }}
       />
+      {active && scanOpen && contacts && scanner ? (
+        <RecipientScanSheet
+          book={contacts}
+          scanner={scanner}
+          active={active}
+          onClose={closeScan}
+          onSelect={recipient => {
+            if (
+              !activeRef.current ||
+              !scanLive.current ||
+              capturedScanGeneration !== scanGeneration.current ||
+              building ||
+              entryStep !== 'recipient' ||
+              contacts.network.id !== account.networkId
+            ) return;
+            const fields = recipientFields(recipient);
+            closeScan();
+            pickedRecipientAddress.current = fields.destination;
+            setDestination(fields.destination);
+            setMemoType(fields.memoType);
+            setMemoValue(fields.memoValue);
+            setError(undefined);
+          }}
+        />
+      ) : null}
       {active && pickerOpen && contacts ? (
         <DestinationPicker
           book={contacts}
@@ -350,11 +475,13 @@ export function SendFlowScreen({
               !pickerLive.current ||
               capturedPickerGeneration !== pickerGeneration.current ||
               building ||
+              entryStep !== 'recipient' ||
               contacts.network.id !== account.networkId
             )
               return;
             const fields = recipientFields(recipient);
             closePicker();
+            pickedRecipientAddress.current = fields.destination;
             setDestination(fields.destination);
             setMemoType(fields.memoType);
             setMemoValue(fields.memoValue);

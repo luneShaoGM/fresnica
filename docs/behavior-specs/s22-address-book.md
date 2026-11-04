@@ -1,6 +1,6 @@
 # S22 Address Book and participant identity
 
-Status: implementation candidate; no native acceptance claimed. Adapt, clean-room.
+Status: G-address implementation merged (#156/#159/#162); S22 L2/L3 partial, not native L4 acceptance. Adapt, clean-room.
 Foundation phases 0/2a/2b and shared transaction recovery are available; theme 2c remains partial.
 Owner: features/contacts + capabilities/contacts; persistence mechanism: platform/persistence.
 
@@ -56,9 +56,10 @@ preservation and conflict handling, edit/remove, write failure, v8 migration and
 picker atomic prefill, participant action routing.
 Native: Android/iOS list/editor/picker, keyboard/back, delete cancel/retry, Activity return refresh,
 share sheet cancellation, accessibility and narrow-screen layout deferred to final device acceptance.
-S22 is not L3/L4 solely because tests/CI pass. Independent exact-HEAD implementation review required.
+S22 remains L2/L3 partial, not L4: #159 and #162 were independently reviewed at exact remote HEAD,
+while Android/iOS native-flow and accessibility acceptance remains deferred.
 
-## Candidate integration and data lifecycle (2026-11-02)
+## Candidate integration and data lifecycle (2026-11-02; historical snapshot)
 
 - Storage/migration baseline: local `fbc02eb1d5f9a33d8288b16c075a692d7150c2ec`, based on
   `main@0eafeffd0ed13b9c201a4f13165be4d173432a96`. UI is a separate dependent slice;
@@ -83,7 +84,7 @@ S22 is not L3/L4 solely because tests/CI pass. Independent exact-HEAD implementa
   share cancellation, network switch and participant-menu return refresh. Automated JSX/helper checks are not
   native-flow or pixel-parity evidence.
 
-## Developer validation (candidate tree, 2026-11-02)
+## Developer validation (candidate tree, 2026-11-02; historical snapshot)
 
 - `npm run check`: 187 suites / 1519 tests; TypeScript, formatting/lint, module aliases,
   strict architecture, donor-collision provenance, locale and WebView-patch checks passed.
@@ -95,7 +96,7 @@ S22 is not L3/L4 solely because tests/CI pass. Independent exact-HEAD implementa
 - No native build, simulator/emulator, real device, OS share flow, keyboard/back or screen-reader
   acceptance was executed for this candidate. Work must independently review the final remote HEAD.
 
-## Global contacts alignment slice (2026-11-03; pending review)
+## Global contacts alignment slice (2026-11-03; historical candidate, later merged)
 
 - New policy supersedes earlier network-partition wording in the 2026-11-02 candidate notes above.
 - Reuse the existing v9 Realm schema. No schema version increase or destructive migration is needed:
@@ -107,13 +108,14 @@ S22 is not L3/L4 solely because tests/CI pass. Independent exact-HEAD implementa
   closed, rather than being silently removed.
 - Existing wallet account, history, pending submission, grant, signer and ledger network partitions
   remain unchanged. Global contacts never switch transaction network or alter exact-XDR validation.
-- The agreed next slices extend contacts to M addresses/Memo Return and update the Send transaction
-  validation pipeline before M recipients are selectable for sending; public identity cards, avatar
-  candidates, SectionList, scanning, name resolution and Stellar Send step order are separately queued.
+- Superseded 2026-11-03 follow-on plan: Memo Return was later merged in #159;
+  SectionedList, local identity/avatar, scanning and Send step order merged through #156/#162.
+  M address development was **paused by the user** on 2026-11-04 and is not the next slice;
+  trusted remote names/brand avatars still require an approved source and privacy contract.
 - Validation below must distinguish automated tests from deferred native product-flow acceptance.
 
 
-## Stellar contact directory UI slice (2026-11-03; pending review)
+## Stellar contact directory UI slice (2026-11-03; historical candidate, later merged)
 
 - **Product trace:** S22 (Stage 8), Phase 2a/2b foundations available, 2c partial.
   Stellar reference: Settings/AddressBook SectionList and shared identity card selectable presentation.
@@ -137,12 +139,12 @@ S22 is not L3/L4 solely because tests/CI pass. Independent exact-HEAD implementa
   pending permission requests and camera frame callbacks, including callbacks from previous
   scanner sessions. Permission denied/blocked, camera error and invalid QR have retry/cancel
   paths. Editing/deleting still requires explicit user action.
-- This slice wires scanning in Settings Address Book only. The Activity participant menu editor,
-  Send picker, remote avatar/asset icon resolution and M-address support are still deferred
-  (M destinations cannot yet pass the existing payment validation pipeline). Do not silently
-  treat the lack of native camera product-flow acceptance as approval.
+- At this 2026-11-03 snapshot, scanning was wired in Settings only. Later merged #162
+  adds Activity participant editing and Send Recipient scanning. Remote brand-avatar sources
+  remain deferred, M addresses remain unsupported under the user pause, and repository tests
+  do not constitute native camera product acceptance.
 
-## Local identity display resolver + Send picker slice (2026-11-03; review together with #156)
+## Local identity display resolver + Send picker slice (2026-11-03; merged #156)
 
 - **Product trace:** S22 Stage 8 contact UX, using the existing Contacts capability and
   AccountIdentityCard; behavior reference: Stellar ResolverService/ContactIdentity, adapted
@@ -181,7 +183,50 @@ S22 is not L3/L4 solely because tests/CI pass. Independent exact-HEAD implementa
   participant Add/Edit exactness, picker session re-read and source labels; full repository
   check on the final HEAD. Native product-flow acceptance remains deferred.
 
-## Memo Return G-address vertical slice (2026-11-04; pending independent review)
+## Address Book cross-surface product closure (2026-11-04; merged PR #162)
+
+- **Decision / trace:** Stage 8 S22, Phase 2c partial; clean-room **Adapt** of Stellar
+  Settings/AddressBook, Activity participant and Send Details/Recipient/Summary behavior.
+  The user confirmed on 2026-11-04 that **M-address delivery is paused**. Do not introduce
+  M-address contact selection, muxed ID or altered CreateAccount rules here.
+  PR #159 (G-address Memo Return) was independently reviewed and merged into main.
+  Merged #162 integration preserves distinct Return/Hash semantics through
+  Recipient selection, Request/QR prefill, manual editing, Summary and exact-XDR review.
+- Reuse merged #156 global v9 Contacts, unique full G + typed Memo identity, existing
+  AccountIdentityCard, IdentityAvatar and SectionedList; do not fork a new data model,
+  Realm store or native camera. Legacy duplicates remain visible by stable ID,
+  and ambiguous contact-name lookups continue to fail closed.
+- **Send:** (1) Details / asset and nonzero payment amount with at most seven decimals;
+  (2) Recipient / manual G address, global saved contact, visible current-network
+  Classic wallet, opt-in camera QR and typed Memo; (3) Summary / existing authoritative
+  unsigned Payment XDR review and unchanged authorization, signing, submission,
+  uncertain/recovery. Returning from Summary goes to Recipient with draft intact;
+  returning from Recipient goes to Details without silently replacing fields.
+  Cancel is available in both input steps. Invalid Details amount never starts
+  network preparation; QR/selection cannot submit autonomously.
+- Saved contact/QR selection fills exact address plus its own typed Memo. Changing
+  that automatically selected address manually discards the *old borrowed Memo*;
+  manually edited Memo belongs to the user and is preserved. Contacts re-read by
+  exact ID; no memo inferred from a local display-name fallback.
+- **QR and Activity:** Send Recipient camera and Activity participant Add/Edit reuse
+  injectable ContactScanner with existing camera/permission ingress. Existing
+  scannedContactRecipient validates raw Classic G and same-network SEP-7 QR, copying
+  only destination and Memo, never amount, asset, message or auto-saving a contact.
+  Permission denial, blocked or exception never mounts a camera without fresh
+  granted status. Retry rechecks OS permission, cancel and stale callbacks retire.
+  Activity transaction Memo is not assigned to arbitrary counterparties.
+- **External identity:** No vetted external name/brand avatar provider or address-
+  disclosure policy is available in the current Fresnica Capability/Services contract.
+  Do not fabricate such services or send address metadata to third parties. Reuse
+  local-name resolver and offline deterministic avatar fallback, and explicitly
+  defer external enrichment rather than claim it is complete.
+- Validation: #162 final reviewed HEAD `aec91464c4d930f3dd93e9e87982d2c1a3774ed3`,
+  Work APPROVED with no unresolved P1/P2/P3; remote CI 217 suites / 2148 tests and
+  Android/Apple/Realm classification gates passed. Actual Android/iOS camera permission,
+  keyboard/back/large-font/reader product flow and genuine Send submission are **not**
+  proven by Jest/CI. Stage 9 iOS System Auth cancel/retry remains deferred.
+
+## Memo Return G-address vertical slice (2026-11-04; merged as PR #159)
 
 - **Product ID / maturity:** S22 (Stage 8, Phase 2c partial); source role: Stellar typed Memo
   behavior, adapted through original Fresnica Capability/SDK/feature code. This work extends

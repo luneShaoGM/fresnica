@@ -7,6 +7,8 @@ import {OnboardingScreen} from '@features/onboarding/OnboardingScreen';
 import {PendingMnemonicBackupScreen} from '@features/onboarding/PendingMnemonicBackupScreen';
 import {RequestDeepLinkScreen} from '@features/request/RequestDeepLinkScreen';
 import {SendFlowScreen} from '@features/send/SendFlowScreen';
+import { ReactNativeRequestQrScannerView } from '@platform/system/RequestQrScannerView';
+import { reactNativeRequestIngress } from '@platform/system/requestIngress';
 import {useAppTheme, useThemedStyles, type AppTheme} from '@ui/theme';
 
 import {useLocalization} from '../../locale';
@@ -117,6 +119,9 @@ function renderRootScreen(
             <SendFlowScreen
               account={source}
               dependencies={runtime.services.send}
+              contacts={runtime.services.contacts}
+              destinationAccounts={bootstrap.accounts}
+              scanner={{ ScannerView: ReactNativeRequestQrScannerView, ingress: reactNativeRequestIngress }}
               requestIntent={deepLink.intent}
               onDone={onDismissDeepLink}
             />

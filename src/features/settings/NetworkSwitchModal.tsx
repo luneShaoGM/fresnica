@@ -142,6 +142,7 @@ export function NetworkSwitchModal({
       visible
       onRequestClose={prompt ? dismissPrompt : cancel}
       presentation={prompt ? 'dialog' : 'sheet'}
+      swipeToDismiss={!prompt}
       title={dialogTitle}
     >
       {prompt ? (
@@ -182,7 +183,6 @@ export function NetworkSwitchModal({
         </ScrollView>
       ) : (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheet}>
-          <View style={styles.handle} />
           <View style={styles.header}>
             <Text accessibilityRole="header" style={styles.title}>
               {t('networkSwitch.title')}
