@@ -171,6 +171,7 @@ function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): Hi
           successful: entry.successful,
           extendTo: entry.extendTo,
           bumpTo: entry.bumpTo,
+          dataName: entry.dataName,
         },
         accountAddress,
         base,

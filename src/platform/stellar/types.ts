@@ -75,6 +75,7 @@ export type HorizonOperationLike = {
   begin_sponsor?: unknown;
   extend_to?: unknown;
   bump_to?: unknown;
+  name?: unknown;
   source_account: string;
   function?: unknown;
   parameters?: unknown;

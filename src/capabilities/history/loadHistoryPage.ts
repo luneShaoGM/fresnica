@@ -67,6 +67,7 @@ export function mapHistoryEntry(record: HistoryOperationRecord, accountAddress: 
       return mapTrustSponsorship(record, accountAddress, base) ?? unsupportedShape(base);
     case 'extend_footprint_ttl':
     case 'restore_footprint':
+    case 'manage_data':
     case 'bump_sequence':
       return mapMaintenance(record, accountAddress, base) ?? unsupportedShape(base);
     case 'invoke_host_function':

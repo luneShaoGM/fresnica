@@ -68,7 +68,7 @@ export function activityEntryPresentation(
     case 'maintenance':
       return {
         title: t(`activity.maintenance.${entry.operationType}`),
-        primary: entry.bumpTo ?? (entry.extendTo === undefined ? '' : String(entry.extendTo)),
+        primary: entry.dataName ?? entry.bumpTo ?? (entry.extendTo === undefined ? '' : String(entry.extendTo)),
         secondary: entry.sourceAccount,
         tone: 'neutral',
         filter: 'other',
@@ -268,6 +268,7 @@ export function matchesActivitySearch(
     );
   if (entry.kind === 'maintenance') {
     values.push(
+      entry.dataName ?? '',
       entry.bumpTo ?? '',
       entry.extendTo === undefined ? '' : String(entry.extendTo),
       identityNames?.get(entry.sourceAccount) ?? '',

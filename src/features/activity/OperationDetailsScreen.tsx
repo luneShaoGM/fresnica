@@ -480,6 +480,9 @@ function renderEntry(
         ) : null}
         {entry.kind === 'maintenance' ? (
           <>
+            {entry.dataName === undefined ? null : (
+              <DetailRow label={t('activity.maintenance.dataName')} value={entry.dataName} fullValue styles={styles} />
+            )}
             {entry.extendTo === undefined ? null : (
               <DetailRow
                 label={t('activity.maintenance.extendTo')}

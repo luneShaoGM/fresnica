@@ -952,5 +952,8 @@
   "activity.sponsorship.end_sponsoring_future_reserves": "結束贊助範圍",
   "activity.sponsorship.sponsor": "贊助方",
   "activity.sponsorship.beneficiary": "受益方",
-  "activity.sponsorship.explanation": "此記錄標記交易中的未來儲備贊助範圍。結束範圍不會撤銷既有贊助，也不提供金額、受影響條目、數量或目前贊助狀態。"
+  "activity.sponsorship.explanation": "此記錄標記交易中的未來儲備贊助範圍。結束範圍不會撤銷既有贊助，也不提供金額、受影響條目、數量或目前贊助狀態。",
+  "activity.maintenance.manage_data": "帳戶資料變更",
+  "activity.maintenance.dataName": "資料項目名稱",
+  "activity.maintenance.explanation.manage_data": "此歷史操作設定、修改或刪除了帳戶資料。此處不顯示資料內容，也不代表該資料項目目前的內容或是否存在。"
 }

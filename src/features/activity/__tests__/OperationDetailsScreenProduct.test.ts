@@ -673,13 +673,14 @@ it.each(maintenanceTypes)('shows exact %s parameters and historical limits witho
     if (props.label) values.push(props.label);
     if (props.value) values.push(props.value);
     if (typeof props.children === 'string') values.push(props.children);
-    if (props.label === 'Extension horizon (ledgers)' || props.label === 'Target sequence')
+    if (props.label === 'Extension horizon (ledgers)' || props.label === 'Target sequence' || props.label === 'Data name')
       expect(props.fullValue).toBe(true);
   });
   const { t } = createLocalization('en');
   expect(values).toContain(t(`activity.maintenance.explanation.${type}`));
   if (type === 'extend_footprint_ttl') expect(values).toContain('4294967295');
   if (type === 'bump_sequence') expect(values).toContain('9223372036854775807');
+  if (type === 'manage_data') expect(values).toContain('config.memo_required');
   for (const label of ['Amount', 'Asset', 'Direction', 'Target expiry date']) expect(values).not.toContain(label);
 });
 
