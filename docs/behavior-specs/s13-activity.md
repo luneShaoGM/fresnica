@@ -48,8 +48,12 @@ successful invoke/create/upload host identity and reported SAC event summaries,
 without inventing complete balance changes from missing or empty events. SDK/XDR
 identity decoding stays in Platform; History owns exact event meaning and cache
 partition revalidation. No raw arguments/salt are persisted. [`s13-maintenance-history.md`](s13-maintenance-history.md) adds the Slice 5b
-candidate for TTL extension/restoration and exact sequence targets, without money
-or guessed affected entries/current state. Remaining
+merged through #154 at main `f08dba6a3d40e6b9f5537ef97689f7433c643656` for TTL
+extension/restoration and exact sequence targets, without money
+or guessed affected entries/current state.
+[`s13-trust-sponsorship-history.md`](s13-trust-sponsorship-history.md) defines the
+Slice 5c candidate for successful trust authorization/flag instructions and
+sponsorship scopes, preserving actual parties without money or live-state claims. Remaining
 classic families (remaining Slice 5) and failure/visibility rules (Slice 6) remain
 open. These amendments supersede older unsupported-family restrictions only for
 validated read shapes and never add an S11 write action.

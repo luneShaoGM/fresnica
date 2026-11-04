@@ -1,5 +1,12 @@
 import { mapHistoryEntry } from '../../../../capabilities/history/loadHistoryPage';
 import {
+  trustSponsorshipRecord,
+  trustSponsorshipTypes,
+  trustIssuer,
+  trustor,
+  trustForeign,
+} from '../../../../capabilities/history/__tests__/trustSponsorshipHistory.fixtures';
+import {
   maintenanceRecord,
   maintenanceSource,
   maintenanceForeign,
@@ -661,6 +668,41 @@ it('reopens exact maintenance targets and source-only partitions without monetar
     expect(repository.getSnapshot({ ...partition, accountAddress: maintenanceForeign })).toBeUndefined();
     expect(() => repository.replaceSnapshot({ ...partition, accountAddress: maintenanceForeign }, snapshot)).toThrow();
     expect(repository.getSnapshot(partition)).toEqual(normalizeHistoryCacheSnapshot(snapshot, partition));
+  } finally {
+    realm?.close();
+    Realm.shutdown();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+it('reopens trust permissions and both sponsorship roles without mixing partitions', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'fresnica-trust-sponsorship-'));
+  const path = join(directory, 'wallet.realm');
+  const snapshots = [trustIssuer, trustor].map(address => {
+    const entries = trustSponsorshipTypes.map(type => mapHistoryEntry(trustSponsorshipRecord(type), address));
+    return {
+      partition: { networkId: 'test', accountAddress: address },
+      snapshot: historySnapshot(
+        entries,
+        entries.map(entry => ({ operationId: entry.id, entry })),
+      ),
+    };
+  });
+  let realm: Awaited<ReturnType<typeof openWalletRealm>> | undefined;
+  try {
+    realm = await openWalletRealm({ path });
+    for (const { partition, snapshot } of snapshots)
+      new RealmHistoryCacheRepository(realm).replaceSnapshot(partition, snapshot);
+    realm.close();
+    realm = undefined;
+    realm = await openWalletRealm({ path });
+    const repository = new RealmHistoryCacheRepository(realm);
+    for (const { partition, snapshot } of snapshots) {
+      expect(repository.getSnapshot(partition)).toEqual(normalizeHistoryCacheSnapshot(snapshot, partition));
+      expect(repository.getSnapshot({ ...partition, networkId: 'other' })).toBeUndefined();
+      expect(repository.getSnapshot({ ...partition, accountAddress: trustForeign })).toBeUndefined();
+      expect(() => repository.replaceSnapshot({ ...partition, accountAddress: trustForeign }, snapshot)).toThrow();
+    }
   } finally {
     realm?.close();
     Realm.shutdown();

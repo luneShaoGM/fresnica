@@ -29,6 +29,17 @@ export function activityRowPresentation(
 ): ActivityRowPresentation {
   const detail = activityEntryPresentation(entry, t, formatNumber);
   switch (entry.kind) {
+    case 'trust-authorization':
+    case 'trust-flags':
+      return { title: entry.asset.code, operation: detail.title, subject: { kind: 'asset', asset: entry.asset } };
+    case 'sponsorship': {
+      const peer = entry.role === 'sponsor' ? entry.beneficiary : entry.sponsor;
+      return {
+        title: names?.get(peer)?.trim() || formatPublicAddress(peer),
+        operation: detail.title,
+        subject: { kind: 'account', address: peer },
+      };
+    }
     case 'maintenance':
       return {
         title: names?.get(entry.sourceAccount)?.trim() || formatPublicAddress(entry.sourceAccount),

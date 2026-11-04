@@ -1,6 +1,7 @@
 # S13 maintenance history — Slice 5b
 
-Status: candidate contract after #152 merged at
+Status: merged through #154 at `main@f08dba6a3d40e6b9f5537ef97689f7433c643656`.
+Historical implementation started after #152 merged at
 `main@1b8aeb6c64d9dab8cf2a67148f44517a3dab15d5`.
 Integration base updated to #151 at `b223572205bf35c0c50d3f08c30d2d4ba6c2daac`;
 its global-contact identity policy is inherited, not reimplemented in this slice.

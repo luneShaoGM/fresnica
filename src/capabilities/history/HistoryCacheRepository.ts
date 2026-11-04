@@ -1,5 +1,6 @@
 import { CONTRACT_HOST_FUNCTIONS, mapContract } from './contractHistory';
 import { isMaintenanceType, mapMaintenance } from './maintenanceHistory';
+import { isTrustSponsorshipType, mapTrustSponsorship } from './trustSponsorshipHistory';
 import { isClaimableClawbackType, mapClaimableClawback } from './claimableClawbackHistory';
 import { isOfferType, isPoolType, mapOfferPool } from './offerPoolHistory';
 import { isPathPaymentType, mapPathPayment } from './pathPaymentHistory';
@@ -115,6 +116,52 @@ function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): Hi
   };
 
   switch (entry.kind) {
+    case 'trust-authorization':
+    case 'trust-flags':
+    case 'sponsorship': {
+      if (!accountAddress) throw new Error('history-cache-invalid-partition');
+      if (entry.kind !== 'sponsorship') assertAsset(entry.asset);
+      if (
+        entry.kind === 'trust-authorization' &&
+        !['authorized', 'maintain-liabilities', 'revoked'].includes(entry.authorization)
+      )
+        throw new Error('history-cache-invalid-entry');
+      if (entry.kind === 'trust-flags' && (!Array.isArray(entry.setFlags) || !Array.isArray(entry.clearFlags)))
+        throw new Error('history-cache-invalid-entry');
+      const reconstructed = mapTrustSponsorship(
+        {
+          ...base,
+          type: entry.operationType,
+          successful: entry.successful,
+          ...(entry.kind === 'sponsorship'
+            ? { sponsoredId: entry.beneficiary, beginSponsor: entry.sponsor }
+            : {
+                asset: entry.asset,
+                trustor: entry.trustor,
+                ...(entry.kind === 'trust-authorization'
+                  ? {
+                      trustee: entry.sourceAccount,
+                      authorize: entry.authorization === 'authorized',
+                      authorizeToMaintainLiabilities: entry.authorization !== 'revoked',
+                    }
+                  : { setFlags: entry.setFlags, clearFlags: entry.clearFlags }),
+              }),
+        },
+        accountAddress,
+        base,
+      );
+      if (
+        !reconstructed ||
+        reconstructed.kind !== entry.kind ||
+        (reconstructed.kind === 'sponsorship' &&
+          entry.kind === 'sponsorship' &&
+          (reconstructed.sponsor !== entry.sponsor ||
+            reconstructed.beneficiary !== entry.beneficiary ||
+            reconstructed.role !== entry.role))
+      )
+        throw new Error('history-cache-invalid-entry');
+      return reconstructed;
+    }
     case 'maintenance': {
       if (!accountAddress) throw new Error('history-cache-invalid-partition');
       const reconstructed = mapMaintenance(
@@ -337,6 +384,16 @@ function assertHistoryEntry(entry: HistoryEntry): void {
   }
 
   switch (entry.kind) {
+    case 'trust-authorization':
+      if (entry.operationType !== 'allow_trust') throw new Error('history-cache-invalid-entry');
+      return;
+    case 'trust-flags':
+      if (entry.operationType !== 'set_trust_line_flags') throw new Error('history-cache-invalid-entry');
+      return;
+    case 'sponsorship':
+      if (!['begin_sponsoring_future_reserves', 'end_sponsoring_future_reserves'].includes(entry.operationType))
+        throw new Error('history-cache-invalid-entry');
+      return;
     case 'maintenance':
       if (!isMaintenanceType(entry.operationType)) throw new Error('history-cache-invalid-entry');
       return;
@@ -417,7 +474,8 @@ function assertHistoryEntry(entry: HistoryEntry): void {
           !isPoolType(entry.operationType) &&
           !isClaimableClawbackType(entry.operationType) &&
           entry.operationType !== 'invoke_host_function' &&
-          !isMaintenanceType(entry.operationType))
+          !isMaintenanceType(entry.operationType) &&
+          !isTrustSponsorshipType(entry.operationType))
       ) {
         throw new Error('history-cache-invalid-entry');
       }
