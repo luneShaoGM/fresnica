@@ -963,5 +963,8 @@
   "activity.sponsorship.end_sponsoring_future_reserves": "Sponsorship scope closed",
   "activity.sponsorship.sponsor": "Sponsor",
   "activity.sponsorship.beneficiary": "Beneficiary",
-  "activity.sponsorship.explanation": "This record marks a future-reserve sponsorship scope within its transaction. Closing the scope does not revoke existing sponsorship. No amount, affected entries, count or current sponsorship status is established."
+  "activity.sponsorship.explanation": "This record marks a future-reserve sponsorship scope within its transaction. Closing the scope does not revoke existing sponsorship. No amount, affected entries, count or current sponsorship status is established.",
+  "activity.maintenance.manage_data": "Account data changed",
+  "activity.maintenance.dataName": "Data name",
+  "activity.maintenance.explanation.manage_data": "This historical operation set, modified or deleted account data. The value is not shown, and the record does not establish its current content or existence."
 }

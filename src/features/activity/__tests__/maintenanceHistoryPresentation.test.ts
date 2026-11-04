@@ -25,7 +25,7 @@ it.each(maintenanceTypes)('presents %s as neutral source identity without money 
       expect(matchesActivitySearch(entry, query, t, formatNumber, names)).toBe(true);
     if (type !== 'restore_footprint')
       expect(
-        matchesActivitySearch(entry, type === 'bump_sequence' ? '9223372036854775807' : '4294967295', t, formatNumber),
+        matchesActivitySearch(entry, type === 'manage_data' ? 'config.memo_required' : type === 'bump_sequence' ? '9223372036854775807' : '4294967295', t, formatNumber),
       ).toBe(true);
   }
 });

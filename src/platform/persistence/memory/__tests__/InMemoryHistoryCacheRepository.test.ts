@@ -43,7 +43,7 @@ it('preserves both viewed sponsorship roles and trust evidence in isolated memor
   }
 });
 
-it('retains all three maintenance payloads and exact parameters in isolated memory partitions', () => {
+it('retains maintenance and account data payloads and exact parameters in isolated memory partitions', () => {
   const partition = { networkId: 'test', accountAddress: maintenanceSource };
   const entries = maintenanceTypes.map(type => mapHistoryEntry(maintenanceRecord(type), maintenanceSource));
   const snapshot = historySnapshot(

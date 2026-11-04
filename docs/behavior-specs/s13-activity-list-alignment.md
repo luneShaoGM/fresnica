@@ -12,7 +12,7 @@ PR #150 at `main@61d69a8af760256a84730547cfbbf307d24c4017`, specified in
 Slice 5a merged through #152 at `main@1b8aeb6c64d9dab8cf2a67148f44517a3dab15d5`, specified in
 [`s13-contract-history.md`](s13-contract-history.md). Slice 5b merged through #154 at `main@f08dba6a3d40e6b9f5537ef97689f7433c643656`,
 specified in [`s13-maintenance-history.md`](s13-maintenance-history.md). Slice 5c
-trust/sponsorship candidate is specified in
+trust/sponsorship merged through #157; specified in
 [`s13-trust-sponsorship-history.md`](s13-trust-sponsorship-history.md). Existing cache,
 cursor, detail identity, submission and recovery contracts remain in force.
 
@@ -36,7 +36,7 @@ templates. Independent implementation review is required before merge.
 | 2 | Path-payment and Swap read projection, asset pair, destination-leg summary | Merged #148; successful actual legs only, native acceptance pending |
 | 3 | Buy/sell/passive/cancelled offers and liquidity pool read presentation | Merged #149; intent-only offers and two actual signed reserve legs, native acceptance pending |
 | 4 | Claimable Balance and Clawback roles, amounts and risk classification | Merged #150: four operation families, exact roles/conditions, known creation/holder amounts, ID-only claim and claimable clawback; effect-backed missing asset/amount enrichment and native acceptance remain open |
-| 5 | Contract identity and asset-change summaries; remaining operation families | Slice 5a merged #152: invoke/create/upload identity and reported SAC events; Slice 5b merged #154: TTL extension/restoration and sequence adjustment; Slice 5c candidate adds trust authorization/flags and sponsorship scopes; remaining classic families and native acceptance open |
+| 5 | Contract identity and asset-change summaries; remaining operation families | Slice 5a merged #152: invoke/create/upload identity and reported SAC events; Slice 5b merged #154: TTL extension/restoration and sequence adjustment; Slice 5c merged #157 adds trust authorization/flags and sponsorship scopes; remaining classic families and native acceptance open |
 | 6 | Failed-operation read contract and controls; Dust/Spam/technical visibility | Deferred; do not invent classifications without data |
 
 Each later slice updates its owning behavior contract, read/cache projection,
@@ -134,3 +134,9 @@ Stage 9 iOS real-device System Auth cancellation/retry remains deferred.
 - Independent exact-remote-HEAD review and native product acceptance remain separate
   gates. No full Activity parity, branded-asset image parity or L3/L4 upgrade is
   asserted by these automated results.
+
+S13 Slice 5c merged via #157 (`d1585ac1ecea0dfd081de5f8528c6289ffa92e91`).
+Slice 5d candidate adds operation-only account data history (name, no content or
+add/update/delete inference), specified in `s13-account-data-history.md`.
+Current maturity and native acceptance remain unchanged; other classic families,
+failure/visibility, constructor variants, amount enrichment and imagery stay open.

@@ -15,13 +15,14 @@ function wire(type: string): HorizonOperationLike {
     id: type,
     paging_token: type,
     type,
-    type_i: type === 'extend_footprint_ttl' ? 25 : type === 'restore_footprint' ? 26 : 11,
+    type_i: type === 'extend_footprint_ttl' ? 25 : type === 'restore_footprint' ? 26 : type === 'manage_data' ? 10 : 11,
     transaction_successful: true,
     source_account: maintenanceSource,
     created_at: '2026-11-03T00:00:00Z',
     transaction_hash: 'hash',
     extend_to: 4294967295,
     bump_to: '9223372036854775807',
+    name: 'config.memo_required',
     amount: '99',
   };
 }
@@ -74,3 +75,17 @@ it('preserves invalid present parameters for fail-closed mapping and never coerc
       mapHistoryEntry(mapHistoryOperationRecord({ ...wire(type), transaction_successful: false }), maintenanceSource),
     ).toMatchObject({ kind: 'unsupported' });
 });
+
+it.each([undefined, null, '', 'MQ==', 'not-base64', { secret: 'ignored' }])(
+  'keeps manage-data operation-only without decoding or retaining value %j', value => {
+    const raw = { ...wire('manage_data'), value };
+    const record = mapHistoryOperationRecord(raw);
+    expect(record).not.toHaveProperty('value');
+    const entry = mapHistoryEntry(record, maintenanceSource);
+    expect(entry).toMatchObject({ kind: 'maintenance', dataName: 'config.memo_required' });
+    expect(entry).not.toHaveProperty('value');
+    for (const name of [null, undefined, 3])
+      expect(mapHistoryEntry(mapHistoryOperationRecord({ ...wire('manage_data'), name }), maintenanceSource))
+        .toMatchObject({ kind: 'unsupported' });
+  },
+);

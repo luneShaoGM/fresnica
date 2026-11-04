@@ -333,3 +333,9 @@ Each implementation PR must preserve the read-only S13 boundary and must not mod
 S13 may be considered for promotion from `L3 partial` to `L3 / L4 partial` only after both Android and iOS prove the frozen aggregate sequence against production History/Horizon/Realm wiring, including honest cached/offline presentation and successful revalidation.
 
 A successful aggregate does not by itself establish L4. Required repeatable aggregate gating and trustworthy platform-level screen-reader focus-order depth remain separate L4 evidence.
+
+S13 Slice 5c merged via #157 (`d1585ac1ecea0dfd081de5f8528c6289ffa92e91`).
+Slice 5d candidate adds operation-only account data history (name, no content or
+add/update/delete inference), specified in `s13-account-data-history.md`.
+Current maturity and native acceptance remain unchanged; other classic families,
+failure/visibility, constructor variants, amount enrichment and imagery stay open.

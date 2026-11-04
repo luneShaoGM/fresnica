@@ -1179,3 +1179,9 @@ Backend 交付并完成身份/滥用验证后才可支持：
 ### Shared foundation execution candidate (2026-10-28)
 
 The user-approved current order is baseline reconciliation → shared authentication design → network session/node management. All three have candidate deliverables on `feat/shared-auth-network-foundation-2026-10-27`; implementation and evidence boundaries are in the current-progress index and shared-auth-network-session behavior spec. Generic biometric session unlock and Developer Session Logs remain separate incomplete work. Before further Swap/dApp sensitive expansion, review this exact remote HEAD, align shared composition with S14 PR #123, and perform the affected native acceptance. This does not restart Automation V2.2 or authorize merge.
+
+S13 Slice 5c merged via #157 (`d1585ac1ecea0dfd081de5f8528c6289ffa92e91`).
+Slice 5d candidate adds operation-only account data history (name, no content or
+add/update/delete inference), specified in `behavior-specs/s13-account-data-history.md`.
+Current maturity and native acceptance remain unchanged; other classic families,
+failure/visibility, constructor variants, amount enrichment and imagery stay open.

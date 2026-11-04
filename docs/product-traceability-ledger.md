@@ -358,3 +358,9 @@ This map assigns construction order without reducing final scope. An ID is compl
 
 
 - S05/S06/S13 silent display refresh maintenance (base `4a96f66e0050ed881ed037a2c48acd3217ed5d2a`, after merged #132): shared Balance reads preserve accepted active/inactive display and buttons while revalidating; Home hides routine refresh status/timestamp; History list/detail rereads preserve unchanged content and loaded pagination. Real failures, cache-only gating, Friendbot request freshness and live transaction preparation remain authoritative. Behavior and evidence boundaries: `behavior-specs/account-data-lifecycle.md`, final section. Full local check: 184 suites / 1490 tests; no new native/device acceptance or maturity promotion; current exact-HEAD Work review pending.
+
+S13 Slice 5c merged via #157 (`d1585ac1ecea0dfd081de5f8528c6289ffa92e91`).
+Slice 5d candidate adds operation-only account data history (name, no content or
+add/update/delete inference), specified in `behavior-specs/s13-account-data-history.md`.
+Current maturity and native acceptance remain unchanged; other classic families,
+failure/visibility, constructor variants, amount enrichment and imagery stay open.

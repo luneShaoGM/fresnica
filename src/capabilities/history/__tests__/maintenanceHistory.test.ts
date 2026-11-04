@@ -80,6 +80,7 @@ it.each(maintenanceTypes)('requires literal success and source-only association 
     account: maintenanceForeign,
     extendTo: 'bad',
     bumpTo: 'bad',
+    dataName: '',
   });
   const dependencies = {
     networkId: 'test',
@@ -97,3 +98,23 @@ it.each(maintenanceTypes)('requires literal success and source-only association 
     mapHistoryEntry(maintenanceRecord(type, { sourceAccount: ` ${maintenanceSource}` }), maintenanceSource),
   ).toMatchObject({ kind: 'unsupported' });
 });
+
+it.each(['a', ' ', 'a'.repeat(64), '界'.repeat(21) + 'a', '😀'.repeat(16), ' key '])(
+  'preserves bounded account data name %j without normalizing it', dataName => {
+    const entry = mapHistoryEntry(maintenanceRecord('manage_data', { dataName }), maintenanceSource);
+    expect(entry).toMatchObject({ kind: 'maintenance', dataName });
+    const normalized = cache({ ...entry, value: 'NEVER-SAVE', amount: '9', extendTo: 5 } as unknown as HistoryEntry);
+    expect(normalized.entries[0]).toEqual(entry);
+    expect(normalized.details[0].entry).toEqual(entry);
+    expect(Object.isFrozen(normalized.entries[0])).toBe(true);
+    expect(() => cache({ ...entry, dataName: undefined } as unknown as HistoryEntry)).toThrow();
+    expect(() => cache({ ...entry, dataName: 'a'.repeat(65) } as unknown as HistoryEntry)).toThrow();
+  },
+);
+it.each([undefined, null, 3, {}, '', 'a'.repeat(65), '界'.repeat(22), '😀'.repeat(17), '\ud800', '\udc00', 'a\n', '\u0000', '\u0085'])(
+  'rejects malformed account data name %j', dataName => {
+    const entry = mapHistoryEntry(maintenanceRecord('manage_data', { dataName }), maintenanceSource);
+    expect(entry).toMatchObject({ kind: 'unsupported', reason: 'operation-shape' });
+    expect(cache(entry).entries[0]).toEqual(entry);
+  },
+);

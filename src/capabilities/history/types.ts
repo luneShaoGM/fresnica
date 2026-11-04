@@ -150,6 +150,7 @@ export type HistoryMaintenanceEntry = HistoryEntryBase &
     successful: true;
     extendTo?: number;
     bumpTo?: string;
+    dataName?: string;
   }>;
 export type HistoryTrustFlag = 1 | 2 | 4;
 export type HistoryTrustAuthorizationEntry = HistoryEntryBase &

@@ -963,5 +963,8 @@
   "activity.sponsorship.end_sponsoring_future_reserves": "结束赞助范围",
   "activity.sponsorship.sponsor": "赞助方",
   "activity.sponsorship.beneficiary": "受益方",
-  "activity.sponsorship.explanation": "此记录标记交易中的未来储备赞助范围。结束范围不会撤销已有赞助，也不提供金额、受影响条目、数量或当前赞助状态。"
+  "activity.sponsorship.explanation": "此记录标记交易中的未来储备赞助范围。结束范围不会撤销已有赞助，也不提供金额、受影响条目、数量或当前赞助状态。",
+  "activity.maintenance.manage_data": "账户数据变更",
+  "activity.maintenance.dataName": "数据项名称",
+  "activity.maintenance.explanation.manage_data": "此历史操作设置、修改或删除了账户数据。此处不展示数据内容，也不代表该数据项当前的内容或是否存在。"
 }
