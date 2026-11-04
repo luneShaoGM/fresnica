@@ -155,3 +155,8 @@ S13 constructor/create-identity fix merged #161. Slice6 failed history/technical
 visibility candidate uses `s13-failed-visibility-history.md`;
 known false is non-monetary, raw unknown stays unsupported, legacy cache preserved.
 No native/maturity promotion; effects/images/explicitDustSpam policy follow.
+
+Slice 6c candidate: explicit opt-in Mainnet public curated asset images and
+reversible user-selected issued-asset hiding, specified in
+[`s13-activity-images-visibility.md`](s13-activity-images-visibility.md).
+No automatic Dust/Spam inference or History deletion. Native acceptance pending.

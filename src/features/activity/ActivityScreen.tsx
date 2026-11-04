@@ -8,6 +8,7 @@ import { NativeButton } from '@ui/components/NativeButton';
 import { NativeField } from '@ui/components/NativeField';
 
 import type { AccountRecord } from '@capabilities/account/types';
+import type { ActivityAssetImages } from '@capabilities/assets/ActivityAssetImages';
 import {
   cacheHistoryOnlineEntriesBestEffort,
   clearHistoryCacheBestEffort,
@@ -20,6 +21,7 @@ import { useAppTheme, useThemedStyles } from '@ui/theme';
 
 import { useLocalization } from '../../locale';
 import { matchesActivityFilter, matchesActivitySearch, type ActivityFilter } from './activityList';
+import { entryAssetIdentities, visibleByAssetPreference } from './activityAssetVisibility';
 import {
   appendActivityHistoryPage,
   createActivityReadyState,
@@ -31,6 +33,7 @@ import {
   type ActivityReadyState,
 } from './activityReadModel';
 import { createStyles } from './styles';
+import { ActivityAssetAvatar } from './ActivityAssetAvatar';
 import { activityAssetIdentity, activityRowPresentation, type ActivityIdentityNames } from './activityRowPresentation';
 
 type ActivityLoadMode = 'hydrate' | 'refresh' | 'revalidate';
@@ -50,6 +53,7 @@ type Props = Readonly<{
   onManualRefresh: () => Promise<unknown>;
   invalidationRevision: number;
   identityNames?: ActivityIdentityNames;
+  images?: ActivityAssetImages;
 }>;
 
 const FILTERS: readonly ActivityFilter[] = ['all', 'payments', 'accounts', 'trustlines', 'other', 'failed'];
@@ -70,6 +74,7 @@ export function ActivityScreen({
   onManualRefresh,
   invalidationRevision,
   identityNames,
+  images,
 }: Props) {
   const { formatNumber, locale, t } = useLocalization();
   const theme = useAppTheme();
@@ -79,6 +84,10 @@ export function ActivityScreen({
   const [searchText, setSearchText] = useState('');
   const [headReadPending, setHeadReadPending] = useState(false);
   const [showTechnical, setShowTechnical] = useState(true);
+  const [hiddenAssets, setHiddenAssets] = useState<ReadonlySet<string>>(new Set());
+  const [showHiddenAssets, setShowHiddenAssets] = useState(false);
+  const [managingAssets, setManagingAssets] = useState(false);
+  const [useAssetImages, setUseAssetImages] = useState(false);
   const requestVersion = useRef(0);
   const hasHydrated = useRef(false);
   const revalidating = useRef(false);
@@ -87,6 +96,10 @@ export function ActivityScreen({
     setFilter('all');
     setSearchText('');
     setShowTechnical(true);
+    setHiddenAssets(new Set());
+    setShowHiddenAssets(false);
+    setManagingAssets(false);
+    setUseAssetImages(false);
   }, [account.address, account.networkId]);
 
   const loadInitial = useCallback(
@@ -243,11 +256,27 @@ export function ActivityScreen({
 
     return state.entries.filter(
       entry =>
+        visibleByAssetPreference(entry, hiddenAssets, showHiddenAssets) &&
         (showTechnical || !isTechnicalHistoryOperation(entry.operationType)) &&
         matchesActivityFilter(entry, filter) &&
         matchesActivitySearch(entry, searchText, t, formatNumber, identityNames),
     );
-  }, [filter, formatNumber, identityNames, searchText, showTechnical, state, t]);
+  }, [filter, formatNumber, hiddenAssets, identityNames, searchText, showHiddenAssets, showTechnical, state, t]);
+
+  const selectableAssets = useMemo(() => {
+    if (state.kind !== 'ready') return [];
+    const identities = new Set(state.entries.flatMap(entryAssetIdentities));
+    return [...identities].filter(identity => identity !== 'native:XLM').sort();
+  }, [state]);
+
+  const toggleAssetHidden = useCallback((identity: string) => {
+    setHiddenAssets(current => {
+      const next = new Set(current);
+      if (next.has(identity)) next.delete(identity);
+      else next.add(identity);
+      return next;
+    });
+  }, []);
 
   const dateFormatter = useMemo(
     () =>
@@ -310,7 +339,63 @@ export function ActivityScreen({
           returnKeyType="search"
           value={searchText}
         />
-        <NativeButton label={t(showTechnical ? 'activity.visibility.hideTechnical' : 'activity.visibility.showTechnical')} size="sm" variant="secondary" onPress={() => setShowTechnical(value => !value)} />
+        <NativeButton
+          label={t(showTechnical ? 'activity.visibility.hideTechnical' : 'activity.visibility.showTechnical')}
+          size="sm"
+          variant="secondary"
+          onPress={() => setShowTechnical(value => !value)}
+        />
+        {account.networkId === 'stellar-mainnet' && images ? (
+          <NativeButton
+            label={t(useAssetImages ? 'activity.images.disable' : 'activity.images.enable')}
+            size="sm"
+            variant="secondary"
+            onPress={() => setUseAssetImages(value => !value)}
+          />
+        ) : null}
+        <NativeButton
+          label={t(managingAssets ? 'activity.visibility.closeAssetControls' : 'activity.visibility.manageAssets')}
+          size="sm"
+          variant="secondary"
+          onPress={() => setManagingAssets(value => !value)}
+        />
+        {managingAssets ? (
+          <View style={styles.assetVisibilityPanel}>
+            <Text style={styles.stateMessage}>{t('activity.visibility.manualOnly')}</Text>
+            <ScrollView style={styles.assetVisibilityList} nestedScrollEnabled>
+              {selectableAssets.map(identity => {
+                const asset = JSON.parse(identity) as [string, string];
+                return (
+                  <NativeButton
+                    key={identity}
+                    label={t(
+                      hiddenAssets.has(identity) ? 'activity.visibility.restoreAsset' : 'activity.visibility.hideAsset',
+                      { asset: `${asset[0]} · ${asset[1]}` },
+                    )}
+                    size="sm"
+                    variant="secondary"
+                    onPress={() => toggleAssetHidden(identity)}
+                  />
+                );
+              })}
+            </ScrollView>
+            {hiddenAssets.size > 0 ? (
+              <NativeButton
+                label={t(showHiddenAssets ? 'activity.visibility.hideMarked' : 'activity.visibility.showMarked')}
+                size="sm"
+                variant="secondary"
+                onPress={() => setShowHiddenAssets(value => !value)}
+              />
+            ) : null}
+          </View>
+        ) : hiddenAssets.size > 0 ? (
+          <NativeButton
+            label={t(showHiddenAssets ? 'activity.visibility.hideMarked' : 'activity.visibility.showMarked')}
+            size="sm"
+            variant="secondary"
+            onPress={() => setShowHiddenAssets(value => !value)}
+          />
+        ) : null}
         <ScrollView contentContainerStyle={styles.filters} horizontal showsHorizontalScrollIndicator={false}>
           {FILTERS.map(item => {
             const selected = filter === item;
@@ -351,6 +436,10 @@ export function ActivityScreen({
           t={t}
           timeFormatter={timeFormatter}
           indicatorColor={theme.colors.actionPrimaryPressed}
+          images={images}
+          assetImagesEnabled={useAssetImages && account.networkId === 'stellar-mainnet'}
+          imageNetworkId={account.networkId}
+          imageActive={active}
         />
       </ScrollView>
     </Screen>
@@ -375,6 +464,10 @@ type ActivityContentProps = Readonly<{
   timeFormatter: Intl.DateTimeFormat;
   indicatorColor: string;
   styles: Styles;
+  images?: ActivityAssetImages;
+  assetImagesEnabled?: boolean;
+  imageNetworkId?: string;
+  imageActive?: boolean;
 }>;
 
 export function ActivityContent({
@@ -391,6 +484,10 @@ export function ActivityContent({
   timeFormatter,
   indicatorColor,
   styles,
+  images,
+  assetImagesEnabled = false,
+  imageNetworkId = '',
+  imageActive = false,
 }: ActivityContentProps) {
   switch (state.kind) {
     case 'loading':
@@ -524,6 +621,10 @@ export function ActivityContent({
             onOpenOperation,
             styles,
             identityNames,
+            images,
+            assetImagesEnabled,
+            imageNetworkId,
+            imageActive,
           )}
           {state.loadMoreFailed ? <Text style={styles.loadMoreError}>{t('activity.loadMoreError')}</Text> : null}
           {loadMoreAction}
@@ -584,6 +685,10 @@ function renderEntries(
   onOpenOperation: (operationId: string) => void,
   styles: Styles,
   identityNames?: ActivityIdentityNames,
+  images?: ActivityAssetImages,
+  assetImagesEnabled = false,
+  imageNetworkId = '',
+  imageActive = false,
 ) {
   let previousDate = '';
 
@@ -598,6 +703,10 @@ function renderEntries(
         <ActivityRow
           entry={entry}
           identityNames={identityNames}
+          images={images}
+          assetImagesEnabled={assetImagesEnabled}
+          imageNetworkId={imageNetworkId}
+          imageActive={imageActive}
           formatNumber={formatNumber}
           onOpen={() => onOpenOperation(entry.id)}
           styles={styles}
@@ -617,6 +726,10 @@ export function ActivityRow({
   t,
   timeFormatter,
   identityNames,
+  images,
+  assetImagesEnabled = false,
+  imageNetworkId = '',
+  imageActive = false,
 }: Readonly<{
   entry: HistoryEntry;
   formatNumber: FormatNumber;
@@ -625,6 +738,10 @@ export function ActivityRow({
   t: Translate;
   timeFormatter: Intl.DateTimeFormat;
   identityNames?: ActivityIdentityNames;
+  images?: ActivityAssetImages;
+  assetImagesEnabled?: boolean;
+  imageNetworkId?: string;
+  imageActive?: boolean;
 }>) {
   const presentation = activityRowPresentation(entry, t, formatNumber, identityNames);
   const secondary = `${presentation.operation} · ${timeFormatter.format(new Date(entry.occurredAt))}`;
@@ -654,18 +771,47 @@ export function ActivityRow({
       ) : (
         <View style={styles.activitySubject}>
           {presentation.subject.kind === 'asset-pair' ? (
-            <IdentityAvatar
-              identity={JSON.stringify([
-                activityAssetIdentity(presentation.subject.source),
-                activityAssetIdentity(presentation.subject.destination),
-              ])}
-            />
+            assetImagesEnabled && images ? (
+              <View style={styles.assetPair}>
+                {[presentation.subject.source, presentation.subject.destination].map(asset => (
+                  <ActivityAssetAvatar
+                    key={activityAssetIdentity(asset)}
+                    asset={asset}
+                    networkId={imageNetworkId}
+                    images={images}
+                    enabled={assetImagesEnabled}
+                    active={imageActive}
+                    small
+                  />
+                ))}
+              </View>
+            ) : (
+              <IdentityAvatar
+                identity={JSON.stringify([
+                  activityAssetIdentity(presentation.subject.source),
+                  activityAssetIdentity(presentation.subject.destination),
+                ])}
+              />
+            )
           ) : presentation.subject.kind === 'contract' ? (
             <IdentityAvatar identity={`contract:${presentation.subject.identity}`} />
           ) : presentation.subject.kind === 'reference' ? (
             <IdentityAvatar identity={`claimable:${presentation.subject.identity}`} />
           ) : presentation.subject.kind === 'asset' ? (
-            <IdentityAvatar identity={activityAssetIdentity(presentation.subject.asset)} />
+            assetImagesEnabled && images ? (
+              <ActivityAssetAvatar
+                asset={presentation.subject.asset}
+                networkId={imageNetworkId}
+                images={images}
+                enabled={assetImagesEnabled}
+                active={imageActive}
+              />
+            ) : (
+              <IdentityAvatar
+                identity={activityAssetIdentity(presentation.subject.asset)}
+                native={presentation.subject.asset.kind === 'native'}
+              />
+            )
           ) : (
             <View
               accessible={false}
@@ -704,11 +850,22 @@ export function ActivityRow({
               </Text>
               <View style={styles.assetCaption}>
                 <Text style={styles.activityAsset}>{money.asset.code}</Text>
-                <IdentityAvatar
-                  identity={activityAssetIdentity(money.asset)}
-                  native={money.asset.kind === 'native'}
-                  small
-                />
+                {assetImagesEnabled && images ? (
+                  <ActivityAssetAvatar
+                    asset={money.asset}
+                    networkId={imageNetworkId}
+                    images={images}
+                    enabled={assetImagesEnabled}
+                    active={imageActive}
+                    small
+                  />
+                ) : (
+                  <IdentityAvatar
+                    identity={activityAssetIdentity(money.asset)}
+                    native={money.asset.kind === 'native'}
+                    small
+                  />
+                )}
               </View>
             </View>
           ))}

@@ -369,3 +369,10 @@ S13 Slice 5d merged #158; Slice 5e candidate covers remaining classic controls
 (account merge/options/revoke/inflation) under `behavior-specs/s13-classic-control-history.md`.
 No native acceptance or maturity promotion. Constructor/effects/visibility/images
 remain the next slices in the continuous Activity completion round.
+
+### S13 Activity Slice 6c candidate (2026-11-04)
+
+Opt-in public curated images and explicitly user-reversible, presentation-only
+asset hiding. [Contract](behavior-specs/s13-activity-images-visibility.md).
+No new ledger authority, auto-spam classification or native acceptance;
+S13 remains L3 partial. CI/Review must use exact remote PR HEAD.

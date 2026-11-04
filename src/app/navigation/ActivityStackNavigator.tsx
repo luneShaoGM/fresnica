@@ -53,6 +53,7 @@ export function ActivityStackNavigator({ accounts, selectedAccountId, services }
             identityNames={identityNames}
             account={account}
             dependencies={services.history}
+            images={services.activityAssetImages}
             onOpenOperation={operationId =>
               navigation.navigate('operation-details', { accountId: account.id, operationId })
             }

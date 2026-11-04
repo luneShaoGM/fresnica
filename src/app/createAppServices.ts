@@ -19,6 +19,8 @@ import type { ContactBook } from '../features/contacts/contactBook';
 import { RealmContactStore } from '../platform/persistence/realm/RealmContactStore';
 import { copyPublicText } from '../platform/system/copyPublicText';
 import type { AssetCatalogPort } from '../capabilities/trustline/curatedAssetCatalog';
+import type { ActivityAssetImages } from '../capabilities/assets/ActivityAssetImages';
+import { createHttpActivityAssetImages } from '../platform/assets/HttpActivityAssetImages';
 import { createHttpAssetCatalog } from '../platform/assets/HttpAssetCatalog';
 import { createNodeReadSession, type NodeReadSession } from './readModels/createNodeReadSession';
 import { createHorizonPublicReadGateway } from '../platform/stellar/HorizonPublicReadGateway';
@@ -103,6 +105,7 @@ export type AppServices = Readonly<{
   dappCatalog: DappCatalogPort;
   dappPermissions: DappPermissionStore;
   assetCatalog: AssetCatalogPort;
+  activityAssetImages: ActivityAssetImages;
   copyPublicText: (text: string) => Promise<void>;
   transactionRecovery: TransactionReconciliationCoordinator;
   ledgerReadInvalidation: LedgerReadInvalidationStore;
@@ -351,13 +354,15 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     closeDappCatalog = dappCatalog.close;
     const contactStore = new RealmContactStore(realm);
     const guardedContacts = session.bind(contactStore);
+    const assetCatalog = createHttpAssetCatalog();
     diagnostics.info('app-services-ready', { details: { networkId: network.id } });
 
     return {
       diagnostics,
       networkProfile,
       networkSettings,
-      assetCatalog: createHttpAssetCatalog(),
+      assetCatalog,
+      activityAssetImages: createHttpActivityAssetImages(assetCatalog),
       copyPublicText,
       contacts: {
         store: {

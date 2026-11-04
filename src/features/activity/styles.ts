@@ -47,6 +47,11 @@ export function createStyles(theme: AppTheme) {
       paddingHorizontal: theme.spacing.md,
       paddingBottom: theme.spacing.sm,
     },
+    assetVisibilityList: { maxHeight: 160 },
+    assetVisibilityPanel: {
+      paddingVertical: theme.spacing.sm,
+      gap: theme.spacing.xs,
+    },
     filters: {
       gap: theme.spacing.sm,
       paddingTop: theme.spacing.sm,
@@ -89,6 +94,24 @@ export function createStyles(theme: AppTheme) {
       alignItems: 'center',
       gap: theme.spacing.sm,
     },
+    assetPair: {
+      width: 40,
+      minHeight: 40,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignContent: 'center',
+      justifyContent: 'center',
+      gap: theme.spacing.xs,
+    },
+    assetImageWrap: {
+      width: 40,
+      height: 40,
+      borderRadius: theme.radii.pill,
+      overflow: 'hidden',
+      backgroundColor: theme.colors.surfaceMuted,
+    },
+    assetImageSmall: { width: 16, height: 16 },
+    assetImage: { width: '100%', height: '100%' },
     operationIcon: {
       width: 40,
       height: 40,

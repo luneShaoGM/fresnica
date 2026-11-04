@@ -14,6 +14,7 @@ import { HISTORY_CACHE_SCHEMA_VERSION } from '../../../capabilities/history/Hist
 import { createLocalization } from '../../../locale/localization';
 import { defaultTheme } from '../../../ui/theme';
 import { ActivityContent, ActivityRow, ActivityScreen, StatePanel } from '../ActivityScreen';
+import { ActivityAssetAvatar } from '../ActivityAssetAvatar';
 import { createActivityReadyState, createCachedActivityReadyState, failActivityRefresh } from '../activityReadModel';
 import { createStyles } from '../styles';
 
@@ -115,6 +116,7 @@ type NodeProps = Readonly<{
   variant?: string;
   value?: string;
   entries?: readonly HistoryEntry[];
+  state?: unknown;
   entry?: HistoryEntry;
   source?: string;
   message?: string;
@@ -124,6 +126,7 @@ type NodeProps = Readonly<{
   name?: string;
   secondary?: string;
   identity?: string;
+  asset?: { kind: string };
   small?: boolean;
   native?: boolean;
   timeFormatter?: Intl.DateTimeFormat;
@@ -153,14 +156,21 @@ function renderScreen(
   searchText = '',
   identityNames?: ReadonlyMap<string, string>,
   showTechnical = true,
+  hiddenAssets: ReadonlySet<string> = new Set(),
+  showHiddenAssets = false,
+  managingAssets = false,
 ) {
-  const setters = [jest.fn(), jest.fn(), jest.fn(), jest.fn(), jest.fn()];
+  const setters = Array.from({ length: 9 }, () => jest.fn());
   const values = [
     { kind: 'ready' as const, ...createActivityReadyState({ entries, nextCursor: 'cursor-1' }) },
     filter,
     searchText,
     false,
     showTechnical,
+    hiddenAssets,
+    showHiddenAssets,
+    managingAssets,
+    false,
   ];
   let call = 0;
   mockedUseState.mockImplementation((initial: unknown) => {
@@ -531,10 +541,72 @@ it('hides technical records reversibly without losing loaded rows, cursor or iss
   const hidden = renderScreen([technical, ordinary], 'all', '', undefined, false);
   const content = findElement(hidden.root, element => element.type === ActivityContent);
   expect(content?.props.entries?.map(entry => entry.id)).toEqual(['ordinary']);
-  const toggle = findElement(hidden.root, element => element.type === NativeButton && element.props.label === 'Show technical records');
+  const toggle = findElement(
+    hidden.root,
+    element => element.type === NativeButton && element.props.label === 'Show technical records',
+  );
   toggle?.props.onPress?.();
   expect(hidden.setters[4]).toHaveBeenCalled();
   const restored = renderScreen([technical, ordinary], 'all', '', undefined, true);
   expect(findElement(restored.root, element => element.type === ActivityContent)?.props.entries?.length).toBe(2);
   expect(mockedLoadHistoryPage).not.toHaveBeenCalled();
+});
+
+it('hides only user-marked issued assets, preserves raw cursor and offers reversible restore', () => {
+  const exact = JSON.stringify(['USD', 'GISSUER']);
+  const { root, setters } = renderScreen(
+    [trustline('hidden-trust'), trustline('other-trust', 'OTHER'), unsupported('unknown')],
+    'all',
+    '',
+    undefined,
+    true,
+    new Set([exact]),
+    false,
+    true,
+  );
+  const content = findElement(root, element => element.type === ActivityContent);
+  expect(content?.props.entries?.map(entry => entry.id)).toEqual(['other-trust', 'unknown']);
+  expect(content?.props.state).toMatchObject({ kind: 'ready', nextCursor: 'cursor-1' });
+  const restore = findElement(root, element => Boolean(element.props.label?.startsWith('Restore USD')));
+  expect(restore).toBeDefined();
+  restore?.props.onPress?.();
+  expect(setters[5]).toHaveBeenCalledWith(expect.any(Function));
+  expect(mockedLoadHistoryPage).not.toHaveBeenCalled();
+  const revealed = renderScreen([trustline('hidden-trust')], 'all', '', undefined, true, new Set([exact]), true);
+  expect(
+    findElement(revealed.root, element => element.type === ActivityContent)?.props.entries?.map(entry => entry.id),
+  ).toEqual(['hidden-trust']);
+});
+
+it('uses separate decorative image components for both assets in an opt-in swap pair', () => {
+  const row = ActivityRow({
+    ...rowProps(),
+    entry: {
+      ...unsupported('swap-icons'),
+      kind: 'path-payment',
+      operationType: 'path_payment_strict_send',
+      successful: true,
+      direction: 'self',
+      sourceAsset: { kind: 'native', code: 'XLM' },
+      destinationAsset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' },
+      sourceAmount: '1',
+      destinationAmount: '2',
+      counterparty: 'GACCOUNT-A',
+      participants: [
+        { role: 'sender', identity: 'GACCOUNT-A' },
+        { role: 'recipient', identity: 'GACCOUNT-A' },
+      ],
+    },
+    images: { resolve: jest.fn(async () => undefined) },
+    assetImagesEnabled: true,
+    imageNetworkId: 'stellar-mainnet',
+    imageActive: true,
+  });
+  const avatars: React.ReactElement<NodeProps>[] = [];
+  visit(row, element => {
+    if (element.type === ActivityAssetAvatar) avatars.push(element);
+  });
+  expect(avatars).toHaveLength(3);
+  expect(avatars.filter(avatar => avatar.props.asset?.kind === 'native')).toHaveLength(1);
+  expect(row.props.accessibilityLabel).toContain('2');
 });
