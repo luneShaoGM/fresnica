@@ -18,8 +18,6 @@
   "nav.accountInactive": "Activate account first",
   "nav.accountChecking": "Checking account",
   "nav.accountUnavailable": "Account status unavailable",
-  "activity.images.enable": "Show public asset images (contacts image hosts)",
-  "activity.images.disable": "Use local asset icons only",
   "activity.visibility.manageAssets": "Manage hidden assets",
   "activity.visibility.closeAssetControls": "Close asset controls",
   "activity.visibility.manualOnly": "Only assets you choose are hidden from this list. This does not label them as spam or delete activity.",

@@ -1,41 +1,41 @@
-# S13 Activity asset images and reversible visibility — Slice 6c
+# S13 Activity local asset fallback and reversible visibility — Slice 6c
 
 Status: development candidate, no native product acceptance or maturity promotion.
 Trace: S13, Adapt / clean-room (existing Activity list/History reader). The
 behavioral target is the independently owned Fresnica Activity screen. Do not
 copy donor artwork, images, source structure or tests.
 
-## Public asset imagery
+## Branded asset images — explicitly deferred
 
-Activity continues to render its existing locally generated deterministic
-asset identity avatar by default. An explicitly labeled session button enables
-optional public images only on `stellar-mainnet`. The label warns that public
-image hosts will be contacted. This is a discretionary display request, not
-wallet authorization or asset trust attestation. The session switch is reset on
-account/network partition change; unfocus, opt-out and unmount retire the
-in-progress image requests. Testnet/custom networks and native XLM stay local.
-No account-address image endpoint, no wallet address or account ID in image
-requests, no unsolicited image reads before opt-in.
+This slice **does not offer** remote branded image downloads, public image
+consent controls, image transport adapters, or external image requests. Activity
+continues to use the deterministic full-identity local avatar (including the
+issuer) and the independent native-XLM mark. Images do not imply asset trust.
+The public curated catalog remains an Add Asset concern; Activity does not
+contact public image hosts and never sends account identities for decoration.
 
-Images are resolved using already configured network-scoped public asset
-catalogs, with stable source priority and strict case-sensitive asset code plus
-full issuer. Conflicting duplicate icons within one source are rejected for
-that source. The image URL must be an explicit public HTTPS URL validated by
-the existing public URL boundary; credentials, IP literal, local hosts,
-fragments, custom ports and redirects are forbidden. Downloads have six-second
-deadlines and abort on cancellation; images must be PNG/JPEG, at most 64 KiB
-and 512 × 512, otherwise the full-identity fallback remains. There are at most
-two active optional resolution tasks, at most 32 waiting consumers (excess
-fall back), 10-minute catalog/image memory TTL and at most 32 image cache
-entries per app service. Cache keys use network plus exact asset identity, not
-account identity. No image URI goes into History/Realm or navigation state.
-Actual image decode errors also fall back. The image cannot change an
-operation's asset identity, monetary amount, status or classification.
+The previously attempted fetch adapter cannot meet the security and functional
+requirements in React Native 0.87.0's default whatwg-fetch/XHR path: it supplies
+no Response.body.getReader() and does not enforce redirect: error before native
+network requests. Returning a local fallback on every default-native response
+is not successful image integration. Allowing arrayBuffer() as a workaround
+would remove the 64 KiB memory guard.
 
-Single-asset subjects, the two asset-pair subjects and individual monetary
-captions use the same decorative imagery policy. Opt-out preserves the existing
-native XLM mark and deterministic local visuals, entire-row accessibility,
-operation detail routing, concrete dates and ledger amount semantics.
+A separately reviewed future image slice requires **both**:
+- A supported native/verified streaming image transport that enforces a 64 KiB
+  byte cap *while receiving*, with cancellation, deadline and no unbounded
+  allocation even if Content-Length is absent or wrong.
+- Redirect refusal at the actual network transport boundary **before** a
+  secondary request, including tests showing a forbidden target receives no
+  traffic. Post-response URL checks are not sufficient.
+
+Then implement opt-in on Mainnet only, exact case-sensitive asset code plus
+issuer source matching, stable trusted source priority, no private/local/IP
+literal/credential/fragment/custom-port URLs, PNG/JPEG validation and 512 by
+512 dimension cap, two active resolutions, bounded queue and memory-only TTL
+cache. No image metadata or bytes in History/Realm/navigation and no wallet
+account derived keys. Verify both Android and iOS **native product flows**
+before claiming the feature available. Do not copy donor artwork or source.
 
 ## User-controlled visibility, no automatic Dust/Spam verdict
 
@@ -60,14 +60,15 @@ not a persistent spam list or a ledger assertion.
 
 ## Evidence boundary
 
-Verify source/network/issuer isolation, image input and byte handling,
-cancel/timeout/concurrency/cache rules, opt-in default/offline/opt-out,
-fallback and both pair images; verify user mark/restore, loaded-set filtering,
-no false classification, search and pagination continuity. Run impacted
+For this slice, verify the absence of any public image request/opt-in or
+unsafe image transport in AppServices/Activity; preserve asset identity
+fallback and the existing whole-row accessible navigation. Verify explicit
+user hide/restore, mixed asset pairs, no automatic Dust/Spam verdict, loaded
+set/search/pagination continuity and network/account visibility reset. Run
 Activity/navigation tests, type/lint/format, locale/provenance/architecture
 checks and exact-HEAD independent Work review. Android/iOS native layout,
 dynamic font, screen readers, offline Retry, focus/account/network switching
-and image decoding remain **NOT ACCEPTED** until observed in actual native
-product flow. Stage 9 iOS real-device System Auth cancellation/retry remains
-deferred as previously agreed. No change to transaction/XDR, signing,
-submission, recovery or History cache schema.
+remain **NOT ACCEPTED** until actual native product-flow evidence. Native
+branded imagery remains deferred. Stage 9 iOS real-device System Auth
+cancellation/retry remains deferred as previously agreed. No change to
+transaction/XDR, signing, submission, recovery or History cache schema.

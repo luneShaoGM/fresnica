@@ -372,7 +372,9 @@ remain the next slices in the continuous Activity completion round.
 
 ### S13 Activity Slice 6c candidate (2026-11-04)
 
-Opt-in public curated images and explicitly user-reversible, presentation-only
-asset hiding. [Contract](behavior-specs/s13-activity-images-visibility.md).
+Explicitly user-reversible, presentation-only issued-asset hiding;
+remote branded images deferred pending native bounded streaming and
+transport-level redirect prohibition; local identity avatars remain.
+[Contract](behavior-specs/s13-activity-images-visibility.md).
 No new ledger authority, auto-spam classification or native acceptance;
 S13 remains L3 partial. CI/Review must use exact remote PR HEAD.

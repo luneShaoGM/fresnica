@@ -14,7 +14,6 @@ import { HISTORY_CACHE_SCHEMA_VERSION } from '../../../capabilities/history/Hist
 import { createLocalization } from '../../../locale/localization';
 import { defaultTheme } from '../../../ui/theme';
 import { ActivityContent, ActivityRow, ActivityScreen, StatePanel } from '../ActivityScreen';
-import { ActivityAssetAvatar } from '../ActivityAssetAvatar';
 import { createActivityReadyState, createCachedActivityReadyState, failActivityRefresh } from '../activityReadModel';
 import { createStyles } from '../styles';
 
@@ -159,8 +158,9 @@ function renderScreen(
   hiddenAssets: ReadonlySet<string> = new Set(),
   showHiddenAssets = false,
   managingAssets = false,
+  selectedAccount: AccountRecord = account,
 ) {
-  const setters = Array.from({ length: 9 }, () => jest.fn());
+  const setters = Array.from({ length: 8 }, () => jest.fn());
   const values = [
     { kind: 'ready' as const, ...createActivityReadyState({ entries, nextCursor: 'cursor-1' }) },
     filter,
@@ -170,7 +170,6 @@ function renderScreen(
     hiddenAssets,
     showHiddenAssets,
     managingAssets,
-    false,
   ];
   let call = 0;
   mockedUseState.mockImplementation((initial: unknown) => {
@@ -181,7 +180,7 @@ function renderScreen(
 
   return {
     root: ActivityScreen({
-      account,
+      account: selectedAccount,
       identityNames,
       dependencies,
       active: true,
@@ -578,7 +577,7 @@ it('hides only user-marked issued assets, preserves raw cursor and offers revers
   ).toEqual(['hidden-trust']);
 });
 
-it('uses separate decorative image components for both assets in an opt-in swap pair', () => {
+it('keeps exact local identity icons instead of presenting unavailable remote images', () => {
   const row = ActivityRow({
     ...rowProps(),
     entry: {
@@ -597,16 +596,13 @@ it('uses separate decorative image components for both assets in an opt-in swap 
         { role: 'recipient', identity: 'GACCOUNT-A' },
       ],
     },
-    images: { resolve: jest.fn(async () => undefined) },
-    assetImagesEnabled: true,
-    imageNetworkId: 'stellar-mainnet',
-    imageActive: true,
   });
-  const avatars: React.ReactElement<NodeProps>[] = [];
-  visit(row, element => {
-    if (element.type === ActivityAssetAvatar) avatars.push(element);
-  });
-  expect(avatars).toHaveLength(3);
-  expect(avatars.filter(avatar => avatar.props.asset?.kind === 'native')).toHaveLength(1);
+  expect(findElement(row, element => element.type === IdentityAvatar)?.props.identity).toContain('GISSUER');
   expect(row.props.accessibilityLabel).toContain('2');
+  const { root } = renderScreen([trustline('example')], 'all', '', undefined, true, new Set(), false, false, {
+    ...account,
+    networkId: 'stellar-mainnet',
+  });
+  expect(findElement(root, element => element.props.label?.includes('public asset images') === true)).toBeUndefined();
+  expect(mockedLoadHistoryPage).not.toHaveBeenCalled();
 });

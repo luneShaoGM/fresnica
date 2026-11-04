@@ -18,8 +18,6 @@
   "nav.accountInactive": "请先激活账户",
   "nav.accountChecking": "正在确认账户状态",
   "nav.accountUnavailable": "无法确认账户状态",
-  "activity.images.enable": "显示公共资产图片（会联系图片服务器）",
-  "activity.images.disable": "仅使用本地图标",
   "activity.visibility.manageAssets": "管理隐藏资产",
   "activity.visibility.closeAssetControls": "关闭资产管理",
   "activity.visibility.manualOnly": "仅隐藏您主动选择的资产记录，不将其标记为垃圾，也不删除历史记录。",

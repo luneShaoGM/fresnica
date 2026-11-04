@@ -156,7 +156,8 @@ visibility candidate uses `s13-failed-visibility-history.md`;
 known false is non-monetary, raw unknown stays unsupported, legacy cache preserved.
 No native/maturity promotion; effects/images/explicitDustSpam policy follow.
 
-Slice 6c candidate: explicit opt-in Mainnet public curated asset images and
-reversible user-selected issued-asset hiding, specified in
+Slice 6c candidate: reversible user-selected issued-asset hiding; remote
+branded images remain deferred until a native bounded streaming and
+transport-level redirect-safe implementation is available, specified in
 [`s13-activity-images-visibility.md`](s13-activity-images-visibility.md).
 No automatic Dust/Spam inference or History deletion. Native acceptance pending.
