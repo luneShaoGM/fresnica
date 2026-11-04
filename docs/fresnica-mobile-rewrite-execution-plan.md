@@ -919,6 +919,24 @@ Slice 5c 当前候选依据 [Trust/Sponsorship history](behavior-specs/s13-trust
 其余 account merge/options/data/revoke/inflation、合约构造器变体、Slice 6、历史缺失金额、
 品牌图片与原生验收仍开放；完整验证/独立 exact-HEAD 审查及合并以当前 PR 证据为准。
 
+#### S22 Address Book 联动收口（2026-11-04，当前候选）
+
+按照 2026-11-04 用户决定，**暂停 M 地址支持**，不再将其列为当前下一切片。
+S22 已合并 #156 的全局通讯录、分组、身份卡片和本地头像、扫码、Memo
+精确身份；#159 G 地址 Memo Return 已通过独立审查并合并至 main，本候选只做新旧 Send 步骤联动。
+
+从 main 建立的单分支集中完善 Send 从 Details（资产和金额）到 Recipient
+（G 地址、通讯录、自有账户、二维码和 Memo）再到 Summary（原 exact-XDR
+复核与授权）的行为；Activity 参与方编辑复用现有二维码权限管线。
+重复联系人、手动地址修改后清除旧自动填入 Memo、失焦/取消/权限异常和
+迟到回调保持安全门控。不修改账户/网络分区、Realm/Signer、签名/提交/
+uncertain/recovery。
+
+无经过批准的外部名称解析/品牌头像数据源和地址隐私契约，继续使用已有
+本地名称解析与离线确定性头像；未交付远端服务，不能冒称完全对齐。
+原生相机、键盘/Back、大字体、读屏、设备真实发送与 iOS System Auth
+取消/重试验收维持后续统一验收，不将自动化测试等同真机签收。
+
 #### S22 Address Book 本地候选（2026-11-02）
 
 分支 `feat/address-book-stellar-align-2026-11-02`，基于 `main@0eafeff`；按持久化边界拆为
@@ -934,7 +952,7 @@ S09/Stage 9 iOS System Auth 取消/重试延期不变。此候选不升级 S22 �
 
 基于 main@248f5052dfc556ef18f5d08e7b472c46cab45380 新建分支。
 已合并的 #156 提供全局联系人、目录/扫码、公共身份卡片和本地名称解析基础。
-本切片仅把 Return 作为与 Hash 不同的 32 字节 typed Memo 接入联系人
+#159 已合并。本切片把 Return 作为与 Hash 不同的 32 字节 typed Memo 接入联系人
 v9 JSON、Send/Request 表单、SEP-7 Base64、Stellar SDK Payment exact-XDR
 构建/解码和复核；允许从有效 G 收款地址按既有签名管线发送。PathPayment/Swap
 继续 fail-closed 禁用 Return，M 收款地址（含 G 基址查询、muxed ID 与 memo

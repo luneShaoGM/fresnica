@@ -12,8 +12,8 @@ Only behavior is retained; no donor implementation/resources are migrated.
 
 - Settings opens a searchable contact list ordered by name. Empty state offers Add.
 - Add/edit require a nonblank name (max 30), a valid Classic G address and optional typed memo.
-  Support current Fresnica text/id/hash/return semantics; reuse existing validators. Unsupported M addresses,
-  legacy tags and federation/resolver results are not silently converted.
+  Support current Fresnica text/id/hash semantics; reuse existing validators. Unsupported M addresses,
+  legacy tags, federation/resolver results and memo return are not silently converted.
 - Identity is globally shared across Stellar networks: exact G address + canonical memo type/value.
   Same address with different memos is allowed; new duplicate exact identities are rejected atomically,
   including during editing. Network is a transaction/account boundary, not contact visibility or uniqueness.
@@ -181,7 +181,49 @@ S22 is not L3/L4 solely because tests/CI pass. Independent exact-HEAD implementa
   participant Add/Edit exactness, picker session re-read and source labels; full repository
   check on the final HEAD. Native product-flow acceptance remains deferred.
 
-## Memo Return G-address vertical slice (2026-11-04; pending independent review)
+## Address Book cross-surface product closure (2026-11-04; combined review candidate)
+
+- **Decision / trace:** Stage 8 S22, Phase 2c partial; clean-room **Adapt** of Stellar
+  Settings/AddressBook, Activity participant and Send Details/Recipient/Summary behavior.
+  The user confirmed on 2026-11-04 that **M-address delivery is paused**. Do not introduce
+  M-address contact selection, muxed ID or altered CreateAccount rules here.
+  PR #159 (G-address Memo Return) was independently reviewed and merged into main.
+  This integration candidate preserves its distinct Return/Hash semantics through
+  Recipient selection, Request/QR prefill, manual editing, Summary and exact-XDR review.
+- Reuse merged #156 global v9 Contacts, unique full G + typed Memo identity, existing
+  AccountIdentityCard, IdentityAvatar and SectionedList; do not fork a new data model,
+  Realm store or native camera. Legacy duplicates remain visible by stable ID,
+  and ambiguous contact-name lookups continue to fail closed.
+- **Send:** (1) Details / asset and nonzero payment amount with at most seven decimals;
+  (2) Recipient / manual G address, global saved contact, visible current-network
+  Classic wallet, opt-in camera QR and typed Memo; (3) Summary / existing authoritative
+  unsigned Payment XDR review and unchanged authorization, signing, submission,
+  uncertain/recovery. Returning from Summary goes to Recipient with draft intact;
+  returning from Recipient goes to Details without silently replacing fields.
+  Cancel is available in both input steps. Invalid Details amount never starts
+  network preparation; QR/selection cannot submit autonomously.
+- Saved contact/QR selection fills exact address plus its own typed Memo. Changing
+  that automatically selected address manually discards the *old borrowed Memo*;
+  manually edited Memo belongs to the user and is preserved. Contacts re-read by
+  exact ID; no memo inferred from a local display-name fallback.
+- **QR and Activity:** Send Recipient camera and Activity participant Add/Edit reuse
+  injectable ContactScanner with existing camera/permission ingress. Existing
+  scannedContactRecipient validates raw Classic G and same-network SEP-7 QR, copying
+  only destination and Memo, never amount, asset, message or auto-saving a contact.
+  Permission denial, blocked or exception never mounts a camera without fresh
+  granted status. Retry rechecks OS permission, cancel and stale callbacks retire.
+  Activity transaction Memo is not assigned to arbitrary counterparties.
+- **External identity:** No vetted external name/brand avatar provider or address-
+  disclosure policy is available in the current Fresnica Capability/Services contract.
+  Do not fabricate such services or send address metadata to third parties. Reuse
+  local-name resolver and offline deterministic avatar fallback, and explicitly
+  defer external enrichment rather than claim it is complete.
+- Validation: updated component/cross-surface tests, TypeScript and full npm run check
+  on final exact HEAD; actual Android/iOS permissions, keyboard/back/large-font/reader
+  product flow and real Send submission are **not** proven by Jest/CI. Stage 9
+  iOS System Auth cancel/retry remains deferred.
+
+## Memo Return G-address vertical slice (2026-11-04; merged as PR #159)
 
 - **Product ID / maturity:** S22 (Stage 8, Phase 2c partial); source role: Stellar typed Memo
   behavior, adapted through original Fresnica Capability/SDK/feature code. This work extends

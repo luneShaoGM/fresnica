@@ -25,7 +25,7 @@
 | S19 | SEP-53 message signing | dapps + Fresnica native | Adapt | clean-room | Native SDK 0.3.1 bridge available | L2 mechanism |
 | S20 | Soroban auth-entry request | dapps + Fresnica native | Adapt | clean-room | RN secure delivery missing | L0 blocked |
 | S21 | Browser commands/device/share/data bridge | dapps + controlled platform ports | Adapt | clean-room | per-command contract | L0 |
-| S22 | Address book/destination picker | contacts + Contacts capability | Adapt | clean-room | [S22 spec](behavior-specs/s22-address-book.md): #145-#147, #151 and #156 merged foundations (Realm v9, global contacts, directory/identity/QR and local name display); current Memo Return candidate extends G-address Send/Request/SEP-7/SDK exact-XDR typed-Memo support without a Realm schema change. M-address payment, trusted remote avatar/resolver, Stellar Send step ordering, Activity memo attribution and native acceptance remain open | L0 candidate |
+| S22 | Address book/destination picker | contacts + Contacts capability | Adapt | clean-room | [S22 spec](behavior-specs/s22-address-book.md): #145–#147/#151/#156 merged global contacts, Realm v9, sectioned directory, local identities and Settings QR; #159 merged G-address Memo Return (distinct from Hash in Contacts, Request/SEP-7, Stellar SDK and exact-XDR Payment; Swap/PathPayment still reject Return). Current PR #162 integration candidate adds Activity editor scanner and staged Details→Recipient→Summary with Return/Hash-safe contact, camera and Request prefill, edit/back and review. M-address support **paused by user**; no approved external identity/avatar service, local-only fallback; native product acceptance deferred | L2/L3 partial candidate |
 | S23 | General settings/language/display/theme/feedback | settings + Preferences/locale/AppTheme | Adapt | clean-room | final visual/theme persistence | L2/L3 partial |
 | S24 | Network list/switch/custom endpoint | settings + Network | Adapt | clean-room | Developer Mode auth/persistence | L1 |
 | S25 | Developer settings/session logs/diagnostics | settings + Diagnostics | Adapt | clean-room | user-reachable export/policy | L1/L2 partial |
@@ -369,13 +369,3 @@ S13 Slice 5d merged #158; Slice 5e candidate covers remaining classic controls
 (account merge/options/revoke/inflation) under `behavior-specs/s13-classic-control-history.md`.
 No native acceptance or maturity promotion. Constructor/effects/visibility/images
 remain the next slices in the continuous Activity completion round.
-
-Slice 5f corrects the earlier create-address assumption and adds constructors;
-`behavior-specs/s13-contract-constructor-history.md` supersedes the older creation identity contract.
-Horizon address is the deployer, never proof of the newly created contract ID.
-Slice5e classic controls merged #160. No native/maturity promotion.
-
-S13 constructor/create-identity fix merged #161. Slice6 failed history/technical
-visibility candidate uses `behavior-specs/s13-failed-visibility-history.md`;
-known false is non-monetary, raw unknown stays unsupported, legacy cache preserved.
-No native/maturity promotion; effects/images/explicitDustSpam policy follow.

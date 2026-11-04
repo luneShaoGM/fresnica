@@ -24,7 +24,7 @@ import { Header, Screen, StateView } from '@ui/components';
 import { useThemedStyles } from '@ui/theme';
 
 import { ParticipantCard } from '../contacts/ParticipantCard';
-import type { ContactBook } from '../contacts/contactBook';
+import type { ContactBook, ContactScanner } from '../contacts/contactBook';
 import { useLocalization } from '../../locale';
 import { projectFeatureError } from '../featureError';
 import { activityEntryPresentation } from './activityList';
@@ -47,6 +47,7 @@ type Props = Readonly<{
   account: AccountRecord;
   accounts: readonly AccountRecord[];
   contacts?: ContactBook;
+  scanner?: ContactScanner;
   operationId: string;
   dependencies: HistoryProductDependencies;
   active: boolean;
@@ -60,6 +61,7 @@ export function OperationDetailsScreen({
   account,
   accounts,
   contacts,
+  scanner,
   operationId,
   dependencies,
   active,
@@ -241,6 +243,7 @@ export function OperationDetailsScreen({
               <ParticipantCard
                 key={`${account.networkId}:${address}:${label}`}
                 book={contacts}
+                scanner={scanner}
                 accounts={accounts}
                 address={address}
                 label={label}

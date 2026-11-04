@@ -8,7 +8,7 @@ import { NativeButton } from '@ui/components/NativeButton';
 import { useThemedStyles } from '@ui/theme';
 import { useLocalization } from '../../locale';
 import { ContactEditor } from './ContactEditor';
-import { contactError, contactShareUri, type ContactBook, type Recipient } from './contactBook';
+import { contactError, contactShareUri, type ContactBook, type ContactScanner, type Recipient } from './contactBook';
 import { createStyles } from './styles';
 import { useContactList } from './useContactList';
 
@@ -17,10 +17,11 @@ type Props = Recipient &
     book: ContactBook;
     label: string;
     accounts?: readonly AccountRecord[];
+    scanner?: ContactScanner;
     active?: boolean;
     editable?: boolean;
   }>;
-export function ParticipantCard({ book, label, address, memo, accounts = [], active = true, editable = true }: Props) {
+export function ParticipantCard({ book, label, address, memo, accounts = [], scanner, active = true, editable = true }: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const { contacts, failed } = useContactList(book);
@@ -97,6 +98,7 @@ export function ParticipantCard({ book, label, address, memo, accounts = [], act
             {sheet === 'editor' ? (
               <ContactEditor
                 book={book}
+                scanner={scanner}
                 initial={contact ?? { name: '', address, memo }}
                 id={contact?.id}
                 onClose={close}
