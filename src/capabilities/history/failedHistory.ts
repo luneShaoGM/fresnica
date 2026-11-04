@@ -15,6 +15,7 @@ export function mapFailedHistory(
     if (classic(value)) related.add(value);
   };
   if (['payment', 'path_payment_strict_send', 'path_payment_strict_receive'].includes(record.type)) add(record.to);
+  if (record.type === 'clawback') add(record.from);
   if (record.type === 'create_account' && record.funder === record.sourceAccount) add(record.account);
   if (record.type === 'change_trust' && record.trustor === record.sourceAccount && record.asset?.kind === 'credit')
     add(record.asset.issuer);
@@ -40,15 +41,31 @@ export function mapFailedHistory(
   return Object.freeze({ ...base, kind: 'failed', successful: false, relatedAccounts: Object.freeze([...related]) });
 }
 export function normalizeFailedHistory(entry: HistoryFailedEntry, address: string): HistoryFailedEntry {
+  const peerTypes = [
+    'payment',
+    'path_payment_strict_send',
+    'path_payment_strict_receive',
+    'create_account',
+    'change_trust',
+    'allow_trust',
+    'set_trust_line_flags',
+    'begin_sponsoring_future_reserves',
+    'end_sponsoring_future_reserves',
+    'account_merge',
+    'revoke_sponsorship',
+    'clawback',
+  ];
+  const maximum =
+    entry.operationType === 'create_claimable_balance' ? 11 : peerTypes.includes(entry.operationType) ? 2 : 1;
   if (
     entry.successful !== false ||
     !classic(entry.sourceAccount) ||
     !Array.isArray(entry.relatedAccounts) ||
     entry.relatedAccounts.length < 1 ||
-    entry.relatedAccounts.length > 11 ||
+    entry.relatedAccounts.length > maximum ||
     new Set(entry.relatedAccounts).size !== entry.relatedAccounts.length ||
     !Array.from(entry.relatedAccounts).every(classic) ||
-    !entry.relatedAccounts.includes(entry.sourceAccount) ||
+    entry.relatedAccounts[0] !== entry.sourceAccount ||
     !entry.relatedAccounts.includes(address)
   )
     throw new Error('history-cache-invalid-entry');

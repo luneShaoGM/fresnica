@@ -400,6 +400,7 @@ function assertHistoryEntry(entry: HistoryEntry): void {
     throw new Error('history-cache-invalid-entry');
   }
 
+  if (entry.successful !== undefined && typeof entry.successful !== 'boolean') throw new Error('history-cache-invalid-entry');
   if (entry.kind !== 'failed' && entry.kind !== 'unsupported' && entry.successful === false) throw new Error('history-cache-invalid-entry');
   switch (entry.kind) {
     case 'failed':

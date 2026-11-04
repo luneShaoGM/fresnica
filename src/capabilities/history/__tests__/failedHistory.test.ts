@@ -100,3 +100,56 @@ it('classifies only explicit technical operations and preserves unknown/financia
   for (const type of ['payment', 'account_merge', 'future_unknown', 'invoke_host_function'])
     expect(isTechnicalHistoryOperation(type)).toBe(false);
 });
+it('keeps failed clawback holder associated through detail/list/cache without claiming a removal', async () => {
+  const record = controlRecord('clawback', {}, { successful: false, from: peer, to: foreign, amount: '999' });
+  const entry = mapHistoryEntry(record, peer);
+  expect(entry).toMatchObject({ kind: 'failed', relatedAccounts: [source, peer] });
+  expect(cache(entry, peer).entries[0]).toEqual(entry);
+  expect(entry).not.toHaveProperty('amount');
+  const dependencies = {
+    networkId: 'test',
+    gateway: { loadOperation: async () => ({ status: 'found' as const, record }), loadAccountOperations: jest.fn() },
+  };
+  const account = { networkId: 'test', address: peer, identityKind: 'classic' } as AccountRecord;
+  expect(await loadHistoryOperationDetails(dependencies, account, record.id)).toMatchObject({
+    status: 'ready',
+    entry: { kind: 'failed' },
+  });
+});
+it.each([
+  'manage_data',
+  'set_options',
+  'inflation',
+  'invoke_host_function',
+  'bump_sequence',
+  'future_unknown',
+  'claim_claimable_balance',
+  'clawback_claimable_balance',
+])('rejects injected failed %s peer into a foreign cache partition', type => {
+  const entry = mapHistoryEntry(controlRecord(type, {}, { successful: false }), source);
+  expect(() => cache({ ...entry, relatedAccounts: [source, foreign] } as HistoryEntry, foreign)).toThrow(
+    'history-cache-invalid-entry',
+  );
+});
+it('enforces peer cardinality/order and never downgrades corrupt status to a legacy monetary row', () => {
+  const failed = mapHistoryEntry(controlRecord('payment', {}, { successful: false, to: peer }), source);
+  expect(() => cache({ ...failed, relatedAccounts: [source, peer, foreign] } as HistoryEntry)).toThrow();
+  expect(() => cache({ ...failed, relatedAccounts: [peer, source] } as HistoryEntry)).toThrow();
+  const records = [
+    controlRecord('payment', {}, { amount: '1', asset: { kind: 'native' }, from: source, to: peer }),
+    controlRecord('create_account', {}, { startingBalance: '1', funder: source, account: peer }),
+    controlRecord(
+      'change_trust',
+      {},
+      { limit: '1', asset: { kind: 'credit', code: 'USD', issuer: peer }, trustor: source, trustee: peer },
+    ),
+  ];
+  for (const record of records) {
+    const entry = mapHistoryEntry(record, source);
+    expect(entry.kind).not.toBe('unsupported');
+    for (const successful of ['false', 'true', 0, 1, null, {}])
+      expect(() => cache({ ...entry, successful } as unknown as HistoryEntry)).toThrow('history-cache-invalid-entry');
+    const legacy = { ...entry, successful: undefined };
+    expect(cache(legacy as HistoryEntry).entries[0].kind).toBe(entry.kind);
+  }
+});

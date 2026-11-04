@@ -18,14 +18,12 @@ const wire = {
   transaction_hash: 'hash',
 };
 it('requests failed records and preserves opaque paging while projecting explicit false separately', async () => {
-  const http = jest
-    .fn()
-    .mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: { get: () => null },
-      json: async () => ({ _embedded: { records: [{ ...wire, transaction_successful: false }] } }),
-    });
+  const http = jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    headers: { get: () => null },
+    json: async () => ({ _embedded: { records: [{ ...wire, transaction_successful: false }] } }),
+  });
   const page = await createHorizonPublicReadGateway(http).loadAccountOperations(
     'https://node.test',
     { address: source, limit: 1 },
@@ -70,4 +68,21 @@ it('enables failed records in the default SDK call builder as well as HTTP reads
   } finally {
     spy.mockRestore();
   }
+});
+it('projects a raw failed clawback holder into associated non-monetary history', () => {
+  const holder = `G${'B'.repeat(55)}`;
+  const entry = mapHistoryEntry(
+    mapHistoryOperationRecord({
+      ...wire,
+      type: 'clawback',
+      transaction_successful: false,
+      from: holder,
+      asset_type: 'credit_alphanum4',
+      asset_code: 'USD',
+      asset_issuer: source,
+    }),
+    holder,
+  );
+  expect(entry).toMatchObject({ kind: 'failed', relatedAccounts: [source, holder] });
+  expect(entry).not.toHaveProperty('amount');
 });

@@ -34,3 +34,10 @@ no money, current/common and legacy cache equality/reopen, account/network
 isolation, late/pagination/focus/offline failure recovery, loaded-set filter and
 technical control, localized accessible labels. Native and real-device evidence
 remain separate. ExactHEADreview+requiredCI then authorized merge.
+
+Review correction: failed clawback explicitly associates its from holder. Cached
+related accounts must start with source; source-only/unknown families allow no
+peers, pair families at most one, claimable creation at most ten. Present invalid
+successful metadata is rejected, while absent/undefined legacy metadata remains
+readable. Neither corruption case can manufacture monetary success or a foreign
+source-only history partition.
