@@ -178,7 +178,12 @@ export type HistorySponsorshipEntry = HistoryEntryBase &
     beneficiary: string;
     role: 'sponsor' | 'beneficiary';
   }>;
+export type HistoryControlParameters = Readonly<Record<string, string | number | readonly number[]>>;
+export type HistoryControlEntry = HistoryEntryBase & Readonly<{
+  kind: 'account-control'; successful: true; parameters: HistoryControlParameters; counterparty?: string;
+}>;
 export type HistoryEntry =
+  | HistoryControlEntry
   | HistoryTrustAuthorizationEntry
   | HistoryTrustFlagsEntry
   | HistorySponsorshipEntry

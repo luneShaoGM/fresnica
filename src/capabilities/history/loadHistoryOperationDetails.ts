@@ -1,3 +1,4 @@
+import { isClassicControlType, classicControlAssociated } from './classicControlHistory';
 import { contractAssociated } from './contractHistory';
 import { isMaintenanceType } from './maintenanceHistory';
 import { isTrustSponsorshipType, trustSponsorshipAssociated } from './trustSponsorshipHistory';
@@ -49,6 +50,7 @@ export async function loadHistoryOperationDetails(
 }
 
 function isOperationAssociatedWithAccount(record: HistoryOperationRecord, address: string): boolean {
+  if (isClassicControlType(record.type)) return classicControlAssociated(record, address);
   if (isTrustSponsorshipType(record.type)) return trustSponsorshipAssociated(record, address);
   if (isMaintenanceType(record.type)) return record.sourceAccount === address;
   if (record.type === 'invoke_host_function') return contractAssociated(record, address);

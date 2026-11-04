@@ -364,3 +364,8 @@ Slice 5d candidate adds operation-only account data history (name, no content or
 add/update/delete inference), specified in `behavior-specs/s13-account-data-history.md`.
 Current maturity and native acceptance remain unchanged; other classic families,
 failure/visibility, constructor variants, amount enrichment and imagery stay open.
+
+S13 Slice 5d merged #158; Slice 5e candidate covers remaining classic controls
+(account merge/options/revoke/inflation) under `behavior-specs/s13-classic-control-history.md`.
+No native acceptance or maturity promotion. Constructor/effects/visibility/images
+remain the next slices in the continuous Activity completion round.

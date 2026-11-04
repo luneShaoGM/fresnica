@@ -1,3 +1,4 @@
+import { controlCases, controlRecord, controlSource } from '../../../capabilities/history/__tests__/classicControlHistory.fixtures';
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
 
 import React, { useEffect, useState } from 'react';
@@ -794,4 +795,18 @@ it('shows every contract event, exact large quantities and full identities witho
     ]),
   );
   expect(values).toContain('Destination routing ID (not a Memo)');
+});
+
+it.each(controlCases)('renders exact %s parameters in full with historical limits', (type, parameters) => {
+  mockedUseState.mockReset();
+  const entry = mapHistoryEntry(controlRecord(type, parameters), controlSource);
+  const { root } = renderWithState({ kind: 'loaded', result: { status: 'ready', entry }, source: 'online', stale: false, refreshing: false, refreshFailed: false });
+  const { t } = createLocalization('en');
+  const labels = new Set(Object.keys(parameters).map(key => t(`activity.control.field.${key}`)));
+  const seen = new Set<string>();
+  visit(root, element => {
+    const props = element.props as { label?: string; fullValue?: boolean };
+    if (props.label && labels.has(props.label)) { expect(props.fullValue).toBe(true); seen.add(props.label); }
+  });
+  expect(seen).toEqual(labels);
 });

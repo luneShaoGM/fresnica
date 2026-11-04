@@ -40,6 +40,9 @@ export function activityRowPresentation(
         subject: { kind: 'account', address: peer },
       };
     }
+    case 'account-control':
+      return { title: names?.get(entry.counterparty ?? entry.sourceAccount)?.trim() || formatPublicAddress(entry.counterparty ?? entry.sourceAccount),
+        operation: detail.title, subject: { kind: 'account', address: entry.counterparty ?? entry.sourceAccount } };
     case 'maintenance':
       return {
         title: names?.get(entry.sourceAccount)?.trim() || formatPublicAddress(entry.sourceAccount),

@@ -41,6 +41,8 @@ export function activityEntryPresentation(
   formatNumber: FormatNumber,
 ): ActivityEntryPresentation {
   switch (entry.kind) {
+    case 'account-control':
+      return { title: t(`activity.control.${entry.operationType}`), primary: entry.counterparty ?? entry.sourceAccount, secondary: '', tone: 'neutral', filter: 'other' };
     case 'trust-authorization':
       return {
         title: t(`activity.trustControl.authorization.${entry.authorization}`),
@@ -208,6 +210,7 @@ export function matchesActivityFilter(entry: HistoryEntry, filter: ActivityFilte
     case 'trust-authorization':
     case 'trust-flags':
     case 'sponsorship':
+    case 'account-control':
     case 'maintenance':
     case 'contract':
     case 'claimable-create':
@@ -266,6 +269,10 @@ export function matchesActivitySearch(
       identityNames?.get(entry.sponsor) ?? '',
       identityNames?.get(entry.beneficiary) ?? '',
     );
+  if (entry.kind === 'account-control') {
+    values.push(identityNames?.get(entry.sourceAccount) ?? '');
+    for (const [key, value] of Object.entries(entry.parameters)) values.push(t(`activity.control.field.${key}`), String(value));
+  }
   if (entry.kind === 'maintenance') {
     values.push(
       entry.dataName ?? '',
@@ -327,7 +334,7 @@ export function matchesActivitySearch(
       );
     else values.push(entry.poolId);
   }
-  if ('counterparty' in entry) values.push(identityNames?.get(entry.counterparty) ?? '');
+  if ('counterparty' in entry && entry.counterparty) values.push(identityNames?.get(entry.counterparty) ?? '');
   if (entry.kind === 'path-payment') {
     values.push(
       entry.sourceAmount,

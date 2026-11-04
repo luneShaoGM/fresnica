@@ -76,6 +76,24 @@ export type HorizonOperationLike = {
   extend_to?: unknown;
   bump_to?: unknown;
   name?: unknown;
+  into?: unknown;
+  inflation_dest?: unknown;
+  home_domain?: unknown;
+  master_key_weight?: unknown;
+  low_threshold?: unknown;
+  med_threshold?: unknown;
+  high_threshold?: unknown;
+  signer_key?: unknown;
+  signer_weight?: unknown;
+  account_id?: unknown;
+  claimable_balance_id?: unknown;
+  data_account_id?: unknown;
+  data_name?: unknown;
+  trustline_account_id?: unknown;
+  trustline_asset?: unknown;
+  trustline_liquidity_pool_id?: unknown;
+  signer_account_id?: unknown;
+
   source_account: string;
   function?: unknown;
   parameters?: unknown;

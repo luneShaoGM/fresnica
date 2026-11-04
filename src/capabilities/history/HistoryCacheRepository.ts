@@ -1,3 +1,4 @@
+import { isClassicControlType, mapClassicControl } from './classicControlHistory';
 import { CONTRACT_HOST_FUNCTIONS, mapContract } from './contractHistory';
 import { isMaintenanceType, mapMaintenance } from './maintenanceHistory';
 import { isTrustSponsorshipType, mapTrustSponsorship } from './trustSponsorshipHistory';
@@ -116,6 +117,12 @@ function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): Hi
   };
 
   switch (entry.kind) {
+    case 'account-control': {
+      if (!accountAddress) throw new Error('history-cache-invalid-partition');
+      const result = mapClassicControl({ ...base, type: entry.operationType, successful: entry.successful, controlParameters: entry.parameters }, accountAddress, base);
+      if (!result || result.counterparty !== entry.counterparty) throw new Error('history-cache-invalid-entry');
+      return result;
+    }
     case 'trust-authorization':
     case 'trust-flags':
     case 'sponsorship': {
@@ -385,6 +392,9 @@ function assertHistoryEntry(entry: HistoryEntry): void {
   }
 
   switch (entry.kind) {
+    case 'account-control':
+      if (!isClassicControlType(entry.operationType)) throw new Error('history-cache-invalid-entry');
+      return;
     case 'trust-authorization':
       if (entry.operationType !== 'allow_trust') throw new Error('history-cache-invalid-entry');
       return;
@@ -476,7 +486,8 @@ function assertHistoryEntry(entry: HistoryEntry): void {
           !isClaimableClawbackType(entry.operationType) &&
           entry.operationType !== 'invoke_host_function' &&
           !isMaintenanceType(entry.operationType) &&
-          !isTrustSponsorshipType(entry.operationType))
+          !isTrustSponsorshipType(entry.operationType) &&
+          !isClassicControlType(entry.operationType))
       ) {
         throw new Error('history-cache-invalid-entry');
       }

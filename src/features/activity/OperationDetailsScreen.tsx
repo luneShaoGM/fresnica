@@ -481,6 +481,12 @@ function renderEntry(
             <Text style={styles.warning}>{t('activity.sponsorship.explanation')}</Text>
           </>
         ) : null}
+        {entry.kind === 'account-control' ? (
+          <>
+            {Object.entries(entry.parameters).map(([key, value]) => <DetailRow key={key} label={t(`activity.control.field.${key}`)} value={Array.isArray(value) ? value.join(', ') || t('activity.trustControl.none') : String(value)} fullValue styles={styles} />)}
+            <Text style={styles.warning}>{t(`activity.control.explanation.${entry.operationType}`)}</Text>
+          </>
+        ) : null}
         {entry.kind === 'maintenance' ? (
           <>
             {entry.dataName === undefined ? null : (
