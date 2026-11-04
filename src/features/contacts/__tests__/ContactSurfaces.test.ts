@@ -9,6 +9,7 @@ import { AddressBookScreen } from '../AddressBookScreen';
 import { DestinationPicker } from '../DestinationPicker';
 import { SendFlowScreen } from '../../send/SendFlowScreen';
 import { SendResultScreen } from '../../send/SendResultScreen';
+import { SendReviewScreen } from '../../send/SendReviewScreen';
 import { SendFormScreen } from '../../send/SendFormScreen';
 import type { SendProductDependencies } from '../../send/sendProductFlow';
 import type { AccountRecord } from '@capabilities/account/types';
@@ -43,6 +44,7 @@ type Props = {
   onClose?: () => void;
   onChooseRecipient?: () => void;
   onSelect?: (recipient: Recipient) => void;
+  accounts?: readonly AccountRecord[];
   onChangeText?: (text: string) => void;
   isCurrent?: () => boolean;
   presentation?: string;
@@ -295,7 +297,7 @@ it('prefers exact memo contact for display and editor; ambiguous legacy matches 
     ParticipantCard({
       book,
       label: 'Recipient',
-      account,
+      accounts: [account],
       address: row.address,
       memo: { type: 'id', value: '7' },
     }),
@@ -317,14 +319,19 @@ it('keeps own-wallet labels network-isolated when no contact is saved', () => {
   } as AccountRecord;
   expect(
     nodes(
-      render(() => ParticipantCard({ book, label: 'Recipient', account, address: row.address })),
+      render(() => ParticipantCard({ book, label: 'Recipient', accounts: [account], address: row.address })),
       AccountIdentityCard,
     )[0].props.name,
   ).toBe('Wallet A');
   expect(
     nodes(
       render(() =>
-        ParticipantCard({ book, label: 'Recipient', account: { ...account, networkId: 'main' }, address: row.address }),
+        ParticipantCard({
+          book,
+          label: 'Recipient',
+          accounts: [{ ...account, networkId: 'main' }],
+          address: row.address,
+        }),
       ),
       AccountIdentityCard,
     )[0].props.name,
@@ -635,6 +642,78 @@ it('Send picker uses shared identity rows, keeps contacts global and own wallets
   cards[2].props.onPress!();
   expect(onSelect).toHaveBeenLastCalledWith({ address: own.address });
 });
+it('keeps another same-network wallet name from recipient selection through Send review and submitted result', () => {
+  rows = [];
+  const asset = { kind: 'native' as const, code: 'XLM' as const };
+  const sender = {
+    id: 'a',
+    address: 'GSENDER',
+    label: 'Sender A',
+    networkId: 'test',
+    identityKind: 'classic',
+    hidden: false,
+  } as AccountRecord;
+  const receiver = { ...sender, id: 'b', address: 'GRECEIVER', label: 'Wallet B' };
+  const foreign = { ...receiver, id: 'other-network', networkId: 'main', label: 'Foreign label' };
+  const dependencies = { network: book.network } as SendProductDependencies;
+  values = [
+    { kind: 'ready', balances: [{ asset, balance: '10' }] },
+    { kind: 'form' },
+    asset,
+    '',
+    '1',
+    'none',
+    '',
+    false,
+    false,
+    false,
+    '',
+    undefined,
+    false,
+  ];
+  const props = {
+    account: sender,
+    dependencies,
+    contacts: book,
+    destinationAccounts: [sender, receiver, foreign],
+    onDone: jest.fn(),
+  };
+  const draw = () => render(() => SendFlowScreen(props));
+  nodes(draw(), SendFormScreen)[0].props.onChooseRecipient!();
+  const picker = nodes(draw(), DestinationPicker)[0];
+  expect(picker.props.accounts).toEqual([sender, receiver, foreign]);
+  picker.props.onSelect!({ address: receiver.address });
+  expect(values[3]).toBe(receiver.address);
+  expect(values[5]).toBe('none');
+  expect(values[6]).toBe('');
+
+  const display = (card: React.ReactElement) => {
+    values = [];
+    refs = [];
+    const rendered = render(() => ParticipantCard(card.props as React.ComponentProps<typeof ParticipantCard>));
+    return nodes(rendered, AccountIdentityCard)[0].props;
+  };
+  const state = values;
+  const sharedRefs = refs;
+  state[1] = { kind: 'review', review: { destination: receiver.address, memo: undefined } };
+  const reviewCard = nodes(draw(), SendReviewScreen)[0].props.recipientCard as React.ReactElement<
+    React.ComponentProps<typeof ParticipantCard>
+  >;
+  expect(display(reviewCard)).toMatchObject({ name: 'Wallet B', secondary: 'contacts.source.account' });
+
+  values = state;
+  refs = sharedRefs;
+  state[1] = { kind: 'result', result: { status: 'submitted' }, recipient: { address: receiver.address } };
+  const resultCard = nodes(draw(), SendResultScreen)[0].props.recipientCard as React.ReactElement<
+    React.ComponentProps<typeof ParticipantCard>
+  >;
+  expect(display(resultCard)).toMatchObject({ name: 'Wallet B', secondary: 'contacts.source.account' });
+  expect(reviewCard.props.address).toBe(receiver.address);
+  expect(resultCard.props.address).toBe(receiver.address);
+  expect(reviewCard.props.memo).toBeUndefined();
+  expect(resultCard.props.memo).toBeUndefined();
+});
+
 it('Send picker applies the exact contact memo and ignores late selections after cancel and reopening', () => {
   const asset = { kind: 'native' as const, code: 'XLM' as const };
   values = [

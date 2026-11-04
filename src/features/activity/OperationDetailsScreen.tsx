@@ -45,6 +45,7 @@ type LoadState =
 
 type Props = Readonly<{
   account: AccountRecord;
+  accounts: readonly AccountRecord[];
   contacts?: ContactBook;
   operationId: string;
   dependencies: HistoryProductDependencies;
@@ -57,6 +58,7 @@ type Props = Readonly<{
 
 export function OperationDetailsScreen({
   account,
+  accounts,
   contacts,
   operationId,
   dependencies,
@@ -239,7 +241,7 @@ export function OperationDetailsScreen({
               <ParticipantCard
                 key={`${account.networkId}:${address}:${label}`}
                 book={contacts}
-                account={account}
+                accounts={accounts}
                 address={address}
                 label={label}
                 active={active}

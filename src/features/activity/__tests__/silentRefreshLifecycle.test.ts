@@ -124,6 +124,7 @@ function detail(revision = 0, operationId = '1') {
   mockCursor = 0;
   return OperationDetailsScreen({
     account,
+    accounts: [account],
     operationId,
     dependencies,
     active: true,

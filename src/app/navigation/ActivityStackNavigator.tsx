@@ -64,6 +64,7 @@ export function ActivityStackNavigator({ accounts, selectedAccountId, services }
           <OperationDetailsRoute
             foreground={readRuntime.foreground}
             account={requireAccount(accounts, route.params.accountId)}
+            accounts={accounts}
             dependencies={services.history}
             contacts={services.contacts}
             operationId={route.params.operationId}

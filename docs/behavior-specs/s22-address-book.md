@@ -169,6 +169,13 @@ S22 is not L3/L4 solely because tests/CI pass. Independent exact-HEAD implementa
 - Reuse the shared identity card in Send recipient picker with the original public address,
   typed Memo and visible contact/own-wallet source labels. Globally shared contacts remain
   selectable, but own wallet accounts stay scoped to the active network.
+- **P2 correction for #156:** Send review/result and Activity operation details must receive
+  the same complete wallet-account candidates as their picker/list, not only the currently
+  selected sending/viewed account. The display resolver continues to enforce full-address,
+  active-network, visible-Classic and unique-match requirements for any wallet label.
+  The additional account candidates are display-only: no destination/Memo/intent/XDR or
+  transaction partition is derived from them. Cross-page tests cover wallet B selected
+  from wallet A, including foreign-network lookalikes and Activity list-to-detail routing.
 - Validation: unit tests for exact/canonical Memo precedence, plain-address display fallback,
   legacy duplicate ambiguity, account/network isolation, Activity no-memo attribution,
   participant Add/Edit exactness, picker session re-read and source labels; full repository

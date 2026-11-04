@@ -16,11 +16,11 @@ type Props = Recipient &
   Readonly<{
     book: ContactBook;
     label: string;
-    account?: AccountRecord;
+    accounts?: readonly AccountRecord[];
     active?: boolean;
     editable?: boolean;
   }>;
-export function ParticipantCard({ book, label, address, memo, account, active = true, editable = true }: Props) {
+export function ParticipantCard({ book, label, address, memo, accounts = [], active = true, editable = true }: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const { contacts, failed } = useContactList(book);
@@ -31,7 +31,7 @@ export function ParticipantCard({ book, label, address, memo, account, active = 
     address,
     memo,
     contacts,
-    accounts: account ? [account] : [],
+    accounts,
     networkId: book.network.id,
   });
   const displayName = identity.source === 'address' ? '' : identity.name;
