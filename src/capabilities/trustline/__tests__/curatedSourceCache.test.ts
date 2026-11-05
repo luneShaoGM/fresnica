@@ -74,6 +74,32 @@ describe('S06 curated source cache contract', () => {
     );
   });
 
+  it('rejects mixed valid and malformed rows across all supported asset-list shapes', () => {
+    const malformed = { code: 'broken!', issuer };
+    for (const payload of [
+      { assets: [asset, malformed] },
+      { tokens: [asset, malformed] },
+      { records: [asset, malformed] },
+      { _embedded: { records: [asset, malformed] } },
+      [asset, malformed],
+    ]) {
+      expect(() => curatedSourceAssetsFromPayload(payload)).toThrow('curated-source-invalid');
+    }
+    // Mixed data must not be silently reduced to a plausible but incomplete list.
+    expect(() => curatedSourceAssetsFromPayload({ assets: [asset, { error: 'upstream' }] })).toThrow(
+      'curated-source-invalid',
+    );
+    // Alternate valid source identity shapes still parse; this strictness
+    // applies to corrupted entries rather than treating all variants as bad.
+    expect(
+      curatedSourceAssetsFromPayload({
+        assets: [asset],
+        tokens: [{ asset_code: 'BTC', asset_issuer: issuer }],
+        records: [{ asset: `ETH-${issuer}` }],
+      }),
+    ).toEqual([asset, { code: 'BTC', issuer }, { code: 'ETH', issuer }]);
+  });
+
   it('stores only bounded display metadata and never treats candidate image URLs as trusted downloads', () => {
     expect(
       curatedSourceAssetsFromPayload({

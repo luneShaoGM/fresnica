@@ -101,8 +101,13 @@ export function curatedSourceAssetsFromPayload(payload: unknown): readonly Curat
     records = [...arrays, ...nested];
   } else throw new Error('curated-source-invalid');
 
+  // Unlike permissive manual input parsing, a cached public source must be
+  // complete: silently discarding even one malformed row would overwrite
+  // last-good assets with a partial list for the entire cache TTL.
+  if (records.some(record => normalizeCuratedAssets([record]).length !== 1)) {
+    throw new Error('curated-source-invalid');
+  }
   const normalized = normalizeCuratedAssets(payload);
-  if (records.length > 0 && normalized.length === 0) throw new Error('curated-source-invalid');
   if (normalized.length > CURATED_CACHE_MAX_ASSETS) throw new Error('curated-source-too-large');
 
   return Object.freeze(

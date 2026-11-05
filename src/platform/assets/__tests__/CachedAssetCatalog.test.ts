@@ -86,6 +86,41 @@ describe('S06 cached public asset catalog', () => {
     expect(read).toHaveBeenCalledTimes(3);
   });
 
+  it('retains all last-good assets when a refresh mixes valid and invalid rows', async () => {
+    let now = 12_000;
+    const store = memoryCache();
+    const second = { code: 'BTC', issuer };
+    const read = jest.fn(async () => JSON.stringify({ assets: [original, second] }));
+    const catalog = createCachedAssetCatalog({
+      networkId: 'stellar-mainnet',
+      cache: store.cache,
+      http: { read },
+      now: () => now,
+    });
+    const signal = new AbortController().signal;
+    await catalog.loadSource('stellar-mainnet', 'lobstr', signal);
+    const before = store.cache.read('stellar-mainnet', 'lobstr');
+    expect(before?.assets).toEqual([original, second]);
+    now += CURATED_CACHE_TTL_MS;
+    read.mockResolvedValue(JSON.stringify({ assets: [original, { code: 'broken!', issuer }] }));
+    expect(await catalog.loadSource('stellar-mainnet', 'lobstr', signal)).toEqual({
+      assets: [original, second],
+      fromCache: true,
+      stale: true,
+      refreshFailed: true,
+    });
+    expect(store.cache.read('stellar-mainnet', 'lobstr')).toEqual(before);
+    expect(store.cache.replace).toHaveBeenCalledTimes(1);
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(await catalog.loadSource('stellar-mainnet', 'lobstr', signal)).toMatchObject({
+      assets: [original, second],
+      fromCache: true,
+      stale: true,
+      refreshFailed: true,
+    });
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
   it('allows explicit retry to bypass cooldown, preserving last-good on fetch rejection', async () => {
     let now = 7_000;
     const store = memoryCache();
