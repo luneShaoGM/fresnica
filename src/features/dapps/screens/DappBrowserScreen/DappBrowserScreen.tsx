@@ -40,6 +40,7 @@ type Props = Readonly<{
   createNonce: () => string;
   signTransaction: DappTransactionSigner;
   permissions: DappPermissionStore;
+  trustedCatalogOrigin?: string;
   BrowserSurface: ComponentType<DappBrowserSurfaceProps & RefAttributes<DappBrowserSurfaceHandle>>;
 }>;
 
@@ -60,6 +61,7 @@ export function DappBrowserScreen({
   createNonce,
   signTransaction,
   permissions,
+  trustedCatalogOrigin,
   BrowserSurface,
 }: Props) {
   const { t } = useLocalization();
@@ -85,6 +87,7 @@ export function DappBrowserScreen({
   const documentOrigin = useRef<string | undefined>(undefined);
   const signGeneration = useRef(0);
   const signing = useRef(false);
+  const curatedOriginActive = useRef(true);
   const [signError, setSignError] = useState(false);
   const [permissionStorageError, setPermissionStorageError] = useState(false);
   const currentSession = () => live.current && !stale && current?.session.isLive() === true;
@@ -95,6 +98,7 @@ export function DappBrowserScreen({
       const selection = currentSelection();
       if (selection !== undefined) {
         const token = createNonce();
+        const catalogReadOnly = trustedCatalogOrigin === target.origin;
         documentOrigin.current = target.origin;
         initial.current = Object.freeze({
           url: target.url,
@@ -109,11 +113,14 @@ export function DappBrowserScreen({
             persistedAllowed: () => {
               const origin = documentOrigin.current;
               if (origin === undefined) return false;
-              return permissions.has({
-                origin,
-                accountId: selection.accountId,
-                networkId: selection.networkId,
-              });
+              return (
+                (catalogReadOnly && curatedOriginActive.current && origin === target.origin) ||
+                permissions.has({
+                  origin,
+                  accountId: selection.accountId,
+                  networkId: selection.networkId,
+                })
+              );
             },
           }),
         });
@@ -331,6 +338,7 @@ export function DappBrowserScreen({
       retireInvalidNavigation();
       return;
     }
+    if (target.origin !== current.origin) curatedOriginActive.current = false;
     documentEpoch.current += 1;
     documentOrigin.current = target.origin;
     current.session.activateDocument(target.origin);

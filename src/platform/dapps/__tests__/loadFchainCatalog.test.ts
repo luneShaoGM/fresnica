@@ -63,6 +63,79 @@ describe('S14 FChain public catalog', () => {
     ).toThrow('dapp-catalog-entry');
   });
 
+  it('attests only an exact entry from a live validated API response, not cached or altered catalog rows', async () => {
+    const cache = memoryCache();
+    const freshResponse = () => new Response(JSON.stringify(payload), { status: 200 });
+    const fetchImpl = jest.fn().mockResolvedValueOnce(freshResponse()).mockRejectedValueOnce(new Error('offline'));
+    const catalog = createFchainCatalog({
+      cache,
+      networkId: 'stellar-testnet',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      now: () => 99,
+    });
+    const entry = catalogEntriesFromFchain(payload, 'stellar-testnet')[0];
+    expect(catalog.isTrustedLiveEntry?.(entry)).toBe(false);
+    expect(catalog.readCached?.()).toEqual({ kind: 'unavailable' });
+    await catalog.load();
+    expect(catalog.isTrustedLiveEntry?.(entry)).toBe(true);
+    expect(catalog.isTrustedLiveEntry?.({ ...entry, websiteUrl: 'https://other.example.org/app' })).toBe(false);
+    expect(catalog.isTrustedLiveEntry?.({ ...entry, id: 'look-alike' })).toBe(false);
+    await catalog.load();
+    expect(catalog.isTrustedLiveEntry?.(entry)).toBe(false);
+    expect(catalog.readCached?.()).toMatchObject({ kind: 'ready', stale: true });
+    catalog.close();
+    expect(catalog.isTrustedLiveEntry?.(entry)).toBe(false);
+  });
+
+  it('expires a live catalog trust assertion after five minutes without silently extending it via cache', async () => {
+    let clock = 1_000;
+    const cache = memoryCache();
+    const entry = catalogEntriesFromFchain(payload, 'stellar-testnet')[0];
+    const fetchImpl = jest.fn().mockImplementation(async () => new Response(JSON.stringify(payload), { status: 200 }));
+    const catalog = createFchainCatalog({
+      cache,
+      networkId: 'stellar-testnet',
+      now: () => clock,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    await catalog.load();
+    expect(catalog.isTrustedLiveEntry?.(entry)).toBe(true);
+    clock += 5 * 60 * 1000 + 1;
+    expect(catalog.isTrustedLiveEntry?.(entry)).toBe(false);
+    expect(catalog.readCached?.()).toMatchObject({ kind: 'ready', stale: true });
+    expect(catalog.isTrustedLiveEntry?.(entry)).toBe(false);
+    await catalog.load();
+    expect(catalog.isTrustedLiveEntry?.(entry)).toBe(true);
+    clock -= 6 * 60 * 1000;
+    expect(catalog.isTrustedLiveEntry?.(entry)).toBe(false);
+  });
+
+  it('accepts live HTTPS 304 revalidation but never attests a cold offline cache', async () => {
+    const cache = memoryCache();
+    const entry = catalogEntriesFromFchain(payload, 'stellar-testnet')[0];
+    const fetchImpl = jest.fn().mockResolvedValueOnce(new Response(JSON.stringify(payload), { status: 200 }));
+    const first = createFchainCatalog({
+      cache,
+      networkId: 'stellar-testnet',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      now: () => 99,
+    });
+    await first.load();
+    expect(first.isTrustedLiveEntry?.(entry)).toBe(true);
+    first.close();
+    const revalidate = jest.fn().mockResolvedValueOnce(new Response(null, { status: 304 }));
+    const second = createFchainCatalog({
+      cache,
+      networkId: 'stellar-testnet',
+      fetchImpl: revalidate as unknown as typeof fetch,
+    });
+    expect(second.isTrustedLiveEntry?.(entry)).toBe(false);
+    expect(second.readCached?.()).toMatchObject({ kind: 'ready', stale: true });
+    expect(second.isTrustedLiveEntry?.(entry)).toBe(false);
+    await expect(second.load()).resolves.toMatchObject({ kind: 'ready', entries: [entry] });
+    expect(second.isTrustedLiveEntry?.(entry)).toBe(true);
+  });
+
   it('rejects unsupported networks without fetching or reusing testnet URLs', async () => {
     const fetchImpl = jest.fn();
     const catalog = createFchainCatalog({

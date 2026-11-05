@@ -10,6 +10,8 @@ const CATALOG_URL = 'https://dapp.fchain.io/v1';
 const TIMEOUT_MS = 15_000;
 const MAX_BODY_LENGTH = 1_000_000;
 const MAX_ENTRIES = 500;
+// An API listing is only eligible for prompt-free read access briefly after verification.
+const LIVE_TRUST_TTL_MS = 5 * 60 * 1000;
 
 export function createFchainCatalog(dependencies: {
   cache: DappCatalogCacheRepository;
@@ -24,6 +26,10 @@ export function createFchainCatalog(dependencies: {
   let pending: Promise<DappCatalogLoadResult> | undefined;
   let controller: AbortController | undefined;
   let closed = false;
+  // Ephemeral attestation from a verified live 200 or 304 response. Persisted
+  // catalog metadata remains public and must never recover a trust decision.
+  let liveEntries = new Map<string, string>();
+  let verifiedAt: number | undefined;
   const assertOpen = () => {
     if (closed) throw new Error('network-session-retired');
   };
@@ -39,13 +45,22 @@ export function createFchainCatalog(dependencies: {
         return { kind: 'unavailable' };
       }
     },
+    isTrustedLiveEntry: entry => {
+      const age = verifiedAt === undefined ? Infinity : now() - verifiedAt;
+      return !closed && age >= 0 && age <= LIVE_TRUST_TTL_MS && liveEntries.get(entry.id) === entry.websiteUrl;
+    },
     load: () => {
       if (closed) return Promise.reject(new Error('network-session-retired'));
       if (!supported) return Promise.resolve({ kind: 'unavailable' });
       if (pending) return pending;
+      liveEntries.clear();
+      verifiedAt = undefined;
       const active = new AbortController();
       controller = active;
-      pending = refresh(cache, networkId, fetchImpl, now, active, assertOpen).finally(() => {
+      pending = refresh(cache, networkId, fetchImpl, now, active, assertOpen, entries => {
+        liveEntries = new Map(entries.map(entry => [entry.id, entry.websiteUrl]));
+        verifiedAt = now();
+      }).finally(() => {
         if (controller === active) controller = undefined;
         pending = undefined;
       });
@@ -53,6 +68,8 @@ export function createFchainCatalog(dependencies: {
     },
     close: () => {
       closed = true;
+      liveEntries.clear();
+      verifiedAt = undefined;
       controller?.abort();
       controller = undefined;
     },
@@ -66,6 +83,7 @@ async function refresh(
   now: () => number,
   controller: AbortController,
   assertOpen: () => void,
+  onVerifiedResponse: (entries: readonly DappCatalogEntry[]) => void,
 ): Promise<DappCatalogLoadResult> {
   assertOpen();
   const candidate = cache.read(networkId);
@@ -84,7 +102,12 @@ async function refresh(
     });
     assertOpen();
     if (response.url && response.url !== CATALOG_URL) throw new Error('dapp-catalog-redirect');
-    if (response.status === 304 && previous) return { kind: 'ready', entries: previous.entries };
+    if (response.status === 304 && previous) {
+      // Fresh HTTPS revalidation attests that the existing network-scoped
+      // response is still current. An offline cache read never reaches here.
+      onVerifiedResponse(previous.entries);
+      return { kind: 'ready', entries: previous.entries };
+    }
     if (response.status < 200 || response.status >= 300) throw new Error('dapp-catalog-http');
     const contentLength = response.headers.get('content-length');
     if (contentLength !== null && (!/^\d+$/.test(contentLength) || Number(contentLength) > MAX_BODY_LENGTH))
@@ -104,6 +127,7 @@ async function refresh(
     };
     assertOpen();
     cache.replace(snapshot);
+    onVerifiedResponse(entries);
     return { kind: 'ready', entries };
   } catch {
     assertOpen();
