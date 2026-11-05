@@ -5,6 +5,7 @@ import {
   type DappCatalogCacheSnapshot,
 } from '../../capabilities/dapp-catalog/catalogCache';
 import { normalizeUntrustedDappUrl } from '../../capabilities/dapp-interaction/externalDappUrl';
+import { safePublicHttpsUrl } from '../../capabilities/assets/safePublicHttpsUrl';
 
 const CATALOG_URL = 'https://dapp.fchain.io/v1';
 const TIMEOUT_MS = 15_000;
@@ -154,6 +155,7 @@ function readEntry(value: unknown, networkId: string): DappCatalogEntry | undefi
       description: value.shortDescription.trim(),
       category: value.primaryCategory.trim(),
       websiteUrl: destination.url,
+      ...(safePublicHttpsUrl(value.iconUrl) ? { iconUrl: safePublicHttpsUrl(value.iconUrl) } : {}),
     });
   } catch {
     throw new Error('dapp-catalog-entry');

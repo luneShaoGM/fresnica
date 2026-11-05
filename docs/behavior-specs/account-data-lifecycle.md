@@ -333,3 +333,24 @@ Status is pending actual Xcode build, native redirection/size/security fixture
 tests, exact-HEAD independent review, PR merge and final real-device flows.
 No new ledger or authorization/Signer authority. This phase does not mark
 dApp-icon candidates, Claimable snapshots or remote resolver caches complete.
+
+### LC5 Phase 3 — public dApp detail cache and remaining-consumer audit (2026-11-05)
+
+Following merged PR #171 at `main@b68ab23f2ce00b6282cf97b2ec832bcbe6017c78`,
+Phase 3 adds an independently versioned Realm v12 public-only dApp detail
+cache keyed by exact network + app identifier with 24-hour positive freshness
+and 30-second failed-refresh retry. It preserves stale display data on
+offline/malformed responses. Icon winner/failed candidate metadata is
+bounded and stored as URL/timestamps only; actual bounded PNG/JPEG bytes
+remain in opt-in session memory using the pre-existing Phase-2 native port.
+S14, not app-wide LC5, owns the consumer and read-only screen.
+[Phase 3 contract](lc5-dapp-details-icons-cache.md). CI and exact-HEAD review
+remain required; no new native product acceptance is asserted.
+
+The historical inventory at line 184 is **not** a current-Claimable feature:
+Activity's claimable effects evidence is transaction *history*, not a live
+S11 claimable list/current snapshot. S11 has no active claimable-list consumer
+yet, so a speculative 1-hour snapshot cannot be called implemented. S22
+local contacts already have Realm persistence and typed-memo exact lookup;
+a remote Resolver cache remains deferred until a validated source/TTL/privacy
+contract exists. Neither deferral is disguised as cache completion.

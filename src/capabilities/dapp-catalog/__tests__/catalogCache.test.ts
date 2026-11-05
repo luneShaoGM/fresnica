@@ -32,6 +32,30 @@ describe('S14 public dApp catalog snapshot', () => {
     expect(normalizeDappCatalogCache(snapshot, 'stellar-testnet')).toEqual(snapshot);
   });
 
+  it('persists only explicitly valid public icon candidates and not provider instructions', () => {
+    const entry = snapshot.entries[0];
+    const valid = 'https://cdn.example.org/demo.png';
+    expect(
+      normalizeDappCatalogCache(
+        {
+          ...snapshot,
+          entries: [{ ...entry, iconUrl: valid, accountId: 'account-secret', autoConnect: true }],
+        },
+        'stellar-testnet',
+      )?.entries,
+    ).toEqual([{ ...entry, iconUrl: valid }]);
+
+    expect(
+      normalizeDappCatalogCache(
+        {
+          ...snapshot,
+          entries: [{ ...entry, iconUrl: 'https://127.0.0.1/icon.png' }],
+        },
+        'stellar-testnet',
+      )?.entries,
+    ).toEqual([entry]);
+  });
+
   it('fails closed on invalid URL, duplicate id, malformed version, or oversized list', () => {
     expect(
       normalizeDappCatalogCache(

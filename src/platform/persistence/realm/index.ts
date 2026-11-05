@@ -1,5 +1,6 @@
 export { RealmBalanceCacheRepository } from './RealmBalanceCacheRepository';
 export { RealmDappCatalogRepository } from './RealmDappCatalogRepository';
+export { RealmDappDetailCacheRepository } from './RealmDappDetailCacheRepository';
 export { RealmCuratedSourceCacheRepository } from './RealmCuratedSourceCacheRepository';
 export { RealmTokenMetadataRepository } from './RealmTokenMetadataRepository';
 export { RealmDappPermissionStore } from './RealmDappPermissionStore';
@@ -25,6 +26,8 @@ export {
   BALANCE_CACHE_SNAPSHOT_SCHEMA,
   DAPP_CATALOG_CACHE_ENTITY,
   DAPP_CATALOG_CACHE_SCHEMA,
+  DAPP_DETAIL_CACHE_ENTITY,
+  DAPP_DETAIL_CACHE_SCHEMA,
   CURATED_ASSET_SOURCE_CACHE_ENTITY,
   CURATED_ASSET_SOURCE_CACHE_SCHEMA,
   TOKEN_METADATA_CACHE_ENTITY,

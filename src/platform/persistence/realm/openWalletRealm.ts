@@ -21,6 +21,7 @@ export function walletRealmConfiguration(options: OpenWalletRealmOptions = {}): 
       // v9 adds network-scoped public contacts without changing existing records.
       // v10 adds isolated replaceable public curated-asset source snapshots.
       // v11 adds isolated display-only token metadata; no image bytes or wallet authority.
+      // v12 adds public dApp detail/icon candidate evidence; grants stay independent.
     },
   };
 }

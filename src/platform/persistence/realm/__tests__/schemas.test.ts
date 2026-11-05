@@ -4,6 +4,8 @@ import {
   BALANCE_CACHE_SNAPSHOT_SCHEMA,
   DAPP_CATALOG_CACHE_ENTITY,
   DAPP_CATALOG_CACHE_SCHEMA,
+  DAPP_DETAIL_CACHE_ENTITY,
+  DAPP_DETAIL_CACHE_SCHEMA,
   CURATED_ASSET_SOURCE_CACHE_ENTITY,
   CURATED_ASSET_SOURCE_CACHE_SCHEMA,
   TOKEN_METADATA_CACHE_ENTITY,
@@ -28,9 +30,9 @@ import {
   WALLET_REALM_SCHEMA_VERSION,
 } from '../schemas';
 
-describe('Realm wallet schema v11', () => {
+describe('Realm wallet schema v12', () => {
   it('adds replaceable Balance cache persistence without changing wallet entity identities', () => {
-    expect(WALLET_REALM_SCHEMA_VERSION).toBe(11);
+    expect(WALLET_REALM_SCHEMA_VERSION).toBe(12);
     expect(WALLET_REALM_SCHEMAS).toEqual([
       CONTACT_SCHEMA,
       ACCOUNT_SCHEMA,
@@ -42,12 +44,17 @@ describe('Realm wallet schema v11', () => {
       HISTORY_CACHE_SNAPSHOT_SCHEMA,
       BALANCE_CACHE_SNAPSHOT_SCHEMA,
       DAPP_CATALOG_CACHE_SCHEMA,
+      DAPP_DETAIL_CACHE_SCHEMA,
       CURATED_ASSET_SOURCE_CACHE_SCHEMA,
       TOKEN_METADATA_CACHE_SCHEMA,
       DAPP_PERMISSION_GRANT_SCHEMA,
     ]);
     expect(BALANCE_CACHE_SNAPSHOT_SCHEMA.name).toBe(BALANCE_CACHE_SNAPSHOT_ENTITY);
     expect(DAPP_CATALOG_CACHE_SCHEMA.name).toBe(DAPP_CATALOG_CACHE_ENTITY);
+    expect(DAPP_DETAIL_CACHE_SCHEMA.name).toBe(DAPP_DETAIL_CACHE_ENTITY);
+    expect(DAPP_DETAIL_CACHE_SCHEMA.properties).not.toHaveProperty('accountId');
+    expect(DAPP_DETAIL_CACHE_SCHEMA.properties).not.toHaveProperty('imageBytes');
+    expect(DAPP_DETAIL_CACHE_SCHEMA.properties).not.toHaveProperty('grants');
     expect(CURATED_ASSET_SOURCE_CACHE_SCHEMA.name).toBe(CURATED_ASSET_SOURCE_CACHE_ENTITY);
     expect(TOKEN_METADATA_CACHE_SCHEMA.name).toBe(TOKEN_METADATA_CACHE_ENTITY);
     expect(TOKEN_METADATA_CACHE_SCHEMA.properties).not.toHaveProperty('accountId');

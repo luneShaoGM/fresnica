@@ -13,6 +13,7 @@ import {
   HISTORY_CACHE_SNAPSHOT_ENTITY,
   PENDING_SUBMISSION_ENTITY,
   TOKEN_METADATA_CACHE_ENTITY,
+  DAPP_DETAIL_CACHE_ENTITY,
   WALLET_REALM_SCHEMAS,
 } from '../schemas';
 
@@ -30,7 +31,9 @@ describe('Wallet Realm v10 to v11 token display metadata integration', () => {
       realm = await Realm.open({
         path,
         schemaVersion: 10,
-        schema: WALLET_REALM_SCHEMAS.filter(item => item.name !== TOKEN_METADATA_CACHE_ENTITY),
+        schema: WALLET_REALM_SCHEMAS.filter(
+          item => item.name !== TOKEN_METADATA_CACHE_ENTITY && item.name !== DAPP_DETAIL_CACHE_ENTITY,
+        ),
       });
       const savedAt = new Date(30000);
       realm.write(() => {
@@ -99,7 +102,7 @@ describe('Wallet Realm v10 to v11 token display metadata integration', () => {
       realm.close();
 
       realm = await openWalletRealm({ path });
-      expect(realm.schemaVersion).toBe(11);
+      expect(realm.schemaVersion).toBe(12);
       expect(realm.objectForPrimaryKey(ACCOUNT_ENTITY, 'account-legacy')?.label).toBe('Preserve account');
       expect(realm.objectForPrimaryKey(PENDING_SUBMISSION_ENTITY, 'uncertain-legacy')?.state).toBe('uncertain');
       expect(realm.objectForPrimaryKey(BALANCE_CACHE_SNAPSHOT_ENTITY, 'balance-preserved')?.balanceJson).toBe(
