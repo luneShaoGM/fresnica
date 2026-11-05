@@ -233,6 +233,159 @@ describe('LC5 S14 dApp detail and icon candidate consumer', () => {
     service.close();
   });
 
+  it.each(['icon-first', 'detail-first'] as const)(
+    'preserves both cached detail and icon evidence when %s finishes first',
+    async completionOrder => {
+      let now = 10_000;
+      const { cache } = memoryCache();
+      const oldDetail = { ...remote, description: 'Original directory description' };
+      const updatedDetail = { ...remote, description: 'Refreshed directory description' };
+      let replyDetail!: (body: string) => void;
+      const pendingDetailResponse = new Promise<string>(resolve => {
+        replyDetail = resolve;
+      });
+      let detailCalls = 0;
+      const readText = jest.fn(() => {
+        detailCalls += 1;
+        return detailCalls === 1 ? Promise.resolve(JSON.stringify(oldDetail)) : pendingDetailResponse;
+      });
+      const imageResult = { mimeType: 'image/png' as const, dataUri: 'data:image/png;base64,iVBORw0KGgo=' };
+      let replyIcon!: (value: typeof imageResult) => void;
+      const pendingIconResponse = new Promise<typeof imageResult>(resolve => {
+        replyIcon = resolve;
+      });
+      const readIcon = jest.fn((url: string) =>
+        url === icon ? Promise.reject(new Error('invalid primary icon')) : pendingIconResponse,
+      );
+      const service = createFchainDappPublicMedia({
+        networkId: 'stellar-mainnet',
+        cache,
+        transport: { available: true, readText, readIcon, close: jest.fn() },
+        now: () => now,
+      });
+
+      await service.loadDetail('demo.app', new AbortController().signal);
+      now += DAPP_DETAIL_TTL_MS;
+      service.setIconsEnabled(true);
+      const refresh = service.loadDetail('demo.app', new AbortController().signal);
+      const iconLoad = service.loadIcon(sample, new AbortController().signal);
+
+      if (completionOrder === 'icon-first') {
+        replyIcon(imageResult);
+        await expect(iconLoad).resolves.toBe(imageResult.dataUri);
+        replyDetail(JSON.stringify(updatedDetail));
+        await expect(refresh).resolves.toMatchObject({ detail: { longDescription: updatedDetail.description } });
+      } else {
+        replyDetail(JSON.stringify(updatedDetail));
+        await expect(refresh).resolves.toMatchObject({ detail: { longDescription: updatedDetail.description } });
+        replyIcon(imageResult);
+        await expect(iconLoad).resolves.toBe(imageResult.dataUri);
+      }
+
+      const saved = cache.read('stellar-mainnet', sample.id);
+      expect(saved?.detail?.longDescription).toBe(updatedDetail.description);
+      expect(saved?.savedAtUnixMs).toBe(now);
+      expect(saved?.retryAfterUnixMs).toBeUndefined();
+      expect(saved?.iconPreference).toMatchObject({
+        winner: alternate,
+        failures: { [icon]: now + DAPP_ICON_FAILURE_TTL_MS },
+      });
+      service.close();
+    },
+  );
+
+  it('preserves an icon winner when a concurrent detail refresh fails', async () => {
+    let now = 10_000;
+    const { cache } = memoryCache();
+    let rejectRefresh!: (error: Error) => void;
+    const pendingRefresh = new Promise<string>((_, reject) => {
+      rejectRefresh = reject;
+    });
+    let calls = 0;
+    const readText = jest.fn(() => {
+      calls += 1;
+      return calls === 1 ? Promise.resolve(JSON.stringify(remote)) : pendingRefresh;
+    });
+    const readIcon = jest.fn((url: string) =>
+      url === icon
+        ? Promise.reject(new Error('primary image unavailable'))
+        : Promise.resolve({ mimeType: 'image/png' as const, dataUri: 'data:image/png;base64,iVBORw0KGgo=' }),
+    );
+    const service = createFchainDappPublicMedia({
+      networkId: 'stellar-mainnet',
+      cache,
+      now: () => now,
+      transport: { available: true, readText, readIcon, close: jest.fn() },
+    });
+
+    await service.loadDetail(sample.id, new AbortController().signal);
+    now += DAPP_DETAIL_TTL_MS;
+    service.setIconsEnabled(true);
+    const refresh = service.loadDetail(sample.id, new AbortController().signal);
+    await service.loadIcon(sample, new AbortController().signal);
+    rejectRefresh(new Error('offline'));
+    await expect(refresh).resolves.toMatchObject({ fromCache: true, stale: true, refreshFailed: true });
+
+    expect(cache.read('stellar-mainnet', sample.id)).toMatchObject({
+      retryAfterUnixMs: now + DAPP_DETAIL_RETRY_MS,
+      iconPreference: {
+        winner: alternate,
+        failures: { [icon]: now + DAPP_ICON_FAILURE_TTL_MS },
+      },
+    });
+    service.close();
+  });
+
+  it('preserves freshly refreshed details when all concurrent icon candidates fail', async () => {
+    let now = 10_000;
+    const { cache } = memoryCache();
+    const refreshed = { ...remote, description: 'New detail must survive rejected icons' };
+    let finishRefresh!: (body: string) => void;
+    const pendingRefresh = new Promise<string>(resolve => {
+      finishRefresh = resolve;
+    });
+    let calls = 0;
+    const readText = jest.fn(() => {
+      calls += 1;
+      return calls === 1 ? Promise.resolve(JSON.stringify(remote)) : pendingRefresh;
+    });
+    let rejectPrimaryIcon!: (error: Error) => void;
+    const pendingPrimaryIcon = new Promise<never>((_, reject) => {
+      rejectPrimaryIcon = reject;
+    });
+    const readIcon = jest.fn((url: string) =>
+      url === icon ? pendingPrimaryIcon : Promise.reject(new Error('secondary unavailable')),
+    );
+    const service = createFchainDappPublicMedia({
+      networkId: 'stellar-mainnet',
+      cache,
+      now: () => now,
+      transport: { available: true, readText, readIcon, close: jest.fn() },
+    });
+
+    await service.loadDetail(sample.id, new AbortController().signal);
+    now += DAPP_DETAIL_TTL_MS;
+    service.setIconsEnabled(true);
+    const refresh = service.loadDetail(sample.id, new AbortController().signal);
+    const iconLoad = service.loadIcon(sample, new AbortController().signal);
+    finishRefresh(JSON.stringify(refreshed));
+    await expect(refresh).resolves.toMatchObject({ detail: { longDescription: refreshed.description } });
+    rejectPrimaryIcon(new Error('primary unavailable'));
+    await expect(iconLoad).resolves.toBeUndefined();
+
+    expect(cache.read('stellar-mainnet', sample.id)).toMatchObject({
+      savedAtUnixMs: now,
+      detail: { longDescription: refreshed.description },
+      iconPreference: {
+        failures: {
+          [icon]: now + DAPP_ICON_FAILURE_TTL_MS,
+          [alternate]: now + DAPP_ICON_FAILURE_TTL_MS,
+        },
+      },
+    });
+    service.close();
+  });
+
   it('never issues dApp icon requests when native module is unavailable or the session is retired', async () => {
     const readIcon = jest.fn();
     const transport: SafePublicTransport = {

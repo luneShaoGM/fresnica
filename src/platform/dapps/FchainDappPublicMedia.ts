@@ -91,8 +91,17 @@ export function createFchainDappPublicMedia(
     }
   }
 
-  function write(appId: string, fields: Omit<DappDetailSnapshot, 'schemaVersion' | 'networkId' | 'appId'>) {
+  function write(
+    appId: string,
+    update: (
+      latest: DappDetailSnapshot | undefined,
+    ) => Omit<DappDetailSnapshot, 'schemaVersion' | 'networkId' | 'appId'>,
+  ) {
     if (closed) return;
+    // A detail request and an icon request may finish in either order.
+    // Read and merge at publication, without an await between read and
+    // synchronous replace, so each writer preserves the other's fields.
+    const fields = update(cached(appId));
     const normalized = normalizeDappDetailSnapshot(
       {
         schemaVersion: DAPP_DETAIL_CACHE_VERSION,
@@ -165,21 +174,22 @@ export function createFchainDappPublicMedia(
         const detail = detailFromFchain(JSON.parse(body), input.networkId, appId);
         if (!detail) throw new Error('dapp-detail-invalid');
         if (!isCurrent()) throw new Error('dapp-detail-retired');
-        write(appId, {
+        write(appId, latest => ({
           savedAtUnixMs: Math.floor(now()),
           detail,
-          ...(previous?.iconPreference ? { iconPreference: previous.iconPreference } : {}),
-        });
+          ...(latest?.iconPreference ? { iconPreference: latest.iconPreference } : {}),
+        }));
         return { detail, fromCache: false, stale: false, refreshFailed: false };
       } catch (error) {
         if (!isCurrent()) throw error;
-        write(appId, {
-          savedAtUnixMs: previous?.savedAtUnixMs ?? 0,
-          ...(previous?.detail ? { detail: previous.detail } : {}),
-          ...(previous?.iconPreference ? { iconPreference: previous.iconPreference } : {}),
+        write(appId, latest => ({
+          savedAtUnixMs: latest?.savedAtUnixMs ?? previous?.savedAtUnixMs ?? 0,
+          ...((latest?.detail ?? previous?.detail) ? { detail: latest?.detail ?? previous?.detail } : {}),
+          ...(latest?.iconPreference ? { iconPreference: latest.iconPreference } : {}),
           retryAfterUnixMs: Math.floor(now()) + DAPP_DETAIL_RETRY_MS,
-        });
-        if (previous?.detail) return { detail: previous.detail, fromCache: true, stale: true, refreshFailed: true };
+        }));
+        const fallback = cached(appId)?.detail ?? previous?.detail;
+        if (fallback) return { detail: fallback, fromCache: true, stale: true, refreshFailed: true };
         throw new Error('dapp-detail-unavailable');
       } finally {
         signal.removeEventListener('abort', abort);
@@ -248,15 +258,19 @@ export function createFchainDappPublicMedia(
             while (images.size > 24) images.delete(images.keys().next().value as string);
             delete failures[url];
             if (!closed)
-              write(key, {
-                savedAtUnixMs: prior?.savedAtUnixMs ?? 0,
-                ...(prior?.detail ? { detail: prior.detail } : {}),
-                ...(prior?.retryAfterUnixMs ? { retryAfterUnixMs: prior.retryAfterUnixMs } : {}),
-                iconPreference: {
-                  winner: url,
-                  winnerExpiresAt: now() + DAPP_ICON_WINNER_TTL_MS,
-                  failures,
-                },
+              write(key, latest => {
+                const mergedFailures = { ...latest?.iconPreference?.failures, ...failures };
+                delete mergedFailures[url];
+                return {
+                  savedAtUnixMs: latest?.savedAtUnixMs ?? 0,
+                  ...(latest?.detail ? { detail: latest.detail } : {}),
+                  ...(latest?.retryAfterUnixMs ? { retryAfterUnixMs: latest.retryAfterUnixMs } : {}),
+                  iconPreference: {
+                    winner: url,
+                    winnerExpiresAt: now() + DAPP_ICON_WINNER_TTL_MS,
+                    failures: mergedFailures,
+                  },
+                };
               });
             notify();
             return image.dataUri;
@@ -266,12 +280,20 @@ export function createFchainDappPublicMedia(
           }
         }
         if (isCurrent() && urls.length > 0)
-          write(key, {
-            savedAtUnixMs: prior?.savedAtUnixMs ?? 0,
-            ...(prior?.detail ? { detail: prior.detail } : {}),
-            ...(prior?.retryAfterUnixMs ? { retryAfterUnixMs: prior.retryAfterUnixMs } : {}),
-            iconPreference: { failures },
-          });
+          write(key, latest => ({
+            savedAtUnixMs: latest?.savedAtUnixMs ?? 0,
+            ...(latest?.detail ? { detail: latest.detail } : {}),
+            ...(latest?.retryAfterUnixMs ? { retryAfterUnixMs: latest.retryAfterUnixMs } : {}),
+            iconPreference: {
+              ...(latest?.iconPreference?.winner
+                ? {
+                    winner: latest.iconPreference.winner,
+                    winnerExpiresAt: latest.iconPreference.winnerExpiresAt,
+                  }
+                : {}),
+              failures: { ...latest?.iconPreference?.failures, ...failures },
+            },
+          }));
         return;
       } finally {
         signal.removeEventListener('abort', abort);
