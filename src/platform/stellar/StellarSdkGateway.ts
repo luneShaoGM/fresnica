@@ -1,3 +1,4 @@
+import { readHistoryOperationEffects } from './HistoryEffectsProjection';
 import {
   Address,
   xdr,
@@ -216,6 +217,11 @@ function createDefaultServer(horizonUrl: string, networkPassphrase: string): Hor
 
   return {
     loadAccount: address => server.loadAccount(address),
+    loadOperationEffects: async (operationId, cursor) => {
+      let request = server.effects().forOperation(operationId).order('asc').limit(200);
+      if (cursor !== undefined) request = request.cursor(cursor);
+      return (await request.call()).records;
+    },
     loadOperation: async operationId =>
       (await server.operations().operation(operationId).call()) as unknown as HorizonOperationLike,
     loadAccountOperations: async input => {
@@ -494,6 +500,15 @@ export class StellarSdkGateway implements StellarGateway {
     }
   }
 
+  async loadOperationEffects(input: { operationId: string; accountAddress: string; signal?: AbortSignal }) {
+    if (!this.server.loadOperationEffects) return { operationId: input.operationId, complete: false, records: [] };
+    return readHistoryOperationEffects(input.operationId, async cursor => {
+      if (input.signal?.aborted) throw new Error('history-effects-aborted');
+      const page = await this.server.loadOperationEffects!(input.operationId, cursor);
+      if (input.signal?.aborted) throw new Error('history-effects-aborted');
+      return page;
+    });
+  }
   async loadOperation(input: { operationId: string; accountAddress: string }) {
     const operationId = input.operationId.trim();
     if (!operationId) {

@@ -156,6 +156,11 @@ visibility candidate uses `s13-failed-visibility-history.md`;
 known false is non-monetary, raw unknown stays unsupported, legacy cache preserved.
 No native/maturity promotion; effects/images/explicitDustSpam policy follow.
 
+Slice6 failed/technical visibility merged #163. Claimable quantity enrichment is
+specified in `s13-claimable-effects-history.md`; exact operation/balance/account
+proof, bounded reads, burn neutrality and cache identity upgrades are mandatory.
+No native acceptance or maturity upgrade follows from automated evidence.
+
 Slice 6c candidate: reversible user-selected issued-asset hiding; remote
 branded images remain deferred until a native bounded streaming and
 transport-level redirect-safe implementation is available, specified in

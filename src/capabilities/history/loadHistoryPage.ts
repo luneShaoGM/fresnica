@@ -1,3 +1,5 @@
+import type { HistoryCacheRepository } from './HistoryCacheRepository';
+import { enrichClaimableRecords, seedCachedClaimableProof } from './claimableEffects';
 import { mapFailedHistory } from './failedHistory';
 import { mapClassicControl } from './classicControlHistory';
 import { mapContract } from './contractHistory';
@@ -23,6 +25,7 @@ import type {
 } from './types';
 
 export type HistoryDependencies = Readonly<{
+  cache?: Pick<HistoryCacheRepository, 'getSnapshot'>;
   gateway: HistoryGatewayPort;
   networkId: string;
 }>;
@@ -41,6 +44,7 @@ export async function loadHistoryPage(
     return { status: 'unsupported-account' };
   }
 
+  const assertCurrent = dependencies.gateway.captureHistoryReadLease?.(account.address);
   const page = await dependencies.gateway.loadAccountOperations({
     address: account.address,
     ...(input?.cursor === undefined ? {} : { cursor: input.cursor }),
@@ -51,9 +55,11 @@ export async function loadHistoryPage(
     return { status: 'inactive' };
   }
 
+  const records = await enrichClaimableRecords(dependencies.gateway, seedCachedClaimableProof(dependencies, page.records, account.address), account.address);
+  assertCurrent?.();
   return {
     status: 'active',
-    entries: page.records.map(record => mapHistoryEntry(record, account.address)),
+    entries: records.map(record => mapHistoryEntry(record, account.address)),
     ...(page.nextCursor === undefined ? {} : { nextCursor: page.nextCursor }),
   };
 }

@@ -1,8 +1,44 @@
 # Fresnica Mobile｜当前基线与执行队列
 
-> 基线更新：2026-10-29（Asia/Shanghai），保留原章节与第 4 节五项依赖队列。GitHub main、当前源码和 exact-HEAD Review 为事实源；本文件是执行索引。实现、审查、合并、自动化验证、原生验收分别记录，不能互相替代。
+> 历史基线更新：2026-10-29（Asia/Shanghai），保留原章节与第 4 节五项依赖队列。GitHub main、当前源码和 exact-HEAD Review 为事实源；本文件是执行索引。实现、审查、合并、自动化验证、原生验收分别记录，不能互相替代。
 
-## 1. 集成基线
+## 2026-11-04 S22 已合并进度（优先于下方 2026-10-29 历史快照）
+
+只更新 S22 实际交付，不改动原有第 4 节五项依赖队列。核对时最新 GitHub
+`main@455932e475b6d363b6dd7da467f1e4e719dd79d2` 已包含 #159/#162
+及后续 #167/#165；下方第 1—8 节其他历史状态仍须在对应任务启动时复核。
+
+- **#159 G 地址 Memo Return 已合并**：最终 reviewed HEAD
+  `3c5f35fb0e0d4a5e6ece15a5e6278e8df3b954df`，merge commit
+  `8f44a046f60b0538e43f51126548b61d419e05a5`；Work **APPROVED**，
+  P1/P2/P3 均无未解决项，远端 CI 210 套件 / 2001 测试通过。
+  Contacts、Request/SEP-7、Send、Payment SDK/exact-XDR 保留独立 Return/Hash 类型；
+  Swap/PathPayment 仍显式拒绝 Return。
+- **#162 Address Book / Activity / Send 联动已合并**：最终 reviewed HEAD
+  `aec91464c4d930f3dd93e9e87982d2c1a3774ed3`，merge commit
+  `d08e465b5309240c2756be90bd1d2cbe39df9132`；Work **APPROVED**，
+  P1/P2/P3 均无未解决项；远端 CI 217 套件 / 2148 测试及
+  Android、Apple、Realm 分类门禁通过。旧 `eb6463c…` 审查仅属历史，
+  当前交付以最终 exact-HEAD 复审为准。
+- **本轮产品代码完成**：Realm v9 全局联系人、搜索/字母分组、新增/编辑/
+  删除、精确 typed Memo 重复检查；身份卡片及本地名称/离线头像；
+  Settings、Activity 对手方与 Send 收款人扫码；Send **Details → Recipient
+  → Summary**（G 地址、通讯录、当前网络自有账户、Memo、扫码及原 exact-XDR
+  复核）。手动更改自动填入的收款地址会清除借用 Memo；账户/网络隔离、
+  签名、提交及 uncertain/recovery 不变。
+- **S22 成熟度维持 L2/L3 partial，不是 L4**：Android/iOS 真实相机权限、
+  键盘/返回/手势、分享取消、窄屏、大字体、读屏、真实 Testnet Send 与
+  Stage 9 iOS System Auth 取消/重试原生验收仍按用户安排集中进行。
+  单测、Realm、CI 成功不能冒充真机产品验收。
+- **剩余边界**：用户明确暂停 **M 地址**，不列入当前下一切片。
+  可信远端名称解析和第三方品牌头像缺少批准的数据源及地址隐私契约，
+  当前只有本地解析和离线确定性头像，不声称已完成远端服务。
+
+详见 [S22 行为规格](behavior-specs/s22-address-book.md)、
+[执行计划](fresnica-mobile-rewrite-execution-plan.md)、
+[追踪表](product-traceability-ledger.md)。已合并的 S22 功能不再重复开发。
+
+## 1. 集成基线（2026-10-29 历史快照）
 
 - 当前核对基线：`main@f8f4c6ae83867f37b5601ba198540cc587694928`，已包含 #122/#124 网络基础、#123 FChain、#126 Swap 入口，以及 #128 浏览器、#130 协议兼容、#131 权限。#129 尚未合并，开发基线为旧 main `651bf7b9eceff4f004bcebbba9de6e7e224c383e`，后续运行时代码修改前须集成最新 main。
 - #122 的独立 Work Review 核对 `f83195bd00453372c90d3ac0b2038a26dc1350b4`：APPROVED，P1/P2/P3 为零；CI check 为 155 suites / 1260 tests。只证明自动化范围，S24 原生验收仍未执行。
@@ -36,7 +72,8 @@
 | S10 Swap | quote/review/submit/recovery 与 #118–121 的输入、路由、滑点、Pay Max 改进已集成 | 完整原生产品流、取消/账户网络变更/uncertain 恢复等聚合验收未封板 |
 | S14–S21 dApp | main 已含 #123 目录/缓存、#128 浏览器、#130 协议兼容、#131 权限/撤销；第 2 节旧候选叙述保留为历史 | 按各行为规格核对剩余原生/协议矩阵；Soroban 等上游缺口保留；本次账户/网络修正必须覆盖当前 main 的权限与签名绑定，不把合并自动当完整验收 |
 | S24/S25 网络与开发者工具 | #122/#124 健康/Retry、模式鉴权、网络偏好、节点管理、统一会话已合并 | 按指南 §7.5 对齐 Advanced/General/Security 入口；模式/节点双端产品验收、日志和开发者工具仍分项未完 |
-| S03/S06/S08/S11/S12/S22–S29 其他范围 | 以 ledger 与代码为准，部分只有机制或角色 | 不因当前三条功能线而删除；muxed/hardware/Soroban/发布身份等各自依赖继续保留 |
+| S22 Address Book / Send 联动 | #156/#159/#162 已合并：G 地址全局联系人、Activity 身份卡片/扫码、Send 分步骤与 Memo Return | L2/L3 partial；原生验收延期，M 地址暂停，外部身份/头像服务未交付 |
+| S03/S06/S08/S11/S12/S23–S29 其他范围 | 以 ledger 与代码为准，部分只有机制或角色 | 不因 S22 代码收口而删除；hardware/Soroban/发布身份等各自依赖继续保留 |
 
 ## 4. 依赖队列（本轮用户确认）
 
@@ -124,7 +161,7 @@
 | --- | --- | --- |
 | S01/S02/S03/S04/S28 账户/安全 | 创建/导入/HD/备份/列表选择/隐藏删除、揭示/改口令、System Auth/锁/硬件入口和设备拒绝 | 原账户/安全/硬件阶段；原任务 2 的设计不冒充应用锁已实现 |
 | S05/S06/S30 Home/资产/Trustline | 余额/类别/可用额/资产详情风险、Add/Limit/Remove、issuer/reserve/liability、交易后权威重读 | 原 Stage 4/8；复用已验收证据 |
-| S07/S08/S22 Send/目的地/通讯录 | 地址/muxed/联系人、金额/memo/fee/风险、精确审阅/授权/结果/恢复 | 原 Stage 4/8；缺失 Capability 只阻塞其消费者 |
+| S07/S08/S22 Send/目的地/通讯录 | G 地址/联系人、金额/typed Memo/fee/风险、精确审阅/授权/结果/恢复；M 地址暂停 | 原 Stage 4/8；#159/#162 相关代码已交付，原生验收与其他 Capability 缺口分别管理 |
 | S09/S13 Request/Activity | 原生输入、分享/链接、缓存分页筛选详情/参与者/Explorer、离线 Retry | 保留上节具体子项 ID |
 | S10 Swap | 双向金额/Max/资产/报价路由滑点/过期、review/sign/submit/uncertain/restart | 原任务 4，在途继续 |
 | S14–S21 dApp | FChain/分类/Recent/custom URL/disclaimer、真实 origin/WebView、权限/撤销、Freighter/SEP-53/Soroban、device/share/data 命令 | 原任务 5；按 Native/Capability 契约逐类开放 |

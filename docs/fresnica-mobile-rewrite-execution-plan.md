@@ -1,4 +1,4 @@
-> 当前任务顺序与集成事实请先读 [当前基线与执行队列](fresnica-mobile-current-progress-and-next-plan.md)（2026-10-27 校准）。本文件保留完整产品覆盖和历史阶段证据；历史推荐 PR 序列不代表实时待办。
+> 当前任务顺序与集成事实请先读 [当前基线与执行队列](fresnica-mobile-current-progress-and-next-plan.md)（保留 2026-10-29 历史队列；2026-11-04 S22 已合并状态见最新增量）。本文件保留完整产品覆盖和历史阶段证据；历史推荐 PR 序列不代表实时待办。
 
 # Fresnica Mobile 重写评估与执行计划
 
@@ -919,25 +919,45 @@ Slice 5c 当前候选依据 [Trust/Sponsorship history](behavior-specs/s13-trust
 其余 account merge/options/data/revoke/inflation、合约构造器变体、Slice 6、历史缺失金额、
 品牌图片与原生验收仍开放；完整验证/独立 exact-HEAD 审查及合并以当前 PR 证据为准。
 
-#### S22 Address Book 联动收口（2026-11-04，当前候选）
+#### S22 Address Book 联动收口（2026-11-04；#162 已审查合并）
 
-按照 2026-11-04 用户决定，**暂停 M 地址支持**，不再将其列为当前下一切片。
-S22 已合并 #156 的全局通讯录、分组、身份卡片和本地头像、扫码、Memo
-精确身份；#159 G 地址 Memo Return 已通过独立审查并合并至 main，本候选只做新旧 Send 步骤联动。
+**本轮 G 地址产品代码交付已完成。** 已合并 #156 的全局联系人
+（Realm v9）、搜索/字母分组、增删改、公共身份卡片、严格重复身份、
+Settings 扫码和本地名称/离线头像；#159 的 G 地址 Memo Return 覆盖
+Contacts、Request/SEP-7、Stellar SDK、Payment exact-XDR；#162
+将 Activity 对手方编辑扫码及 Send
+**Details（资产/金额）→ Recipient（G 地址、联系人、当前网络自有账户、扫码、
+typed Memo）→ Summary（现有 exact-XDR 复核）** 联动收口。
+同地址的 Return/Hash 保留不同身份，Memo 预填、手动编辑、返回和再次复核
+不混淆；手改借用地址会清除旧 Memo。账户/网络隔离、Signer、授权、
+提交和 uncertain/recovery 未更换权威管线。
 
-从 main 建立的单分支集中完善 Send 从 Details（资产和金额）到 Recipient
-（G 地址、通讯录、自有账户、二维码和 Memo）再到 Summary（原 exact-XDR
-复核与授权）的行为；Activity 参与方编辑复用现有二维码权限管线。
-重复联系人、手动地址修改后清除旧自动填入 Memo、失焦/取消/权限异常和
-迟到回调保持安全门控。不修改账户/网络分区、Realm/Signer、签名/提交/
-uncertain/recovery。
+- #159 最终 exact reviewed HEAD `3c5f35fb0e0d4a5e6ece15a5e6278e8df3b954df`，
+  merge commit `8f44a046f60b0538e43f51126548b61d419e05a5`；
+  Work **APPROVED**，无未解决 P1/P2/P3；远端 CI
+  **210 套件 / 2001 测试**通过。
+- #162 最终 exact reviewed HEAD `aec91464c4d930f3dd93e9e87982d2c1a3774ed3`，
+  merge commit `d08e465b5309240c2756be90bd1d2cbe39df9132`；
+  Work **APPROVED**，无未解决 P1/P2/P3；远端 CI
+  **217 套件 / 2148 测试**及 Android/Apple/Realm 分类门禁通过。
+  本次有效复审针对合入 #159 后的新 HEAD；旧 `eb6463c…` 审查不具有新
+  HEAD 审批效力。开发者真实 Node Realm 联系人 close/reopen
+  定向测试 **5/5** 通过，不等同原生 App 产品验收。
+- **用户明确暂停 M 地址**：Contact/Request/Send 继续 G-only fail-closed，
+  不列入当前下一开发切片。如将来恢复，需重新论证 muxed ID、G 基址查询、
+  CreateAccount 限制和 exact-XDR 目的地身份；Swap/PathPayment 的
+  Memo Return 仍显式拒绝。
+- **外部身份尚未完成**：可信远端名称/第三方品牌头像缺少已批准来源和
+  地址隐私契约，不接入未知服务，仅使用本地解析和离线确定性头像。
+- **S22 当前 L2/L3 partial，不升级 L4**。Android/iOS 真实相机/权限、
+  键盘/返回/手势、大字体、读屏、分享取消、真实 Testnet Send、
+  Stage 9 iOS System Auth 取消/重试等原生产品流继续统一延期验收。
+  CI、Realm 和仓库单测不代表真机产品验收。
 
-无经过批准的外部名称解析/品牌头像数据源和地址隐私契约，继续使用已有
-本地名称解析与离线确定性头像；未交付远端服务，不能冒称完全对齐。
-原生相机、键盘/Back、大字体、读屏、设备真实发送与 iOS System Auth
-取消/重试验收维持后续统一验收，不将自动化测试等同真机签收。
+#### S22 Address Book 本地候选（2026-11-02，历史开发快照）
 
-#### S22 Address Book 本地候选（2026-11-02）
+本节保留当时分支/验证历史；“尚未审查、尚未合并”不代表最新 GitHub 状态，
+最终结论以以上 #156/#159/#162 合并记录为准。
 
 分支 `feat/address-book-stellar-align-2026-11-02`，基于 `main@0eafeff`；按持久化边界拆为
 Realm v9/联系人策略底层与依赖其上的产品界面两份切片，尚未以此记录宣称合并或独立审查通过。
@@ -948,7 +968,7 @@ Send 选择联系人并原子填入地址与 typed Memo、Activity Classic 参�
 S09/Stage 9 iOS System Auth 取消/重试延期不变。此候选不升级 S22 的 L3/L4 成熟度。
 
 
-#### S22 Memo Return（G 地址）端到端安全切片（2026-11-04）
+#### S22 Memo Return（G 地址）端到端安全切片（2026-11-04，#159 已合并）
 
 基于 main@248f5052dfc556ef18f5d08e7b472c46cab45380 新建分支。
 已合并的 #156 提供全局联系人、目录/扫码、公共身份卡片和本地名称解析基础。
@@ -956,11 +976,11 @@ S09/Stage 9 iOS System Auth 取消/重试延期不变。此候选不升级 S22 �
 v9 JSON、Send/Request 表单、SEP-7 Base64、Stellar SDK Payment exact-XDR
 构建/解码和复核；允许从有效 G 收款地址按既有签名管线发送。PathPayment/Swap
 继续 fail-closed 禁用 Return，M 收款地址（含 G 基址查询、muxed ID 与 memo
-兼容性、CreateAccount 禁止）独立后续实现。仅相同的 32 字节内容不能把
+兼容性、CreateAccount 禁止）按用户决定暂停，不在当前开发队列。仅相同的 32 字节内容不能把
 Hash/Return 类型互换。
 
-验证：TypeScript / Jest、真实 Realm close/reopen、架构/来源、完整 npm run check
-与 PR exact-HEAD Work 独立审查须在最终提交确认。Android/iOS 原生付款、扫码、
+验证：#159 exact-HEAD Work APPROVED，远端 CI 210 套件 / 2001 测试及
+Android/Apple/Realm 门禁通过；#162 已对合并后的 Send 集成独立复审通过。Android/iOS 原生付款、扫码、
 键盘、窄屏和 Stage 9 iOS System Auth 取消/重试验收继续统一延期；
 不以 CI 或模拟验证替代真机产品流。
 
@@ -969,7 +989,7 @@ Hash/Return 类型互换。
 - Asset Metadata 与 Stellar TOML。
 - Asset Discovery、Catalog/Registry、图标缓存、风险来源和资产身份验证；不能把“metadata”当成完整发现与风险产品。
 - Claimable Balance 读与 claim。
-- Address Book。
+- Address Book（G 地址关联代码已合并 #156/#159/#162；原生验收仍待完成）。
 - Developer Mode。
 - Network 管理与健康检查。
 - Session Logs。
@@ -1229,3 +1249,15 @@ S13 constructor/create-identity fix merged #161. Slice6 failed history/technical
 visibility candidate uses `behavior-specs/s13-failed-visibility-history.md`;
 known false is non-monetary, raw unknown stays unsupported, legacy cache preserved.
 No native/maturity promotion; effects/images/explicitDustSpam policy follow.
+
+### Settings / Terms & Conditions — pre-content closure (2026-11-04)
+
+- Baseline: #155 merged. Questions & Support entry, official browser handoff, stale-failure guard, and localized Terms pending screen are implemented; native iOS/Android acceptance remains deferred to the consolidated device round.
+- This slice: add a safe, theme-aware and scrollable read-only Terms renderer for approved structured plain-text content, explicit unavailable/invalid/ready validation, version display, and focused automated tests. Do **not** confuse test fixture presentation with published agreement acceptance. No legal content is bundled or fetched; the production view must remain in pending state.
+- **Waiting for product owner / legal-content owner (required before formal Terms publication):**
+  1. Provide the final Fresnica Terms & Conditions / Service Agreement text, with the exact legal entity, jurisdiction, contact information and effective date reviewed by the responsible party. Confirm the text accurately describes current Fresnica capabilities, especially that multisignature submission is not currently supported; do not reuse the inaccurate 2026-07-13 donor wording without revision.
+  2. Provide the rights/provenance basis for distributing this text (original approved document or file-level authorization from the copyright holder). Selecting an old agreement version alone is insufficient.
+  3. Approve the publication version identifier (`YYYYMMDD`) and the language policy for legal content (approved translations versus an explicitly identified source-language original). UI localization alone is not a legal translation.
+  4. Decide whether users must explicitly accept Terms at onboarding or on version updates. If required, approve the user gesture, cancellation/decline consequences, persistence scope, migration, repeat prompt and version-change semantics before implementing acceptance.
+- **After inputs arrive:** integrate the approved content, prove byte-for-byte content/version integrity and rollback/error paths, independently review the exact new HEAD, then include native scrolling/accessibility/dynamic-type and browser handoff in the final iOS/Android acceptance round.
+- **State:** Questions & Support code complete / native pending; Terms reader foundation implementable without legal text; official Terms publication and acceptance remain blocked by owner-provided inputs, not L4 complete.

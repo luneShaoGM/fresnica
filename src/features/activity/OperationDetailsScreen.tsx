@@ -646,7 +646,14 @@ function renderEntry(
               ),
             )}
             <DetailRow label={t('activity.detail.balanceId')} value={entry.balanceId} mono styles={styles} />
-            <Text style={styles.warning}>{t('activity.detail.amountUnavailableExplanation')}</Text>
+            {entry.asset && entry.amount !== undefined ? (
+              <>
+                <DetailRow label={t(entry.operationType === 'claim_claimable_balance' ? 'activity.detail.claimedQuantity' : 'activity.detail.removedQuantity')} value={`${formatNumber(entry.amount, 7)} ${entry.asset.code}`} fullValue styles={styles} />
+                <DetailRow label={t('activity.detail.asset')} value={entry.asset.code} styles={styles} />
+                {entry.asset.kind === 'credit' ? renderAccount(entry.asset.issuer, t('activity.detail.issuer')) : null}
+                <Text style={styles.warning}>{t('activity.detail.effectsEvidence')}</Text>
+              </>
+            ) : <Text style={styles.warning}>{t('activity.detail.amountUnavailableExplanation')}</Text>}
             {entry.operationType === 'clawback_claimable_balance' ? (
               <Text style={styles.warning}>{t('activity.detail.clawbackWarning')}</Text>
             ) : null}

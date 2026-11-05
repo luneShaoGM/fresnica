@@ -31,7 +31,8 @@ export function entryAssetIdentities(entry: HistoryEntry): readonly string[] {
       for (const event of entry.events ?? []) assets.push(event.asset);
       break;
     case 'claimable-reference':
-      return [];
+      if (entry.asset) assets.push(entry.asset);
+      break;
     default:
       return [];
   }

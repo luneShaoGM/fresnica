@@ -240,6 +240,8 @@
   "settings.terms": "條款與條件",
   "settings.supportOpenFailed": "無法開啟官方支援網站。請在瀏覽器可用時重試。",
   "settings.termsReferenceVersion": "參考協議版本",
+  "settings.termsDocumentVersion": "協議版本",
+  "settings.termsInvalidDocument": "無法顯示條款：提供的協議內容無效，且尚未接受任何協議。",
   "settings.termsPendingApproval": "條款暫不可用。參考協議尚需完成再散布授權查核，並依錢包目前的實際功能修訂。請於正式協議發布後再次查看。",
   "settings.termsNotAccepted": "檢視此頁面不會記錄對任何協議的接受狀態。",
   "settings.about": "關於",
@@ -1029,5 +1031,7 @@
   "activity.entry.failed": "操作失敗",
   "activity.detail.failed": "交易失敗。此記錄表示嘗試執行的操作，不代表已完成的付款或餘額變化。",
   "activity.visibility.hideTechnical": "隱藏技術類記錄",
-  "activity.visibility.showTechnical": "顯示技術類記錄"
+  "activity.visibility.showTechnical": "顯示技術類記錄",
+  "activity.detail.claimedQuantity": "已領取數量",
+  "activity.detail.effectsEvidence": "資產和數量來自此歷史操作的效果記錄，不代表目前餘額。"
 }

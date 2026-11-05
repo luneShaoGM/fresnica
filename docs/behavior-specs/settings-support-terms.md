@@ -23,3 +23,10 @@
 ## Delivery scope
 
 This slice delivers the working official support entry and a localized **pending-publication notice** under Terms & Conditions. It does **not** deliver a usable legal agreement, acceptance mechanism, or claim that legal terms are in force. Do not describe the Terms surface as an implemented agreement reader until independently approved content exists.
+
+## Terms reader foundation (2026-11-04)
+
+- `SettingsSubpage` owns the existing native safe-area, Back action and scroll view. `TermsScreen` now supports a validated, **read-only** plain-text agreement model (`version` in `YYYYMMDD`, `title`, ordered `heading` / `paragraph` sections); renderer uses theme typography/colors and accessible headings. Long documents scroll within the existing subpage rather than introducing a second WebView or HTML script surface.
+- The production route intentionally passes **no** approved document. Missing content stays `unavailable`; malformed, empty or oversized content is `invalid`; neither case falls back to donor legal text. Both remain localized pending/error states. The readiness of a sample document in unit tests is **not** proof that it is legally approved or published.
+- The reader never records acceptance, even when a structurally valid document is provided. No accept control is enabled, no signer/Realm/profile schema changes, and no remote legal-content download is added.
+- To publish later, the authorized content owner must approve the final plain-text sections, a release version, and rights/provenance evidence; then a separate reviewed integration supplies the verified document to the production Terms route. Acceptance version storage and migration require their own approved product contract, if acceptance is actually required.

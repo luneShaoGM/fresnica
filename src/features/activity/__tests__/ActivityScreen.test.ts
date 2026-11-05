@@ -10,6 +10,7 @@ import type { AccountRecord } from '../../../capabilities/account/types';
 import type { HistoryProductDependencies } from '../../../capabilities/history/HistoryCacheHydration';
 import { loadHistoryPage } from '../../../capabilities/history/loadHistoryPage';
 import type { HistoryEntry } from '../../../capabilities/history/types';
+import { effectsRecord, effectsSource } from '../../../capabilities/history/__tests__/claimableEffects.fixtures';
 import { HISTORY_CACHE_SCHEMA_VERSION } from '../../../capabilities/history/HistoryCacheRepository';
 import { createLocalization } from '../../../locale/localization';
 import { defaultTheme } from '../../../ui/theme';
@@ -575,6 +576,71 @@ it('hides only user-marked issued assets, preserves raw cursor and offers revers
   expect(
     findElement(revealed.root, element => element.type === ActivityContent)?.props.entries?.map(entry => entry.id),
   ).toEqual(['hidden-trust']);
+});
+
+it('lists, hides and restores effects-verified claim and clawback without hiding ID-only records', () => {
+  const { mapHistoryEntry } = jest.requireActual<typeof import('../../../capabilities/history/loadHistoryPage')>(
+    '../../../capabilities/history/loadHistoryPage',
+  );
+  const asset = { kind: 'credit' as const, code: 'USD', issuer: effectsSource };
+  const claimRecord = effectsRecord('claim_claimable_balance');
+  const claimProof = claimRecord.claimableEffects;
+  if (!claimProof) throw new Error('missing fixture proof');
+  const claim = mapHistoryEntry(
+    {
+      ...claimRecord,
+      claimableEffects: {
+        ...claimProof,
+        records: claimProof.records.map(effect => ({ ...effect, asset })),
+      },
+    },
+    effectsSource,
+  );
+  const clawback = mapHistoryEntry(effectsRecord('clawback_claimable_balance'), effectsSource);
+  const idOnly = mapHistoryEntry(
+    { ...effectsRecord('claim_claimable_balance', false), id: 'claim-id-only' },
+    effectsSource,
+  );
+  expect(claim.kind).toBe('claimable-reference');
+  expect(clawback.kind).toBe('claimable-reference');
+  expect(idOnly.kind).toBe('claimable-reference');
+  if (claim.kind !== 'claimable-reference' || clawback.kind !== 'claimable-reference') {
+    throw new Error('expected verified reference entries');
+  }
+  expect(claim.evidence?.complete).toBe(true);
+  expect(clawback.evidence?.complete).toBe(true);
+  expect(claim.amount).toBe('922337203685.4775807');
+  expect(clawback.amount).toBe('922337203685.4775807');
+
+  const identity = JSON.stringify(['USD', effectsSource]);
+  const entries = [claim, clawback, idOnly];
+  const initial = renderScreen(entries, 'all', '', undefined, true, new Set(), false, true);
+  const hideButton = findElement(
+    initial.root,
+    element => element.type === NativeButton && element.props.label === `Hide USD · ${effectsSource}`,
+  );
+  expect(hideButton).toBeDefined();
+  hideButton?.props.onPress?.();
+  expect(initial.setters[5]).toHaveBeenCalledWith(expect.any(Function));
+
+  const hidden = renderScreen(entries, 'all', '', undefined, true, new Set([identity]), false, true);
+  const content = findElement(hidden.root, element => element.type === ActivityContent);
+  expect(content?.props.entries?.map(entry => entry.id)).toEqual(['claim-id-only']);
+  expect(content?.props.state).toMatchObject({ kind: 'ready', nextCursor: 'cursor-1' });
+  const restore = findElement(
+    hidden.root,
+    element => element.type === NativeButton && element.props.label === `Restore USD · ${effectsSource}`,
+  );
+  expect(restore).toBeDefined();
+  restore?.props.onPress?.();
+  expect(hidden.setters[5]).toHaveBeenCalledWith(expect.any(Function));
+  const temporarilyShown = renderScreen(entries, 'all', '', undefined, true, new Set([identity]), true);
+  expect(
+    findElement(temporarilyShown.root, element => element.type === ActivityContent)?.props.entries?.map(
+      entry => entry.id,
+    ),
+  ).toEqual([claim.id, clawback.id, idOnly.id]);
+  expect(mockedLoadHistoryPage).not.toHaveBeenCalled();
 });
 
 it('keeps exact local identity icons instead of presenting unavailable remote images', () => {

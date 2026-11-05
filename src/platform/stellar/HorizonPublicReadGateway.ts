@@ -1,3 +1,4 @@
+import { readHistoryOperationEffects } from './HistoryEffectsProjection';
 import { NodeReadError } from '../../capabilities/network/NodeReadError';
 import type { HistoryGatewayPort } from '../../capabilities/history/HistoryGateway';
 import { horizonReadJson, object } from './horizonReadHttp';
@@ -83,6 +84,19 @@ export function createHorizonPublicReadGateway(http: typeof fetch = fetch) {
       return value === undefined
         ? { status: 'not-found' as const }
         : { status: 'found' as const, record: operation(value) };
+    },
+    async loadOperationEffects(endpoint: string, input: { operationId: string; accountAddress: string; signal?: AbortSignal }, signal: AbortSignal) {
+      const controller = new AbortController();
+      const abort = () => controller.abort();
+      if (signal.aborted || input.signal?.aborted) controller.abort();
+      signal.addEventListener('abort', abort);
+      input.signal?.addEventListener('abort', abort);
+      try {
+        return await readHistoryOperationEffects(input.operationId, async cursor => {
+          const page = await get(endpoint, `/operations/${encodeURIComponent(input.operationId)}/effects?order=asc&limit=200${cursor === undefined ? '' : `&cursor=${encodeURIComponent(cursor)}`}`, controller.signal);
+          return object(object(page)._embedded).records as readonly unknown[];
+        });
+      } finally { signal.removeEventListener('abort', abort); input.signal?.removeEventListener('abort', abort); }
     },
     async loadTransactionOutcome(endpoint: string, hash: string, signal: AbortSignal) {
       const value = await get(endpoint, `/transactions/${encodeURIComponent(hash)}`, signal);

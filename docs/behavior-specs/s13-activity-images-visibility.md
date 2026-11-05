@@ -50,7 +50,9 @@ network request or adjusts the raw pagination cursor.
 
 Any entry explicitly involving a manually hidden issued asset is omitted from
 the current Activity presentation while hidden; this includes paired
-operations with the selected asset. The **Show hidden activity** action
+operations with the selected asset and claim/claimable-clawback references
+whose asset identity was verified by the S13 operation-effects projection.
+References without verified asset identity remain ID-only and visible. The **Show hidden activity** action
 temporarily reveals all, and **Restore** removes the original local
 presentation preference. Failed and unknown records without confirmed asset
 identity are never suppressed by guessing. Hidden identities and temporary

@@ -240,6 +240,8 @@
   "settings.terms": "Terms & Conditions",
   "settings.supportOpenFailed": "Unable to open the official support website. Please try again when a browser is available.",
   "settings.termsReferenceVersion": "Reference agreement version",
+  "settings.termsDocumentVersion": "Agreement version",
+  "settings.termsInvalidDocument": "Unable to display the terms: the supplied document is invalid. No agreement has been accepted.",
   "settings.termsPendingApproval": "The terms are not available yet. The reference document requires redistribution approval and updates to accurately describe this wallet’s current capabilities. Please check again after the approved agreement is published.",
   "settings.termsNotAccepted": "Viewing this page does not record acceptance of any agreement.",
   "settings.about": "About",
@@ -1029,5 +1031,7 @@
   "activity.entry.failed": "Operation failed",
   "activity.detail.failed": "The transaction failed. This record describes an attempted operation, not an applied payment or balance change.",
   "activity.visibility.hideTechnical": "Hide technical records",
-  "activity.visibility.showTechnical": "Show technical records"
+  "activity.visibility.showTechnical": "Show technical records",
+  "activity.detail.claimedQuantity": "Quantity claimed",
+  "activity.detail.effectsEvidence": "Asset and quantity are reported by effects for this exact historical operation. They do not establish a current balance."
 }
