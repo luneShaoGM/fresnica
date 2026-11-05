@@ -5,37 +5,22 @@ Trace: S13, Adapt / clean-room (existing Activity list/History reader). The
 behavioral target is the independently owned Fresnica Activity screen. Do not
 copy donor artwork, images, source structure or tests.
 
-## Branded asset images — explicitly deferred
+## Public asset icons — stage-2 implementation candidate (not native accepted)
 
-This slice **does not offer** remote branded image downloads, public image
-consent controls, image transport adapters, or external image requests. Activity
-continues to use the deterministic full-identity local avatar (including the
-issuer) and the independent native-XLM mark. Images do not imply asset trust.
-The public curated catalog remains an Add Asset concern; Activity does not
-contact public image hosts and never sends account identities for decoration.
+The earlier #166 image code was removed because RN 0.87 fetch could not
+bound response bytes during receipt or refuse redirects before network I/O.
+The new S06 Phase 2 candidate replaces that approach with a shared,
+default-OFF, Mainnet-only native-backed image port. It stores only the
+local bounded image bytes in memory; no URLs are handed to RN remote Image.
+The owning [S06 icon contract](s06-token-metadata-icons.md) controls
+metadata freshness, source matching, privacy consent, network lifetime and
+native safety/acceptance gates.
 
-The previously attempted fetch adapter cannot meet the security and functional
-requirements in React Native 0.87.0's default whatwg-fetch/XHR path: it supplies
-no Response.body.getReader() and does not enforce redirect: error before native
-network requests. Returning a local fallback on every default-native response
-is not successful image integration. Allowing arrayBuffer() as a workaround
-would remove the 64 KiB memory guard.
-
-A separately reviewed future image slice requires **both**:
-- A supported native/verified streaming image transport that enforces a 64 KiB
-  byte cap *while receiving*, with cancellation, deadline and no unbounded
-  allocation even if Content-Length is absent or wrong.
-- Redirect refusal at the actual network transport boundary **before** a
-  secondary request, including tests showing a forbidden target receives no
-  traffic. Post-response URL checks are not sufficient.
-
-Then implement opt-in on Mainnet only, exact case-sensitive asset code plus
-issuer source matching, stable trusted source priority, no private/local/IP
-literal/credential/fragment/custom-port URLs, PNG/JPEG validation and 512 by
-512 dimension cap, two active resolutions, bounded queue and memory-only TTL
-cache. No image metadata or bytes in History/Realm/navigation and no wallet
-account derived keys. Verify both Android and iOS **native product flows**
-before claiming the feature available. Do not copy donor artwork or source.
+Activity continues to use deterministic local full-identity avatars when
+opted out, no native capability is available, or a request fails. Source
+logos never represent issuer trust and do not change Hidden Assets, raw
+History, filters, pagination, operation detail or transaction authority.
+Native product-flow and security network fixtures are **not accepted** yet.
 
 ## User-controlled visibility, no automatic Dust/Spam verdict
 
@@ -62,8 +47,8 @@ not a persistent spam list or a ledger assertion.
 
 ## Evidence boundary
 
-For this slice, verify the absence of any public image request/opt-in or
-unsafe image transport in AppServices/Activity; preserve asset identity
+For this slice, verify default-off consent and that only native bounded
+transport supplies optional public image bytes; preserve asset identity
 fallback and the existing whole-row accessible navigation. Verify explicit
 user hide/restore, mixed asset pairs, no automatic Dust/Spam verdict, loaded
 set/search/pagination continuity and network/account visibility reset. Run
@@ -71,6 +56,6 @@ Activity/navigation tests, type/lint/format, locale/provenance/architecture
 checks and exact-HEAD independent Work review. Android/iOS native layout,
 dynamic font, screen readers, offline Retry, focus/account/network switching
 remain **NOT ACCEPTED** until actual native product-flow evidence. Native
-branded imagery remains deferred. Stage 9 iOS real-device System Auth
+branded imagery now requires separate native safety and device acceptance. Stage 9 iOS real-device System Auth
 cancellation/retry remains deferred as previously agreed. No change to
 transaction/XDR, signing, submission, recovery or History cache schema.

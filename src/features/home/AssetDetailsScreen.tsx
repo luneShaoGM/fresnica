@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLocalization } from '../../locale';
+import { TokenAssetIcon } from '../assets/TokenAssetIcon';
 import { Pressable, Text, View } from 'react-native';
 
 import type { AccountRecord } from '@capabilities/account/types';
@@ -45,7 +46,7 @@ export function AssetDetailsScreen({ account, asset, dependencies, active, inval
       </View>
       <View style={styles.content}>
         <BalanceFreshnessNotice state={state} onRefresh={load} />
-        {renderContent(details, asset, account, load, styles, state.kind === 'ready' && state.stale, t)}
+        {renderContent(details, asset, account, load, styles, state.kind === 'ready' && state.stale, t, active)}
       </View>
     </Screen>
   );
@@ -61,6 +62,7 @@ function renderContent(
   styles: Styles,
   stale: boolean,
   t: (key: string) => string,
+  active: boolean,
 ) {
   switch (state.kind) {
     case 'loading':
@@ -112,7 +114,7 @@ function renderContent(
         <View style={styles.ready}>
           <View style={styles.hero}>
             <View style={styles.assetIcon}>
-              <Text style={styles.assetIconText}>{asset.code.slice(0, 1)}</Text>
+              <TokenAssetIcon asset={asset} active={active} />
             </View>
             <Text style={styles.assetCode}>{asset.code}</Text>
             <Text selectable style={styles.balance}>

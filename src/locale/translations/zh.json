@@ -730,6 +730,8 @@
   "trustlines.add.noMatch": "没有匹配的资产。",
   "trustlines.add.loadError": "无法加载资产列表。",
   "trustlines.add.retry": "重试",
+  "assets.publicIcons.enable": "显示公共代币图标（将从外部服务请求图片）",
+  "assets.publicIcons.disable": "使用本地代币头像（停止外部图标请求）",
   "trustlines.add.loading": "加载中…",
   "trustlines.add.cachedList": "正在显示已保存的资产目录。签名前仍需核验资产身份。",
   "trustlines.add.cacheRefreshing": "正在显示已保存的资产，同时检查目录更新……",

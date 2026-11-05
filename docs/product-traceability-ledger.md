@@ -405,3 +405,19 @@ no untrusted empty-list poisoning; no ledger or authorization authority.
 PR remains subject to exact-HEAD independent review, CI and deferred native
 acceptance. No S06 maturity promotion. Phase 2 metadata/icon and Phase 3 other
 LC5 consumers are explicitly not included in this PR.
+
+### S06/LC5 Phase 2 — token metadata, opt-in native icon cache candidate (2026-11-05)
+
+**Adapt** (clean-room implementation) from Stellar token icon behavior.
+Owner S06 shared asset metadata with Home, Add/Manage Asset, Send and S13
+Activity display consumers. [Behavior and security contract](behavior-specs/s06-token-metadata-icons.md).
+Use exact network, code and issuer partitions; metadata 7-day TTL,
+24-hour negative cooling, verified issuer home_domain/TOML; sanitized
+curated/issuer icon candidate order. Native transport must limit image
+bytes during reading, refuse redirects before next request and bound
+dimensions; React Native remote URL fetch is not used. UI default-off,
+Mainnet-only, session-scoped consent with fallback to local identity.
+No sensitive data or image bytes in Realm/History/Signer stores.
+Phase 2 PR remains **pending latest-head Work Review/CI/native acceptance**
+and user-controlled merge; no maturity promotion. Phase 3 LC5 products
+(dApp details/icons, Claimable current-state, Resolver) remain deferred.

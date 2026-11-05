@@ -33,7 +33,7 @@ describe('S22 contact migration and persistence', () => {
       );
       realm.close();
       realm = await openWalletRealm({ path });
-      expect(realm.schemaVersion).toBe(10);
+      expect(realm.schemaVersion).toBe(11);
       expect(realm.objectForPrimaryKey(ACCOUNT_ENTITY, 'old')).toBeTruthy();
       const store = new RealmContactStore(realm);
       const changed = jest.fn();
@@ -136,7 +136,7 @@ describe('S22 contact migration and persistence', () => {
         memo: { type: 'hash', value: hex } });
       expect(() => store.save({ id: 'duplicate', networkId: 'main', name: 'Same Return', address: 'GDEST',
         memo: { type: 'return', value: hex.toUpperCase() } })).toThrow('contact-duplicate');
-      expect(realm.schemaVersion).toBe(10);
+      expect(realm.schemaVersion).toBe(11);
       realm.close();
       realm = await openWalletRealm({ path });
       const reopened = new RealmContactStore(realm);
@@ -145,7 +145,7 @@ describe('S22 contact migration and persistence', () => {
         expect.objectContaining({ id: 'hash', memo: { type: 'hash', value: hex } }),
       ]);
       expect(reopened.list('main').map(row => row.id)).toEqual(['return', 'hash']);
-      expect(realm.schemaVersion).toBe(10);
+      expect(realm.schemaVersion).toBe(11);
     } finally {
       if (realm && !realm.isClosed) realm.close();
       rmSync(directory, { recursive: true, force: true });

@@ -130,7 +130,7 @@ describe('Realm Balance cache', () => {
     realm.close();
     realm = await openWalletRealm({ path });
     const migrated = new RealmAccountSignerRepository(realm);
-    expect(realm.schemaVersion).toBe(10);
+    expect(realm.schemaVersion).toBe(11);
     expect(migrated.getAccount('old')).toEqual(account);
     expect(migrated.getSigner('signer')).toEqual(signer);
     expect(migrated.listSignersForAccount('old')).toEqual([signer]);

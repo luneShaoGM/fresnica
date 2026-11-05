@@ -19,6 +19,11 @@ import type { ContactBook } from '../features/contacts/contactBook';
 import { RealmContactStore } from '../platform/persistence/realm/RealmContactStore';
 import { copyPublicText } from '../platform/system/copyPublicText';
 import type { AssetCatalogPort } from '../capabilities/trustline/curatedAssetCatalog';
+import type { TokenIconPort } from '../capabilities/assets/TokenIcons';
+import { createNativeSafePublicTransport } from '../platform/assets/NativeSafePublicTransport';
+import { createTokenMetadataPort } from '../platform/assets/TokenMetadataResolver';
+import { createTokenIconPort } from '../platform/assets/TokenIconPort';
+import { RealmTokenMetadataRepository } from '../platform/persistence/realm/RealmTokenMetadataRepository';
 import { createHttpAssetCatalog } from '../platform/assets/HttpAssetCatalog';
 import { createCachedAssetCatalog } from '../platform/assets/CachedAssetCatalog';
 import { createNodeReadSession, type NodeReadSession } from './readModels/createNodeReadSession';
@@ -105,6 +110,7 @@ export type AppServices = Readonly<{
   dappCatalog: DappCatalogPort;
   dappPermissions: DappPermissionStore;
   assetCatalog: AssetCatalogPort;
+  tokenIcons: TokenIconPort;
   copyPublicText: (text: string) => Promise<void>;
   transactionRecovery: TransactionReconciliationCoordinator;
   ledgerReadInvalidation: LedgerReadInvalidationStore;
@@ -134,6 +140,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
   let stopSettingsLifecycle = () => {};
   let closeDappCatalog = () => {};
   let closeAssetCatalog = () => {};
+  let closeTokenIcons = () => {};
   let closeDappPermissions = () => {};
   let networkSettings: NetworkSettings | undefined;
   let retired = false;
@@ -144,6 +151,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     session.close();
     closeDappCatalog();
     closeAssetCatalog();
+    closeTokenIcons();
     closeDappPermissions();
     networkSettings?.close();
     stopSettingsLifecycle();
@@ -363,6 +371,21 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       cache: new RealmCuratedSourceCacheRepository(realm),
     });
     closeAssetCatalog = assetCatalog.close;
+    const publicAssetTransport = createNativeSafePublicTransport();
+    const tokenMetadata = createTokenMetadataPort({
+      networkId: networkProfile.id,
+      networkPassphrase: network.networkPassphrase,
+      horizonUrl: networkProfile.horizonUrl,
+      catalog: assetCatalog,
+      cache: new RealmTokenMetadataRepository(realm),
+      transport: publicAssetTransport,
+    });
+    const tokenIcons = createTokenIconPort({
+      networkId: networkProfile.id,
+      metadata: tokenMetadata,
+      transport: publicAssetTransport,
+    });
+    closeTokenIcons = tokenIcons.close;
     diagnostics.info('app-services-ready', { details: { networkId: network.id } });
 
     return {
@@ -370,6 +393,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       networkProfile,
       networkSettings,
       assetCatalog,
+      tokenIcons,
       copyPublicText,
       contacts: {
         store: {
