@@ -38,9 +38,13 @@ sources, artwork, icon bytes or unapproved code.
 
 ## Cache behavior
 
-- Successful normalized token metadata: **7 days**; negative failure
-  cooldown: **24 hours**. Key: JSON exact `(networkId,code,issuer)`. Show
-  curated fallback if issuer metadata fails, never infer trust from name/icon.
+- Verified issuer metadata refresh: **7 days**; issuer Horizon/TOML
+  failure or missing matching issuer currency: **24-hour retry cooldown**,
+  even when a curated directory provides a valid display fallback. Preserve
+  last-good metadata, record `retryAfterUnixMs` separately, and retry
+  issuer enrichment once the cooldown expires; only a successful issuer
+  response clears the retry flag and starts a new 7-day TTL. Key: JSON exact
+  `(networkId,code,issuer)`. Never infer trust from name/icon.
   Old or cancelled refresh must not publish to newer network/session.
 - Consent: new remote icons are **OFF by default**, **Mainnet only**, and
   only available if the installed native `SecureAssetFetch` bridge advertises
@@ -62,28 +66,47 @@ sources, artwork, icon bytes or unapproved code.
 
 ## Native bounded transport — separate security proof required
 
-- Implemented native modules: Android Kotlin
-  `SecureAssetFetchModule` with `HttpsURLConnection` and
-  `instanceFollowRedirects=false`; iOS Swift `SecureAssetFetch` with
-  `URLSessionDataDelegate` and `willPerformHTTPRedirection` refusing
-  redirects **before following**. Both use HTTPS, strict public DNS name
-  syntax, no IP literal/localhost/private hostname/credentials/fragments/
-  alternate port; deny non-200 responses and no nonstreaming JS fallback.
+- **Socket-address security (PR #171 P2 fix):** hostname syntax alone
+  cannot prevent DNS rebinding or a public-looking domain resolving to a
+  private address. The Android Kotlin module now uses an isolated
+  `OkHttpClient` whose `PublicAssetDns` reuses the existing dApp tunnel's
+  public-address validator; **all** resolved A/AAAA addresses must pass,
+  and OkHttp connects to that vetted numeric address list directly.
+  Connection proxies, redirects, TLS downgrade and pooling reuse are
+  disabled; standard hostname-verified TLS remains required. iOS Swift
+  resolves DNS on a separate utility queue, rejects mixed/private/reserved
+  replies and passes an already validated **numeric** IPv4/IPv6 endpoint
+  directly to `NWConnection`. TLS SNI and certificate trust evaluation use
+  the **original hostname**, TLS 1.2+, and HTTP/1.1; the numeric IP is
+  never resolved again. Its bounded HTTP parser refuses any non-200
+  response before new requests, and accepts only bounded fixed-length,
+  close-delimited, or simple chunked responses. No raw RN fetch/XHR/Image
+  fallback exists.
+- Strict public-IP policies deliberately fail closed on reserved network
+  ranges (including loopback, link-local, private, transition and
+  documentation prefixes). Some private-RPC/captive/IPv6 translation
+  networks may not provide an allowed public display endpoint; a local
+  icon fallback is required instead. Public display access never changes
+  configured wallet RPC/signing/network authority.
 - Both receive data in bounded chunks with maximum **64 KiB image** or
   **512 KiB text**, deadlines and cancellation. Image signature must be
   PNG/JPEG and decoded width/height in **1..512**. Bytes stay in native
   bounded buffers before base64 delivery to JS. Native data-URI is used
   to render; no direct React Native remote image fetch/redirect.
-- A successful Android `:app:compileDebugKotlin` and iOS Swift SDK
-  *typecheck* verify compilation aspects only. Swift typechecking with a
-  temporary React type stub does not replace a full Xcode/Pods build.
-  Security claims about redirect requests, DNS resolution, cancellation and
-  actual byte limits require independent **native-network fixture tests**,
-  including a target server proving zero redirected requests, missing/lying
-  Content-Length, malformed/oversized images and device revoke/retry.
+- Native compile and address-boundary evidence: Android
+  `:app:compileDebugKotlin` plus `PublicAssetDnsTest` (fake DNS answers,
+  actual OkHttp connection-start counter stays zero on private-only DNS),
+  iOS `scripts/native/PublicAssetAddressFixture.swift` (synthetic
+  private/mixed numeric DNS results produce no `NWConnection` endpoint),
+  full iOS Simulator Xcode build, and a separate macOS
+  `https://example.com/` TLS/HTTP 200 smoke through the same Swift
+  source. These are **native source/connection-policy tests, not device
+  acceptance**. Complete security acceptance still requires independent
+  device fixture evidence for forbidden redirect target request count,
+  rebind behavior, malformed/lying Content-Length, chunk framing,
+  oversized/invalid images and cancellation/retry.
   Do **not** call this product-flow accepted until actual native evidence
-  is captured. Native iOS app compilation is not established by a Swift
-  typecheck alone.
+  is captured.
 
 ## Consumer integration and test boundaries
 

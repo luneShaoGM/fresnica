@@ -101,6 +101,111 @@ describe('S06 token metadata resolver', () => {
     service.close();
   });
 
+  it('retries issuer enrichment after 24 hours even when curated imagery was cached successfully', async () => {
+    let now = 50_000;
+    let offline = true;
+    const store = cache();
+    const catalog: AssetCatalogPort = {
+      read: jest.fn(),
+      readCachedSource: () => ({
+        assets: [{ code: 'Usd', issuer, icon: candidate }],
+        fromCache: true,
+        stale: false,
+        refreshFailed: false,
+      }),
+    };
+    const readText = jest.fn(async (url: string) => {
+      if (offline) throw new Error('issuer-unavailable');
+      if (url === horizon) return JSON.stringify({ network_passphrase: networkPassphrase });
+      if (url.includes('/accounts/')) return JSON.stringify({ account_id: issuer, home_domain: 'issuer.example.org' });
+      return `[[CURRENCIES]]\ncode="Usd"\nissuer="${issuer}"\nname="Recovered issuer"\nimage="${issuerImage}"`;
+    });
+    const service = createTokenMetadataPort({
+      networkId: 'stellar-mainnet',
+      networkPassphrase,
+      horizonUrl: horizon,
+      catalog,
+      cache: store.repository,
+      transport: { available: true, readText, readIcon: jest.fn(), close: jest.fn() },
+      now: () => now,
+    });
+
+    const first = await service.resolve(asset, new AbortController().signal);
+    expect(first.metadata?.icons).toEqual([candidate]);
+    expect(first.refreshFailed).toBe(true);
+    const record = store.records.get(JSON.stringify(['stellar-mainnet', asset.code, asset.issuer]));
+    expect(record?.metadata?.source).toBe('curated');
+    expect(record?.retryAfterUnixMs).toBe(now + TOKEN_METADATA_FAILURE_COOLDOWN_MS);
+
+    offline = false;
+    now += TOKEN_METADATA_FAILURE_COOLDOWN_MS - 1;
+    const cooled = await service.resolve(asset, new AbortController().signal);
+    expect(cooled.metadata?.icons).toEqual([candidate]);
+    expect(cooled.refreshFailed).toBe(true);
+    expect(readText).toHaveBeenCalledTimes(1);
+
+    now += 1;
+    const recovered = await service.resolve(asset, new AbortController().signal);
+    expect(recovered.metadata?.source).toBe('issuer-toml');
+    expect(recovered.metadata?.icons).toEqual([candidate, issuerImage]);
+    expect(recovered.refreshFailed).toBe(false);
+    expect(
+      store.records.get(JSON.stringify(['stellar-mainnet', asset.code, asset.issuer]))?.retryAfterUnixMs,
+    ).toBeUndefined();
+    await service.resolve(asset, new AbortController().signal);
+    expect(readText).toHaveBeenCalledTimes(4);
+    service.close();
+  });
+
+  it('preserves last verified issuer metadata during a later outage and retries it after the cooldown', async () => {
+    let now = 1_000_000;
+    let offline = false;
+    let issuerName = 'First Issuer';
+    const store = cache();
+    const readText = jest.fn(async (url: string) => {
+      if (offline) throw new Error('offline');
+      if (url === horizon) return JSON.stringify({ network_passphrase: networkPassphrase });
+      if (url.includes('/accounts/')) return JSON.stringify({ account_id: issuer, home_domain: 'issuer.example.org' });
+      return `[[CURRENCIES]]\ncode="Usd"\nissuer="${issuer}"\nname="${issuerName}"\nimage="${issuerImage}"`;
+    });
+    const service = createTokenMetadataPort({
+      networkId: 'stellar-mainnet',
+      networkPassphrase,
+      horizonUrl: horizon,
+      catalog: { read: jest.fn(), readCachedSource: () => undefined },
+      cache: store.repository,
+      transport: { available: true, readText, readIcon: jest.fn(), close: jest.fn() },
+      now: () => now,
+    });
+
+    expect((await service.resolve(asset, new AbortController().signal)).metadata?.name).toBe('First Issuer');
+    now += TOKEN_METADATA_TTL_MS + 1;
+    offline = true;
+    const stale = await service.resolve(asset, new AbortController().signal);
+    expect(stale).toMatchObject({ stale: true, refreshFailed: true, metadata: { name: 'First Issuer' } });
+    expect(store.records.get(JSON.stringify(['stellar-mainnet', asset.code, issuer]))?.retryAfterUnixMs).toBe(
+      now + TOKEN_METADATA_FAILURE_COOLDOWN_MS,
+    );
+    const callsAfterFailure = readText.mock.calls.length;
+    now += TOKEN_METADATA_FAILURE_COOLDOWN_MS - 1;
+    await service.resolve(asset, new AbortController().signal);
+    expect(readText).toHaveBeenCalledTimes(callsAfterFailure);
+
+    now += 1;
+    offline = false;
+    issuerName = 'Recovered Issuer';
+    const recovered = await service.resolve(asset, new AbortController().signal);
+    expect(recovered).toMatchObject({
+      stale: false,
+      refreshFailed: false,
+      metadata: { name: 'Recovered Issuer' },
+    });
+    expect(
+      store.records.get(JSON.stringify(['stellar-mainnet', asset.code, issuer]))?.retryAfterUnixMs,
+    ).toBeUndefined();
+    service.close();
+  });
+
   it('maintains seven-day metadata and 24-hour negative retry cooldown without cross-network access', async () => {
     let now = 10_000;
     const store = cache();

@@ -99,7 +99,8 @@ export function createTokenMetadataPort(
       const timestamp = now();
       if (
         !forceRefresh &&
-        previous?.metadata &&
+        previous?.metadata?.source === 'issuer-toml' &&
+        previous.retryAfterUnixMs === undefined &&
         previous.savedAtUnixMs <= timestamp &&
         timestamp - previous.savedAtUnixMs < TOKEN_METADATA_TTL_MS
       )
@@ -131,15 +132,24 @@ export function createTokenMetadataPort(
         if (closed || signal.aborted || controller.signal.aborted || latest.get(key) !== request) {
           throw new Error('asset-metadata-cancelled');
         }
-        const metadata = buildMetadata(fromCatalog, fromToml);
+        // Curated rows are a display fallback, not evidence that issuer
+        // metadata refreshed successfully. Keep the fallback while retrying
+        // issuer enrichment after the 24-hour failure cooldown.
+        const issuerRefreshed = fromToml !== undefined;
+        const metadata = issuerRefreshed
+          ? buildMetadata(fromCatalog, fromToml)
+          : previous?.metadata?.source === 'issuer-toml'
+            ? previous.metadata
+            : buildMetadata(fromCatalog);
         const snapshot = validateTokenMetadataSnapshot(
           {
             schemaVersion: TOKEN_METADATA_SCHEMA_VERSION,
             networkId: input.networkId,
             code: asset.code,
             issuer: asset.issuer,
-            savedAtUnixMs: metadata ? Math.floor(now()) : 0,
-            ...(metadata ? { metadata } : { retryAfterUnixMs: Math.floor(now()) + TOKEN_METADATA_FAILURE_COOLDOWN_MS }),
+            savedAtUnixMs: issuerRefreshed ? Math.floor(now()) : (previous?.savedAtUnixMs ?? Math.floor(now())),
+            ...(metadata ? { metadata } : {}),
+            ...(issuerRefreshed ? {} : { retryAfterUnixMs: Math.floor(now()) + TOKEN_METADATA_FAILURE_COOLDOWN_MS }),
           },
           input.networkId,
           asset.code,
@@ -154,8 +164,8 @@ export function createTokenMetadataPort(
         return {
           ...(metadata ? { metadata } : {}),
           fromCache: false,
-          stale: false,
-          refreshFailed: !metadata,
+          stale: !issuerRefreshed,
+          refreshFailed: !issuerRefreshed,
         };
       } catch (error) {
         if (closed || signal.aborted || controller.signal.aborted || latest.get(key) !== request) throw error;

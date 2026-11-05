@@ -10,6 +10,7 @@ import com.facebook.react.bridge.ReactMethod
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.net.URL
+import java.net.Proxy
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
@@ -19,19 +20,36 @@ import java.util.concurrent.Future
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import javax.net.ssl.HttpsURLConnection
+import okhttp3.Call
+import okhttp3.ConnectionPool
+import okhttp3.OkHttpClient
+import okhttp3.Request as HttpRequest
 
 // Only this native transport is authorized to download remote token icon bytes.
 // Neither RN fetch/XHR nor RN Image is used for remote image requests.
 class SecureAssetFetchModule(context: ReactApplicationContext) : ReactContextBaseJavaModule(context) {
   private class Request(val promise: Promise) {
     val cancelled = AtomicBoolean(false)
-    @Volatile var connection: HttpsURLConnection? = null
+    @Volatile var call: Call? = null
     @Volatile var future: Future<*>? = null
     @Volatile var deadline: ScheduledFuture<*>? = null
   }
 
   private val requests = ConcurrentHashMap<String, Request>()
+  // OkHttp connects to PublicAssetDns' exact verified InetAddress list;
+  // disabling proxies, redirects and pooled connections prevents bypass
+  // through a different DNS lookup, proxy, or previously opened socket.
+  private val http = OkHttpClient.Builder()
+    .dns(PublicAssetDns())
+    .proxy(Proxy.NO_PROXY)
+    .followRedirects(false)
+    .followSslRedirects(false)
+    .retryOnConnectionFailure(false)
+    .connectionPool(ConnectionPool(0, 1, TimeUnit.SECONDS))
+    .callTimeout(8, TimeUnit.SECONDS)
+    .connectTimeout(6, TimeUnit.SECONDS)
+    .readTimeout(6, TimeUnit.SECONDS)
+    .build()
   private val executor = Executors.newFixedThreadPool(2)
   private val watchdog = Executors.newSingleThreadScheduledExecutor()
   private var retired = false
@@ -71,7 +89,7 @@ class SecureAssetFetchModule(context: ReactApplicationContext) : ReactContextBas
         if (requests.remove(requestId, request)) request.promise.reject(FAIL, FAIL)
       } finally {
         request.deadline?.cancel(false)
-        request.connection?.disconnect()
+        request.call?.cancel()
       }
     }
   }
@@ -81,7 +99,7 @@ class SecureAssetFetchModule(context: ReactApplicationContext) : ReactContextBas
     val request = requests.remove(requestId) ?: return
     request.cancelled.set(true)
     request.deadline?.cancel(false)
-    request.connection?.disconnect()
+    request.call?.cancel()
     request.future?.cancel(true)
     request.promise.reject(FAIL, FAIL)
   }
@@ -96,33 +114,39 @@ class SecureAssetFetchModule(context: ReactApplicationContext) : ReactContextBas
 
   private fun fetchBounded(url: URL, kind: String, request: Request): ByteArray {
     val limit = if (kind == "icon") 65_536 else 524_288
-    val connection = url.openConnection() as HttpsURLConnection
-    request.connection = connection
-    connection.instanceFollowRedirects = false
-    connection.connectTimeout = 6_000
-    connection.readTimeout = 6_000
-    connection.useCaches = false
-    connection.requestMethod = "GET"
-    connection.setRequestProperty("Accept", if (kind == "icon") "image/png,image/jpeg" else "application/json,text/plain")
-    if (request.cancelled.get()) throw IllegalStateException("cancelled")
-    if (connection.responseCode != 200 ||
-        connection.contentLengthLong > limit ||
-        connection.contentLengthLong < -1) {
-      throw IllegalArgumentException("unsafe response")
+    val call = http.newCall(HttpRequest.Builder()
+      .url(url)
+      .header("Accept", if (kind == "icon") "image/png,image/jpeg" else "application/json,text/plain")
+      .header("Accept-Encoding", "identity")
+      .get()
+      .build())
+    request.call = call
+    if (request.cancelled.get()) {
+      call.cancel()
+      throw IllegalStateException("cancelled")
     }
-    val out = ByteArrayOutputStream(minOf(limit, 4096))
-    connection.inputStream.use { input ->
-      val chunk = ByteArray(4096)
-      while (true) {
-        if (request.cancelled.get()) throw IllegalStateException("cancelled")
-        val count = input.read(chunk)
-        if (count < 0) break
-        if (out.size() + count > limit) throw IllegalArgumentException("response too large")
-        out.write(chunk, 0, count)
+    return call.execute().use { response ->
+      val body = response.body ?: throw IllegalArgumentException("no body")
+      val encoding = response.header("Content-Encoding")
+      if (response.code != 200 ||
+          encoding != null && !encoding.equals("identity", ignoreCase = true) ||
+          body.contentLength() > limit || body.contentLength() < -1) {
+        throw IllegalArgumentException("unsafe response")
       }
+      val out = ByteArrayOutputStream(minOf(limit, 4096))
+      body.byteStream().use { input ->
+        val chunk = ByteArray(4096)
+        while (true) {
+          if (request.cancelled.get()) throw IllegalStateException("cancelled")
+          val count = input.read(chunk)
+          if (count < 0) break
+          if (out.size() + count > limit) throw IllegalArgumentException("response too large")
+          out.write(chunk, 0, count)
+        }
+      }
+      if (request.cancelled.get()) throw IllegalStateException("cancelled")
+      out.toByteArray()
     }
-    if (request.cancelled.get()) throw IllegalStateException("cancelled")
-    return out.toByteArray()
   }
 
   private fun checkedImageMime(bytes: ByteArray): String? {
