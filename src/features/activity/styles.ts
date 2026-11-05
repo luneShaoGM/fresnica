@@ -47,6 +47,11 @@ export function createStyles(theme: AppTheme) {
       paddingHorizontal: theme.spacing.md,
       paddingBottom: theme.spacing.sm,
     },
+    assetVisibilityList: { maxHeight: 160 },
+    assetVisibilityPanel: {
+      paddingVertical: theme.spacing.sm,
+      gap: theme.spacing.xs,
+    },
     filters: {
       gap: theme.spacing.sm,
       paddingTop: theme.spacing.sm,

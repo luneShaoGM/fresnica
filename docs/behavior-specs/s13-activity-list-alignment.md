@@ -160,3 +160,9 @@ Slice6 failed/technical visibility merged #163. Claimable quantity enrichment is
 specified in `s13-claimable-effects-history.md`; exact operation/balance/account
 proof, bounded reads, burn neutrality and cache identity upgrades are mandatory.
 No native acceptance or maturity upgrade follows from automated evidence.
+
+Slice 6c candidate: reversible user-selected issued-asset hiding; remote
+branded images remain deferred until a native bounded streaming and
+transport-level redirect-safe implementation is available, specified in
+[`s13-activity-images-visibility.md`](s13-activity-images-visibility.md).
+No automatic Dust/Spam inference or History deletion. Native acceptance pending.

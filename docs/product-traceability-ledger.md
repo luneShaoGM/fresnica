@@ -384,3 +384,12 @@ S13 effects-backed claimable quantities candidate follows merged #163 failed and
 technical visibility. `behavior-specs/s13-claimable-effects-history.md` owns bounded
 verified effects, exact proof/cache upgrade and no issuer-income inference. No
 schema, security authority or native acceptance/maturity promotion.
+
+### S13 Activity Slice 6c candidate (2026-11-04)
+
+Explicitly user-reversible, presentation-only issued-asset hiding;
+remote branded images deferred pending native bounded streaming and
+transport-level redirect prohibition; local identity avatars remain.
+[Contract](behavior-specs/s13-activity-images-visibility.md).
+No new ledger authority, auto-spam classification or native acceptance;
+S13 remains L3 partial. CI/Review must use exact remote PR HEAD.

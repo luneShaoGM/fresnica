@@ -20,6 +20,7 @@ import { useAppTheme, useThemedStyles } from '@ui/theme';
 
 import { useLocalization } from '../../locale';
 import { matchesActivityFilter, matchesActivitySearch, type ActivityFilter } from './activityList';
+import { entryAssetIdentities, visibleByAssetPreference } from './activityAssetVisibility';
 import {
   appendActivityHistoryPage,
   createActivityReadyState,
@@ -79,6 +80,9 @@ export function ActivityScreen({
   const [searchText, setSearchText] = useState('');
   const [headReadPending, setHeadReadPending] = useState(false);
   const [showTechnical, setShowTechnical] = useState(true);
+  const [hiddenAssets, setHiddenAssets] = useState<ReadonlySet<string>>(new Set());
+  const [showHiddenAssets, setShowHiddenAssets] = useState(false);
+  const [managingAssets, setManagingAssets] = useState(false);
   const requestVersion = useRef(0);
   const hasHydrated = useRef(false);
   const revalidating = useRef(false);
@@ -87,6 +91,9 @@ export function ActivityScreen({
     setFilter('all');
     setSearchText('');
     setShowTechnical(true);
+    setHiddenAssets(new Set());
+    setShowHiddenAssets(false);
+    setManagingAssets(false);
   }, [account.address, account.networkId]);
 
   const loadInitial = useCallback(
@@ -243,11 +250,27 @@ export function ActivityScreen({
 
     return state.entries.filter(
       entry =>
+        visibleByAssetPreference(entry, hiddenAssets, showHiddenAssets) &&
         (showTechnical || !isTechnicalHistoryOperation(entry.operationType)) &&
         matchesActivityFilter(entry, filter) &&
         matchesActivitySearch(entry, searchText, t, formatNumber, identityNames),
     );
-  }, [filter, formatNumber, identityNames, searchText, showTechnical, state, t]);
+  }, [filter, formatNumber, hiddenAssets, identityNames, searchText, showHiddenAssets, showTechnical, state, t]);
+
+  const selectableAssets = useMemo(() => {
+    if (state.kind !== 'ready') return [];
+    const identities = new Set(state.entries.flatMap(entryAssetIdentities));
+    return [...identities].filter(identity => identity !== 'native:XLM').sort();
+  }, [state]);
+
+  const toggleAssetHidden = useCallback((identity: string) => {
+    setHiddenAssets(current => {
+      const next = new Set(current);
+      if (next.has(identity)) next.delete(identity);
+      else next.add(identity);
+      return next;
+    });
+  }, []);
 
   const dateFormatter = useMemo(
     () =>
@@ -310,7 +333,55 @@ export function ActivityScreen({
           returnKeyType="search"
           value={searchText}
         />
-        <NativeButton label={t(showTechnical ? 'activity.visibility.hideTechnical' : 'activity.visibility.showTechnical')} size="sm" variant="secondary" onPress={() => setShowTechnical(value => !value)} />
+        <NativeButton
+          label={t(showTechnical ? 'activity.visibility.hideTechnical' : 'activity.visibility.showTechnical')}
+          size="sm"
+          variant="secondary"
+          onPress={() => setShowTechnical(value => !value)}
+        />
+        <NativeButton
+          label={t(managingAssets ? 'activity.visibility.closeAssetControls' : 'activity.visibility.manageAssets')}
+          size="sm"
+          variant="secondary"
+          onPress={() => setManagingAssets(value => !value)}
+        />
+        {managingAssets ? (
+          <View style={styles.assetVisibilityPanel}>
+            <Text style={styles.stateMessage}>{t('activity.visibility.manualOnly')}</Text>
+            <ScrollView style={styles.assetVisibilityList} nestedScrollEnabled>
+              {selectableAssets.map(identity => {
+                const asset = JSON.parse(identity) as [string, string];
+                return (
+                  <NativeButton
+                    key={identity}
+                    label={t(
+                      hiddenAssets.has(identity) ? 'activity.visibility.restoreAsset' : 'activity.visibility.hideAsset',
+                      { asset: `${asset[0]} · ${asset[1]}` },
+                    )}
+                    size="sm"
+                    variant="secondary"
+                    onPress={() => toggleAssetHidden(identity)}
+                  />
+                );
+              })}
+            </ScrollView>
+            {hiddenAssets.size > 0 ? (
+              <NativeButton
+                label={t(showHiddenAssets ? 'activity.visibility.hideMarked' : 'activity.visibility.showMarked')}
+                size="sm"
+                variant="secondary"
+                onPress={() => setShowHiddenAssets(value => !value)}
+              />
+            ) : null}
+          </View>
+        ) : hiddenAssets.size > 0 ? (
+          <NativeButton
+            label={t(showHiddenAssets ? 'activity.visibility.hideMarked' : 'activity.visibility.showMarked')}
+            size="sm"
+            variant="secondary"
+            onPress={() => setShowHiddenAssets(value => !value)}
+          />
+        ) : null}
         <ScrollView contentContainerStyle={styles.filters} horizontal showsHorizontalScrollIndicator={false}>
           {FILTERS.map(item => {
             const selected = filter === item;
@@ -665,7 +736,10 @@ export function ActivityRow({
           ) : presentation.subject.kind === 'reference' ? (
             <IdentityAvatar identity={`claimable:${presentation.subject.identity}`} />
           ) : presentation.subject.kind === 'asset' ? (
-            <IdentityAvatar identity={activityAssetIdentity(presentation.subject.asset)} />
+            <IdentityAvatar
+              identity={activityAssetIdentity(presentation.subject.asset)}
+              native={presentation.subject.asset.kind === 'native'}
+            />
           ) : (
             <View
               accessible={false}

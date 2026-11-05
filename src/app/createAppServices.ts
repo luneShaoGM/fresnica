@@ -353,13 +353,14 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     closeDappCatalog = dappCatalog.close;
     const contactStore = new RealmContactStore(realm);
     const guardedContacts = session.bind(contactStore);
+    const assetCatalog = createHttpAssetCatalog();
     diagnostics.info('app-services-ready', { details: { networkId: network.id } });
 
     return {
       diagnostics,
       networkProfile,
       networkSettings,
-      assetCatalog: createHttpAssetCatalog(),
+      assetCatalog,
       copyPublicText,
       contacts: {
         store: {
