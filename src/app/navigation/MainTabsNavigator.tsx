@@ -19,6 +19,7 @@ import {
   selectableAccountsForNetwork,
 } from './accountSelection';
 import { ActivityStackNavigator } from './ActivityStackNavigator';
+import { TokenIconContext } from '../../features/assets/tokenIconContext';
 import { DAppsStackNavigator } from './DAppsStackNavigator';
 import { createDappTransactionSigner } from './createDappTransactionSigner';
 import type { DappPublicSelection } from '../../capabilities/dapp-interaction/freighterSession';
@@ -63,13 +64,15 @@ export function MainTabsNavigator({ accounts, services, onAccountsChanged }: Pro
   }
 
   return (
-    <MainTabsWithSelection
-      accounts={accounts}
-      networkId={networkId}
-      onAccountsChanged={onAccountsChanged}
-      selectableAccounts={selectableAccounts}
-      services={services}
-    />
+    <TokenIconContext.Provider value={services.tokenIcons}>
+      <MainTabsWithSelection
+        accounts={accounts}
+        networkId={networkId}
+        onAccountsChanged={onAccountsChanged}
+        selectableAccounts={selectableAccounts}
+        services={services}
+      />
+    </TokenIconContext.Provider>
   );
 }
 

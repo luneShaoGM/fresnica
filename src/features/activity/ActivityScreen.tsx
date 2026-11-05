@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 
 import { AccountIdentityCard, Screen } from '@ui/components';
 import { IdentityAvatar } from '@ui/components/IdentityAvatar';
+import { PublicIconToggle, TokenAssetIcon } from '../assets/TokenAssetIcon';
 import { NativeButton } from '@ui/components/NativeButton';
 import { NativeField } from '@ui/components/NativeField';
 
@@ -339,6 +340,7 @@ export function ActivityScreen({
           variant="secondary"
           onPress={() => setShowTechnical(value => !value)}
         />
+        <PublicIconToggle networkId={account.networkId} />
         <NativeButton
           label={t(managingAssets ? 'activity.visibility.closeAssetControls' : 'activity.visibility.manageAssets')}
           size="sm"
@@ -736,10 +738,7 @@ export function ActivityRow({
           ) : presentation.subject.kind === 'reference' ? (
             <IdentityAvatar identity={`claimable:${presentation.subject.identity}`} />
           ) : presentation.subject.kind === 'asset' ? (
-            <IdentityAvatar
-              identity={activityAssetIdentity(presentation.subject.asset)}
-              native={presentation.subject.asset.kind === 'native'}
-            />
+            <TokenAssetIcon asset={presentation.subject.asset} />
           ) : (
             <View
               accessible={false}
@@ -778,11 +777,7 @@ export function ActivityRow({
               </Text>
               <View style={styles.assetCaption}>
                 <Text style={styles.activityAsset}>{money.asset.code}</Text>
-                <IdentityAvatar
-                  identity={activityAssetIdentity(money.asset)}
-                  native={money.asset.kind === 'native'}
-                  small
-                />
+                <TokenAssetIcon asset={money.asset} small />
               </View>
             </View>
           ))}

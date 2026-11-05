@@ -316,3 +316,20 @@ Remaining LC5 consumer items (full token metadata/TOML, native icons, dApp
 detail/icon, Claimable current snapshots, Resolver) remain owned by subsequent
 approved product phases. Prior Balance, History and node lifecycle tests do not
 prove these consumers or native end-to-end acceptance.
+
+### LC5 Phase 2 — Token metadata/optional native icons candidate (2026-11-05)
+
+The preceding historical LC5 deferral of issuer metadata and remote icons
+is addressed by the S06 Phase 2 **candidate**, not by the completed LC
+core alone. After merged PR #170, code now composes a separate
+network/asset identity metadata cache (Realm v11), reads approved issuer
+metadata and stores only display candidate URL metadata. The native
+image cache is 24-entry/10-minute, session-only and explicit Mainnet opt-in,
+never persisted in wallet history, navigation or Realm. Network/account
+lifetime retirement cancels native requests and clears image memory.
+Full contract: [S06 Token Metadata + Icon](s06-token-metadata-icons.md).
+
+Status is pending actual Xcode build, native redirection/size/security fixture
+tests, exact-HEAD independent review, PR merge and final real-device flows.
+No new ledger or authorization/Signer authority. This phase does not mark
+dApp-icon candidates, Claimable snapshots or remote resolver caches complete.

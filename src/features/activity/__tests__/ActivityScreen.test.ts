@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import { AccountIdentityCard } from '@ui/components';
 import { IdentityAvatar } from '@ui/components/IdentityAvatar';
+import { TokenAssetIcon } from '../../assets/TokenAssetIcon';
 
 import { NativeButton } from '@ui/components/NativeButton';
 import { NativeField } from '@ui/components/NativeField';
@@ -384,8 +385,8 @@ it('renders account subject, operation with local seconds, and separate amount/a
   expect(card?.props.name).toBe('Alice');
   expect(card?.props.secondary).toBe(`Received · ${props.timeFormatter.format(new Date(payment.occurredAt))}`);
   expect(textValues(root)).toEqual(['+12.3456789', 'XLM']);
-  const avatar = findElement(root, element => element.type === IdentityAvatar);
-  expect(avatar?.props).toMatchObject({ small: true, native: true });
+  const avatar = findElement(root, element => element.type === TokenAssetIcon);
+  expect(avatar?.props).toMatchObject({ small: true, asset: { kind: 'native', code: 'XLM' } });
   expect(root.props.accessibilityLabel).toContain('Alice');
   expect(root.props.accessibilityLabel).toContain('12:34:56');
   root.props.onPress?.();

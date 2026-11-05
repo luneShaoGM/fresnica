@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { BottomSheet } from '@ui/components';
+import { PublicIconToggle, TokenAssetIcon } from '../assets/TokenAssetIcon';
 import { useAppTheme, useThemedStyles } from '@ui/theme';
 
 import type { AccountRecord } from '../../capabilities/account/types';
@@ -325,6 +326,7 @@ export function AddAssetSheet({
                 })}
               </View>
             ) : null}
+            <PublicIconToggle networkId={account.networkId} />
             {networkSources.length > 0 ? (
               <TextInput
                 autoCapitalize="none"
@@ -454,7 +456,7 @@ function AssetRow({
       style={[styles.row, selected ? styles.rowSelected : undefined, asset.added ? styles.rowAdded : undefined]}
     >
       <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{asset.code.slice(0, 1)}</Text>
+        <TokenAssetIcon asset={{ kind: 'credit', code: asset.code, issuer: asset.issuer }} small />
       </View>
       <View style={styles.meta}>
         <Text numberOfLines={1} style={[styles.code, selected ? styles.codeSelected : undefined]}>

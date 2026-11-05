@@ -1286,3 +1286,26 @@ start the next implementation phase until the previous PR is merged.
 None of the three phases implies S06 L4 or native iOS/Android acceptance.
 Wallet Realm migrations and old cache partitions must remain reversible and
 preserved. Stage 9 iOS real-device System Auth cancel/retry remains deferred.
+
+### S06 Phase 2 Token Metadata + Icon — implementation candidate (2026-11-05)
+
+**Base:** `main@7100ffbf045bf5f1cd339e6fa3b00b863c50604d`
+(after user-merged Phase 1 PR #170). Phase 2 remains a **single PR**
+pending exact-HEAD independent Work review, latest CI and user merge
+authorization; do not start Phase 3 before it merges.
+
+This candidate extends Stage 1's source-normalized display data with
+network + exact code/issuer metadata cache (Realm v11), 7-day metadata
+expiry, 24-hour failure cooling, vetted issuer TOML enrichment and icon
+candidate precedence. It adds default-off, Mainnet-only user consent for
+external logos; bounded native Android/iOS transports with no redirect
+following; memory-only icon cache; and one shared local-fallback icon
+component for Home, Add/Manage Assets, Asset Details, Send and Activity.
+Full owner behavior, trust boundaries and **native verification still
+deferred**: [S06 Token Metadata and Icon](behavior-specs/s06-token-metadata-icons.md).
+
+AppServices, Balance, History, Account/Signer, transaction intent/XDR,
+signing, uncertain/recovery and existing S06 source caching remain distinct.
+Do not treat CI success as true native end-to-end acceptance. The current
+native HTTP/TOML behavior is subject to independent security review;
+Stage 9 iOS real-device System Auth retry/cancel stays deferred.

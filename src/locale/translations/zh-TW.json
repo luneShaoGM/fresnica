@@ -730,6 +730,8 @@
   "trustlines.add.noMatch": "沒有符合的資產。",
   "trustlines.add.loadError": "無法載入資產列表。",
   "trustlines.add.retry": "重試",
+  "assets.publicIcons.enable": "顯示公開代幣圖示（將從外部服務請求圖片）",
+  "assets.publicIcons.disable": "使用本機代幣頭像（停止外部圖示請求）",
   "trustlines.add.loading": "載入中…",
   "trustlines.add.cachedList": "正在顯示已儲存的資產目錄。簽名前仍須驗證資產身分。",
   "trustlines.add.cacheRefreshing": "正在顯示已儲存的資產，同時檢查目錄更新……",

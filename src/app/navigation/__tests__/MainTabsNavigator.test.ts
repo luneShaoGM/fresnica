@@ -114,8 +114,10 @@ describe('MainTabsNavigator empty-network recovery', () => {
     const foreign = account('mainnet', false, 'stellar-mainnet');
     const services = { onboarding: { networkId: 'stellar-testnet' } } as AppServices;
     const result = MainTabsNavigator({ accounts: [current, foreign], services, onAccountsChanged: jest.fn() });
-    expect(result.props.selectableAccounts).toEqual([current]);
-    expect(result.props.networkId).toBe('stellar-testnet');
+    // The selected-account shell is now nested inside the display-only icon
+    // provider; network/account selection remains owned by the same shell.
+    expect(result.props.children.props.selectableAccounts).toEqual([current]);
+    expect(result.props.children.props.networkId).toBe('stellar-testnet');
   });
 });
 

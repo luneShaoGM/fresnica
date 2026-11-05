@@ -95,7 +95,7 @@ describe('Realm S14 public catalog integration', () => {
       realm.close();
 
       realm = await openWalletRealm({ path });
-      expect(realm.schemaVersion).toBe(10);
+      expect(realm.schemaVersion).toBe(11);
       expect(new RealmAccountSignerRepository(realm).getAccount('old-account')?.label).toBe('Existing');
       const cache = new RealmDappCatalogRepository(realm);
       expect(cache.read('stellar-testnet')).toBeUndefined();

@@ -730,6 +730,8 @@
   "trustlines.add.noMatch": "No matching assets.",
   "trustlines.add.loadError": "Couldn't load the asset lists.",
   "trustlines.add.retry": "Try again",
+  "assets.publicIcons.enable": "Show public token logos (requests images from external providers)",
+  "assets.publicIcons.disable": "Use local token avatars (stop external icon requests)",
   "trustlines.add.loading": "Loading…",
   "trustlines.add.cachedList": "Showing the saved asset directory. Asset identity must still be verified before signing.",
   "trustlines.add.cacheRefreshing": "Showing saved assets while checking for updates...",

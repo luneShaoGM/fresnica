@@ -1,4 +1,5 @@
 import React from 'react';
+import { TokenAssetIcon } from '../assets/TokenAssetIcon';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { Screen } from '@ui/components';
@@ -117,9 +118,7 @@ export function SendFormScreen({
                     ]}
                   >
                     <View style={[styles.assetIcon, selected ? styles.assetIconSelected : undefined]}>
-                      <Text style={[styles.assetIconText, selected ? styles.assetIconTextSelected : undefined]}>
-                        {line.asset.code.slice(0, 1)}
-                      </Text>
+                      <TokenAssetIcon asset={line.asset} small />
                     </View>
                     <Text style={styles.assetCode}>{line.asset.code}</Text>
                     <Text numberOfLines={1} style={styles.assetBalance}>

@@ -1,3 +1,4 @@
+import { TokenAssetIcon } from '../assets/TokenAssetIcon';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
@@ -266,7 +267,7 @@ export function ManageAssetsScreen({
         >
           <View style={styles.reviewHero}>
             <View style={styles.assetHeroIcon}>
-              <Text style={styles.assetHeroGlyph}>{review.asset.code.slice(0, 1)}</Text>
+              <TokenAssetIcon asset={{ kind: 'credit', code: review.asset.code, issuer: review.asset.issuer }} />
             </View>
             <Text style={styles.reviewAction}>{reviewActionLabel(review.operation, t)}</Text>
             <Text style={styles.reviewAsset}>{review.asset.code}</Text>
@@ -492,7 +493,7 @@ export function ManageAssetsScreen({
                 <React.Fragment key={`${asset.code}:${asset.issuer}`}>
                   <View style={styles.assetRow}>
                     <View style={styles.assetIcon}>
-                      <Text style={styles.assetIconText}>{asset.code.slice(0, 1)}</Text>
+                      <TokenAssetIcon asset={asset} />
                     </View>
                     <View style={styles.assetIdentity}>
                       <Text style={styles.assetCode}>{asset.code}</Text>
