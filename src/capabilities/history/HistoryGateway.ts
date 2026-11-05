@@ -31,6 +31,7 @@ export type HistoryOperationRecord = Readonly<{
   claimants?: unknown;
   claimant?: string;
   balanceId?: string;
+  claimableEffects?: HistoryOperationEffects;
   buyingAsset?: HistoryOperationAsset;
   sellingAsset?: HistoryOperationAsset;
   offerId?: string;
@@ -67,6 +68,8 @@ export type HistoryOperationResult =
   | Readonly<{ status: 'inactive'; address: string }>;
 
 export interface HistoryGatewayPort {
+  captureHistoryReadLease?(accountAddress: string): () => void;
+  loadOperationEffects?(input: Readonly<{ operationId: string; accountAddress: string; signal?: AbortSignal }>): Promise<HistoryOperationEffects>;
   loadOperation(
     input: Readonly<{ operationId: string; accountAddress: string }>,
   ): Promise<HistoryOperationLookupResult>;
@@ -78,3 +81,6 @@ export interface HistoryGatewayPort {
     }>,
   ): Promise<HistoryOperationResult>;
 }
+
+export type HistoryEffectRecord = Readonly<{ type: unknown; account: unknown; balanceId?: unknown; amount?: unknown; asset?: HistoryOperationAsset }>;
+export type HistoryOperationEffects = Readonly<{ operationId: string; complete: boolean; records: readonly HistoryEffectRecord[] }>;

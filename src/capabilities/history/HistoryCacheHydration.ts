@@ -1,3 +1,4 @@
+import { sameReferenceIdentity, retainReferenceEvidence } from './claimableEffects';
 import type { AccountRecord } from '../account/types';
 import {
   HISTORY_CACHE_MAX_ENTRIES,
@@ -56,7 +57,7 @@ export function buildHistoryCacheSnapshotFromOnlineEntries(
   onlineEntries: readonly HistoryEntry[],
   updatedAt: Date,
 ): HistoryCacheSnapshot {
-  const entries = mergeOnlineEntriesWithCachedTail(onlineEntries, cachedSnapshot?.entries ?? []);
+  const entries = mergeOnlineEntriesWithCachedTail(onlineEntries.map(entry => retainReferenceEvidence(entry, cachedSnapshot?.entries.find(cached => cached.id === entry.id))), cachedSnapshot?.entries ?? []);
   const retainedEntries = new Map(entries.map(entry => [entry.id, entry] as const));
   const details =
     cachedSnapshot?.details.filter(detail => {
@@ -126,19 +127,22 @@ export function cacheHistoryReadyDetailBestEffort(
   }
 
   const listEntry = snapshot.entries.find(candidate => candidate.id === entry.id);
-  if (!listEntry || !historyEntriesEqual(listEntry, entry)) {
+  const upgrade = listEntry?.kind === 'claimable-reference' && !listEntry.evidence && entry.kind === 'claimable-reference' && !!entry.evidence && sameReferenceIdentity(listEntry, entry);
+  if (!listEntry || (!historyEntriesEqual(listEntry, entry) && !upgrade)) {
     return false;
   }
 
   const detailById = new Map(snapshot.details.map(detail => [detail.operationId, detail.entry] as const));
   detailById.set(entry.id, entry);
-  const details = snapshot.entries.flatMap(candidate => {
+  const entries = snapshot.entries.map(candidate => candidate.id === entry.id ? entry : candidate);
+  const details = entries.flatMap(candidate => {
     const detail = detailById.get(candidate.id);
     return detail ? [{ operationId: candidate.id, entry: detail }] : [];
   });
 
   return replaceHistoryCacheSnapshotBestEffort(dependencies.cache, partition, {
     ...snapshot,
+    entries,
     details,
   });
 }

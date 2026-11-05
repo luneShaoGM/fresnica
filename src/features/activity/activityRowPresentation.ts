@@ -73,6 +73,11 @@ export function activityRowPresentation(
       };
     }
     case 'claimable-reference':
+      if (entry.asset && entry.amount !== undefined) {
+        const claimed = entry.operationType === 'claim_claimable_balance';
+        return { title: entry.asset.code, operation: detail.title, subject: { kind: 'asset', asset: entry.asset },
+          money: { amount: `${claimed ? '+' : ''}${formatNumber(entry.amount, 7)}`, asset: entry.asset, tone: claimed ? 'positive' : 'neutral' } };
+      }
       return {
         title: formatPublicAddress(entry.balanceId),
         operation: detail.title,

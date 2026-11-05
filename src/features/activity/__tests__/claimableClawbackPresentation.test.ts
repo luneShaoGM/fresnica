@@ -83,10 +83,7 @@ it.each(['claim_claimable_balance', 'clawback_claimable_balance'])(
     expect(row.money).toBeUndefined();
     expect(matchesActivitySearch(entry, balanceId, t, formatNumber)).toBe(true);
     expect(snapshot(entry).entries[0]).toEqual(entry);
-    expect(
-      snapshot({ ...entry, amount: '999', asset: { kind: 'native', code: 'BAD' } } as unknown as HistoryEntry)
-        .entries[0],
-    ).toEqual(entry);
+    expect(() => snapshot({ ...entry, amount: '999', asset: { kind: 'native', code: 'BAD' } } as unknown as HistoryEntry)).toThrow('history-cache-invalid-entry');
   },
 );
 

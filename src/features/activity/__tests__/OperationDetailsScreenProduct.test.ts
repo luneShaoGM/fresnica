@@ -1,3 +1,4 @@
+import { effectsRecord, effectsSource } from '../../../capabilities/history/__tests__/claimableEffects.fixtures';
 import { CONTRACT_HOST_FUNCTIONS } from '../../../capabilities/history/contractHistory';
 import { controlCases, controlRecord, controlSource } from '../../../capabilities/history/__tests__/classicControlHistory.fixtures';
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
@@ -29,7 +30,7 @@ import type { HistoryClaimPredicate } from '../../../capabilities/history/types'
 import type { HistoryEntry } from '../../../capabilities/history/types';
 import { createLocalization } from '../../../locale/localization';
 import { ParticipantCard } from '../../contacts/ParticipantCard';
-import type { ContactBook } from '../../contacts/contactBook';
+import type { ContactBook, ContactScanner } from '../../contacts/contactBook';
 import { StateView } from '../../../ui/components';
 import { defaultTheme } from '../../../ui/theme';
 import { OperationDetailsScreen, OperationExplorerAction } from '../OperationDetailsScreen';
@@ -139,6 +140,7 @@ function renderWithState(
   projectExplorerUrl: jest.Mock<string | undefined, [string]> = jest.fn((_transactionHash: string) => trustedUrl),
   contacts?: ContactBook,
   accounts?: readonly AccountRecord[],
+  scanner?: ContactScanner,
 ) {
   const loadSetter = jest.fn();
   const explorerSetter = jest.fn();
@@ -153,6 +155,7 @@ function renderWithState(
     account,
     accounts: accounts ?? [account],
     contacts,
+    scanner,
     operationId: 'operation-1',
     dependencies,
     active: true,
@@ -839,4 +842,36 @@ it('shows failed intent limits without any completed monetary or direction rows'
   });
   expect(messages).toContain(createLocalization('en').t('activity.detail.failed'));
   for (const label of ['Amount', 'Asset', 'Direction']) expect(labels).not.toContain(label);
+});
+it.each(['claim_claimable_balance', 'clawback_claimable_balance'])('shows verified %s historical quantity and preserves burn explanation', type => {
+  mockedUseState.mockReset();
+  const entry = mapHistoryEntry(effectsRecord(type), effectsSource);
+  const scanner = { ScannerView: () => null, ingress: {} } as unknown as ContactScanner;
+  const contacts = {
+    network: { id: account.networkId },
+    isClassicAccountAddress: (address: string) => address === effectsSource,
+  } as ContactBook;
+  const { root } = renderWithState(
+    { kind: 'loaded', result: { status: 'ready', entry }, source: 'online', stale: false, refreshing: false, refreshFailed: false },
+    'idle',
+    jest.fn(async () => undefined),
+    jest.fn<string | undefined, [string]>(() => trustedUrl),
+    contacts,
+    [account],
+    scanner,
+  );
+  // Participant actions must coexist with effect-verified historical amounts.
+  const participant = findElement(root, element => element.type === ParticipantCard && element.props.address === effectsSource);
+  expect(participant?.props).toMatchObject({ address: effectsSource, scanner, accounts: [account], active: true });
+  const labels: string[] = [];
+  const messages: string[] = [];
+  visit(root, element => {
+    const props = element.props as { label?: string; children?: unknown; fullValue?: boolean };
+    if (props.label) labels.push(props.label);
+    if (typeof props.children === 'string') messages.push(props.children);
+    if (props.label === 'Quantity claimed' || props.label === 'Quantity removed') expect(props.fullValue).toBe(true);
+  });
+  expect(labels).toContain(type === 'claim_claimable_balance' ? 'Quantity claimed' : 'Quantity removed');
+  expect(messages).not.toContain(createLocalization('en').t('activity.detail.amountUnavailableExplanation'));
+  if (type === 'clawback_claimable_balance') expect(messages).toContain(createLocalization('en').t('activity.detail.clawbackWarning'));
 });

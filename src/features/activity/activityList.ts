@@ -108,7 +108,7 @@ export function activityEntryPresentation(
             ? 'activity.entry.claimableClaimed'
             : 'activity.entry.claimableClawedBack',
         ),
-        primary: t('activity.detail.amountUnavailable'),
+        primary: entry.asset && entry.amount !== undefined ? `${formatNumber(entry.amount, 7)} ${entry.asset.code}` : t('activity.detail.amountUnavailable'),
         secondary: entry.balanceId,
         tone: 'neutral',
         filter: 'other',
@@ -320,7 +320,11 @@ export function matchesActivitySearch(
         );
     } else values.push(entry.holder, entry.holderBase, identityNames?.get(entry.holder) ?? '');
   }
-  if (entry.kind === 'claimable-reference') values.push(entry.balanceId);
+  if (entry.kind === 'claimable-reference') {
+    values.push(entry.balanceId, entry.amount ?? '');
+    if (entry.amount !== undefined) values.push(formatNumber(entry.amount, 7));
+    if (entry.asset?.kind === 'credit') values.push(`${entry.asset.code}:${entry.asset.issuer}`);
+  }
   if (entry.kind === 'claimable-reference' || entry.kind === 'claimable-create' || entry.kind === 'clawback')
     values.push(identityNames?.get(entry.sourceAccount) ?? '');
   if (entry.kind === 'offer' || entry.kind === 'liquidity-pool') {
@@ -374,7 +378,7 @@ export function matchesActivitySearch(
     }
   }
 
-  if ('asset' in entry) {
+  if ('asset' in entry && entry.asset) {
     values.push(entry.asset.code);
     if (entry.asset.kind === 'credit') {
       values.push(entry.asset.issuer);

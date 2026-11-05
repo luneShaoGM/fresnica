@@ -214,3 +214,19 @@ describe('display read gateway', () => {
     expect(current.gateway.loadOperation).toHaveBeenCalledTimes(3);
   });
 });
+it('gates effects with display lifecycle while keeping caller cancellation budgets independent', async () => {
+  const runtime = createLedgerReadRuntime();
+  const response = deferred<{ operationId: string; complete: boolean; records: [] }>();
+  const loadOperationEffects = jest.fn(async () => response.promise);
+  const gateway = { loadAccountBalances: jest.fn(), loadAccountOperations: jest.fn(), loadOperation: jest.fn(), loadOperationEffects };
+  const reads = createDisplayReadGateway({ gateway, runtime, getAccountRevision: () => '0' });
+  const first = reads.loadOperationEffects!({ operationId: '1', accountAddress: 'GA', signal: new AbortController().signal });
+  const second = reads.loadOperationEffects!({ operationId: '1', accountAddress: 'GA', signal: new AbortController().signal });
+  await Promise.resolve();
+  expect(loadOperationEffects).toHaveBeenCalledTimes(2);
+  runtime.update({ foreground: true, connectivity: 'offline' });
+  response.resolve({ operationId: '1', complete: true, records: [] });
+  await expect(first).rejects.toThrow('ledger-read-superseded');
+  await expect(second).rejects.toThrow('ledger-read-superseded');
+  await expect(reads.loadOperationEffects!({ operationId: '1', accountAddress: 'GA' })).rejects.toThrow('ledger-read-offline');
+});

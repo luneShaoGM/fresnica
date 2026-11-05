@@ -1,3 +1,4 @@
+import { claimableEffectQuantity } from './claimableEffects';
 import type { HistoryOperationRecord } from './HistoryGateway';
 import { isPathAmount, pathAsset } from './pathPaymentHistory';
 import type {
@@ -164,5 +165,5 @@ export function mapClaimableClawback(
     (record.type === 'claim_claimable_balance' && record.claimant !== base.sourceAccount)
   )
     return undefined;
-  return Object.freeze({ ...base, kind: 'claimable-reference', successful: true, balanceId: record.balanceId });
+  return Object.freeze({ ...base, kind: 'claimable-reference', successful: true, balanceId: record.balanceId, ...claimableEffectQuantity(record) });
 }
