@@ -1261,3 +1261,28 @@ No native/maturity promotion; effects/images/explicitDustSpam policy follow.
   4. Decide whether users must explicitly accept Terms at onboarding or on version updates. If required, approve the user gesture, cancellation/decline consequences, persistence scope, migration, repeat prompt and version-change semantics before implementing acceptance.
 - **After inputs arrive:** integrate the approved content, prove byte-for-byte content/version integrity and rollback/error paths, independently review the exact new HEAD, then include native scrolling/accessibility/dynamic-type and browser handoff in the final iOS/Android acceptance round.
 - **State:** Questions & Support code complete / native pending; Terms reader foundation implementable without legal text; official Terms publication and acceptance remain blocked by owner-provided inputs, not L4 complete.
+
+### S06 / LC5 cache synchronization — staged delivery (2026-11-05)
+
+Each phase is developed on a separate branch as **one PR**, then independently
+reviewed against the exact remote HEAD. The user decides merge timing; do not
+start the next implementation phase until the previous PR is merged.
+
+1. **Phase 1 / current PR: S06 persistent curated-source cache.**
+   Three explicit Mainnet sources, network/source-isolated Realm v10 snapshots,
+   12-hour TTL, offline/stale restoration, a 30-second failure cooldown, manual
+   retry, invalid-response protection and S06 Add Asset consumption. Excludes
+   manually supplied TOML/JSON URLs and remote image downloads. Behavior and
+   review contract: [S06 source cache](behavior-specs/s06-curated-source-cache.md).
+2. **Phase 2 / next PR: Token metadata and icon.** Resolve verified source
+   precedence, independently bounded TOML metadata and its 7-day policy,
+   icon candidate cache and native streaming transport with pre-request
+   redirect refusal, then enable shared local-fallback UI only when validated.
+3. **Phase 3 / following PR: LC5 consumer closure.** Audit and implement
+   remaining product-owned caches (dApp detail/icon candidate, supported
+   Claimable snapshot, local/remote Resolver policy) without cloud or signing
+   authority expansion. Update traceability with explicit deferrals.
+
+None of the three phases implies S06 L4 or native iOS/Android acceptance.
+Wallet Realm migrations and old cache partitions must remain reversible and
+preserved. Stage 9 iOS real-device System Auth cancel/retry remains deferred.

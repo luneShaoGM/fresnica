@@ -42,7 +42,7 @@ describe('S17 Realm v8 persisted authorization', () => {
       });
       realm.close();
       realm = await openWalletRealm({ path });
-      expect(realm.schemaVersion).toBe(9);
+      expect(realm.schemaVersion).toBe(10);
       expect(new RealmAccountSignerRepository(realm).getAccount('wallet-1')?.label).toBe('Old wallet');
       const store = new RealmDappPermissionStore(realm);
       expect(store.has(testnet)).toBe(false);

@@ -222,6 +222,78 @@ describe('asset sheet current balance integration', () => {
     ).toBeDefined();
   });
 
+  it('hydrates a Mainnet source before a failing refresh, retains manual trustline authorization and retries explicitly', async () => {
+    const selected = { code: 'Usd', issuer };
+    const readCachedSource = jest.fn((_networkId: string, sourceId: string) =>
+      sourceId === 'lobstr' ? { assets: [selected], fromCache: true, stale: true, refreshFailed: false } : undefined,
+    );
+    const loadSource = jest.fn(async () => {
+      throw new Error('offline');
+    });
+    const read = jest.fn();
+    const mainnet = { ...account, networkId: 'stellar-mainnet' };
+    const onAddAndSign = jest.fn();
+    const props = {
+      account: mainnet,
+      balanceDependencies: { ...dependencies, networkId: mainnet.networkId },
+      catalog: { read, loadSource, readCachedSource },
+      active: true,
+      visible: true,
+      invalidationRevision: 0,
+      onClose: jest.fn(),
+      onAddAndSign,
+    };
+    let root = render(() => AddAssetSheet(props));
+    effects();
+    root = render(() => AddAssetSheet(props));
+    expect(hasText(root, 'trustlines.add.cacheRefreshing')).toBe(true);
+    expect(readCachedSource).toHaveBeenCalledWith('stellar-mainnet', 'lobstr');
+    await settle();
+    root = render(() => AddAssetSheet(props));
+    expect(hasText(root, 'trustlines.add.cacheRefreshFailed')).toBe(true);
+    expect(
+      find(
+        root,
+        node => typeof node.type === 'function' && node.type.name === 'AssetRow' && node.props.asset?.code === 'Usd',
+      ),
+    ).toBeDefined();
+    expect(button(root, 'trustlines.add.addAndSign').props.disabled).toBe(false);
+    button(root, 'trustlines.add.addAndSign').props.onPress?.();
+    expect(onAddAndSign).toHaveBeenCalledWith(selected);
+    expect(read).not.toHaveBeenCalled();
+    button(root, 'trustlines.add.retry').props.onPress?.();
+    render(() => AddAssetSheet(props));
+    effects();
+    expect(loadSource).toHaveBeenLastCalledWith('stellar-mainnet', 'stellarexpert', expect.any(AbortSignal), true);
+  });
+
+  it('shows partial-source failure without labeling an incomplete result as fully refreshed', async () => {
+    const mainnet = { ...account, networkId: 'stellar-mainnet' };
+    const source = { code: 'USDC', issuer };
+    const loadSource = jest.fn(async (_networkId: string, sourceId: string) => {
+      if (sourceId !== 'lobstr') throw new Error('source-offline');
+      return { assets: [source], fromCache: false, stale: false, refreshFailed: false };
+    });
+    const props = {
+      account: mainnet,
+      balanceDependencies: { ...dependencies, networkId: mainnet.networkId },
+      catalog: { read: jest.fn(), loadSource },
+      active: true,
+      visible: true,
+      invalidationRevision: 0,
+      onClose: jest.fn(),
+      onAddAndSign: jest.fn(),
+    };
+    render(() => AddAssetSheet(props));
+    effects();
+    await settle();
+    const root = render(() => AddAssetSheet(props));
+    expect(hasText(root, 'trustlines.add.partialSourcesFailed')).toBe(true);
+    expect(hasText(root, 'trustlines.add.cachedList')).toBe(false);
+    expect(button(root, 'trustlines.add.addAndSign').props.disabled).toBe(false);
+    expect(loadSource).toHaveBeenCalledTimes(3);
+  });
+
   it('preserves manual code case and blocks held or stale assets before Trustline review', () => {
     const onAddAndSign = jest.fn();
     const catalog = { read: jest.fn() };

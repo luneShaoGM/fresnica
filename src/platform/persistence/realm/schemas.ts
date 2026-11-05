@@ -1,6 +1,6 @@
 import type Realm from 'realm';
 
-export const WALLET_REALM_SCHEMA_VERSION = 9;
+export const WALLET_REALM_SCHEMA_VERSION = 10;
 
 export const CONTACT_ENTITY = 'ContactEntity';
 export const CONTACT_SCHEMA = {
@@ -17,6 +17,7 @@ export const DEFAULT_ACCOUNT_PREFERENCE_ENTITY = 'DefaultAccountPreferenceEntity
 export const PENDING_SUBMISSION_ENTITY = 'PendingSubmissionEntity';
 export const BALANCE_CACHE_SNAPSHOT_ENTITY = 'BalanceCacheSnapshotEntity';
 export const DAPP_CATALOG_CACHE_ENTITY = 'DappCatalogCacheEntity';
+export const CURATED_ASSET_SOURCE_CACHE_ENTITY = 'CuratedAssetSourceCacheEntity';
 export const DAPP_PERMISSION_GRANT_ENTITY = 'DappPermissionGrantEntity';
 export const HISTORY_CACHE_SNAPSHOT_ENTITY = 'HistoryCacheSnapshotEntity';
 
@@ -132,6 +133,19 @@ export const BALANCE_CACHE_SNAPSHOT_SCHEMA = {
   },
 } satisfies Realm.ObjectSchema;
 
+export const CURATED_ASSET_SOURCE_CACHE_SCHEMA = {
+  name: CURATED_ASSET_SOURCE_CACHE_ENTITY,
+  primaryKey: 'id',
+  properties: {
+    id: 'string',
+    networkId: 'string',
+    sourceId: 'string',
+    schemaVersion: 'int',
+    savedAt: 'date',
+    payloadJson: 'string',
+  },
+} satisfies Realm.ObjectSchema;
+
 export const DAPP_CATALOG_CACHE_SCHEMA = {
   name: DAPP_CATALOG_CACHE_ENTITY,
   primaryKey: 'networkId',
@@ -168,5 +182,6 @@ export const WALLET_REALM_SCHEMAS = [
   HISTORY_CACHE_SNAPSHOT_SCHEMA,
   BALANCE_CACHE_SNAPSHOT_SCHEMA,
   DAPP_CATALOG_CACHE_SCHEMA,
+  CURATED_ASSET_SOURCE_CACHE_SCHEMA,
   DAPP_PERMISSION_GRANT_SCHEMA,
 ] as const;
