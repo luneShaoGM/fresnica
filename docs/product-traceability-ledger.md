@@ -393,3 +393,15 @@ transport-level redirect prohibition; local identity avatars remain.
 [Contract](behavior-specs/s13-activity-images-visibility.md).
 No new ledger authority, auto-spam classification or native acceptance;
 S13 remains L3 partial. CI/Review must use exact remote PR HEAD.
+
+### S06 / LC5 phase 1 curated asset cache candidate — 2026-11-05
+
+Clean-room **Adapt** of Stellar's per-source durable directory behavior using
+existing Fresnica S06 asset identity, platform HTTP port, Realm cache pattern
+and AppServices lifetime. Scope: approved Mainnet source IDs, isolated public
+12-hour snapshots, stale-while-revalidate, failure cooling/manual Retry and
+no untrusted empty-list poisoning; no ledger or authorization authority.
+[Contract](behavior-specs/s06-curated-source-cache.md).
+PR remains subject to exact-HEAD independent review, CI and deferred native
+acceptance. No S06 maturity promotion. Phase 2 metadata/icon and Phase 3 other
+LC5 consumers are explicitly not included in this PR.

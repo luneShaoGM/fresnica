@@ -20,6 +20,7 @@ import {
   type AssetCatalogPort,
   type CuratedAsset,
   type CuratedAssetSourceId,
+  type CuratedSourceLoad,
 } from '../../capabilities/trustline/curatedAssetCatalog';
 import { useLocalization } from '../../locale';
 import { createAddAssetSheetStyles } from './addAssetStyles';
@@ -80,6 +81,8 @@ export function AddAssetSheet({
   const urlRequest = useRef<AbortController | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [usingCache, setUsingCache] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
   const [assets, setAssets] = useState<readonly ListedAsset[]>([]);
   const [sources, setSources] = useState<readonly CuratedAssetSourceId[]>(
     CURATED_ASSET_SOURCES.map(source => source.id),
@@ -98,25 +101,37 @@ export function AddAssetSheet({
     if (!visible || !active || networkSources.length === 0) return undefined;
     const controller = new AbortController();
     let current = true;
+    const selectedSources = networkSources.filter(source => sources.includes(source.id));
+    const saved = selectedSources.flatMap(source => {
+      try {
+        const snapshot = catalog.readCachedSource?.(account.networkId, source.id);
+        return snapshot ? [snapshot] : [];
+      } catch {
+        return [];
+      }
+    });
+    const savedAssets = mergeSourceAssets(saved);
+    setAssets(savedAssets);
+    setUsingCache(saved.length > 0);
+    setRefreshFailed(false);
+    setSelectedKey(savedAssets.length > 0 ? assetKey(savedAssets[0]) : undefined);
     setLoading(true);
-    setAssets([]);
-    setSelectedKey(undefined);
     setFailed(false);
-    void loadListedAssets(
-      catalog,
-      networkSources.filter(source => sources.includes(source.id)),
-      controller.signal,
-    )
-      .then(next => {
-        if (!current) return;
-        setAssets(next);
-        const firstAvailable = next.find(asset => !asset.added);
+    void loadListedAssets(catalog, account.networkId, selectedSources, controller.signal, reloadKey > 0)
+      .then(result => {
+        if (!current || controller.signal.aborted) return;
+        setAssets(result.assets);
+        setUsingCache(result.fromCache);
+        setRefreshFailed(result.refreshFailed);
+        setFailed(result.refreshFailed && result.assets.length === 0);
+        const firstAvailable = result.assets.find(asset => !asset.added);
         setSelectedKey(firstAvailable ? assetKey(firstAvailable) : undefined);
         setLoading(false);
       })
       .catch(() => {
-        if (!current) return;
-        setFailed(true);
+        if (!current || controller.signal.aborted) return;
+        if (savedAssets.length === 0) setFailed(true);
+        else setRefreshFailed(true);
         setLoading(false);
       });
     return () => {
@@ -322,6 +337,26 @@ export function AddAssetSheet({
                 value={query}
               />
             ) : null}
+            {(usingCache || refreshFailed) && assets.length > 0 ? (
+              <View style={styles.status}>
+                <Text style={styles.statusText}>
+                  {refreshFailed
+                    ? t(usingCache ? 'trustlines.add.cacheRefreshFailed' : 'trustlines.add.partialSourcesFailed')
+                    : loading
+                      ? t('trustlines.add.cacheRefreshing')
+                      : t('trustlines.add.cachedList')}
+                </Text>
+                {refreshFailed ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setReloadKey(current => current + 1)}
+                    style={styles.chip}
+                  >
+                    <Text style={styles.chipText}>{t('trustlines.add.retry')}</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
             {networkSources.length === 0 ? (
               <View style={styles.status}>
                 <Text style={styles.statusText}>{t('trustlines.add.networkListUnavailable')}</Text>
@@ -434,24 +469,42 @@ function AssetRow({
   );
 }
 
+function mergeSourceAssets(results: readonly Pick<CuratedSourceLoad, 'assets'>[]): readonly ListedAsset[] {
+  const merged = new Map<string, CuratedAsset>();
+  for (const result of results) {
+    for (const asset of result.assets) merged.set(assetKey(asset), asset);
+  }
+  return [...merged.values()].map(asset => ({ ...asset, added: false }));
+}
+
 async function loadListedAssets(
   catalog: AssetCatalogPort,
+  networkId: string,
   selected: readonly (typeof CURATED_ASSET_SOURCES)[number][],
   signal: AbortSignal,
-): Promise<readonly ListedAsset[]> {
-  if (selected.length === 0) return [];
+  forceRefresh: boolean,
+): Promise<Readonly<Omit<CuratedSourceLoad, 'assets'> & { assets: readonly ListedAsset[] }>> {
+  if (selected.length === 0) return { assets: [], fromCache: false, stale: false, refreshFailed: false };
   const results = await Promise.allSettled(
-    selected.map(async source => normalizeCuratedAssets(JSON.parse(await catalog.read(source.url, signal)) as unknown)),
+    selected.map(async source => {
+      if (catalog.loadSource) return catalog.loadSource(networkId, source.id, signal, forceRefresh);
+      return {
+        assets: normalizeCuratedAssets(JSON.parse(await catalog.read(source.url, signal)) as unknown),
+        fromCache: false,
+        stale: false,
+        refreshFailed: false,
+      };
+    }),
   );
-  const merged = new Map<string, CuratedAsset>();
-  let successes = 0;
-  results.forEach(result => {
-    if (result.status !== 'fulfilled') return;
-    successes += 1;
-    for (const asset of result.value) merged.set(assetKey(asset), asset);
-  });
-  if (successes === 0) throw new Error('curated-source-unavailable');
-  return [...merged.values()].map(asset => ({ ...asset, added: false }));
+  if (signal.aborted) throw new Error('asset-catalog-cancelled');
+  const ready = results.flatMap(result => (result.status === 'fulfilled' ? [result.value] : []));
+  if (ready.length === 0) throw new Error('curated-source-unavailable');
+  return {
+    assets: mergeSourceAssets(ready),
+    fromCache: ready.some(result => result.fromCache),
+    stale: ready.some(result => result.stale),
+    refreshFailed: ready.some(result => result.refreshFailed) || ready.length !== selected.length,
+  };
 }
 
 async function loadManualUrl(

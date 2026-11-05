@@ -12,6 +12,12 @@ export function createHttpAssetCatalog(http: typeof fetch = fetch): AssetCatalog
       const timer = setTimeout(abort, 10_000);
       try {
         const response = await http(url, { signal: controller.signal, redirect: 'error' });
+        // A redirected result must never be stored as if it came from the
+        // configured source. Native fetch may already have followed it, so
+        // this is not a transport-level redirect prohibition.
+        if (response.redirected || (response.url && response.url !== url)) {
+          throw new Error('asset-catalog-unavailable');
+        }
         if (!response.ok || Number(response.headers.get('Content-Length') ?? 0) > 1_000_000) {
           throw new Error('asset-catalog-unavailable');
         }

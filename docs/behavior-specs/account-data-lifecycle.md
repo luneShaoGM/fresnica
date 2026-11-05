@@ -301,3 +301,18 @@ The pagination button now reflects the pending first-page read with disabled sty
 Automated regression cases render the actual ActivityContent button and check pending/completed, superseded-read, failed/recovered states, stable list identity and subsequent real pagination dispatch. This is repository/component evidence; no new native/device visual acceptance or maturity promotion. The new remote HEAD requires its own independent Work review; the prior APPROVED applies only to the reviewed historical HEAD.
 
 P3 repair validation: Activity-focused 6 suites / 42 tests PASS; full `npm run check -- -- --watchman=false` PASS, 184 suites / 1492 tests and all static/format/lint (existing warnings)/architecture/provenance/locale/patch checks. `git diff --check` PASS. Log: `/private/tmp/fresnica-pagination-feedback-check.log`. No new native acceptance was run.
+
+### LC5 S06 curated asset source cache candidate (2026-11-05)
+
+Historical LC5 "no registry cache" inventory above describes the initial
+integration, not current code. The S06 phase-1 candidate now wires an isolated
+Realm v10 public directory repository into AppServices and Add Asset, with a
+12-hour per-source TTL, session-only 30-second failure cooldown, stale/partial
+fallback and late-callback protection. No manual TOML URL persistence or
+remote icon download is added. Exact policy and evidence gates:
+[S06 curated source cache](s06-curated-source-cache.md).
+
+Remaining LC5 consumer items (full token metadata/TOML, native icons, dApp
+detail/icon, Claimable current snapshots, Resolver) remain owned by subsequent
+approved product phases. Prior Balance, History and node lifecycle tests do not
+prove these consumers or native end-to-end acceptance.

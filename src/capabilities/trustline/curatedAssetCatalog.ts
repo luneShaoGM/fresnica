@@ -160,6 +160,22 @@ function text(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+// Only vetted public Mainnet sources may use the persisted directory cache.
+// Arbitrary manual TOML/JSON URLs are still fetched through read() without caching.
+export type CuratedSourceLoad = Readonly<{
+  assets: readonly CuratedAsset[];
+  fromCache: boolean;
+  stale: boolean;
+  refreshFailed: boolean;
+}>;
+
 export interface AssetCatalogPort {
   read(url: string, signal: AbortSignal): Promise<string>;
+  loadSource?(
+    networkId: string,
+    sourceId: CuratedAssetSourceId,
+    signal: AbortSignal,
+    forceRefresh?: boolean,
+  ): Promise<CuratedSourceLoad>;
+  readCachedSource?(networkId: string, sourceId: CuratedAssetSourceId): CuratedSourceLoad | undefined;
 }

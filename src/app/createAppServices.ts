@@ -20,6 +20,7 @@ import { RealmContactStore } from '../platform/persistence/realm/RealmContactSto
 import { copyPublicText } from '../platform/system/copyPublicText';
 import type { AssetCatalogPort } from '../capabilities/trustline/curatedAssetCatalog';
 import { createHttpAssetCatalog } from '../platform/assets/HttpAssetCatalog';
+import { createCachedAssetCatalog } from '../platform/assets/CachedAssetCatalog';
 import { createNodeReadSession, type NodeReadSession } from './readModels/createNodeReadSession';
 import { createHorizonPublicReadGateway } from '../platform/stellar/HorizonPublicReadGateway';
 import { bindNodeAccountEffects } from './readModels/bindNodeAccountEffects';
@@ -63,6 +64,7 @@ import {
   RealmAccountSignerRepository,
   RealmBalanceCacheRepository,
   RealmDappCatalogRepository,
+  RealmCuratedSourceCacheRepository,
   RealmDappPermissionStore,
   RealmDefaultAccountPreferenceStore,
   RealmHistoryCacheRepository,
@@ -131,6 +133,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
   let closePreferences = () => {};
   let stopSettingsLifecycle = () => {};
   let closeDappCatalog = () => {};
+  let closeAssetCatalog = () => {};
   let closeDappPermissions = () => {};
   let networkSettings: NetworkSettings | undefined;
   let retired = false;
@@ -140,6 +143,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     retired = true;
     session.close();
     closeDappCatalog();
+    closeAssetCatalog();
     closeDappPermissions();
     networkSettings?.close();
     stopSettingsLifecycle();
@@ -353,7 +357,12 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     closeDappCatalog = dappCatalog.close;
     const contactStore = new RealmContactStore(realm);
     const guardedContacts = session.bind(contactStore);
-    const assetCatalog = createHttpAssetCatalog();
+    const assetCatalog = createCachedAssetCatalog({
+      networkId: networkProfile.id,
+      http: createHttpAssetCatalog(),
+      cache: new RealmCuratedSourceCacheRepository(realm),
+    });
+    closeAssetCatalog = assetCatalog.close;
     diagnostics.info('app-services-ready', { details: { networkId: network.id } });
 
     return {

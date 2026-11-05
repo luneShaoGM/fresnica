@@ -17,6 +17,21 @@ describe('asset catalog HTTP adapter', () => {
     await expect(catalog.read('https://127.0.0.1', signal)).rejects.toThrow();
     expect(http).toHaveBeenCalledTimes(1);
   });
+  it('rejects a reported redirected response before reading or caching its body', async () => {
+    const text = jest.fn(async () => '[{"untrusted":true}]');
+    const http = jest.fn(async () => ({
+      ok: true,
+      url: 'https://other.example.org/assets.json',
+      redirected: true,
+      headers: { get: () => null },
+      text,
+    })) as unknown as typeof fetch;
+    await expect(
+      createHttpAssetCatalog(http).read('https://example.com/assets.json', new AbortController().signal),
+    ).rejects.toThrow('asset-catalog-unavailable');
+    expect(text).not.toHaveBeenCalled();
+  });
+
   it('rejects oversized bodies and obsolete responses even if transport ignores abort', async () => {
     const controller = new AbortController();
     const large = createHttpAssetCatalog(jest.fn(async () => response('[]', '1000001')));
