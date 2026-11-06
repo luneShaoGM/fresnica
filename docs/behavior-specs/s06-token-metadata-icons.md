@@ -125,3 +125,41 @@ sources, artwork, icon bytes or unapproved code.
 - The next planned **Phase 3** remains a separate one-PR effort for LC5
   dApp detail/icon, Claimable current snapshot and Resolver consumers once
   this PR is independently reviewed and the user elects to merge.
+
+## 2026-11-06 S06 follow-up: Mainnet and Testnet public token icon parity
+
+This is one follow-up PR to the already merged #170/#171/#172; the preceding
+Phase 2 Mainnet-only restriction is historical, not the final product policy.
+
+- Mainnet and Testnet both support external token images with explicit,
+  session-scoped consent, default OFF. The same toggle is exposed on Home,
+  Add Asset, and Activity. No automatic icon/background catalog fetch occurs
+  before consent; explicit Add Asset directory browsing is independent. Opt-out or network/AppServices retirement
+  cancels pending requests and discards image bytes.
+- Mainnet loads the three already-approved curated catalogs on first eligible
+  icon use after consent, once per opt-in session. Source snapshots retain
+  the existing 12-hour TTL/failure cooldown/offline recovery. Fresh curated
+  candidates take precedence over retained issuer metadata, without
+  overwriting wallet or trustline authority.
+- Testnet has NO approved curated directory. It cannot use Mainnet source
+  snapshots or Mainnet token art, even if the same code and issuer happen
+  to appear there. Testnet images come exclusively from a verified Testnet
+  Horizon root/passphrase, exact issuer account/home_domain, and matching
+  issuer TOML currency. An optional issuer DOCUMENTATION.ORG_LOGO from the
+  same verified TOML is the last candidate. Unsupported sources display the
+  deterministic local fallback. Testnet Add Asset remains manual when no
+  curated source is configured.
+- Realm v12 already stores networkId as a string; the v11 public metadata
+  payload is now validated for either canonical network with exact
+  (networkId, case-sensitive code, full issuer) keys. The existing 7-day
+  positive/24-hour retry policy remains. No new migration or persisted
+  image bytes are introduced.
+- Native XLM uses a newly drawn local vector mark, not donor artwork.
+  Existing bounded native SecureAssetFetch, no redirect, public IP/TLS,
+  image dimensions, limits, and fail-closed requirements are unchanged.
+  A decoded Image onError retires that candidate and tries the next.
+- No changes to authorization, signer state, exact transaction identity,
+  pending/uncertain recovery, claimable balances, or account/network
+  selection. JS/Realm tests are not native product-flow acceptance; native
+  media privacy/network-failure/focus and Stage 9 System Auth device
+  acceptance remain deferred.

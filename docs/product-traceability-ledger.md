@@ -467,3 +467,15 @@ S15–S21 dApp 安全产品闭环 → Stage 8 剩余产品 → Stage 9 原生/�
 正式发布身份。每个窄范围步骤单独 PR，当前远端 exact-HEAD Work Review
 清零 P1/P2 后由用户决定 Merge；不自动合并。Automation V2.2/#78
 暂停，iOS 真机 System Auth 取消→重试仍延期到 Stage 9。
+
+### S06 / LC5-2 shared token icon parity — 2026-11-06 candidate
+
+One-PR clean-room Adapt from Stellar TokenIcon/TokenAvatar/Registry behavior:
+Mainnet and Testnet media with explicit consent, Mainnet cached approved
+curated refresh after opt-in, Testnet verified issuer TOML-only (no Mainnet
+catalog crossover), issuer organization logo, persistent public metadata
+partitioned by exact network/code/issuer, same Home/Add Asset/Activity
+control, clean-room native XLM vector, and image decode failure fallback.
+Existing secure native media transport and all wallet signing/Capability
+boundaries unchanged. Automated and Realm validation cannot substitute
+for Android/iOS native product-flow and Stage 9 deferred acceptance.

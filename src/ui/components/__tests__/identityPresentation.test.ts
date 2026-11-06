@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { AccountIdentityCard } from '../AccountIdentityCard';
 import { IdentityAvatar } from '../IdentityAvatar';
 import { identityAvatarPattern } from '../IdentityAvatar/IdentityAvatar';
@@ -94,7 +94,10 @@ it('uses a deterministic local identity pattern that includes case and issuer in
   expect(identityAvatarPattern(identity)).not.toEqual(identityAvatarPattern(JSON.stringify(['USD', 'GOTHER'])));
   expect(identityAvatarPattern(identity)).not.toEqual(identityAvatarPattern(JSON.stringify(['usd', 'GISSUER'])));
   const native = IdentityAvatar({ identity: 'native:XLM', native: true });
-  expect(nodes(native, Text).map(node => node.props.children)).toEqual(['✦']);
+  expect(nodes(native, Text)).toHaveLength(0);
+  expect(nodes(native, Svg)).toHaveLength(1);
+  expect(nodes(native, Circle)).toHaveLength(1);
+  expect(nodes(native, Path)).toHaveLength(1);
   expect(nodes(IdentityAvatar({ identity: JSON.stringify(['XLM', 'GISSUER']) }), Text)).toEqual([]);
   expect(native.props).toMatchObject({
     accessible: false,

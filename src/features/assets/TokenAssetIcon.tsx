@@ -23,7 +23,7 @@ function useIconContext() {
 export function PublicIconToggle({ networkId }: Readonly<{ networkId: string }>) {
   const { t } = useLocalization();
   const { service, snapshot } = useIconContext();
-  if (networkId !== 'stellar-mainnet' || !service?.available) return null;
+  if ((networkId !== 'stellar-mainnet' && networkId !== 'stellar-testnet') || !service?.available) return null;
   return (
     <NativeButton
       label={t(snapshot.enabled ? 'assets.publicIcons.disable' : 'assets.publicIcons.enable')}
@@ -46,6 +46,7 @@ export function TokenAssetIcon({
   const key = credit ? JSON.stringify([code, issuer]) : 'native:XLM';
   const [state, setState] = useState<Readonly<{ key: string; uri?: string }>>({ key });
   const rejected = useRef<Readonly<{ key: string; uri: string }> | undefined>(undefined);
+  const [retryRevision, setRetryRevision] = useState(0);
   const uri = state.key === key ? state.uri : undefined;
   const isRejected = (candidate: string) => rejected.current?.key === key && rejected.current.uri === candidate;
 
@@ -76,7 +77,7 @@ export function TokenAssetIcon({
       })
       .catch(() => undefined);
     return () => controller.abort();
-  }, [active, code, credit, issuer, key, service, snapshot.enabled]);
+  }, [active, code, credit, issuer, key, service, snapshot.enabled, retryRevision]);
 
   if (!active || !snapshot.enabled || !credit || !uri || isRejected(uri)) {
     return <IdentityAvatar identity={key} native={asset.kind === 'native'} small={small} />;
@@ -90,7 +91,9 @@ export function TokenAssetIcon({
       style={[styles.icon, small ? styles.small : undefined]}
       onError={() => {
         rejected.current = { key, uri };
+        if (credit) service?.rejectIcon({ kind: 'credit', code, issuer }, uri);
         setState({ key });
+        setRetryRevision(revision => revision + 1);
       }}
     />
   );

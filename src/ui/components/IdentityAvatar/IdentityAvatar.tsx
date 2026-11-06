@@ -1,6 +1,6 @@
 import React from 'react';
-import { Text, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { useAppTheme, useThemedStyles } from '@ui/theme';
 import { createStyles } from './styles';
 
@@ -35,9 +35,16 @@ export function IdentityAvatar({
       style={[styles.avatar, small ? styles.small : undefined]}
     >
       {native ? (
-        <Text allowFontScaling={false} style={[styles.native, small ? styles.nativeSmall : undefined]}>
-          ✦
-        </Text>
+        <Svg width="75%" height="75%" viewBox="0 0 40 40">
+          <Circle cx="20" cy="20" r="11" fill="none" stroke={theme.colors.actionPrimaryPressed} strokeWidth="3" />
+          <Path
+            d="M6 19L33 10M7 30L34 21"
+            fill="none"
+            stroke={theme.colors.actionPrimaryPressed}
+            strokeWidth="3.5"
+            strokeLinecap="round"
+          />
+        </Svg>
       ) : (
         <Svg width="70%" height="70%" viewBox="0 0 5 5">
           <Path

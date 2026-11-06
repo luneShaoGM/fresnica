@@ -398,6 +398,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const tokenIcons = createTokenIconPort({
       networkId: networkProfile.id,
       metadata: tokenMetadata,
+      catalog: assetCatalog,
       transport: publicAssetTransport,
     });
     closeTokenIcons = tokenIcons.close;
