@@ -121,6 +121,32 @@ describe('S14 FChain public catalog', () => {
     expect(cache.snapshot('stellar-mainnet')).toBeUndefined();
   });
 
+  it('never grants read access from public directory inclusion without a separately reviewed launch', async () => {
+    const row = catalogEntriesFromFchain(payload, 'stellar-testnet')[0];
+    const cases = [
+      undefined,
+      [{ networkId: 'stellar-mainnet', id: 'demo', websiteUrl: row.websiteUrl }],
+      [{ networkId: 'stellar-testnet', id: 'demo', websiteUrl: 'https://other.example.org/app' }],
+      [{ networkId: 'stellar-testnet', id: 'other-app', websiteUrl: row.websiteUrl }],
+    ];
+    for (const reviewedLaunches of cases) {
+      const fetchImpl = jest
+        .fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify(payload), { status: 200, headers: { etag: '"rev"' } }))
+        .mockResolvedValueOnce(new Response(null, { status: 304 }));
+      const catalog = createFchainCatalog({
+        cache: memoryCache(),
+        networkId: 'stellar-testnet',
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        reviewedLaunches,
+      });
+      await catalog.load();
+      expect(catalog.isTrustedLiveEntry?.(row)).toBe(false);
+      await catalog.load();
+      expect(catalog.isTrustedLiveEntry?.(row)).toBe(false);
+    }
+  });
+
   it('attests only a fresh validated live FChain row with exact id and network URL', async () => {
     let now = 1000;
     const cache = memoryCache();
@@ -130,6 +156,7 @@ describe('S14 FChain public catalog', () => {
       networkId: 'stellar-testnet',
       fetchImpl: fetchImpl as unknown as typeof fetch,
       now: () => now,
+      reviewedLaunches: [{ networkId: 'stellar-testnet', id: 'demo', websiteUrl: 'https://demo.example.org/app' }],
     });
     const row = catalogEntriesFromFchain(payload, 'stellar-testnet')[0];
 
@@ -175,6 +202,7 @@ describe('S14 FChain public catalog', () => {
       networkId: 'stellar-testnet',
       fetchImpl: fetchImpl as unknown as typeof fetch,
       now: () => now,
+      reviewedLaunches: [{ networkId: 'stellar-testnet', id: 'demo', websiteUrl: 'https://demo.example.org/app' }],
     });
     const row = catalogEntriesFromFchain(payload, 'stellar-testnet')[0];
     await catalog.load();

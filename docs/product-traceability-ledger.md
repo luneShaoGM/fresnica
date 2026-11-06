@@ -498,19 +498,25 @@ cancel/retry remain in Stage 9.
 Source behavior: Stellar catalog-to-browser launch; owner S15/S17/S18 with
 `app/navigation` composition. **Adapt**, clean-room. This one product
 slice makes the existing read-only S14 FChain directory's detail sheet
-actionable and limits prompt-free Freighter *public-account* connection to
-a **fresh live-verified, exact current-network entry that the user taps**,
-a one-use 30-second App-memory launch proof and the browser's first
-main document only. Five-minute live API attestations never survive
-offline cache fallback, a failed revalidation or Realm reopen. Browser
-and manual URL paths without a proof retain explicit permission; no
-durable grants or transaction signature/submit authority are minted.
+actionable. The sheet displays the **actual directory launch URL at Open**
+rather than a possibly 24-hour-old detail-cache website URL. Missing,
+stale, mismatching or unavailable detail records cannot authorize implicit
+connection; a mismatch shows a warning. Ordinary browser navigation
+remains available with the existing explicit S17 permission prompt.
 
-Assumption/constraint: the configured FChain directory operator must
-have a reviewed editorial trust policy; HTTPS and schema validation alone
-do not prove domain ownership or safety. If curation cannot be confirmed,
-disable automatic read-only disclosure rather than treating all public
-listings as trusted.
+**P2 resolution after Work reviewed 412704d:** A recent validated FChain
+API listing is public data, **not** proof of editorial review. The
+live-evidence predicate now additionally requires an explicitly approved
+network/app ID/URL tuple. The reviewed tuple list is **empty by default**
+and not supplied or exposed by production App composition. Implicit
+read-only Freighter connection is therefore **OFF** for all real entries
+until the operator's editorial policy and exact entries are independently
+approved in a separate, reviewed product change. A future reviewed tuple
+could qualify only for a live verified row, an aligned details URL and
+a one-use 30-second App-memory proof for the first browser document.
+Five-minute live API attestations never survive offline cache fallback,
+failed revalidation or Realm reopen. No durable grant or transaction
+signature/submit authority is minted.
 
 Validation: targeted catalog, launch, navigation, S14 screen/detail and
 Freighter browser tests, including redirect/origin, stale/cancel and

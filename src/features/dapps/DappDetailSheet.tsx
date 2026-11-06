@@ -33,7 +33,7 @@ export function DappDetailSheet({
   active: boolean;
   online: boolean;
   onClose: () => void;
-  onOpen?: () => void;
+  onOpen?: (detailAligned: boolean) => void;
   inAppAvailable?: boolean;
   implicitReadOnly?: boolean;
 }>) {
@@ -87,6 +87,10 @@ export function DappDetailSheet({
   }, [entry, media, active, online, iconState.enabled, iconUrl]);
 
   const detail = currentState?.kind === 'ready' ? currentState.value.detail : undefined;
+  // The detail endpoint may serve a 24-hour-old URL for the same app ID.
+  // A missing/stale/mismatched detail cannot authorize automatic read access.
+  const detailAligned =
+    !!entry && currentState?.kind === 'ready' && !currentState.value.stale && detail?.websiteUrl === entry.websiteUrl;
   return (
     <BottomSheet closeLabel={t('dapps.details.close')} onClose={onClose} visible={!!entry}>
       <View style={styles.urlSheet}>
@@ -95,7 +99,7 @@ export function DappDetailSheet({
           <NativeButton label={t('dapps.details.close')} onPress={onClose} variant="quiet" />
         </View>
         <Text style={styles.websiteDetail}>{t('dapps.details.untrusted')}</Text>
-        {inAppAvailable && implicitReadOnly ? (
+        {inAppAvailable && implicitReadOnly && detailAligned ? (
           <Text style={styles.websiteDetail}>{t('dapps.details.autoConnectionNotice')}</Text>
         ) : null}
         {!media ? (
@@ -111,9 +115,9 @@ export function DappDetailSheet({
             <Text style={styles.websiteDetail}>
               {t('dapps.details.developer')}: {detail.developerName}
             </Text>
-            <Text selectable style={styles.websiteOrigin}>
-              {detail.websiteUrl}
-            </Text>
+            {entry && detail.websiteUrl !== entry.websiteUrl ? (
+              <Text style={styles.previewNotice}>{t('dapps.details.launchUrlChanged')}</Text>
+            ) : null}
           </>
         ) : (
           <Text accessibilityLiveRegion="polite" style={styles.websiteDetail}>
@@ -121,11 +125,17 @@ export function DappDetailSheet({
           </Text>
         )}
         {entry && onOpen && active ? (
-          <NativeButton
-            label={t(inAppAvailable ? 'dapps.website.openInApp' : 'dapps.website.preview')}
-            onPress={onOpen}
-            variant="primary"
-          />
+          <>
+            <Text style={styles.websiteDetail}>{t('dapps.details.launchDestination')}</Text>
+            <Text selectable style={styles.websiteOrigin}>
+              {entry.websiteUrl}
+            </Text>
+            <NativeButton
+              label={t(inAppAvailable ? 'dapps.website.openInApp' : 'dapps.website.preview')}
+              onPress={() => onOpen(detailAligned)}
+              variant="primary"
+            />
+          </>
         ) : null}
         {active && online && currentState?.kind !== 'loading' ? (
           <NativeButton

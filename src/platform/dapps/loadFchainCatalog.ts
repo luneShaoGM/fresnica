@@ -13,16 +13,27 @@ const MAX_BODY_LENGTH = 1_000_000;
 const MAX_ENTRIES = 500;
 const LIVE_TRUST_TTL_MS = 5 * 60 * 1000;
 
+// Explicitly code-reviewed entries, never inferred from a public API listing.
+// App composition supplies none until the operator's editorial policy and each
+// network-specific launch URL have been independently approved.
+type ReviewedCatalogLaunch = Readonly<{ networkId: string; id: string; websiteUrl: string }>;
+
 export function createFchainCatalog(dependencies: {
   cache: DappCatalogCacheRepository;
   networkId: string;
   fetchImpl?: typeof fetch;
   now?: () => number;
+  reviewedLaunches?: readonly ReviewedCatalogLaunch[];
 }): DappCatalogPort & Readonly<{ readCached: () => DappCatalogLoadResult; close: () => void }> {
   const { networkId, cache } = dependencies;
   const fetchImpl = dependencies.fetchImpl ?? fetch;
   const now = dependencies.now ?? Date.now;
   const supported = networkId === 'stellar-mainnet' || networkId === 'stellar-testnet';
+  const reviewedUrls = new Map(
+    (dependencies.reviewedLaunches ?? [])
+      .filter(launch => launch.networkId === networkId)
+      .map(launch => [launch.id, launch.websiteUrl]),
+  );
   let pending: Promise<DappCatalogLoadResult> | undefined;
   let controller: AbortController | undefined;
   let closed = false;
@@ -57,7 +68,10 @@ export function createFchainCatalog(dependencies: {
         !pending &&
         age >= 0 &&
         age <= LIVE_TRUST_TTL_MS &&
-        liveEntries.get(entry.id) === entry.websiteUrl
+        liveEntries.get(entry.id) === entry.websiteUrl &&
+        // Fresh HTTPS responses prove only schema/freshness, not editorial
+        // review. No injected approved entries means default-deny.
+        reviewedUrls.get(entry.id) === entry.websiteUrl
       );
     },
     load: () => {

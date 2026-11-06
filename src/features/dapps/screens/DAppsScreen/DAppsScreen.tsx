@@ -288,7 +288,7 @@ export function DAppsScreen({
     }
   };
 
-  const openCatalogEntry = (entry: DappCatalogEntry) => {
+  const openCatalogEntry = (entry: DappCatalogEntry, detailAligned: boolean) => {
     if (
       !mountedRef.current ||
       !activeRef.current ||
@@ -299,7 +299,7 @@ export function DAppsScreen({
     )
       return;
     if (openCatalogInApp) {
-      openCatalogInApp(entry, !state.stale && online);
+      openCatalogInApp(entry, detailAligned && !state.stale && online);
     } else {
       // Unsupported in-app platforms retain the deliberate untrusted URL
       // review before handing public site URLs to the system browser.
@@ -516,12 +516,12 @@ export function DAppsScreen({
             implicitReadOnly={implicitReadOnly}
             onOpen={
               selectedDetail
-                ? () => {
+                ? (detailAligned: boolean) => {
                     if (detailEpoch.current !== detailSession) return;
                     detailEpoch.current += 1;
                     const entry = selectedDetail;
                     setSelectedDetail(undefined);
-                    openCatalogEntry(entry);
+                    openCatalogEntry(entry, detailAligned);
                   }
                 : undefined
             }

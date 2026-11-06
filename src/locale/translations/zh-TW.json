@@ -633,6 +633,8 @@
   "dapps.details.cached": "本機保存的詳情，可能已過期",
   "dapps.details.untrusted": "目錄詳情僅供參考，不代表應用獲得背書或錢包授權。",
   "dapps.details.autoConnectionNotice": "開啟此即時目錄應用，會向網站提供目前錢包的公開地址，用於本次瀏覽器文件的唯讀連線。交易簽署仍須另外確認。",
+  "dapps.details.launchDestination": "即將開啟的網站地址",
+  "dapps.details.launchUrlChanged": "儲存的詳情與目錄網站地址不一致。下方目錄地址才是實際開啟的目標，錢包連線仍須另外授權。",
   "dapps.details.retry": "重新整理詳情",
   "dapps.details.developer": "開發者",
   "dapps.icons.enable": "查看詳情時顯示公開 dApp 圖示（會連線到外部圖片服務）",
