@@ -163,3 +163,17 @@ Phase 2 Mainnet-only restriction is historical, not the final product policy.
   selection. JS/Realm tests are not native product-flow acceptance; native
   media privacy/network-failure/focus and Stage 9 System Auth device
   acceptance remain deferred.
+
+### PR #174 follow-up: bursty Testnet icon concurrency
+
+TokenIconPort now gates complete metadata-to-image loads to **two active
+assets**, with abortable FIFO waiting for other mounted rows. This reuses
+the existing two-active/16-pending native transport limits rather than
+enlarging them: local queue pressure must not become a 24-hour negative
+issuer result. Opt-out and service retirement cancel waiting operations
+before they enter the native pipeline. The issuer's genuine 24-hour
+failure cooldown, network partition and default-off consent are unchanged.
+A 25-asset deterministic burst test exercises the real metadata resolver
+and native JS transport adapter, checks all assets recover as capacity
+drains and asserts no retryAfterUnixMs was persisted. Native device
+media/security acceptance remains deferred.
