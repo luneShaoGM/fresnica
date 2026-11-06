@@ -121,11 +121,127 @@ describe('S14 FChain public catalog', () => {
     expect(cache.snapshot('stellar-mainnet')).toBeUndefined();
   });
 
-  it('uses 304 as validated fresh cache, without stale warning', async () => {
+  it('never grants read access from public directory inclusion without a separately reviewed launch', async () => {
+    const row = catalogEntriesFromFchain(payload, 'stellar-testnet')[0];
+    const cases = [
+      undefined,
+      [{ networkId: 'stellar-mainnet', id: 'demo', websiteUrl: row.websiteUrl }],
+      [{ networkId: 'stellar-testnet', id: 'demo', websiteUrl: 'https://other.example.org/app' }],
+      [{ networkId: 'stellar-testnet', id: 'other-app', websiteUrl: row.websiteUrl }],
+    ];
+    for (const reviewedLaunches of cases) {
+      const fetchImpl = jest
+        .fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify(payload), { status: 200, headers: { etag: '"rev"' } }))
+        .mockResolvedValueOnce(new Response(null, { status: 304 }));
+      const catalog = createFchainCatalog({
+        cache: memoryCache(),
+        networkId: 'stellar-testnet',
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        reviewedLaunches,
+      });
+      await catalog.load();
+      expect(catalog.isTrustedLiveEntry?.(row)).toBe(false);
+      await catalog.load();
+      expect(catalog.isTrustedLiveEntry?.(row)).toBe(false);
+    }
+  });
+
+  it('attests only a fresh validated live FChain row with exact id and network URL', async () => {
+    let now = 1000;
+    const cache = memoryCache();
+    const fetchImpl = jest.fn().mockResolvedValue(new Response(JSON.stringify(payload), { status: 200 }));
+    const catalog = createFchainCatalog({
+      cache,
+      networkId: 'stellar-testnet',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      now: () => now,
+      reviewedLaunches: [{ networkId: 'stellar-testnet', id: 'demo', websiteUrl: 'https://demo.example.org/app' }],
+    });
+    const row = catalogEntriesFromFchain(payload, 'stellar-testnet')[0];
+
+    expect(catalog.isTrustedLiveEntry?.(row)).toBe(false);
+    expect(catalog.readCached?.()).toEqual({ kind: 'unavailable' });
+    await catalog.load();
+    expect(catalog.isTrustedLiveEntry?.(row)).toBe(true);
+    expect(catalog.isTrustedLiveEntry?.({ ...row, websiteUrl: 'https://other.example.org/' })).toBe(false);
+    expect(catalog.isTrustedLiveEntry?.({ ...row, id: 'impostor' })).toBe(false);
+    expect(
+      catalog.isTrustedLiveEntry?.({
+        ...row,
+        websiteUrl: 'https://demo.example.org/main',
+      }),
+    ).toBe(false);
+    now += 5 * 60 * 1000 + 1;
+    expect(catalog.isTrustedLiveEntry?.(row)).toBe(false);
+    // Persisted public rows never resurrect live session attestation.
+    const restarted = createFchainCatalog({
+      cache,
+      networkId: 'stellar-testnet',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      now: () => now,
+    });
+    expect(restarted.readCached?.()).toMatchObject({ kind: 'ready', stale: true });
+    expect(restarted.isTrustedLiveEntry?.(row)).toBe(false);
+  });
+
+  it('retires live trust when revalidating, restores it only on real conditional 304, and clears on error', async () => {
+    let now = 1000;
+    const cache = memoryCache();
+    let release!: (response: Response) => void;
+    const refresh = new Promise<Response>(resolve => {
+      release = resolve;
+    });
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(payload), { status: 200, headers: { etag: '"rev"' } }))
+      .mockReturnValueOnce(refresh)
+      .mockRejectedValueOnce(new Error('network-offline'));
+    const catalog = createFchainCatalog({
+      cache,
+      networkId: 'stellar-testnet',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      now: () => now,
+      reviewedLaunches: [{ networkId: 'stellar-testnet', id: 'demo', websiteUrl: 'https://demo.example.org/app' }],
+    });
+    const row = catalogEntriesFromFchain(payload, 'stellar-testnet')[0];
+    await catalog.load();
+    expect(catalog.isTrustedLiveEntry?.(row)).toBe(true);
+
+    const refreshing = catalog.load();
+    expect(catalog.isTrustedLiveEntry?.(row)).toBe(false);
+    now += 100;
+    release(new Response(null, { status: 304 }));
+    await expect(refreshing).resolves.toMatchObject({ kind: 'ready' });
+    expect(catalog.isTrustedLiveEntry?.(row)).toBe(true);
+    await expect(catalog.load()).resolves.toMatchObject({ kind: 'ready', stale: true });
+    expect(catalog.isTrustedLiveEntry?.(row)).toBe(false);
+    catalog.close();
+    expect(catalog.isTrustedLiveEntry?.(row)).toBe(false);
+  });
+
+  it('cannot authorize a cached 304 that was not conditional on a validated ETag/date', async () => {
     const cache = memoryCache();
     const fetchImpl = jest
       .fn()
       .mockResolvedValueOnce(new Response(JSON.stringify(payload), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 304 }));
+    const catalog = createFchainCatalog({
+      cache,
+      networkId: 'stellar-testnet',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    const row = catalogEntriesFromFchain(payload, 'stellar-testnet')[0];
+    await catalog.load();
+    await expect(catalog.load()).resolves.toMatchObject({ kind: 'ready', stale: true });
+    expect(catalog.isTrustedLiveEntry?.(row)).toBe(false);
+  });
+
+  it('uses 304 as validated fresh cache, without stale warning', async () => {
+    const cache = memoryCache();
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(payload), { status: 200, headers: { etag: '"rev"' } }))
       .mockResolvedValueOnce(new Response(null, { status: 304 }));
     const catalog = createFchainCatalog({
       cache,

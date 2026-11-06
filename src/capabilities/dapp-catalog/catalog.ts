@@ -18,6 +18,9 @@ export type DappCatalogPort = Readonly<{
   load: () => Promise<DappCatalogLoadResult>;
   // An optional, synchronous public-only snapshot for offline startup. Never a grant.
   readCached?: () => DappCatalogLoadResult;
+  // Fresh, exactly validated FChain response only. Never inferred from Realm
+  // cache, public display details or a manually entered URL.
+  isTrustedLiveEntry?: (entry: DappCatalogEntry) => boolean;
   publicMedia?: DappPublicMediaPort; // read-only detail and opt-in display icons; never authorization
 }>;
 

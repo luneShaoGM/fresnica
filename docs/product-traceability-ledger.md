@@ -500,3 +500,43 @@ quote, explicit authorization, result and recovery tests remain part of the
 full Jest guard. **No S10 L4 promotion**: live Testnet broadcast, simulator
 and real-device product flow, native accessibility and iOS System Auth
 cancel/retry remain in Stage 9.
+
+
+### 2026-11-06 S15 trusted directory browser launch — product candidate
+
+**Base** `main@46b222f72a9535a498e79875e5c265f5aca7af60`
+(after #175), pending exact-HEAD independent Work Review and user merge.
+Source behavior: Stellar catalog-to-browser launch; owner S15/S17/S18 with
+`app/navigation` composition. **Adapt**, clean-room. This one product
+slice makes the existing read-only S14 FChain directory's detail sheet
+actionable. The sheet displays the **actual directory launch URL at Open**
+rather than a possibly 24-hour-old detail-cache website URL. Missing,
+stale, mismatching or unavailable detail records cannot authorize implicit
+connection; a mismatch shows a warning. Ordinary browser navigation
+remains available with the existing explicit S17 permission prompt.
+
+**P2 resolution after Work reviewed 412704d:** A recent validated FChain
+API listing is public data, **not** proof of editorial review. The
+live-evidence predicate now additionally requires an explicitly approved
+network/app ID/URL tuple. The reviewed tuple list is **empty by default**
+and not supplied or exposed by production App composition. Implicit
+read-only Freighter connection is therefore **OFF** for all real entries
+until the operator's editorial policy and exact entries are independently
+approved in a separate, reviewed product change. A future reviewed tuple
+could qualify only for a live verified row, an aligned details URL and
+a one-use 30-second App-memory proof for the first browser document.
+Five-minute live API attestations never survive offline cache fallback,
+failed revalidation or Realm reopen. No durable grant or transaction
+signature/submit authority is minted.
+
+Validation: targeted catalog, launch, navigation, S14 screen/detail and
+Freighter browser tests, including redirect/origin, stale/cancel and
+revoke; no new Realm schema/native network code. Existing S16 Android
+native proxy prevents WebView network unsafe requests only when its
+guard is available. **L4 remains pending** actual iOS/Android dApp
+product flows, provider review, real Freighter integration and Stage 9
+auth cancellation/retry. Historical PR #133 is not merged or replayed;
+its assumptions and test ideas were independently re-evaluated against
+the current main. #127 remains a separate old open PR, not a merge gate
+or authorization source for this product slice. Token Icon #174 is a
+parallel independent workstream and unaffected.
