@@ -39,6 +39,13 @@ export function createAssetDetailsSheetStyles(theme: AppTheme) {
       gap: theme.spacing.xs,
     },
     cardTitle: { ...theme.typography.caption, color: theme.colors.textSecondary, fontWeight: '700' },
+    trustline: {
+      gap: theme.spacing.xs,
+      paddingVertical: theme.spacing.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.separatorSubtle,
+    },
+    trustlineIssuer: { ...theme.typography.caption, color: theme.colors.textSecondary, flexWrap: 'wrap' },
     cardRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm },
     cardLabel: { ...theme.typography.label, color: theme.colors.textPrimary },
     cardValue: { ...theme.typography.label, color: theme.colors.textPrimary, flexShrink: 1, textAlign: 'right' },

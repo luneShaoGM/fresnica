@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { BottomSheet } from '@ui/components';
+import { AppModal } from '@ui/components';
 import { useAppTheme, useThemedStyles } from '@ui/theme';
 
 import type { AccountRecord } from '../../capabilities/account/types';
 import type { BalanceProductDependencies } from '@capabilities/balance/BalanceCacheHydration';
 import { useBalanceDisplay } from './useBalanceDisplay';
+import { matchingNativeBalance, useNativeBalanceBreakdown } from './useNativeBalanceBreakdown';
+import type { NativeBalanceBreakdown } from '@capabilities/balance/nativeBalanceBreakdown';
 import { BalanceFreshnessNotice } from './components/BalanceFreshnessNotice';
 import type { BalanceAsset, BalanceLine } from '../../capabilities/balance/types';
 import { useLocalization } from '../../locale';
@@ -67,9 +69,19 @@ export function AssetDetailsSheet({
   const [copied, setCopied] = useState(false);
   const line = state.kind === 'ready' ? state.line : undefined;
   const actionable = active && balanceState.kind === 'ready' && !balanceState.stale && !balanceState.refreshing;
+  const nativeReady = actionable && visible && asset?.kind === 'native' && !!line;
+  const nativeDetails = useNativeBalanceBreakdown(
+    account,
+    balanceDependencies,
+    nativeReady,
+    invalidationRevision,
+    balanceState.kind === 'ready' ? balanceState.lastSuccessfulUpdateAt?.getTime() : undefined,
+  );
+  const safeNativeDetails =
+    line && asset?.kind === 'native' ? matchingNativeBalance(nativeDetails, line.balance, !nativeReady) : undefined;
 
   return (
-    <BottomSheet closeLabel={t('common.close')} onClose={onClose} visible={visible && asset !== undefined}>
+    <AppModal presentation="sheet" swipeToDismiss onRequestClose={onClose} visible={visible && asset !== undefined}>
       <View style={styles.sheet}>
         <View style={styles.header}>
           <Text numberOfLines={1} style={styles.title}>
@@ -102,7 +114,7 @@ export function AssetDetailsSheet({
             <Text style={styles.statusText}>{t('home.asset.missing')}</Text>
           </View>
         ) : asset.kind === 'native' ? (
-          <NativeBalance canSign={canSign} line={line} spendable={undefined} styles={styles} t={t} />
+          <NativeBalance canSign={canSign} line={line} breakdown={safeNativeDetails} styles={styles} t={t} />
         ) : (
           <IssuedAsset
             asset={asset}
@@ -127,19 +139,19 @@ export function AssetDetailsSheet({
           />
         )}
       </View>
-    </BottomSheet>
+    </AppModal>
   );
 }
 
 function NativeBalance({
   line,
-  spendable,
+  breakdown,
   canSign,
   styles,
   t,
 }: Readonly<{
   line: BalanceLine;
-  spendable: string | undefined;
+  breakdown?: NativeBalanceBreakdown;
   canSign: boolean;
   styles: ReturnType<typeof createAssetDetailsSheetStyles>;
   t: (key: string, params?: Record<string, string>) => string;
@@ -150,14 +162,91 @@ function NativeBalance({
       <BalanceCard
         label={t('home.asset.available')}
         styles={styles}
-        value={spendable ?? t('home.asset.availableUnavailable')}
+        value={breakdown?.available ?? t('home.asset.availableUnavailable')}
       />
-      {canSign ? null : <Text style={styles.warning}>{t('home.asset.readOnlySpendable')}</Text>}
+      {!canSign ? <Text style={styles.warning}>{t('home.asset.readOnlySpendable')}</Text> : null}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>{t('home.asset.reserved')}</Text>
-        <Text style={styles.helper}>{t('home.asset.reservedUnavailable')}</Text>
+        {breakdown ? (
+          <>
+            <BalanceDetailRow label={t('home.asset.reserved')} value={breakdown.reserved} styles={styles} />
+            <BalanceDetailRow label={t('home.asset.baseReserve')} value={breakdown.accountMinimum} styles={styles} />
+            <BalanceDetailRow
+              label={t('home.asset.grossEntryReserve')}
+              value={breakdown.grossEntryReserve}
+              styles={styles}
+            />
+            <BalanceDetailRow
+              label={t('home.asset.sponsorshipOffset')}
+              value={breakdown.sponsorshipOffset}
+              styles={styles}
+            />
+            <BalanceDetailRow
+              label={t('home.asset.sellingLiabilities')}
+              value={breakdown.sellingLiabilities}
+              styles={styles}
+            />
+            <BalanceDetailRow
+              label={t('home.asset.subentries')}
+              value={String(breakdown.subentryCount)}
+              styles={styles}
+            />
+            <BalanceDetailRow
+              label={t('home.asset.sponsoring')}
+              value={String(breakdown.numSponsoring)}
+              styles={styles}
+            />
+            <BalanceDetailRow
+              label={t('home.asset.sponsored')}
+              value={String(breakdown.numSponsored)}
+              styles={styles}
+            />
+          </>
+        ) : (
+          <Text style={styles.helper}>{t('home.asset.reservedUnavailable')}</Text>
+        )}
       </View>
+      {breakdown ? (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{t('home.asset.trustlines')}</Text>
+          {breakdown.trustlines.length ? (
+            breakdown.trustlines.map(lineItem => (
+              <View key={lineItem.code + ':' + lineItem.issuer} style={styles.trustline}>
+                <Text style={styles.cardLabel}>{lineItem.code}</Text>
+                <Text selectable style={styles.trustlineIssuer}>
+                  {lineItem.issuer}
+                </Text>
+                <Text style={styles.helper}>
+                  {lineItem.authorized ? t('home.asset.trustlineAuthorized') : t('home.asset.trustlineRestricted')}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.helper}>{t('home.asset.noTrustlines')}</Text>
+          )}
+          <Text style={styles.helper}>{t('home.asset.trustlineReserveNote')}</Text>
+        </View>
+      ) : null}
     </ScrollView>
+  );
+}
+
+function BalanceDetailRow({
+  label,
+  value,
+  styles,
+}: Readonly<{
+  label: string;
+  value: string;
+  styles: ReturnType<typeof createAssetDetailsSheetStyles>;
+}>): React.JSX.Element {
+  return (
+    <View style={styles.cardRow}>
+      <Text style={styles.cardLabel}>{label}</Text>
+      <Text selectable style={styles.cardValue}>
+        {value}
+      </Text>
+    </View>
   );
 }
 

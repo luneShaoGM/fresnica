@@ -3,6 +3,7 @@ import { Image, StyleSheet } from 'react-native';
 
 import type { TokenAssetIdentity } from '../../capabilities/assets/TokenMetadataCache';
 import { IdentityAvatar } from '../../ui/components/IdentityAvatar';
+import { TokenFallbackAvatar } from '../../ui/components/TokenFallbackAvatar';
 import { NativeButton } from '../../ui/components/NativeButton';
 import { useLocalization } from '../../locale';
 import { TokenIconContext } from './tokenIconContext';
@@ -79,9 +80,8 @@ export function TokenAssetIcon({
     return () => controller.abort();
   }, [active, code, credit, issuer, key, service, snapshot.enabled, retryRevision]);
 
-  if (!active || !snapshot.enabled || !credit || !uri || isRejected(uri)) {
-    return <IdentityAvatar identity={key} native={asset.kind === 'native'} small={small} />;
-  }
+  if (!credit) return <IdentityAvatar identity="native:XLM" native small={small} />;
+  if (!active || !snapshot.enabled || !uri || isRejected(uri)) return <TokenFallbackAvatar small={small} />;
   return (
     <Image
       accessible={false}
