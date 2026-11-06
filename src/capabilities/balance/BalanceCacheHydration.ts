@@ -1,4 +1,5 @@
 import type { AccountRecord } from '../account/types';
+import type { NativeBalanceReader } from './nativeBalanceBreakdown';
 import type { BalanceDependencies } from './loadBalanceSnapshot';
 import {
   BALANCE_CACHE_SCHEMA_VERSION,
@@ -10,7 +11,7 @@ import {
 import type { BalanceSnapshot } from './types';
 
 export type BalanceProductDependencies = BalanceDependencies &
-  Readonly<{ cache: BalanceCacheRepository; now: () => Date }>;
+  Readonly<{ cache: BalanceCacheRepository; now: () => Date; nativeReader?: NativeBalanceReader }>;
 function partitionFor(
   dependencies: Pick<BalanceProductDependencies, 'networkId'>,
   account: AccountRecord,

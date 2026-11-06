@@ -181,9 +181,11 @@ media/security acceptance remains deferred.
 ## 2026-11-06 follow-up: unknown Token artwork
 
 Stellar uses a fixed unknown-asset image after all Token icon candidates fail.
-Fresnica adapts that presentation with an independently drawn neutral
-Token fallback vector; the donor ImageUnknownTrustLine artwork is not
-copied because file-level redistribution rights remain unapproved.
+Fresnica uses the user-approved, individually audited unknown-asset PNGs
+from the user's own Stellar project in a locally resized bundle. This is
+an explicit one-image-family exception to the prior vector fallback; no
+other project asset receives general copy authorization. See
+'docs/provenance/user-owned-token-artwork-approval.md'.
 Every credit asset without a currently accepted public icon uses the same
 neutral mark, including before explicit public-media consent, while awaiting
 its verified icon, while offline, or after candidates are exhausted.

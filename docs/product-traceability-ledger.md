@@ -504,10 +504,23 @@ cancel/retry remain in Stage 9.
 ### S06 unknown-Token presentation follow-up — 2026-11-06 candidate
 
 Stellar TokenIcon/TokenAvatar use an unknown-asset fallback after image
-candidates fail. Fresnica adapts the behavior with new local vector art
-rather than copying Xaman-licensed donor image bytes. The shared
+candidates fail. Fresnica uses the user-approved specific default-Token image family
+(resized locally) with a file-level provenance approval record. The shared
 TokenAssetIcon uses the same unknown-Token display on Mainnet and Testnet;
 XLM and all S22 account/contact address avatars remain separate. No
 public-HTTPS transport, Realm, account or transaction behavior changes.
 Native visual acceptance and Work exact-HEAD review are still required.
 See S22 spec for deferred remote address-avatar privacy/provider decision.
+
+### S05 Home XLM fixed/native balance details — 2026-11-06 follow-up candidate on PR #177
+
+Clean-room Adapt of observed Stellar user flow: fixed native XLM above
+independently scrollable issued Tokens, reliable available/reserved balance,
+expandable read-only XLM details with net sponsor offsets, sell liabilities
+and exact current-network trustline identities. Reuse existing AppModal sheet
+with swipe-to-dismiss. Display authority is a network-account-scoped, fresh
+read-only projection of Stellar state and ledger parameters; stale/mismatch
+must fail closed. No XRPL account-object reuse, staking claims, wallet
+transaction preflight changes, or new persisted balance cache fields.
+See the S05 Home balance-details behavior specification for tests and
+deferred native device acceptance.

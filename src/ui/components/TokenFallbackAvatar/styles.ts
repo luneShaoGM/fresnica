@@ -14,5 +14,6 @@ export function createStyles(theme: AppTheme) {
       overflow: 'hidden',
     },
     small: { width: 16, height: 16 },
+    image: { width: '80%', height: '80%' },
   });
 }
