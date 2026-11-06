@@ -489,3 +489,37 @@ quote, explicit authorization, result and recovery tests remain part of the
 full Jest guard. **No S10 L4 promotion**: live Testnet broadcast, simulator
 and real-device product flow, native accessibility and iOS System Auth
 cancel/retry remain in Stage 9.
+
+
+### 2026-11-06 S15 trusted directory browser launch — product candidate
+
+**Base** `main@46b222f72a9535a498e79875e5c265f5aca7af60`
+(after #175), pending exact-HEAD independent Work Review and user merge.
+Source behavior: Stellar catalog-to-browser launch; owner S15/S17/S18 with
+`app/navigation` composition. **Adapt**, clean-room. This one product
+slice makes the existing read-only S14 FChain directory's detail sheet
+actionable and limits prompt-free Freighter *public-account* connection to
+a **fresh live-verified, exact current-network entry that the user taps**,
+a one-use 30-second App-memory launch proof and the browser's first
+main document only. Five-minute live API attestations never survive
+offline cache fallback, a failed revalidation or Realm reopen. Browser
+and manual URL paths without a proof retain explicit permission; no
+durable grants or transaction signature/submit authority are minted.
+
+Assumption/constraint: the configured FChain directory operator must
+have a reviewed editorial trust policy; HTTPS and schema validation alone
+do not prove domain ownership or safety. If curation cannot be confirmed,
+disable automatic read-only disclosure rather than treating all public
+listings as trusted.
+
+Validation: targeted catalog, launch, navigation, S14 screen/detail and
+Freighter browser tests, including redirect/origin, stale/cancel and
+revoke; no new Realm schema/native network code. Existing S16 Android
+native proxy prevents WebView network unsafe requests only when its
+guard is available. **L4 remains pending** actual iOS/Android dApp
+product flows, provider review, real Freighter integration and Stage 9
+auth cancellation/retry. Historical PR #133 is not merged or replayed;
+its assumptions and test ideas were independently re-evaluated against
+the current main. #127 remains a separate old open PR, not a merge gate
+or authorization source for this product slice. Token Icon #174 is a
+parallel independent workstream and unaffected.

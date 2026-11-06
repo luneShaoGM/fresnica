@@ -632,6 +632,7 @@
   "dapps.details.unavailable": "Details unavailable. Try again when online.",
   "dapps.details.cached": "Saved details — may be out of date",
   "dapps.details.untrusted": "Directory details are public information, not an endorsement or wallet permission.",
+  "dapps.details.autoConnectionNotice": "Opening this live directory app will share the selected wallet's public address for read-only access in this browser document. Signing always requires separate approval.",
   "dapps.details.retry": "Refresh details",
   "dapps.details.developer": "Developer",
   "dapps.icons.enable": "Show public dApp logos when viewing details (contacts external image servers)",

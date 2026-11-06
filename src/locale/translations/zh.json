@@ -632,6 +632,7 @@
   "dapps.details.unavailable": "详情暂不可用，请联网后重试。",
   "dapps.details.cached": "本地保存的详情，可能已过期",
   "dapps.details.untrusted": "目录详情仅供参考，不代表应用获得背书或钱包授权。",
+  "dapps.details.autoConnectionNotice": "打开此实时目录应用，会向网站提供当前钱包的公开地址，用于本次浏览器文档的只读连接。交易签名仍需单独确认。",
   "dapps.details.retry": "刷新详情",
   "dapps.details.developer": "开发者",
   "dapps.icons.enable": "查看详情时显示公共 dApp 图标（会访问外部图片服务）",

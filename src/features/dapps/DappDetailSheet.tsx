@@ -23,6 +23,9 @@ export function DappDetailSheet({
   active,
   online,
   onClose,
+  onOpen,
+  inAppAvailable,
+  implicitReadOnly = false,
 }: Readonly<{
   entry?: DappCatalogEntry;
   media?: DappPublicMediaPort;
@@ -30,6 +33,9 @@ export function DappDetailSheet({
   active: boolean;
   online: boolean;
   onClose: () => void;
+  onOpen?: () => void;
+  inAppAvailable?: boolean;
+  implicitReadOnly?: boolean;
 }>) {
   const { t } = useLocalization();
   const [state, setState] = useState<DetailState>({ kind: 'loading' });
@@ -89,7 +95,12 @@ export function DappDetailSheet({
           <NativeButton label={t('dapps.details.close')} onPress={onClose} variant="quiet" />
         </View>
         <Text style={styles.websiteDetail}>{t('dapps.details.untrusted')}</Text>
-        {!currentState || currentState.kind === 'loading' ? (
+        {inAppAvailable && implicitReadOnly ? (
+          <Text style={styles.websiteDetail}>{t('dapps.details.autoConnectionNotice')}</Text>
+        ) : null}
+        {!media ? (
+          <Text style={styles.websiteDetail}>{t('dapps.details.unavailable')}</Text>
+        ) : !currentState || currentState.kind === 'loading' ? (
           <ActivityIndicator accessibilityLabel={t('dapps.details.loading')} />
         ) : detail ? (
           <>
@@ -109,6 +120,13 @@ export function DappDetailSheet({
             {t('dapps.details.unavailable')}
           </Text>
         )}
+        {entry && onOpen && active ? (
+          <NativeButton
+            label={t(inAppAvailable ? 'dapps.website.openInApp' : 'dapps.website.preview')}
+            onPress={onOpen}
+            variant="primary"
+          />
+        ) : null}
         {active && online && currentState?.kind !== 'loading' ? (
           <NativeButton
             label={t('dapps.details.retry')}
