@@ -130,11 +130,23 @@ describe('Wallet Realm v10 to v11 token display metadata integration', () => {
       expect(repo.read('stellar-testnet', 'Usd', issuer)).toBeUndefined();
       expect(repo.read('stellar-mainnet', 'USD', issuer)).toBeUndefined();
       expect(repo.read('stellar-mainnet', 'Usd', issuer)).toEqual(snapshot);
+      const testnet = {
+        ...snapshot,
+        networkId: 'stellar-testnet' as const,
+        metadata: {
+          source: 'issuer-toml' as const,
+          icons: ['https://test-issuer.example.org/icon.png'],
+        },
+      };
+      repo.replace(testnet);
+      expect(repo.read('stellar-testnet', 'Usd', issuer)).toEqual(testnet);
+      expect(repo.read('stellar-mainnet', 'Usd', issuer)).toEqual(snapshot);
       realm.close();
 
       realm = await openWalletRealm({ path });
       const reopened = new RealmTokenMetadataRepository(realm);
       expect(reopened.read('stellar-mainnet', 'Usd', issuer)).toEqual(snapshot);
+      expect(reopened.read('stellar-testnet', 'Usd', issuer)).toEqual(testnet);
       realm.write(() => {
         const record = realm!.objectForPrimaryKey(
           TOKEN_METADATA_CACHE_ENTITY,

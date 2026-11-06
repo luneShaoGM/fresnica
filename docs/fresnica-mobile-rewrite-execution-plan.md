@@ -1366,3 +1366,17 @@ L4 or native product acceptance.
 Phase 3 must receive independent current exact-HEAD Work Review, latest
 PR CI and user-controlled merge. Stage 9 real-device iOS System Auth
 cancel/retry remains deferred for final native acceptance.
+
+### S06 Token icon alignment follow-up — 2026-11-06
+
+One follow-up S06 PR (based on current main after #173), clean-room Adapt:
+Mainnet opt-in background public catalog source refresh, Testnet strictly
+network-verified issuer TOML and organization-logo icons, exact network/
+code/issuer Realm isolation, common Home/Add Asset/Activity public-image
+control, image failure fallback and locally drawn XLM icon. Reuses #170/#171
+and does not duplicate their caching or native HTTPS transport mechanisms.
+Mainnet curated data never provides Testnet imagery. Privacy defaults OFF;
+no automatic network requests before consent. Actual native acceptance
+and Stage 9 iOS System Auth cancellation/retry remain deferred. Historical
+Phase 2 Mainnet-only statements below describe the old shipped slice,
+not this follow-up's desired behavior.

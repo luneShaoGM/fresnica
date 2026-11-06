@@ -15,7 +15,7 @@ export type TokenDisplayMetadata = Readonly<{
 
 export type TokenMetadataSnapshot = Readonly<{
   schemaVersion: typeof TOKEN_METADATA_SCHEMA_VERSION;
-  networkId: 'stellar-mainnet';
+  networkId: 'stellar-mainnet' | 'stellar-testnet';
   code: string;
   issuer: string;
   savedAtUnixMs: number;
@@ -30,7 +30,7 @@ export interface TokenMetadataRepository {
 
 export function validTokenAsset(asset: TokenAssetIdentity, networkId: string): boolean {
   return (
-    networkId === 'stellar-mainnet' &&
+    (networkId === 'stellar-mainnet' || networkId === 'stellar-testnet') &&
     asset.kind === 'credit' &&
     isCuratedAssetCode(asset.code) &&
     isCuratedIssuer(asset.issuer)
@@ -44,7 +44,7 @@ export function validateTokenMetadataSnapshot(
   issuer: string,
 ): TokenMetadataSnapshot | undefined {
   if (
-    networkId !== 'stellar-mainnet' ||
+    (networkId !== 'stellar-mainnet' && networkId !== 'stellar-testnet') ||
     !isCuratedAssetCode(code) ||
     !isCuratedIssuer(issuer) ||
     !value ||
@@ -94,7 +94,7 @@ export function validateTokenMetadataSnapshot(
   if (!metadata && raw.retryAfterUnixMs === undefined) return;
   const snapshot: TokenMetadataSnapshot = Object.freeze({
     schemaVersion: TOKEN_METADATA_SCHEMA_VERSION,
-    networkId: 'stellar-mainnet',
+    networkId: networkId as 'stellar-mainnet' | 'stellar-testnet',
     code,
     issuer,
     savedAtUnixMs: raw.savedAtUnixMs as number,
