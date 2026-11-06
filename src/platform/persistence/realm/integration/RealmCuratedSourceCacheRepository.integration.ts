@@ -12,6 +12,7 @@ import {
   BALANCE_CACHE_SNAPSHOT_ENTITY,
   CURATED_ASSET_SOURCE_CACHE_ENTITY,
   TOKEN_METADATA_CACHE_ENTITY,
+  DAPP_DETAIL_CACHE_ENTITY,
   DAPP_CATALOG_CACHE_ENTITY,
   HISTORY_CACHE_SNAPSHOT_ENTITY,
   PENDING_SUBMISSION_ENTITY,
@@ -32,7 +33,10 @@ describe('Realm v9 to v10 curated asset cache integration', () => {
         path,
         schemaVersion: 9,
         schema: WALLET_REALM_SCHEMAS.filter(
-          item => item.name !== CURATED_ASSET_SOURCE_CACHE_ENTITY && item.name !== TOKEN_METADATA_CACHE_ENTITY,
+          item =>
+            item.name !== CURATED_ASSET_SOURCE_CACHE_ENTITY &&
+            item.name !== TOKEN_METADATA_CACHE_ENTITY &&
+            item.name !== DAPP_DETAIL_CACHE_ENTITY,
         ),
       });
       const savedAt = new Date(10000);
@@ -87,7 +91,7 @@ describe('Realm v9 to v10 curated asset cache integration', () => {
       realm.close();
 
       realm = await openWalletRealm({ path });
-      expect(realm.schemaVersion).toBe(11);
+      expect(realm.schemaVersion).toBe(12);
       expect(realm.objectForPrimaryKey(ACCOUNT_ENTITY, 'legacy')?.label).toBe('Keep wallet');
       expect(realm.objectForPrimaryKey(PENDING_SUBMISSION_ENTITY, 'pending-1')?.transactionHash).toBe('hash-unchanged');
       expect(realm.objectForPrimaryKey(BALANCE_CACHE_SNAPSHOT_ENTITY, 'balance-preserved')?.balanceJson).toBe(

@@ -88,6 +88,13 @@ jest.spyOn(react, 'useRef').mockImplementation(((initial: unknown) => {
 }) as typeof react.useRef);
 
 jest.spyOn(react, 'useMemo').mockImplementation(((factory: () => unknown) => factory()) as typeof react.useMemo);
+// This light-weight tree walker executes nested function components without
+// a React renderer. Read-only icon subscriptions must use the test snapshot
+// without a real dispatcher or side effects.
+jest
+  .spyOn(react, 'useSyncExternalStore')
+  .mockImplementation(((_subscribe: unknown, getSnapshot: () => unknown) =>
+    getSnapshot()) as typeof react.useSyncExternalStore);
 
 const { DAppsScreen } = require('../DAppsScreen') as typeof import('../DAppsScreen');
 const openExternalUrl = jest.fn(async (_url: string) => {});
@@ -317,6 +324,52 @@ describe('DAppsScreen native field and retry', () => {
 
     expect(load).toHaveBeenCalledTimes(2);
     expect(elements(retried).some(node => node.props.title === 'dapps.catalog.unavailable')).toBe(true);
+  });
+
+  it('opens read-only cached public details without launching or authorizing the listed dApp', async () => {
+    openExternalUrl.mockClear();
+    const iconState = { enabled: false, revision: 0 };
+    const loadDetail = jest.fn(async () => ({
+      detail: {
+        ...entry,
+        longDescription: 'Public operator description',
+        developerName: 'Public developer',
+      },
+      fromCache: false,
+      stale: false,
+      refreshFailed: false,
+    }));
+    const media = {
+      available: true,
+      getIconState: () => iconState,
+      subscribeIcons: jest.fn(() => () => undefined),
+      setIconsEnabled: jest.fn(),
+      readIcon: jest.fn(),
+      loadIcon: jest.fn(async () => undefined),
+      readCachedDetail: jest.fn(() => undefined),
+      loadDetail,
+      close: jest.fn(),
+    };
+    const catalog: DappCatalogPort = {
+      load: jest.fn(async () => ({ kind: 'ready' as const, entries: [entry] })),
+      publicMedia: media,
+    };
+    const first = elements(await renderCatalog(catalog));
+    expect(first.some(node => node.props.label === 'dapps.icons.enable')).toBe(true);
+    expect(media.loadIcon).not.toHaveBeenCalled();
+    const row = first.find(node => node.props.accessibilityLabel === 'dapps.details.open: Demo Exchange');
+    expect(row?.props.accessibilityRole).toBe('button');
+    row?.props.onPress?.();
+    beginRender();
+    const opened = DAppsScreen({ catalog, openExternalUrl });
+    const nodes = elements(opened);
+    expect(nodes.some(node => node.props.closeLabel === 'dapps.details.close' && node.props.visible === true)).toBe(
+      true,
+    );
+    expect(openExternalUrl).not.toHaveBeenCalled();
+    expect(media.setIconsEnabled).not.toHaveBeenCalled();
+    await settle();
+    expect(loadDetail).toHaveBeenCalledWith(entry.id, expect.any(AbortSignal), false);
   });
 
   it('leaves the catalog search behind when Recent is selected', async () => {

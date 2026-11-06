@@ -1309,3 +1309,27 @@ signing, uncertain/recovery and existing S06 source caching remain distinct.
 Do not treat CI success as true native end-to-end acceptance. The current
 native HTTP/TOML behavior is subject to independent security review;
 Stage 9 iOS real-device System Auth retry/cancel stays deferred.
+
+### LC5 Phase 3 dApp public cache — implementation candidate (2026-11-05)
+
+Merged Stage 1 PR #170 and Stage 2 PR #171 are **base features**, not work
+to repeat. Current Phase-3 base is `main@b68ab23f2ce00b6282cf97b2ec832bcbe6017c78`.
+One local branch / **one PR** will deliver S14 read-only FChain details,
+bounded Realm v12 per-network+identifier cache, a 24-hour positive freshness
+window, 30-second failed-request retry, offline/stale preservation, and
+opt-in public logo candidate memory/winner/failure cache. This phase
+consumes the existing S14 directory and Phase-2 native transport, without
+new permission/transactions/native sources. [Owner contract](behavior-specs/lc5-dapp-details-icons-cache.md).
+
+**Explicit LC5 audit decision:** Claimable current snapshot remains deferred
+to S11 because no live Claimable listing/claim eligibility consumer exists.
+Existing S13 claim/clawback effect History is **not current state**. S22
+local contact identity/memo lookup already persists in Realm with revision
+invalidation, while remote resolver/KYC/advisory sources have no approved
+API or TTL; no duplicate or speculative resolver cache is added. These
+items remain owning-slice requirements; Phase 3 does not mark LC5/S06/S14
+L4 or native product acceptance.
+
+Phase 3 must receive independent current exact-HEAD Work Review, latest
+PR CI and user-controlled merge. Stage 9 real-device iOS System Auth
+cancel/retry remains deferred for final native acceptance.

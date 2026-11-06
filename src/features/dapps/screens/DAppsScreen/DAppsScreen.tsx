@@ -13,6 +13,8 @@ import { useThemedStyles } from '@ui/theme';
 
 import { useLocalization } from '../../../../locale';
 import { createStyles } from './styles';
+import { DappCatalogIcon, DappPublicIconToggle } from '../../DappCatalogIcon';
+import { DappDetailSheet } from '../../DappDetailSheet';
 
 type CatalogState =
   | Readonly<{ kind: 'loading' }>
@@ -57,6 +59,7 @@ export function DAppsScreen({
   const [recentOrigins, setRecentOrigins] = useState<readonly string[]>([]);
   const [websiteError, setWebsiteError] = useState<'invalid' | 'openFailed'>();
   const [opening, setOpening] = useState(false);
+  const [selectedDetail, setSelectedDetail] = useState<DappCatalogEntry>();
   const openingRef = useRef(false);
   const activeRef = useRef(active);
   activeRef.current = active;
@@ -92,6 +95,7 @@ export function DAppsScreen({
   useEffect(() => {
     const changedCatalog = previousCatalog.current !== catalog;
     previousCatalog.current = catalog;
+    if (changedCatalog) setSelectedDetail(undefined);
     if (!active || !online) {
       let cached: DappCatalogLoadResult | undefined;
       if (!online) {
@@ -165,6 +169,10 @@ export function DAppsScreen({
     [focused],
   );
 
+  useEffect(() => {
+    if (!active || !focused) setSelectedDetail(undefined);
+  }, [active, focused]);
+
   const urlSheetSession = urlSheetSessionRef.current;
 
   const prepareWebsite = (value: string) => {
@@ -216,6 +224,7 @@ export function DAppsScreen({
   };
 
   const changeSection = (next: Section) => {
+    setSelectedDetail(undefined);
     // A browser handoff cannot be reversed, but its late completion must
     // not attach a Recent origin to an unrelated screen after navigation.
     websiteEpoch.current += 1;
@@ -385,8 +394,18 @@ export function DAppsScreen({
                     </ScrollView>
                   ) : null}
                   <Text style={styles.sectionTitle}>{t('dapps.catalog.readOnly')}</Text>
+                  <DappPublicIconToggle media={catalog.publicMedia} />
                   {visibleEntries.length > 0 ? (
-                    visibleEntries.map(entry => <AppRow key={entry.id} entry={entry} styles={styles} />)
+                    visibleEntries.map(entry => (
+                      <AppRow
+                        key={entry.id}
+                        entry={entry}
+                        styles={styles}
+                        media={catalog.publicMedia}
+                        onSelect={catalog.publicMedia ? () => setSelectedDetail(entry) : undefined}
+                        detailsLabel={t('dapps.details.open')}
+                      />
+                    ))
                   ) : (
                     <EmptyCatalog
                       message={
@@ -433,6 +452,14 @@ export function DAppsScreen({
               )}
             </>
           )}
+          <DappDetailSheet
+            entry={selectedDetail}
+            media={catalog.publicMedia}
+            styles={styles}
+            active={active && focused}
+            online={online}
+            onClose={() => setSelectedDetail(undefined)}
+          />
           <BottomSheet closeLabel={t('dapps.website.cancel')} onClose={closeUrlSheet} visible={urlSheetOpen}>
             <View style={styles.urlSheet}>
               <View style={styles.urlSheetHeader}>
@@ -560,19 +587,41 @@ function SegmentButton({
   );
 }
 
-function AppRow({ entry, styles }: Readonly<{ entry: DappCatalogEntry; styles: Styles }>) {
-  return (
-    <View style={styles.appRow}>
-      <View style={styles.appIcon}>
-        <Text style={styles.appInitials}>{entry.title.trim().slice(0, 2).toUpperCase()}</Text>
-      </View>
+function AppRow({
+  entry,
+  styles,
+  media,
+  onSelect,
+  detailsLabel,
+}: Readonly<{
+  entry: DappCatalogEntry;
+  styles: Styles;
+  media?: DappCatalogPort['publicMedia'];
+  onSelect?: () => void;
+  detailsLabel?: string;
+}>) {
+  const content = (
+    <>
+      <DappCatalogIcon entry={entry} media={media} styles={styles} />
       <View style={styles.appIdentity}>
         <Text style={styles.appTitle}>{entry.title}</Text>
         <Text numberOfLines={2} style={styles.appSubtitle}>
           {entry.description}
         </Text>
       </View>
-    </View>
+    </>
+  );
+  return onSelect ? (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${detailsLabel ?? 'Details'}: ${entry.title}`}
+      onPress={onSelect}
+      style={styles.appRow}
+    >
+      {content}
+    </Pressable>
+  ) : (
+    <View style={styles.appRow}>{content}</View>
   );
 }
 

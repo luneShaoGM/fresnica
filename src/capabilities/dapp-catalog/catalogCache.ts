@@ -1,4 +1,5 @@
 import { normalizeUntrustedDappUrl } from '../dapp-interaction/externalDappUrl';
+import { safePublicHttpsUrl } from '../assets/safePublicHttpsUrl';
 import type { DappCatalogEntry } from './catalog';
 
 // Public catalog metadata only. This cache is never a permission or origin attestation.
@@ -36,7 +37,7 @@ export function normalizeDappCatalogCache(value: unknown, networkId: string): Da
   const ids = new Set<string>();
   for (const candidate of value.entries) {
     if (!isObject(candidate)) return undefined;
-    const { id, title, description, category, websiteUrl } = candidate;
+    const { id, title, description, category, websiteUrl, iconUrl } = candidate;
     if (
       !isText(id, 128) ||
       !isText(title, 128) ||
@@ -54,8 +55,20 @@ export function normalizeDappCatalogCache(value: unknown, networkId: string): Da
     } catch {
       return undefined;
     }
+    const sanitizedIcon = iconUrl === undefined ? undefined : safePublicHttpsUrl(iconUrl);
+    // Unsafe optional branding must not poison a valid directory row or
+    // become a network request.
     ids.add(id);
-    entries.push(Object.freeze({ id, title, description, category, websiteUrl: normalizedUrl }));
+    entries.push(
+      Object.freeze({
+        id,
+        title,
+        description,
+        category,
+        websiteUrl: normalizedUrl,
+        ...(sanitizedIcon ? { iconUrl: sanitizedIcon } : {}),
+      }),
+    );
   }
 
   return Object.freeze({

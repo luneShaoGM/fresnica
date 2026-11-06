@@ -63,6 +63,33 @@ describe('S14 FChain public catalog', () => {
     ).toThrow('dapp-catalog-entry');
   });
 
+  it('keeps sanitized icon candidates but never fails a valid catalog row for a bad optional icon', () => {
+    const source = payload.all[0];
+    const icon = 'https://cdn.example.org/demo.png';
+    const safe = catalogEntriesFromFchain({ ...payload, all: [{ ...source, iconUrl: icon }] }, 'stellar-mainnet');
+    expect(safe).toMatchObject([{ id: 'demo', iconUrl: icon }]);
+    for (const candidate of [
+      'http://127.0.0.1/private.png',
+      'https://localhost/favicon.png',
+      'https://user:password@cdn.example.org/app.png',
+      'data:image/png;base64,iVBORw0KGgo=',
+    ]) {
+      const normalized = catalogEntriesFromFchain(
+        { ...payload, all: [{ ...source, iconUrl: candidate }] },
+        'stellar-mainnet',
+      );
+      expect(normalized).toEqual([
+        {
+          id: 'demo',
+          title: 'Demo',
+          description: 'A public listing',
+          category: 'Tools',
+          websiteUrl: 'https://demo.example.org/main',
+        },
+      ]);
+    }
+  });
+
   it('rejects unsupported networks without fetching or reusing testnet URLs', async () => {
     const fetchImpl = jest.fn();
     const catalog = createFchainCatalog({

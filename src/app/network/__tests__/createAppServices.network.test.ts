@@ -78,6 +78,7 @@ jest.mock('../../../platform/persistence/realm', () => ({
   RealmHistoryCacheRepository: jest.fn(),
   RealmBalanceCacheRepository: jest.fn(),
   RealmDappCatalogRepository: jest.fn(() => ({ read: mockCatalogRead, replace: jest.fn() })),
+  RealmDappDetailCacheRepository: jest.fn(() => ({ read: jest.fn(), replace: jest.fn() })),
   RealmCuratedSourceCacheRepository: jest.fn(() => ({ read: jest.fn(), replace: jest.fn() })),
   RealmTokenMetadataRepository: jest.fn(() => ({ read: jest.fn(), replace: jest.fn() })),
   RealmDappPermissionStore: jest.fn(() => ({

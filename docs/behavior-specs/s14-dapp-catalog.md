@@ -23,3 +23,20 @@ Fresnica will preserve the dApp directory/search/category product role without c
 - Unit tests cover stable category extraction, title/description/category matching, empty and no-match results, original ordering and the unconfigured provider result.
 - Type/architecture/provenance/locale/Jest checks must pass. Native product interactions remain separate evidence, not inferred from the build.
 - This only upgrades S14 to a **partial foundation**; L3/L4 require a real documented catalog source, validated live payloads and dual-platform product acceptance. Not a browser, recommendation, verified-origin service or complete dApp feature.
+
+## LC5 Phase 3 public detail/icon cache candidate (2026-11-05)
+
+The opening S14 first-slice contract above is historical: FChain live listing,
+Realm catalog cache and explicit S15/S16 browser/permission pipelines are now
+implemented independently. This Phase 3 adds **details-only** row interaction
+(no site opening, consent or signing): a read-only, cancelable detail sheet.
+The optional logo preview is default OFF and uses previously reviewed Phase-2
+native bounded public image transport with local initials fallback.
+The owning [LC5 Phase 3 contract](lc5-dapp-details-icons-cache.md) describes
+the 24-hour per-network/per-app durable details, 30-second refresh cooldown,
+7-day icon winner and 24-hour failed-candidate evidence, and full integrity
+and provenance boundaries. An unsafe icon candidate never poisons the
+directory or becomes an authorized dApp origin.
+
+Phase 3 is a development **candidate**, not S14 L4/native acceptance.
+Listings and detail metadata remain public untrusted descriptions.

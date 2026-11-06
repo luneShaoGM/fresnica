@@ -421,3 +421,19 @@ No sensitive data or image bytes in Realm/History/Signer stores.
 Phase 2 PR remains **pending latest-head Work Review/CI/native acceptance**
 and user-controlled merge; no maturity promotion. Phase 3 LC5 products
 (dApp details/icons, Claimable current-state, Resolver) remain deferred.
+
+### LC5 Phase 3 / S14 public dApp detail and logo cache — candidate (2026-11-05)
+
+Trace: S14 public directory display, LC5 consumer closure. **Adapt**
+from Stellar's 24h dApp details and 7-day icon winner/24h failure policy,
+clean-room product behavior; do not copy donor source/artwork. Base merged
+`main@b68ab23f2ce00b6282cf97b2ec832bcbe6017c78`.
+Public Realm v12 dApp details (network+app ID), strict remote source
+validation, stale/30sec retry, no wallet consent or authentication authority;
+default-off native bounded image transport reused from S06 phase 2.
+[Contract](behavior-specs/lc5-dapp-details-icons-cache.md).
+S11 live Claimable snapshot and S22 remote identity Resolver remain
+**deferred** because their live source/consumer/authorization is not
+established. Existing typed-memo-aware local contacts are **reused**,
+not reimplemented. PR CI/Work exact-HEAD review and native product-flow
+remain pending, no product maturity promotion.

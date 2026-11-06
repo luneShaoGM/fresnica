@@ -1,10 +1,13 @@
 // Catalog listings are public, untrusted descriptions, not dApp origin attestations.
+import type { DappPublicMediaPort } from './dappPublicMedia';
+
 export type DappCatalogEntry = Readonly<{
   id: string;
   title: string;
   description: string;
   category: string;
   websiteUrl: string;
+  iconUrl?: string; // untrusted public display candidate, never an attested origin
 }>;
 
 export type DappCatalogLoadResult =
@@ -15,6 +18,7 @@ export type DappCatalogPort = Readonly<{
   load: () => Promise<DappCatalogLoadResult>;
   // An optional, synchronous public-only snapshot for offline startup. Never a grant.
   readCached?: () => DappCatalogLoadResult;
+  publicMedia?: DappPublicMediaPort; // read-only detail and opt-in display icons; never authorization
 }>;
 
 export function catalogCategories(entries: readonly DappCatalogEntry[]): readonly string[] {

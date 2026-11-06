@@ -69,6 +69,7 @@ import {
   RealmAccountSignerRepository,
   RealmBalanceCacheRepository,
   RealmDappCatalogRepository,
+  RealmDappDetailCacheRepository,
   RealmCuratedSourceCacheRepository,
   RealmDappPermissionStore,
   RealmDefaultAccountPreferenceStore,
@@ -85,6 +86,7 @@ import { reactNativeExternalUrlOpener, type ExternalUrlOpener } from '../platfor
 import { reactNativeRequestIngress } from '../platform/system/requestIngress';
 import { reactNativeRequestOutput } from '../platform/system/requestOutput';
 import { createFchainCatalog } from '../platform/dapps/loadFchainCatalog';
+import { createFchainDappPublicMedia } from '../platform/dapps/FchainDappPublicMedia';
 
 export type AccountManagementDependencies = RenameAccountDependencies &
   AccountVisibilityDependencies &
@@ -358,11 +360,24 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         if (!ledgerReadRuntime.getSnapshot().foreground) networkSettings?.cancel();
       });
     }
-    const dappCatalog = createFchainCatalog({
+    const directory = createFchainCatalog({
       cache: new RealmDappCatalogRepository(realm),
       networkId: networkProfile.id,
     });
-    closeDappCatalog = dappCatalog.close;
+    const publicMedia = createFchainDappPublicMedia({
+      cache: new RealmDappDetailCacheRepository(realm),
+      networkId: networkProfile.id,
+      transport: createNativeSafePublicTransport(),
+    });
+    const dappCatalog: DappCatalogPort = {
+      load: directory.load,
+      readCached: directory.readCached,
+      publicMedia,
+    };
+    closeDappCatalog = () => {
+      directory.close();
+      publicMedia.close();
+    };
     const contactStore = new RealmContactStore(realm);
     const guardedContacts = session.bind(contactStore);
     const assetCatalog = createCachedAssetCatalog({
