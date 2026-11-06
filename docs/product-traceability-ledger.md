@@ -467,3 +467,25 @@ S15–S21 dApp 安全产品闭环 → Stage 8 剩余产品 → Stage 9 原生/�
 正式发布身份。每个窄范围步骤单独 PR，当前远端 exact-HEAD Work Review
 清零 P1/P2 后由用户决定 Merge；不自动合并。Automation V2.2/#78
 暂停，iOS 真机 System Auth 取消→重试仍延期到 Stage 9。
+
+
+### S10 2026-11-06 quote expiration and default-slippage slice
+
+**Status: candidate, pending exact-HEAD Work Review and merge**, based on
+`main@49aec7fa0846399f5fa1056422cbdba3c497fae6`. Source of behavioral
+parity: Stellar Exchange's 0.5% default and visible quote freshness; decision
+**Adapt**, clean-room, Fresnica production owner `features/swap` with existing
+`capabilities/path-payment` as transaction authority. The UI now disables
+an expired selected quote in place and refuses stale queued Review callbacks
+before calling any ledger/build port. On-screen expiry refresh is local and
+cancellable; underlying C1 quote/XDR monotonic expiry and D1 signing remain
+unchanged. Default slippage is 50 bps, preserving user-selectable presets and
+custom policy. This scope excludes Token Icon (parallel PR #174), native
+acceptance and permission/Signer modifications.
+
+Validation: in-scope regression for a quote expired on arrival, expiry while
+open, stale callback and route timer replacement. Existing Swap Max, stale
+quote, explicit authorization, result and recovery tests remain part of the
+full Jest guard. **No S10 L4 promotion**: live Testnet broadcast, simulator
+and real-device product flow, native accessibility and iOS System Auth
+cancel/retry remain in Stage 9.

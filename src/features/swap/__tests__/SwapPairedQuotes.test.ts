@@ -376,9 +376,80 @@ it('prepares only the explicitly selected quote and disables paired editing duri
   root = h.draw();
   button(root, 'swap.preview.review').props.onPress?.();
   root = h.draw();
-  expect(prepare).toHaveBeenCalledWith(h.props.dependencies, account, selected, 100, expect.any(Function));
+  expect(prepare).toHaveBeenCalledWith(h.props.dependencies, account, selected, 50, expect.any(Function));
   expect(input(root, 'pay').props.disabled).toBe(true);
   expect(input(root, 'receive').props.disabled).toBe(true);
+});
+
+it('blocks a quote that is already expired before the user requests Review', async () => {
+  const stale = { ...quote('2', '3'), expiresAtUnixMs: Date.now() - 1 };
+  request.mockResolvedValueOnce({ quotes: [stale], best: stale });
+  const h = setup();
+  let root = await h.mount();
+  input(root, 'pay').props.onChangeAmount?.('2');
+  h.draw();
+  jest.advanceTimersByTime(500);
+  await settle();
+  root = h.draw();
+
+  expect(button(root, 'swap.preview.review').props.disabled).toBe(true);
+  button(root, 'swap.preview.review').props.onPress?.();
+  await settle();
+  expect(prepare).not.toHaveBeenCalled();
+  expect(button(h.draw(), 'swap.preview.requote').props.disabled).toBe(false);
+  h.dispose();
+});
+
+it('expires an open quote while the screen remains foregrounded and requires Requote', async () => {
+  const soon = { ...quote('2', '3'), expiresAtUnixMs: Date.now() + 800 };
+  request.mockResolvedValueOnce({ quotes: [soon], best: soon });
+  const h = setup();
+  let root = await h.mount();
+  input(root, 'pay').props.onChangeAmount?.('2');
+  h.draw();
+  jest.advanceTimersByTime(500);
+  await settle();
+  root = h.draw();
+  expect(button(root, 'swap.preview.review').props.disabled).toBe(false);
+  // The mounted quote screen must arm its own expiry-triggered rerender.
+  expect(jest.getTimerCount()).toBeGreaterThan(0);
+  const queuedReview = button(root, 'swap.preview.review').props.onPress;
+
+  jest.advanceTimersByTime(300);
+  await settle();
+  root = h.draw();
+  expect(button(root, 'swap.preview.review').props.disabled).toBe(true);
+  // A previously queued callback must also recheck expiry at invocation time.
+  queuedReview?.();
+  expect(prepare).not.toHaveBeenCalled();
+  expect(button(root, 'swap.preview.requote').props.disabled).toBe(false);
+  h.dispose();
+});
+
+it('disposes the earlier quote expiry timer after choosing a fresh route', async () => {
+  const oldRoute = { ...quote('2', '3'), expiresAtUnixMs: Date.now() + 800 };
+  const freshRoute = { ...quote('2', '4'), expiresAtUnixMs: Date.now() + 1800 };
+  request.mockResolvedValueOnce({ quotes: [oldRoute, freshRoute], best: oldRoute });
+  const h = setup();
+  let root = await h.mount();
+  input(root, 'pay').props.onChangeAmount?.('2');
+  h.draw();
+  jest.advanceTimersByTime(500);
+  await settle();
+  root = h.draw();
+  button(root, 'swap.settings.open').props.onPress?.();
+  root = h.draw();
+  const newer = find(root, node => node.type === Pressable && node.key === '1');
+  newer?.props.onPress?.();
+  root = h.draw();
+  expect(button(root, 'swap.preview.review').props.disabled).toBe(false);
+
+  jest.advanceTimersByTime(300);
+  await settle();
+  root = h.draw();
+  expect(button(root, 'swap.preview.review').props.disabled).toBe(false);
+  expect(input(root, 'receive').props.value).toBe('4');
+  h.dispose();
 });
 
 it('manual Requote after an existing quote does not leave a second automatic request armed', async () => {
