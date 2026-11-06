@@ -40,6 +40,8 @@ type Props = Readonly<{
   createNonce: () => string;
   signTransaction: DappTransactionSigner;
   permissions: DappPermissionStore;
+  // One-use proof consumed by App composition; not a route param or grant.
+  trustedCatalogOrigin?: string;
   BrowserSurface: ComponentType<DappBrowserSurfaceProps & RefAttributes<DappBrowserSurfaceHandle>>;
 }>;
 
@@ -60,6 +62,7 @@ export function DappBrowserScreen({
   createNonce,
   signTransaction,
   permissions,
+  trustedCatalogOrigin,
   BrowserSurface,
 }: Props) {
   const { t } = useLocalization();
@@ -85,6 +88,8 @@ export function DappBrowserScreen({
   const documentOrigin = useRef<string | undefined>(undefined);
   const signGeneration = useRef(0);
   const signing = useRef(false);
+  const curatedDocumentActive = useRef(true);
+  const documentStarts = useRef(0);
   const [signError, setSignError] = useState(false);
   const [permissionStorageError, setPermissionStorageError] = useState(false);
   const currentSession = () => live.current && !stale && current?.session.isLive() === true;
@@ -95,6 +100,7 @@ export function DappBrowserScreen({
       const selection = currentSelection();
       if (selection !== undefined) {
         const token = createNonce();
+        const trustedInitialOrigin = trustedCatalogOrigin === target.origin;
         documentOrigin.current = target.origin;
         initial.current = Object.freeze({
           url: target.url,
@@ -109,11 +115,14 @@ export function DappBrowserScreen({
             persistedAllowed: () => {
               const origin = documentOrigin.current;
               if (origin === undefined) return false;
-              return permissions.has({
-                origin,
-                accountId: selection.accountId,
-                networkId: selection.networkId,
-              });
+              return (
+                (trustedInitialOrigin && curatedDocumentActive.current && origin === target.origin) ||
+                permissions.has({
+                  origin,
+                  accountId: selection.accountId,
+                  networkId: selection.networkId,
+                })
+              );
             },
           }),
         });
@@ -331,6 +340,12 @@ export function DappBrowserScreen({
       retireInvalidNavigation();
       return;
     }
+    // A curated launch proves only its first exact main document. A reload,
+    // a different path or a redirect drops implicit access forever, including
+    // after navigating to another origin and back. SPA history is not a new
+    // document and does not retire the first-document proof.
+    if (documentStarts.current > 0 || target.url !== current.url) curatedDocumentActive.current = false;
+    documentStarts.current += 1;
     documentEpoch.current += 1;
     documentOrigin.current = target.origin;
     current.session.activateDocument(target.origin);
@@ -347,6 +362,9 @@ export function DappBrowserScreen({
       retireInvalidNavigation();
       return;
     }
+    // Some WebView platforms can report a completed cross-origin navigation
+    // before document-start. Even that path must retire curated read access.
+    if (target.origin !== current.origin) curatedDocumentActive.current = false;
     setPage({ origin: target.origin, canGoBack: next.canGoBack, canGoForward: next.canGoForward });
   };
 
