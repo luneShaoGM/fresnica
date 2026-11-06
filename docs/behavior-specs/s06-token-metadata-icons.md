@@ -177,3 +177,17 @@ A 25-asset deterministic burst test exercises the real metadata resolver
 and native JS transport adapter, checks all assets recover as capacity
 drains and asserts no retryAfterUnixMs was persisted. Native device
 media/security acceptance remains deferred.
+
+## 2026-11-06 follow-up: unknown Token artwork
+
+Stellar uses a fixed unknown-asset image after all Token icon candidates fail.
+Fresnica adapts that presentation with an independently drawn neutral
+Token fallback vector; the donor ImageUnknownTrustLine artwork is not
+copied because file-level redistribution rights remain unapproved.
+Every credit asset without a currently accepted public icon uses the same
+neutral mark, including before explicit public-media consent, while awaiting
+its verified icon, while offline, or after candidates are exhausted.
+Never derive unknown Token artwork from the code, issuer or network.
+Successful safe icon candidates still replace the fallback without flicker
+or changing network isolation. Native XLM retains its local XLM mark.
+This presentation-only change adds no remote requests or persistence.

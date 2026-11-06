@@ -500,3 +500,14 @@ quote, explicit authorization, result and recovery tests remain part of the
 full Jest guard. **No S10 L4 promotion**: live Testnet broadcast, simulator
 and real-device product flow, native accessibility and iOS System Auth
 cancel/retry remain in Stage 9.
+
+### S06 unknown-Token presentation follow-up — 2026-11-06 candidate
+
+Stellar TokenIcon/TokenAvatar use an unknown-asset fallback after image
+candidates fail. Fresnica adapts the behavior with new local vector art
+rather than copying Xaman-licensed donor image bytes. The shared
+TokenAssetIcon uses the same unknown-Token display on Mainnet and Testnet;
+XLM and all S22 account/contact address avatars remain separate. No
+public-HTTPS transport, Realm, account or transaction behavior changes.
+Native visual acceptance and Work exact-HEAD review are still required.
+See S22 spec for deferred remote address-avatar privacy/provider decision.

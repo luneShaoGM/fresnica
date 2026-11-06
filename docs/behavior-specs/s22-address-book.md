@@ -257,3 +257,22 @@ while Android/iOS native-flow and accessibility acceptance remains deferred.
   and prefill. Native Android/iOS flow, small-screen visual/readability, QR camera and
   genuine transaction submission acceptance remain deferred; unit/Realm/CI evidence
   cannot be presented as native product acceptance.
+
+## 2026-11-06 Stellar user-avatar parity audit (not implemented)
+
+Stellar's account/contact-avatar precedence uses a verified/display-only
+asset identity candidate where explicitly matched, then an address-derived
+avatar URL, finally a generic profile image. Its address-avatar URL contains
+the entire public wallet address at a third-party service; implicit loading
+would disclose address activity even for contacts which have no token.
+Fresnica currently uses a local, deterministic address-based IdentityAvatar
+for accounts and contacts, preserving privacy, global contact visibility,
+and network-independent address identity. The new S06 unknown-Token visual
+must not replace these *user* avatars.
+
+An exact remote-address-avatar parity slice is deferred until an approved
+provider and explicit privacy/consent contract are recorded. Do not treat
+opt-in to public *Token* images as consent to share wallet/contact addresses,
+and never infer a person's brand/avatar from an issuer-like code alone.
+No new external address request, contact sync, trust attribution, or
+account/Signer changes are authorized by the S06 Token fallback slice.
