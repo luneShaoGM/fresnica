@@ -52,10 +52,11 @@ describe('S06 token icon opt-in, fallback and lifecycle', () => {
     icons.close();
   });
 
-  it('fails closed when native transport is absent or network is not Mainnet', async () => {
+  it('supports Testnet and fails closed when native transport or a supported network is absent', async () => {
     for (const { network, native } of [
-      { network: 'stellar-testnet', native: true },
+      { network: 'unsupported-network', native: true },
       { network: 'stellar-mainnet', native: false },
+      { network: 'stellar-testnet', native: false },
     ]) {
       const { icons, readIcon } = setup(network, native);
       expect(icons.available).toBe(false);
@@ -65,6 +66,68 @@ describe('S06 token icon opt-in, fallback and lifecycle', () => {
       expect(readIcon).not.toHaveBeenCalled();
       icons.close();
     }
+  });
+
+  it('loads issuer icons on Testnet only after consent and keeps network-scoped identity', async () => {
+    const { icons, readIcon, metadata } = setup('stellar-testnet');
+    expect(icons.available).toBe(true);
+    expect(await icons.loadIcon(asset, new AbortController().signal)).toBeUndefined();
+    icons.setEnabled(true);
+    expect(await icons.loadIcon(asset, new AbortController().signal)).toBe(dataUri);
+    expect(readIcon).toHaveBeenCalledTimes(2);
+    expect(metadata.resolve).toHaveBeenCalledTimes(1);
+    icons.close();
+  });
+
+  it('loads Mainnet public sources once per opt-in even for concurrent assets', async () => {
+    const { icons: unused } = setup();
+    unused.close();
+    const sourceLoads: string[] = [];
+    const catalog = {
+      read: jest.fn(),
+      loadSource: jest.fn(async (_network: string, sourceId: string) => {
+        sourceLoads.push(sourceId);
+        return { assets: [], fromCache: false, stale: false, refreshFailed: false };
+      }),
+    };
+    const metadata: TokenMetadataPort = {
+      peek: jest.fn(() => ({ source: 'curated' as const, icons: [second] })),
+      resolve: jest.fn(async () => ({
+        metadata: { source: 'curated' as const, icons: [second] },
+        fromCache: true,
+        stale: false,
+        refreshFailed: false,
+      })),
+      close: jest.fn(),
+    };
+    const transport: SafePublicTransport = {
+      available: true,
+      readIcon: jest.fn(async () => ({ mimeType: 'image/png' as const, dataUri })),
+      readText: jest.fn(),
+      close: jest.fn(),
+    };
+    const icons = createTokenIconPort({ networkId: 'stellar-mainnet', metadata, catalog, transport });
+    expect(catalog.loadSource).not.toHaveBeenCalled();
+    icons.setEnabled(true);
+    await Promise.all([
+      icons.loadIcon(asset, new AbortController().signal),
+      icons.loadIcon({ ...asset, code: 'EUR' }, new AbortController().signal),
+    ]);
+    expect(sourceLoads).toEqual(['lobstr', 'soroswap', 'stellarexpert']);
+    expect(metadata.resolve).toHaveBeenCalledTimes(2);
+    icons.close();
+  });
+
+  it('retries a second candidate after the decoded image fails in React Native', async () => {
+    const { icons, readIcon } = setup();
+    icons.setEnabled(true);
+    expect(await icons.loadIcon(asset, new AbortController().signal)).toBe(dataUri);
+    icons.rejectIcon(asset, dataUri);
+    expect(icons.readIcon(asset)).toBeUndefined();
+    expect(await icons.loadIcon(asset, new AbortController().signal)).toBeUndefined();
+    // The URL that produced the rejected URI joins failed-candidate cooldown.
+    expect(readIcon).toHaveBeenCalledTimes(2);
+    icons.close();
   });
 
   it('tries the next curated candidate and caches only local data URIs for ten minutes', async () => {
@@ -124,7 +187,7 @@ describe('S06 token icon opt-in, fallback and lifecycle', () => {
     const icons = createTokenIconPort({ networkId: 'stellar-mainnet', metadata, transport });
     icons.setEnabled(true);
     const pending = icons.loadIcon(asset, new AbortController().signal);
-    await Promise.resolve();
+    await new Promise<void>(resolveNext => setImmediate(resolveNext));
     expect(readIcon).toHaveBeenCalledTimes(1);
     icons.setEnabled(false);
     resolve({ mimeType: 'image/png', dataUri });

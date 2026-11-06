@@ -20,6 +20,7 @@ import { useLocalization } from '../../locale';
 import { AccountPickerModal } from './components/AccountPickerModal';
 import { AccountSummary } from './components/AccountSummary';
 import { AssetList } from './components/AssetList';
+import { PublicIconToggle } from '../assets/TokenAssetIcon';
 import { InactiveAccountPanel, type FriendbotFundingState } from './components/InactiveAccountPanel';
 import { NetworkStatus } from './components/NetworkStatus';
 import { createHomeViewModel, type HomeBalanceState } from './homeViewModel';
@@ -212,6 +213,7 @@ export function HomeScreen({
           </Pressable>
         </View>
 
+        <PublicIconToggle networkId={account.networkId} />
         <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} showRefreshStatus={false} />
         {renderPortfolio(
           balanceState,

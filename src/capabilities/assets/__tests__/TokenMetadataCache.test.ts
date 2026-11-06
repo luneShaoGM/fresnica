@@ -24,7 +24,7 @@ describe('Token metadata identity and safe public URL policy', () => {
     expect(issuerTomlUrl('https://issuer.example.org')).toBeUndefined();
   });
 
-  it('stores only exact code/issuer Mainnet metadata and no image bytes or account IDs', () => {
+  it('stores exact network/code/issuer metadata and no image bytes or account IDs', () => {
     const value = {
       schemaVersion: 1,
       networkId: 'stellar-mainnet',
@@ -34,6 +34,12 @@ describe('Token metadata identity and safe public URL policy', () => {
       metadata: { name: 'USD', source: 'issuer-toml', icons: [icon] },
     };
     expect(validateTokenMetadataSnapshot(value, 'stellar-mainnet', 'Usd', issuer)).toEqual(value);
+    expect(
+      validateTokenMetadataSnapshot({ ...value, networkId: 'stellar-testnet' }, 'stellar-testnet', 'Usd', issuer),
+    ).toEqual({ ...value, networkId: 'stellar-testnet' });
+    expect(
+      validateTokenMetadataSnapshot({ ...value, networkId: 'other-network' }, 'other-network', 'Usd', issuer),
+    ).toBeUndefined();
     expect(validateTokenMetadataSnapshot(value, 'stellar-testnet', 'Usd', issuer)).toBeUndefined();
     expect(validateTokenMetadataSnapshot(value, 'stellar-mainnet', 'USD', issuer)).toBeUndefined();
     expect(validateTokenMetadataSnapshot(value, 'stellar-mainnet', 'Usd', issuer.replace('G', 'H'))).toBeUndefined();

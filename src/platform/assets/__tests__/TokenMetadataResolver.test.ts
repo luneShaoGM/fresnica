@@ -67,6 +67,51 @@ describe('S06 token metadata resolver', () => {
     service.close();
   });
 
+  it('prioritizes newly hydrated Mainnet curated icons while retaining verified issuer metadata', async () => {
+    const store = cache();
+    store.repository.replace({
+      schemaVersion: 1,
+      networkId: 'stellar-mainnet',
+      code: asset.code,
+      issuer,
+      savedAtUnixMs: 50_000,
+      metadata: { source: 'issuer-toml', icons: [issuerImage], name: 'Issuer name' },
+    });
+    let loaded = false;
+    const catalog: AssetCatalogPort = {
+      read: jest.fn(),
+      readCachedSource: jest.fn(() =>
+        loaded
+          ? {
+              assets: [{ code: asset.code, issuer, icon: candidate }],
+              fromCache: true,
+              stale: false,
+              refreshFailed: false,
+            }
+          : undefined,
+      ),
+    };
+    const readText = jest.fn();
+    const service = createTokenMetadataPort({
+      networkId: 'stellar-mainnet',
+      networkPassphrase,
+      horizonUrl: horizon,
+      catalog,
+      cache: store.repository,
+      transport: { available: true, readText, readIcon: jest.fn(), close: jest.fn() },
+      now: () => 50_000,
+    });
+    expect(service.peek(asset)?.icons).toEqual([issuerImage]);
+    loaded = true;
+    expect(service.peek(asset)?.icons).toEqual([candidate, issuerImage]);
+    expect((await service.resolve(asset, new AbortController().signal)).metadata?.icons).toEqual([
+      candidate,
+      issuerImage,
+    ]);
+    expect(readText).not.toHaveBeenCalled();
+    service.close();
+  });
+
   it('rejects wrong network/issuer TOML authority and keeps curated candidates without guessing', async () => {
     const store = cache();
     const catalog: AssetCatalogPort = {
@@ -206,6 +251,63 @@ describe('S06 token metadata resolver', () => {
     service.close();
   });
 
+  it('resolves and persists Testnet issuer TOML images and organization fallback without using Mainnet curated rows', async () => {
+    const store = cache();
+    const testnetPassphrase = 'Test SDF Network ; September 2015';
+    const testnetHorizon = 'https://horizon-testnet.stellar.org/';
+    const issuerLogo = 'https://issuer.example.org/brand.png';
+    const readText = jest.fn(async (url: string) => {
+      if (url === testnetHorizon) return JSON.stringify({ network_passphrase: testnetPassphrase });
+      if (url.includes('/accounts/')) return JSON.stringify({ account_id: issuer, home_domain: 'issuer.example.org' });
+      return `[DOCUMENTATION]
+ORG_LOGO="${issuerLogo}"
+[[CURRENCIES]]
+code="Usd"
+issuer="${issuer}"
+image="${issuerImage}"`;
+    });
+    const catalog: AssetCatalogPort = {
+      read: jest.fn(),
+      readCachedSource: jest.fn(() => ({
+        assets: [{ code: 'Usd', issuer, icon: candidate }],
+        fromCache: true,
+        stale: false,
+        refreshFailed: false,
+      })),
+    };
+    const service = createTokenMetadataPort({
+      networkId: 'stellar-testnet',
+      networkPassphrase: testnetPassphrase,
+      horizonUrl: testnetHorizon,
+      catalog,
+      cache: store.repository,
+      transport: { available: true, readText, readIcon: jest.fn(), close: jest.fn() },
+    });
+    const result = await service.resolve(asset, new AbortController().signal);
+    expect(result.metadata?.icons).toEqual([issuerImage, issuerLogo]);
+    expect(catalog.readCachedSource).not.toHaveBeenCalled();
+    expect(store.repository.read('stellar-testnet', 'Usd', issuer)?.metadata?.source).toBe('issuer-toml');
+    expect(store.repository.read('stellar-mainnet', 'Usd', issuer)).toBeUndefined();
+    expect(service.peek(asset)?.icons).toEqual([issuerImage, issuerLogo]);
+    service.close();
+  });
+
+  it('rejects a Mainnet Horizon response while in Testnet without reading a forged issuer record', async () => {
+    const store = cache();
+    const readText = jest.fn(async () => JSON.stringify({ network_passphrase: networkPassphrase }));
+    const service = createTokenMetadataPort({
+      networkId: 'stellar-testnet',
+      networkPassphrase: 'Test SDF Network ; September 2015',
+      horizonUrl: horizon,
+      catalog: { read: jest.fn() },
+      cache: store.repository,
+      transport: { available: true, readText, readIcon: jest.fn(), close: jest.fn() },
+    });
+    expect((await service.resolve(asset, new AbortController().signal)).metadata).toBeUndefined();
+    expect(readText).toHaveBeenCalledTimes(1);
+    service.close();
+  });
+
   it('maintains seven-day metadata and 24-hour negative retry cooldown without cross-network access', async () => {
     let now = 10_000;
     const store = cache();
@@ -237,7 +339,9 @@ describe('S06 token metadata resolver', () => {
       cache: store.repository,
       transport: { available: true, readText, readIcon: jest.fn(), close: jest.fn() },
     });
-    await expect(other.resolve(asset, new AbortController().signal)).rejects.toThrow('asset-metadata-unavailable');
+    const testnet = await other.resolve(asset, new AbortController().signal);
+    expect(testnet.metadata).toBeUndefined();
+    expect(other.peek(asset)).toBeUndefined();
     service.close();
     other.close();
     expect(TOKEN_METADATA_TTL_MS).toBe(7 * 24 * 60 * 60 * 1000);

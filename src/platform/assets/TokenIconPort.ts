@@ -1,4 +1,5 @@
 import { validTokenAsset, type TokenAssetIdentity } from '../../capabilities/assets/TokenMetadataCache';
+import { CURATED_ASSET_SOURCES, type AssetCatalogPort } from '../../capabilities/trustline/curatedAssetCatalog';
 import type { SafePublicTransport } from './NativeSafePublicTransport';
 import type { TokenMetadataPort } from './TokenMetadataResolver';
 
@@ -6,25 +7,90 @@ import type { TokenIconPort, TokenIconState } from '../../capabilities/assets/To
 
 const ICON_MEMORY_TTL_MS = 10 * 60 * 1000;
 const FAILED_CANDIDATE_TTL_MS = 60 * 60 * 1000;
+const MAX_CONCURRENT_ICON_LOADS = 2;
 
 // No wallet account address, signer, raw image bytes or credentials are persisted.
-// A screen's user-initiated Mainnet opt-in lives only for this AppServices session.
+// Explicit public-media consent is scoped to one network AppServices session.
 export function createTokenIconPort(
   input: Readonly<{
     networkId: string;
     metadata: TokenMetadataPort;
+    catalog?: AssetCatalogPort;
     transport: SafePublicTransport;
     now?: () => number;
   }>,
 ): TokenIconPort {
   const now = input.now ?? Date.now;
-  const available = input.networkId === 'stellar-mainnet' && input.transport.available;
+  const available =
+    (input.networkId === 'stellar-mainnet' || input.networkId === 'stellar-testnet') && input.transport.available;
   const listeners = new Set<() => void>();
-  const images = new Map<string, { uri: string; expires: number }>();
+  const images = new Map<string, { uri: string; sourceUrl: string; expires: number }>();
   const failed = new Map<string, number>();
   const controllers = new Set<AbortController>();
   let state: TokenIconState = Object.freeze({ enabled: false, revision: 0 });
   let closed = false;
+  let catalogRefresh: Promise<void> | undefined;
+  let catalogController: AbortController | undefined;
+  let activeIconLoads = 0;
+  const waitingIconLoads: Array<() => void> = [];
+
+  // Metadata and image downloads share the same native transport (two active,
+  // 16 queued). Bound the *whole* load to avoid turning local queue saturation
+  // into a persisted 24-hour issuer failure when many assets mount together.
+  function releaseIconSlot(): void {
+    activeIconLoads -= 1;
+    while (activeIconLoads < MAX_CONCURRENT_ICON_LOADS && waitingIconLoads.length > 0) {
+      waitingIconLoads.shift()?.();
+    }
+  }
+
+  function acquireIconSlot(signal: AbortSignal): Promise<boolean> {
+    return new Promise(resolve => {
+      if (closed || !state.enabled || signal.aborted) {
+        resolve(false);
+        return;
+      }
+      const start = () => {
+        signal.removeEventListener('abort', onAbort);
+        if (closed || !state.enabled || signal.aborted) {
+          resolve(false);
+          return;
+        }
+        activeIconLoads += 1;
+        resolve(true);
+      };
+      const onAbort = () => {
+        const index = waitingIconLoads.indexOf(start);
+        if (index < 0) return;
+        waitingIconLoads.splice(index, 1);
+        signal.removeEventListener('abort', onAbort);
+        resolve(false);
+      };
+      if (activeIconLoads < MAX_CONCURRENT_ICON_LOADS && waitingIconLoads.length === 0) {
+        start();
+      } else {
+        waitingIconLoads.push(start);
+        signal.addEventListener('abort', onAbort);
+        if (signal.aborted) onAbort();
+      }
+    });
+  }
+
+  // Curated Mainnet directories are fetched once per opt-in session, even if
+  // Home mounts many assets concurrently. Testnet uses verified issuer TOML
+  // only: no Mainnet issuer/logo candidate can cross the network boundary.
+  function refreshCuratedCatalog(): Promise<void> {
+    if (input.networkId !== 'stellar-mainnet' || !input.catalog?.loadSource) return Promise.resolve();
+    if (!catalogRefresh) {
+      catalogController = new AbortController();
+      const signal = catalogController.signal;
+      const loader = input.catalog.loadSource;
+      catalogRefresh = Promise.allSettled(
+        CURATED_ASSET_SOURCES.map(source => loader(input.networkId, source.id, signal)),
+      ).then(() => undefined);
+    }
+    return catalogRefresh;
+  }
 
   const keyFor = (asset: TokenAssetIdentity) => JSON.stringify([input.networkId, asset.code, asset.issuer]);
   const emit = (enabled = state.enabled) => {
@@ -42,6 +108,9 @@ export function createTokenIconPort(
     setEnabled(value) {
       if (closed || !available || value === state.enabled) return;
       if (!value) {
+        catalogController?.abort();
+        catalogController = undefined;
+        catalogRefresh = undefined;
         for (const controller of controllers) controller.abort();
         images.clear();
         failed.clear();
@@ -58,6 +127,16 @@ export function createTokenIconPort(
       }
       return stored.uri;
     },
+    rejectIcon(asset, uri) {
+      if (closed || !state.enabled || !validTokenAsset(asset, input.networkId)) return;
+      const key = keyFor(asset);
+      const current = images.get(key);
+      if (!current || current.uri !== uri) return;
+      images.delete(key);
+      failed.set(current.sourceUrl, now() + FAILED_CANDIDATE_TTL_MS);
+      if (failed.size > 120) failed.delete(failed.keys().next().value as string);
+      emit();
+    },
     async loadIcon(asset, signal) {
       if (closed || !state.enabled || !available || signal.aborted || !validTokenAsset(asset, input.networkId)) {
         return;
@@ -70,7 +149,12 @@ export function createTokenIconPort(
       const abort = () => controller.abort();
       signal.addEventListener('abort', abort);
       if (signal.aborted) controller.abort();
+      let acquired = false;
       try {
+        acquired = await acquireIconSlot(controller.signal);
+        if (!acquired || closed || controller.signal.aborted || !state.enabled) return;
+        await refreshCuratedCatalog();
+        if (closed || controller.signal.aborted || !state.enabled) return;
         // Metadata cache must actually be populated and revalidated on opt-in:
         // peeking only at curated rows would bypass the 7-day metadata TTL.
         // Multiple mounted UI consumers may request the same asset. A
@@ -90,7 +174,7 @@ export function createTokenIconPort(
             const result = await input.transport.readIcon(url, controller.signal);
             if (closed || !state.enabled || controller.signal.aborted) return;
             images.delete(key);
-            images.set(key, { uri: result.dataUri, expires: now() + ICON_MEMORY_TTL_MS });
+            images.set(key, { uri: result.dataUri, sourceUrl: url, expires: now() + ICON_MEMORY_TTL_MS });
             while (images.size > 24) images.delete(images.keys().next().value as string);
             emit();
             return result.dataUri;
@@ -102,6 +186,7 @@ export function createTokenIconPort(
         }
         return;
       } finally {
+        if (acquired) releaseIconSlot();
         signal.removeEventListener('abort', abort);
         controllers.delete(controller);
       }
@@ -109,6 +194,9 @@ export function createTokenIconPort(
     close() {
       if (closed) return;
       closed = true;
+      catalogController?.abort();
+      catalogController = undefined;
+      catalogRefresh = undefined;
       for (const controller of controllers) controller.abort();
       input.transport.close();
       input.metadata.close();

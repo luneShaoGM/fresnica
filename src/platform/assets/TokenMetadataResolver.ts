@@ -60,6 +60,8 @@ export function createTokenMetadataPort(
   }
 
   function curated(asset: TokenAssetIdentity): CuratedAsset[] {
+    // Public curation sources contain Mainnet identities only.
+    if (input.networkId !== 'stellar-mainnet') return [];
     const rows: CuratedAsset[] = [];
     for (const source of CURATED_ASSET_SOURCES) {
       const found = input.catalog.readCachedSource?.(input.networkId, source.id);
@@ -69,7 +71,10 @@ export function createTokenMetadataPort(
     return rows;
   }
 
-  async function issuerToml(asset: TokenAssetIdentity, signal: AbortSignal): Promise<CuratedAsset | undefined> {
+  async function issuerToml(
+    asset: TokenAssetIdentity,
+    signal: AbortSignal,
+  ): Promise<(CuratedAsset & { issuerLogo?: string }) | undefined> {
     const endpoint = safePublicHttpsUrl(input.horizonUrl);
     if (!endpoint) return;
     // Verify this configured endpoint is the intended network *before*
@@ -84,12 +89,18 @@ export function createTokenMetadataPort(
     const tomlUrl = issuerTomlUrl(account.home_domain);
     if (!tomlUrl) return;
     const document = await input.transport.readText(tomlUrl, signal);
-    return parseManualAssetDocument(document).find(row => row.code === asset.code && row.issuer === asset.issuer);
+    const matching = parseManualAssetDocument(document).find(
+      row => row.code === asset.code && row.issuer === asset.issuer,
+    );
+    if (!matching) return;
+    // Optional issuer organization logo is last in the fallback pool. It is
+    // only accepted from TOML reached via the network-verified issuer record.
+    return { ...matching, issuerLogo: issuerLogoFromToml(document) };
   }
 
   return {
     peek(asset) {
-      return read(asset)?.metadata ?? buildMetadata(curated(asset));
+      return withCuratedCandidates(curated(asset), read(asset)?.metadata);
     },
     async resolve(asset, signal, forceRefresh = false) {
       if (closed || signal.aborted || !validTokenAsset(asset, input.networkId)) {
@@ -104,10 +115,15 @@ export function createTokenMetadataPort(
         previous.savedAtUnixMs <= timestamp &&
         timestamp - previous.savedAtUnixMs < TOKEN_METADATA_TTL_MS
       )
-        return { metadata: previous.metadata, fromCache: true, stale: false, refreshFailed: false };
+        return {
+          metadata: withCuratedCandidates(curated(asset), previous.metadata),
+          fromCache: true,
+          stale: false,
+          refreshFailed: false,
+        };
       if (!forceRefresh && (previous?.retryAfterUnixMs ?? 0) > timestamp) {
         return {
-          metadata: previous?.metadata ?? buildMetadata(curated(asset)),
+          metadata: withCuratedCandidates(curated(asset), previous?.metadata),
           fromCache: true,
           stale: true,
           refreshFailed: true,
@@ -138,9 +154,7 @@ export function createTokenMetadataPort(
         const issuerRefreshed = fromToml !== undefined;
         const metadata = issuerRefreshed
           ? buildMetadata(fromCatalog, fromToml)
-          : previous?.metadata?.source === 'issuer-toml'
-            ? previous.metadata
-            : buildMetadata(fromCatalog);
+          : withCuratedCandidates(fromCatalog, previous?.metadata);
         const snapshot = validateTokenMetadataSnapshot(
           {
             schemaVersion: TOKEN_METADATA_SCHEMA_VERSION,
@@ -169,7 +183,7 @@ export function createTokenMetadataPort(
         };
       } catch (error) {
         if (closed || signal.aborted || controller.signal.aborted || latest.get(key) !== request) throw error;
-        const fallback = previous?.metadata ?? buildMetadata(curated(asset));
+        const fallback = withCuratedCandidates(curated(asset), previous?.metadata);
         const snapshot = validateTokenMetadataSnapshot(
           {
             schemaVersion: TOKEN_METADATA_SCHEMA_VERSION,
@@ -207,13 +221,15 @@ export function createTokenMetadataPort(
 
 function buildMetadata(
   orderedCurated: readonly CuratedAsset[],
-  fromToml?: CuratedAsset,
+  fromToml?: CuratedAsset & { issuerLogo?: string },
 ): TokenDisplayMetadata | undefined {
   if (orderedCurated.length === 0 && !fromToml) return;
   const icons: string[] = [];
   for (const row of [...orderedCurated, ...(fromToml ? [fromToml] : [])]) {
-    const url = safePublicHttpsUrl(row.icon);
-    if (url && !icons.includes(url) && icons.length < 8) icons.push(url);
+    for (const candidate of [row.icon, ...(row === fromToml ? [fromToml?.issuerLogo] : [])]) {
+      const url = safePublicHttpsUrl(candidate);
+      if (url && !icons.includes(url) && icons.length < 8) icons.push(url);
+    }
   }
   const preferred = fromToml ?? orderedCurated[0];
   const displayName = preferred?.name?.trim();
@@ -224,4 +240,29 @@ function buildMetadata(
     ...(displayName && displayName.length <= 160 ? { name: displayName } : {}),
     ...(displayDomain && displayDomain.length <= 255 ? { domain: displayDomain } : {}),
   };
+}
+
+function withCuratedCandidates(
+  rows: readonly CuratedAsset[],
+  cached?: TokenDisplayMetadata,
+): TokenDisplayMetadata | undefined {
+  const fresh = buildMetadata(rows);
+  if (!cached) return fresh;
+  const icons = [...(fresh?.icons ?? []), ...cached.icons]
+    .filter((url, index, all) => all.indexOf(url) === index)
+    .slice(0, 8);
+  return {
+    ...cached,
+    icons,
+    ...((cached.name ?? fresh?.name) ? { name: cached.name ?? fresh?.name } : {}),
+    ...((cached.domain ?? fresh?.domain) ? { domain: cached.domain ?? fresh?.domain } : {}),
+  };
+}
+
+// Small, deliberately bounded TOML reader for a single DOCUMENTATION.ORG_LOGO
+// string, not a general TOML parser or a source of asset authority.
+function issuerLogoFromToml(document: string): string | undefined {
+  const section = document.match(/(?:^|\n)\s*\[DOCUMENTATION\]\s*\n([\s\S]*?)(?=\n\s*\[|$)/);
+  const line = section?.[1]?.match(/(?:^|\n)\s*ORG_LOGO\s*=\s*["']([^"'\r\n]{1,2048})["']\s*(?:#.*)?(?:\n|$)/);
+  return safePublicHttpsUrl(line?.[1]);
 }
