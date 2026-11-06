@@ -1,4 +1,4 @@
-> 当前任务顺序与集成事实请先读 [当前基线与执行队列](fresnica-mobile-current-progress-and-next-plan.md)（保留 2026-10-29 历史队列；2026-11-04 S22 已合并状态见最新增量）。本文件保留完整产品覆盖和历史阶段证据；历史推荐 PR 序列不代表实时待办。
+> 当前施工顺序与集成事实请先读 [当前基线与执行队列](fresnica-mobile-current-progress-and-next-plan.md) 的 **2026-11-06 新 `main` 状态**。本文件保留完整产品范围与按日期排列的实施证据；旧 2026-10-29/11-04 队列和「候选／待合并」不代表实时状态。
 
 # Fresnica Mobile 重写评估与执行计划
 
@@ -1204,6 +1204,29 @@ Backend 交付并完成身份/滥用验证后才可支持：
 
 ## 11. 当前下一步
 
+### 2026-11-06 最新 `main` 顺序（以下 2026-09-22 记录仅为历史）
+
+GitHub 基线为 `main@b944cf34e2d9552acc8df79fa9304fb94d6a14df`。
+**LC5/S06 缓存同步三阶段已分别经 #170、#171、#172 合并**：
+v10 curated sources（12h），v11 Token Metadata（7d 成功/24h 发行方重试）
+与安全图标，v12 只读 dApp 详情（24h/失败30s）及可选图标。
+#172 最终合并 HEAD `06e3bf8118cdd3a1ec8240a5c9676ab59e7698e3`
+已修复详情/图标异步旧快照覆盖竞态。该成果是代码/Review/CI 交付，
+不是原生产品流签收，也没有让 S06/S14/LC5 自动升级 L4。
+
+**之后按以下顺序，每步一个独立 PR：** (1) 文档状态校准；
+(2) S10 Swap 当前生产链中的真实功能缺口；
+(3) S15–S21 dApp 浏览器/可信目录/权限/Freighter 安全闭环；
+(4) S11 Claimable、SDEX/LP、Security/Settings/Terms 等未完成产品；
+(5) Stage 9 集中双端原生验收与发布工程。
+详见 [2026-11-06 当前执行队列](fresnica-mobile-current-progress-and-next-plan.md)。
+S11 不能用 S13 历史 claim effects 冒充实时可领取数据；
+S22 远程 Resolver 无已批准的来源/隐私契约，M 地址按用户决定暂停；
+Terms 正文待 owner 提供。iOS 真机 System Auth 取消/重试留待 Stage 9。
+#78 Automation V2.2 保持暂停。旧 #127/#133/#144 等需先与新
+`main` 核对，不擅自合并。Review 必须针对 exact remote HEAD，
+无 P1/P2 后仍由用户决定 Merge。
+
 立即执行顺序（2026-09-22）：
 
 1. Stage 0A / Stage 1 / Stage 2 / Stage 2.5 与 clean integration 已完成并进入 `main`；后续 PR 继续执行既有 provenance、架构和共享 transaction recovery 门，不重开第二套底层。
@@ -1261,6 +1284,16 @@ No native/maturity promotion; effects/images/explicitDustSpam policy follow.
   4. Decide whether users must explicitly accept Terms at onboarding or on version updates. If required, approve the user gesture, cancellation/decline consequences, persistence scope, migration, repeat prompt and version-change semantics before implementing acceptance.
 - **After inputs arrive:** integrate the approved content, prove byte-for-byte content/version integrity and rollback/error paths, independently review the exact new HEAD, then include native scrolling/accessibility/dynamic-type and browser handoff in the final iOS/Android acceptance round.
 - **State:** Questions & Support code complete / native pending; Terms reader foundation implementable without legal text; official Terms publication and acceptance remain blocked by owner-provided inputs, not L4 complete.
+
+### 2026-11-06 缓存三阶段合并状态（覆盖下方历史实施快照）
+
+下方 2026-11-05 的「current PR / next PR / candidate /
+pending Work Review」是当日施工记录，**均已通过 #170、#171、
+#172 合并到 `main@b944cf34e2d9552acc8df79fa9304fb94d6a14df`**，
+不应再作为当前待开发或待审查事项。
+源缓存分区、issuer TTL/失败重试、原生图标安全门和只读 dApp
+细节缓存已交付；Claimable 当前快照、远程 Resolver、
+双端原生及 Stage 9 验收仍按对应产品范围管理，不伪称完成 L4。
 
 ### S06 / LC5 cache synchronization — staged delivery (2026-11-05)
 
