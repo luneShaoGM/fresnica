@@ -13,3 +13,44 @@ Decision: Adapt the remaining Fresnica Swap interaction roles from branch `stage
 Validation covers strict-send/receive request identity, selected quote projection, debounce/manual interaction, supersession and out-of-order results, failure/retry, exchange, background/focus/close and exact-review continuation. Native product-flow, simulator/physical-device, dynamic-font and TalkBack/VoiceOver acceptance remain unperformed. Stage 9 real-iPhone System Auth cancellation/retry remains deferred.
 
 Provenance: reuse current Fresnica components and workflow contracts; implement this adaptation without consulting/copying Stellar/Xaman source. The old full Swap implementation and duplicate cache are not imported. Remaining route/settings controls, Max/live spendable and other-screen styling stay separate slices.
+
+
+## 2026-11-06 S10 quote expiry and default slippage closure
+
+Status: **Swap interaction correction candidate** on
+`main@49aec7fa0846399f5fa1056422cbdba3c497fae6` (after the
+user-merged #173 plan rebaseline). Product traceability: S10.
+Owner: `features/swap/SwapPreviewScreen.tsx`. Decision: **Adapt** the
+observable Stellar exchange behavior using current Fresnica components and
+capabilities; no donor implementation or styling copied.
+
+- Quote freshness is a time-limited **UI affordance**, not signing authority.
+  An already expired quote, or one expiring while its route card remains open,
+  displays the existing localized expiration error, disables Review and leaves
+  manual Requote available. The route's expiry timer is cancelled/replaced on
+  selection change, route blur, backgrounding or component disposal. A queued
+  old Review callback rechecks the real deadline **before** any live ledger
+  read, unsigned build or authorization attempt.
+- Keep the existing Capability's **independent monotonic + Unix-time
+  expiration checks** in `derivePathPaymentProtection` and the C1/D1
+  exact-XDR review/submission pipeline. Display-side clock scheduling is
+  intentionally not proof that the underlying quote remains valid.
+- Fresh Swap form default slippage is **50 basis points (0.5%)**, matching
+  Stellar's product default of 5 permille. Fresnica's existing 10/50/100
+  basis-point presets, explicit custom 0–1000-bps validation and frozen
+  slippage-to-reviewed-XDR identity remain unchanged. This is a safer
+  default, not a change to user-selected custom slippage.
+- Preserve existing pay/receive fixed-side draft, debounced/manual quotes,
+  selected path, live-spendable Max, account/network isolation, System Auth
+  handoff, passphrase, submission and uncertain/recovery behavior. No
+  dependency, Realm schema, remote image/Token Icon component, Balance
+  cache, authorization or native transport changes in this slice.
+
+Validation scope: automated UI-level quote already-expired, timer expiry,
+old queued Review callback, route switch timer replacement and default
+slippage selection; previously validated Path Payment preflight,
+signing/uncertain/recovery is unchanged and should not be reimplemented or
+misreported as newly accepted. Device-level quote transition, large text,
+TalkBack/VoiceOver, live Horizon broadcasts and Stage 9 iOS real-device
+System Auth cancellation/retry remain deferred. Independent Work must review
+the PR's exact remote HEAD; the user chooses merge timing.

@@ -81,7 +81,8 @@ export function SwapPreviewScreen({
   const [destinationIndex, setDestinationIndex] = useState(1);
   const [mode, setMode] = useState<PathPaymentMode>('strict_send');
   const [amount, setAmount] = useState('');
-  const [slippageInput, setSlippageInput] = useState('100');
+  // Stellar defaults to 0.5%; basis points are the S10 Capability unit.
+  const [slippageInput, setSlippageInput] = useState('50');
   const [view, setView] = useState<ViewState>({ kind: 'form' });
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -98,6 +99,7 @@ export function SwapPreviewScreen({
   >({ kind: 'unavailable', key: '' });
   const [spendableRevision, setSpendableRevision] = useState(0);
   const [maxLoading, setMaxLoading] = useState(false);
+  const [quoteExpiryRevision, setQuoteExpiryRevision] = useState(0);
   const attempt = useRef(0);
   const locked = useRef(false);
   const submitLocked = useRef(false);
@@ -315,6 +317,12 @@ export function SwapPreviewScreen({
       locked.current
     )
       return;
+    // UI must fail before loading ledger or building XDR. The Capability
+    // independently enforces monotonic expiry for the final review.
+    if (Date.now() >= view.selected.expiresAtUnixMs) {
+      setError(t('swap.error.expired'));
+      return;
+    }
     const slippageText = slippageInput.trim();
     if (!/^(0|[1-9]\d{0,3})$/.test(slippageText) || Number(slippageText) > 1000) {
       setError(t('swap.error.slippage'));
@@ -456,6 +464,17 @@ export function SwapPreviewScreen({
     spendableRevision,
   ]);
 
+  // Quote freshness is a presentation timer, not the transaction authority.
+  // A background/route transition removes the timer; a fresh route replaces
+  // it. Real quotes expire within 30s, and the cap avoids timer overflow.
+  useEffect(() => {
+    if (view.kind !== 'quotes' || !active || !foreground || selectedAccountId !== account.id) return;
+    const remainingMs = view.selected.expiresAtUnixMs - Date.now();
+    if (!Number.isFinite(remainingMs) || remainingMs <= 0) return;
+    const timer = setTimeout(() => setQuoteExpiryRevision(current => current + 1), Math.min(remainingMs, 30_000));
+    return () => clearTimeout(timer);
+  }, [account.id, active, foreground, quoteExpiryRevision, selectedAccountId, view]);
+
   const applyMax = async () => {
     if (
       !active ||
@@ -534,6 +553,7 @@ export function SwapPreviewScreen({
   };
 
   const selectedQuote = view.kind === 'quotes' ? view.selected : undefined;
+  const quoteExpired = selectedQuote !== undefined && Date.now() >= selectedQuote.expiresAtUnixMs;
   const sourceAmount = mode === 'strict_send' ? amount : (selectedQuote?.sourceAmount ?? '');
   const destinationAmount = mode === 'strict_receive' ? amount : (selectedQuote?.destinationAmount ?? '');
   const preparing = busy && view.kind === 'quotes';
@@ -763,6 +783,11 @@ export function SwapPreviewScreen({
             <Text style={styles.secondary}>
               {t('swap.preview.quotedUntil')}: {new Date(view.selected.expiresAtUnixMs).toLocaleTimeString()}
             </Text>
+            {quoteExpired ? (
+              <Text accessibilityLiveRegion="assertive" style={styles.error}>
+                {t('swap.error.expired')}
+              </Text>
+            ) : null}
             {settingsVisible ? (
               <View style={styles.section}>
                 <View style={styles.row}>
@@ -890,7 +915,7 @@ export function SwapPreviewScreen({
           <>
             <NativeButton
               label={busy ? t('swap.preview.loading') : t('swap.preview.review')}
-              disabled={busy || maxLoading}
+              disabled={busy || maxLoading || quoteExpired}
               onPress={() => startReview()}
               size="lg"
               variant="primary"
