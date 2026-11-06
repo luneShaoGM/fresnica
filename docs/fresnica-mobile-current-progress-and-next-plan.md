@@ -1,5 +1,66 @@
 # Fresnica Mobile｜当前基线与执行队列
 
+## 2026-11-06 当前 `main` 状态（优先于下方历史队列）
+
+**事实源：** GitHub `luneShaoGM/fresnica` 的
+`main@b944cf34e2d9552acc8df79fa9304fb94d6a14df`，
+即 [PR #172](https://github.com/luneShaoGM/fresnica/pull/172)
+合并提交。下方 2026-10-29/11-04「候选」「待合并」「下一步」文字
+仍作为带日期的历史快照保留，**不再代表当前 PR 或交付状态**。
+
+| 已合并增量 | 当前代码覆盖（非原生产品验收） | 尚未完成 |
+| --- | --- | --- |
+| [#129](https://github.com/luneShaoGM/fresnica/pull/129) | Classic 账户切网连续性、网络/Settings 入口与节点管理修正 | Android/iOS 全场景和无障碍验收；通用应用锁受上游 Challenge API 阻断 |
+| [#159](https://github.com/luneShaoGM/fresnica/pull/159)、[#162](https://github.com/luneShaoGM/fresnica/pull/162) | 全局 G 地址联系人、Memo Return、Activity 卡片/扫码、Send Details→Recipient→Summary | 原生扫码/Send/权限；M 地址按用户决定暂停，远端名称解析无批准来源 |
+| [#165](https://github.com/luneShaoGM/fresnica/pull/165) | 只读可滚动 Terms 阅读器骨架 | 法律正文、许可、版本、语言及接受政策需 owner 确认 |
+| [#164](https://github.com/luneShaoGM/fresnica/pull/164)、[#166](https://github.com/luneShaoGM/fresnica/pull/166) | Activity 可核实 claimable effects 和手动资产隐藏/恢复 | S13 双端离线 Retry、真机/大字/读屏仍需验收 |
+| [#170](https://github.com/luneShaoGM/fresnica/pull/170) | Realm v10 三个 Mainnet curated asset source 的 12h 分区缓存、失败保留、混合损坏响应防缓存投毒 | S06 其余资产发现/风险能力和原生 UI 验收 |
+| [#171](https://github.com/luneShaoGM/fresnica/pull/171) | Realm v11 Token Metadata，7d 发行方成功 TTL/24h 失败重试、默认关闭的原生安全图标 | 双端恶意网络响应、下载/取消/读屏及真机验收 |
+| [#172](https://github.com/luneShaoGM/fresnica/pull/172) | Realm v12 按网络+App ID 隔离的 dApp 只读详情（24h/失败30s）、可选图标；最终 HEAD `06e3bf8` 修复并发写覆盖 | 不等于浏览器、连接许可或签名完成；dApp 原生产品验收仍缺 |
+
+**LC5 缓存三阶段开发已合并；没有据此将 S06/S14/LC5
+升级到 L4。** S11 当前 Claimable 快照仍缺真实的余额/领取
+消费者与权威数据来源，不能从 S13 历史 operation effects 推断。
+S22 typed-Memo 本地联系人/Realm 已实现，远端 Resolver
+缺获批服务、TTL 和地址隐私契约，继续延期。
+公开图标始终默认 OFF；图标或目录条目不是可信 origin/授权证明。
+
+### 后续执行顺序（每个步骤一个独立 PR）
+
+1. **本 PR：校准执行计划、进度索引与追踪账本。** 只更新
+   GitHub 合并事实和未验收边界；不重做缓存代码。
+2. **S10 Swap：** 从当前 `main` 核对报价→exact-XDR review→授权→提交→
+   uncertain/recovery，修复真正缺失的窄范围产品功能；
+   不重复测试不受影响的能力，原生聚合证据按统一验收计划登记。
+3. **S15–S21 dApp：** 核对旧开放
+   [#127](https://github.com/luneShaoGM/fresnica/pull/127)、
+   [#133](https://github.com/luneShaoGM/fresnica/pull/133)
+   与已合并 Android 原生请求安全边界，逐项推进浏览器、
+   可信目录启动、权限/Freighter、exact-XDR 签名安全链；
+   不直接重放旧分支，不启用 WalletConnect。
+4. **其余产品逐项补齐：** S11 Claimable、SDEX/LP、S03/S04 安全、
+   S23–S26 设置/Terms、主题/硬件等依赖明确后分切片完成。
+   [#144](https://github.com/luneShaoGM/fresnica/pull/144)
+   ConfirmDialog 仍开放；先核查旧 P2 与当前组件，不能直接合并旧 HEAD。
+5. **Stage 9：** 合并前已完成的原生测试不重复；集中完成
+   双端真机/模拟器、权限/取消/重试/后台/切网、可访问性、
+   公开图片恶意网络场景、正式签名/应用身份/Mainnet 发布门。
+   **iOS 真机 System Auth 取消→重试依旧延期至此。**
+
+上述不修改旧 §4 的 2026-10-29 五项依赖编号；它是本轮新 `main`
+的实际后续施工次序。每个 PR 都执行：
+当前 local/remote HEAD + working tree 检查 → 最小改动及相称验证 →
+Commit/Push → Work **独立 exact-HEAD Review** → P1/P2 修复及复审 →
+**用户决定 Merge** → 以合并后的 `main` 开始下一步。
+[#78](https://github.com/luneShaoGM/fresnica/pull/78)
+Automation V2.2 继续暂停，旧 [#14](https://github.com/luneShaoGM/fresnica/pull/14) /
+[#25](https://github.com/luneShaoGM/fresnica/pull/25)
+只能按当前 `main` 先调查是否已实现，不直接重放。
+**CI / Realm / Helper / Emulator / Real Device / Native Product-flow
+Acceptance 各自独立记录，不混为 L4 验收。**
+
+---
+
 > 历史基线更新：2026-10-29（Asia/Shanghai），保留原章节与第 4 节五项依赖队列。GitHub main、当前源码和 exact-HEAD Review 为事实源；本文件是执行索引。实现、审查、合并、自动化验证、原生验收分别记录，不能互相替代。
 
 ## 2026-11-04 S22 已合并进度（优先于下方 2026-10-29 历史快照）

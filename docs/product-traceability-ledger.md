@@ -2,6 +2,8 @@
 
 > Stage 0 stable product ledger. Source behavior comes from `origin/Stellar@stellar-migration`; security/business semantics come from `origin/fresnica`. Donor implementation is clean-room by default under `docs/provenance/README.md`.
 
+> **2026-11-06 实时交付覆盖：** 本文顶部成熟度及下方候选表均保留各阶段的原始范围/证据，不能单凭缓存 PR 升级整个 S06/S14/LC5。当前已合并事实以文末 2026-11-06 状态补充为准。
+
 | ID | Product behavior | Target owner | Decision | Provenance path | External/upstream dependency | Current maturity |
 | --- | --- | --- | --- | --- | --- | --- |
 | S01 | Create/import/watch-only/HD account entry | accounts/onboarding + Account/Signer | Adapt | clean-room | Create + Import + HD are merged and dual-platform aggregate accepted; repeatable required gate + accessibility closure remain | L3 / L4 partial |
@@ -437,3 +439,31 @@ S11 live Claimable snapshot and S22 remote identity Resolver remain
 established. Existing typed-memo-aware local contacts are **reused**,
 not reimplemented. PR CI/Work exact-HEAD review and native product-flow
 remain pending, no product maturity promotion.
+
+### 2026-11-06 `main` 当前交付覆盖及验收边界
+
+**事实基线：** `main@b944cf34e2d9552acc8df79fa9304fb94d6a14df`
+（PR #172 merge commit）。下表更新「代码已合并」而不篡改
+历史候选结论或擅自重新评定整个产品 ID 的成熟度。
+
+| 追踪范围 | 当前合并事实 | 未验收或产品前置 |
+| --- | --- | --- |
+| S06 / LC5-1 | #170 最终 HEAD `d946c65c6f47644c1e793577b08075550145ed36`；Realm v10 三源缓存，12h TTL、离线和无效响应防覆盖 | 资产风险/完整发现与原生 UI，未升级 S06 L4 |
+| S06 / LC5-2 | #171 最终 HEAD `472c394af515b874342bea47b51593d8f3174e9e`；Realm v11 exact network/code/issuer，7d 成功 TTL、24h issuer 失败重试，默认关闭的经 native 公网 IP/TLS 校验图标 | iOS/Android 真机恶意网络响应、重定向、取消与无障碍 |
+| S14 / LC5-3 | #172 最终 HEAD `06e3bf8118cdd3a1ec8240a5c9676ab59e7698e3`；Realm v12 exact network+app ID，24h 只读详情/30s 重试与可选图标，修复并发旧快照覆盖 | 不能授予权限、自动连接或签名，原生产品流未签收 |
+| S13 | #164 operation effects 可信金额与 #166 手动 issued asset hide/show 已合并；共享 S06 opt-in 图标 | 离线 Retry→重读→重启、账户网络切换、动态字体和读屏 |
+| S07 / S22 | #159 G 地址 Memo Return、#162 Contacts/Activity/Send 联动已合并 | M 地址暂停；远端 Resolver 无获批 API、TTL/地址隐私契约；真机扫码/付款延期 |
+| S23/S24/S26 | #129 网络/Settings 入口、#165 Terms 只读框架已合并 | 网络节点双端场景；法律正文、来源权限、版本/接受政策待 owner |
+| S10 与 S15–S21 | Swap 生产报价/审阅/提交/恢复已有模块，dApp 目录/浏览器/权限/协议已有部分实现 | Swap 聚合、dApp Android 浏览器与 Freighter 敏感链尚未整体原生验收；旧开放 #127/#133 需重新核对 |
+
+**S11 当前 Claimable 快照：延期。** 当前 S13 claim/clawback
+Operation History 不能证明当前账户可领取状态，也不能代替
+实时 Claimable 列表、claim eligibility 或授权能力。
+**S22 远程 Resolver：延期。** 本地 typed Memo 联系人身份及 Realm
+修订失效已存在；远程来源未经批准，不能擅自请求/缓存私有地址身份。
+
+**实际下一步：** 文档事实校准 → S10 Swap 真实缺口 →
+S15–S21 dApp 安全产品闭环 → Stage 8 剩余产品 → Stage 9 原生/真机验收与
+正式发布身份。每个窄范围步骤单独 PR，当前远端 exact-HEAD Work Review
+清零 P1/P2 后由用户决定 Merge；不自动合并。Automation V2.2/#78
+暂停，iOS 真机 System Auth 取消→重试仍延期到 Stage 9。
