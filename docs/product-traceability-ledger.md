@@ -540,6 +540,10 @@ the current main. #127 remains a separate old open PR, not a merge gate
 or authorization source for this product slice. Token Icon #174 is a
 parallel independent workstream and unaffected.
 
+### S11 current claimant balances, risk groups and reviewable claim (2026-11-09)
+
+Candidate only, pending PR creation, exact-HEAD Work review and user merge. Based on `main@62be0683f18c40975c5fc1dea7cd5240833791de`. Owner: `capabilities/claimable` with `features/claimable` and current Horizon/Realm v13 adapters; decision **Adapt** self-developed Stellar behavior with user-provided ownership confirmation, **not** direct copy. Concrete migration differences: [S11 source-to-target register](s11-stellar-migration-differences.md); contract: [S11 behavior spec](behavior-specs/s11-claimable-product.md). S11 live balances are distinct from S13 claim/clawback historical effects. UI reads only current-account/network snapshots; a fresh, exact same-network by-ID Claimant/predicate check gates reviewed unsigned XDR and the established SDK/Core signer/recovery pipeline. User display spam overrides have no signature authority. Native product-flow acceptance is deferred to Stage 9, not assumed passed by Jest or CI. **Do not promote to L4 before real device evidence**.
+
 ### S06 unknown-Token presentation follow-up — 2026-11-06 candidate
 
 Stellar TokenIcon/TokenAvatar use an unknown-asset fallback after image

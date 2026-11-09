@@ -74,7 +74,7 @@ describe('Wallet Realm v11 to v12 S14 public dApp details migration', () => {
       realm.close();
 
       realm = await openWalletRealm({ path });
-      expect(realm.schemaVersion).toBe(12);
+      expect(realm.schemaVersion).toBe(13);
       expect(realm.objectForPrimaryKey(ACCOUNT_ENTITY, 'wallet-keep')?.label).toBe('Wallet');
       expect(realm.objectForPrimaryKey(PENDING_SUBMISSION_ENTITY, 'pending-keep')?.intentKey).toBe('untouched-intent');
       expect(realm.objectForPrimaryKey(DAPP_CATALOG_CACHE_ENTITY, networkId)?.payloadJson).toContain('"entries":[]');

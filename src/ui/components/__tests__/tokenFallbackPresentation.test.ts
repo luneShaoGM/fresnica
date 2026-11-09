@@ -13,7 +13,13 @@ jest.mock('../../theme', () => {
   };
 });
 
-type Element = React.ReactElement<{ children?: React.ReactNode; small?: boolean; source?: unknown; style?: unknown }>;
+type Element = React.ReactElement<{
+  children?: React.ReactNode;
+  small?: boolean;
+  source?: unknown;
+  resizeMode?: string;
+  style?: unknown;
+}>;
 function nodes(root: React.ReactNode, type: unknown): Element[] {
   const matches: Element[] = [];
   const visit = (node: React.ReactNode) => {

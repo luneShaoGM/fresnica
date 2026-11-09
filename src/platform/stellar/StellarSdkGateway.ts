@@ -11,6 +11,8 @@ import {
   TransactionBuilder,
 } from '@stellar/stellar-sdk/axios';
 
+import { validClaimableId } from '../../capabilities/claimable/records';
+import type { ClaimableTransactionProjection } from '../../capabilities/claimable/claimableTransaction';
 import type { HistoryOperationRecord } from '../../capabilities/history/HistoryGateway';
 import type { NetworkContext } from '../../capabilities/network/types';
 import type { PaymentTransactionProjection } from '../../capabilities/payment/PaymentGateway';
@@ -49,7 +51,9 @@ export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryO
     occurredAt: input.created_at,
     transactionHash: input.transaction_hash,
     sourceAccount: input.source_account,
-    ...(typeof input.transaction_successful === 'boolean' ? { successful: input.transaction_successful } : { outcomeUnknown: true as const }),
+    ...(typeof input.transaction_successful === 'boolean'
+      ? { successful: input.transaction_successful }
+      : { outcomeUnknown: true as const }),
     ...mapOfferPoolFields(input),
     ...mapContractFields(input),
     ...mapClassicControlFields(input),
@@ -139,11 +143,19 @@ function mapContractFields(input: HorizonOperationLike): Partial<HistoryOperatio
       : raw;
   return {
     hostFunction: input.function,
-    ...(['HostFunctionTypeHostFunctionTypeCreateContract', 'HostFunctionTypeHostFunctionTypeCreateContractV2'].some(kind => kind === input.function) ? {
-      creationOrigin: input.from,
-      ...(input.from === 'address' && typeof input.address === 'string' && (StrKey.isValidEd25519PublicKey(input.address) || StrKey.isValidContract(input.address)) ? { deployer: input.address } : {}),
-      ...(input.from === 'asset' ? { creationAsset: canonicalHistoryAsset(input.asset) } : {}),
-    } : {}),
+    ...(['HostFunctionTypeHostFunctionTypeCreateContract', 'HostFunctionTypeHostFunctionTypeCreateContractV2'].some(
+      kind => kind === input.function,
+    )
+      ? {
+          creationOrigin: input.from,
+          ...(input.from === 'address' &&
+          typeof input.address === 'string' &&
+          (StrKey.isValidEd25519PublicKey(input.address) || StrKey.isValidContract(input.address))
+            ? { deployer: input.address }
+            : {}),
+          ...(input.from === 'asset' ? { creationAsset: canonicalHistoryAsset(input.asset) } : {}),
+        }
+      : {}),
     ...(contractId === undefined ? {} : { contractId }),
     ...(functionName === undefined ? {} : { functionName }),
     ...(events === undefined ? {} : { assetBalanceChanges: events }),
@@ -742,6 +754,43 @@ export class StellarSdkGateway implements StellarGateway {
     };
   }
 
+  inspectClaimClaimableBalance(xdrBase64: string, networkPassphrase: string): ClaimableTransactionProjection {
+    if (networkPassphrase !== this.config.network.networkPassphrase)
+      throw new Error('claimable-review-passphrase-mismatch');
+    const transaction = new Transaction(xdrBase64, networkPassphrase);
+    if (transaction.operations.length !== 1 || transaction.operations[0].type !== 'claimClaimableBalance')
+      throw new Error('claimable-review-exact-operation-required');
+    const operation = transaction.operations[0];
+    if (operation.source || !validClaimableId(operation.balanceId))
+      throw new Error('claimable-review-unexpected-source-or-id');
+    if (transaction.memo.type !== 'none' || transaction.signatures.length > 0)
+      throw new Error('claimable-review-unexpected-memo-or-signature');
+    const maxTime = transaction.timeBounds?.maxTime;
+    const expiresAtUnixSeconds = maxTime && maxTime !== '0' ? Number(maxTime) : undefined;
+    if (!expiresAtUnixSeconds || !Number.isSafeInteger(expiresAtUnixSeconds))
+      throw new Error('claimable-review-expiry-required');
+    return Object.freeze({
+      source: transaction.source,
+      id: operation.balanceId,
+      fee: transaction.fee,
+      expiresAtUnixSeconds,
+    });
+  }
+
+  async buildClaimClaimableBalance(source: string, id: string, baseFee: string): Promise<BuiltTransaction> {
+    if (!this.isClassicAccountAddress(source) || !validClaimableId(id) || !/^\d+$/.test(baseFee) || Number(baseFee) < 1)
+      throw new Error('claimable-build-invalid');
+    const sourceAccount = await this.server.loadAccount(source);
+    const transaction = new TransactionBuilder(sourceAccount, {
+      fee: baseFee,
+      networkPassphrase: this.config.network.networkPassphrase,
+    })
+      .addOperation(Operation.claimClaimableBalance({ balanceId: id }))
+      .setTimeout(180)
+      .build();
+    return { source, networkId: this.config.network.id, transactionXdrBase64: transaction.toXdr() };
+  }
+
   transactionHash(signedXdrBase64: string): string {
     return transactionHashHex(new Transaction(signedXdrBase64, this.config.network.networkPassphrase));
   }
@@ -794,9 +843,30 @@ export class StellarSdkGateway implements StellarGateway {
 
 function mapClassicControlFields(input: HorizonOperationLike): Partial<HistoryOperationRecord> {
   if (!['account_merge', 'set_options', 'revoke_sponsorship', 'inflation'].includes(input.type)) return {};
-  const keys = ['account', 'into', 'inflation_dest', 'home_domain', 'master_key_weight', 'low_threshold',
-    'med_threshold', 'high_threshold', 'signer_key', 'signer_weight', 'set_flags', 'clear_flags',
-    'account_id', 'claimable_balance_id', 'data_account_id', 'data_name', 'offer_id',
-    'trustline_account_id', 'trustline_asset', 'trustline_liquidity_pool_id', 'signer_account_id'] as const;
-  return { controlParameters: Object.fromEntries(keys.filter(key => input[key] !== undefined).map(key => [key, input[key]])) };
+  const keys = [
+    'account',
+    'into',
+    'inflation_dest',
+    'home_domain',
+    'master_key_weight',
+    'low_threshold',
+    'med_threshold',
+    'high_threshold',
+    'signer_key',
+    'signer_weight',
+    'set_flags',
+    'clear_flags',
+    'account_id',
+    'claimable_balance_id',
+    'data_account_id',
+    'data_name',
+    'offer_id',
+    'trustline_account_id',
+    'trustline_asset',
+    'trustline_liquidity_pool_id',
+    'signer_account_id',
+  ] as const;
+  return {
+    controlParameters: Object.fromEntries(keys.filter(key => input[key] !== undefined).map(key => [key, input[key]])),
+  };
 }
