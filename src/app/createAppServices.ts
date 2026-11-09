@@ -28,6 +28,10 @@ import { createHttpAssetCatalog } from '../platform/assets/HttpAssetCatalog';
 import { createCachedAssetCatalog } from '../platform/assets/CachedAssetCatalog';
 import { createNodeReadSession, type NodeReadSession } from './readModels/createNodeReadSession';
 import { createHorizonPublicReadGateway } from '../platform/stellar/HorizonPublicReadGateway';
+import { createHorizonClaimableGateway } from '../platform/stellar/HorizonClaimableGateway';
+import { createClaimableProduct, type ClaimableProduct } from '../capabilities/claimable/createClaimableProduct';
+import type { ClaimableTransactionDependencies } from '../capabilities/claimable/claimableTransaction';
+import { RealmClaimableCacheStore } from '../platform/persistence/realm/RealmClaimableCacheStore';
 import { bindNodeAccountEffects } from './readModels/bindNodeAccountEffects';
 import { startPostSubmitReadConvergence } from './readModels/startPostSubmitReadConvergence';
 import { createForegroundAccountSync, type ForegroundAccountSync } from './readModels/createForegroundAccountSync';
@@ -107,6 +111,8 @@ export type AppServices = Readonly<{
   swapExecution: SwapSubmissionProductDependencies;
   history: HistoryProductDependencies;
   trustline: TrustlineProductDependencies;
+  claimables: ClaimableProduct;
+  claimableTransaction: ClaimableTransactionDependencies;
   request: RequestProductDependencies;
   contacts: ContactBook;
   dappCatalog: DappCatalogPort;
@@ -144,6 +150,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
   let closeAssetCatalog = () => {};
   let closeTokenIcons = () => {};
   let closeDappPermissions = () => {};
+  let closeClaimables = () => {};
   let networkSettings: NetworkSettings | undefined;
   let retired = false;
   let closed = false;
@@ -155,6 +162,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     closeAssetCatalog();
     closeTokenIcons();
     closeDappPermissions();
+    closeClaimables();
     networkSettings?.close();
     stopSettingsLifecycle();
     closeReadRecovery();
@@ -236,6 +244,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       new Set(['submitTransaction']),
     );
     const publicReads = createHorizonPublicReadGateway();
+    const claimableReads = createHorizonClaimableGateway();
     const nodeReadSession = createNodeReadSession({
       endpoint: networkProfile.horizonUrl,
       networkPassphrase: network.networkPassphrase,
@@ -254,6 +263,18 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       },
     });
     closeReadRecovery = () => nodeReadSession.close();
+    const claimables = createClaimableProduct({
+      networkId: network.id,
+      cache: new RealmClaimableCacheStore(realm),
+      now: () => Date.now(),
+      read: {
+        page: (address, cursor) =>
+          nodeReadSession.run((signal, endpoint) => claimableReads.page(endpoint, address, cursor, signal)),
+        byId: (address, id) =>
+          nodeReadSession.run((signal, endpoint) => claimableReads.byId(endpoint, id, address, signal)),
+      },
+    });
+    closeClaimables = claimables.close;
     const displayReadGateway = createDisplayReadGateway({
       gateway: {
         loadAccountBalances: address =>
@@ -515,6 +536,15 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         repository,
         recovery,
         network,
+      },
+      claimables,
+      claimableTransaction: {
+        network,
+        reader: claimables,
+        gateway: stellarGateway,
+        repository,
+        sdk,
+        recovery,
       },
       request: {
         gateway: stellarGateway,

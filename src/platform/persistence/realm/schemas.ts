@@ -1,6 +1,26 @@
 import type Realm from 'realm';
 
-export const WALLET_REALM_SCHEMA_VERSION = 12;
+export const WALLET_REALM_SCHEMA_VERSION = 13;
+
+export const CLAIMABLE_CACHE_ENTITY = 'ClaimableCacheEntity';
+export const CLAIMABLE_RISK_OVERRIDE_ENTITY = 'ClaimableRiskOverrideEntity';
+export const CLAIMABLE_CACHE_SCHEMA = {
+  name: CLAIMABLE_CACHE_ENTITY,
+  primaryKey: 'id',
+  properties: {
+    id: 'string',
+    networkId: 'string',
+    accountAddress: 'string',
+    version: 'int',
+    savedAt: 'date',
+    payloadJson: 'string',
+  },
+} satisfies Realm.ObjectSchema;
+export const CLAIMABLE_RISK_OVERRIDE_SCHEMA = {
+  name: CLAIMABLE_RISK_OVERRIDE_ENTITY,
+  primaryKey: 'id',
+  properties: { id: 'string', networkId: 'string', accountAddress: 'string', balanceId: 'string', hidden: 'bool' },
+} satisfies Realm.ObjectSchema;
 
 export const CONTACT_ENTITY = 'ContactEntity';
 export const CONTACT_SCHEMA = {
@@ -201,6 +221,8 @@ export const DAPP_PERMISSION_GRANT_SCHEMA = {
 } satisfies Realm.ObjectSchema;
 
 export const WALLET_REALM_SCHEMAS = [
+  CLAIMABLE_CACHE_SCHEMA,
+  CLAIMABLE_RISK_OVERRIDE_SCHEMA,
   CONTACT_SCHEMA,
   ACCOUNT_SCHEMA,
   SIGNER_SCHEMA,

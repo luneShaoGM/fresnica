@@ -18,6 +18,7 @@ export type ProductRoute =
   | 'request'
   | 'swap'
   | 'manage-assets'
+  | 'claimable'
   | 'activity'
   | 'operation-details'
   | 'dapps'
@@ -57,6 +58,7 @@ export type ProductRouteParams = Readonly<{
   'send-result': undefined;
   request: Readonly<{ accountId: string }>;
   swap: Readonly<{ accountId: string }>;
+  claimable: Readonly<{ accountId: string }>;
   'manage-assets': Readonly<{
     accountId: string;
     requestedAction?: Readonly<{ action: 'add' | 'remove'; code: string; issuer: string }>;
@@ -90,6 +92,7 @@ export const PRODUCT_ROUTES: Readonly<Record<MainTab, readonly ProductRoute[]>> 
     'request',
     'swap',
     'manage-assets',
+    'claimable',
   ],
   activity: ['activity', 'operation-details'],
   dapps: ['dapps'],

@@ -22,6 +22,7 @@ export function walletRealmConfiguration(options: OpenWalletRealmOptions = {}): 
       // v10 adds isolated replaceable public curated-asset source snapshots.
       // v11 adds isolated display-only token metadata; no image bytes or wallet authority.
       // v12 adds public dApp detail/icon candidate evidence; grants stay independent.
+      // v13 adds strictly public, network/account-scoped S11 claimable snapshots and user display spam overrides.
     },
   };
 }
