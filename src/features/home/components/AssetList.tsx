@@ -18,10 +18,18 @@ type Props = Readonly<{
 export function AssetList({ balances, hiddenLiquidityPoolShareCount, onRefresh, onOpenAsset }: Props) {
   const styles = useThemedStyles(createStyles);
   const issued = balances.filter(line => line.asset.kind === 'credit');
+  const hiddenPoolNotice =
+    hiddenLiquidityPoolShareCount > 0 ? (
+      <Text style={styles.hiddenAssetsText}>
+        {hiddenLiquidityPoolShareCount} liquidity-pool position(s) are not shown by the current Home balance contract.
+      </Text>
+    ) : null;
+
   if (issued.length === 0) {
     return (
       <View style={styles.stateBox}>
         <Text style={styles.stateText}>No other assets.</Text>
+        {hiddenPoolNotice}
         <Pressable
           accessibilityRole="button"
           onPress={onRefresh}
@@ -67,11 +75,7 @@ export function AssetList({ balances, hiddenLiquidityPoolShareCount, onRefresh, 
         );
       })}
 
-      {hiddenLiquidityPoolShareCount > 0 ? (
-        <Text style={styles.hiddenAssetsText}>
-          {hiddenLiquidityPoolShareCount} liquidity-pool position(s) are not shown by the current Home balance contract.
-        </Text>
-      ) : null}
+      {hiddenPoolNotice}
 
       <Pressable
         accessibilityRole="button"
