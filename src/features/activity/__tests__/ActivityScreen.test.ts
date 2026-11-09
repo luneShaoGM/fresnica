@@ -165,6 +165,7 @@ function renderScreen(
   showHiddenAssets = false,
   managingAssets = false,
   selectedAccount: AccountRecord = account,
+  showFailed = false,
 ) {
   const setters = Array.from({ length: 10 }, () => jest.fn());
   const values = [
@@ -174,7 +175,7 @@ function renderScreen(
     false,
     showHidden || showHiddenAssets,
     hiddenAssets,
-    showHiddenAssets,
+    showFailed,
     managingAssets,
     {},
     now,
@@ -673,4 +674,13 @@ it('relabels foreground midnight and resume, and clears its calendar timer on un
     cleanup();
     expect(jest.getTimerCount()).toBe(0);
   } finally { jest.useRealTimers(); }
+});
+
+it('keeps failed inclusion independent from known type filtering and never guesses failed quantities', () => {
+  const failed: HistoryEntry = { ...unsupported('failed-payment'), kind: 'failed', operationType: 'payment', successful: false, relatedAccounts: ['GSOURCE'] };
+  const normal = { ...trustline('ordinary') };
+  const hidden = renderScreen([failed, normal], 'payments');
+  expect(findElement(hidden.root, element => element.type === ActivityContent)?.props.entries).toEqual([]);
+  const included = renderScreen([failed, normal], 'payments', '', undefined, false, new Set(), false, false, account, true);
+  expect(findElement(included.root, element => element.type === ActivityContent)?.props.entries?.map(entry => entry.id)).toEqual(['failed-payment']);
 });

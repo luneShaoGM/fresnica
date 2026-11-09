@@ -61,3 +61,29 @@ it('never treats offer intent, trust limits, share counts, failed or unknown mon
   expect(matchesActivityQuantity(burn, { direction: 'incoming' })).toBe(false);
   expect(matchesActivityQuantity(burn, { asset: identity, comparison: 'at-least', amount: '25' })).toBe(true);
 });
+
+it('retains the contract i128 quantity domain for direction and amount without widening classic payments', () => {
+  const maximum = '17014118346046923173168730371588.4105727';
+  const event = { type: 'mint', asset: usd, amount: maximum, direction: 'incoming', to: 'GSELF' };
+  const contract = row({ kind: 'contract', operationType: 'invoke_host_function', events: [event] });
+  expect(matchesActivityQuantity(contract, { direction: 'incoming' })).toBe(true);
+  expect(
+    matchesActivityQuantity(contract, {
+      asset: identity,
+      direction: 'incoming',
+      comparison: 'at-least',
+      amount: '1000',
+    }),
+  ).toBe(true);
+  expect(matchesActivityQuantity(contract, { comparison: 'at-most', amount: '1000' })).toBe(false);
+  expect(
+    matchesActivityQuantity(
+      row({ kind: 'contract', events: [{ ...event, amount: '17014118346046923173168730371588.4105728' }] }),
+      { direction: 'incoming' },
+    ),
+  ).toBe(false);
+  expect(matchesActivityQuantity(row({ amount: maximum }), { direction: 'incoming' })).toBe(false);
+  expect(
+    matchesActivityQuantity(row({ kind: 'contract', events: [{ ...event, amount: '0' }] }), { direction: 'incoming' }),
+  ).toBe(false);
+});

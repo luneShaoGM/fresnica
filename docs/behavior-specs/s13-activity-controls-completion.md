@@ -102,3 +102,9 @@ Reference audit evidence (paths only, no code copied): Events/EventsView,
 Modal/FilterEvents, Events/helpers/eventsOperationVisibility and eventsOperationFilters
 at the fixed SHA above. The independent behavior report is retained separately;
 there was no reference native App execution or pixel-level acceptance.
+
+Review correction: classic payment quantities retain their i64 bound; validated
+contract asset events retain their existing i128 decimal domain. Direction-only
+filters must not silently drop valid large contract events. Known failed types
+match their explicit payment/account/trust/offer/pool families when included;
+failed paths never manufacture a Swap identity or any amount/direction/asset.

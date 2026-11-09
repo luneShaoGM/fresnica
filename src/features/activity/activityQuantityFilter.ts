@@ -1,3 +1,4 @@
+import { contractAmount } from '@capabilities/history/contractHistory';
 import { isPathAmount } from '@capabilities/history/pathPaymentHistory';
 import type { HistoryAsset, HistoryEntry } from '@capabilities/history/types';
 import { activityAssetIdentity } from './activityRowPresentation';
@@ -82,7 +83,11 @@ export function matchesActivityQuantity(entry: HistoryEntry, filter: ActivityQua
   return activityQuantityLegs(entry).some(leg => {
     if (filter.direction && leg.direction !== filter.direction) return false;
     if (filter.asset && activityAssetIdentity(leg.asset) !== filter.asset) return false;
-    if (!isPathAmount(leg.amount)) return false;
+    const valid =
+      entry.kind === 'contract'
+        ? contractAmount(leg.amount) && integerAmount(leg.amount) > 0n
+        : isPathAmount(leg.amount);
+    if (!valid) return false;
     if (!amountActive) return true;
     const actual = integerAmount(leg.amount);
     const limit = integerAmount(filter.amount!);

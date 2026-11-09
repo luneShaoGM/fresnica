@@ -46,3 +46,13 @@ relabelled as any row above. Native acceptance remains open; S13 stays L3 partia
 Stage9 real-iPhone System Auth cancel/retry remains DEFERRED as previously agreed.
 No automatic spam/scam classification or current Claimable risk authority was
 added to historical Activity. Missing current risk data stays unclassified.
+
+## Independent-review corrections
+
+Initial head43c6d8 had two P2 findings: i128 contract events were incorrectly
+restricted to classic i64, and included failed records did not match their known
+operation-type categories. Both corrected within the same PR. Added contract
+maximum/overflow/classic-domain cases and known failed-family/category plus
+screen inclusion cases. Final full repository run:255suites/2,376tests passed;
+type/lint zero errors (50 inherited warnings), architecture/provenance/diff pass.
+A fresh exact-HEAD independent review and CI are required for the correction.

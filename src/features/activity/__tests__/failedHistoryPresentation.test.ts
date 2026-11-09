@@ -14,7 +14,7 @@ it('shows localized failure with no money and an explicit failed filter in all l
     expect(row.reserveMoney).toBeUndefined();
     expect(matchesActivityFilter(entry, 'failed')).toBe(true);
     expect(matchesActivityFilter(entry, 'all')).toBe(true);
-    expect(matchesActivityFilter(entry, 'payments')).toBe(false);
+    expect(matchesActivityFilter(entry, 'payments')).toBe(true);
     expect(matchesActivitySearch(entry, 'Source alias', t, formatNumber, names)).toBe(true);
     expect(matchesActivitySearch(entry, '999', t, formatNumber, names)).toBe(false);
   }
