@@ -599,3 +599,14 @@ provenance record. Source logos with FIREFLY wordmarks are deliberately not
 shown as Fresnica. No business Capability, network partition, external
 media consent, Signer, transaction or recovery changes. Device visual
 acceptance remains pending even with image/resource tests.
+
+### S13 Activity controls completion candidate — 2026-11-09
+
+Based on main118460b (includes merged #164/#166 and current shared S06 icons).
+[Current behavior contract](behavior-specs/s13-activity-controls-completion.md):
+compact header filter entry; draft Cancel/Apply; direction/type/exactasset/actual
+quantity filters, independent failed inclusion, unified reversible technical/
+small native payment visibility; Today/Yesterday by device local calendar; shared
+asset-pair icons and media consent inside appearance settings. No new spam
+authority or History schema/write pipeline. S13 remains L3 partial pending actual
+dual-platform native, offline Retry/restart, dynamic-font and screen-reader evidence.

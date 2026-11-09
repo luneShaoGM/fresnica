@@ -2,7 +2,7 @@ import { claimPredicateSummary } from './claimPredicateSummary';
 import { isPathSwap } from '@capabilities/history/pathPaymentHistory';
 import type { HistoryDirection, HistoryEntry } from '@capabilities/history/types';
 
-export type ActivityFilter = 'all' | 'payments' | 'accounts' | 'trustlines' | 'other' | 'failed';
+export type ActivityFilter = 'all' | 'payments' | 'accounts' | 'trustlines' | 'other' | 'failed' | 'swaps' | 'offers' | 'pools';
 
 export type ActivityTone = 'positive' | 'negative' | 'neutral';
 
@@ -198,6 +198,9 @@ export function activityEntryPresentation(
 
 export function matchesActivityFilter(entry: HistoryEntry, filter: ActivityFilter): boolean {
   if (filter === 'failed') return entry.kind === 'failed';
+  if (filter === 'swaps') return entry.kind === 'path-payment' && isPathSwap(entry);
+  if (filter === 'offers') return entry.kind === 'offer';
+  if (filter === 'pools') return entry.kind === 'liquidity-pool';
   if (filter === 'all') {
     return true;
   }

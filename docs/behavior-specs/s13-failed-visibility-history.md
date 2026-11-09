@@ -41,3 +41,12 @@ peers, pair families at most one, claimable creation at most ten. Present invali
 successful metadata is rejected, while absent/undefined legacy metadata remains
 readable. Neither corruption case can manufacture monetary success or a foreign
 source-only history partition.
+
+## 2026-11-09 Activity completion candidate
+
+The current user explicitly restores Today/Yesterday and requests a compact
+unified filter entry instead of three permanent actions. The newer
+[s13-activity-controls-completion.md](s13-activity-controls-completion.md)
+supersedes earlier absolute-only dates, default-show-all technical controls, and
+inline visibility buttons. Shared S06 safety/consent and S13 History authority stay
+unchanged. Native acceptance and L3 partial maturity are not promoted.

@@ -59,3 +59,12 @@ remain **NOT ACCEPTED** until actual native product-flow evidence. Native
 branded imagery now requires separate native safety and device acceptance. Stage 9 iOS real-device System Auth
 cancellation/retry remains deferred as previously agreed. No change to
 transaction/XDR, signing, submission, recovery or History cache schema.
+
+## 2026-11-09 Activity completion candidate
+
+The current user explicitly restores Today/Yesterday and requests a compact
+unified filter entry instead of three permanent actions. The newer
+[s13-activity-controls-completion.md](s13-activity-controls-completion.md)
+supersedes earlier absolute-only dates, default-show-all technical controls, and
+inline visibility buttons. Shared S06 safety/consent and S13 History authority stay
+unchanged. Native acceptance and L3 partial maturity are not promoted.
