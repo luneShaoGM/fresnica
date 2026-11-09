@@ -21,6 +21,7 @@ import { AccountPickerModal } from './components/AccountPickerModal';
 import { AccountSummary } from './components/AccountSummary';
 import { AssetList } from './components/AssetList';
 import { PublicIconToggle } from '../assets/TokenAssetIcon';
+import { SmallChevron, SmallClock } from '../../ui/components/SmallIcons';
 import { InactiveAccountPanel, type FriendbotFundingState } from './components/InactiveAccountPanel';
 import { NetworkStatus } from './components/NetworkStatus';
 import { createHomeViewModel, type HomeBalanceState } from './homeViewModel';
@@ -37,7 +38,11 @@ type Props = Readonly<{
   onAddAccount: () => void;
   onSend: () => void;
   onManageAssets: () => void;
-  onClaimable?: () => void;
+  assetCategory?: 'tokens' | 'claimable';
+  onOpenAssetCategory?: () => void;
+  onShowClaimable?: () => void;
+  claimableContent?: React.ReactNode;
+  onClaimablePullRefresh?: () => void;
   claimableNowCount?: number;
   onOpenAsset: (asset: BalanceAsset) => void;
   onManualRefresh: () => Promise<unknown>;
@@ -60,7 +65,11 @@ export function HomeScreen({
   onAddAccount,
   onSend,
   onManageAssets,
-  onClaimable,
+  assetCategory = 'tokens',
+  onOpenAssetCategory,
+  onShowClaimable,
+  claimableContent,
+  onClaimablePullRefresh,
   claimableNowCount = 0,
   onOpenAsset,
   onManualRefresh,
@@ -160,6 +169,10 @@ export function HomeScreen({
         refreshControl={
           <RefreshControl
             onRefresh={() => {
+              if (assetCategory === 'claimable') {
+                onClaimablePullRefresh?.();
+                return;
+              }
               setManualRefreshing(true);
               void Promise.resolve(refreshBalances(onManualRefresh)).finally(() => {
                 setManualRefreshing(false);
@@ -203,40 +216,65 @@ export function HomeScreen({
         ) : null}
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Tokens</Text>
-          {onClaimable ? (
-            <Pressable accessibilityRole="button" onPress={onClaimable} style={styles.sectionLinkButton}>
-              <Text style={styles.sectionLink}>
-                {t('claimable.category.claimable') + (claimableNowCount > 0 ? ' (' + claimableNowCount + ')' : '')}
+          <View style={styles.categoryTitleRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('claimable.category.choose')}
+              onPress={onOpenAssetCategory}
+              disabled={!onOpenAssetCategory}
+              style={styles.categoryTitleButton}
+            >
+              <Text style={styles.sectionTitle}>
+                {assetCategory === 'claimable' ? t('claimable.category.claimable') : t('claimable.category.assets')}
+              </Text>
+              <SmallChevron color={theme.colors.textSecondary} />
+            </Pressable>
+            {assetCategory === 'tokens' && claimableNowCount > 0 && onShowClaimable ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('claimable.hint') + ' ' + claimableNowCount}
+                onPress={onShowClaimable}
+                style={styles.claimableHintBadge}
+              >
+                <SmallClock color={theme.colors.actionPrimaryPressed} />
+                <Text style={styles.claimableHintText}>{claimableNowCount}</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          {assetCategory === 'tokens' ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !viewModel.canManageAssets }}
+              disabled={!viewModel.canManageAssets}
+              onPress={viewModel.canManageAssets ? onManageAssets : undefined}
+              style={({ pressed }) => [styles.sectionLinkButton, pressed ? styles.pressed : undefined]}
+            >
+              <Text style={[styles.sectionLink, !viewModel.canManageAssets ? styles.sectionLinkDisabled : undefined]}>
+                Add asset
               </Text>
             </Pressable>
           ) : null}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !viewModel.canManageAssets }}
-            disabled={!viewModel.canManageAssets}
-            onPress={viewModel.canManageAssets ? onManageAssets : undefined}
-            style={({ pressed }) => [styles.sectionLinkButton, pressed ? styles.pressed : undefined]}
-          >
-            <Text style={[styles.sectionLink, !viewModel.canManageAssets ? styles.sectionLinkDisabled : undefined]}>
-              Add asset
-            </Text>
-          </Pressable>
         </View>
 
-        <PublicIconToggle networkId={account.networkId} />
-        <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} showRefreshStatus={false} />
-        {renderPortfolio(
-          balanceState,
-          viewModel.accountAddress,
-          friendbotAvailable,
-          visibleFriendbotState,
-          verifiedInactive === true,
-          fundWithFriendbot,
-          refreshBalances,
-          onOpenAsset,
-          theme.colors.actionPrimary,
-          styles,
+        {assetCategory === 'claimable' ? (
+          claimableContent
+        ) : (
+          <>
+            <PublicIconToggle networkId={account.networkId} />
+            <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} showRefreshStatus={false} />
+            {renderPortfolio(
+              balanceState,
+              viewModel.accountAddress,
+              friendbotAvailable,
+              visibleFriendbotState,
+              verifiedInactive === true,
+              fundWithFriendbot,
+              refreshBalances,
+              onOpenAsset,
+              theme.colors.actionPrimary,
+              styles,
+            )}
+          </>
         )}
       </ScrollView>
       <AccountPickerModal

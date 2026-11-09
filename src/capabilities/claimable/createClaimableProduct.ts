@@ -101,6 +101,7 @@ export function createClaimableProduct(
           address: account.address,
           savedAt: input.now(),
           records: classifyClaimableSnapshot(rows, Math.floor(input.now() / 1000)),
+          everSeen: rows.length > 0 || current?.snapshot.everSeen === true || !!current?.snapshot.records.length,
         };
         if (closed || requestGeneration !== generation) throw new Error('claimable-reader-retired');
         input.cache.replace(snapshot);

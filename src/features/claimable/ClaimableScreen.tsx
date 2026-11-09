@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
-import { BottomSheet, Screen } from '@ui/components';
+import { AppModal, Screen } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import { useAppTheme, useThemedStyles } from '@ui/theme';
 import { SlideToConfirm } from '../../ui/SlideToConfirm';
+import { SmallChevron } from '../../ui/components/SmallIcons';
 import { TokenAssetIcon } from '../assets/TokenAssetIcon';
 import type { AccountRecord } from '../../capabilities/account/types';
 import { CLAIMABLE_TTL_MS, displayedClaimable } from '../../capabilities/claimable/records';
@@ -18,6 +19,7 @@ import {
 import type { SubmitReviewedTransactionResult } from '../../capabilities/transaction/submitReviewedTransaction';
 import { useLocalization } from '../../locale';
 import { createClaimableStyles } from './styles';
+import { maskAddress } from '../home/homeViewModel';
 
 type Display = ReturnType<typeof displayedClaimable>;
 type Result = SubmitReviewedTransactionResult | { status: 'watch-only' | 'unsupported-account-signers' };
@@ -34,9 +36,10 @@ type Props = Readonly<{
   active: boolean;
   canSign: boolean;
   invalidationRevision: number;
-  onBack: () => void;
   onRecover: () => Promise<unknown>;
   isCurrentAccount: () => boolean;
+  refreshSignal?: number;
+  onSnapshotUpdated?: (snapshot: ClaimableState) => void;
 }>;
 
 function availabilityText(item: Display, t: (key: string) => string): string {
@@ -63,9 +66,10 @@ export function ClaimableScreen({
   active: foreground,
   canSign,
   invalidationRevision,
-  onBack,
   onRecover,
   isCurrentAccount,
+  refreshSignal = 0,
+  onSnapshotUpdated,
 }: Props) {
   const focused = useIsFocused();
   const active = foreground && focused && isCurrentAccount();
@@ -89,10 +93,12 @@ export function ClaimableScreen({
   const [passphrasePrompt, setPassphrasePrompt] = useState(false);
   const passphraseRef = useRef('');
   const [passphraseAttempt, setPassphraseAttempt] = useState(0);
+  const [technicalOpen, setTechnicalOpen] = useState(false);
   const running = useRef(false);
   const generation = useRef(0);
   const operationGeneration = useRef(0);
   const lastLoad = useRef(0);
+  const lastRefreshSignal = useRef(refreshSignal);
 
   // A navigation blur must invalidate in-flight authorization even if React
   // has not rerendered this screen yet; returning to the route is a new epoch.
@@ -120,6 +126,7 @@ export function ClaimableScreen({
           setData(result);
           setLoadError(result.refreshFailed);
           setClock(Date.now());
+          onSnapshotUpdated?.(result);
         })
         .catch(() => {
           if (activeRef.current && generation.current === id && isCurrentAccount()) setLoadError(true);
@@ -128,8 +135,15 @@ export function ClaimableScreen({
           if (generation.current === id && activeRef.current) setLoading(false);
         });
     },
-    [account, isCurrentAccount, product],
+    [account, isCurrentAccount, onSnapshotUpdated, product],
   );
+
+  useEffect(() => {
+    if (active && lastRefreshSignal.current !== refreshSignal) {
+      lastRefreshSignal.current = refreshSignal;
+      refresh(true);
+    }
+  }, [active, refresh, refreshSignal]);
 
   useEffect(() => {
     if (!active) {
@@ -253,11 +267,30 @@ export function ClaimableScreen({
   };
 
   const leave = () => {
-    activeRef.current = false;
     operationGeneration.current += 1;
     passphraseRef.current = '';
-    onBack();
+    running.current = false;
+    setSubmitting(false);
+    setPassphrasePrompt(false);
+    setFlow({ kind: 'list' });
+    refresh(true);
   };
+
+  const closeReview = () => {
+    operationGeneration.current += 1;
+    running.current = false;
+    passphraseRef.current = '';
+    setPassphrasePrompt(false);
+    setSubmitting(false);
+    setOperationError('');
+    setFlow({ kind: 'list' });
+  };
+
+  const wrapFlow = (node: React.ReactElement) => (
+    <Modal visible animationType="slide" onRequestClose={closeReview}>
+      {node}
+    </Modal>
+  );
 
   const header = (title: string, back: () => void) => (
     <View style={styles.header}>
@@ -268,30 +301,22 @@ export function ClaimableScreen({
     </View>
   );
   if (flow.kind === 'preparing')
-    return (
+    return wrapFlow(
       <Screen scrollable={false}>
         <View style={styles.content}>
-          {header(t('claimable.review'), () => {
-            operationGeneration.current += 1;
-            running.current = false;
-            setFlow({ kind: 'list' });
-          })}
+          {header(t('claimable.review'), closeReview)}
           <ActivityIndicator color={theme.colors.actionPrimary} />
           <Text style={styles.helper}>{t('claimable.preparing')}</Text>
         </View>
-      </Screen>
+      </Screen>,
     );
   const presentedReviewEpoch = operationGeneration.current;
   if (flow.kind === 'review')
-    return (
+    return wrapFlow(
       <Screen scrollable={false}>
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={styles.content} style={styles.reviewScroll}>
           {header(t('claimable.review'), () => {
-            if (submitting) return;
-            operationGeneration.current += 1;
-            passphraseRef.current = '';
-            setPassphrasePrompt(false);
-            setFlow({ kind: 'list' });
+            closeReview();
           })}
           <Text style={styles.helper}>{t('claimable.reviewWarning')}</Text>
           <View style={styles.detailCard}>
@@ -322,14 +347,16 @@ export function ClaimableScreen({
             </>
           ) : null}
           {operationError ? <Text style={styles.error}>{operationError}</Text> : null}
+        </ScrollView>
+        <View style={styles.reviewFooter}>
           <SlideToConfirm
             label={t('claimable.slideToClaim')}
             disabled={!active || submitting}
             loading={submitting}
             onComplete={() => void submit(flow.review, presentedReviewEpoch)}
           />
-        </ScrollView>
-      </Screen>
+        </View>
+      </Screen>,
     );
   if (flow.kind === 'result') {
     const hash =
@@ -338,7 +365,7 @@ export function ClaimableScreen({
         : 'hash' in flow.result
           ? flow.result.hash
           : undefined;
-    return (
+    return wrapFlow(
       <Screen scrollable={false}>
         <ScrollView contentContainerStyle={styles.content}>
           {header(t('claimable.result'), leave)}
@@ -350,7 +377,7 @@ export function ClaimableScreen({
           ) : null}
           <NativeButton label={t('claimable.done')} onPress={leave} />
         </ScrollView>
-      </Screen>
+      </Screen>,
     );
   }
 
@@ -362,114 +389,219 @@ export function ClaimableScreen({
       onPress={() => {
         if (active) {
           setOperationError('');
+          setTechnicalOpen(false);
           setSelectedId(row.id);
         }
       }}
-      style={({ pressed }) => [styles.card, pressed ? styles.disabled : undefined]}
+      style={({ pressed }) => [
+        styles.claimableRow,
+        row.risk === 'SUSPECT' ? styles.suspectRow : undefined,
+        pressed ? styles.disabled : undefined,
+      ]}
     >
-      <View style={styles.row}>
+      <View style={styles.avatar}>
         <TokenAssetIcon asset={row.asset} active={active} />
-        <View style={styles.rowBody}>
-          <Text style={styles.assetCode}>{row.asset.code}</Text>
-          <Text numberOfLines={1} style={styles.issuer}>
-            {row.asset.kind === 'credit' ? row.asset.issuer : t('claimable.nativeIssuer')}
-          </Text>
-          <Text style={[styles.state, row.availability === 'claimable' ? styles.safe : styles.warning]}>
-            {availabilityText(row, t)}
-          </Text>
-        </View>
-        <Text style={styles.amount}>{row.amount}</Text>
+      </View>
+      <View style={styles.rowBody}>
+        <Text numberOfLines={1} style={styles.assetCode}>
+          {row.asset.code}
+        </Text>
+        <Text numberOfLines={1} style={styles.issuer}>
+          {row.asset.kind === 'credit' ? maskAddress(row.asset.issuer) : t('claimable.nativeIssuer')}
+        </Text>
+      </View>
+      <View style={styles.amountColumn}>
+        <Text numberOfLines={1} style={styles.amount}>
+          {row.amount}
+        </Text>
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.state,
+            row.availability === 'claimable'
+              ? styles.safe
+              : row.availability === 'locked'
+                ? styles.locked
+                : styles.warning,
+          ]}
+        >
+          {availabilityText(row, t)}
+        </Text>
       </View>
     </Pressable>
   );
-  return (
-    <Screen scrollable={false}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={() => refresh(true)} tintColor={theme.colors.actionPrimary} />
-        }
-      >
-        {header(t('claimable.title'), leave)}
-        <Text style={styles.subtitle}>{t('claimable.description')}</Text>
-        {dataStale || loadError ? <Text style={styles.error}>{t('claimable.stale')}</Text> : null}
-        {loading && !data ? <ActivityIndicator color={theme.colors.actionPrimary} /> : null}
-        {!data && !loading ? <Text style={styles.helper}>{t('claimable.loadError')}</Text> : null}
+  const listContent = (
+    <>
+      {dataStale && data ? <Text style={styles.error}>{t('claimable.stale')}</Text> : null}
+      {loadError && !data ? <Text style={styles.error}>{t('claimable.loadError')}</Text> : null}
+      {loading ? <ActivityIndicator color={theme.colors.actionPrimary} /> : null}
+      {!data && !loading ? (
+        <NativeButton label={t('claimable.refresh')} variant="secondary" onPress={() => refresh(true)} />
+      ) : null}
+      {data && displayed.length === 0 ? <Text style={styles.helper}>{t('claimable.empty')}</Text> : null}
+      {safe.map(renderRow)}
+      {suspect.length ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: suspectsOpen }}
+          style={[styles.section, styles.suspectSection]}
+          onPress={() => setSuspectsOpen(value => !value)}
+        >
+          <Text style={[styles.sectionTitle, styles.suspectSectionText]}>
+            {t('claimable.suspect') + ' (' + suspect.length + ')'}
+          </Text>
+          <SmallChevron color={theme.colors.warning} up={suspectsOpen} />
+        </Pressable>
+      ) : null}
+      {suspectsOpen ? suspect.map(renderRow) : null}
+      {spam.length ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: spamOpen }}
+          style={[styles.section, styles.spamSection]}
+          onPress={() => setSpamOpen(value => !value)}
+        >
+          <Text style={styles.sectionTitle}>{t('claimable.spam') + ' (' + spam.length + ')'}</Text>
+          <SmallChevron color={theme.colors.textSecondary} up={spamOpen} />
+        </Pressable>
+      ) : null}
+      {spamOpen ? spam.slice(0, spamCount).map(renderRow) : null}
+      {spamOpen && spamCount < spam.length ? (
         <NativeButton
-          label={t('claimable.refresh')}
+          label={t('claimable.viewMore')}
           variant="secondary"
-          onPress={() => refresh(true)}
-          disabled={loading || !active}
+          onPress={() => setSpamCount(value => value + 20)}
         />
-        {data && displayed.length === 0 ? <Text style={styles.helper}>{t('claimable.empty')}</Text> : null}
-        {safe.length ? <Text style={styles.sectionTitle}>{t('claimable.safe') + ' (' + safe.length + ')'}</Text> : null}
-        {safe.map(renderRow)}
-        {suspect.length ? (
-          <Pressable accessibilityRole="button" style={styles.section} onPress={() => setSuspectsOpen(!suspectsOpen)}>
-            <Text style={styles.sectionTitle}>{t('claimable.suspect') + ' (' + suspect.length + ')'}</Text>
-            <Text style={styles.helper}>{suspectsOpen ? '⌃' : '⌄'}</Text>
-          </Pressable>
-        ) : null}
-        {suspectsOpen ? suspect.map(renderRow) : null}
-        {spam.length ? (
-          <Pressable accessibilityRole="button" style={styles.section} onPress={() => setSpamOpen(!spamOpen)}>
-            <Text style={styles.sectionTitle}>{t('claimable.spam') + ' (' + spam.length + ')'}</Text>
-            <Text style={styles.helper}>{spamOpen ? '⌃' : '⌄'}</Text>
-          </Pressable>
-        ) : null}
-        {spamOpen ? spam.slice(0, spamCount).map(renderRow) : null}
-        {spamOpen && spamCount < spam.length ? (
-          <NativeButton
-            label={t('claimable.viewMore')}
-            variant="secondary"
-            onPress={() => setSpamCount(value => value + 20)}
-          />
-        ) : null}
-      </ScrollView>
-      {selected ? (
-        <BottomSheet visible closeLabel={t('common.back')} onClose={() => setSelectedId(undefined)}>
-          <ScrollView contentContainerStyle={styles.sheetContent}>
-            {header(t('claimable.details'), () => setSelectedId(undefined))}
-            <View style={styles.row}>
+      ) : null}
+    </>
+  );
+  const details = selected ? (
+    <AppModal
+      visible
+      onRequestClose={() => {
+        setSelectedId(undefined);
+        setTechnicalOpen(false);
+      }}
+    >
+      <View style={styles.detailHeading}>
+        <Text style={styles.title}>{t('claimable.details')}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('common.close')}
+          style={styles.button}
+          onPress={() => {
+            setSelectedId(undefined);
+            setTechnicalOpen(false);
+          }}
+        >
+          <Text style={styles.buttonText}>{t('common.close')}</Text>
+        </Pressable>
+      </View>
+      <ScrollView style={styles.dialogScroll} contentContainerStyle={styles.dialogContent}>
+        <View style={styles.detailPrimary}>
+          <View style={styles.claimableRow}>
+            <View style={styles.avatar}>
               <TokenAssetIcon asset={selected.asset} active={active} />
-              <View style={styles.rowBody}>
-                <Text style={styles.assetCode}>{selected.asset.code}</Text>
-                <Text style={styles.amount}>{selected.amount}</Text>
-              </View>
             </View>
-            <View style={styles.detailCard}>
-              <ClaimablePair styles={styles} label={t('claimable.balanceId')} value={selected.id} />
-              <ClaimablePair styles={styles} label={t('claimable.status')} value={availabilityText(selected, t)} />
-              <ClaimablePair styles={styles} label={t('claimable.risk')} value={t('claimable.risk.' + selected.risk)} />
-              <ClaimablePair styles={styles} label={t('claimable.sponsor')} value={selected.sponsor || '—'} />
-              <ClaimablePair
-                styles={styles}
-                label={t('claimable.issuer')}
-                value={selected.asset.kind === 'credit' ? selected.asset.issuer : t('claimable.nativeIssuer')}
-              />
-              {selected.ledgerTime ? (
-                <ClaimablePair styles={styles} label={t('claimable.ledgerTime')} value={selected.ledgerTime} />
+            <View style={styles.rowBody}>
+              <Text numberOfLines={1} style={styles.assetCode}>
+                {selected.asset.code}
+              </Text>
+              <Text numberOfLines={1} style={styles.issuer}>
+                {selected.asset.kind === 'credit' ? maskAddress(selected.asset.issuer) : t('claimable.nativeIssuer')}
+              </Text>
+              {selected.risk !== 'SAFE' ? (
+                <Text style={styles.warning}>{t('claimable.risk.' + selected.risk)}</Text>
               ) : null}
             </View>
-            {selected.risk !== 'SAFE' ? <Text style={styles.error}>{t('claimable.caution')}</Text> : null}
-            {selected.riskFlags.length ? <Text style={styles.helper}>{selected.riskFlags.join(' · ')}</Text> : null}
-            {selected.availability === 'unknown' ? (
-              <Text style={styles.error}>{t('claimable.unknownReason')}</Text>
-            ) : null}
-            {dataStale ? <Text style={styles.error}>{t('claimable.stale')}</Text> : null}
-            {operationError ? <Text style={styles.error}>{operationError}</Text> : null}
+            <Text numberOfLines={1} style={styles.amount}>
+              {selected.amount}
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.statusChip,
+              selected.availability === 'claimable'
+                ? styles.statusReady
+                : selected.availability === 'locked'
+                  ? styles.statusLocked
+                  : selected.availability === 'unclaimable'
+                    ? styles.statusUnclaimable
+                    : styles.statusUnknown,
+            ]}
+          >
+            <Text style={styles.statusIcon}>
+              {selected.availability === 'claimable' ? '✓' : selected.availability === 'locked' ? '⌛' : '!'}
+            </Text>
+            <Text style={styles.statusChipText}>
+              {selected.availability === 'locked' && selected.nextAt
+                ? t('claimable.unlockInDays').replace(
+                    '{days}',
+                    String(Math.max(1, Math.ceil((selected.nextAt * 1000 - clock) / 86400000))),
+                  )
+                : availabilityText(selected, t)}
+            </Text>
+          </View>
+          <View style={styles.claimAction}>
             <NativeButton label={t('claimable.claim')} disabled={!canClaim} onPress={() => void prepare(selected)} />
-            {selected.asset.kind === 'credit' ? (
-              <NativeButton
-                label={selected.risk === 'SPAM' ? t('claimable.restore') : t('claimable.markSpam')}
-                variant="secondary"
-                onPress={() => markSpam(selected, selected.risk !== 'SPAM')}
-              />
+          </View>
+        </View>
+        {selected.availability !== 'claimable' ? (
+          <View style={styles.statusExplanation}>
+            <Text style={styles.warning}>
+              {selected.availability === 'locked' && selected.nextAt
+                ? t('claimable.availableAt').replace('{time}', new Date(selected.nextAt * 1000).toLocaleString())
+                : selected.availability === 'unknown'
+                  ? t('claimable.unknownReason')
+                  : t('claimable.unclaimable')}
+            </Text>
+          </View>
+        ) : null}
+        {selected.risk !== 'SAFE' ? <Text style={styles.error}>{t('claimable.caution')}</Text> : null}
+        {selected.riskFlags.length ? <Text style={styles.helper}>{selected.riskFlags.join(' · ')}</Text> : null}
+        {dataStale ? <Text style={styles.error}>{t('claimable.stale')}</Text> : null}
+        {operationError ? <Text style={styles.error}>{operationError}</Text> : null}
+        {selected.risk === 'SUSPECT' || selected.risk === 'SPAM' ? (
+          <NativeButton
+            label={selected.risk === 'SPAM' ? t('claimable.restore') : t('claimable.markSpam')}
+            variant="secondary"
+            onPress={() => markSpam(selected, selected.risk !== 'SPAM')}
+          />
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: technicalOpen }}
+          onPress={() => setTechnicalOpen(value => !value)}
+          style={styles.technicalToggle}
+        >
+          <Text style={styles.sectionTitle}>{t('claimable.technicalDetails')}</Text>
+          <SmallChevron color={theme.colors.textSecondary} up={technicalOpen} />
+        </Pressable>
+        {technicalOpen ? (
+          <View style={styles.technicalDetails}>
+            <ClaimablePair styles={styles} label={t('claimable.balanceId')} value={selected.id} />
+            <ClaimablePair styles={styles} label={t('claimable.status')} value={availabilityText(selected, t)} />
+            <ClaimablePair styles={styles} label={t('claimable.risk')} value={t('claimable.risk.' + selected.risk)} />
+            <ClaimablePair styles={styles} label={t('claimable.sponsor')} value={selected.sponsor || '—'} />
+            <ClaimablePair
+              styles={styles}
+              label={t('claimable.issuer')}
+              value={selected.asset.kind === 'credit' ? selected.asset.issuer : t('claimable.nativeIssuer')}
+            />
+            {selected.ledgerTime ? (
+              <ClaimablePair styles={styles} label={t('claimable.ledgerTime')} value={selected.ledgerTime} />
             ) : null}
-          </ScrollView>
-        </BottomSheet>
-      ) : null}
-    </Screen>
+          </View>
+        ) : null}
+      </ScrollView>
+    </AppModal>
+  ) : null;
+
+  return (
+    <View style={styles.embeddedList}>
+      {listContent}
+      {details}
+    </View>
   );
 }
 

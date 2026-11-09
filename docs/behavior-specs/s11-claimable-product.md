@@ -2,9 +2,10 @@
 
 **Reference:** self-developed Stellar Claimable category, item, detail and
 service at audited donor commit `bd0f4540b2496a57314e4e29bc6fcf8ff691b60f`.
-**Target base:** `main@62be0683f18c40975c5fc1dea7cd5240833791de`.
-**Product owner:** S11 Claimable Balance, candidate for independent Work
-exact-HEAD review and user merge. Architecture: React Native feature,
+**Original S11 delivery:** merged PR #178 on `main@f898e8f04e9096dfdd553d00400e5dbc73f20978`.
+**UI parity follow-up:** Claimable presentation adapted to Stellar's
+Home in-place category switch; [side-by-side delta](../s11-claimable-ui-parity-delta.md).
+**Product owner:** S11 Claimable Balance. Architecture: React Native feature,
 application `capabilities/claimable`, public Horizon gateway and
 network/account-scoped Realm v13 cache. **Decision:** Adapt the team's
 self-developed behavior; no direct source blob copies. User expressly
@@ -13,19 +14,23 @@ review remains required before any future byte-for-byte copy.
 
 ## Entry and presentation
 
-- Home's Tokens section exposes a localized Claimable entry and a count
-  of **SAFE + currently eligible** claims, computed only from a fresh
-  current-account/current-network cache. A dedicated native-stack screen
-  retains Home back navigation instead of importing Stellar's old
-  `SwitchAssetCategoryOverlay`/Wix Navigator; see differences ledger.
+- Home's `Assets ▼` header opens an in-place category chooser. The
+  Claimable option appears only for a current or previously observed balance
+  on this network/account, or in Developer Mode. The selected category
+  changes the Home asset area, **without navigating to another screen**.
+  LP remains unavailable until SDEX/LP is implemented. A clock badge with
+  a count of **SAFE + currently eligible** records uses only a fresh
+  current-network/account snapshot.
 - Readable identity uses the existing public `TokenAssetIcon` and
   semantic theme. Main rows group SAFE then expandable SUSPECT, with SPAM
   collapsed by default and 20 items added per View More action. Pull refresh
   forces a new snapshot. Empty/failed/offline states distinguish a stale
   display-only cache from trustworthy live status.
-- Details use the existing Fresnica `BottomSheet`, with asset identity,
-  exact Claimable Balance ID, sponsor, issuer, ledger modified time,
-  status/next-time, risk flags and a warning for unfamiliar credit assets.
+- Details use the existing Fresnica centered, height-bounded `AppModal`
+  with asset identity, amount, colored availability state card and Claim
+  action above a scrollable, expandable technical block containing full
+  Claimable Balance ID, sponsor, issuer and ledger modified time. Risk and
+  unavailable reasons remain visible before confirming.
   Display-only Mark spam/Restore normal is partitioned by network, account,
   balance ID. Neither flag creates trustline, account authority or a signer.
 - SAFE/SUSPECT is a display heuristic, not cryptographic asset safety
@@ -37,9 +42,12 @@ review remains required before any future byte-for-byte copy.
   unconditional and absolute predicates are parsed with bounded depth,
   node count and numeric range. Claim eligibility is recomputed from
   current time, not blindly trusted from saved UI state.
-- Inactivity, backgrounding, leaving the route, account/network switch
-  and session retirement invalidate callbacks; no UI state from a prior
-  account can authorize another account's Claim.
+- Inactivity, backgrounding, leaving Home, account/network switching or
+  category changes retire the live Claim review. A monotonically increasing
+  category epoch makes the old attempt invalid even if a user immediately
+  switches back to Claimable before React commits another frame. This is
+  checked by the existing authorization/sign/submit pipeline, not merely
+  a UI state change. Durable pending/outcome recovery remains authoritative.
 
 ## Ledger/cache and transaction
 

@@ -118,6 +118,28 @@ describe('S11 snapshot lifecycle and partition isolation', () => {
     await expect(product.refresh(account)).rejects.toThrow('claimable-reader-closed');
   });
 
+  it('keeps current-account category discovery after the last Claimable disappears', async () => {
+    let time = 1_000;
+    let discovered = true;
+    const page = jest.fn(async () => ({ records: discovered ? [record()] : [] }));
+    const product = createClaimableProduct({
+      networkId,
+      read: { page, byId: async () => undefined },
+      cache,
+      now: () => time,
+    });
+    const first = await product.refresh(account, true);
+    expect(first.snapshot).toMatchObject({ everSeen: true });
+    discovered = false;
+    time += 3_600_000;
+    const empty = await product.refresh(account, true);
+    expect(empty.snapshot.records).toHaveLength(0);
+    expect(empty.snapshot.everSeen).toBe(true);
+    expect(parseClaimableSnapshot(empty.snapshot, networkId, address)?.everSeen).toBe(true);
+    expect(parseClaimableSnapshot(empty.snapshot, 'stellar-mainnet', address)).toBeUndefined();
+    expect(parseClaimableSnapshot({ ...empty.snapshot, everSeen: 'yes' }, networkId, address)).toBeUndefined();
+  });
+
   it('never overwrites valid cache after an incomplete page, and preserves only stale display fallback', async () => {
     cached = { networkId, address, savedAt: 1, records: [record()] };
     const page = jest.fn(async (_address: string, _cursor?: string) => ({

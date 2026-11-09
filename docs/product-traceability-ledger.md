@@ -544,3 +544,22 @@ parallel independent workstream and unaffected.
 ### S11 current claimant balances, risk groups and reviewable claim (2026-11-09)
 
 Candidate only, pending PR creation, exact-HEAD Work review and user merge. Based on `main@62be0683f18c40975c5fc1dea7cd5240833791de`. Owner: `capabilities/claimable` with `features/claimable` and current Horizon/Realm v13 adapters; decision **Adapt** self-developed Stellar behavior with user-provided ownership confirmation, **not** direct copy. Concrete migration differences: [S11 source-to-target register](s11-stellar-migration-differences.md); contract: [S11 behavior spec](behavior-specs/s11-claimable-product.md). S11 live balances are distinct from S13 claim/clawback historical effects. UI reads only current-account/network snapshots; a fresh, exact same-network by-ID Claimant/predicate check gates reviewed unsigned XDR and the established SDK/Core signer/recovery pipeline. User display spam overrides have no signature authority. Native product-flow acceptance is deferred to Stage 9, not assumed passed by Jest or CI. **Do not promote to L4 before real device evidence**.
+
+
+### S11 Stellar-aligned Home Claimable UI follow-up (2026-11-09)
+
+Based on `main@f898e8f04e9096dfdd553d00400e5dbc73f20978` after merged #178. Owner:
+`features/home` asset category chooser + `features/claimable`
+embedded list/details and existing `AppModal`, `TokenAssetIcon`, `SlideToConfirm`.
+**Adapt**, not copy source bytes, from the self-developed Stellar
+`AssetsList` / `TokensList` / `ClaimableItem` / `ClaimableDetailsOverlay` /
+`ReviewTransaction` UI; user authorized self-developed source reuse, no
+new direct-file copy/exception. [Before/after and retained differences](s11-claimable-ui-parity-delta.md).
+Home remains focused while switching Assets ⇄ Claimable, with a
+**non-revivable category epoch** bound to the existing Claim signer
+authorization/current-account/network gate. New public snapshot
+`everSeen` history is partitioned by network/account; LP remains
+unavailable and no unknown token metadata is invented. Exact-XDR
+authorization, pre-pending cancellation boundary and original uncertain
+recovery are unchanged. Native emulator, real-device and Stage 9 iOS
+System Auth cancel→retry acceptance remain deferred; this is not an L4 claim.

@@ -20,6 +20,8 @@ export type ClaimableSnapshot = Readonly<{
   address: string;
   savedAt: number;
   records: readonly ClaimableRecord[];
+  // Public-only category discovery history, scoped by the same network/account partition.
+  everSeen?: boolean;
 }>;
 export const CLAIMABLE_TTL_MS = 60 * 60 * 1000;
 export const CLAIMABLE_RETRY_MS = 30_000;
@@ -144,6 +146,7 @@ export function parseClaimableSnapshot(
     !Number.isSafeInteger(data.savedAt) ||
     Number(data.savedAt) < 0 ||
     !Array.isArray(data.records) ||
+    (data.everSeen !== undefined && typeof data.everSeen !== 'boolean') ||
     data.records.length > CLAIMABLE_MAX_ROWS
   )
     return undefined;
@@ -178,7 +181,13 @@ export function parseClaimableSnapshot(
       return { ...mapped, risk: row.risk as ClaimRisk, riskFlags: row.riskFlags as string[] };
     });
     if (new Set(records.map(record => record.id)).size !== records.length) return undefined;
-    return { networkId, address, savedAt: data.savedAt as number, records };
+    return {
+      networkId,
+      address,
+      savedAt: data.savedAt as number,
+      records,
+      ...(data.everSeen === true ? { everSeen: true } : {}),
+    };
   } catch {
     return undefined;
   }
