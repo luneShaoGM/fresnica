@@ -102,7 +102,7 @@ describe('Wallet Realm v10 to v11 token display metadata integration', () => {
       realm.close();
 
       realm = await openWalletRealm({ path });
-      expect(realm.schemaVersion).toBe(12);
+      expect(realm.schemaVersion).toBe(13);
       expect(realm.objectForPrimaryKey(ACCOUNT_ENTITY, 'account-legacy')?.label).toBe('Preserve account');
       expect(realm.objectForPrimaryKey(PENDING_SUBMISSION_ENTITY, 'uncertain-legacy')?.state).toBe('uncertain');
       expect(realm.objectForPrimaryKey(BALANCE_CACHE_SNAPSHOT_ENTITY, 'balance-preserved')?.balanceJson).toBe(

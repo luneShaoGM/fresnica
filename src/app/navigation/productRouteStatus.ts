@@ -44,6 +44,10 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
     readiness: 'implemented',
     note: 'S10 Swap is reachable from Home and Actions, with Path Payment quotes, spendable/Max, exact-XDR review and existing authorization/submission/recovery. Simulator, real-device and native product-flow acceptance remain pending; this is not an L4 claim.',
   },
+  claimable: {
+    readiness: 'implemented',
+    note: 'S11 real Horizon claimant listings, strict predicates and risk bands, review-verified claim XDR and existing signer/recovery path. Native product-flow acceptance is deferred to Stage 9.',
+  },
   'manage-assets': {
     readiness: 'implemented',
     note: 'Manage Assets supports Add, Set Limit and Remove through the shared Trustline exact-XDR review/sign/submit pipeline, including pre-sign ledger-state revalidation.',

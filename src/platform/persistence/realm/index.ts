@@ -1,3 +1,4 @@
+export { RealmClaimableCacheStore } from './RealmClaimableCacheStore';
 export { RealmBalanceCacheRepository } from './RealmBalanceCacheRepository';
 export { RealmDappCatalogRepository } from './RealmDappCatalogRepository';
 export { RealmDappDetailCacheRepository } from './RealmDappDetailCacheRepository';
@@ -12,6 +13,10 @@ export { RealmHistoryCacheRepository } from './RealmHistoryCacheRepository';
 export { createRealmRecordId } from './createRealmRecordId';
 export { openWalletRealm, walletRealmConfiguration, type OpenWalletRealmOptions } from './openWalletRealm';
 export {
+  CLAIMABLE_CACHE_ENTITY,
+  CLAIMABLE_CACHE_SCHEMA,
+  CLAIMABLE_RISK_OVERRIDE_ENTITY,
+  CLAIMABLE_RISK_OVERRIDE_SCHEMA,
   ACCOUNT_ENTITY,
   ACCOUNT_SCHEMA,
   ACCOUNT_SIGNER_REFERENCE_ENTITY,

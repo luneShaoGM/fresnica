@@ -1,4 +1,8 @@
 import {
+  CLAIMABLE_CACHE_ENTITY,
+  CLAIMABLE_CACHE_SCHEMA,
+  CLAIMABLE_RISK_OVERRIDE_ENTITY,
+  CLAIMABLE_RISK_OVERRIDE_SCHEMA,
   CONTACT_SCHEMA,
   BALANCE_CACHE_SNAPSHOT_ENTITY,
   BALANCE_CACHE_SNAPSHOT_SCHEMA,
@@ -30,10 +34,12 @@ import {
   WALLET_REALM_SCHEMA_VERSION,
 } from '../schemas';
 
-describe('Realm wallet schema v12', () => {
-  it('adds replaceable Balance cache persistence without changing wallet entity identities', () => {
-    expect(WALLET_REALM_SCHEMA_VERSION).toBe(12);
+describe('Realm wallet schema v13', () => {
+  it('adds public Claimable partitions without changing wallet entity identities', () => {
+    expect(WALLET_REALM_SCHEMA_VERSION).toBe(13);
     expect(WALLET_REALM_SCHEMAS).toEqual([
+      CLAIMABLE_CACHE_SCHEMA,
+      CLAIMABLE_RISK_OVERRIDE_SCHEMA,
       CONTACT_SCHEMA,
       ACCOUNT_SCHEMA,
       SIGNER_SCHEMA,
@@ -49,6 +55,11 @@ describe('Realm wallet schema v12', () => {
       TOKEN_METADATA_CACHE_SCHEMA,
       DAPP_PERMISSION_GRANT_SCHEMA,
     ]);
+    expect(CLAIMABLE_CACHE_SCHEMA.name).toBe(CLAIMABLE_CACHE_ENTITY);
+    expect(CLAIMABLE_RISK_OVERRIDE_SCHEMA.name).toBe(CLAIMABLE_RISK_OVERRIDE_ENTITY);
+    expect(CLAIMABLE_CACHE_SCHEMA.properties).not.toHaveProperty('xdr');
+    expect(CLAIMABLE_CACHE_SCHEMA.properties).not.toHaveProperty('keyMaterial');
+    expect(CLAIMABLE_RISK_OVERRIDE_SCHEMA.properties).not.toHaveProperty('signerId');
     expect(BALANCE_CACHE_SNAPSHOT_SCHEMA.name).toBe(BALANCE_CACHE_SNAPSHOT_ENTITY);
     expect(DAPP_CATALOG_CACHE_SCHEMA.name).toBe(DAPP_CATALOG_CACHE_ENTITY);
     expect(DAPP_DETAIL_CACHE_SCHEMA.name).toBe(DAPP_DETAIL_CACHE_ENTITY);

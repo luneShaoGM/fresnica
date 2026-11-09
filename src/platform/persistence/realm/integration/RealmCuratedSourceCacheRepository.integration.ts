@@ -91,7 +91,7 @@ describe('Realm v9 to v10 curated asset cache integration', () => {
       realm.close();
 
       realm = await openWalletRealm({ path });
-      expect(realm.schemaVersion).toBe(12);
+      expect(realm.schemaVersion).toBe(13);
       expect(realm.objectForPrimaryKey(ACCOUNT_ENTITY, 'legacy')?.label).toBe('Keep wallet');
       expect(realm.objectForPrimaryKey(PENDING_SUBMISSION_ENTITY, 'pending-1')?.transactionHash).toBe('hash-unchanged');
       expect(realm.objectForPrimaryKey(BALANCE_CACHE_SNAPSHOT_ENTITY, 'balance-preserved')?.balanceJson).toBe(

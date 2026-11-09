@@ -19,6 +19,7 @@ export type HomeStackParamList = {
   swap: ProductRouteParams['swap'];
   request: ProductRouteParams['request'];
   'manage-assets': ProductRouteParams['manage-assets'];
+  claimable: ProductRouteParams['claimable'];
 };
 
 export type ActivityStackParamList = {

@@ -37,6 +37,8 @@ type Props = Readonly<{
   onAddAccount: () => void;
   onSend: () => void;
   onManageAssets: () => void;
+  onClaimable?: () => void;
+  claimableNowCount?: number;
   onOpenAsset: (asset: BalanceAsset) => void;
   onManualRefresh: () => Promise<unknown>;
   onBalanceReload?: () => void;
@@ -58,6 +60,8 @@ export function HomeScreen({
   onAddAccount,
   onSend,
   onManageAssets,
+  onClaimable,
+  claimableNowCount = 0,
   onOpenAsset,
   onManualRefresh,
   onBalanceReload,
@@ -200,6 +204,13 @@ export function HomeScreen({
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Tokens</Text>
+          {onClaimable ? (
+            <Pressable accessibilityRole="button" onPress={onClaimable} style={styles.sectionLinkButton}>
+              <Text style={styles.sectionLink}>
+                {t('claimable.category.claimable') + (claimableNowCount > 0 ? ' (' + claimableNowCount + ')' : '')}
+              </Text>
+            </Pressable>
+          ) : null}
           <Pressable
             accessibilityRole="button"
             accessibilityState={{ disabled: !viewModel.canManageAssets }}
