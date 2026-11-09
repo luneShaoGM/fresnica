@@ -76,10 +76,11 @@ describe('S11 Realm v12 to v13 Claimable public cache migration', () => {
         },
         address,
       );
-      const snapshot: ClaimableSnapshot = { networkId, address, savedAt: 3000, records: [record] };
+      const snapshot: ClaimableSnapshot = { networkId, address, savedAt: 3000, records: [record], everSeen: true };
       cache.replace(snapshot);
       cache.setUserSpam(networkId, address, claimId, true);
       expect(cache.read(networkId, address)?.records).toHaveLength(1);
+      expect(cache.read(networkId, address)?.everSeen).toBe(true);
       expect(cache.read('stellar-mainnet', address)).toBeUndefined();
       expect(cache.read(networkId, second)).toBeUndefined();
       expect(cache.userSpam(networkId, address, claimId)).toBe(true);
@@ -89,6 +90,12 @@ describe('S11 Realm v12 to v13 Claimable public cache migration', () => {
       realm = await openWalletRealm({ path });
       const reopened = new RealmClaimableCacheStore(realm);
       expect(reopened.read(networkId, address)?.records[0].id).toBe(claimId);
+      expect(reopened.read(networkId, address)?.everSeen).toBe(true);
+      // Once the last balance is claimed, an empty current-network snapshot
+      // must retain the category discovery history across Realm reopen.
+      reopened.replace({ ...snapshot, savedAt: 4000, records: [] });
+      expect(reopened.read(networkId, address)?.records).toHaveLength(0);
+      expect(reopened.read(networkId, address)?.everSeen).toBe(true);
       expect(reopened.userSpam(networkId, address, claimId)).toBe(true);
       expect(realm.objectForPrimaryKey(PENDING_SUBMISSION_ENTITY, 'pending-old')?.state).toBe('uncertain');
 

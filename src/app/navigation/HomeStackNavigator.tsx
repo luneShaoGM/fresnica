@@ -1,5 +1,5 @@
 import { NetworkSwitchModal } from '@features/settings/NetworkSwitchModal';
-import React, { useCallback, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,7 +17,14 @@ import { AssetDetailsSheet } from '@features/home/AssetDetailsSheet';
 import { AssetDetailsScreen } from '@features/home/AssetDetailsScreen';
 import { HomeScreen } from '@features/home/HomeScreen';
 import { ClaimableScreen } from '@features/claimable/ClaimableScreen';
+import { AssetCategoryDialog, type HomeAssetCategory } from '@features/home/components/AssetCategoryDialog';
+import {
+  advanceHomeAssetCategory,
+  isCurrentClaimableCategory,
+  type HomeAssetCategorySelection,
+} from './homeAssetCategorySession';
 import { CLAIMABLE_TTL_MS, displayedClaimable } from '@capabilities/claimable/records';
+import type { ClaimableState } from '@capabilities/claimable/createClaimableProduct';
 import { SendFlowScreen } from '@features/send/SendFlowScreen';
 import { RequestFlowScreen } from '@features/request/RequestFlowScreen';
 import { ManageAssetsScreen } from '@features/trustlines/ManageAssetsScreen';
@@ -86,6 +93,21 @@ export function HomeStackNavigator({
               navigation={navigation}
               catalog={services.assetCatalog}
               claimables={services.claimables}
+              claimableTransaction={services.claimableTransaction}
+              isSelectedAccount={() => {
+                const latest = selectionRef.current;
+                return (
+                  latest.selectedAccountId === selectedAccount.id &&
+                  latest.accounts.some(
+                    candidate =>
+                      candidate.id === selectedAccount.id &&
+                      candidate.networkId === selectedAccount.networkId &&
+                      !candidate.hidden,
+                  )
+                );
+              }}
+              onRecover={() => services.transactionRecovery.reconcile('manual-refresh')}
+              developerMode={services.networkSettings?.getSnapshot().preferences.developerMode ?? false}
               copyPublicText={services.copyPublicText}
               foreground={readRuntime.foreground}
               account={selectedAccount}
@@ -99,7 +121,6 @@ export function HomeStackNavigator({
               onAddAccount={() => navigation.navigate('add-account')}
               onSend={() => navigation.navigate('send-form', { accountId: selectedAccount.id })}
               onSwap={swapEnabled ? () => navigation.navigate('swap', { accountId: selectedAccount.id }) : undefined}
-              onClaimable={() => navigation.navigate('claimable', { accountId: selectedAccount.id })}
               onRequest={
                 selectedAccount.identityKind === 'classic'
                   ? () => navigation.navigate('request', { accountId: selectedAccount.id })
@@ -198,42 +219,6 @@ export function HomeStackNavigator({
             navigation={navigation}
           />
         )}
-      </Stack.Screen>
-      <Stack.Screen name="claimable">
-        {({ navigation, route }) => {
-          const account = accounts.find(
-            candidate =>
-              candidate.id === route.params.accountId &&
-              candidate.id === selectedAccountId &&
-              candidate.networkId === services.claimableTransaction.network.id &&
-              !candidate.hidden,
-          );
-          if (!account) return <AssetAccountUnavailable onBack={() => navigation.popToTop()} />;
-          return (
-            <ClaimableScreen
-              key={JSON.stringify([account.id, account.networkId])}
-              account={account}
-              product={services.claimables}
-              transaction={services.claimableTransaction}
-              active={readRuntime.foreground}
-              canSign={!services.onboarding.repository.isWatchOnly(account.id)}
-              invalidationRevision={invalidationRevision}
-              onBack={() => navigation.goBack()}
-              onRecover={() => services.transactionRecovery.reconcile('manual-refresh')}
-              isCurrentAccount={() => {
-                const latest = selectionRef.current;
-                return (
-                  navigation.isFocused() &&
-                  latest.selectedAccountId === account.id &&
-                  latest.accounts.some(
-                    candidate =>
-                      candidate.id === account.id && candidate.networkId === account.networkId && !candidate.hidden,
-                  )
-                );
-              }}
-            />
-          );
-        }}
       </Stack.Screen>
       <Stack.Screen name="request">
         {({ navigation, route }) => (
@@ -430,6 +415,10 @@ function HomeWithAssetSheets({
   navigation,
   catalog,
   claimables,
+  claimableTransaction,
+  isSelectedAccount,
+  onRecover,
+  developerMode,
   copyPublicText,
   ...props
 }: Omit<React.ComponentProps<typeof HomeScreen>, 'active' | 'onManageAssets' | 'onOpenAsset'> & {
@@ -437,17 +426,70 @@ function HomeWithAssetSheets({
   navigation: NativeStackNavigationProp<HomeStackParamList, 'home'>;
   catalog: AppServices['assetCatalog'];
   claimables: AppServices['claimables'];
+  claimableTransaction: AppServices['claimableTransaction'];
+  isSelectedAccount: () => boolean;
+  onRecover: () => Promise<unknown>;
+  developerMode: boolean;
   copyPublicText: AppServices['copyPublicText'];
 }) {
   const focused = useIsFocused();
   const active = focused && foreground;
-  const cachedClaimable = claimables.readCached(props.account);
+  const [categorySelection, setCategorySelection] = useState<HomeAssetCategorySelection>({
+    value: 'tokens',
+    epoch: 0,
+  });
+  const categoryRef = useRef(categorySelection);
+  const assetCategory = categorySelection.value;
+  const renderedCategoryEpoch = categorySelection.epoch;
+  const [categoryPickerVisible, setCategoryPickerVisible] = useState(false);
+  const [refreshSignal, setRefreshSignal] = useState(0);
+  const [claimableState, setClaimableState] = useState<ClaimableState>();
+  const canReadClaimable =
+    props.account.identityKind === 'classic' &&
+    props.account.networkId === claimables.networkId &&
+    !props.account.hidden;
+  const cachedClaimable = canReadClaimable ? claimables.readCached(props.account) : undefined;
+  const state = claimableState ?? cachedClaimable;
+  const showClaimable =
+    canReadClaimable && (developerMode || !!state?.snapshot.records.length || state?.snapshot.everSeen === true);
+  const isCurrentClaimable = useCallback(
+    () =>
+      isCurrentClaimableCategory(categoryRef.current, renderedCategoryEpoch) &&
+      navigation.isFocused() &&
+      isSelectedAccount(),
+    [isSelectedAccount, navigation, renderedCategoryEpoch],
+  );
+  useEffect(() => {
+    if (!active || !canReadClaimable) return;
+    let retained = true;
+    void claimables
+      .refresh(props.account)
+      .then(value => {
+        if (retained) setClaimableState(value);
+      })
+      .catch(() => undefined);
+    return () => {
+      retained = false;
+    };
+  }, [active, canReadClaimable, claimables, props.account]);
+  const onSnapshotUpdated = useCallback((snapshot: ClaimableState) => setClaimableState(snapshot), []);
+  const chooseCategory = (next: HomeAssetCategory) => {
+    if (next === 'claimable' && !showClaimable) return;
+    // Advance the non-revivable session epoch synchronously. A fast
+    // Claimable -> Assets -> Claimable sequence must never revive an
+    // authorization launched by the first Claimable selection.
+    const selection = advanceHomeAssetCategory(categoryRef.current, next);
+    categoryRef.current = selection;
+    setCategorySelection(selection);
+    setCategoryPickerVisible(false);
+    setSheet(undefined);
+  };
   const safeClaimableNowCount =
-    cachedClaimable &&
-    !cachedClaimable.stale &&
-    Date.now() >= cachedClaimable.snapshot.savedAt &&
-    Date.now() - cachedClaimable.snapshot.savedAt < CLAIMABLE_TTL_MS
-      ? cachedClaimable.snapshot.records.filter(record => {
+    state &&
+    !state.stale &&
+    Date.now() >= state.snapshot.savedAt &&
+    Date.now() - state.snapshot.savedAt < CLAIMABLE_TTL_MS
+      ? state.snapshot.records.filter(record => {
           const shown = displayedClaimable(record, Math.floor(Date.now() / 1000), {
             userSpam: claimables.userSpam(props.account, record.id),
           });
@@ -468,9 +510,36 @@ function HomeWithAssetSheets({
       <HomeScreen
         {...props}
         active={active}
+        assetCategory={assetCategory}
         claimableNowCount={safeClaimableNowCount}
+        onOpenAssetCategory={() => setCategoryPickerVisible(true)}
+        onShowClaimable={showClaimable ? () => chooseCategory('claimable') : undefined}
+        onClaimablePullRefresh={() => setRefreshSignal(value => value + 1)}
+        claimableContent={
+          assetCategory === 'claimable' && canReadClaimable ? (
+            <ClaimableScreen
+              account={props.account}
+              product={claimables}
+              transaction={claimableTransaction}
+              active={active}
+              canSign={props.canSign}
+              invalidationRevision={props.invalidationRevision}
+              refreshSignal={refreshSignal}
+              onSnapshotUpdated={onSnapshotUpdated}
+              onRecover={onRecover}
+              isCurrentAccount={isCurrentClaimable}
+            />
+          ) : undefined
+        }
         onManageAssets={() => setSheet({ kind: 'add' })}
         onOpenAsset={asset => setSheet({ kind: 'details', asset })}
+      />
+      <AssetCategoryDialog
+        visible={active && categoryPickerVisible}
+        current={assetCategory}
+        showClaimable={showClaimable}
+        onClose={() => setCategoryPickerVisible(false)}
+        onSelect={chooseCategory}
       />
       {active && sheet?.kind === 'add' ? (
         <AddAssetSheet

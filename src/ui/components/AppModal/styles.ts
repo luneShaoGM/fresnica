@@ -22,7 +22,7 @@ export function createStyles(theme: AppTheme) {
       gap: 0,
     },
     sheetContent: { flex: 1 },
-    dialogContent: { gap: theme.spacing.md },
+    dialogContent: { gap: theme.spacing.md, flexShrink: 1 },
     dragTarget: { alignItems: 'center', justifyContent: 'center', height: 28 },
     dragHandle: {
       width: 40,
@@ -41,6 +41,7 @@ export function createStyles(theme: AppTheme) {
     dialog: {
       width: '100%',
       maxWidth: 480,
+      maxHeight: '88%',
       borderRadius: theme.radii.lg,
       backgroundColor: theme.colors.surface,
       padding: theme.spacing.lg,

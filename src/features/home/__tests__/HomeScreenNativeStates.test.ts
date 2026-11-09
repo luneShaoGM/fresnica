@@ -12,7 +12,8 @@ import type { BalanceProductDependencies } from '../../../capabilities/balance/B
 import type { FriendbotDependencies } from '../../../capabilities/network/fundTestnetAccountWithFriendbot';
 import { HomeScreen } from '../HomeScreen';
 import { AssetList, PinnedNativeAssetRow } from '../components/AssetList';
-import { ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
+import { AppBrandMark } from '@ui/components/AppBrandMark';
 import { InactiveAccountPanel } from '../components/InactiveAccountPanel';
 import type { HomeBalanceState } from '../homeViewModel';
 
@@ -66,6 +67,9 @@ type NodeProps = Readonly<{
   variant?: string;
   size?: string;
   onPress?: () => void;
+  accessibilityLabel?: string;
+  hiddenLiquidityPoolShareCount?: number;
+  refreshControl?: React.ReactElement<{ onRefresh: () => void }>;
 }>;
 
 function findElement(
@@ -105,7 +109,14 @@ const mockedUseState = useState as unknown as jest.Mock;
 const mockedUseEffect = useEffect as unknown as jest.Mock;
 const mockedLoadBalanceSnapshot = loadBalanceSnapshot as jest.MockedFunction<typeof loadBalanceSnapshot>;
 
-function renderHome(state: HomeBalanceState, currentAccount: AccountRecord = account) {
+function renderHome(
+  state: HomeBalanceState,
+  currentAccount: AccountRecord = account,
+  categoryOptions: Pick<
+    React.ComponentProps<typeof HomeScreen>,
+    'assetCategory' | 'claimableContent' | 'onClaimablePullRefresh' | 'onOpenAssetCategory'
+  > = {},
+) {
   const setBalanceState = jest.fn();
   const onSelectAccount = jest.fn();
   const onManualRefresh = jest.fn(async () => undefined);
@@ -136,6 +147,7 @@ function renderHome(state: HomeBalanceState, currentAccount: AccountRecord = acc
     onManualRefresh,
     invalidationRevision: 0,
     active: true,
+    ...categoryOptions,
   });
   return { root, setBalanceState, onSelectAccount, onManualRefresh, onSend, onSwitchNetwork };
 }
@@ -277,6 +289,56 @@ describe('Home native balance-state presentation', () => {
     });
     expect(findElement(regions[2], element => element.type === AssetList)).toBeDefined();
     expect(findElement(regions[2], element => element.type === PinnedNativeAssetRow)).toBeUndefined();
+  });
+
+  it('combines pinned XLM, the brand header and in-place Claimable without swapping the scroll regions', () => {
+    const state: HomeBalanceState = {
+      kind: 'ready',
+      stale: false,
+      refreshing: false,
+      refreshFailed: false,
+      snapshot: {
+        status: 'active',
+        address: account.address,
+        balances: [{ asset: { kind: 'native', code: 'XLM' }, balance: '10.0000000' }],
+        hiddenLiquidityPoolShareCount: 2,
+      },
+    };
+    const openCategory = jest.fn();
+    const refreshClaimable = jest.fn();
+    const content = React.createElement(View, { testID: 'embedded-claimable' });
+
+    const tokens = renderHome(state, account, {
+      assetCategory: 'tokens',
+      onOpenAssetCategory: openCategory,
+    }).root;
+    const tokenLayout = React.Children.toArray(tokens.props.children)[0] as React.ReactElement<NodeProps>;
+    const tokenRegions = React.Children.toArray(tokenLayout.props.children) as React.ReactElement<NodeProps>[];
+    expect(tokenRegions.map(region => region.type)).toEqual([ScrollView, View, ScrollView]);
+    expect(findElement(tokenRegions[0], node => node.type === AppBrandMark)).toBeDefined();
+    expect(findElement(tokenRegions[1], node => node.type === PinnedNativeAssetRow)).toBeDefined();
+    expect(findElement(tokenRegions[2], node => node.type === AssetList)?.props.hiddenLiquidityPoolShareCount).toBe(2);
+    findElement(
+      tokenRegions[0],
+      node => node.type === Pressable && node.props.accessibilityLabel === 'claimable.category.choose',
+    )?.props.onPress?.();
+    expect(openCategory).toHaveBeenCalledTimes(1);
+
+    const claimable = renderHome(state, account, {
+      assetCategory: 'claimable',
+      claimableContent: content,
+      onClaimablePullRefresh: refreshClaimable,
+    }).root;
+    const claimableLayout = React.Children.toArray(claimable.props.children)[0] as React.ReactElement<NodeProps>;
+    const claimableRegions = React.Children.toArray(claimableLayout.props.children) as React.ReactElement<NodeProps>[];
+    expect(claimableRegions.map(region => region.type)).toEqual([ScrollView, ScrollView]);
+    expect(findElement(claimableRegions[0], node => node.type === AppBrandMark)).toBeDefined();
+    expect(findElement(claimableRegions[1], node => node.type === AssetList)).toBeUndefined();
+    expect(findElement(claimableRegions[1], node => node.type === PinnedNativeAssetRow)).toBeUndefined();
+    expect(findElement(claimableRegions[1], node => node === content)).toBe(content);
+    const refresh = claimableRegions[1].props.refreshControl as React.ReactElement<{ onRefresh: () => void }>;
+    refresh.props.onRefresh();
+    expect(refreshClaimable).toHaveBeenCalledTimes(1);
   });
 
   it('forwards optional description and action through the native state facade', () => {

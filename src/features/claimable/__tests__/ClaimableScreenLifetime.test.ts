@@ -1,6 +1,8 @@
 import React from 'react';
 import type { AccountRecord } from '../../../capabilities/account/types';
 import type { ClaimableProduct } from '../../../capabilities/claimable/createClaimableProduct';
+import type { ClaimableRecord } from '../../../capabilities/claimable/records';
+import { AppModal } from '@ui/components';
 import type {
   ClaimableReview,
   ClaimableTransactionDependencies,
@@ -12,7 +14,9 @@ let mockStateCursor = 0;
 let mockBlur: (() => void) | undefined;
 let mockActiveEffect: (() => void | (() => void)) | undefined;
 let mockStateSetters: jest.Mock[] = [];
-let mockFlow: { kind: 'review'; review: ClaimableReview };
+let mockFlow: { kind: 'review'; review: ClaimableReview } | { kind: 'list' };
+let mockSelectedId: string | undefined;
+let mockRecords: readonly ClaimableRecord[] = [];
 
 jest.mock('react', () => ({
   ...jest.requireActual('react'),
@@ -20,7 +24,16 @@ jest.mock('react', () => ({
     const index = mockStateCursor++;
     const setter = jest.fn((_next: unknown) => undefined);
     mockStateSetters[index] = setter;
-    return [index === 9 ? mockFlow : typeof initial === 'function' ? (initial as () => unknown)() : initial, setter];
+    return [
+      index === 9
+        ? mockFlow
+        : index === 4
+          ? mockSelectedId
+          : typeof initial === 'function'
+            ? (initial as () => unknown)()
+            : initial,
+      setter,
+    ];
   },
   useRef: (initial: unknown) => ({ current: initial }),
   useCallback: (callback: unknown) => callback,
@@ -34,7 +47,7 @@ jest.mock('@react-navigation/native', () => ({
     mockBlur = callback();
   },
 }));
-jest.mock('@ui/components', () => ({ Screen: () => null, BottomSheet: () => null }));
+jest.mock('@ui/components', () => ({ Screen: () => null, AppModal: () => null }));
 jest.mock('@ui/components/NativeButton', () => ({ NativeButton: () => null }));
 jest.mock('../../../ui/SlideToConfirm', () => ({ SlideToConfirm: () => null }));
 jest.mock('../../assets/TokenAssetIcon', () => ({ TokenAssetIcon: () => null }));
@@ -80,7 +93,7 @@ const creditReview: ClaimableReview = {
 const cached = () => ({
   stale: false,
   refreshFailed: false,
-  snapshot: { networkId: 'stellar-testnet', address, savedAt: Date.now(), records: [] },
+  snapshot: { networkId: 'stellar-testnet', address, savedAt: Date.now(), records: mockRecords },
 });
 const product = {
   readCached: cached,
@@ -98,7 +111,6 @@ function renderReview(isCurrentAccount: () => boolean = () => true) {
     active: true,
     canSign: true,
     invalidationRevision: 0,
-    onBack: jest.fn(),
     onRecover: jest.fn(),
     isCurrentAccount,
   });
@@ -118,6 +130,8 @@ describe('S11 Claimable final review and captured route lifetime', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockFlow = { kind: 'review', review: creditReview };
+    mockSelectedId = undefined;
+    mockRecords = [];
     mockBlur = undefined;
     mockActiveEffect = undefined;
     mockStateSetters = [];
@@ -137,6 +151,64 @@ describe('S11 Claimable final review and captured route lifetime', () => {
     expect(flowUpdater({ kind: 'review', review: creditReview })).toEqual({ kind: 'list' });
     expect(flowUpdater({ kind: 'result' })).toEqual({ kind: 'result' });
     if (typeof cleanup === 'function') cleanup();
+  });
+
+  it('embeds a risk-banded list within Home rather than creating a second navigation page', () => {
+    mockFlow = { kind: 'list' };
+    mockRecords = [
+      {
+        id: creditReview.id,
+        asset: creditReview.asset,
+        amount: creditReview.amount,
+        sponsor: address,
+        claimant: address,
+        predicate: { unconditional: true },
+        risk: 'SUSPECT',
+        riskFlags: ['untrusted-credit-asset'],
+      },
+    ];
+    const elements = renderReview(() => true);
+    expect(
+      elements.some(element =>
+        (element.props as { accessibilityLabel?: string }).accessibilityLabel?.startsWith('USD 3.0000000'),
+      ),
+    ).toBe(true);
+    expect(
+      elements.some(
+        element =>
+          (element.props as { accessibilityState?: { expanded?: boolean } }).accessibilityState?.expanded === true,
+      ),
+    ).toBe(true);
+    expect(elements.some(element => element.type === AppModal)).toBe(false);
+  });
+
+  it('opens a centered dialog and keeps Claim disabled when the displayed account has an unknown predicate', () => {
+    mockFlow = { kind: 'list' };
+    mockSelectedId = creditReview.id;
+    mockRecords = [
+      {
+        id: creditReview.id,
+        asset: creditReview.asset,
+        amount: creditReview.amount,
+        sponsor: address,
+        claimant: address,
+        predicate: { rel_before: '500' },
+        risk: 'SUSPECT',
+        riskFlags: ['untrusted-credit-asset'],
+      },
+    ];
+    const elements = renderReview(() => true);
+    const dialog = elements.find(element => element.type === AppModal);
+    expect(dialog).toBeDefined();
+    expect((dialog!.props as { visible?: boolean; presentation?: string }).visible).toBe(true);
+    expect((dialog!.props as { presentation?: string }).presentation).toBeUndefined();
+    expect(
+      elements.some(
+        element =>
+          (element.props as { label?: string; disabled?: boolean }).label === 'claimable.claim' &&
+          (element.props as { disabled?: boolean }).disabled === true,
+      ),
+    ).toBe(true);
   });
 
   it('renders full issuer identity next to the credit asset before the final slide', () => {
