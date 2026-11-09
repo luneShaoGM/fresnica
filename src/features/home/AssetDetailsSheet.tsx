@@ -8,6 +8,7 @@ import type { AccountRecord } from '../../capabilities/account/types';
 import type { BalanceProductDependencies } from '@capabilities/balance/BalanceCacheHydration';
 import { useBalanceDisplay } from './useBalanceDisplay';
 import { matchingNativeBalance, useNativeBalanceBreakdown } from './useNativeBalanceBreakdown';
+import { TokenAssetIcon } from '../assets/TokenAssetIcon';
 import type { NativeBalanceBreakdown } from '@capabilities/balance/nativeBalanceBreakdown';
 import { BalanceFreshnessNotice } from './components/BalanceFreshnessNotice';
 import type { BalanceAsset, BalanceLine } from '../../capabilities/balance/types';
@@ -158,6 +159,9 @@ function NativeBalance({
 }>): React.JSX.Element {
   return (
     <ScrollView contentContainerStyle={styles.bodyContent} style={styles.body}>
+      <View style={styles.balanceBlock}>
+        <TokenAssetIcon asset={{ kind: 'native', code: 'XLM' }} />
+      </View>
       <BalanceCard label={t('home.asset.accountBalance')} styles={styles} value={line.balance} />
       <BalanceCard
         label={t('home.asset.available')}
@@ -278,9 +282,7 @@ function IssuedAsset({
   return (
     <ScrollView contentContainerStyle={styles.bodyContent} style={styles.body}>
       <View style={styles.balanceBlock}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{asset.code.slice(0, 1)}</Text>
-        </View>
+        <TokenAssetIcon asset={asset} />
         <Text style={styles.amount}>{line.balance}</Text>
         <Text style={styles.code}>{asset.code}</Text>
       </View>

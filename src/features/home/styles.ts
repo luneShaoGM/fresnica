@@ -30,6 +30,7 @@ export function createStyles(theme: AppTheme) {
       marginBottom: theme.spacing.md,
       gap: theme.spacing.md,
     },
+    brandLockup: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, gap: theme.spacing.xs },
     brand: {
       ...theme.typography.title,
       color: theme.colors.textPrimary,

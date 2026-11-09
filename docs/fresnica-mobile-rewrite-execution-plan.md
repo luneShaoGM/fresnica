@@ -1392,3 +1392,14 @@ No fabricated trustline-level staking/reserve amount or XRPL object data.
 Preserve existing S06 safety and wallet authorization contracts. Repository
 tests are not Android/iOS product-flow acceptance; Stage 9 System Auth
 device checks are still deferred. Review/merge requirements still apply.
+
+### 2026-11-09 PR #177 icon alignment follow-up
+
+One PR retains the correction to the light-only unknown Token image,
+new local XLM square, shared asset-detail artwork, Fresnica rocket
+mark, native iPhone/iPad App Icon and Android mdpi–xxxhdpi plus
+adaptive launchers. The owner expanded authorization to only these
+self-designed images; other image copying still requires consent.
+Includes 1x–3x and native asset-set validation. Complete independent
+exact-HEAD Work Review and CI before owner decides any merge; native
+visual QA and Stage 9 iOS System Auth remain separate/deferred.

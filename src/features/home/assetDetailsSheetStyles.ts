@@ -20,15 +20,6 @@ export function createAssetDetailsSheetStyles(theme: AppTheme) {
     body: { flex: 1 },
     bodyContent: { gap: theme.spacing.md, paddingBottom: theme.spacing.lg },
     balanceBlock: { alignItems: 'center', gap: theme.spacing.xs, paddingVertical: theme.spacing.md },
-    avatar: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.colors.actionPrimaryMuted,
-    },
-    avatarText: { ...theme.typography.label, color: theme.colors.textPrimary },
     amount: { ...theme.typography.title, color: theme.colors.textPrimary },
     code: { ...theme.typography.label, color: theme.colors.textSecondary },
     card: {

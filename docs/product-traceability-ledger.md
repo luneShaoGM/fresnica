@@ -563,3 +563,15 @@ must fail closed. No XRPL account-object reuse, staking claims, wallet
 transaction preflight changes, or new persisted balance cache fields.
 See the S05 Home balance-details behavior specification for tests and
 deferred native device acceptance.
+
+### PR #177 S06 visual follow-up — 2026-11-09
+
+**Adapt / local visual assets:** fixed ImageUnknownTrustLineLight Token
+fallback across both networks and all asset surfaces, shared credit detail
+icon, original native XLM square mark, Fresnica/Firefly rocket brand mark
+and iOS/Android App Icon density sets. Exact user ownership permission,
+source hashes and reproduction boundaries are recorded in the November 9
+provenance record. Source logos with FIREFLY wordmarks are deliberately not
+shown as Fresnica. No business Capability, network partition, external
+media consent, Signer, transaction or recovery changes. Device visual
+acceptance remains pending even with image/resource tests.

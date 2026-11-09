@@ -26,3 +26,14 @@ No donor application code, UI implementation structure, other images, or
 font resources are approved by this record. Public Token metadata/image
 origin checks, network isolation, and existing auth/security behavior
 remain unchanged.
+
+## 2026-11-09 correction
+
+The earlier table records the historical 2026-11-06 PR #177 candidate.
+The owner later clarified that the unknown Token fallback **must always**
+use image_unknown_trustline_light. The old dark variant is removed;
+the light variant now has React Native 1x/2x/3x resolutions. In the same
+user message, the owner separately approved reuse of their own App Icon,
+rocket logo and XLM icon. See the new file
+docs/provenance/user-owned-app-artwork-approval-2026-11-09.md for the
+current source hashes, exact scope and rendered resource targets.

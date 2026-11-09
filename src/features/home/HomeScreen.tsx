@@ -22,6 +22,7 @@ import { AccountSummary } from './components/AccountSummary';
 import { AssetList, PinnedNativeAssetRow } from './components/AssetList';
 import { matchingNativeBalance, useNativeBalanceBreakdown } from './useNativeBalanceBreakdown';
 import { PublicIconToggle } from '../assets/TokenAssetIcon';
+import { AppBrandMark } from '@ui/components/AppBrandMark';
 import { InactiveAccountPanel, type FriendbotFundingState } from './components/InactiveAccountPanel';
 import { NetworkStatus } from './components/NetworkStatus';
 import { createHomeViewModel, type HomeBalanceState } from './homeViewModel';
@@ -176,7 +177,10 @@ export function HomeScreen({
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <Text style={styles.brand}>Fresnica</Text>
+            <View style={styles.brandLockup}>
+              <AppBrandMark />
+              <Text numberOfLines={1} style={styles.brand}>Fresnica</Text>
+            </View>
             <NetworkStatus networkLabel={viewModel.networkLabel} onPress={onSwitchNetwork} />
           </View>
 

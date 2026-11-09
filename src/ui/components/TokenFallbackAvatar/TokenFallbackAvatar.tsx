@@ -1,16 +1,10 @@
 import React from 'react';
 import { Image, View } from 'react-native';
-import { useAppTheme, useThemedStyles } from '@ui/theme';
-import { createStyles } from './styles';
+import { styles } from './styles';
 
-// User-authorized, locally bundled default Token artwork. Never derive branding from a token address.
+// Missing, rejected and unavailable external Token images all use the same
+// approved ImageUnknownTrustLineLight artwork, independent of app theme.
 export function TokenFallbackAvatar({ small = false }: Readonly<{ small?: boolean }>) {
-  const styles = useThemedStyles(createStyles);
-  const theme = useAppTheme();
-  const source =
-    theme.statusBarContent === 'light'
-      ? require('./assets/unknownTokenLight.png')
-      : require('./assets/unknownToken.png');
   return (
     <View
       accessible={false}
@@ -18,7 +12,7 @@ export function TokenFallbackAvatar({ small = false }: Readonly<{ small?: boolea
       importantForAccessibility="no-hide-descendants"
       style={[styles.avatar, small ? styles.small : undefined]}
     >
-      <Image resizeMode="contain" source={source} style={styles.image} />
+      <Image resizeMode="contain" source={require('./assets/unknownTokenLight.png')} style={styles.image} />
     </View>
   );
 }

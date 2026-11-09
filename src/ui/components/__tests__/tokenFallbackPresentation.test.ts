@@ -30,6 +30,10 @@ describe('S06 default token vs S22 local identity avatar presentation', () => {
     const root = TokenFallbackAvatar({});
     expect(nodes(root, View)).toHaveLength(1);
     expect(nodes(root, Image)).toHaveLength(1);
+    expect(nodes(root, Image)[0].props.source).toEqual(require('../TokenFallbackAvatar/assets/unknownTokenLight.png'));
+    const containerStyle = (root.props.style as ReadonlyArray<{ backgroundColor?: string } | undefined>)[0];
+    expect(containerStyle?.backgroundColor).toBeUndefined();
+
     expect(root.props).toMatchObject({
       accessible: false,
       accessibilityElementsHidden: true,
@@ -39,6 +43,8 @@ describe('S06 default token vs S22 local identity avatar presentation', () => {
     expect(nodes(small, Image)).toHaveLength(1);
     expect(small.props.style).not.toEqual(root.props.style);
     expect(nodes(small, Image)[0].props.source).toEqual(nodes(root, Image)[0].props.source);
+    expect(nodes(small, Image)[0].props.resizeMode).toBe('contain');
+    expect(nodes(small, Image)[0].props.style).toEqual({ width: '100%', height: '100%' });
   });
 
   it('keeps address-driven local user avatar distinct from a missing token image', () => {
