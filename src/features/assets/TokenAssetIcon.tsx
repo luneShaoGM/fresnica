@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useRef, useState, useSyncExternalStore } 
 import { Image, StyleSheet } from 'react-native';
 
 import type { TokenAssetIdentity } from '../../capabilities/assets/TokenMetadataCache';
-import { IdentityAvatar } from '../../ui/components/IdentityAvatar';
+import { TokenFallbackAvatar } from '../../ui/components/TokenFallbackAvatar';
 import { NativeButton } from '../../ui/components/NativeButton';
 import { useLocalization } from '../../locale';
 import { TokenIconContext } from './tokenIconContext';
@@ -79,15 +79,26 @@ export function TokenAssetIcon({
     return () => controller.abort();
   }, [active, code, credit, issuer, key, service, snapshot.enabled, retryRevision]);
 
-  if (!active || !snapshot.enabled || !credit || !uri || isRejected(uri)) {
-    return <IdentityAvatar identity={key} native={asset.kind === 'native'} small={small} />;
+  if (!credit) {
+    return (
+      <Image
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        resizeMode="contain"
+        source={require('../../ui/assets/token/xlmSquare.png')}
+        style={[styles.icon, small ? styles.small : undefined]}
+      />
+    );
   }
+  if (!active || !snapshot.enabled || !uri || isRejected(uri)) return <TokenFallbackAvatar small={small} />;
   return (
     <Image
       accessible={false}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       source={{ uri }}
+      resizeMode="contain"
       style={[styles.icon, small ? styles.small : undefined]}
       onError={() => {
         rejected.current = { key, uri };
@@ -100,6 +111,6 @@ export function TokenAssetIcon({
 }
 
 const styles = StyleSheet.create({
-  icon: { width: 40, height: 40, borderRadius: 20 },
-  small: { width: 16, height: 16, borderRadius: 8 },
+  icon: { width: 40, height: 40 },
+  small: { width: 16, height: 16 },
 });

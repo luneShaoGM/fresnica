@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Screen } from '@ui/components';
+import { AppBrandMark } from '@ui/components/AppBrandMark';
 
 import {
   NEW_PROTECTION_PASSPHRASE_MIN_UNICODE_SCALARS,
@@ -174,7 +175,10 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
     return (
       <Screen scrollable={false} contentInset="none">
         <View style={styles.brandHeader}>
-          <Text style={styles.brand}>fresnica</Text>
+          <View style={styles.brandLockup}>
+            <AppBrandMark />
+            <Text style={styles.brand}>Fresnica</Text>
+          </View>
           {onCancel ? (
             <Pressable
               accessibilityRole="button"
@@ -515,6 +519,7 @@ function createStyles(theme: AppTheme) {
       alignItems: 'center',
       justifyContent: 'space-between',
     },
+    brandLockup: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
     brand: {
       color: theme.colors.textPrimary,
       fontSize: 25,

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Screen } from '@ui/components';
+import { AppBrandMark } from '@ui/components/AppBrandMark';
 
 import type { ProvisionAccountDependencies } from '../../capabilities/account/provisionAccount';
 import {
@@ -82,7 +83,10 @@ export function PendingMnemonicBackupScreen({ dependencies, signerId, securityDe
   return (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
-        <Text style={styles.brand}>fresnica</Text>
+        <View style={styles.brandLockup}>
+          <AppBrandMark />
+          <Text style={styles.brand}>Fresnica</Text>
+        </View>
       </View>
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -170,6 +174,7 @@ function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: theme.colors.background },
     header: { height: 60, justifyContent: 'center', paddingHorizontal: 20 },
+    brandLockup: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
     brand: { color: theme.colors.textPrimary, fontSize: 24, lineHeight: 30, fontWeight: '800', letterSpacing: -0.6 },
     scroll: { flexGrow: 1, paddingBottom: 24 },
     hero: { alignItems: 'center', paddingHorizontal: 26, paddingTop: 28, paddingBottom: 24 },

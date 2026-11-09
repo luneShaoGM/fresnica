@@ -11,6 +11,7 @@ import {Screen} from '@ui/components';
 
 import type {AccountRecord} from '../../capabilities/account/types';
 import {useThemedStyles, type AppTheme} from '@ui/theme';
+import { AppBrandMark } from '@ui/components/AppBrandMark';
 
 type Props = Readonly<{
   accounts: readonly AccountRecord[];
@@ -23,7 +24,10 @@ export function WalletReadyScreen({accounts, onAddAccount, onOpenSecurity}: Prop
   return (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
-        <Text style={styles.brand}>fresnica</Text>
+        <View style={styles.brandLockup}>
+          <AppBrandMark />
+          <Text style={styles.brand}>Fresnica</Text>
+        </View>
       </View>
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -100,6 +104,7 @@ function shortAddress(address: string): string {
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
   header: {height: 60, justifyContent: 'center', paddingHorizontal: 20},
+  brandLockup: {flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs},
   brand: {color: theme.colors.textPrimary, fontSize: 24, lineHeight: 30, fontWeight: '800', letterSpacing: -0.6},
   scroll: {flexGrow: 1, paddingBottom: 24},
   hero: {alignItems: 'center', paddingHorizontal: 26, paddingTop: 30, paddingBottom: 34},

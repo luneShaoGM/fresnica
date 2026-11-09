@@ -11,7 +11,8 @@ import { loadBalanceSnapshot } from '../../../capabilities/balance/loadBalanceSn
 import type { BalanceProductDependencies } from '../../../capabilities/balance/BalanceCacheHydration';
 import type { FriendbotDependencies } from '../../../capabilities/network/fundTestnetAccountWithFriendbot';
 import { HomeScreen } from '../HomeScreen';
-import { AssetList } from '../components/AssetList';
+import { AssetList, PinnedNativeAssetRow } from '../components/AssetList';
+import { ScrollView, View } from 'react-native';
 import { InactiveAccountPanel } from '../components/InactiveAccountPanel';
 import type { HomeBalanceState } from '../homeViewModel';
 
@@ -59,6 +60,7 @@ type NodeProps = Readonly<{
   title?: string;
   description?: string;
   action?: React.ReactNode;
+  line?: unknown;
   tone?: string;
   label?: string;
   variant?: string;
@@ -246,6 +248,35 @@ describe('Home native balance-state presentation', () => {
     });
     const panel = findElement(root, element => element.type === InactiveAccountPanel);
     expect(panel?.props).toMatchObject({ stale, address: account.address });
+  });
+
+  it('renders native XLM outside both independently scrollable header and issued Token lists', () => {
+    const { root } = renderHome({
+      kind: 'ready',
+      stale: false,
+      refreshing: false,
+      refreshFailed: false,
+      snapshot: {
+        status: 'active',
+        address: account.address,
+        balances: [
+          { asset: { kind: 'native', code: 'XLM' }, balance: '100.0000000' },
+          { asset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' }, balance: '7' },
+        ],
+        hiddenLiquidityPoolShareCount: 0,
+      },
+    });
+    const screenChildren = React.Children.toArray(root.props.children) as React.ReactElement<NodeProps>[];
+    const layout = screenChildren[0];
+    expect(layout.type).toBe(View);
+    const regions = React.Children.toArray(layout.props.children) as React.ReactElement<NodeProps>[];
+    expect(regions.map(region => region.type)).toEqual([ScrollView, View, ScrollView]);
+    expect(findElement(regions[0], element => element.type === PinnedNativeAssetRow)).toBeUndefined();
+    expect(findElement(regions[1], element => element.type === PinnedNativeAssetRow)?.props.line).toMatchObject({
+      asset: { kind: 'native', code: 'XLM' },
+    });
+    expect(findElement(regions[2], element => element.type === AssetList)).toBeDefined();
+    expect(findElement(regions[2], element => element.type === PinnedNativeAssetRow)).toBeUndefined();
   });
 
   it('forwards optional description and action through the native state facade', () => {

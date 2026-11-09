@@ -19,8 +19,10 @@ import {
 import { useLocalization } from '../../locale';
 import { AccountPickerModal } from './components/AccountPickerModal';
 import { AccountSummary } from './components/AccountSummary';
-import { AssetList } from './components/AssetList';
+import { AssetList, PinnedNativeAssetRow } from './components/AssetList';
+import { matchingNativeBalance, useNativeBalanceBreakdown } from './useNativeBalanceBreakdown';
 import { PublicIconToggle } from '../assets/TokenAssetIcon';
+import { AppBrandMark } from '@ui/components/AppBrandMark';
 import { InactiveAccountPanel, type FriendbotFundingState } from './components/InactiveAccountPanel';
 import { NetworkStatus } from './components/NetworkStatus';
 import { createHomeViewModel, type HomeBalanceState } from './homeViewModel';
@@ -153,92 +155,128 @@ export function HomeScreen({
     [account, balanceState, canSign, friendbotAvailable, onRequest, onSwap],
   );
 
+  const nativeLine =
+    balanceState.kind === 'ready' && balanceState.snapshot.status === 'active'
+      ? balanceState.snapshot.balances.find(line => line.asset.kind === 'native')
+      : undefined;
+  const nativeReady =
+    active && !!nativeLine && balanceState.kind === 'ready' && !balanceState.stale && !balanceState.refreshing;
+  const nativeDetails = useNativeBalanceBreakdown(
+    account,
+    balanceDependencies,
+    nativeReady,
+    invalidationRevision,
+    balanceState.kind === 'ready' ? balanceState.lastSuccessfulUpdateAt?.getTime() : undefined,
+  );
+  const safeNativeDetails = nativeLine
+    ? matchingNativeBalance(nativeDetails, nativeLine.balance, !nativeReady)
+    : undefined;
+
   return (
     <Screen scrollable={false} contentInset="none">
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl
-            onRefresh={() => {
-              setManualRefreshing(true);
-              void Promise.resolve(refreshBalances(onManualRefresh)).finally(() => {
-                setManualRefreshing(false);
-                onBalanceReload?.();
-              });
-            }}
-            refreshing={manualRefreshing}
-            tintColor={theme.colors.actionPrimary}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <Text style={styles.brand}>Fresnica</Text>
-          <NetworkStatus networkLabel={viewModel.networkLabel} onPress={onSwitchNetwork} />
-        </View>
-
-        <AccountSummary
-          accountCount={accountCount}
-          accountKindLabel={viewModel.accountKindLabel}
-          label={viewModel.accountLabel}
-          maskedAddress={viewModel.maskedAddress}
-          onAddAccount={onAddAccount}
-          onOpenAccountPicker={() => setAccountPickerVisible(true)}
-        />
-
-        <View style={styles.actionsRow}>
-          <HomeAction enabled={viewModel.canSend} label="Send" onPress={onSend} />
-          <HomeAction enabled={viewModel.canSwap} label="Swap" onPress={onSwap} />
-          <HomeAction enabled={viewModel.canRequest} label="Request" onPress={onRequest} />
-        </View>
-
-        {viewModel.isReadOnly ? (
-          <View style={styles.readOnlyNotice}>
-            <Text style={styles.readOnlyTitle}>Read-only account</Text>
-            <Text style={styles.readOnlyText}>
-              Balances can be viewed, but signing actions stay unavailable because this account has no supported
-              Fresnica signer.
-            </Text>
+      <View style={styles.homeLayout}>
+        <ScrollView
+          style={styles.headerScroll}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <View style={styles.brandLockup}>
+              <AppBrandMark />
+              <Text numberOfLines={1} style={styles.brand}>
+                Fresnica
+              </Text>
+            </View>
+            <NetworkStatus networkLabel={viewModel.networkLabel} onPress={onSwitchNetwork} />
           </View>
-        ) : null}
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Tokens</Text>
-          {onClaimable ? (
-            <Pressable accessibilityRole="button" onPress={onClaimable} style={styles.sectionLinkButton}>
-              <Text style={styles.sectionLink}>
-                {t('claimable.category.claimable') + (claimableNowCount > 0 ? ' (' + claimableNowCount + ')' : '')}
+          <AccountSummary
+            accountCount={accountCount}
+            accountKindLabel={viewModel.accountKindLabel}
+            label={viewModel.accountLabel}
+            maskedAddress={viewModel.maskedAddress}
+            onAddAccount={onAddAccount}
+            onOpenAccountPicker={() => setAccountPickerVisible(true)}
+          />
+
+          <View style={styles.actionsRow}>
+            <HomeAction enabled={viewModel.canSend} label="Send" onPress={onSend} />
+            <HomeAction enabled={viewModel.canSwap} label="Swap" onPress={onSwap} />
+            <HomeAction enabled={viewModel.canRequest} label="Request" onPress={onRequest} />
+          </View>
+
+          {viewModel.isReadOnly ? (
+            <View style={styles.readOnlyNotice}>
+              <Text style={styles.readOnlyTitle}>Read-only account</Text>
+              <Text style={styles.readOnlyText}>
+                Balances can be viewed, but signing actions stay unavailable because this account has no supported
+                Fresnica signer.
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Tokens</Text>
+            {onClaimable ? (
+              <Pressable accessibilityRole="button" onPress={onClaimable} style={styles.sectionLinkButton}>
+                <Text style={styles.sectionLink}>
+                  {t('claimable.category.claimable') + (claimableNowCount > 0 ? ' (' + claimableNowCount + ')' : '')}
+                </Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !viewModel.canManageAssets }}
+              disabled={!viewModel.canManageAssets}
+              onPress={viewModel.canManageAssets ? onManageAssets : undefined}
+              style={({ pressed }) => [styles.sectionLinkButton, pressed ? styles.pressed : undefined]}
+            >
+              <Text style={[styles.sectionLink, !viewModel.canManageAssets ? styles.sectionLinkDisabled : undefined]}>
+                Add asset
               </Text>
             </Pressable>
-          ) : null}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !viewModel.canManageAssets }}
-            disabled={!viewModel.canManageAssets}
-            onPress={viewModel.canManageAssets ? onManageAssets : undefined}
-            style={({ pressed }) => [styles.sectionLinkButton, pressed ? styles.pressed : undefined]}
-          >
-            <Text style={[styles.sectionLink, !viewModel.canManageAssets ? styles.sectionLinkDisabled : undefined]}>
-              Add asset
-            </Text>
-          </Pressable>
-        </View>
+          </View>
 
-        <PublicIconToggle networkId={account.networkId} />
-        <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} showRefreshStatus={false} />
-        {renderPortfolio(
-          balanceState,
-          viewModel.accountAddress,
-          friendbotAvailable,
-          visibleFriendbotState,
-          verifiedInactive === true,
-          fundWithFriendbot,
-          refreshBalances,
-          onOpenAsset,
-          theme.colors.actionPrimary,
-          styles,
-        )}
-      </ScrollView>
+          <PublicIconToggle networkId={account.networkId} />
+          <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} showRefreshStatus={false} />
+        </ScrollView>
+        {nativeLine ? (
+          <View style={styles.nativeFixedWrap}>
+            <PinnedNativeAssetRow line={nativeLine} breakdown={safeNativeDetails} onOpenAsset={onOpenAsset} t={t} />
+          </View>
+        ) : null}
+        <ScrollView
+          style={styles.tokenScroll}
+          contentContainerStyle={styles.tokenContent}
+          refreshControl={
+            <RefreshControl
+              onRefresh={() => {
+                setManualRefreshing(true);
+                void Promise.resolve(refreshBalances(onManualRefresh)).finally(() => {
+                  setManualRefreshing(false);
+                  onBalanceReload?.();
+                });
+              }}
+              refreshing={manualRefreshing}
+              tintColor={theme.colors.actionPrimary}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {renderPortfolio(
+            balanceState,
+            viewModel.accountAddress,
+            friendbotAvailable,
+            visibleFriendbotState,
+            verifiedInactive === true,
+            fundWithFriendbot,
+            refreshBalances,
+            onOpenAsset,
+            theme.colors.actionPrimary,
+            styles,
+          )}
+        </ScrollView>
+      </View>
       <AccountPickerModal
         accounts={selectableAccounts}
         onRequestClose={() => setAccountPickerVisible(false)}

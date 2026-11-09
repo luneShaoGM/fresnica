@@ -501,7 +501,6 @@ full Jest guard. **No S10 L4 promotion**: live Testnet broadcast, simulator
 and real-device product flow, native accessibility and iOS System Auth
 cancel/retry remain in Stage 9.
 
-
 ### 2026-11-06 S15 trusted directory browser launch — product candidate
 
 **Base** `main@46b222f72a9535a498e79875e5c265f5aca7af60`
@@ -544,3 +543,39 @@ parallel independent workstream and unaffected.
 ### S11 current claimant balances, risk groups and reviewable claim (2026-11-09)
 
 Candidate only, pending PR creation, exact-HEAD Work review and user merge. Based on `main@62be0683f18c40975c5fc1dea7cd5240833791de`. Owner: `capabilities/claimable` with `features/claimable` and current Horizon/Realm v13 adapters; decision **Adapt** self-developed Stellar behavior with user-provided ownership confirmation, **not** direct copy. Concrete migration differences: [S11 source-to-target register](s11-stellar-migration-differences.md); contract: [S11 behavior spec](behavior-specs/s11-claimable-product.md). S11 live balances are distinct from S13 claim/clawback historical effects. UI reads only current-account/network snapshots; a fresh, exact same-network by-ID Claimant/predicate check gates reviewed unsigned XDR and the established SDK/Core signer/recovery pipeline. User display spam overrides have no signature authority. Native product-flow acceptance is deferred to Stage 9, not assumed passed by Jest or CI. **Do not promote to L4 before real device evidence**.
+
+### S06 unknown-Token presentation follow-up — 2026-11-06 candidate
+
+Stellar TokenIcon/TokenAvatar use an unknown-asset fallback after image
+candidates fail. Fresnica uses the user-approved specific default-Token image family
+(resized locally) with a file-level provenance approval record. The shared
+TokenAssetIcon uses the same unknown-Token display on Mainnet and Testnet;
+XLM and all S22 account/contact address avatars remain separate. No
+public-HTTPS transport, Realm, account or transaction behavior changes.
+Native visual acceptance and Work exact-HEAD review are still required.
+See S22 spec for deferred remote address-avatar privacy/provider decision.
+
+### S05 Home XLM fixed/native balance details — 2026-11-06 follow-up candidate on PR #177
+
+Clean-room Adapt of observed Stellar user flow: fixed native XLM above
+independently scrollable issued Tokens, reliable available/reserved balance,
+expandable read-only XLM details with net sponsor offsets, sell liabilities
+and exact current-network trustline identities. Reuse existing AppModal sheet
+with swipe-to-dismiss. Display authority is a network-account-scoped, fresh
+read-only projection of Stellar state and ledger parameters; stale/mismatch
+must fail closed. No XRPL account-object reuse, staking claims, wallet
+transaction preflight changes, or new persisted balance cache fields.
+See the S05 Home balance-details behavior specification for tests and
+deferred native device acceptance.
+
+### PR #177 S06 visual follow-up — 2026-11-09
+
+**Adapt / local visual assets:** fixed ImageUnknownTrustLineLight Token
+fallback across both networks and all asset surfaces, shared credit detail
+icon, original native XLM square mark, Fresnica/Firefly rocket brand mark
+and iOS/Android App Icon density sets. Exact user ownership permission,
+source hashes and reproduction boundaries are recorded in the November 9
+provenance record. Source logos with FIREFLY wordmarks are deliberately not
+shown as Fresnica. No business Capability, network partition, external
+media consent, Signer, transaction or recovery changes. Device visual
+acceptance remains pending even with image/resource tests.

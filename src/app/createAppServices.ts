@@ -489,6 +489,11 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         now: () => new Date(),
         gateway: displayReadGateway,
         networkId: network.id,
+        nativeReader: {
+          networkId: network.id,
+          loadAccountState: address => stellarGateway.loadAccountState(address),
+          loadLedgerParameters: () => stellarGateway.loadLedgerParameters(),
+        },
       },
       friendbot: {
         gateway: friendbotGateway,
