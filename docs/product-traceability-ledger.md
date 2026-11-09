@@ -563,3 +563,39 @@ unavailable and no unknown token metadata is invented. Exact-XDR
 authorization, pre-pending cancellation boundary and original uncertain
 recovery are unchanged. Native emulator, real-device and Stage 9 iOS
 System Auth cancel→retry acceptance remain deferred; this is not an L4 claim.
+
+### S06 unknown-Token presentation follow-up — 2026-11-06 candidate
+
+Stellar TokenIcon/TokenAvatar use an unknown-asset fallback after image
+candidates fail. Fresnica uses the user-approved specific default-Token image family
+(resized locally) with a file-level provenance approval record. The shared
+TokenAssetIcon uses the same unknown-Token display on Mainnet and Testnet;
+XLM and all S22 account/contact address avatars remain separate. No
+public-HTTPS transport, Realm, account or transaction behavior changes.
+Native visual acceptance and Work exact-HEAD review are still required.
+See S22 spec for deferred remote address-avatar privacy/provider decision.
+
+### S05 Home XLM fixed/native balance details — 2026-11-06 follow-up candidate on PR #177
+
+Clean-room Adapt of observed Stellar user flow: fixed native XLM above
+independently scrollable issued Tokens, reliable available/reserved balance,
+expandable read-only XLM details with net sponsor offsets, sell liabilities
+and exact current-network trustline identities. Reuse existing AppModal sheet
+with swipe-to-dismiss. Display authority is a network-account-scoped, fresh
+read-only projection of Stellar state and ledger parameters; stale/mismatch
+must fail closed. No XRPL account-object reuse, staking claims, wallet
+transaction preflight changes, or new persisted balance cache fields.
+See the S05 Home balance-details behavior specification for tests and
+deferred native device acceptance.
+
+### PR #177 S06 visual follow-up — 2026-11-09
+
+**Adapt / local visual assets:** fixed ImageUnknownTrustLineLight Token
+fallback across both networks and all asset surfaces, shared credit detail
+icon, original native XLM square mark, Fresnica/Firefly rocket brand mark
+and iOS/Android App Icon density sets. Exact user ownership permission,
+source hashes and reproduction boundaries are recorded in the November 9
+provenance record. Source logos with FIREFLY wordmarks are deliberately not
+shown as Fresnica. No business Capability, network partition, external
+media consent, Signer, transaction or recovery changes. Device visual
+acceptance remains pending even with image/resource tests.

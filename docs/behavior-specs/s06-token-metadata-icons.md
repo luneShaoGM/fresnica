@@ -177,3 +177,45 @@ A 25-asset deterministic burst test exercises the real metadata resolver
 and native JS transport adapter, checks all assets recover as capacity
 drains and asserts no retryAfterUnixMs was persisted. Native device
 media/security acceptance remains deferred.
+
+## 2026-11-06 follow-up: unknown Token artwork
+
+Stellar uses a fixed unknown-asset image after all Token icon candidates fail.
+Fresnica uses the user-approved, individually audited unknown-asset PNGs
+from the user's own Stellar project in a locally resized bundle. This is
+an explicit one-image-family exception to the prior vector fallback; no
+other project asset receives general copy authorization. See
+'docs/provenance/user-owned-token-artwork-approval.md'.
+Every credit asset without a currently accepted public icon uses the same
+neutral mark, including before explicit public-media consent, while awaiting
+its verified icon, while offline, or after candidates are exhausted.
+Never derive unknown Token artwork from the code, issuer or network.
+Successful safe icon candidates still replace the fallback without flicker
+or changing network isolation. Native XLM retains its local XLM mark.
+This presentation-only change adds no remote requests or persistence.
+
+## 2026-11-09 PR #177 visual correction (overrides older art decisions)
+
+- **Unknown Token fallback:** always use the single owner-approved
+  image_unknown_trustline_light artwork. No theme-based alternate,
+  code/issuer identicon, colored backing or 80% inset. Local image fills
+  the 40dp/16dp logical frame with contain scaling and 1x/2x/3x PNG assets.
+- **XLM:** always use the approved local IconXlmSquare (40dp/16dp).
+  A native asset image never depends on metadata or remote consent.
+- Home, Activity, Add Asset, Manage Asset and issued Asset Details reuse
+  the shared TokenAssetIcon; credit asset detail must no longer render
+  just the asset code's first letter. S22 account/contact avatars remain
+  separate from asset icons.
+- **Brand:** the user-approved rocket master supplies the app's native
+  launcher icon and local mark shown alongside the Fresnica label in
+  Home, Onboarding, Wallet Ready and interrupted-backup recovery.
+  iPhone/iPad and Android 5-density/legacy/adaptive resources are bundled.
+  Do not replace the product label with legacy FIREFLY lettering or
+  modify package IDs, security, recovery, transactions or Splash assets.
+- Keep session opt-in for external icons, Mainnet/Testnet source isolation,
+  bounded native fetch, cache TTL, fail-closed paths, and no remote reads
+  before consent. Artwork never attests issuer authenticity or asset trust.
+- Detailed source hashes and owner permission are recorded in
+  docs/provenance/user-owned-app-artwork-approval-2026-11-09.md.
+  Other imagery needs fresh owner approval. JS/resource compilation is
+  not iOS/Android visual product acceptance.

@@ -4,6 +4,19 @@ import type { AppTheme } from '@ui/theme';
 
 export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
+    homeLayout: { flex: 1 },
+    headerScroll: { maxHeight: '55%', flexGrow: 0, flexShrink: 1 },
+    nativeFixedWrap: { paddingHorizontal: theme.spacing.lg },
+    tokenScroll: { flex: 1 },
+    tokenContent: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.xl },
+    pinnedNative: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.separatorSubtle },
+    nativeBreakdownRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: theme.spacing.md,
+      paddingBottom: theme.spacing.sm,
+    },
+    nativeBreakdownText: { ...theme.typography.caption, color: theme.colors.textSecondary },
     content: {
       paddingHorizontal: theme.spacing.lg,
       paddingTop: theme.spacing.sm,
@@ -17,6 +30,7 @@ export function createStyles(theme: AppTheme) {
       marginBottom: theme.spacing.md,
       gap: theme.spacing.md,
     },
+    brandLockup: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, gap: theme.spacing.xs },
     brand: {
       ...theme.typography.title,
       color: theme.colors.textPrimary,

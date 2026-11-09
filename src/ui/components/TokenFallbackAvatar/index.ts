@@ -1,0 +1,1 @@
+export { TokenFallbackAvatar } from './TokenFallbackAvatar';
