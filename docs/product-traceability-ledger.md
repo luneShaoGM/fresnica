@@ -599,3 +599,18 @@ provenance record. Source logos with FIREFLY wordmarks are deliberately not
 shown as Fresnica. No business Capability, network partition, external
 media consent, Signer, transaction or recovery changes. Device visual
 acceptance remains pending even with image/resource tests.
+
+### 2026-11-09 S06 public Token logo recovery candidate
+
+**Adapt / narrow repair:** after merged #177, preserve the correct
+owner-approved image_unknown_trustline_light fallback and local XLM
+artwork while recovering real public Token imagery where verified.
+Explicitly classify the approved Soroswap catalog's valid contract-only
+(no classic issuer) rows as unsupported rather than treating them as
+malformed *credit* assets; retain strict fail-closed behavior for corrupt
+credit/issuer rows and last-good source cache. Observe shared icon cache
+updates in mounted TokenAssetIcon without cancelling/restarting requests
+on unrelated revisions. Default-OFF public media consent, Mainnet/Testnet
+partitioning, security transport, app branding, Signer/authorization,
+exact-XDR and transaction/recovery pathways are unchanged. JS tests and
+repository integration checks are not Android/iOS product-flow acceptance.

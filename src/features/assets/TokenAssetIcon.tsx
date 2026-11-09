@@ -79,6 +79,16 @@ export function TokenAssetIcon({
     return () => controller.abort();
   }, [active, code, credit, issuer, key, service, snapshot.enabled, retryRevision]);
 
+  // Another mounted consumer may complete the same asset's request after
+  // this instance was cancelled or superseded. Observe successful shared
+  // cache updates without restarting in-flight downloads on every revision.
+  useEffect(() => {
+    if (!active || !credit || !service?.available || !snapshot.enabled) return;
+    const cached = service.readIcon({ kind: 'credit', code, issuer });
+    if (!cached || (rejected.current?.key === key && rejected.current.uri === cached)) return;
+    setState(previous => (previous.key === key && previous.uri === cached ? previous : { key, uri: cached }));
+  }, [active, code, credit, issuer, key, service, snapshot.enabled, snapshot.revision]);
+
   if (!credit) {
     return (
       <Image

@@ -55,6 +55,51 @@ describe('S06 cached public asset catalog', () => {
     catalog.close();
   });
 
+  it('caches all issued Soroswap icon rows beside unsupported contract-only rows, but rejects actual corruption', async () => {
+    let now = 15_000;
+    const store = memoryCache();
+    const issued = { ...original, icon: 'https://cdn.example.org/usd.png' };
+    const contractOnly = {
+      code: 'JQQQ',
+      contract: 'CAQYPRTX2E6H6BM57QRBYZWP667FPDYDUHMOQXGXM2HA64KO6AISRFEK',
+      icon: 'https://cdn.example.org/contract.png',
+      decimals: 18,
+    };
+    const read = jest.fn(async () => JSON.stringify({ assets: [issued, contractOnly] }));
+    const catalog = createCachedAssetCatalog({
+      networkId: 'stellar-mainnet',
+      cache: store.cache,
+      http: { read },
+      now: () => now,
+    });
+    const signal = new AbortController().signal;
+    expect(await catalog.loadSource('stellar-mainnet', 'soroswap', signal)).toMatchObject({
+      assets: [issued],
+      fromCache: false,
+      refreshFailed: false,
+    });
+    expect(catalog.readCachedSource('stellar-mainnet', 'soroswap')?.assets).toEqual([issued]);
+    expect(store.cache.replace).toHaveBeenCalledTimes(1);
+
+    // An issuer-bearing row that is actually malformed still fails the
+    // complete source and must not replace last-good published imagery.
+    now += CURATED_CACHE_TTL_MS;
+    read.mockResolvedValue(
+      JSON.stringify({
+        assets: [issued, { ...contractOnly, issuer: 'bad-issuer' }],
+      }),
+    );
+    expect(await catalog.loadSource('stellar-mainnet', 'soroswap', signal)).toMatchObject({
+      assets: [issued],
+      fromCache: true,
+      stale: true,
+      refreshFailed: true,
+    });
+    expect(catalog.readCachedSource('stellar-mainnet', 'soroswap')?.assets).toEqual([issued]);
+    expect(store.cache.replace).toHaveBeenCalledTimes(1);
+    catalog.close();
+  });
+
   it('retains stale last-good data on malformed JSON, never overwriting it with an empty-looking error', async () => {
     let now = 10_000;
     const store = memoryCache();

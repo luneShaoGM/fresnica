@@ -219,3 +219,37 @@ This presentation-only change adds no remote requests or persistence.
   docs/provenance/user-owned-app-artwork-approval-2026-11-09.md.
   Other imagery needs fresh owner approval. JS/resource compilation is
   not iOS/Android visual product acceptance.
+
+## 2026-11-09 Mainnet public logo recovery after #177
+
+This is a narrow follow-up to the existing public-image opt-in mechanism.
+It does not enable public media automatically, change network/issuer
+identity, change the fixed light unknown-Token fallback, or change native
+SecureAssetFetch's size, TLS, DNS, redirect and memory boundaries.
+
+- The fixed public Soroswap catalog currently includes both Stellar credit
+  assets with full classic issuers and Soroban-only contract tokens without
+  an issuer. The latter cannot match a classic credit asset and must not
+  poison the entire approved catalog. Only for the Soroswap source, a row
+  with an exact valid C-address, valid code and **no** issuer or asset
+  identity is explicitly classified as unsupported contract-only.
+  Such rows are not cached as credit assets or used as icon authority.
+- All other rows still require exact valid classic credit identities.
+  A malformed/partial issuer row, broken contract-only shape, unexpected
+  row or mixed valid and malformed classic assets rejects the *entire*
+  source and retains last-good cache; no generic corrupt-record skipping
+  or partial-cache replacement is permitted. Existing 12-hour source
+  cache, failure cooldown and Testnet isolation remain unchanged.
+- A mounted TokenAssetIcon must react to a successful shared icon-cache
+  revision from another mounted consumer, even when its own request was
+  previously cancelled/superseded. The cache-derived image is display-only;
+  other-asset revisions must never restart the icon network download.
+  React Native image decode rejection still rotates candidate URLs.
+- Existing explicit session consent remains default OFF; without opt-in
+  all credit assets deliberately show the approved local unknown-Token
+  image. Absence of safe, compatible image candidates also shows it.
+  This is not an issuer identity or trust indicator.
+- Tests cover the actual Soroswap mixed-source shape, unchanged strict
+  malformed-row rejection/last-good recovery, cache update on an already
+  mounted icon, and opt-out recovery. Live provider results and native
+  device UI acceptance remain separate evidence.
