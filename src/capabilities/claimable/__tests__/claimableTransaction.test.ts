@@ -111,7 +111,7 @@ describe('S11 exact-XDR claim preflight and approval boundary', () => {
     const { deps, current } = fixtures();
     const review = await prepareClaimableReview(deps, account, record);
     current.mockResolvedValue({ ...record, amount: '11.0000000' });
-    await expect(submitClaimableReview(deps, account, review, 'Claim')).rejects.toThrow(
+    await expect(submitClaimableReview(deps, account, review, 'Claim', () => true)).rejects.toThrow(
       'claimable-record-stale-or-claimed',
     );
     expect(submitReviewedTransaction).not.toHaveBeenCalled();
@@ -121,9 +121,9 @@ describe('S11 exact-XDR claim preflight and approval boundary', () => {
     const { deps, signers } = fixtures();
     const review = await prepareClaimableReview(deps, account, record);
     signers.mockReturnValue([]);
-    expect(await submitClaimableReview(deps, account, review, 'Claim')).toEqual({ status: 'watch-only' });
+    expect(await submitClaimableReview(deps, account, review, 'Claim', () => true)).toEqual({ status: 'watch-only' });
     signers.mockReturnValue([{ publicKey: address }, { publicKey: issuer }]);
-    expect(await submitClaimableReview(deps, account, review, 'Claim')).toEqual({
+    expect(await submitClaimableReview(deps, account, review, 'Claim', () => true)).toEqual({
       status: 'unsupported-account-signers',
     });
     expect(submitReviewedTransaction).not.toHaveBeenCalled();
@@ -132,14 +132,44 @@ describe('S11 exact-XDR claim preflight and approval boundary', () => {
   it('hands off exactly the reviewed XDR and claim intent to the existing signing/recovery path', async () => {
     const { deps } = fixtures();
     const review = await prepareClaimableReview(deps, account, record);
-    await expect(submitClaimableReview(deps, account, review, 'Claim')).resolves.toMatchObject({ status: 'submitted' });
+    await expect(submitClaimableReview(deps, account, review, 'Claim', () => true)).resolves.toMatchObject({
+      status: 'submitted',
+    });
     expect(submitReviewedTransaction).toHaveBeenCalledWith(
       expect.objectContaining({
         review,
         accountId: 'a1',
         networkPassphrase: deps.network.networkPassphrase,
         intent: expect.objectContaining({ kind: 'claimable' }),
+        isCurrent: expect.any(Function),
       }),
     );
+  });
+
+  it('stops a retired route after deferred live eligibility reads, before shared signing', async () => {
+    const { deps, current } = fixtures();
+    const review = await prepareClaimableReview(deps, account, record);
+    let complete!: (value: ClaimableRecord) => void;
+    const waiting = new Promise<ClaimableRecord>(resolve => {
+      complete = resolve;
+    });
+    current.mockReturnValueOnce(waiting);
+    let selectedAccount = 'a1';
+    const submitted = submitClaimableReview(deps, account, review, 'Claim', () => selectedAccount === 'a1');
+    selectedAccount = 'a2';
+    complete(record);
+    await expect(submitted).rejects.toThrow('claimable-session-retired');
+    expect(submitReviewedTransaction).not.toHaveBeenCalled();
+  });
+
+  it('requires a current route before beginning claim transaction handling', async () => {
+    const { deps, current, signers } = fixtures();
+    const review = await prepareClaimableReview(deps, account, record);
+    await expect(submitClaimableReview(deps, account, review, 'Claim', () => false)).rejects.toThrow(
+      'claimable-session-retired',
+    );
+    expect(current).toHaveBeenCalledTimes(1);
+    expect(signers).not.toHaveBeenCalled();
+    expect(submitReviewedTransaction).not.toHaveBeenCalled();
   });
 });

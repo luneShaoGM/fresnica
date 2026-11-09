@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { BottomSheet, Screen } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import { useAppTheme, useThemedStyles } from '@ui/theme';
@@ -94,6 +94,19 @@ export function ClaimableScreen({
   const operationGeneration = useRef(0);
   const lastLoad = useRef(0);
 
+  // A navigation blur must invalidate in-flight authorization even if React
+  // has not rerendered this screen yet; returning to the route is a new epoch.
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        activeRef.current = false;
+        operationGeneration.current += 1;
+        passphraseRef.current = '';
+      },
+      [],
+    ),
+  );
+
   const refresh = useCallback(
     (force: boolean) => {
       if (!activeRef.current || !isCurrentAccount()) return;
@@ -126,6 +139,15 @@ export function ClaimableScreen({
       passphraseRef.current = '';
       return;
     }
+    if (lastLoad.current === 0) {
+      // Foreground/focus returned after an expired attempt. Reset the local
+      // controls without changing any already-durable transaction recovery.
+      running.current = false;
+      setSubmitting(false);
+      setPassphrasePrompt(false);
+      setSelectedId(undefined);
+      setFlow(current => (current.kind === 'review' || current.kind === 'preparing' ? { kind: 'list' } : current));
+    }
     if (lastLoad.current !== invalidationRevision + 1) {
       lastLoad.current = invalidationRevision + 1;
       refresh(false);
@@ -134,8 +156,8 @@ export function ClaimableScreen({
     return () => {
       clearInterval(timer);
       generation.current += 1;
-      operationGeneration.current += 1;
-      passphraseRef.current = '';
+      // A cache invalidation or parent rerender is not a route blur:
+      // do not cancel active authorization merely because refresh changed.
     };
   }, [active, invalidationRevision, refresh]);
 
@@ -190,12 +212,16 @@ export function ClaimableScreen({
         setFlow({ kind: 'list' });
       }
     } finally {
-      running.current = false;
+      if (operationGeneration.current === requestVersion) running.current = false;
     }
   };
 
-  const submit = async (review: ClaimableReview) => {
-    if (!activeRef.current || !isCurrentAccount() || running.current) return;
+  const submit = async (review: ClaimableReview, reviewedEpoch: number) => {
+    if (!activeRef.current || !isCurrentAccount() || running.current || operationGeneration.current !== reviewedEpoch)
+      return;
+    const requestVersion = reviewedEpoch;
+    const isCurrent = () => activeRef.current && isCurrentAccount() && operationGeneration.current === requestVersion;
+    if (!isCurrent()) return;
     running.current = true;
     setSubmitting(true);
     setOperationError('');
@@ -203,8 +229,15 @@ export function ClaimableScreen({
     passphraseRef.current = '';
     setPassphraseAttempt(value => value + 1);
     try {
-      const result = await submitClaimableReview(transaction, account, review, t('claimable.systemAuth'), passphrase);
-      if (!activeRef.current || !isCurrentAccount()) return;
+      const result = await submitClaimableReview(
+        transaction,
+        account,
+        review,
+        t('claimable.systemAuth'),
+        isCurrent,
+        passphrase,
+      );
+      if (!isCurrent()) return;
       if (result.status === 'passphrase-required') {
         setPassphrasePrompt(true);
       } else {
@@ -212,11 +245,18 @@ export function ClaimableScreen({
         if (result.status === 'submitted') refresh(true);
       }
     } catch {
-      if (activeRef.current) setOperationError(t('claimable.submitError'));
+      if (isCurrent()) setOperationError(t('claimable.submitError'));
     } finally {
-      running.current = false;
-      if (activeRef.current) setSubmitting(false);
+      if (operationGeneration.current === requestVersion) running.current = false;
+      if (isCurrent()) setSubmitting(false);
     }
+  };
+
+  const leave = () => {
+    activeRef.current = false;
+    operationGeneration.current += 1;
+    passphraseRef.current = '';
+    onBack();
   };
 
   const header = (title: string, back: () => void) => (
@@ -233,6 +273,7 @@ export function ClaimableScreen({
         <View style={styles.content}>
           {header(t('claimable.review'), () => {
             operationGeneration.current += 1;
+            running.current = false;
             setFlow({ kind: 'list' });
           })}
           <ActivityIndicator color={theme.colors.actionPrimary} />
@@ -240,16 +281,24 @@ export function ClaimableScreen({
         </View>
       </Screen>
     );
+  const presentedReviewEpoch = operationGeneration.current;
   if (flow.kind === 'review')
     return (
       <Screen scrollable={false}>
         <ScrollView contentContainerStyle={styles.content}>
           {header(t('claimable.review'), () => {
-            if (!submitting) setFlow({ kind: 'list' });
+            if (submitting) return;
+            operationGeneration.current += 1;
+            passphraseRef.current = '';
+            setPassphrasePrompt(false);
+            setFlow({ kind: 'list' });
           })}
           <Text style={styles.helper}>{t('claimable.reviewWarning')}</Text>
           <View style={styles.detailCard}>
             <ClaimablePair styles={styles} label={t('claimable.asset')} value={flow.review.asset.code} />
+            {flow.review.asset.kind === 'credit' ? (
+              <ClaimablePair styles={styles} label={t('claimable.issuer')} value={flow.review.asset.issuer} />
+            ) : null}
             <ClaimablePair styles={styles} label={t('claimable.amount')} value={flow.review.amount} />
             <ClaimablePair styles={styles} label={t('claimable.source')} value={flow.review.source} />
             <ClaimablePair styles={styles} label={t('claimable.balanceId')} value={flow.review.id} />
@@ -277,7 +326,7 @@ export function ClaimableScreen({
             label={t('claimable.slideToClaim')}
             disabled={!active || submitting}
             loading={submitting}
-            onComplete={() => void submit(flow.review)}
+            onComplete={() => void submit(flow.review, presentedReviewEpoch)}
           />
         </ScrollView>
       </Screen>
@@ -292,14 +341,14 @@ export function ClaimableScreen({
     return (
       <Screen scrollable={false}>
         <ScrollView contentContainerStyle={styles.content}>
-          {header(t('claimable.result'), onBack)}
+          {header(t('claimable.result'), leave)}
           <Text style={styles.title}>{t('claimable.result.' + flow.result.status)}</Text>
           {hash ? <ClaimablePair styles={styles} label={t('claimable.hash')} value={hash} /> : null}
           <Text style={styles.helper}>{t('claimable.resultAdvice')}</Text>
           {flow.result.status === 'uncertain' ? (
             <NativeButton label={t('claimable.checkStatus')} onPress={() => void onRecover()} variant="secondary" />
           ) : null}
-          <NativeButton label={t('claimable.done')} onPress={onBack} />
+          <NativeButton label={t('claimable.done')} onPress={leave} />
         </ScrollView>
       </Screen>
     );
@@ -341,7 +390,7 @@ export function ClaimableScreen({
           <RefreshControl refreshing={loading} onRefresh={() => refresh(true)} tintColor={theme.colors.actionPrimary} />
         }
       >
-        {header(t('claimable.title'), onBack)}
+        {header(t('claimable.title'), leave)}
         <Text style={styles.subtitle}>{t('claimable.description')}</Text>
         {dataStale || loadError ? <Text style={styles.error}>{t('claimable.stale')}</Text> : null}
         {loading && !data ? <ActivityIndicator color={theme.colors.actionPrimary} /> : null}

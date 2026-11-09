@@ -156,8 +156,13 @@ export async function submitClaimableReview(
   account: AccountRecord,
   review: ClaimableReview,
   systemAuthReason: string,
+  isCurrent: () => boolean,
   appPassphrase?: string,
 ): Promise<SubmitReviewedTransactionResult | { status: 'watch-only' | 'unsupported-account-signers' }> {
+  const assertCurrent = () => {
+    if (!isCurrent()) throw new Error('claimable-session-retired');
+  };
+  assertCurrent();
   assertAccount(account, dependencies.network);
   const exact = inspect(dependencies, review);
   if (exact.source !== account.address) throw new Error('claimable-review-account-mismatch');
@@ -176,6 +181,7 @@ export async function submitClaimableReview(
     risk: review.risk,
     riskFlags: [],
   });
+  assertCurrent();
   return submitReviewedTransaction({
     gateway: dependencies.gateway,
     sdk: dependencies.sdk,
@@ -188,5 +194,6 @@ export async function submitClaimableReview(
     ...(appPassphrase === undefined ? {} : { appPassphrase }),
     systemAuthReason,
     networkPassphrase: dependencies.network.networkPassphrase,
+    isCurrent,
   });
 }

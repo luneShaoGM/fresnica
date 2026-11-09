@@ -223,6 +223,7 @@ export function HomeStackNavigator({
               isCurrentAccount={() => {
                 const latest = selectionRef.current;
                 return (
+                  navigation.isFocused() &&
                   latest.selectedAccountId === account.id &&
                   latest.accounts.some(
                     candidate =>

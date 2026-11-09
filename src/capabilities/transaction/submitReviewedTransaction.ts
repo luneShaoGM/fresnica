@@ -46,7 +46,14 @@ export async function submitReviewedTransaction(input: {
   appPassphrase?: string;
   systemAuthReason?: string;
   networkPassphrase: string;
+  // Optional for existing consumers. S11 Claimable always supplies a live
+  // route/account lifetime guard before reaching any signing or broadcast.
+  isCurrent?: () => boolean;
 }): Promise<SubmitReviewedTransactionResult> {
+  const assertCurrent = () => {
+    if (input.isCurrent && !input.isCurrent()) throw new Error('reviewed-transaction-session-retired');
+  };
+  assertCurrent();
   assertReviewedTransactionFresh(input.review, Math.floor(Date.now() / 1000));
 
   const blockingSubmission = input.recovery.repository.findBlockingIntent(
@@ -64,6 +71,7 @@ export async function submitReviewedTransaction(input: {
   }
 
   const authorization = await input.gateway.loadAccountAuthorization(input.review.source);
+  assertCurrent();
   const resolution = resolveLocalSigner(authorization, [input.signer.publicKey], input.thresholdLevel);
 
   if (resolution.status !== 'ready') {
@@ -82,14 +90,20 @@ export async function submitReviewedTransaction(input: {
     ...(input.appPassphrase === undefined ? {} : { appPassphrase: input.appPassphrase }),
     ...(input.systemAuthReason === undefined ? {} : { systemAuthReason: input.systemAuthReason }),
     networkPassphrase: input.networkPassphrase,
+    ...(input.isCurrent === undefined ? {} : { isCurrent: input.isCurrent }),
   });
-
+  // Native authorization/signing may have waited while the route or account
+  // changed. Discard signed bytes before computing a hash or persisting intent.
+  assertCurrent();
   if (signing.status !== 'signed') {
     return signing;
   }
 
   const transactionHash = input.gateway.transactionHash(signing.signedTransactionXdrBase64);
   const startedAt = input.recovery.now();
+  // Last cancellable boundary: after this point the pending intent must
+  // remain durable and the existing uncertain/check-only recovery applies.
+  assertCurrent();
   try {
     input.recovery.repository.create({
       id: pendingSubmissionId(input.review.networkId, transactionHash),

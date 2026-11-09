@@ -61,10 +61,16 @@ review remains required before any future byte-for-byte copy.
   `claimClaimableBalance` operation. Independently inspect exact
   unsigned XDR source, network passphrase, operation ID, fee,
   expiry, absent memo, absent signatures and absent per-operation source.
-  Review stores that exact XDR in local feature state, **never**
-  navigation params.
-- Before signing, re-read current live eligibility; call the existing
-  `submitReviewedTransaction` with claimable intent identity and
+  Review displays the complete credit asset identity, including the issuer,
+  and stores that exact XDR in local feature state, **never** navigation params.
+- Before signing, re-read current live eligibility. The S11 route/account/
+  foreground focus epoch must remain current across asynchronous eligibility
+  reads, ledger authorization and native System Auth/passphrase signing.
+  A retired route discards any returned signed XDR **before** creating a
+  durable pending intent or broadcasting. Once a pending record exists, the
+  pre-existing uncertain/check-only recovery semantics remain authoritative;
+  a route blur cannot retroactively cancel an accepted broadcast.
+  Call the existing `submitReviewedTransaction` with claimable intent identity and
   the existing SDK/Core protected signer, authorization, app passphrase,
   ledger weights, persisted pre-broadcast pending hash, submission and
   uncertain/recovery semantics. Never double-broadcast on uncertain.

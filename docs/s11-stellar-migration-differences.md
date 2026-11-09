@@ -22,10 +22,10 @@ third-party styles/assets, old Xaman inheritance or signing code.
 | `last_modified_time` can stand in for creation time for relative predicate | Relative predicate with unproven creation epoch remains UNKNOWN; Claim disabled | Avoid incorrect eligibility decisions |
 | Registry trustline/curated whitelist and network sponsor reputation heuristics | Native XLM SAFE; unknown credit SUSPECT, large/burst SPAM; user overrides only change display | No unapproved issuer or sponsor authority is fabricated; richer evidence deferred |
 | 1 h snapshot + 30 s retry; cache by account/network | Same policy in Realm v13 with strict snapshot validators, session retirement and display-only overrides | Keep old Realm schemas and partition isolation, no global service singletons |
-| Claim builds SDK transaction with fixed fee and unbounded timeout, calls legacy payload adapter | Current live fee, bounded 180 s XDR, independent exact operation inspector, SDK/Core signing/recovery | Never bypass Fresnica authorization / exact-XDR intent / uncertain submit invariants |
+| Claim builds SDK transaction with fixed fee and unbounded timeout, calls legacy payload adapter | Current live fee, bounded 180 s XDR, independent exact operation inspector, SDK/Core signing/recovery; final approval explicitly shows credit issuer | Never bypass Fresnica authorization / exact-XDR intent / uncertain submit invariants; verify full asset identity at last confirmation |
 | Activity claim/clawback history can infer visibility from S11 risk | Existing S13 history retained; S11 does not rewrite Activity filters | Avoid repeating validated Activity behavior; cross-feed linking requires separate audit |
 | Unavailable/missing authoritative claim | Stale read-only cache, explicit refresh and disabled Claim; in-flight result retirement | No stale balance can be treated as spend authority |
-| Generic permission and navigation closures | Account/network/active route checks and race guards | No cross-account or inactive-screen action |
+| Generic permission and navigation closures | Account/network/active route checks and a captured focus epoch across live reads, ledger authorization and native signing, with a final cancellation check before pending/broadcast | No old-account broadcast after route/account retirement; preserve recovery if pending is already durable |
 
 ### Exact scope and evidence
 
