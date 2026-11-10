@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, Text } from 'react-native';
+import { Text } from 'react-native';
 import { AccountIdentityCard } from '@ui/components';
-import { IdentityAvatar } from '@ui/components/IdentityAvatar';
+import { ActivityFiltersSheet, type ActivityDisplayFilters } from '../ActivityFiltersSheet';
 import { TokenAssetIcon } from '../../assets/TokenAssetIcon';
 
 import { NativeButton } from '@ui/components/NativeButton';
@@ -123,6 +123,10 @@ type NodeProps = Readonly<{
   message?: string;
   onChangeText?: (value: string) => void;
   onPress?: () => void;
+  onApply?: (value: ActivityDisplayFilters) => void;
+  onClose?: () => void;
+  initial?: ActivityDisplayFilters;
+  assets?: readonly string[];
   title?: string;
   name?: string;
   secondary?: string;
@@ -156,22 +160,25 @@ function renderScreen(
   filter = 'all',
   searchText = '',
   identityNames?: ReadonlyMap<string, string>,
-  showTechnical = true,
+  showHidden = false,
   hiddenAssets: ReadonlySet<string> = new Set(),
   showHiddenAssets = false,
   managingAssets = false,
   selectedAccount: AccountRecord = account,
+  showFailed = false,
 ) {
-  const setters = Array.from({ length: 8 }, () => jest.fn());
+  const setters = Array.from({ length: 10 }, () => jest.fn());
   const values = [
     { kind: 'ready' as const, ...createActivityReadyState({ entries, nextCursor: 'cursor-1' }) },
     filter,
     searchText,
     false,
-    showTechnical,
+    showHidden || showHiddenAssets,
     hiddenAssets,
-    showHiddenAssets,
+    showFailed,
     managingAssets,
+    {},
+    now,
   ];
   let call = 0;
   mockedUseState.mockImplementation((initial: unknown) => {
@@ -200,29 +207,23 @@ describe('ActivityScreen filter/search closure', () => {
     mockedUseEffect.mockReset();
     mockedLoadHistoryPage.mockReset();
   });
-  it('exposes accessible search and trustline controls without triggering history I/O', () => {
+  it('opens a compact filter sheet while keeping search and the default list uncluttered', () => {
     const { root, setters } = renderScreen([trustline('trustline-1'), unsupported('other-1')]);
     const search = findElement(root, element => element.type === NativeField);
-    const trustlines = findElement(root, element => element.props.accessibilityLabel === 'Trustlines');
-
-    expect(search?.props).toMatchObject({
-      accessibilityLabel: 'Search activity',
-      accessibilityHint: 'Search only the activity currently loaded on this device.',
-      autoCapitalize: 'none',
-      autoCorrect: false,
-      label: 'Search activity',
-    });
-    expect(trustlines?.type).toBe(Pressable);
-    expect(trustlines?.props).toMatchObject({
-      accessibilityRole: 'button',
-      accessibilityState: { selected: false },
-    });
-
+    expect(search?.props).toMatchObject({ accessibilityLabel: 'Search activity', accessibilityHint: 'Search only the activity currently loaded on this device.', autoCapitalize: 'none', autoCorrect: false });
     search?.props.onChangeText?.('GISSUER');
-    trustlines?.props.onPress?.();
-
     expect(setters[2]).toHaveBeenCalledWith('GISSUER');
-    expect(setters[1]).toHaveBeenCalledWith('trustlines');
+    findElement(root, element => element.props.accessibilityLabel === 'Filter activity')?.props.onPress?.();
+    expect(setters[7]).toHaveBeenCalledWith(true);
+    expect(findElement(root, element => element.props.label === 'Hide technical records')).toBeUndefined();
+    expect(findElement(root, element => element.type === ActivityFiltersSheet)).toBeUndefined();
+    const opened = renderScreen([trustline('trustline-1')], 'all', '', undefined, false, new Set(), false, true);
+    const sheet = findElement(opened.root, element => element.type === ActivityFiltersSheet);
+    sheet?.props.onApply?.({ type: 'trustlines', showHidden: true, showFailed: true, hiddenAssets: new Set(), quantity: {} });
+    expect(opened.setters[1]).toHaveBeenCalledWith('trustlines');
+    expect(opened.setters[4]).toHaveBeenCalledWith(true);
+    expect(opened.setters[6]).toHaveBeenCalledWith(true);
+    expect(opened.setters[7]).toHaveBeenCalledWith(false);
     expect(mockedLoadHistoryPage).not.toHaveBeenCalled();
   });
 
@@ -466,7 +467,7 @@ it('renders a Swap pair with the actual destination leg and retains exact path n
   expect(textValues(row)).toContain('+7.7654321');
   expect(textValues(row)).toContain('USD');
   expect(textValues(row)).toContain('Swap');
-  expect(findElement(row, element => element.type === IdentityAvatar)?.props.identity).toContain('GISSUER');
+  expect(findElement(row, element => element.type === TokenAssetIcon && element.props.asset?.kind === 'credit')).toBeDefined();
   row.props.onPress?.();
   expect(props.onOpen).toHaveBeenCalledTimes(1);
   const onOpenOperation = jest.fn();
@@ -503,7 +504,7 @@ it.each(['manage_buy_offer', 'manage_sell_offer', 'create_passive_sell_offer'])(
     const row = ActivityRow({ ...props, entry });
     expect(textValues(row)).toContain('XLM → USD');
     expect(textValues(row).join(' ')).not.toContain(entry.amount);
-    expect(findElement(row, element => element.type === IdentityAvatar)?.props.identity).toContain('GISSUER');
+    expect(findElement(row, element => element.type === TokenAssetIcon && element.props.asset?.kind === 'credit')).toBeDefined();
     row.props.onPress?.();
     expect(props.onOpen).toHaveBeenCalledTimes(1);
   },
@@ -537,17 +538,11 @@ it.each(['liquidity_pool_deposit', 'liquidity_pool_withdraw'])(
 );
 
 it('hides technical records reversibly without losing loaded rows, cursor or issuing I/O', () => {
-  const technical = { ...unsupported('technical'), operationType: 'manage_data' };
+  const technical = { ...unsupported('technical'), kind: 'maintenance' as const, operationType: 'manage_data', successful: true as const, dataName: 'public name' };
   const ordinary = unsupported('ordinary');
   const hidden = renderScreen([technical, ordinary], 'all', '', undefined, false);
   const content = findElement(hidden.root, element => element.type === ActivityContent);
   expect(content?.props.entries?.map(entry => entry.id)).toEqual(['ordinary']);
-  const toggle = findElement(
-    hidden.root,
-    element => element.type === NativeButton && element.props.label === 'Show technical records',
-  );
-  toggle?.props.onPress?.();
-  expect(hidden.setters[4]).toHaveBeenCalled();
   const restored = renderScreen([technical, ordinary], 'all', '', undefined, true);
   expect(findElement(restored.root, element => element.type === ActivityContent)?.props.entries?.length).toBe(2);
   expect(mockedLoadHistoryPage).not.toHaveBeenCalled();
@@ -560,7 +555,7 @@ it('hides only user-marked issued assets, preserves raw cursor and offers revers
     'all',
     '',
     undefined,
-    true,
+    false,
     new Set([exact]),
     false,
     true,
@@ -568,10 +563,10 @@ it('hides only user-marked issued assets, preserves raw cursor and offers revers
   const content = findElement(root, element => element.type === ActivityContent);
   expect(content?.props.entries?.map(entry => entry.id)).toEqual(['other-trust', 'unknown']);
   expect(content?.props.state).toMatchObject({ kind: 'ready', nextCursor: 'cursor-1' });
-  const restore = findElement(root, element => Boolean(element.props.label?.startsWith('Restore USD')));
-  expect(restore).toBeDefined();
-  restore?.props.onPress?.();
-  expect(setters[5]).toHaveBeenCalledWith(expect.any(Function));
+  const sheet = findElement(root, element => element.type === ActivityFiltersSheet);
+  expect(sheet?.props.initial?.hiddenAssets.has(exact)).toBe(true);
+  sheet?.props.onApply?.({ ...sheet.props.initial!, hiddenAssets: new Set() });
+  expect(setters[5]).toHaveBeenCalledWith(new Set());
   expect(mockedLoadHistoryPage).not.toHaveBeenCalled();
   const revealed = renderScreen([trustline('hidden-trust')], 'all', '', undefined, true, new Set([exact]), true);
   expect(
@@ -615,26 +610,16 @@ it('lists, hides and restores effects-verified claim and clawback without hiding
 
   const identity = JSON.stringify(['USD', effectsSource]);
   const entries = [claim, clawback, idOnly];
-  const initial = renderScreen(entries, 'all', '', undefined, true, new Set(), false, true);
-  const hideButton = findElement(
-    initial.root,
-    element => element.type === NativeButton && element.props.label === `Hide USD · ${effectsSource}`,
-  );
-  expect(hideButton).toBeDefined();
-  hideButton?.props.onPress?.();
-  expect(initial.setters[5]).toHaveBeenCalledWith(expect.any(Function));
-
-  const hidden = renderScreen(entries, 'all', '', undefined, true, new Set([identity]), false, true);
+  const initial = renderScreen(entries, 'all', '', undefined, false, new Set(), false, true);
+  const initialSheet = findElement(initial.root, element => element.type === ActivityFiltersSheet);
+  expect(initialSheet?.props.assets).toContain(identity);
+  const hidden = renderScreen(entries, 'all', '', undefined, false, new Set([identity]), false, true);
   const content = findElement(hidden.root, element => element.type === ActivityContent);
   expect(content?.props.entries?.map(entry => entry.id)).toEqual(['claim-id-only']);
   expect(content?.props.state).toMatchObject({ kind: 'ready', nextCursor: 'cursor-1' });
-  const restore = findElement(
-    hidden.root,
-    element => element.type === NativeButton && element.props.label === `Restore USD · ${effectsSource}`,
-  );
-  expect(restore).toBeDefined();
-  restore?.props.onPress?.();
-  expect(hidden.setters[5]).toHaveBeenCalledWith(expect.any(Function));
+  const hiddenSheet = findElement(hidden.root, element => element.type === ActivityFiltersSheet);
+  hiddenSheet?.props.onApply?.({ ...hiddenSheet.props.initial!, hiddenAssets: new Set() });
+  expect(hidden.setters[5]).toHaveBeenCalledWith(new Set());
   const temporarilyShown = renderScreen(entries, 'all', '', undefined, true, new Set([identity]), true);
   expect(
     findElement(temporarilyShown.root, element => element.type === ActivityContent)?.props.entries?.map(
@@ -664,7 +649,7 @@ it('keeps exact local identity icons instead of presenting unavailable remote im
       ],
     },
   });
-  expect(findElement(row, element => element.type === IdentityAvatar)?.props.identity).toContain('GISSUER');
+  expect(findElement(row, element => element.type === TokenAssetIcon && element.props.asset?.kind === 'credit')).toBeDefined();
   expect(row.props.accessibilityLabel).toContain('2');
   const { root } = renderScreen([trustline('example')], 'all', '', undefined, true, new Set(), false, false, {
     ...account,
@@ -672,4 +657,30 @@ it('keeps exact local identity icons instead of presenting unavailable remote im
   });
   expect(findElement(root, element => element.props.label?.includes('public asset images') === true)).toBeUndefined();
   expect(mockedLoadHistoryPage).not.toHaveBeenCalled();
+});
+
+it('relabels foreground midnight and resume, and clears its calendar timer on unfocus', () => {
+  jest.useFakeTimers();
+  try {
+    jest.setSystemTime(new Date(2026, 10, 9, 23, 59, 59, 900));
+    mockedUseEffect.mockReset();
+    const { setters } = renderScreen([]);
+    const effect = mockedUseEffect.mock.calls.find(([, deps]) => Array.isArray(deps) && deps.length === 1 && deps[0] === true);
+    expect(effect).toBeDefined();
+    const cleanup = effect?.[0]();
+    expect(setters[9]).toHaveBeenCalledWith(new Date(2026, 10, 9, 23, 59, 59, 900));
+    jest.advanceTimersByTime(150);
+    expect(setters[9]).toHaveBeenLastCalledWith(new Date(2026, 10, 10, 0, 0, 0, 20));
+    cleanup();
+    expect(jest.getTimerCount()).toBe(0);
+  } finally { jest.useRealTimers(); }
+});
+
+it('keeps failed inclusion independent from known type filtering and never guesses failed quantities', () => {
+  const failed: HistoryEntry = { ...unsupported('failed-payment'), kind: 'failed', operationType: 'payment', successful: false, relatedAccounts: ['GSOURCE'] };
+  const normal = { ...trustline('ordinary') };
+  const hidden = renderScreen([failed, normal], 'payments');
+  expect(findElement(hidden.root, element => element.type === ActivityContent)?.props.entries).toEqual([]);
+  const included = renderScreen([failed, normal], 'payments', '', undefined, false, new Set(), false, false, account, true);
+  expect(findElement(included.root, element => element.type === ActivityContent)?.props.entries?.map(entry => entry.id)).toEqual(['failed-payment']);
 });

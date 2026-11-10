@@ -165,3 +165,21 @@ describe('activityList', () => {
     expect(matchesActivitySearch(changeTrust, 'not-present', t, formatNumber)).toBe(false);
   });
 });
+
+it('includes known failed operation families in their explicit type filters without inventing Swap identity', () => {
+  const families = {
+    payment: 'payments', path_payment_strict_send: 'payments', path_payment_strict_receive: 'payments',
+    create_account: 'accounts', change_trust: 'trustlines',
+    manage_buy_offer: 'offers', manage_sell_offer: 'offers', create_passive_sell_offer: 'offers',
+    liquidity_pool_deposit: 'pools', liquidity_pool_withdraw: 'pools',
+    invoke_host_function: 'other', unknown_operation: 'other',
+  } as const;
+  for (const [operationType, family] of Object.entries(families)) {
+    const entry: HistoryEntry = { ...unsupported(operationType), kind: 'failed', successful: false, operationType, relatedAccounts: ['GSOURCE'] };
+    expect(matchesActivityFilter(entry, family)).toBe(true);
+    expect(matchesActivityFilter(entry, 'all')).toBe(true);
+    expect(matchesActivityFilter(entry, 'failed')).toBe(true);
+    expect(matchesActivityFilter(entry, 'swaps')).toBe(false);
+    expect(matchesActivityFilter(entry, family === 'other' ? 'payments' : 'other')).toBe(false);
+  }
+});

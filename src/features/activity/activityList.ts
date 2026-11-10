@@ -2,7 +2,8 @@ import { claimPredicateSummary } from './claimPredicateSummary';
 import { isPathSwap } from '@capabilities/history/pathPaymentHistory';
 import type { HistoryDirection, HistoryEntry } from '@capabilities/history/types';
 
-export type ActivityFilter = 'all' | 'payments' | 'accounts' | 'trustlines' | 'other' | 'failed';
+export type ActivityFilter =
+  'all' | 'payments' | 'accounts' | 'trustlines' | 'other' | 'failed' | 'swaps' | 'offers' | 'pools';
 
 export type ActivityTone = 'positive' | 'negative' | 'neutral';
 
@@ -42,9 +43,21 @@ export function activityEntryPresentation(
 ): ActivityEntryPresentation {
   switch (entry.kind) {
     case 'failed':
-      return { title: t('activity.entry.failed'), primary: entry.operationType, secondary: entry.sourceAccount, tone: 'neutral', filter: 'other' };
+      return {
+        title: t('activity.entry.failed'),
+        primary: entry.operationType,
+        secondary: entry.sourceAccount,
+        tone: 'neutral',
+        filter: 'other',
+      };
     case 'account-control':
-      return { title: t(`activity.control.${entry.operationType}`), primary: entry.counterparty ?? entry.sourceAccount, secondary: '', tone: 'neutral', filter: 'other' };
+      return {
+        title: t(`activity.control.${entry.operationType}`),
+        primary: entry.counterparty ?? entry.sourceAccount,
+        secondary: '',
+        tone: 'neutral',
+        filter: 'other',
+      };
     case 'trust-authorization':
       return {
         title: t(`activity.trustControl.authorization.${entry.authorization}`),
@@ -108,7 +121,10 @@ export function activityEntryPresentation(
             ? 'activity.entry.claimableClaimed'
             : 'activity.entry.claimableClawedBack',
         ),
-        primary: entry.asset && entry.amount !== undefined ? `${formatNumber(entry.amount, 7)} ${entry.asset.code}` : t('activity.detail.amountUnavailable'),
+        primary:
+          entry.asset && entry.amount !== undefined
+            ? `${formatNumber(entry.amount, 7)} ${entry.asset.code}`
+            : t('activity.detail.amountUnavailable'),
         secondary: entry.balanceId,
         tone: 'neutral',
         filter: 'other',
@@ -197,7 +213,27 @@ export function activityEntryPresentation(
 }
 
 export function matchesActivityFilter(entry: HistoryEntry, filter: ActivityFilter): boolean {
-  if (filter === 'failed') return entry.kind === 'failed';
+  if (entry.kind === 'failed') {
+    if (filter === 'all' || filter === 'failed') return true;
+    const family: ActivityFilter = ['payment', 'path_payment_strict_send', 'path_payment_strict_receive'].includes(
+      entry.operationType,
+    )
+      ? 'payments'
+      : entry.operationType === 'create_account'
+        ? 'accounts'
+        : entry.operationType === 'change_trust'
+          ? 'trustlines'
+          : ['manage_buy_offer', 'manage_sell_offer', 'create_passive_sell_offer'].includes(entry.operationType)
+            ? 'offers'
+            : ['liquidity_pool_deposit', 'liquidity_pool_withdraw'].includes(entry.operationType)
+              ? 'pools'
+              : 'other';
+    return filter === family;
+  }
+  if (filter === 'failed') return false;
+  if (filter === 'swaps') return entry.kind === 'path-payment' && isPathSwap(entry);
+  if (filter === 'offers') return entry.kind === 'offer';
+  if (filter === 'pools') return entry.kind === 'liquidity-pool';
   if (filter === 'all') {
     return true;
   }
@@ -213,7 +249,6 @@ export function matchesActivityFilter(entry: HistoryEntry, filter: ActivityFilte
     case 'trust-authorization':
     case 'trust-flags':
     case 'sponsorship':
-    case 'failed':
     case 'account-control':
     case 'maintenance':
     case 'contract':
@@ -276,7 +311,8 @@ export function matchesActivitySearch(
   if (entry.kind === 'failed') values.push(identityNames?.get(entry.sourceAccount) ?? '');
   if (entry.kind === 'account-control') {
     values.push(identityNames?.get(entry.sourceAccount) ?? '');
-    for (const [key, value] of Object.entries(entry.parameters)) values.push(t(`activity.control.field.${key}`), String(value));
+    for (const [key, value] of Object.entries(entry.parameters))
+      values.push(t(`activity.control.field.${key}`), String(value));
   }
   if (entry.kind === 'maintenance') {
     values.push(
@@ -287,8 +323,19 @@ export function matchesActivitySearch(
     );
   }
   if (entry.kind === 'contract') {
-    values.push(entry.hostFunction, entry.contractId ?? '', entry.functionName ?? '', entry.deployer ?? '', entry.creationOrigin ?? '');
-    if (entry.creationAsset) values.push(entry.creationAsset.code, entry.creationAsset.kind === 'credit' ? entry.creationAsset.issuer : '', entry.creationAsset.kind === 'credit' ? `${entry.creationAsset.code}:${entry.creationAsset.issuer}` : 'native');
+    values.push(
+      entry.hostFunction,
+      entry.contractId ?? '',
+      entry.functionName ?? '',
+      entry.deployer ?? '',
+      entry.creationOrigin ?? '',
+    );
+    if (entry.creationAsset)
+      values.push(
+        entry.creationAsset.code,
+        entry.creationAsset.kind === 'credit' ? entry.creationAsset.issuer : '',
+        entry.creationAsset.kind === 'credit' ? `${entry.creationAsset.code}:${entry.creationAsset.issuer}` : 'native',
+      );
     if (entry.deployer?.startsWith('G')) values.push(identityNames?.get(entry.deployer) ?? '');
     for (const event of entry.events ?? []) {
       values.push(
