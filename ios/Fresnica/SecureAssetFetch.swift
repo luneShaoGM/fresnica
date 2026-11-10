@@ -21,7 +21,7 @@ final class SecureAssetFetch: NSObject {
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
     guard !retired, active.count < 2,
-      kind == "icon" || kind == "text",
+      kind == "icon" || kind == "avatar" || kind == "text",
       requestId.range(of: "^[A-Za-z0-9-]{1,48}$", options: .regularExpression) != nil,
       active[requestId] == nil,
       let url = Self.safeURL(rawURL)
@@ -103,7 +103,7 @@ private final class SecureAssetFetchRequest {
   init(url: URL, kind: String, onFinished: @escaping (Result<[String: String], Error>) -> Void) {
     self.url = url
     self.kind = kind
-    self.limit = kind == "icon" ? 65_536 : 524_288
+    self.limit = kind == "icon" ? 65_536 : kind == "avatar" ? 262_144 : 524_288
     self.onFinished = onFinished
   }
 
@@ -171,7 +171,7 @@ private final class SecureAssetFetchRequest {
     else { fail(); return }
     let path = (components.percentEncodedPath.isEmpty ? "/" : components.percentEncodedPath) +
       (components.percentEncodedQuery.map { "?" + $0 } ?? "")
-    let accept = kind == "icon" ? "image/png,image/jpeg" : "application/json,text/plain"
+    let accept = kind != "text" ? "image/png,image/jpeg" : "application/json,text/plain"
     let request = "GET \(path) HTTP/1.1\r\nHost: \(hostname)\r\n" +
       "Accept: \(accept)\r\nAccept-Encoding: identity\r\n" +
       "Connection: close\r\n\r\n"

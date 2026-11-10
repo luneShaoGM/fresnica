@@ -30,7 +30,7 @@ describe('Native bounded public transport adapter', () => {
     let rejectNative: (reason: Error) => void = () => undefined;
     const native = {
       fetch: jest.fn(
-        (_url: string, _kind: 'text' | 'icon', _id: string) =>
+        (_url: string, _kind: 'text' | 'icon' | 'avatar', _id: string) =>
           new Promise<never>((_, reject) => {
             rejectNative = reject;
           }),
@@ -54,7 +54,7 @@ describe('Native bounded public transport adapter', () => {
 
   it('does not reuse native request IDs across AppServices generations', async () => {
     const native = {
-      fetch: jest.fn(async (_url: string, _kind: 'text' | 'icon', _id: string) => ({ text: 'ok' })),
+      fetch: jest.fn(async (_url: string, _kind: 'text' | 'icon' | 'avatar', _id: string) => ({ text: 'ok' })),
       cancel: jest.fn(),
     };
     const first = createNativeSafePublicTransport(native);
@@ -87,4 +87,18 @@ describe('Native bounded public transport adapter', () => {
     expect(native.fetch).toHaveBeenCalledTimes(2);
     transport.close();
   });
+});
+
+it('admits real-size address media within its independent budget without widening Token icons', async () => {
+  const url = 'https://horizon.stellarcn.org/avatar/v2/G' + 'A'.repeat(55) + '?size=256';
+  const base64 = 'A'.repeat(Math.ceil(89_963 / 3) * 4);
+  const native = { fetch: jest.fn(async () => ({ mimeType: 'image/png', base64 })), cancel: jest.fn() };
+  const port = createNativeSafePublicTransport(native);
+  expect((await port.readAvatar(url, new AbortController().signal)).dataUri.length).toBeGreaterThan(119_000);
+  expect(native.fetch).toHaveBeenLastCalledWith(url, 'avatar', expect.any(String));
+  await expect(port.readIcon(good, new AbortController().signal)).rejects.toThrow();
+  await expect(port.readAvatar(good, new AbortController().signal)).rejects.toThrow();
+  native.fetch.mockResolvedValueOnce({ mimeType: 'image/png', base64: 'A'.repeat(349_532) });
+  await expect(port.readAvatar(url, new AbortController().signal)).rejects.toThrow();
+  port.close();
 });

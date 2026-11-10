@@ -46,6 +46,7 @@ it.each([undefined, null, 'false', 'true', 0, 1])(
 it('enables failed records in the default SDK call builder as well as HTTP reads', async () => {
   const builder = {
     forAccount: jest.fn().mockReturnThis(),
+    join: jest.fn().mockReturnThis(),
     includeFailed: jest.fn().mockReturnThis(),
     order: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
@@ -61,6 +62,7 @@ it('enables failed records in the default SDK call builder as well as HTTP reads
       horizonUrl: 'https://node.test',
     });
     const page = await gateway.loadAccountOperations({ address: source, limit: 1, cursor: 'opaque+cursor' });
+    expect(builder.join).toHaveBeenCalledWith('transactions');
     expect(builder.includeFailed).toHaveBeenCalledWith(true);
     expect(builder.cursor).toHaveBeenCalledWith('opaque+cursor');
     if (page.status !== 'active') throw new Error('fixture');

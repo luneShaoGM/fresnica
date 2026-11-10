@@ -142,11 +142,11 @@ function textValues(node: React.ReactNode): string[] {
   return React.Children.toArray(node.props.children).flatMap(textValues);
 }
 it.each(['paused', 'connecting', 'live', 'polling'] as const)(
-  'shows the fallback update cadence only while polling (%s)',
+  'keeps ordinary synchronization silent (%s)',
   syncMode => {
     mockPresentOverlay.mockClear();
     const { root } = renderSwap(true, syncMode);
-    expect(textValues(root).includes('account.sync.polling')).toBe(syncMode === 'polling');
+    expect(textValues(root)).not.toContain('account.sync.polling');
   },
 );
 
@@ -160,7 +160,6 @@ function findLabel(node: React.ReactNode, label: string): React.ReactElement<Pro
   return undefined;
 }
 it.each([
-  ['checking', undefined, 'node.read.checking'],
   ['cooldown', 'rate-limited', 'node.read.rateLimited'],
   ['cooldown', 'unavailable', 'node.read.unavailable'],
   ['wrong-network', 'wrong-network', 'node.read.wrongNetwork'],
@@ -173,11 +172,8 @@ it.each([
     expect(textValues(root)).toContain(message);
     expect(textValues(root)).not.toContain('account.sync.polling');
     const button = findLabel(root, 'node.read.retry');
-    if (nodePhase === 'checking') expect(button).toBeUndefined();
-    else {
-      button?.props.onPress?.();
-      expect(retry).toHaveBeenCalledTimes(1);
-    }
+    button?.props.onPress?.();
+    expect(retry).toHaveBeenCalledTimes(1);
   },
 );
 
@@ -192,4 +188,10 @@ it('keeps the empty-network bar visible but blocks Actions even if an availabili
   actions?.props.onPress?.();
   expect(mockPresentOverlay).not.toHaveBeenCalled();
   expect(navigate).not.toHaveBeenCalled();
+});
+
+it('does not insert a notice during ordinary node checks', () => {
+  const { root } = renderSwap(true, 'polling', { nodePhase: 'checking' });
+  expect(textValues(root)).not.toContain('node.read.checking');
+  expect(textValues(root)).not.toContain('account.sync.polling');
 });

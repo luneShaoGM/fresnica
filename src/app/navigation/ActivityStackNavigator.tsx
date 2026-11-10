@@ -29,8 +29,8 @@ export function ActivityStackNavigator({ accounts, selectedAccountId, services }
   const account = resolveVisibleAccount(accounts, selectedAccountId);
   const { contacts } = useContactList(services.contacts);
   const identityNames = useMemo(
-    () => activityIdentityNames(accounts, contacts, account.networkId),
-    [accounts, contacts, account.networkId],
+    () => activityIdentityNames(accounts, contacts, account.networkId, services.assetCatalog),
+    [accounts, contacts, account.networkId, services.assetCatalog],
   );
   const readRuntime = useSyncExternalStore(
     services.ledgerReadRuntime.subscribe,

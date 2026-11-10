@@ -54,7 +54,6 @@ export function MainTabBar({
   selectedAccountId,
   actionAvailability,
   actionState,
-  syncMode,
   nodePhase,
   nodeFailure,
   onRetryNode,
@@ -194,27 +193,21 @@ export function MainTabBar({
 
   return (
     <View>
-      {nodePhase === 'checking' || nodePhase === 'cooldown' || nodePhase === 'wrong-network' ? (
+      {nodePhase === 'cooldown' || nodePhase === 'wrong-network' ? (
         <View style={styles.nodeNotice}>
           <Text accessibilityLiveRegion="polite" style={styles.syncNotice}>
             {t(
               nodePhase === 'wrong-network'
                 ? 'node.read.wrongNetwork'
-                : nodePhase === 'checking'
-                  ? 'node.read.checking'
-                  : nodeFailure === 'rate-limited'
-                    ? 'node.read.rateLimited'
-                    : 'node.read.unavailable',
+                : nodeFailure === 'rate-limited'
+                  ? 'node.read.rateLimited'
+                  : 'node.read.unavailable',
             )}
           </Text>
-          {nodePhase !== 'checking' && onRetryNode ? (
+          {onRetryNode ? (
             <NativeButton label={t('node.read.retry')} onPress={onRetryNode} size="sm" variant="secondary" />
           ) : null}
         </View>
-      ) : syncMode === 'polling' ? (
-        <Text accessibilityLiveRegion="polite" style={styles.syncNotice}>
-          {t('account.sync.polling')}
-        </Text>
       ) : null}
       <SafeAreaView edges={['right', 'bottom', 'left']} style={styles.tabBar}>
         {renderTab(0)}

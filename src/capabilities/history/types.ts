@@ -1,3 +1,4 @@
+import type { HistoryRecipientMemo } from './historyRecipientMemo';
 export type HistoryCreditAsset = Readonly<{ kind: 'credit'; code: string; issuer: string }>;
 
 export type HistoryAsset = Readonly<{ kind: 'native'; code: 'XLM' }> | HistoryCreditAsset;
@@ -13,6 +14,7 @@ export type HistoryParticipant = Readonly<{
 }>;
 
 export type HistoryEntryBase = Readonly<{
+  recipientMemo?: HistoryRecipientMemo;
   successful?: boolean;
   id: string;
   pagingToken: string;
@@ -111,7 +113,17 @@ export type HistoryClaimableEntry = HistoryEntryBase &
     claimants: readonly HistoryClaimant[];
     role: 'funder' | 'issuer' | 'claimant';
   }>;
-export type HistoryEffectEvidence = Readonly<{ operationId: string; complete: true; records: readonly Readonly<{type: string; account: string; balanceId?: string; asset?: HistoryAsset; amount?: string }>[] }>;
+export type HistoryEffectEvidence = Readonly<{
+  operationId: string;
+  complete: true;
+  records: readonly Readonly<{
+    type: string;
+    account: string;
+    balanceId?: string;
+    asset?: HistoryAsset;
+    amount?: string;
+  }>[];
+}>;
 export type HistoryBalanceReferenceEntry = HistoryEntryBase &
   Readonly<{
     kind: 'claimable-reference';
@@ -187,10 +199,20 @@ export type HistorySponsorshipEntry = HistoryEntryBase &
     role: 'sponsor' | 'beneficiary';
   }>;
 export type HistoryControlParameters = Readonly<Record<string, string | number | readonly number[]>>;
-export type HistoryControlEntry = HistoryEntryBase & Readonly<{
-  kind: 'account-control'; successful: true; parameters: HistoryControlParameters; counterparty?: string;
-}>;
-export type HistoryFailedEntry = HistoryEntryBase & Readonly<{ kind: 'failed'; successful: false; relatedAccounts: readonly string[] }>;
+export type HistoryControlEntry = HistoryEntryBase &
+  Readonly<{
+    kind: 'account-control';
+    successful: true;
+    parameters: HistoryControlParameters;
+    counterparty?: string;
+  }>;
+export type HistoryFailedSubject =
+  | Readonly<{ kind: 'account'; address: string }>
+  | Readonly<{ kind: 'asset'; asset: HistoryAsset }>
+  | Readonly<{ kind: 'asset-pair'; source: HistoryAsset; destination: HistoryAsset }>
+  | Readonly<{ kind: 'contract'; identity?: string }>;
+export type HistoryFailedEntry = HistoryEntryBase &
+  Readonly<{ kind: 'failed'; successful: false; relatedAccounts: readonly string[]; subject?: HistoryFailedSubject }>;
 export type HistoryEntry =
   | HistoryFailedEntry
   | HistoryControlEntry

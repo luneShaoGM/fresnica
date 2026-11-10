@@ -71,7 +71,9 @@ it.each(['create', 'create-v2'] as const)('shows %s deployer without claiming a 
   );
   const row = activityRowPresentation(entry, t, formatNumber, names);
   expect(row.subject).toEqual({ kind: 'contract', identity: source });
-  expect(row.title).toBe('Actual deployer');
+  expect(row.title).toBe(
+    t(host === 'create-v2' ? 'activity.entry.contractConstructor' : 'activity.entry.contractCreate'),
+  );
   expect(matchesActivitySearch(entry, 'Actual deployer', t, formatNumber, names)).toBe(true);
   expect(row.reserveMoney).toHaveLength(host === 'create-v2' ? 1 : 0);
   expect(entry).not.toHaveProperty('contractId');

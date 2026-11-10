@@ -13,13 +13,13 @@ export interface SafePublicTransport {
 
 type NativeResult = Readonly<{ text?: unknown; mimeType?: unknown; base64?: unknown }>;
 type NativeFetch = Readonly<{
-  fetch(url: string, kind: 'text' | 'icon', requestId: string): Promise<NativeResult>;
+  fetch(url: string, kind: 'text' | 'icon' | 'avatar', requestId: string): Promise<NativeResult>;
   cancel(requestId: string): void;
 }>;
 
 type Pending = {
   url: string;
-  kind: 'icon' | 'text';
+  kind: 'icon' | 'text' | 'avatar';
   signal: AbortSignal;
   resolve: (result: NativeResult) => void;
   reject: (error: Error) => void;
@@ -38,7 +38,7 @@ let nextNativeRequestId = 0;
 // transport-level no-redirect enforcement. No fetch/XHR/Image URL fallback.
 export function createNativeSafePublicTransport(
   native: NativeFetch | undefined = NativeModules.SecureAssetFetch as NativeFetch | undefined,
-): SafePublicTransport {
+): SafePublicTransport & Readonly<{ readAvatar(url: string, signal: AbortSignal): Promise<SafeImageBytes> }> {
   const waiting: Pending[] = [];
   const active = new Map<string, Pending>();
   let closed = false;
@@ -65,7 +65,7 @@ export function createNativeSafePublicTransport(
     }
   }
 
-  function request(url: string, kind: 'icon' | 'text', signal: AbortSignal): Promise<NativeResult> {
+  function request(url: string, kind: 'icon' | 'text' | 'avatar', signal: AbortSignal): Promise<NativeResult> {
     const allowed = safePublicHttpsUrl(url);
     if (
       closed ||
@@ -103,6 +103,25 @@ export function createNativeSafePublicTransport(
     });
   }
 
+  async function readImage(
+    url: string,
+    signal: AbortSignal,
+    kind: 'icon' | 'avatar',
+    maxBase64: number,
+  ): Promise<SafeImageBytes> {
+    const result = await request(url, kind, signal);
+    if (
+      (result.mimeType !== 'image/png' && result.mimeType !== 'image/jpeg') ||
+      typeof result.base64 !== 'string' ||
+      result.base64.length === 0 ||
+      result.base64.length > maxBase64 ||
+      !/^[A-Za-z0-9+/]*={0,2}$/.test(result.base64) ||
+      signal.aborted
+    )
+      throw error();
+    return { mimeType: result.mimeType, dataUri: `data:${result.mimeType};base64,${result.base64}` };
+  }
+
   return {
     available: Boolean(native && typeof native.fetch === 'function' && typeof native.cancel === 'function'),
     async readText(url, signal) {
@@ -110,18 +129,11 @@ export function createNativeSafePublicTransport(
       if (typeof result.text !== 'string' || result.text.length > 524_288 || signal.aborted) throw error();
       return result.text;
     },
-    async readIcon(url, signal) {
-      const result = await request(url, 'icon', signal);
-      if (
-        (result.mimeType !== 'image/png' && result.mimeType !== 'image/jpeg') ||
-        typeof result.base64 !== 'string' ||
-        result.base64.length === 0 ||
-        result.base64.length > 87_384 ||
-        !/^[A-Za-z0-9+/]*={0,2}$/.test(result.base64) ||
-        signal.aborted
-      )
-        throw error();
-      return { mimeType: result.mimeType, dataUri: `data:${result.mimeType};base64,${result.base64}` };
+    readIcon: (url, signal) => readImage(url, signal, 'icon', 87_384),
+    readAvatar(url, signal) {
+      if (!/^https:\/\/horizon\.stellarcn\.org\/avatar\/v2\/(?:G[A-Z2-7]{55}|M[A-Z2-7]{68})\?size=256$/.test(url))
+        return Promise.reject(error());
+      return readImage(url, signal, 'avatar', 349_528);
     },
     close() {
       if (closed) return;

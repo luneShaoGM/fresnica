@@ -14,7 +14,9 @@ it.each(maintenanceTypes)('presents %s as neutral source identity without money 
     const { t, formatNumber } = createLocalization(locale);
     const names = new Map([[maintenanceSource, 'My source']]);
     const row = activityRowPresentation(entry, t, formatNumber, names);
-    expect(row.title).toBe('My source');
+    expect(row.title).toBe(
+      type === 'extend_footprint_ttl' || type === 'restore_footprint' ? t(`activity.maintenance.${type}`) : 'My source',
+    );
     expect(row.subject).toEqual(
       type === 'extend_footprint_ttl' || type === 'restore_footprint'
         ? { kind: 'contract', identity: maintenanceSource }

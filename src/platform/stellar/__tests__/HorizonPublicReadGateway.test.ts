@@ -67,7 +67,7 @@ it('preserves the established SDK public read projections and opaque paging acro
     await old.loadOperation({ accountAddress: 'Ga', operationId: 'op' }),
   );
   expect(http.mock.calls[1]).toEqual([
-    'https://node.test/accounts/Ga/operations?include_failed=true&order=desc&limit=1&cursor=opaque%2Bcursor',
+    'https://node.test/accounts/Ga/operations?include_failed=true&join=transactions&order=desc&limit=1&cursor=opaque%2Bcursor',
     { signal },
   ]);
 });
@@ -349,7 +349,7 @@ it.each([
   expect(matchesActivityFilter(entry, 'other')).toBe(true);
   expect(matchesActivityFilter(entry, 'payments')).toBe(false);
   if (entry.kind === 'offer') {
-    expect(row.title).toBe('XLM → XLM');
+    expect(row.title).toBe('XLM / XLM');
     expect(row.money).toBeUndefined();
     expect(row.reserveMoney).toBeUndefined();
     expect(entry.offerId).toBe('9223372036854775807');

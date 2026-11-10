@@ -1,3 +1,4 @@
+import type { StellarPaymentMemo } from '@capabilities/stellar/types';
 import { isPathSwap } from '@capabilities/history/pathPaymentHistory';
 import type { HistoryAsset, HistoryEntry } from '@capabilities/history/types';
 import { formatPublicAddress } from '@ui/formatPublicAddress';
@@ -5,7 +6,15 @@ import { activityEntryPresentation, type ActivityTone } from './activityList';
 
 type Translate = (key: string, params?: Readonly<Record<string, string | number>>) => string;
 type FormatNumber = (value: string | number, precision?: number) => string;
-export type ActivityIdentityNames = ReadonlyMap<string, string>;
+export type ActivityIdentityNames = ReadonlyMap<string, string> &
+  Readonly<{
+    contractName?: (identity: string) => string | undefined;
+    resolve?: (address: string, memo?: StellarPaymentMemo) => string | undefined;
+  }>;
+function nameFor(entry: HistoryEntry, address: string, names?: ActivityIdentityNames): string | undefined {
+  const memo = entry.recipientMemo?.recipient === address ? entry.recipientMemo.memo : undefined;
+  return names?.resolve ? names.resolve(address, memo)?.trim() : names?.get(address)?.trim();
+}
 export type ActivityRowPresentation = Readonly<{
   title: string;
   operation: string;
@@ -35,28 +44,46 @@ export function activityRowPresentation(
     case 'sponsorship': {
       const peer = entry.role === 'sponsor' ? entry.beneficiary : entry.sponsor;
       return {
-        title: names?.get(peer)?.trim() || formatPublicAddress(peer),
+        title: nameFor(entry, peer, names) || formatPublicAddress(peer),
         operation: detail.title,
         subject: { kind: 'account', address: peer },
       };
     }
-    case 'failed':
+    case 'failed': {
+      const failed = entry.subject;
+      const operation = `${detail.title} · ${entry.operationType}`;
+      if (failed?.kind === 'asset') return { title: failed.asset.code, operation, subject: failed };
+      if (failed?.kind === 'asset-pair')
+        return { title: `${failed.source.code} / ${failed.destination.code}`, operation, subject: failed };
+      if (failed?.kind === 'contract')
+        return {
+          title: failed.identity
+            ? names?.contractName?.(failed.identity) || formatPublicAddress(failed.identity)
+            : entry.operationType.replace(/_/g, ' '),
+          operation,
+          subject: { kind: 'contract', identity: failed.identity ?? entry.id },
+        };
+      const peer = failed?.kind === 'account' ? failed.address : entry.sourceAccount;
       return {
-        title: names?.get(entry.sourceAccount)?.trim() || formatPublicAddress(entry.sourceAccount),
-        operation: `${detail.title} · ${entry.operationType}`,
-        subject: { kind: 'account', address: entry.sourceAccount },
+        title: nameFor(entry, peer, names) || formatPublicAddress(peer),
+        operation,
+        subject: { kind: 'account', address: peer },
       };
+    }
     case 'account-control':
       return {
         title:
-          names?.get(entry.counterparty ?? entry.sourceAccount)?.trim() ||
+          nameFor(entry, entry.counterparty ?? entry.sourceAccount, names) ||
           formatPublicAddress(entry.counterparty ?? entry.sourceAccount),
         operation: detail.title,
         subject: { kind: 'account', address: entry.counterparty ?? entry.sourceAccount },
       };
     case 'maintenance':
       return {
-        title: names?.get(entry.sourceAccount)?.trim() || formatPublicAddress(entry.sourceAccount),
+        title:
+          entry.operationType === 'extend_footprint_ttl' || entry.operationType === 'restore_footprint'
+            ? detail.title
+            : nameFor(entry, entry.sourceAccount, names) || formatPublicAddress(entry.sourceAccount),
         operation: detail.title,
         subject:
           entry.operationType === 'extend_footprint_ttl' || entry.operationType === 'restore_footprint'
@@ -67,10 +94,9 @@ export function activityRowPresentation(
       const identity = entry.contractId ?? entry.deployer;
       return {
         title:
-          entry.creationAsset?.code ??
-          (identity
-            ? (identity.startsWith('G') ? names?.get(identity)?.trim() : undefined) || formatPublicAddress(identity)
-            : detail.title),
+          entry.hostFunction === 'invoke' && entry.contractId
+            ? names?.contractName?.(entry.contractId) || formatPublicAddress(entry.contractId)
+            : detail.title,
         operation: [detail.title, entry.functionName].filter(Boolean).join(' · '),
         subject: { kind: 'contract', identity: identity ?? entry.id },
         reserveMoney: (entry.events ?? [])
@@ -127,7 +153,7 @@ export function activityRowPresentation(
     }
     case 'offer':
       return {
-        title: `${entry.sellingAsset.code} → ${entry.buyingAsset.code}`,
+        title: `${entry.sellingAsset.code} / ${entry.buyingAsset.code}`,
         operation: detail.title,
         subject: { kind: 'asset-pair', source: entry.sellingAsset, destination: entry.buyingAsset },
       };
@@ -151,8 +177,8 @@ export function activityRowPresentation(
       const prefix = detail.tone === 'positive' ? '+' : detail.tone === 'negative' ? '−' : '';
       return {
         title: swap
-          ? t('activity.entry.swap')
-          : names?.get(entry.counterparty)?.trim() || formatPublicAddress(entry.counterparty),
+          ? `${entry.sourceAsset.code} / ${entry.destinationAsset.code}`
+          : nameFor(entry, entry.counterparty, names) || formatPublicAddress(entry.counterparty),
         operation: `${detail.title} · ${pair}`,
         subject: swap
           ? { kind: 'asset-pair', source: entry.sourceAsset, destination: entry.destinationAsset }
@@ -170,7 +196,7 @@ export function activityRowPresentation(
       const rawAmount = entry.kind === 'payment' ? entry.amount : entry.startingBalance;
       const prefix = detail.tone === 'positive' ? '+' : detail.tone === 'negative' ? '−' : '';
       return {
-        title: names?.get(entry.counterparty)?.trim() || formatPublicAddress(entry.counterparty),
+        title: nameFor(entry, entry.counterparty, names) || formatPublicAddress(entry.counterparty),
         operation: entry.kind === 'create-account' ? t('activity.entry.createAccount') : detail.title,
         subject: { kind: 'account', address: entry.counterparty },
         money: { amount: `${prefix}${formatNumber(rawAmount, 7)}`, asset, tone: detail.tone },

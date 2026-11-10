@@ -432,8 +432,8 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     closeTokenIcons = tokenIcons.close;
     const accountAvatars = createAccountAvatarPort({
       available: publicAssetTransport.available,
-      initialEnabled: initialPreferences.externalAccountAvatarsEnabled === true,
-      loadImage: async (url, signal) => (await publicAssetTransport.readIcon(url, signal)).dataUri,
+      initialEnabled: initialPreferences.externalAccountAvatarsEnabled !== false,
+      loadImage: async (url, signal) => (await publicAssetTransport.readAvatar(url, signal)).dataUri,
     });
     const syncAvatarRuntime = () => {
       const runtime = ledgerReadRuntime.getSnapshot();
@@ -448,7 +448,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     if (networkSettings) {
       const settings = networkSettings;
       stopIconPrivacySync = settings.subscribe(() => {
-        accountAvatars.setEnabled(settings.getSnapshot().preferences.externalAccountAvatarsEnabled === true);
+        accountAvatars.setEnabled(settings.getSnapshot().preferences.externalAccountAvatarsEnabled !== false);
         tokenIcons.setEnabled(settings.getSnapshot().preferences.externalTokenImagesEnabled !== false);
       });
     }

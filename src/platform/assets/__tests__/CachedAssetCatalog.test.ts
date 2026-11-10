@@ -288,3 +288,23 @@ describe('S06 cached public asset catalog', () => {
     expect(store.cache.replace).not.toHaveBeenCalled();
   });
 });
+
+it('keeps Soroban contract names separate from classic trustline assets through cache reuse', async () => {
+  const contractId = 'C' + 'A'.repeat(55);
+  const store = memoryCache();
+  const read = jest.fn(async () =>
+    JSON.stringify({ tokens: [original, { code: 'WRAP', contract: contractId, name: 'Wrapped token' }] }),
+  );
+  const port = createCachedAssetCatalog({
+    networkId: 'stellar-mainnet',
+    http: { read },
+    cache: store.cache,
+    now: () => 1,
+  });
+  const result = await port.loadSource('stellar-mainnet', 'soroswap', new AbortController().signal);
+  expect(result.assets).toEqual([original]);
+  expect(result.contractNames).toEqual([{ contractId, name: 'Wrapped token' }]);
+  expect(port.readCachedSource('stellar-mainnet', 'soroswap')?.contractNames).toEqual(result.contractNames);
+  expect(port.readCachedSource('stellar-testnet', 'soroswap')).toBeUndefined();
+  port.close();
+});

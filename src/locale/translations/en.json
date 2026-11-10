@@ -1164,5 +1164,5 @@
   "activity.filters.dustActive": "Dust filtered",
   "activity.filters.revealDust": "Show dust activity",
   "settings.privacy.accountAvatars": "Account address avatars (StellarCN)",
-  "settings.privacy.accountAvatarsInfo": "Off by default. When enabled, Activity sends displayed full wallet and counterparty public addresses to horizon.stellarcn.org for avatars. The provider also sees your IP address and request time. Separate from token images; pictures do not verify account identity."
+  "settings.privacy.accountAvatarsInfo": "Account avatars load automatically from horizon.stellarcn.org using full displayed wallet and counterparty public addresses. The provider can see those addresses, your IP address and request time. Turn this off to use generic profile images. These images do not verify identity. This choice is separate from Token images."
 }

@@ -1,3 +1,4 @@
+import { normalizeHistoryRecipientMemo } from './historyRecipientMemo';
 import { normalizeFailedHistory } from './failedHistory';
 import { isClassicControlType, mapClassicControl } from './classicControlHistory';
 import { CONTRACT_HOST_FUNCTIONS, mapContract } from './contractHistory';
@@ -108,6 +109,19 @@ export function assertHistoryCachePartition(partition: HistoryCachePartition): v
 
 function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): HistoryEntry {
   assertHistoryEntry(entry);
+  const memo = normalizeHistoryRecipientMemo(entry.recipientMemo);
+  if (memo) {
+    const recipient =
+      entry.kind === 'payment' || entry.kind === 'path-payment'
+        ? entry.participants.find(person => person.role === 'recipient')?.identity
+        : entry.kind === 'create-account'
+          ? entry.participants.find(person => person.role === 'created-account')?.identity
+          : entry.kind === 'account-control' && entry.operationType === 'account_merge'
+            ? entry.parameters.into
+            : undefined;
+    if (recipient === undefined || memo.recipient !== recipient)
+      throw new Error('history-cache-memo-recipient-mismatch');
+  }
   const base = {
     id: entry.id,
     pagingToken: entry.pagingToken,
@@ -115,6 +129,7 @@ function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): Hi
     occurredAt: entry.occurredAt,
     transactionHash: entry.transactionHash,
     sourceAccount: entry.sourceAccount,
+    ...(entry.recipientMemo ? { recipientMemo: normalizeHistoryRecipientMemo(entry.recipientMemo) } : {}),
     ...(typeof entry.successful === 'boolean' ? { successful: entry.successful } : {}),
   };
 
@@ -124,7 +139,11 @@ function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): Hi
       return normalizeFailedHistory(entry, accountAddress);
     case 'account-control': {
       if (!accountAddress) throw new Error('history-cache-invalid-partition');
-      const result = mapClassicControl({ ...base, type: entry.operationType, successful: entry.successful, controlParameters: entry.parameters }, accountAddress, base);
+      const result = mapClassicControl(
+        { ...base, type: entry.operationType, successful: entry.successful, controlParameters: entry.parameters },
+        accountAddress,
+        base,
+      );
       if (!result || result.counterparty !== entry.counterparty) throw new Error('history-cache-invalid-entry');
       return result;
     }
@@ -226,7 +245,10 @@ function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): Hi
       if (entry.kind !== 'claimable-reference') assertAsset(entry.asset);
       else {
         if (entry.asset) assertAsset(entry.asset);
-        if (Array.isArray(entry.evidence?.records)) entry.evidence.records.forEach(effect => { if (effect?.asset) assertAsset(effect.asset); });
+        if (Array.isArray(entry.evidence?.records))
+          entry.evidence.records.forEach(effect => {
+            if (effect?.asset) assertAsset(effect.asset);
+          });
       }
       const account =
         accountAddress ??
@@ -264,7 +286,11 @@ function normalizeHistoryEntry(entry: HistoryEntry, accountAddress?: string): Hi
         (reconstructed.kind === 'clawback' &&
           entry.kind === 'clawback' &&
           (reconstructed.holder !== entry.holder || reconstructed.holderBase !== entry.holderBase)) ||
-        (entry.kind === 'claimable-reference' && reconstructed.kind === 'claimable-reference' && (entry.amount !== reconstructed.amount || JSON.stringify(entry.asset) !== JSON.stringify(reconstructed.asset) || (entry.evidence !== undefined && reconstructed.evidence === undefined))) ||
+        (entry.kind === 'claimable-reference' &&
+          reconstructed.kind === 'claimable-reference' &&
+          (entry.amount !== reconstructed.amount ||
+            JSON.stringify(entry.asset) !== JSON.stringify(reconstructed.asset) ||
+            (entry.evidence !== undefined && reconstructed.evidence === undefined))) ||
         ('role' in reconstructed && (!('role' in entry) || reconstructed.role !== entry.role))
       )
         throw new Error('history-cache-invalid-entry');
@@ -406,8 +432,10 @@ function assertHistoryEntry(entry: HistoryEntry): void {
     throw new Error('history-cache-invalid-entry');
   }
 
-  if (entry.successful !== undefined && typeof entry.successful !== 'boolean') throw new Error('history-cache-invalid-entry');
-  if (entry.kind !== 'failed' && entry.kind !== 'unsupported' && entry.successful === false) throw new Error('history-cache-invalid-entry');
+  if (entry.successful !== undefined && typeof entry.successful !== 'boolean')
+    throw new Error('history-cache-invalid-entry');
+  if (entry.kind !== 'failed' && entry.kind !== 'unsupported' && entry.successful === false)
+    throw new Error('history-cache-invalid-entry');
   switch (entry.kind) {
     case 'failed':
       if (entry.successful !== false) throw new Error('history-cache-invalid-entry');

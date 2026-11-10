@@ -1,3 +1,4 @@
+import { historyJoinedMemo } from './historyJoinedMemo';
 import { readHistoryOperationEffects } from './HistoryEffectsProjection';
 import {
   Address,
@@ -51,6 +52,7 @@ export function mapHistoryOperationRecord(input: HorizonOperationLike): HistoryO
     occurredAt: input.created_at,
     transactionHash: input.transaction_hash,
     sourceAccount: input.source_account,
+    ...(historyJoinedMemo(input) ? { recipientMemo: historyJoinedMemo(input) } : {}),
     ...(typeof input.transaction_successful === 'boolean'
       ? { successful: input.transaction_successful }
       : { outcomeUnknown: true as const }),
@@ -235,9 +237,15 @@ function createDefaultServer(horizonUrl: string, networkPassphrase: string): Hor
       return (await request.call()).records;
     },
     loadOperation: async operationId =>
-      (await server.operations().operation(operationId).call()) as unknown as HorizonOperationLike,
+      (await server.operations().operation(operationId).join('transactions').call()) as unknown as HorizonOperationLike,
     loadAccountOperations: async input => {
-      let request = server.operations().forAccount(input.address).includeFailed(true).order('desc').limit(input.limit);
+      let request = server
+        .operations()
+        .forAccount(input.address)
+        .join('transactions')
+        .includeFailed(true)
+        .order('desc')
+        .limit(input.limit);
       if (input.cursor !== undefined) {
         request = request.cursor(input.cursor);
       }

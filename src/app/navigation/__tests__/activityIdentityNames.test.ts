@@ -71,3 +71,18 @@ it('does not use hidden, contract or foreign-network accounts or empty labels', 
     expect(activityIdentityNames([{ ...account, ...patch }], [], 'test').size).toBe(0);
   }
 });
+
+it('uses approved cached contract names only in their Mainnet partition, never as classic identities', () => {
+  const contractId = 'C' + 'A'.repeat(55);
+  const readCachedSource = jest.fn(() => ({
+    assets: [],
+    contractNames: [{ contractId, name: 'Known contract' }],
+    fromCache: true,
+    stale: false,
+    refreshFailed: false,
+  }));
+  const catalog = { read: jest.fn(), readCachedSource };
+  expect(activityIdentityNames([], [], 'stellar-mainnet', catalog).contractName?.(contractId)).toBe('Known contract');
+  expect(activityIdentityNames([], [], 'stellar-testnet', catalog).contractName?.(contractId)).toBeUndefined();
+  expect(activityIdentityNames([], [], 'stellar-mainnet', catalog).get(contractId)).toBeUndefined();
+});

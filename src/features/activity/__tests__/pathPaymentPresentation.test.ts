@@ -35,7 +35,7 @@ it.each([
   const path = { ...entry, direction };
   const row = activityRowPresentation(path, t, formatNumber, new Map([[entry.counterparty, 'Alice']]));
   expect(row.money).toMatchObject({ amount, tone, asset: { kind } });
-  expect(row.title).toBe(direction === 'self' ? 'Swap' : 'Alice');
+  expect(row.title).toBe(direction === 'self' ? 'XLM / XLM' : 'Alice');
   expect(row.operation).toContain('XLM → XLM');
   expect(row.operation).toContain(direction === 'self' ? 'Swap' : 'Path payment');
   expect(activityEntryPresentation(path, t, formatNumber).filter).toBe('payments');

@@ -1,5 +1,5 @@
 import type { HistoryOperationRecord } from './HistoryGateway';
-import type { HistoryEntryBase, HistoryFailedEntry } from './types';
+import type { HistoryEntryBase, HistoryFailedEntry, HistoryFailedSubject, HistoryAsset } from './types';
 import { mapClassicControl } from './classicControlHistory';
 
 const classic = (value: unknown): value is string => typeof value === 'string' && /^G[A-Z2-7]{55}$/.test(value);
@@ -38,9 +38,46 @@ export function mapFailedHistory(
         add(control.parameters[key]);
   }
   if (!related.has(address)) return undefined;
-  return Object.freeze({ ...base, kind: 'failed', successful: false, relatedAccounts: Object.freeze([...related]) });
+  const accounts = Object.freeze([...related]);
+  const type = record.type;
+  let candidate: unknown = {
+    kind: 'account',
+    address: accounts.find(peer => peer !== address) ?? record.sourceAccount,
+  };
+  if (['manage_sell_offer', 'manage_buy_offer', 'create_passive_sell_offer'].includes(type))
+    candidate = { kind: 'asset-pair', source: record.sellingAsset, destination: record.buyingAsset };
+  else if (
+    [
+      'change_trust',
+      'allow_trust',
+      'set_trust_line_flags',
+      'create_claimable_balance',
+      'claim_claimable_balance',
+      'clawback',
+      'clawback_claimable_balance',
+    ].includes(type)
+  )
+    candidate = { kind: 'asset', asset: record.asset };
+  else if (['invoke_host_function', 'extend_footprint_ttl', 'restore_footprint'].includes(type))
+    candidate = {
+      kind: 'contract',
+      ...(typeof record.contractId === 'string' && /^C[A-Z2-7]{55}$/.test(record.contractId)
+        ? { identity: record.contractId }
+        : {}),
+    };
+  const subject = normalizeFailedSubject(candidate, type, accounts);
+  const safeBase = { ...base };
+  delete safeBase.recipientMemo;
+  return Object.freeze({
+    ...safeBase,
+    kind: 'failed',
+    successful: false,
+    relatedAccounts: accounts,
+    ...(subject ? { subject } : {}),
+  });
 }
 export function normalizeFailedHistory(entry: HistoryFailedEntry, address: string): HistoryFailedEntry {
+  if (entry.recipientMemo !== undefined) throw new Error('history-cache-unproven-failed-memo');
   const peerTypes = [
     'payment',
     'path_payment_strict_send',
@@ -79,6 +116,9 @@ export function normalizeFailedHistory(entry: HistoryFailedEntry, address: strin
     successful: false,
     kind: 'failed',
     relatedAccounts: Object.freeze(entry.relatedAccounts.slice()),
+    ...(entry.subject
+      ? { subject: requireFailedSubject(entry.subject, entry.operationType, entry.relatedAccounts) }
+      : {}),
   });
 }
 export function isTechnicalHistoryOperation(type: string): boolean {
@@ -95,4 +135,71 @@ export function isTechnicalHistoryOperation(type: string): boolean {
     'revoke_sponsorship',
     'inflation',
   ].includes(type);
+}
+
+function failedAsset(value: unknown): HistoryAsset | undefined {
+  if (!value || typeof value !== 'object' || !('kind' in value)) return undefined;
+  if (value.kind === 'native' && (!('code' in value) || value.code === 'XLM'))
+    return Object.freeze({ kind: 'native', code: 'XLM' });
+  if (
+    value.kind === 'credit' &&
+    'code' in value &&
+    typeof value.code === 'string' &&
+    /^[a-zA-Z0-9]{1,12}$/.test(value.code) &&
+    'issuer' in value &&
+    classic(value.issuer)
+  )
+    return Object.freeze({ kind: 'credit', code: value.code, issuer: value.issuer });
+  return undefined;
+}
+function normalizeFailedSubject(
+  value: unknown,
+  operation: string,
+  related: readonly string[],
+): HistoryFailedSubject | undefined {
+  if (!value || typeof value !== 'object' || !('kind' in value)) return undefined;
+  if (value.kind === 'account' && 'address' in value && classic(value.address) && related.includes(value.address))
+    return Object.freeze({ kind: 'account', address: value.address });
+  if (
+    value.kind === 'asset' &&
+    ['change_trust', 'allow_trust', 'set_trust_line_flags', 'create_claimable_balance', 'clawback'].includes(
+      operation,
+    ) &&
+    'asset' in value
+  ) {
+    const asset = failedAsset(value.asset);
+    const issuerBound =
+      asset?.kind === 'credit' &&
+      (['allow_trust', 'set_trust_line_flags', 'clawback'].includes(operation)
+        ? asset.issuer === related[0]
+        : operation === 'change_trust'
+          ? related.slice(1).includes(asset.issuer)
+          : true);
+    if (asset && (operation === 'create_claimable_balance' || issuerBound))
+      return Object.freeze({ kind: 'asset', asset });
+  }
+  if (
+    value.kind === 'asset-pair' &&
+    ['manage_sell_offer', 'manage_buy_offer', 'create_passive_sell_offer'].includes(operation) &&
+    'source' in value &&
+    'destination' in value
+  ) {
+    const source = failedAsset(value.source);
+    const destination = failedAsset(value.destination);
+    if (source && destination) return Object.freeze({ kind: 'asset-pair', source, destination });
+  }
+  if (
+    value.kind === 'contract' &&
+    ['invoke_host_function', 'extend_footprint_ttl', 'restore_footprint'].includes(operation)
+  ) {
+    if (!('identity' in value)) return Object.freeze({ kind: 'contract' });
+    if (typeof value.identity === 'string' && /^C[A-Z2-7]{55}$/.test(value.identity))
+      return Object.freeze({ kind: 'contract', identity: value.identity });
+  }
+  return undefined;
+}
+function requireFailedSubject(value: unknown, operation: string, related: readonly string[]): HistoryFailedSubject {
+  const subject = normalizeFailedSubject(value, operation, related);
+  if (!subject) throw new Error('history-cache-invalid-failed-subject');
+  return subject;
 }
