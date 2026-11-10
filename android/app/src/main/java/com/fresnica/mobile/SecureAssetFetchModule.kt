@@ -59,7 +59,7 @@ class SecureAssetFetchModule(context: ReactApplicationContext) : ReactContextBas
   @ReactMethod
   fun fetch(urlString: String, kind: String, requestId: String, promise: Promise) {
     val url = safeAssetUrl(urlString)
-    if (retired || url == null || kind != "icon" && kind != "text" ||
+    if (retired || url == null || kind != "icon" && kind != "avatar" && kind != "text" ||
         !requestId.matches(Regex("[A-Za-z0-9-]{1,48}")) || requests.size >= 2 ||
         requests.containsKey(requestId)) {
       promise.reject(FAIL, FAIL)
@@ -73,7 +73,7 @@ class SecureAssetFetchModule(context: ReactApplicationContext) : ReactContextBas
         val bytes = fetchBounded(url, kind, request)
         if (request.cancelled.get()) throw IllegalStateException("cancelled")
         val result = Arguments.createMap()
-        if (kind == "icon") {
+        if (kind != "text") {
           val mime = checkedImageMime(bytes) ?: throw IllegalArgumentException("invalid image")
           result.putString("mimeType", mime)
           result.putString("base64", Base64.encodeToString(bytes, Base64.NO_WRAP))
@@ -113,10 +113,10 @@ class SecureAssetFetchModule(context: ReactApplicationContext) : ReactContextBas
   }
 
   private fun fetchBounded(url: URL, kind: String, request: Request): ByteArray {
-    val limit = if (kind == "icon") 65_536 else 524_288
+    val limit = when (kind) { "icon" -> 65_536; "avatar" -> 262_144; else -> 524_288 }
     val call = http.newCall(HttpRequest.Builder()
       .url(url)
-      .header("Accept", if (kind == "icon") "image/png,image/jpeg" else "application/json,text/plain")
+      .header("Accept", if (kind != "text") "image/png,image/jpeg" else "application/json,text/plain")
       .header("Accept-Encoding", "identity")
       .get()
       .build())

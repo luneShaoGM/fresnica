@@ -19,3 +19,23 @@ it('shows localized failure with no money and an explicit failed filter in all l
     expect(matchesActivitySearch(entry, '999', t, formatNumber, names)).toBe(false);
   }
 });
+
+it('preserves a failed offer intent subject through cache without adding executed money', () => {
+  const record = controlRecord(
+    'manage_sell_offer',
+    {},
+    {
+      successful: false,
+      amount: '999',
+      sellingAsset: { kind: 'native' },
+      buyingAsset: { kind: 'credit', code: 'USD', issuer: controlSource },
+    },
+  );
+  const entry = mapHistoryEntry(record, controlSource);
+  const { t, formatNumber } = createLocalization('en');
+  const row = activityRowPresentation(entry, t, formatNumber);
+  expect(row.title).toBe('XLM / USD');
+  expect(row.subject.kind).toBe('asset-pair');
+  expect(row.money).toBeUndefined();
+  expect(entry).not.toHaveProperty('amount');
+});

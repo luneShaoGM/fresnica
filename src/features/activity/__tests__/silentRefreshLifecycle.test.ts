@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ScrollView } from 'react-native';
+import { Pressable, FlatList } from 'react-native';
 import type { AccountRecord } from '@capabilities/account/types';
 import type { HistoryProductDependencies } from '@capabilities/history/HistoryCacheHydration';
 import { loadHistoryPage } from '@capabilities/history/loadHistoryPage';
@@ -7,6 +7,10 @@ import { loadHistoryOperationDetails } from '@capabilities/history/loadHistoryOp
 import type { HistoryPage, HistoryEntry } from '@capabilities/history/types';
 import { ActivityScreen, ActivityContent } from '../ActivityScreen';
 import { OperationDetailsScreen } from '../OperationDetailsScreen';
+jest.mock('@capabilities/history/loadHistoryWindow', () => ({
+  ...jest.requireActual('@capabilities/history/loadHistoryWindow'),
+  backfillHistory: jest.fn(async () => undefined),
+}));
 jest.mock('@capabilities/history/loadHistoryPage', () => ({ loadHistoryPage: jest.fn() }));
 jest.mock('@capabilities/history/loadHistoryOperationDetails', () => ({ loadHistoryOperationDetails: jest.fn() }));
 type Slot = { value?: unknown; deps?: readonly unknown[]; cleanup?: () => void };
@@ -136,9 +140,29 @@ function detail(revision = 0, operationId = '1') {
 }
 function children(
   node: React.ReactNode,
-): React.ReactElement<{ children?: React.ReactNode; onLoadMore?: () => void }>[] {
-  if (!React.isValidElement<{ children?: React.ReactNode; onLoadMore?: () => void }>(node)) return [];
-  return [node, ...React.Children.toArray(node.props.children).flatMap(children)];
+): React.ReactElement<{
+  children?: React.ReactNode;
+  onLoadMore?: () => void;
+  ListHeaderComponent?: React.ReactNode;
+  ListFooterComponent?: React.ReactNode;
+}>[] {
+  if (
+    !React.isValidElement<{
+      children?: React.ReactNode;
+      onLoadMore?: () => void;
+      ListHeaderComponent?: React.ReactNode;
+      ListFooterComponent?: React.ReactNode;
+    }>(node)
+  )
+    return [];
+  return [
+    node,
+    ...React.Children.toArray([
+      node.props.children,
+      node.props.ListHeaderComponent,
+      node.props.ListFooterComponent,
+    ]).flatMap(children),
+  ];
 }
 afterEach(() => {
   mockSlots.forEach(slot => slot.cleanup?.());
@@ -177,16 +201,24 @@ it('silently revalidates a paged activity list, blocks concurrent pagination, th
   pending.resolve(head);
   await settle();
   expect(mockSlots[0].value).toBe(ready);
-  pageLoad.mockResolvedValueOnce({ status: 'active', entries: [entry('3')], nextCursor: 'new' });
+  pageLoad.mockResolvedValueOnce({ status: 'active', entries: [entry('3'), entry('2')], nextCursor: 'new' });
   activity(2);
   effects();
   await settle();
-  expect(mockSlots[0].value).toMatchObject({ entries: [entry('3')], nextCursor: 'new', refreshing: false });
+  expect(mockSlots[0].value).toMatchObject({
+    entries: [entry('3'), entry('2'), entry('1')],
+    nextCursor: 'tail',
+    refreshing: false,
+  });
   pageLoad.mockRejectedValueOnce(new Error('offline'));
   activity(3);
   effects();
   await settle();
-  expect(mockSlots[0].value).toMatchObject({ entries: [entry('3')], stale: true, refreshFailed: true });
+  expect(mockSlots[0].value).toMatchObject({
+    entries: [entry('3'), entry('2'), entry('1')],
+    stale: true,
+    refreshFailed: true,
+  });
 });
 it('keeps inactive activity mounted during polling and updates it on activation', async () => {
   pageLoad.mockResolvedValueOnce({ status: 'inactive' });
@@ -317,7 +349,7 @@ it('keeps a no-cache operation error visible during automatic retries', async ()
   expect(mockSlots[0].value).toMatchObject({ kind: 'loaded', result: { status: 'not-found' } });
 });
 
-it('clears a superseded manual spinner when automatic revalidation takes over', async () => {
+it('coalesces automatic invalidation behind an explicit manual refresh without duplicate reads', async () => {
   const head: HistoryPage = { status: 'active', entries: [entry('2')], nextCursor: 'head' };
   pageLoad.mockResolvedValueOnce(head);
   activity();
@@ -326,7 +358,7 @@ it('clears a superseded manual spinner when automatic revalidation takes over', 
   const old = deferred<HistoryPage>();
   pageLoad.mockReturnValueOnce(old.promise);
   const root = activity();
-  const scroll = children(root).find(node => node.type === ScrollView);
+  const scroll = children(root).find(node => node.type === FlatList);
   const { refreshControl } = scroll?.props as { refreshControl: React.ReactElement<{ onRefresh: () => void }> };
   refreshControl.props.onRefresh();
   await settle();
@@ -335,8 +367,9 @@ it('clears a superseded manual spinner when automatic revalidation takes over', 
   activity(1);
   effects();
   await settle();
-  expect(mockSlots[0].value).toMatchObject({ refreshing: false, entries: [entry('2')] });
-  old.resolve({ status: 'inactive' });
+  expect(mockSlots[0].value).toMatchObject({ refreshing: true, entries: [entry('2')] });
+  expect(pageLoad).toHaveBeenCalledTimes(2);
+  old.resolve(head);
   await settle();
   expect(mockSlots[0].value).toMatchObject({ kind: 'ready', refreshing: false });
 });
@@ -345,7 +378,7 @@ function pagination(revision = 0) {
   const content = children(activity(revision)).find(node => node.type === ActivityContent);
   if (!content) throw new Error('Expected activity content');
   const props = content.props as React.ComponentProps<typeof ActivityContent>;
-  const button = children(ActivityContent(props)).find(node => node.type === Pressable);
+  const button = children(ActivityContent({ ...props, listChrome: 'footer' })).find(node => node.type === Pressable);
   if (!button) throw new Error('Expected pagination button');
   return {
     props: button.props as {
@@ -357,7 +390,7 @@ function pagination(revision = 0) {
     disabledStyle: props.styles.disabled,
   };
 }
-it('shows pagination as disabled and busy during a head read, then restores it without changing rows', async () => {
+it('keeps pagination appearance steady during background head reads while internally blocking duplicate requests', async () => {
   const head: HistoryPage = { status: 'active', entries: [entry('2')], nextCursor: 'head' };
   pageLoad.mockResolvedValueOnce(head);
   activity();
@@ -371,9 +404,12 @@ it('shows pagination as disabled and busy during a head read, then restores it w
   effects();
   await settle();
   const checking = pagination(1);
-  expect(checking.props.disabled).toBe(true);
-  expect(checking.props.accessibilityState).toEqual({ disabled: true, busy: true });
-  expect(checking.props.style({ pressed: false })).toContain(checking.disabledStyle);
+  expect(checking.props.disabled).toBe(false);
+  expect(checking.props.accessibilityState).toEqual({ disabled: false, busy: false });
+  expect(checking.props.style({ pressed: false })).not.toContain(checking.disabledStyle);
+  const calls = pageLoad.mock.calls.length;
+  checking.props.onPress();
+  expect(pageLoad).toHaveBeenCalledTimes(calls);
   expect(mockSlots[0].value).toBe(ready);
   pending.resolve(head);
   await settle();
@@ -403,7 +439,7 @@ it('keeps pagination blocked for the latest head read and clears busy on failure
   await settle();
   old.resolve(head);
   await settle();
-  expect(pagination(2).props.accessibilityState).toEqual({ disabled: true, busy: true });
+  expect(pagination(2).props.accessibilityState).toEqual({ disabled: false, busy: false });
   pending.resolve(head);
   await settle();
   expect(pagination(2).props.disabled).toBe(false);
@@ -417,4 +453,23 @@ it('keeps pagination blocked for the latest head read and clears busy on failure
   effects();
   await settle();
   expect(pagination(4).props.accessibilityState).toEqual({ disabled: false, busy: false });
+});
+
+it('resumes a pending background fill after an unchanged head instead of stopping at the first page', async () => {
+  const windowModule = jest.requireMock('@capabilities/history/loadHistoryWindow') as { backfillHistory: jest.Mock };
+  const waiting = deferred<void>();
+  windowModule.backfillHistory.mockClear();
+  windowModule.backfillHistory.mockReturnValueOnce(waiting.promise).mockResolvedValueOnce(undefined);
+  const head: HistoryPage = { status: 'active', entries: [entry('2')], nextCursor: 'head' };
+  pageLoad.mockResolvedValueOnce(head).mockResolvedValueOnce(head);
+  activity();
+  effects();
+  await settle();
+  expect(windowModule.backfillHistory).toHaveBeenCalledTimes(1);
+  activity(1);
+  effects();
+  await settle();
+  expect(windowModule.backfillHistory).toHaveBeenCalledTimes(2);
+  waiting.resolve();
+  await settle();
 });

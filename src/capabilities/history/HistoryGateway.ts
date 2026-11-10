@@ -1,3 +1,4 @@
+import type { HistoryRecipientMemo } from './historyRecipientMemo';
 export type HistoryOperationAsset = Readonly<
   { kind: 'native' } | { kind: 'credit'; code?: string; issuer?: string } | { kind: 'unsupported' }
 >;
@@ -11,6 +12,7 @@ export type HistoryOperationRecord = Readonly<{
   sourceAccount: string;
   successful?: boolean;
   outcomeUnknown?: true;
+  recipientMemo?: HistoryRecipientMemo;
   authorize?: unknown;
   authorizeToMaintainLiabilities?: unknown;
   setFlags?: unknown;
@@ -69,7 +71,9 @@ export type HistoryOperationResult =
 
 export interface HistoryGatewayPort {
   captureHistoryReadLease?(accountAddress: string): () => void;
-  loadOperationEffects?(input: Readonly<{ operationId: string; accountAddress: string; signal?: AbortSignal }>): Promise<HistoryOperationEffects>;
+  loadOperationEffects?(
+    input: Readonly<{ operationId: string; accountAddress: string; signal?: AbortSignal }>,
+  ): Promise<HistoryOperationEffects>;
   loadOperation(
     input: Readonly<{ operationId: string; accountAddress: string }>,
   ): Promise<HistoryOperationLookupResult>;
@@ -82,5 +86,15 @@ export interface HistoryGatewayPort {
   ): Promise<HistoryOperationResult>;
 }
 
-export type HistoryEffectRecord = Readonly<{ type: unknown; account: unknown; balanceId?: unknown; amount?: unknown; asset?: HistoryOperationAsset }>;
-export type HistoryOperationEffects = Readonly<{ operationId: string; complete: boolean; records: readonly HistoryEffectRecord[] }>;
+export type HistoryEffectRecord = Readonly<{
+  type: unknown;
+  account: unknown;
+  balanceId?: unknown;
+  amount?: unknown;
+  asset?: HistoryOperationAsset;
+}>;
+export type HistoryOperationEffects = Readonly<{
+  operationId: string;
+  complete: boolean;
+  records: readonly HistoryEffectRecord[];
+}>;

@@ -8,6 +8,7 @@ import {
   CURATED_CACHE_TTL_MS,
   CURATED_CACHE_VERSION,
   curatedSourceAssetsFromPayload,
+  curatedContractNamesFromPayload,
   curatedSourceFor,
   normalizeCuratedSourceSnapshot,
   type CuratedSourceCacheRepository,
@@ -67,6 +68,7 @@ export function createCachedAssetCatalog(dependencies: {
         const timestamp = now();
         return {
           assets: cached.assets,
+          ...(cached.contractNames ? { contractNames: cached.contractNames } : {}),
           fromCache: true,
           stale: cached.savedAtUnixMs > timestamp || timestamp - cached.savedAtUnixMs >= CURATED_CACHE_TTL_MS,
           refreshFailed: false,
@@ -101,10 +103,23 @@ export function createCachedAssetCatalog(dependencies: {
         cached.savedAtUnixMs <= timestamp &&
         timestamp - cached.savedAtUnixMs < CURATED_CACHE_TTL_MS
       ) {
-        return { assets: cached.assets, fromCache: true, stale: false, refreshFailed: false };
+        return {
+          assets: cached.assets,
+          ...(cached.contractNames ? { contractNames: cached.contractNames } : {}),
+          fromCache: true,
+          stale: false,
+          refreshFailed: false,
+        };
       }
       if (!forceRefresh && (failureUntil.get(key) ?? 0) > timestamp) {
-        if (cached) return { assets: cached.assets, fromCache: true, stale: true, refreshFailed: true };
+        if (cached)
+          return {
+            assets: cached.assets,
+            ...(cached.contractNames ? { contractNames: cached.contractNames } : {}),
+            fromCache: true,
+            stale: true,
+            refreshFailed: true,
+          };
         throw new Error('asset-catalog-cooldown');
       }
 
@@ -114,7 +129,9 @@ export function createCachedAssetCatalog(dependencies: {
         try {
           const body = await http.read(source.url, current);
           if (closed || current.aborted || signal.aborted) throw new Error('asset-catalog-cancelled');
-          const assets = curatedSourceAssetsFromPayload(JSON.parse(body) as unknown, sourceId);
+          const payload: unknown = JSON.parse(body);
+          const assets = curatedSourceAssetsFromPayload(payload, sourceId);
+          const contractNames = curatedContractNamesFromPayload(payload);
           const snapshot = normalizeCuratedSourceSnapshot(
             {
               schemaVersion: CURATED_CACHE_VERSION,
@@ -122,6 +139,7 @@ export function createCachedAssetCatalog(dependencies: {
               sourceId,
               savedAtUnixMs: Math.floor(now()),
               assets,
+              ...(contractNames.length ? { contractNames } : {}),
             },
             networkId,
             sourceId,
@@ -135,11 +153,24 @@ export function createCachedAssetCatalog(dependencies: {
             // Public display cache writes cannot turn a valid online read into failure.
           }
           failureUntil.delete(key);
-          return { assets: snapshot.assets, fromCache: false, stale: false, refreshFailed: false };
+          return {
+            assets: snapshot.assets,
+            ...(snapshot.contractNames ? { contractNames: snapshot.contractNames } : {}),
+            fromCache: false,
+            stale: false,
+            refreshFailed: false,
+          };
         } catch (error) {
           if (closed || current.aborted || signal.aborted || latestRequest.get(key) !== requestId) throw error;
           failureUntil.set(key, now() + CURATED_CACHE_FAILURE_COOLDOWN_MS);
-          if (cached) return { assets: cached.assets, fromCache: true, stale: true, refreshFailed: true };
+          if (cached)
+            return {
+              assets: cached.assets,
+              ...(cached.contractNames ? { contractNames: cached.contractNames } : {}),
+              fromCache: true,
+              stale: true,
+              refreshFailed: true,
+            };
           throw error;
         }
       });

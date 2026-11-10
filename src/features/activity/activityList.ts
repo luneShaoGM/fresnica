@@ -1,3 +1,5 @@
+import type { ActivityIdentityNames } from './activityRowPresentation';
+import { mergeHistoryEntries } from '@capabilities/history/loadHistoryWindow';
 import { claimPredicateSummary } from './claimPredicateSummary';
 import { isPathSwap } from '@capabilities/history/pathPaymentHistory';
 import type { HistoryDirection, HistoryEntry } from '@capabilities/history/types';
@@ -23,17 +25,7 @@ export function mergeActivityEntries(
   current: readonly HistoryEntry[],
   incoming: readonly HistoryEntry[],
 ): HistoryEntry[] {
-  const seen = new Set(current.map(entry => entry.id));
-  const merged = [...current];
-
-  for (const entry of incoming) {
-    if (!seen.has(entry.id)) {
-      seen.add(entry.id);
-      merged.push(entry);
-    }
-  }
-
-  return merged;
+  return mergeHistoryEntries(incoming, current);
 }
 
 export function activityEntryPresentation(
@@ -267,7 +259,7 @@ export function matchesActivitySearch(
   searchText: string,
   t: Translate,
   formatNumber: FormatNumber,
-  identityNames?: ReadonlyMap<string, string>,
+  identityNames?: ActivityIdentityNames,
 ): boolean {
   const query = searchText.trim().toLowerCase();
   if (!query) {
@@ -283,6 +275,11 @@ export function matchesActivitySearch(
     entry.id,
     entry.operationType,
     entry.sourceAccount,
+    entry.recipientMemo?.memo.value ?? '',
+    entry.recipientMemo && identityNames?.resolve
+      ? (identityNames.resolve(entry.recipientMemo.recipient, entry.recipientMemo.memo) ?? '')
+      : '',
+    entry.kind === 'contract' && entry.contractId ? (identityNames?.contractName?.(entry.contractId) ?? '') : '',
   ];
 
   if (entry.kind === 'trust-authorization' || entry.kind === 'trust-flags') {

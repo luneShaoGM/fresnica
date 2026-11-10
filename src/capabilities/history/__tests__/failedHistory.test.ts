@@ -153,3 +153,37 @@ it('enforces peer cardinality/order and never downgrades corrupt status to a leg
     expect(cache(legacy as HistoryEntry).entries[0].kind).toBe(entry.kind);
   }
 });
+
+it('drops joined Memo from failed DTO and refuses injected cached recipient aliases', () => {
+  const entry = mapHistoryEntry(
+    controlRecord(
+      'payment',
+      {},
+      { successful: false, to: peer, recipientMemo: { recipient: peer, memo: { type: 'id', value: '7' } } },
+    ),
+    source,
+  );
+  expect(entry).not.toHaveProperty('recipientMemo');
+  expect(() => cache({ ...entry, recipientMemo: { recipient: source, memo: { type: 'id', value: '7' } } })).toThrow();
+});
+
+it('revalidates failed authorization issuer roles rather than trusting a foreign asset label', () => {
+  const entry = mapHistoryEntry(
+    controlRecord(
+      'allow_trust',
+      {},
+      { successful: false, trustor: peer, asset: { kind: 'credit', code: 'USD', issuer: source } },
+    ),
+    source,
+  );
+  expect(entry.kind === 'failed' && entry.subject).toEqual({
+    kind: 'asset',
+    asset: { kind: 'credit', code: 'USD', issuer: source },
+  });
+  expect(() =>
+    cache({
+      ...entry,
+      subject: { kind: 'asset', asset: { kind: 'credit', code: 'USD', issuer: foreign } },
+    } as HistoryEntry),
+  ).toThrow();
+});

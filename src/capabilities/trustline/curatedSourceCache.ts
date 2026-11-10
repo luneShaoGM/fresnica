@@ -3,6 +3,7 @@ import {
   isCuratedAssetCode,
   isCuratedIssuer,
   normalizeCuratedAssets,
+  type CuratedContractName,
   type CuratedAsset,
   type CuratedAssetSourceId,
 } from './curatedAssetCatalog';
@@ -19,6 +20,7 @@ export type CuratedSourceSnapshot = Readonly<{
   sourceId: CuratedAssetSourceId;
   savedAtUnixMs: number;
   assets: readonly CuratedAsset[];
+  contractNames?: readonly CuratedContractName[];
 }>;
 
 export interface CuratedSourceCacheRepository {
@@ -58,6 +60,8 @@ export function normalizeCuratedSourceSnapshot(
     if (unique.has(key)) return undefined;
     unique.add(key);
     if (
+      (raw.contractId !== undefined &&
+        (typeof raw.contractId !== 'string' || !/^C[A-Z2-7]{55}$/.test(raw.contractId))) ||
       (raw.name !== undefined && !text(raw.name, 160)) ||
       (raw.domain !== undefined && !text(raw.domain, 255)) ||
       (raw.icon !== undefined && (!text(raw.icon, 2048) || !raw.icon.startsWith('https://')))
@@ -67,6 +71,7 @@ export function normalizeCuratedSourceSnapshot(
       Object.freeze({
         code: raw.code,
         issuer: raw.issuer,
+        ...(raw.contractId === undefined ? {} : { contractId: raw.contractId as string }),
         ...(raw.name === undefined ? {} : { name: raw.name as string }),
         ...(raw.domain === undefined ? {} : { domain: raw.domain as string }),
         ...(raw.icon === undefined ? {} : { icon: raw.icon as string }),
@@ -74,12 +79,30 @@ export function normalizeCuratedSourceSnapshot(
     );
   }
 
+  const contractNames: CuratedContractName[] = [];
+  if (value.contractNames !== undefined) {
+    if (!Array.isArray(value.contractNames) || value.contractNames.length > CURATED_CACHE_MAX_ASSETS) return undefined;
+    const seenContracts = new Set<string>();
+    for (const item of value.contractNames) {
+      if (
+        !isRecord(item) ||
+        typeof item.contractId !== 'string' ||
+        !/^C[A-Z2-7]{55}$/.test(item.contractId) ||
+        !text(item.name, 160) ||
+        seenContracts.has(item.contractId)
+      )
+        return undefined;
+      seenContracts.add(item.contractId);
+      contractNames.push(Object.freeze({ contractId: item.contractId, name: item.name }));
+    }
+  }
   const snapshot: CuratedSourceSnapshot = Object.freeze({
     schemaVersion: CURATED_CACHE_VERSION,
     networkId,
     sourceId,
     savedAtUnixMs: value.savedAtUnixMs as number,
     assets: Object.freeze(assets),
+    ...(contractNames.length ? { contractNames: Object.freeze(contractNames) } : {}),
   });
   return JSON.stringify(snapshot).length <= CURATED_CACHE_MAX_JSON_LENGTH ? snapshot : undefined;
 }
@@ -90,19 +113,7 @@ export function curatedSourceAssetsFromPayload(
   payload: unknown,
   sourceId?: CuratedAssetSourceId,
 ): readonly CuratedAsset[] {
-  let records: readonly unknown[];
-  if (Array.isArray(payload)) records = payload;
-  else if (isRecord(payload)) {
-    const fields = ['assets', 'tokens', 'records'];
-    const arrays = fields.flatMap(field => (Array.isArray(payload[field]) ? (payload[field] as unknown[]) : []));
-    const embedded = payload._embedded;
-    const hasEmbeddedRecords = isRecord(embedded) && Array.isArray(embedded.records);
-    const nested = hasEmbeddedRecords ? (embedded.records as unknown[]) : [];
-    if (!fields.some(field => Array.isArray(payload[field])) && !hasEmbeddedRecords) {
-      throw new Error('curated-source-invalid');
-    }
-    records = [...arrays, ...nested];
-  } else throw new Error('curated-source-invalid');
+  const records = sourceRecords(payload);
 
   // Unlike permissive manual input parsing, a cached public source must be
   // complete: silently discarding even one malformed row would overwrite
@@ -124,6 +135,7 @@ export function curatedSourceAssetsFromPayload(
       Object.freeze({
         code: asset.code,
         issuer: asset.issuer,
+        ...(asset.contractId ? { contractId: asset.contractId } : {}),
         ...(text(asset.name, 160) ? { name: asset.name } : {}),
         ...(text(asset.domain, 255) ? { domain: asset.domain } : {}),
         ...(text(asset.icon, 2048) && asset.icon?.startsWith('https://') ? { icon: asset.icon } : {}),
@@ -152,4 +164,38 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function text(value: unknown, maxLength: number): value is string {
   return typeof value === 'string' && value.length > 0 && value.length <= maxLength && value.trim() === value;
+}
+
+export function curatedContractNamesFromPayload(payload: unknown): readonly CuratedContractName[] {
+  const records = sourceRecords(payload);
+  if (records.length > CURATED_CACHE_MAX_ASSETS) throw new Error('curated-source-too-large');
+  const names = new Map<string, CuratedContractName>();
+  for (const record of records) {
+    if (!isRecord(record)) continue;
+    const id = record.contractId ?? record.contract_id ?? record.contract;
+    const name = text(record.name, 160) ? record.name : text(record.code, 12) ? record.code : undefined;
+    if (typeof id === 'string' && /^C[A-Z2-7]{55}$/.test(id) && name) {
+      const previous = names.get(id);
+      if (previous && previous.name !== name) throw new Error('curated-contract-name-conflict');
+      names.set(id, Object.freeze({ contractId: id, name }));
+    }
+  }
+  return Object.freeze([...names.values()]);
+}
+function sourceRecords(payload: unknown): readonly unknown[] {
+  let records: readonly unknown[];
+  if (Array.isArray(payload)) records = payload;
+  else if (isRecord(payload)) {
+    const fields = ['assets', 'tokens', 'records'];
+    const arrays = fields.flatMap(field => (Array.isArray(payload[field]) ? (payload[field] as unknown[]) : []));
+    const embedded = payload._embedded;
+    const hasEmbeddedRecords = isRecord(embedded) && Array.isArray(embedded.records);
+    const nested = hasEmbeddedRecords ? (embedded.records as unknown[]) : [];
+    if (!fields.some(field => Array.isArray(payload[field])) && !hasEmbeddedRecords) {
+      throw new Error('curated-source-invalid');
+    }
+    records = [...arrays, ...nested];
+  } else throw new Error('curated-source-invalid');
+
+  return records;
 }

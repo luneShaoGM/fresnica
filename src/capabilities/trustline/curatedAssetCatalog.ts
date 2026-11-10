@@ -11,6 +11,7 @@ export type CuratedAsset = Readonly<{
   code: string;
   issuer: string;
   name?: string;
+  contractId?: string;
   domain?: string;
   icon?: string;
 }>;
@@ -105,6 +106,9 @@ function normalizeAssetRecord(item: unknown): CuratedAsset | undefined {
   return Object.freeze({
     code,
     issuer,
+    ...(/^(?:C[A-Z2-7]{55})$/.test(String(record.contractId ?? record.contract_id ?? record.contract ?? ''))
+      ? { contractId: String(record.contractId ?? record.contract_id ?? record.contract) }
+      : {}),
     ...(text(record.name) ? { name: text(record.name) } : {}),
     ...(text(record.domain) ? { domain: text(record.domain) } : {}),
     ...(text(record.icon) || text(record.image) || text(record.avatar)
@@ -162,7 +166,10 @@ function text(value: unknown): string | undefined {
 
 // Only vetted public Mainnet sources may use the persisted directory cache.
 // Arbitrary manual TOML/JSON URLs are still fetched through read() without caching.
+export type CuratedContractName = Readonly<{ contractId: string; name: string }>;
+
 export type CuratedSourceLoad = Readonly<{
+  contractNames?: readonly CuratedContractName[];
   assets: readonly CuratedAsset[];
   fromCache: boolean;
   stale: boolean;

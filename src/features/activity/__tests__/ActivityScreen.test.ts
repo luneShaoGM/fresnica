@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Text } from 'react-native';
+import { Text, FlatList } from 'react-native';
 import { AccountIdentityCard } from '@ui/components';
 import { ActivityFiltersSheet, type ActivityDisplayFilters } from '../ActivityFiltersSheet';
 import { TokenAssetIcon } from '../../assets/TokenAssetIcon';
@@ -105,6 +105,10 @@ function trustline(id: string, code = 'USD'): HistoryEntry {
 }
 
 type NodeProps = Readonly<{
+  data?: readonly HistoryEntry[];
+  initialNumToRender?: number;
+  windowSize?: number;
+  renderItem?: (input: { item: HistoryEntry; index: number }) => React.ReactNode;
   style?: unknown;
   resizeMode?: string;
   accessibilityHint?: string;
@@ -114,6 +118,8 @@ type NodeProps = Readonly<{
   autoCapitalize?: string;
   autoCorrect?: boolean;
   children?: React.ReactNode;
+  ListHeaderComponent?: React.ReactNode;
+  ListFooterComponent?: React.ReactNode;
   label?: string;
   size?: string;
   variant?: string;
@@ -143,7 +149,9 @@ type NodeProps = Readonly<{
 function visit(node: React.ReactNode, callback: (element: React.ReactElement<NodeProps>) => void): void {
   if (!React.isValidElement<NodeProps>(node)) return;
   callback(node);
-  React.Children.forEach(node.props.children, child => visit(child, callback));
+  React.Children.forEach([node.props.children, node.props.ListHeaderComponent, node.props.ListFooterComponent], child =>
+    visit(child, callback),
+  );
 }
 
 function findElement(
@@ -485,7 +493,7 @@ it('renders a Swap pair with the actual destination leg and retains exact path n
   const row = ActivityRow({ ...props, entry: path });
   expect(textValues(row)).toContain('+7.7654321');
   expect(textValues(row)).toContain('USD');
-  expect(textValues(row)).toContain('Swap');
+  expect(textValues(row)).toContain('XLM / USD');
   expect(
     findElement(row, element => element.type === TokenAssetIcon && element.props.asset?.kind === 'credit'),
   ).toBeDefined();
@@ -523,7 +531,7 @@ it.each(['manage_buy_offer', 'manage_sell_offer', 'create_passive_sell_offer'])(
     };
     const props = rowProps();
     const row = ActivityRow({ ...props, entry });
-    expect(textValues(row)).toContain('XLM → USD');
+    expect(textValues(row)).toContain('XLM / USD');
     expect(textValues(row).join(' ')).not.toContain(entry.amount);
     expect(
       findElement(row, element => element.type === TokenAssetIcon && element.props.asset?.kind === 'credit'),
@@ -796,4 +804,19 @@ it('exposes dust filtering explicitly and keeps it independent from technical/fa
   reset?.[0]();
   expect(dustRevealed.setters[10]).toHaveBeenCalledWith(true);
   expect(mockedLoadHistoryPage).not.toHaveBeenCalled();
+});
+
+it('virtualizes a large loaded collection without eagerly rendering row avatars in list chrome', () => {
+  const entries = Array.from({ length: 500 }, (_, index) => unsupported(String(index)));
+  const { root } = renderScreen(entries);
+  const list = findElement(root, element => element.type === FlatList);
+  expect(list?.props.data).toHaveLength(500);
+  expect(list?.props.initialNumToRender).toBe(8);
+  expect(list?.props.windowSize).toBe(3);
+  const header = list?.props.ListHeaderComponent as React.ReactElement<React.ComponentProps<typeof ActivityContent>>;
+  expect(findElement(ActivityContent(header.props), element => element.type === ActivityRow)).toBeUndefined();
+  const first = list?.props.renderItem?.({ item: entries[0], index: 0 });
+  const second = list?.props.renderItem?.({ item: entries[1], index: 1 });
+  expect(findElement(first, element => element.props.accessibilityRole === 'header')).toBeDefined();
+  expect(findElement(second, element => element.props.accessibilityRole === 'header')).toBeUndefined();
 });

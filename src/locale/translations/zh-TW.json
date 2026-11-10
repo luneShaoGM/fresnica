@@ -1164,5 +1164,5 @@
   "activity.filters.dustActive": "已過濾粉塵",
   "activity.filters.revealDust": "顯示粉塵記錄",
   "settings.privacy.accountAvatars": "帳戶地址頭像（StellarCN）",
-  "settings.privacy.accountAvatarsInfo": "預設關閉。開啟後，活動列表會把顯示的完整錢包及對方公開地址傳送至 horizon.stellarcn.org 取得頭像；提供方亦可見 IP 和請求時間。與代幣圖片設定獨立，圖片不證明帳戶身分。"
+  "settings.privacy.accountAvatarsInfo": "預設按完整公開地址從 horizon.stellarcn.org 載入帳戶頭像。服務提供方可得知顯示的錢包及交易對方地址、IP 位址與請求時間。關閉後使用通用使用者頭像；頭像不代表身分認證。此選項與代幣圖片互相獨立。"
 }

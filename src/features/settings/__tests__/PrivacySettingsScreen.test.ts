@@ -84,12 +84,12 @@ describe('single wallet-wide token image privacy control', () => {
 it('requires independent persisted address-avatar consent and explains full address disclosure', async () => {
   const { settings, write } = createSettings();
   const render = () => PrivacySettingsScreen({ settings, onBack: jest.fn() });
-  expect(elements(render(), Switch)[1].props.value).toBe(false);
+  expect(elements(render(), Switch)[1].props.value).toBe(true);
   const text = elements(render(), Text)
     .map(element => String(element.props.children))
     .join(' ');
   expect(text).toContain('horizon.stellarcn.org');
-  expect(text).toContain('full wallet');
+  expect(text).toContain('displayed wallet');
   elements(render(), Switch)[1].props.onValueChange?.(true);
   await new Promise<void>(resolve => setImmediate(resolve));
   expect(write).toHaveBeenCalledWith(

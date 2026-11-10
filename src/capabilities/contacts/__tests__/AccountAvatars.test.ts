@@ -100,7 +100,7 @@ it('expires and evicts bounded memory, rejects non-inline images and clears on O
   expect(port.read(address)).toBeUndefined();
   loadImage.mockResolvedValueOnce('https://example.org/image.png');
   expect(await port.load(address, new AbortController().signal)).toBeUndefined();
-  loadImage.mockResolvedValueOnce('data:image/png;base64,' + 'A'.repeat(90_000));
+  loadImage.mockResolvedValueOnce('data:image/png;base64,' + 'A'.repeat(400_000));
   expect(await port.load(address, new AbortController().signal)).toBeUndefined();
   await port.load(address, new AbortController().signal);
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -119,7 +119,7 @@ it('expires and evicts bounded memory, rejects non-inline images and clears on O
   expect(port.read(address)).toBeUndefined();
   port.close();
 });
-it('returns fallback at six seconds even when transport ignores cancellation', async () => {
+it('returns fallback within a bounded queue budget even when transport ignores cancellation', async () => {
   jest.useFakeTimers();
   const pending = deferred<string>();
   const { port } = create(
@@ -127,7 +127,7 @@ it('returns fallback at six seconds even when transport ignores cancellation', a
     jest.fn(() => pending.promise),
   );
   const request = port.load(address, new AbortController().signal);
-  await jest.advanceTimersByTimeAsync(6000);
+  await jest.advanceTimersByTimeAsync(60_000);
   expect(await request).toBeUndefined();
   pending.resolve(uri);
   await Promise.resolve();
@@ -135,4 +135,15 @@ it('returns fallback at six seconds even when transport ignores cancellation', a
   expect(port.read(address)).toBeUndefined();
   port.close();
   jest.useRealTimers();
+});
+
+it('retains a normal256px response larger than the old Token budget', async () => {
+  const large = 'data:image/png;base64,' + 'A'.repeat(119_952);
+  const { port } = create(
+    true,
+    jest.fn(async () => large),
+  );
+  expect(await port.load(address, new AbortController().signal)).toBe(large);
+  expect(port.read(address)).toBe(large);
+  port.close();
 });

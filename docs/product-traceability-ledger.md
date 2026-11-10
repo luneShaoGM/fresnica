@@ -697,3 +697,22 @@ transport, memory-only image cache, lifecycle cancellation and late-result fenci
 no names/Memo/signing data, persistent image cache, Realm schema or transaction change.
 No live provider or native visual/accessibility acceptance is claimed. Exact-HEAD
 independent review and CI pending; no maturity promotion.
+
+### S13 Activity parity correction candidate — 2026-11-10
+
+One user-requested follow-up to #184 at main677325b0. Contract:
+[Activity correction](behavior-specs/s13-activity-parity-correction.md).
+Adapt/clean-room, same Stage4/S13 L3 partial. Routine polling/node checks are silent,
+background reads keep button appearance and loaded pages; explicit refresh/errors
+retain feedback. Default-ON address images preserve explicitOFF, separate from
+Token settings. Avatar-only native256KiB budget accepts the independently probed
+256px/89963-byte test PNG; Token remains64KiB and all native safety checks stay.
+History list/detail both join transactions and bind validated typedMemo to exact
+transaction hash and recipient; failed DTO discards unproven Memo. Pair/contract/
+maintenance/failed-intent titles align with subject roles; cached contract labels
+remain display-only and contract-only tokens never become classic trustline assets.
+Remote15-item windows bridge cache head with bounded120-page reads and resumable
+background expansion toward500; live cursors, exact-ID dedup, numeric token order,
+partition retirement, retry and accessible load-more/gesture guards retained.
+Source raw layouts, native pixel equivalence and device acceptance are not inferred
+from passing helper/CI tests. Current exact-HEAD review/CI pending.

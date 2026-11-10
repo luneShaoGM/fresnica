@@ -1,3 +1,4 @@
+import { normalizeHistoryRecipientMemo } from './historyRecipientMemo';
 import type { HistoryCacheRepository } from './HistoryCacheRepository';
 import { enrichClaimableRecords, seedCachedClaimableProof } from './claimableEffects';
 import { mapFailedHistory } from './failedHistory';
@@ -30,7 +31,7 @@ export type HistoryDependencies = Readonly<{
   networkId: string;
 }>;
 
-const DEFAULT_HISTORY_PAGE_SIZE = 20;
+export const DEFAULT_HISTORY_PAGE_SIZE = 15;
 
 export async function loadHistoryPage(
   dependencies: HistoryDependencies,
@@ -55,7 +56,11 @@ export async function loadHistoryPage(
     return { status: 'inactive' };
   }
 
-  const records = await enrichClaimableRecords(dependencies.gateway, seedCachedClaimableProof(dependencies, page.records, account.address), account.address);
+  const records = await enrichClaimableRecords(
+    dependencies.gateway,
+    seedCachedClaimableProof(dependencies, page.records, account.address),
+    account.address,
+  );
   assertCurrent?.();
   return {
     status: 'active',
@@ -143,6 +148,7 @@ function mapBase(record: HistoryOperationRecord): HistoryEntryBase {
     occurredAt,
     transactionHash,
     sourceAccount,
+    ...(record.recipientMemo ? { recipientMemo: normalizeHistoryRecipientMemo(record.recipientMemo) } : {}),
     ...(typeof record.successful === 'boolean' ? { successful: record.successful } : {}),
   });
 }
@@ -280,8 +286,10 @@ function flowDirection(accountAddress: string, source: string, destination: stri
 }
 
 function unsupportedShape(base: HistoryEntryBase): HistoryUnsupportedEntry {
+  const safeBase = { ...base };
+  delete safeBase.recipientMemo;
   return Object.freeze({
-    ...base,
+    ...safeBase,
     kind: 'unsupported',
     reason: 'operation-shape',
   });

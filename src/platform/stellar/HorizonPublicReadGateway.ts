@@ -59,7 +59,7 @@ export function createHorizonPublicReadGateway(http: typeof fetch = fetch) {
       signal: AbortSignal,
     ) {
       if (!Number.isInteger(input.limit) || input.limit < 1 || input.limit > 200) throw new NodeReadError('request');
-      const query = `include_failed=true&order=desc&limit=${input.limit}${input.cursor === undefined ? '' : `&cursor=${encodeURIComponent(input.cursor)}`}`;
+      const query = `include_failed=true&join=transactions&order=desc&limit=${input.limit}${input.cursor === undefined ? '' : `&cursor=${encodeURIComponent(input.cursor)}`}`;
       const value = await get(endpoint, `/accounts/${encodeURIComponent(input.address)}/operations?${query}`, signal);
       if (value === undefined) return { status: 'inactive' as const, address: input.address };
       const records = object(object(value)._embedded).records;
@@ -80,12 +80,16 @@ export function createHorizonPublicReadGateway(http: typeof fetch = fetch) {
     ) {
       const id = input.operationId.trim();
       if (!id) throw new NodeReadError('request');
-      const value = await get(endpoint, `/operations/${encodeURIComponent(id)}`, signal);
+      const value = await get(endpoint, `/operations/${encodeURIComponent(id)}?join=transactions`, signal);
       return value === undefined
         ? { status: 'not-found' as const }
         : { status: 'found' as const, record: operation(value) };
     },
-    async loadOperationEffects(endpoint: string, input: { operationId: string; accountAddress: string; signal?: AbortSignal }, signal: AbortSignal) {
+    async loadOperationEffects(
+      endpoint: string,
+      input: { operationId: string; accountAddress: string; signal?: AbortSignal },
+      signal: AbortSignal,
+    ) {
       const controller = new AbortController();
       const abort = () => controller.abort();
       if (signal.aborted || input.signal?.aborted) controller.abort();
@@ -93,10 +97,17 @@ export function createHorizonPublicReadGateway(http: typeof fetch = fetch) {
       input.signal?.addEventListener('abort', abort);
       try {
         return await readHistoryOperationEffects(input.operationId, async cursor => {
-          const page = await get(endpoint, `/operations/${encodeURIComponent(input.operationId)}/effects?order=asc&limit=200${cursor === undefined ? '' : `&cursor=${encodeURIComponent(cursor)}`}`, controller.signal);
+          const page = await get(
+            endpoint,
+            `/operations/${encodeURIComponent(input.operationId)}/effects?order=asc&limit=200${cursor === undefined ? '' : `&cursor=${encodeURIComponent(cursor)}`}`,
+            controller.signal,
+          );
           return object(object(page)._embedded).records as readonly unknown[];
         });
-      } finally { signal.removeEventListener('abort', abort); input.signal?.removeEventListener('abort', abort); }
+      } finally {
+        signal.removeEventListener('abort', abort);
+        input.signal?.removeEventListener('abort', abort);
+      }
     },
     async loadTransactionOutcome(endpoint: string, hash: string, signal: AbortSignal) {
       const value = await get(endpoint, `/transactions/${encodeURIComponent(hash)}`, signal);

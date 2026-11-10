@@ -71,7 +71,7 @@ export function PrivacySettingsScreen({
             accessibilityLabel={t('settings.privacy.accountAvatars')}
             disabled={!settings || saving || snapshot.busy}
             onValueChange={setAccountAvatars}
-            value={snapshot.preferences.externalAccountAvatarsEnabled === true}
+            value={snapshot.preferences.externalAccountAvatarsEnabled !== false}
           />
         </View>
         <Text style={styles.label}>{t('settings.privacy.accountAvatarsInfo')}</Text>

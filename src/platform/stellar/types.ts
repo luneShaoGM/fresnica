@@ -60,6 +60,7 @@ export type HorizonAccountLike = TransactionSource & {
 };
 
 export type HorizonOperationLike = {
+  transaction_attr?: unknown;
   id: string;
   paging_token: string;
   type: string;

@@ -119,7 +119,7 @@ export function createAccountAvatarPort(
       let timer: ReturnType<typeof setTimeout> | undefined;
       const cancelled = new Promise<undefined>(resolve => {
         owner.signal.addEventListener('abort', () => resolve(undefined), { once: true });
-        timer = setTimeout(abort, 6000);
+        timer = setTimeout(abort, 60_000);
       });
       const revision = state.revision;
       const work = async () => {
@@ -137,7 +137,7 @@ export function createAccountAvatarPort(
             !state.enabled ||
             !state.readable ||
             state.revision !== revision ||
-            uri.length > 87_450 ||
+            uri.length > 349_554 ||
             !/^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(uri)
           )
             return undefined;

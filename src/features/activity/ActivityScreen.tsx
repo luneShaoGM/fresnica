@@ -1,8 +1,14 @@
+import {
+  loadHistoryHead,
+  backfillHistory,
+  mergeHistoryEntries,
+  type HistoryWindow,
+} from '@capabilities/history/loadHistoryWindow';
 import { formatPublicAddress as shortAddress } from '@ui/formatPublicAddress';
 import { isPathSwap } from '@capabilities/history/pathPaymentHistory';
 import { isDustHistory, isNormallyHiddenHistory } from '@capabilities/history/historyDisplayVisibility';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, FlatList, Text, View } from 'react-native';
 
 import { AccountIdentityCard, Screen } from '@ui/components';
 import Svg, { Path } from 'react-native-svg';
@@ -86,8 +92,20 @@ export function ActivityScreen({
   const requestVersion = useRef(0);
   const hasHydrated = useRef(false);
   const revalidating = useRef(false);
+  const currentState = useRef<ActivityState>(state);
+  const backfill = useRef<{ version: number; stop: boolean } | undefined>(undefined);
+  const continuation = useRef<HistoryWindow | undefined>(undefined);
+  const queuedRevalidation = useRef(false);
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const didScroll = useRef(false);
+  const endReachedCursor = useRef<string | undefined>(undefined);
+  currentState.current = state;
 
   useEffect(() => {
+    didScroll.current = false;
+    endReachedCursor.current = undefined;
+    continuation.current = undefined;
     setFilter('all');
     setSearchText('');
     setShowHidden(false);
@@ -117,13 +135,19 @@ export function ActivityScreen({
 
   const loadInitial = useCallback(
     (mode: ActivityLoadMode, beforeLoad?: () => Promise<unknown>) => {
+      if (mode === 'revalidate' && revalidating.current) {
+        queuedRevalidation.current = true;
+        return;
+      }
+      if (backfill.current) backfill.current.stop = true;
       const version = requestVersion.current + 1;
       requestVersion.current = version;
       revalidating.current = true;
-      setHeadReadPending(true);
+      setHeadReadPending(mode !== 'revalidate');
 
+      const snapshot = mode === 'hydrate' ? readHistoryCacheSnapshotBestEffort(dependencies, account) : undefined;
+      const cached = snapshot?.entries ?? (currentState.current.kind === 'ready' ? currentState.current.entries : []);
       if (mode === 'hydrate') {
-        const snapshot = readHistoryCacheSnapshotBestEffort(dependencies, account);
         setState(snapshot ? { kind: 'ready', ...createCachedActivityReadyState(snapshot) } : { kind: 'loading' });
       } else if (mode === 'revalidate') {
         setState(current =>
@@ -142,8 +166,9 @@ export function ActivityScreen({
         : Promise.resolve();
 
       void before
-        .then(() => loadHistoryPage(dependencies, account))
-        .then(page => {
+        .then(() => loadHistoryHead(dependencies, account, cached, () => requestVersion.current === version))
+        .then(window => {
+          const page = window.page;
           if (requestVersion.current !== version) {
             return;
           }
@@ -159,26 +184,97 @@ export function ActivityScreen({
             case 'active': {
               const updatedAt = dependencies.now();
               cacheHistoryOnlineEntriesBestEffort(dependencies, account, page.entries, updatedAt);
-              setState(current => {
-                if (
-                  mode === 'revalidate' &&
-                  current.kind === 'ready' &&
-                  current.source === 'online' &&
-                  page.nextCursor === current.acceptedCursors[0] &&
-                  (page.nextCursor !== undefined || page.entries.length === current.entries.length) &&
-                  JSON.stringify(page.entries) === JSON.stringify(current.entries.slice(0, page.entries.length))
-                )
-                  return current.stale || current.refreshFailed
+              const previous = currentState.current;
+              const connectedOnlineTail =
+                previous.kind === 'ready' &&
+                previous.source === 'online' &&
+                page.entries.some(entry => entry.id === previous.entries[0]?.id);
+              const unchanged =
+                connectedOnlineTail &&
+                window.headCursor === previous.acceptedCursors[0] &&
+                (window.headCursor !== undefined || window.headEntries.length === previous.entries.length) &&
+                JSON.stringify(window.headEntries) ===
+                  JSON.stringify(previous.entries.slice(0, window.headEntries.length));
+              let fill: HistoryWindow | undefined = window;
+              if (connectedOnlineTail) {
+                const saved = continuation.current;
+                fill =
+                  saved && saved.page.status === 'active' && saved.page.nextCursor === previous.nextCursor
                     ? {
-                        ...current,
-                        stale: false,
-                        refreshFailed: false,
-                        refreshing: false,
-                        lastSuccessfulHorizonUpdateAt: updatedAt,
+                        ...saved,
+                        page: {
+                          status: 'active',
+                          entries: page.entries,
+                          ...(previous.nextCursor ? { nextCursor: previous.nextCursor } : {}),
+                        },
                       }
-                    : current;
-                return { kind: 'ready', ...createActivityReadyState(page, updatedAt) };
-              });
+                    : undefined;
+              }
+              if (mode === 'revalidate' && unchanged && !previous.stale && !previous.refreshFailed) {
+                // No state write: keep loaded pages, cursor, scroll and button appearance.
+              } else if (connectedOnlineTail) {
+                setState({
+                  ...previous,
+                  kind: 'ready',
+                  entries: mergeHistoryEntries(page.entries, previous.entries),
+                  acceptedCursors: window.headCursor
+                    ? [window.headCursor, ...previous.acceptedCursors]
+                    : previous.acceptedCursors,
+                  stale: false,
+                  refreshFailed: false,
+                  refreshing: false,
+                  lastSuccessfulHorizonUpdateAt: updatedAt,
+                });
+              } else {
+                const ready = createActivityReadyState(page, updatedAt);
+                setState({ kind: 'ready', ...ready, acceptedCursors: window.headCursor ? [window.headCursor] : [] });
+              }
+              if (fill && fill.freshCount < 500 && fill.page.status === 'active' && fill.page.nextCursor) {
+                const progress = fill;
+                continuation.current = progress;
+                const owner = { version, stop: false };
+                backfill.current = owner;
+                let accumulated = page.entries;
+                let freshCount = progress.freshCount;
+                void backfillHistory(
+                  dependencies,
+                  account,
+                  progress,
+                  () => !owner.stop && requestVersion.current === version,
+                  (cursor, nextPage) => {
+                    if (owner.stop || requestVersion.current !== version) return;
+                    const updated = dependencies.now();
+                    accumulated = mergeHistoryEntries(nextPage.entries, accumulated);
+                    freshCount += nextPage.entries.length;
+                    continuation.current = { ...progress, page: { ...nextPage, entries: accumulated }, freshCount };
+                    cacheHistoryOnlineEntriesBestEffort(dependencies, account, accumulated, updated);
+                    setState(current => {
+                      if (
+                        requestVersion.current !== version ||
+                        current.kind !== 'ready' ||
+                        current.nextCursor !== cursor
+                      )
+                        return current;
+                      return { kind: 'ready', ...appendActivityHistoryPage(current, cursor, nextPage, updated) };
+                    });
+                  },
+                )
+                  .catch(() => {
+                    if (requestVersion.current === version && !owner.stop)
+                      setState(current => (current.kind === 'ready' ? { ...current, loadMoreFailed: true } : current));
+                  })
+                  .finally(() => {
+                    if (backfill.current === owner) {
+                      backfill.current = undefined;
+                      if (
+                        continuation.current &&
+                        (continuation.current.freshCount >= 500 ||
+                          (continuation.current.page.status === 'active' && !continuation.current.page.nextCursor))
+                      )
+                        continuation.current = undefined;
+                    }
+                  });
+              }
               return;
             }
           }
@@ -197,6 +293,10 @@ export function ActivityScreen({
           if (requestVersion.current === version) {
             revalidating.current = false;
             setHeadReadPending(false);
+            if (queuedRevalidation.current && activeRef.current) {
+              queuedRevalidation.current = false;
+              loadInitial('revalidate');
+            }
           }
         });
     },
@@ -204,19 +304,24 @@ export function ActivityScreen({
   );
 
   useEffect(() => {
-    if (!active) {
-      return;
-    }
+    if (!active) return;
+    return () => {
+      if (backfill.current) backfill.current.stop = true;
+      requestVersion.current += 1;
+      revalidating.current = false;
+      queuedRevalidation.current = false;
+    };
+  }, [active, loadInitial]);
 
+  useEffect(() => {
+    if (!active) return;
     const mode: ActivityLoadMode = hasHydrated.current ? 'revalidate' : 'hydrate';
     hasHydrated.current = true;
     loadInitial(mode);
-    return () => {
-      requestVersion.current += 1;
-    };
   }, [active, invalidationRevision, loadInitial]);
 
   const loadMore = useCallback(() => {
+    if (backfill.current) return;
     if (
       revalidating.current ||
       state.kind !== 'ready' ||
@@ -324,6 +429,23 @@ export function ActivityScreen({
 
   const refreshing = state.kind === 'ready' && state.refreshing;
 
+  const contentProps = {
+    now: calendarNow,
+    dateFormatter,
+    entries: visibleEntries,
+    identityNames,
+    avatarActive: active,
+    formatNumber,
+    onLoadMore: loadMore,
+    headReadPending,
+    onOpenOperation,
+    onRetry: () => loadInitial('refresh', onManualRefresh),
+    state,
+    styles,
+    t,
+    timeFormatter,
+    indicatorColor: theme.colors.actionPrimaryPressed,
+  };
   return (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
@@ -353,7 +475,16 @@ export function ActivityScreen({
           autoCapitalize="none"
           autoCorrect={false}
           label={t('activity.searchLabel')}
-          onChangeText={setSearchText}
+          onChangeText={value => {
+            setSearchText(value);
+            if (value) {
+              setFilter('all');
+              setQuantityFilter({});
+              setHiddenAssets(new Set());
+              setShowHidden(false);
+              setShowFailed(false);
+            }
+          }}
           placeholder={t('activity.searchPlaceholder')}
           returnKeyType="search"
           value={searchText}
@@ -442,10 +573,29 @@ export function ActivityScreen({
         ) : null}
       </View>
 
-      <ScrollView
+      <FlatList
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        onScrollBeginDrag={() => {
+          didScroll.current = true;
+          endReachedCursor.current = undefined;
+        }}
+        scrollEventThrottle={100}
+        onScroll={({ nativeEvent }) => {
+          if (
+            !didScroll.current ||
+            state.kind !== 'ready' ||
+            !state.nextCursor ||
+            endReachedCursor.current === state.nextCursor
+          )
+            return;
+          const { contentOffset, layoutMeasurement, contentSize } = nativeEvent;
+          if (contentOffset.y > 8 && contentOffset.y + layoutMeasurement.height >= contentSize.height - 120) {
+            endReachedCursor.current = state.nextCursor;
+            loadMore();
+          }
+        }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -455,25 +605,32 @@ export function ActivityScreen({
             tintColor={theme.colors.actionPrimaryPressed}
           />
         }
-      >
-        <ActivityContent
-          now={calendarNow}
-          dateFormatter={dateFormatter}
-          entries={visibleEntries}
-          identityNames={identityNames}
-          avatarActive={active}
-          formatNumber={formatNumber}
-          onLoadMore={loadMore}
-          headReadPending={headReadPending}
-          onOpenOperation={onOpenOperation}
-          onRetry={() => loadInitial('refresh', onManualRefresh)}
-          state={state}
-          styles={styles}
-          t={t}
-          timeFormatter={timeFormatter}
-          indicatorColor={theme.colors.actionPrimaryPressed}
-        />
-      </ScrollView>
+        data={state.kind === 'ready' ? visibleEntries : []}
+        keyExtractor={entry => entry.id}
+        maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+        initialNumToRender={8}
+        maxToRenderPerBatch={4}
+        windowSize={3}
+        ListHeaderComponent={<ActivityContent {...contentProps} listChrome="header" />}
+        ListFooterComponent={<ActivityContent {...contentProps} listChrome="footer" />}
+        renderItem={({ item, index }) => (
+          <>
+            {renderEntries(
+              [item],
+              t,
+              formatNumber,
+              dateFormatter,
+              timeFormatter,
+              onOpenOperation,
+              styles,
+              identityNames,
+              calendarNow,
+              active,
+              index > 0 ? localActivityDay(new Date(visibleEntries[index - 1].occurredAt)) : '',
+            )}
+          </>
+        )}
+      />
       {filtersOpen ? (
         <ActivityFiltersSheet
           initial={{ type: filter, showHidden, showFailed, hideDust, hiddenAssets, quantity: quantityFilter }}
@@ -481,6 +638,7 @@ export function ActivityScreen({
           refreshDisabled={headReadPending || state.kind === 'loading' || refreshing}
           onClose={() => setFiltersOpen(false)}
           onApply={value => {
+            setSearchText('');
             setFilter(value.type);
             setShowHidden(value.showHidden);
             setHideDust(value.hideDust);
@@ -504,6 +662,7 @@ type Translate = ReturnType<typeof useLocalization>['t'];
 type FormatNumber = ReturnType<typeof useLocalization>['formatNumber'];
 
 type ActivityContentProps = Readonly<{
+  listChrome?: 'header' | 'footer';
   avatarActive?: boolean;
   now?: Date;
   state: ActivityState;
@@ -522,6 +681,7 @@ type ActivityContentProps = Readonly<{
 }>;
 
 export function ActivityContent({
+  listChrome,
   avatarActive = false,
   now = new Date(),
   state,
@@ -538,6 +698,7 @@ export function ActivityContent({
   indicatorColor,
   styles,
 }: ActivityContentProps) {
+  if (listChrome === 'footer' && state.kind !== 'ready') return null;
   switch (state.kind) {
     case 'loading':
       return (
@@ -625,6 +786,13 @@ export function ActivityContent({
           </Pressable>
         ) : null;
 
+      if (listChrome === 'footer')
+        return (
+          <>
+            {state.loadMoreFailed ? <Text style={styles.loadMoreError}>{t('activity.loadMoreError')}</Text> : null}
+            {loadMoreAction}
+          </>
+        );
       if (state.entries.length === 0) {
         return (
           <>
@@ -651,8 +819,10 @@ export function ActivityContent({
               title={t('activity.state.noMatchTitle')}
               indicatorColor={indicatorColor}
             />
-            {state.loadMoreFailed ? <Text style={styles.loadMoreError}>{t('activity.loadMoreError')}</Text> : null}
-            {loadMoreAction}
+            {listChrome !== 'header' && state.loadMoreFailed ? (
+              <Text style={styles.loadMoreError}>{t('activity.loadMoreError')}</Text>
+            ) : null}
+            {listChrome !== 'header' ? loadMoreAction : null}
           </>
         );
       }
@@ -661,20 +831,24 @@ export function ActivityContent({
         <>
           {cacheStatus}
           {refreshFailure}
-          {renderEntries(
-            entries,
-            t,
-            formatNumber,
-            dateFormatter,
-            timeFormatter,
-            onOpenOperation,
-            styles,
-            identityNames,
-            now,
-            avatarActive,
-          )}
-          {state.loadMoreFailed ? <Text style={styles.loadMoreError}>{t('activity.loadMoreError')}</Text> : null}
-          {loadMoreAction}
+          {listChrome !== 'header'
+            ? renderEntries(
+                entries,
+                t,
+                formatNumber,
+                dateFormatter,
+                timeFormatter,
+                onOpenOperation,
+                styles,
+                identityNames,
+                now,
+                avatarActive,
+              )
+            : null}
+          {listChrome !== 'header' && state.loadMoreFailed ? (
+            <Text style={styles.loadMoreError}>{t('activity.loadMoreError')}</Text>
+          ) : null}
+          {listChrome !== 'header' ? loadMoreAction : null}
         </>
       );
     }
@@ -734,9 +908,8 @@ function renderEntries(
   identityNames?: ActivityIdentityNames,
   now = new Date(),
   avatarActive = false,
+  previousDate = '',
 ) {
-  let previousDate = '';
-
   return entries.map(entry => {
     const date = new Date(entry.occurredAt);
     const day = localActivityDay(date);
