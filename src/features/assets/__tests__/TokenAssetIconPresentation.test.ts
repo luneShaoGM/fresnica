@@ -21,6 +21,8 @@ describe('shared asset icon presentation', () => {
     expect(native.type).toBe(Image);
     expect(native.props.source).toEqual(require('../../../ui/assets/token/xlmSquare.png'));
     expect(native.props.resizeMode).toBe('contain');
+    const activity = TokenAssetIcon({ asset: { kind: 'native', code: 'XLM' }, resizeMode: 'cover' });
+    expect(activity.props.resizeMode).toBe('cover');
     expect(native.props.style[0]).toMatchObject({ width: 40, height: 40 });
     const small = TokenAssetIcon({ asset: { kind: 'native', code: 'XLM' }, small: true });
     expect(small.props.source).toEqual(native.props.source);

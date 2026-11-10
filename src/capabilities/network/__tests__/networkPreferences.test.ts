@@ -85,3 +85,23 @@ describe('network preference trust boundary', () => {
       expect(() => validateNetworkPreferences(value)).toThrow('invalid-network-preferences');
   });
 });
+
+it('keeps legacy account avatars OFF without coupling Token image permission', () => {
+  expect(validateNetworkPreferences(DEFAULT_NETWORK_PREFERENCES).externalAccountAvatarsEnabled).not.toBe(true);
+  for (const token of [true, false]) {
+    expect(
+      validateNetworkPreferences({ ...DEFAULT_NETWORK_PREFERENCES, externalTokenImagesEnabled: token })
+        .externalAccountAvatarsEnabled,
+    ).not.toBe(true);
+    expect(
+      validateNetworkPreferences({
+        ...DEFAULT_NETWORK_PREFERENCES,
+        externalTokenImagesEnabled: token,
+        externalAccountAvatarsEnabled: true,
+      }).externalAccountAvatarsEnabled,
+    ).toBe(true);
+  }
+  expect(() =>
+    validateNetworkPreferences({ ...DEFAULT_NETWORK_PREFERENCES, externalAccountAvatarsEnabled: 'true' }),
+  ).toThrow('invalid-network-preferences');
+});

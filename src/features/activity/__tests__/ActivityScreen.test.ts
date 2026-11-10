@@ -105,6 +105,8 @@ function trustline(id: string, code = 'USD'): HistoryEntry {
 }
 
 type NodeProps = Readonly<{
+  style?: unknown;
+  resizeMode?: string;
   accessibilityHint?: string;
   accessibilityLabel?: string;
   accessibilityRole?: string;
@@ -413,6 +415,9 @@ it('shows trustline asset and removal text without a monetary column, and leaves
   const removed = { ...trust, limit: '0.0000000' } as HistoryEntry;
   const root = ActivityRow({ ...props, entry: removed });
   expect(textValues(root)).toEqual(['USD', expect.stringContaining('Trustline removed · ')]);
+  const frame = findElement(root, element => element.props.style === props.styles.assetFrame);
+  expect(frame?.props.style).toMatchObject({ width: 40, height: 40, borderRadius: 11, overflow: 'hidden' });
+  expect(findElement(root, element => element.type === TokenAssetIcon)?.props.resizeMode).toBe('cover');
   expect(findElement(root, element => element.type === AccountIdentityCard)).toBeUndefined();
   const unknown = ActivityRow({ ...props, entry: unsupported('unknown') });
   expect(textValues(unknown)).toEqual([

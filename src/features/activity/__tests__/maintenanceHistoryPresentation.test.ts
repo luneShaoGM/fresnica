@@ -15,7 +15,11 @@ it.each(maintenanceTypes)('presents %s as neutral source identity without money 
     const names = new Map([[maintenanceSource, 'My source']]);
     const row = activityRowPresentation(entry, t, formatNumber, names);
     expect(row.title).toBe('My source');
-    expect(row.subject).toEqual({ kind: 'account', address: maintenanceSource });
+    expect(row.subject).toEqual(
+      type === 'extend_footprint_ttl' || type === 'restore_footprint'
+        ? { kind: 'contract', identity: maintenanceSource }
+        : { kind: 'account', address: maintenanceSource },
+    );
     expect(row.money).toBeUndefined();
     expect(row.reserveMoney).toBeUndefined();
     expect(row.operation).toBe(t(`activity.maintenance.${type}`));
@@ -25,7 +29,16 @@ it.each(maintenanceTypes)('presents %s as neutral source identity without money 
       expect(matchesActivitySearch(entry, query, t, formatNumber, names)).toBe(true);
     if (type !== 'restore_footprint')
       expect(
-        matchesActivitySearch(entry, type === 'manage_data' ? 'config.memo_required' : type === 'bump_sequence' ? '9223372036854775807' : '4294967295', t, formatNumber),
+        matchesActivitySearch(
+          entry,
+          type === 'manage_data'
+            ? 'config.memo_required'
+            : type === 'bump_sequence'
+              ? '9223372036854775807'
+              : '4294967295',
+          t,
+          formatNumber,
+        ),
       ).toBe(true);
   }
 });

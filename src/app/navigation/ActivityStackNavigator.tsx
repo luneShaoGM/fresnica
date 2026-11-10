@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import type { AccountRecord } from '@capabilities/account/types';
 import { transactionExplorerUrl } from '@capabilities/network/transactionExplorer';
+import { AccountAvatarContext } from '@features/activity/accountAvatarContext';
 import { ActivityScreen } from '@features/activity/ActivityScreen';
 import { OperationDetailsScreen } from '@features/activity/OperationDetailsScreen';
 import { useContactList } from '@features/contacts/useContactList';
@@ -45,40 +46,42 @@ export function ActivityStackNavigator({ accounts, selectedAccountId, services }
   const partitionKey = activityHistoryPartitionKey(account);
 
   return (
-    <Stack.Navigator key={partitionKey} initialRouteName="activity" screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="activity">
-        {({ navigation }) => (
-          <ActivityRoute
-            foreground={readRuntime.foreground}
-            identityNames={identityNames}
-            account={account}
-            dependencies={services.history}
-            onOpenOperation={operationId =>
-              navigation.navigate('operation-details', { accountId: account.id, operationId })
-            }
-            onManualRefresh={() => services.transactionRecovery.reconcile('manual-refresh')}
-            invalidationRevision={invalidationRevision}
-          />
-        )}
-      </Stack.Screen>
-      <Stack.Screen name="operation-details">
-        {({ navigation, route }) => (
-          <OperationDetailsRoute
-            foreground={readRuntime.foreground}
-            account={requireAccount(accounts, route.params.accountId)}
-            accounts={accounts}
-            dependencies={services.history}
-            contacts={services.contacts}
-            scanner={{ ScannerView: ReactNativeRequestQrScannerView, ingress: reactNativeRequestIngress }}
-            operationId={route.params.operationId}
-            invalidationRevision={invalidationRevision}
-            onBack={() => navigation.goBack()}
-            openExternalUrl={services.externalUrl.open}
-            projectExplorerUrl={transactionHash => transactionExplorerUrl(account.networkId, transactionHash)}
-          />
-        )}
-      </Stack.Screen>
-    </Stack.Navigator>
+    <AccountAvatarContext.Provider value={services.accountAvatars}>
+      <Stack.Navigator key={partitionKey} initialRouteName="activity" screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="activity">
+          {({ navigation }) => (
+            <ActivityRoute
+              foreground={readRuntime.foreground}
+              identityNames={identityNames}
+              account={account}
+              dependencies={services.history}
+              onOpenOperation={operationId =>
+                navigation.navigate('operation-details', { accountId: account.id, operationId })
+              }
+              onManualRefresh={() => services.transactionRecovery.reconcile('manual-refresh')}
+              invalidationRevision={invalidationRevision}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="operation-details">
+          {({ navigation, route }) => (
+            <OperationDetailsRoute
+              foreground={readRuntime.foreground}
+              account={requireAccount(accounts, route.params.accountId)}
+              accounts={accounts}
+              dependencies={services.history}
+              contacts={services.contacts}
+              scanner={{ ScannerView: ReactNativeRequestQrScannerView, ingress: reactNativeRequestIngress }}
+              operationId={route.params.operationId}
+              invalidationRevision={invalidationRevision}
+              onBack={() => navigation.goBack()}
+              openExternalUrl={services.externalUrl.open}
+              projectExplorerUrl={transactionHash => transactionExplorerUrl(account.networkId, transactionHash)}
+            />
+          )}
+        </Stack.Screen>
+      </Stack.Navigator>
+    </AccountAvatarContext.Provider>
   );
 }
 

@@ -80,3 +80,26 @@ describe('single wallet-wide token image privacy control', () => {
     expect(input.props.value).toBe(true);
   });
 });
+
+it('requires independent persisted address-avatar consent and explains full address disclosure', async () => {
+  const { settings, write } = createSettings();
+  const render = () => PrivacySettingsScreen({ settings, onBack: jest.fn() });
+  expect(elements(render(), Switch)[1].props.value).toBe(false);
+  const text = elements(render(), Text)
+    .map(element => String(element.props.children))
+    .join(' ');
+  expect(text).toContain('horizon.stellarcn.org');
+  expect(text).toContain('full wallet');
+  elements(render(), Switch)[1].props.onValueChange?.(true);
+  await new Promise<void>(resolve => setImmediate(resolve));
+  expect(write).toHaveBeenCalledWith(
+    expect.objectContaining({ externalAccountAvatarsEnabled: true, externalTokenImagesEnabled: true }),
+  );
+  elements(render(), Switch)[0].props.onValueChange?.(false);
+  await new Promise<void>(resolve => setImmediate(resolve));
+  expect(elements(render(), Switch)[1].props.value).toBe(true);
+  elements(render(), Switch)[1].props.onValueChange?.(false);
+  await new Promise<void>(resolve => setImmediate(resolve));
+  expect(settings.getSnapshot().preferences.externalAccountAvatarsEnabled).toBe(false);
+  settings.close();
+});
