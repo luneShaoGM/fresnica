@@ -40,6 +40,7 @@ it('keeps edits draft until Apply; cancel/back preserve filters and image privac
   const initial: ActivityDisplayFilters = {
     type: 'all',
     showHidden: false,
+    hideDust: true,
     showFailed: false,
     hiddenAssets: new Set(),
     quantity: {},
@@ -66,6 +67,10 @@ it('keeps edits draft until Apply; cancel/back preserve filters and image privac
     node => node.type === Switch && node.props.accessibilityLabel === 'Show hidden activity',
   )?.props.onValueChange?.(true);
   find(root, node => node.props.accessibilityLabel === `Hide USD · GISSUER`)?.props.onPress?.();
+  find(root, node => node.type === Switch && node.props.accessibilityLabel === 'Hide dust')?.props.onValueChange?.(
+    false,
+  );
+  expect(initial.hideDust).toBe(true);
   expect(initial.hiddenAssets.size).toBe(0);
   expect(initial.showHidden).toBe(false);
   expect(onApply).not.toHaveBeenCalled();
@@ -76,7 +81,7 @@ it('keeps edits draft until Apply; cancel/back preserve filters and image privac
   expect(find(root, node => node.type === NativeButton && node.props.onPress === props.onRefresh)).toBeDefined();
   find(root, node => node.type === NativeButton && node.props.label === 'Apply')?.props.onPress?.();
   expect(onApply).toHaveBeenCalledWith(
-    expect.objectContaining({ showHidden: true, hiddenAssets: new Set([identity]) }),
+    expect.objectContaining({ showHidden: true, hideDust: false, hiddenAssets: new Set([identity]) }),
   );
   expect(find(root, node => node.props.accessibilityLabel === 'Hide XLM · ')).toBeUndefined();
 });
@@ -84,6 +89,7 @@ it('applies independent inclusive quantity controls and permits deselection with
   let draft: ActivityDisplayFilters = {
     type: 'all',
     showHidden: false,
+    hideDust: true,
     showFailed: false,
     hiddenAssets: new Set(),
     quantity: { comparison: 'at-most', amount: '25' },

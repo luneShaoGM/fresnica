@@ -19,6 +19,10 @@ export function isNormallyHiddenHistory(entry: HistoryEntry, accountAddress: str
   if (entry.kind === 'trust-authorization' || entry.kind === 'trust-flags') {
     return entry.sourceAccount !== accountAddress && entry.trustor !== accountAddress;
   }
+  return false;
+}
+
+export function isDustHistory(entry: HistoryEntry): boolean {
   if (entry.successful !== true || (entry.kind !== 'payment' && entry.kind !== 'path-payment')) return false;
   // Only actual incoming/self destination legs are known receipts; failed attempts have no applied money.
   if (entry.direction !== 'incoming' && entry.direction !== 'self') return false;

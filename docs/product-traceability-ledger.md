@@ -659,3 +659,14 @@ and valid catalog re-use in a single session. Preserves opt-out,
 Testnet isolation, existing source/cache fail-closed behavior, secure
 native download, and local fallback. Native visual/offline recovery
 acceptance is deferred pending device execution.
+
+### S13 dust-control follow-up and avatar audit — 2026-11-10
+
+Based on main72f7648. [Independent dust control](behavior-specs/s13-dust-filter-avatar-audit.md)
+separates the existing <=0.1XLM receipt display rule into its own Cancel/Apply
+switch and removable active chip; no history/cursor/cache or risk authority changes.
+[Fresh avatar audit](behavior-specs/s13-avatar-reference-audit-2026-11-10.md) explicitly
+records account remote-address images versus Fresnica local patterns, pair layouts,
+contract/document and unknown-reference differences. Avatar implementation is not
+changed by this investigation, and no new address-avatar provider is authorized.
+S13 stays L3 partial; native acceptance remains independently open.
