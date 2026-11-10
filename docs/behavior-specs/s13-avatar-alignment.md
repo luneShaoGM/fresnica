@@ -14,7 +14,9 @@ not local green identicons, contact branding or initials. If remote avatars are
 OFF, unavailable, loading or rejected, show an independently drawn generic person
 symbol. Names/Memo do not change avatar identity. Other AccountIdentityCard
 consumers retain their current behavior; compact Activity injects this visual.
-Single asset subjects keep shared S06 exact-identity TokenAssetIcon. Asset pairs
+Single asset subjects keep shared S06 exact-identity TokenAssetIcon inside an
+Activity-only 40-unit frame with radius11 and cover image scaling. Other Token
+consumers keep contain scaling; approved local missing-token art is unchanged. Asset pairs
 use 40-unit canvas with two25-unit images diagonally overlapping, first upperleft,
 second lowerright; preserve normalized asset order even if a side is unavailable.
 Contracts including create/upload/asset origin/invoke and TTL/restore use an

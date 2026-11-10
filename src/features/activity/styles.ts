@@ -84,6 +84,7 @@ export function createStyles(theme: AppTheme) {
       borderWidth: 1,
       borderColor: theme.colors.border,
     },
+    assetFrame: { width: 40, height: 40, borderRadius: 11, overflow: 'hidden', flexShrink: 0 },
     assetPair: { width: 40, height: 40, flexShrink: 0 },
     pairLayer: {
       position: 'absolute',

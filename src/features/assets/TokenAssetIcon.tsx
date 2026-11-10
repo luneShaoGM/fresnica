@@ -22,7 +22,13 @@ export function TokenAssetIcon({
   asset,
   small = false,
   active = true,
-}: Readonly<{ asset: { kind: 'native'; code: string } | TokenAssetIdentity; small?: boolean; active?: boolean }>) {
+  resizeMode = 'contain',
+}: Readonly<{
+  asset: { kind: 'native'; code: string } | TokenAssetIdentity;
+  small?: boolean;
+  active?: boolean;
+  resizeMode?: 'contain' | 'cover';
+}>) {
   const { service, snapshot } = useIconContext();
   const code = asset.code;
   const credit = asset.kind === 'credit';
@@ -79,7 +85,7 @@ export function TokenAssetIcon({
         accessible={false}
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
-        resizeMode="contain"
+        resizeMode={resizeMode}
         source={require('../../ui/assets/token/xlmSquare.png')}
         style={[styles.icon, small ? styles.small : undefined]}
       />
@@ -92,7 +98,7 @@ export function TokenAssetIcon({
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       source={{ uri }}
-      resizeMode="contain"
+      resizeMode={resizeMode}
       style={[styles.icon, small ? styles.small : undefined]}
       onError={() => {
         rejected.current = { key, uri };

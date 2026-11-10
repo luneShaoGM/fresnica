@@ -816,10 +816,10 @@ export function ActivityRow({
           {presentation.subject.kind === 'asset-pair' ? (
             <View style={styles.assetPair}>
               <View style={[styles.pairLayer, styles.pairFirst]}>
-                <TokenAssetIcon asset={presentation.subject.source} active={avatarActive} />
+                <TokenAssetIcon asset={presentation.subject.source} active={avatarActive} resizeMode="cover" />
               </View>
               <View style={[styles.pairLayer, styles.pairSecond]}>
-                <TokenAssetIcon asset={presentation.subject.destination} active={avatarActive} />
+                <TokenAssetIcon asset={presentation.subject.destination} active={avatarActive} resizeMode="cover" />
               </View>
             </View>
           ) : presentation.subject.kind === 'contract' ? (
@@ -827,7 +827,9 @@ export function ActivityRow({
           ) : presentation.subject.kind === 'reference' ? (
             <ActivitySymbol />
           ) : presentation.subject.kind === 'asset' ? (
-            <TokenAssetIcon asset={presentation.subject.asset} active={avatarActive} />
+            <View style={styles.assetFrame}>
+              <TokenAssetIcon asset={presentation.subject.asset} active={avatarActive} resizeMode="cover" />
+            </View>
           ) : (
             <View
               accessible={false}
