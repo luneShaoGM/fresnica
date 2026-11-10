@@ -23,6 +23,7 @@ export type NetworkPreferences = Readonly<{
   developerMode: boolean;
   selectionConfirmed: boolean;
   retainedTestnet?: boolean;
+  externalTokenImagesEnabled?: boolean;
   networkId: NetworkId;
   endpoints: Readonly<Record<NetworkId, string>>;
   customNodes: Readonly<Record<NetworkId, readonly string[]>>;
@@ -34,6 +35,7 @@ export type NetworkPreferenceStore = Readonly<{
 export const DEFAULT_NETWORK_PREFERENCES: NetworkPreferences = Object.freeze({
   developerMode: false,
   selectionConfirmed: true,
+  externalTokenImagesEnabled: true,
   networkId: 'stellar-mainnet',
   endpoints: Object.freeze({
     'stellar-mainnet': NETWORKS['stellar-mainnet'].horizonUrl,
@@ -56,6 +58,7 @@ export function validateNetworkPreferences(value: unknown): NetworkPreferences {
   const v = value as Record<string, unknown>;
   if (
     (v.retainedTestnet !== undefined && typeof v.retainedTestnet !== 'boolean') ||
+    (v.externalTokenImagesEnabled !== undefined && typeof v.externalTokenImagesEnabled !== 'boolean') ||
     typeof v.selectionConfirmed !== 'boolean' ||
     typeof v.developerMode !== 'boolean' ||
     (v.networkId !== 'stellar-mainnet' && v.networkId !== 'stellar-testnet')
@@ -95,6 +98,7 @@ export function validateNetworkPreferences(value: unknown): NetworkPreferences {
     ...(v.retainedTestnet === true ? { retainedTestnet: true } : {}),
     developerMode: v.developerMode,
     selectionConfirmed: v.selectionConfirmed,
+    externalTokenImagesEnabled: v.externalTokenImagesEnabled !== false,
     networkId: v.networkId,
     endpoints: Object.freeze(endpoints),
     customNodes: Object.freeze(customNodes),

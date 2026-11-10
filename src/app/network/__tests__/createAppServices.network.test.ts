@@ -1,3 +1,4 @@
+import { NativeModules } from 'react-native';
 import { createAppServices } from '../../createAppServices';
 import { deleteLocalAccount } from '@capabilities/account/deleteLocalAccount';
 import {
@@ -133,6 +134,33 @@ beforeEach(() => {
   mockSdk.verifyProtectedSignerPassphrase.mockImplementation(async () => true);
 });
 describe('production network composition and retirement', () => {
+  it('wires default-on external icons to wallet-wide privacy preference across service restart', async () => {
+    const modules = NativeModules as Record<string, unknown>;
+    const original = modules.SecureAssetFetch;
+    modules.SecureAssetFetch = { fetch: jest.fn(), cancel: jest.fn() };
+    try {
+      const first = await createAppServices();
+      expect(first.tokenIcons.available).toBe(true);
+      expect(first.tokenIcons.getSnapshot().enabled).toBe(true);
+      const settings = first.networkSettings;
+      expect(settings).toBeDefined();
+      await settings?.setExternalTokenImagesEnabled(false);
+      expect(first.tokenIcons.getSnapshot().enabled).toBe(false);
+      expect(mockSave).toHaveBeenCalledWith(expect.objectContaining({ externalTokenImagesEnabled: false }));
+      first.close();
+
+      const restarted = await createAppServices();
+      expect(restarted.tokenIcons.available).toBe(true);
+      expect(restarted.tokenIcons.getSnapshot().enabled).toBe(false);
+      await restarted.networkSettings?.setExternalTokenImagesEnabled(true);
+      expect(restarted.tokenIcons.getSnapshot().enabled).toBe(true);
+      restarted.close();
+    } finally {
+      if (original === undefined) delete modules.SecureAssetFetch;
+      else modules.SecureAssetFetch = original;
+    }
+  });
+
   it('exposes current Classic contexts to every consumer without fabricating retained Testnet access', async () => {
     mockPreferences = { ...DEFAULT_NETWORK_PREFERENCES, developerMode: true, networkId: 'stellar-testnet' };
     mockAccounts = [

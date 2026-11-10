@@ -614,3 +614,23 @@ on unrelated revisions. Default-OFF public media consent, Mainnet/Testnet
 partitioning, security transport, app branding, Signer/authorization,
 exact-XDR and transaction/recovery pathways are unchanged. JS tests and
 repository integration checks are not Android/iOS product-flow acceptance.
+
+### S06 public Token imagery default-ON with persistent privacy choice — 2026-11-10 candidate (PR #180)
+
+Owner-approved product correction to the formerly opt-in-only public
+Token artwork: when an active Token icon view needs a real Logo, the
+safe native asset pipeline is automatically eligible on Mainnet and
+Testnet. The single Settings -> Privacy preference is ON by default
+and stored wallet-wide (across networks) in the existing validated
+NetworkPreferences JSON. OFF persists across restarts, aborts in-flight
+reads, discards memory image cache and shows the approved local
+unknown-token graphic. Persist before applying the in-memory switch;
+on storage failure, do not falsely claim the preference changed.
+Disclosure explains external provider IP/time/image URL visibility.
+No wallet addresses, signers or sensitive materials are submitted
+to image providers. No authority for S22 remote account avatars is
+conferred. UI removes Home, Activity and Add Asset ad-hoc controls.
+Existing source-identity validation, insecure response rejection,
+bounded native transport, read-only candidate behavior, Mainnet/Testnet
+isolation, and signed transaction/recovery semantics remain unchanged.
+Device-level privacy/network/visual acceptance remains deferred.

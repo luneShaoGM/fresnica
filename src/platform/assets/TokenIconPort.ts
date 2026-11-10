@@ -10,13 +10,15 @@ const FAILED_CANDIDATE_TTL_MS = 60 * 60 * 1000;
 const MAX_CONCURRENT_ICON_LOADS = 2;
 
 // No wallet account address, signer, raw image bytes or credentials are persisted.
-// Explicit public-media consent is scoped to one network AppServices session.
+// Public imagery is enabled by the user's persisted wallet-wide privacy preference.
+// No image request runs without an active asset consumer. Turning it off clears session images.
 export function createTokenIconPort(
   input: Readonly<{
     networkId: string;
     metadata: TokenMetadataPort;
     catalog?: AssetCatalogPort;
     transport: SafePublicTransport;
+    initialEnabled?: boolean;
     now?: () => number;
   }>,
 ): TokenIconPort {
@@ -27,7 +29,7 @@ export function createTokenIconPort(
   const images = new Map<string, { uri: string; sourceUrl: string; expires: number }>();
   const failed = new Map<string, number>();
   const controllers = new Set<AbortController>();
-  let state: TokenIconState = Object.freeze({ enabled: false, revision: 0 });
+  let state: TokenIconState = Object.freeze({ enabled: available && input.initialEnabled === true, revision: 0 });
   let closed = false;
   let catalogRefresh: Promise<void> | undefined;
   let catalogController: AbortController | undefined;

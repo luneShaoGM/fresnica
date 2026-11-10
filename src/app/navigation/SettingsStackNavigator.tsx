@@ -21,6 +21,7 @@ import { LanguageSettingsScreen } from '@features/settings/LanguageSettingsScree
 import { NetworkSettingsScreen } from '@features/settings/NetworkSettingsScreen';
 import { SettingsHomeScreen } from '@features/settings/SettingsHomeScreen';
 import { GeneralSettingsScreen } from '@features/settings/GeneralSettingsScreen';
+import { PrivacySettingsScreen } from '@features/settings/PrivacySettingsScreen';
 import { AdvancedSettingsScreen } from '@features/settings/AdvancedSettingsScreen';
 import { ConnectedDappsScreen } from '@features/dapps/screens/ConnectedDappsScreen';
 
@@ -59,6 +60,7 @@ export function SettingsStackNavigator({
             onOpenAccounts={() => navigation.navigate('accounts-settings')}
             onOpenAddressBook={() => navigation.navigate('address-book')}
             onOpenSecurity={() => navigation.navigate('security-settings')}
+            onOpenPrivacy={() => navigation.navigate('privacy-settings')}
             onOpenConnectedDapps={() => navigation.navigate('connected-dapps')}
             onOpenGeneral={() => navigation.navigate('general-settings')}
             onOpenAdvanced={() => navigation.navigate('advanced-settings')}
@@ -157,6 +159,11 @@ export function SettingsStackNavigator({
       <Stack.Screen name="security-settings">
         {({ navigation }) => (
           <SecuritySettingsScreen dependencies={services.security} onClose={() => navigation.goBack()} />
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="privacy-settings">
+        {({ navigation }) => (
+          <PrivacySettingsScreen settings={services.networkSettings} onBack={() => navigation.goBack()} />
         )}
       </Stack.Screen>
       <Stack.Screen name="connected-dapps">

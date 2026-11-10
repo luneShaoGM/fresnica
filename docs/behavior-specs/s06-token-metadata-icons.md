@@ -253,3 +253,51 @@ SecureAssetFetch's size, TLS, DNS, redirect and memory boundaries.
   malformed-row rejection/last-good recovery, cache update on an already
   mounted icon, and opt-out recovery. Live provider results and native
   device UI acceptance remain separate evidence.
+
+## 2026-11-10 public token image policy: automatic display with persistent privacy opt-out
+
+This owner-approved product policy **supersedes** all earlier S06 rules
+requiring an opt-in session toggle for public Token images.
+
+- Public Token logo display is **ON by default** for both Mainnet and
+  Testnet when the native SecureAssetFetch capability is available. The app
+  fetches icon candidates **only when an active TokenAssetIcon consumer
+  requests one**, not as a background account/portfolio scan. If an
+  approved candidate is absent or fails safety/format rules, continue to
+  use the user-approved local image_unknown_trustline_light graphic.
+  Native XLM remains the local IconXlmSquare.
+- Do **not** place icon opt-in controls on Home, Activity or Add Asset.
+  The single Settings -> Privacy screen exposes "Load public token logos
+  automatically" with a persistent wallet-wide ON/OFF preference.
+  New installations and legacy preferences that have no such field
+  default ON. Explicit OFF is preserved across session restarts and
+  Mainnet/Testnet changes, and never silently reset to ON.
+- The preference reuses the existing validated NetworkSettings
+  preferencesJson Realm record, **without a Realm schema migration**.
+  The persistence transaction succeeds before enabling or disabling
+  the in-memory TokenIconPort. Failed writes leave the prior setting
+  and active transport behavior intact and show an in-page error.
+- Switching OFF immediately cancels pending metadata/image downloads
+  and clears memory image/failed-candidate caches, so mounted Token
+  rows revert to the local default. Inactive or retired sessions
+  cannot restart requests; ON allows visible assets to load again.
+  The old shared icon-cache update and aborted-request recovery rules
+  still apply.
+- Settings explains the privacy implication: external image providers
+  may observe the client's public IP address, request time, and
+  requested Token image/asset URL. Public image requests do not contain
+  the wallet/contact address, secret key or signer. The Token-image
+  preference **does not** grant consent to S22 remote address avatars,
+  dApp browser content, or other third-party image categories.
+- Preserve strict URL allowlisting and HTTPS, public-address DNS/IP
+  checks, no redirects, native image size and dimension limits,
+  2-active/16-pending transport queue, metadata validation,
+  Mainnet/Testnet partitioning, session close and fail-closed behavior.
+  Never infer Token authenticity from an icon.
+- Tests cover preference migration and malformed fields, successful
+  persistence plus rollback on write failure/background cancellation,
+  immediate in-memory icon revocation/re-enable, no eager request
+  without an asset consumer, real AppServices restart/persistence
+  wiring, removal of redundant page toggles, and Privacy settings
+  navigation/disclosure. JS/Realm/CI gates do not certify native
+  visual/product-flow acceptance.

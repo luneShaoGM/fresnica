@@ -3,8 +3,6 @@ import { Image, StyleSheet } from 'react-native';
 
 import type { TokenAssetIdentity } from '../../capabilities/assets/TokenMetadataCache';
 import { TokenFallbackAvatar } from '../../ui/components/TokenFallbackAvatar';
-import { NativeButton } from '../../ui/components/NativeButton';
-import { useLocalization } from '../../locale';
 import { TokenIconContext } from './tokenIconContext';
 
 const EMPTY = Object.freeze({ enabled: false, revision: 0 });
@@ -18,20 +16,6 @@ function useIconContext() {
     service?.getSnapshot ?? (() => EMPTY),
   );
   return { service, snapshot };
-}
-
-export function PublicIconToggle({ networkId }: Readonly<{ networkId: string }>) {
-  const { t } = useLocalization();
-  const { service, snapshot } = useIconContext();
-  if ((networkId !== 'stellar-mainnet' && networkId !== 'stellar-testnet') || !service?.available) return null;
-  return (
-    <NativeButton
-      label={t(snapshot.enabled ? 'assets.publicIcons.disable' : 'assets.publicIcons.enable')}
-      size="sm"
-      variant="secondary"
-      onPress={() => service.setEnabled(!snapshot.enabled)}
-    />
-  );
 }
 
 export function TokenAssetIcon({

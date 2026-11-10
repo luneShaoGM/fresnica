@@ -43,6 +43,47 @@ function setup(networkId = 'stellar-mainnet', isNativeAvailable = true) {
 }
 
 describe('S06 token icon opt-in, fallback and lifecycle', () => {
+  it('starts enabled for automatic logos when configured and does no background image fetch without an asset consumer', async () => {
+    const baseline = setup();
+    baseline.icons.close();
+    const readIcon = jest.fn(async () => ({ mimeType: 'image/png' as const, dataUri }));
+    const metadata: TokenMetadataPort = {
+      peek: () => ({ source: 'curated', icons: [second] }),
+      resolve: async () => ({
+        metadata: { source: 'curated', icons: [second] },
+        fromCache: false,
+        stale: false,
+        refreshFailed: false,
+      }),
+      close: jest.fn(),
+    };
+    const transport: SafePublicTransport = {
+      available: true,
+      readIcon,
+      readText: jest.fn(),
+      close: jest.fn(),
+    };
+    const icons = createTokenIconPort({
+      networkId: 'stellar-mainnet',
+      metadata,
+      transport,
+      initialEnabled: true,
+    });
+    expect(icons.getSnapshot().enabled).toBe(true);
+    expect(readIcon).not.toHaveBeenCalled();
+    expect(await icons.loadIcon(asset, new AbortController().signal)).toBe(dataUri);
+    expect(readIcon).toHaveBeenCalledTimes(1);
+    icons.setEnabled(false);
+    expect(icons.getSnapshot().enabled).toBe(false);
+    expect(icons.readIcon(asset)).toBeUndefined();
+    expect(await icons.loadIcon(asset, new AbortController().signal)).toBeUndefined();
+    expect(readIcon).toHaveBeenCalledTimes(1);
+    icons.setEnabled(true);
+    expect(await icons.loadIcon(asset, new AbortController().signal)).toBe(dataUri);
+    expect(readIcon).toHaveBeenCalledTimes(2);
+    icons.close();
+  });
+
   it('does not request any remote image before explicit Mainnet consent', async () => {
     const { icons, readIcon } = setup();
     expect(icons.getSnapshot().enabled).toBe(false);

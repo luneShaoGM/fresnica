@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 
 import { AccountIdentityCard, Screen } from '@ui/components';
 import { IdentityAvatar } from '@ui/components/IdentityAvatar';
-import { PublicIconToggle, TokenAssetIcon } from '../assets/TokenAssetIcon';
+import { TokenAssetIcon } from '../assets/TokenAssetIcon';
 import { NativeButton } from '@ui/components/NativeButton';
 import { NativeField } from '@ui/components/NativeField';
 
@@ -340,7 +340,6 @@ export function ActivityScreen({
           variant="secondary"
           onPress={() => setShowTechnical(value => !value)}
         />
-        <PublicIconToggle networkId={account.networkId} />
         <NativeButton
           label={t(managingAssets ? 'activity.visibility.closeAssetControls' : 'activity.visibility.manageAssets')}
           size="sm"

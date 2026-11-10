@@ -3,6 +3,7 @@ import type { AppServices } from '../../createAppServices';
 import { SettingsStackNavigator } from '../SettingsStackNavigator';
 import { SettingsHomeScreen } from '@features/settings/SettingsHomeScreen';
 import { GeneralSettingsScreen } from '@features/settings/GeneralSettingsScreen';
+import { PrivacySettingsScreen } from '@features/settings/PrivacySettingsScreen';
 import { AdvancedSettingsScreen } from '@features/settings/AdvancedSettingsScreen';
 import { NetworkSettingsScreen } from '@features/settings/NetworkSettingsScreen';
 import { reactNativeRequestIngress } from '@platform/system/requestIngress';
@@ -27,6 +28,7 @@ jest.mock('@features/security/SecuritySettingsScreen', () => ({ SecuritySettings
 jest.mock('@features/settings/LanguageSettingsScreen', () => ({ LanguageSettingsScreen: () => null }));
 type ScreenProps = {
   onOpenGeneral?: () => void;
+  onOpenPrivacy?: () => void;
   onOpenAdvanced?: () => void;
   onOpenLanguage?: () => void;
   onOpenNetwork?: () => void;
@@ -73,6 +75,11 @@ it('wires Settings→General→Language and Settings→Advanced→Network with t
   });
   const home = screen('settings-home');
   expect(home.type).toBe(SettingsHomeScreen);
+  home.props.onOpenPrivacy?.();
+  expect(navigation.navigate).toHaveBeenLastCalledWith('privacy-settings');
+  const privacy = screen('privacy-settings');
+  expect(privacy.type).toBe(PrivacySettingsScreen);
+  expect(privacy.props.settings).toBe(services.networkSettings);
   home.props.onOpenGeneral?.();
   expect(navigation.navigate).toHaveBeenLastCalledWith('general-settings');
   const general = screen('general-settings');
