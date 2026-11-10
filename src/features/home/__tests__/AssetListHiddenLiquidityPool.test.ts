@@ -53,7 +53,6 @@ const credit = {
 };
 
 describe('Home hidden liquidity-pool positions', () => {
-  const onRefresh = jest.fn();
   const onOpenAsset = jest.fn();
 
   beforeEach(() => {
@@ -64,22 +63,19 @@ describe('Home hidden liquidity-pool positions', () => {
     const root = AssetList({
       balances: [native],
       hiddenLiquidityPoolShareCount: 2,
-      onRefresh,
       onOpenAsset,
     });
     const labels = texts(root);
     expect(labels).toContain('No other assets.');
     expect(labels).toContain('2 liquidity-pool position(s) are not shown by the current Home balance contract.');
-    expect(elements(root, Pressable)).toHaveLength(1);
-    (elements(root, Pressable)[0].props as { onPress: () => void }).onPress();
-    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(elements(root, Pressable)).toHaveLength(0);
+    expect(labels).not.toContain('Refresh balances');
   });
 
   it('does not show a phantom LP notice if the account only has XLM', () => {
     const root = AssetList({
       balances: [native],
       hiddenLiquidityPoolShareCount: 0,
-      onRefresh,
       onOpenAsset,
     });
     expect(texts(root).some(text => text.includes('liquidity-pool position(s)'))).toBe(false);
@@ -90,13 +86,15 @@ describe('Home hidden liquidity-pool positions', () => {
     const root = AssetList({
       balances: [native, credit],
       hiddenLiquidityPoolShareCount: 1,
-      onRefresh,
       onOpenAsset,
     });
     const labels = texts(root);
     expect(labels).toContain('USD');
     expect(labels).toContain('1 liquidity-pool position(s) are not shown by the current Home balance contract.');
     expect(labels).not.toContain('No other assets.');
-    expect(elements(root, Pressable)).toHaveLength(2);
+    expect(labels).not.toContain('Refresh balances');
+    expect(elements(root, Pressable)).toHaveLength(1);
+    (elements(root, Pressable)[0].props as { onPress: () => void }).onPress();
+    expect(onOpenAsset).toHaveBeenCalledWith(credit.asset);
   });
 });
