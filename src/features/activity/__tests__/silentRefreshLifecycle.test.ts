@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable } from 'react-native';
+import { Pressable, ScrollView } from 'react-native';
 import type { AccountRecord } from '@capabilities/account/types';
 import type { HistoryProductDependencies } from '@capabilities/history/HistoryCacheHydration';
 import { loadHistoryPage } from '@capabilities/history/loadHistoryPage';
@@ -140,6 +140,9 @@ function children(
   if (!React.isValidElement<{ children?: React.ReactNode; onLoadMore?: () => void }>(node)) return [];
   return [node, ...React.Children.toArray(node.props.children).flatMap(children)];
 }
+afterEach(() => {
+  mockSlots.forEach(slot => slot.cleanup?.());
+});
 beforeEach(() => {
   mockSlots = [];
   mockCursor = 0;
@@ -323,8 +326,9 @@ it('clears a superseded manual spinner when automatic revalidation takes over', 
   const old = deferred<HistoryPage>();
   pageLoad.mockReturnValueOnce(old.promise);
   const root = activity();
-  const refresh = children(root).find(node => node.type === Pressable);
-  (refresh?.props as { onPress?: () => void }).onPress?.();
+  const scroll = children(root).find(node => node.type === ScrollView);
+  const { refreshControl } = scroll?.props as { refreshControl: React.ReactElement<{ onRefresh: () => void }> };
+  refreshControl.props.onRefresh();
   await settle();
   expect(mockSlots[0].value).toMatchObject({ refreshing: true });
   pageLoad.mockResolvedValueOnce(head);

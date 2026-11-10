@@ -1,8 +1,13 @@
-import { isTechnicalHistoryOperation } from '@capabilities/history/failedHistory';
+import { isPathSwap } from '@capabilities/history/pathPaymentHistory';
+import { isNormallyHiddenHistory } from '@capabilities/history/historyDisplayVisibility';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { AccountIdentityCard, Screen } from '@ui/components';
+import Svg, { Path } from 'react-native-svg';
+import { ActivityFiltersSheet } from './ActivityFiltersSheet';
+import { matchesActivityQuantity, type ActivityQuantityFilter } from './activityQuantityFilter';
+import { activityDateLabel, localActivityDay } from './activityDate';
 import { IdentityAvatar } from '@ui/components/IdentityAvatar';
 import { TokenAssetIcon } from '../assets/TokenAssetIcon';
 import { NativeButton } from '@ui/components/NativeButton';
@@ -33,7 +38,7 @@ import {
   type ActivityReadyState,
 } from './activityReadModel';
 import { createStyles } from './styles';
-import { activityAssetIdentity, activityRowPresentation, type ActivityIdentityNames } from './activityRowPresentation';
+import { activityRowPresentation, type ActivityIdentityNames } from './activityRowPresentation';
 
 type ActivityLoadMode = 'hydrate' | 'refresh' | 'revalidate';
 
@@ -54,16 +59,6 @@ type Props = Readonly<{
   identityNames?: ActivityIdentityNames;
 }>;
 
-const FILTERS: readonly ActivityFilter[] = ['all', 'payments', 'accounts', 'trustlines', 'other', 'failed'];
-const FILTER_LABEL_KEYS: Readonly<Record<ActivityFilter, string>> = {
-  all: 'activity.filter.all',
-  payments: 'activity.filter.payments',
-  accounts: 'activity.filter.accounts',
-  trustlines: 'activity.filter.trustlines',
-  other: 'activity.filter.other',
-  failed: 'activity.filter.failed',
-};
-
 export function ActivityScreen({
   account,
   dependencies,
@@ -80,10 +75,12 @@ export function ActivityScreen({
   const [filter, setFilter] = useState<ActivityFilter>('all');
   const [searchText, setSearchText] = useState('');
   const [headReadPending, setHeadReadPending] = useState(false);
-  const [showTechnical, setShowTechnical] = useState(true);
+  const [showHidden, setShowHidden] = useState(false);
   const [hiddenAssets, setHiddenAssets] = useState<ReadonlySet<string>>(new Set());
-  const [showHiddenAssets, setShowHiddenAssets] = useState(false);
-  const [managingAssets, setManagingAssets] = useState(false);
+  const [showFailed, setShowFailed] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [quantityFilter, setQuantityFilter] = useState<ActivityQuantityFilter>({});
+  const [calendarNow, setCalendarNow] = useState(new Date());
   const requestVersion = useRef(0);
   const hasHydrated = useRef(false);
   const revalidating = useRef(false);
@@ -91,11 +88,29 @@ export function ActivityScreen({
   useEffect(() => {
     setFilter('all');
     setSearchText('');
-    setShowTechnical(true);
+    setShowHidden(false);
     setHiddenAssets(new Set());
-    setShowHiddenAssets(false);
-    setManagingAssets(false);
+    setShowFailed(false);
+    setFiltersOpen(false);
+    setQuantityFilter({});
   }, [account.address, account.networkId]);
+
+  useEffect(() => {
+    if (!active) {
+      setFiltersOpen(false);
+      return;
+    }
+    let timer: ReturnType<typeof setTimeout>;
+    const updateDay = () => {
+      const now = new Date();
+      setCalendarNow(now);
+      const midnight = new Date(now);
+      midnight.setHours(24, 0, 0, 0);
+      timer = setTimeout(updateDay, Math.min(60_000, midnight.getTime() - now.getTime() + 20));
+    };
+    updateDay();
+    return () => clearTimeout(timer);
+  }, [active]);
 
   const loadInitial = useCallback(
     (mode: ActivityLoadMode, beforeLoad?: () => Promise<unknown>) => {
@@ -251,45 +266,55 @@ export function ActivityScreen({
 
     return state.entries.filter(
       entry =>
-        visibleByAssetPreference(entry, hiddenAssets, showHiddenAssets) &&
-        (showTechnical || !isTechnicalHistoryOperation(entry.operationType)) &&
+        visibleByAssetPreference(entry, hiddenAssets, showHidden) &&
+        (showHidden || !isNormallyHiddenHistory(entry, account.address)) &&
+        (entry.kind !== 'failed' || showFailed || filter === 'failed') &&
         matchesActivityFilter(entry, filter) &&
+        (filter !== 'other' || (entry.kind !== 'offer' && entry.kind !== 'liquidity-pool')) &&
+        (filter !== 'payments' || entry.kind !== 'path-payment' || !isPathSwap(entry)) &&
+        matchesActivityQuantity(entry, quantityFilter) &&
         matchesActivitySearch(entry, searchText, t, formatNumber, identityNames),
     );
-  }, [filter, formatNumber, hiddenAssets, identityNames, searchText, showHiddenAssets, showTechnical, state, t]);
+  }, [
+    account.address,
+    filter,
+    formatNumber,
+    hiddenAssets,
+    identityNames,
+    quantityFilter,
+    searchText,
+    showFailed,
+    showHidden,
+    state,
+    t,
+  ]);
 
   const selectableAssets = useMemo(() => {
     if (state.kind !== 'ready') return [];
-    const identities = new Set(state.entries.flatMap(entryAssetIdentities));
-    return [...identities].filter(identity => identity !== 'native:XLM').sort();
-  }, [state]);
+    const identities = new Set([...state.entries.flatMap(entryAssetIdentities), ...hiddenAssets]);
+    return [...identities].sort();
+  }, [hiddenAssets, state]);
 
-  const toggleAssetHidden = useCallback((identity: string) => {
-    setHiddenAssets(current => {
-      const next = new Set(current);
-      if (next.has(identity)) next.delete(identity);
-      else next.add(identity);
-      return next;
-    });
-  }, []);
-
+  const timeZone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
   const dateFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(locale, {
+        timeZone,
         year: 'numeric',
         month: 'long',
         day: 'numeric',
       }),
-    [locale],
+    [locale, timeZone],
   );
   const timeFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(locale, {
+        timeZone,
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
       }),
-    [locale],
+    [locale, timeZone],
   );
 
   const refreshing = state.kind === 'ready' && state.refreshing;
@@ -304,21 +329,15 @@ export function ActivityScreen({
           </Text>
         </View>
         <Pressable
-          accessibilityLabel={t('activity.refresh')}
+          accessibilityLabel={t('activity.filters.title')}
           accessibilityRole="button"
-          disabled={state.kind === 'loading' || refreshing}
-          onPress={() => loadInitial('refresh', onManualRefresh)}
-          style={({ pressed }) => [
-            styles.headerButton,
-            pressed ? styles.pressed : undefined,
-            state.kind === 'loading' || refreshing ? styles.disabled : undefined,
-          ]}
+          accessibilityState={{ expanded: filtersOpen }}
+          onPress={() => setFiltersOpen(true)}
+          style={({ pressed }) => [styles.headerButton, pressed ? styles.pressed : undefined]}
         >
-          {refreshing ? (
-            <ActivityIndicator color={theme.colors.actionPrimaryPressed} />
-          ) : (
-            <Text style={styles.headerButtonText}>↻</Text>
-          )}
+          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" accessible={false}>
+            <Path d="M4 6h16M7 12h10M10 18h4" stroke={theme.colors.textPrimary} strokeWidth={2} strokeLinecap="round" />
+          </Svg>
         </Pressable>
       </View>
 
@@ -334,82 +353,95 @@ export function ActivityScreen({
           returnKeyType="search"
           value={searchText}
         />
-        <NativeButton
-          label={t(showTechnical ? 'activity.visibility.hideTechnical' : 'activity.visibility.showTechnical')}
-          size="sm"
-          variant="secondary"
-          onPress={() => setShowTechnical(value => !value)}
-        />
-        <NativeButton
-          label={t(managingAssets ? 'activity.visibility.closeAssetControls' : 'activity.visibility.manageAssets')}
-          size="sm"
-          variant="secondary"
-          onPress={() => setManagingAssets(value => !value)}
-        />
-        {managingAssets ? (
-          <View style={styles.assetVisibilityPanel}>
-            <Text style={styles.stateMessage}>{t('activity.visibility.manualOnly')}</Text>
-            <ScrollView style={styles.assetVisibilityList} nestedScrollEnabled>
-              {selectableAssets.map(identity => {
-                const asset = JSON.parse(identity) as [string, string];
-                return (
-                  <NativeButton
-                    key={identity}
-                    label={t(
-                      hiddenAssets.has(identity) ? 'activity.visibility.restoreAsset' : 'activity.visibility.hideAsset',
-                      { asset: `${asset[0]} · ${asset[1]}` },
-                    )}
-                    size="sm"
-                    variant="secondary"
-                    onPress={() => toggleAssetHidden(identity)}
-                  />
-                );
-              })}
-            </ScrollView>
+        {filter !== 'all' ||
+        showHidden ||
+        showFailed ||
+        hiddenAssets.size > 0 ||
+        Object.values(quantityFilter).some(Boolean) ? (
+          <View style={styles.activeFilters}>
+            {filter !== 'all' ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('activity.filters.clearType')}
+                onPress={() => setFilter('all')}
+                style={styles.filterChip}
+              >
+                <Text style={styles.filterText}>{t(`activity.filter.${filter}`)} ×</Text>
+              </Pressable>
+            ) : null}
+            {showHidden ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('activity.filters.clearHidden')}
+                onPress={() => setShowHidden(false)}
+                style={styles.filterChip}
+              >
+                <Text style={styles.filterText}>{t('activity.visibility.showMarked')} ×</Text>
+              </Pressable>
+            ) : null}
+            {showFailed ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('activity.filters.clearFailed')}
+                onPress={() => setShowFailed(false)}
+                style={styles.filterChip}
+              >
+                <Text style={styles.filterText}>{t('activity.filters.showFailed')} ×</Text>
+              </Pressable>
+            ) : null}
+            {(['direction', 'asset', 'comparison', 'amount'] as const).map(key => {
+              const value = quantityFilter[key];
+              if (!value) return null;
+              const label =
+                key === 'asset'
+                  ? value === 'native:XLM'
+                    ? 'XLM'
+                    : (JSON.parse(value) as string[]).join(' · ')
+                  : key === 'amount'
+                    ? value
+                    : t(`activity.filters.${value}`);
+              return (
+                <Pressable
+                  key={key}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('activity.filters.remove', { filter: label })}
+                  onPress={() => setQuantityFilter(current => ({ ...current, [key]: undefined }))}
+                  style={styles.filterChip}
+                >
+                  <Text style={styles.filterText}>{label} ×</Text>
+                </Pressable>
+              );
+            })}
             {hiddenAssets.size > 0 ? (
-              <NativeButton
-                label={t(showHiddenAssets ? 'activity.visibility.hideMarked' : 'activity.visibility.showMarked')}
-                size="sm"
-                variant="secondary"
-                onPress={() => setShowHiddenAssets(value => !value)}
-              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('activity.filters.editHidden')}
+                onPress={() => setFiltersOpen(true)}
+                style={styles.filterChip}
+              >
+                <Text style={styles.filterText}>{t('activity.filters.hiddenCount', { count: hiddenAssets.size })}</Text>
+              </Pressable>
             ) : null}
           </View>
-        ) : hiddenAssets.size > 0 ? (
-          <NativeButton
-            label={t(showHiddenAssets ? 'activity.visibility.hideMarked' : 'activity.visibility.showMarked')}
-            size="sm"
-            variant="secondary"
-            onPress={() => setShowHiddenAssets(value => !value)}
-          />
         ) : null}
-        <ScrollView contentContainerStyle={styles.filters} horizontal showsHorizontalScrollIndicator={false}>
-          {FILTERS.map(item => {
-            const selected = filter === item;
-            return (
-              <Pressable
-                accessibilityLabel={t(FILTER_LABEL_KEYS[item])}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                key={item}
-                onPress={() => setFilter(item)}
-                style={({ pressed }) => [
-                  styles.filterChip,
-                  selected ? styles.filterChipSelected : undefined,
-                  pressed ? styles.pressed : undefined,
-                ]}
-              >
-                <Text style={[styles.filterText, selected ? styles.filterTextSelected : undefined]}>
-                  {t(FILTER_LABEL_KEYS[item])}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
       </View>
 
-      <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              if (!headReadPending && state.kind !== 'loading') loadInitial('refresh', onManualRefresh);
+            }}
+            tintColor={theme.colors.actionPrimaryPressed}
+          />
+        }
+      >
         <ActivityContent
+          now={calendarNow}
           dateFormatter={dateFormatter}
           entries={visibleEntries}
           identityNames={identityNames}
@@ -425,6 +457,26 @@ export function ActivityScreen({
           indicatorColor={theme.colors.actionPrimaryPressed}
         />
       </ScrollView>
+      {filtersOpen ? (
+        <ActivityFiltersSheet
+          initial={{ type: filter, showHidden, showFailed, hiddenAssets, quantity: quantityFilter }}
+          assets={selectableAssets}
+          refreshDisabled={headReadPending || state.kind === 'loading' || refreshing}
+          onClose={() => setFiltersOpen(false)}
+          onApply={value => {
+            setFilter(value.type);
+            setShowHidden(value.showHidden);
+            setShowFailed(value.showFailed);
+            setHiddenAssets(value.hiddenAssets);
+            setQuantityFilter(value.quantity);
+            setFiltersOpen(false);
+          }}
+          onRefresh={() => {
+            setFiltersOpen(false);
+            loadInitial('refresh', onManualRefresh);
+          }}
+        />
+      ) : null}
     </Screen>
   );
 }
@@ -434,6 +486,7 @@ type Translate = ReturnType<typeof useLocalization>['t'];
 type FormatNumber = ReturnType<typeof useLocalization>['formatNumber'];
 
 type ActivityContentProps = Readonly<{
+  now?: Date;
   state: ActivityState;
   entries: readonly HistoryEntry[];
   identityNames?: ActivityIdentityNames;
@@ -450,6 +503,7 @@ type ActivityContentProps = Readonly<{
 }>;
 
 export function ActivityContent({
+  now = new Date(),
   state,
   entries,
   identityNames,
@@ -596,6 +650,7 @@ export function ActivityContent({
             onOpenOperation,
             styles,
             identityNames,
+            now,
           )}
           {state.loadMoreFailed ? <Text style={styles.loadMoreError}>{t('activity.loadMoreError')}</Text> : null}
           {loadMoreAction}
@@ -656,17 +711,24 @@ function renderEntries(
   onOpenOperation: (operationId: string) => void,
   styles: Styles,
   identityNames?: ActivityIdentityNames,
+  now = new Date(),
 ) {
   let previousDate = '';
 
   return entries.map(entry => {
-    const dateLabel = dateFormatter.format(new Date(entry.occurredAt));
-    const showDate = dateLabel !== previousDate;
-    previousDate = dateLabel;
+    const date = new Date(entry.occurredAt);
+    const day = localActivityDay(date);
+    const dateLabel = activityDateLabel(date, now, dateFormatter, t);
+    const showDate = day !== previousDate;
+    previousDate = day;
 
     return (
       <React.Fragment key={entry.id}>
-        {showDate ? <Text style={styles.dateHeader}>{dateLabel}</Text> : null}
+        {showDate ? (
+          <Text accessibilityRole="header" style={styles.dateHeader}>
+            {dateLabel}
+          </Text>
+        ) : null}
         <ActivityRow
           entry={entry}
           identityNames={identityNames}
@@ -726,12 +788,10 @@ export function ActivityRow({
       ) : (
         <View style={styles.activitySubject}>
           {presentation.subject.kind === 'asset-pair' ? (
-            <IdentityAvatar
-              identity={JSON.stringify([
-                activityAssetIdentity(presentation.subject.source),
-                activityAssetIdentity(presentation.subject.destination),
-              ])}
-            />
+            <View style={styles.assetPair}>
+              <TokenAssetIcon asset={presentation.subject.source} small />
+              <TokenAssetIcon asset={presentation.subject.destination} small />
+            </View>
           ) : presentation.subject.kind === 'contract' ? (
             <IdentityAvatar identity={`contract:${presentation.subject.identity}`} />
           ) : presentation.subject.kind === 'reference' ? (

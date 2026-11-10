@@ -600,6 +600,17 @@ shown as Fresnica. No business Capability, network partition, external
 media consent, Signer, transaction or recovery changes. Device visual
 acceptance remains pending even with image/resource tests.
 
+### S13 Activity controls completion candidate — 2026-11-09
+
+Based on main118460b (includes merged #164/#166 and current shared S06 icons).
+[Current behavior contract](behavior-specs/s13-activity-controls-completion.md):
+compact header filter entry; draft Cancel/Apply; direction/type/exactasset/actual
+quantity filters, independent failed inclusion, unified reversible technical/
+small native payment visibility; Today/Yesterday by device local calendar; shared
+asset-pair icons. Public Token image privacy moves to Settings -> Privacy under the later S06 policy. No new spam
+authority or History schema/write pipeline. S13 remains L3 partial pending actual
+dual-platform native, offline Retry/restart, dynamic-font and screen-reader evidence.
+
 ### 2026-11-09 S06 public Token logo recovery candidate
 
 **Adapt / narrow repair:** after merged #177, preserve the correct
@@ -626,9 +637,9 @@ NetworkPreferences JSON. OFF persists across restarts, aborts in-flight
 reads, discards memory image cache and shows the approved local
 unknown-token graphic. Persist before applying the in-memory switch;
 on storage failure, do not falsely claim the preference changed.
-Disclosure explains external provider IP/time/image URL visibility.
-No wallet addresses, signers or sensitive materials are submitted
-to image providers. No authority for S22 remote account avatars is
+Disclosure explains external provider IP/time/image URL and possible
+issuer visibility. No selected wallet/contact address, signer or
+sensitive material is attached to image requests. No authority for S22 remote account avatars is
 conferred. UI removes Home, Activity and Add Asset ad-hoc controls.
 Existing source-identity validation, insecure response rejection,
 bounded native transport, read-only candidate behavior, Mainnet/Testnet

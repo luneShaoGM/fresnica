@@ -166,3 +166,12 @@ branded images remain deferred until a native bounded streaming and
 transport-level redirect-safe implementation is available, specified in
 [`s13-activity-images-visibility.md`](s13-activity-images-visibility.md).
 No automatic Dust/Spam inference or History deletion. Native acceptance pending.
+
+## 2026-11-09 Activity completion candidate
+
+The current user explicitly restores Today/Yesterday and requests a compact
+unified filter entry instead of three permanent actions. The newer
+[s13-activity-controls-completion.md](s13-activity-controls-completion.md)
+supersedes earlier absolute-only dates, default-show-all technical controls, and
+inline visibility buttons. Shared S06 safety/consent and S13 History authority stay
+unchanged. Native acceptance and L3 partial maturity are not promoted.

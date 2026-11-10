@@ -285,8 +285,9 @@ requiring an opt-in session toggle for public Token images.
   still apply.
 - Settings explains the privacy implication: external image providers
   may observe the client's public IP address, request time, and
-  requested Token image/asset URL. Public image requests do not contain
-  the wallet/contact address, secret key or signer. The Token-image
+  requested Token image/asset URL (which may identify the issuer).
+  Image requests do not *attach* the selected wallet/contact address,
+  secret key or signer. The Token-image
   preference **does not** grant consent to S22 remote address avatars,
   dApp browser content, or other third-party image categories.
 - Preserve strict URL allowlisting and HTTPS, public-address DNS/IP
