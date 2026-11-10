@@ -149,6 +149,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
   let closeDappCatalog = () => {};
   let closeAssetCatalog = () => {};
   let closeTokenIcons = () => {};
+  let stopIconPrivacySync = () => {};
   let closeDappPermissions = () => {};
   let closeClaimables = () => {};
   let networkSettings: NetworkSettings | undefined;
@@ -160,6 +161,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     session.close();
     closeDappCatalog();
     closeAssetCatalog();
+    stopIconPrivacySync();
     closeTokenIcons();
     closeDappPermissions();
     closeClaimables();
@@ -421,8 +423,15 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       metadata: tokenMetadata,
       catalog: assetCatalog,
       transport: publicAssetTransport,
+      initialEnabled: initialPreferences.externalTokenImagesEnabled !== false,
     });
     closeTokenIcons = tokenIcons.close;
+    if (networkSettings) {
+      const settings = networkSettings;
+      stopIconPrivacySync = settings.subscribe(() => {
+        tokenIcons.setEnabled(settings.getSnapshot().preferences.externalTokenImagesEnabled !== false);
+      });
+    }
     diagnostics.info('app-services-ready', { details: { networkId: network.id } });
 
     return {

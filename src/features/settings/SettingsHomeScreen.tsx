@@ -14,6 +14,7 @@ type Props = Readonly<{
   onOpenAccounts: () => void;
   onOpenAddressBook: () => void;
   onOpenSecurity: () => void;
+  onOpenPrivacy: () => void;
   onOpenGeneral: () => void;
   onOpenAdvanced: () => void;
   onOpenConnectedDapps: () => void;
@@ -27,6 +28,7 @@ export function SettingsHomeScreen({
   onOpenAccounts,
   onOpenAddressBook,
   onOpenSecurity,
+  onOpenPrivacy,
   onOpenGeneral,
   onOpenAdvanced,
   onOpenConnectedDapps,
@@ -59,6 +61,7 @@ export function SettingsHomeScreen({
 
           <SettingsGroup>
             <ListRow onPress={onOpenSecurity} title={t('settings.security')} />
+            <ListRow onPress={onOpenPrivacy} title={t('settings.privacy')} />
             <ListRow
               onPress={onOpenConnectedDapps}
               title={t('settings.connectedDapps')}

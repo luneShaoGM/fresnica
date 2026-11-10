@@ -4,7 +4,6 @@ import { BottomSheet } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import { useThemedStyles } from '@ui/theme';
 import { useLocalization } from '../../locale';
-import { PublicIconToggle } from '../assets/TokenAssetIcon';
 import type { ActivityQuantityFilter } from './activityQuantityFilter';
 import type { ActivityFilter } from './activityList';
 import { createStyles } from './styles';
@@ -31,7 +30,6 @@ const TYPES: readonly ActivityFilter[] = [
 export function ActivityFiltersSheet({
   initial,
   assets,
-  networkId,
   onClose,
   onApply,
   onRefresh,
@@ -39,7 +37,6 @@ export function ActivityFiltersSheet({
 }: Readonly<{
   initial: ActivityDisplayFilters;
   assets: readonly string[];
-  networkId: string;
   onClose: () => void;
   onApply: (filters: ActivityDisplayFilters) => void;
   onRefresh: () => void;
@@ -247,8 +244,6 @@ export function ActivityFiltersSheet({
               </Pressable>
             );
           })}
-        <Text style={styles.sheetSection}>{t('activity.filters.appearance')}</Text>
-        <PublicIconToggle networkId={networkId} presentation="setting" />
         <NativeButton
           label={t('activity.refresh')}
           size="sm"

@@ -219,3 +219,108 @@ This presentation-only change adds no remote requests or persistence.
   docs/provenance/user-owned-app-artwork-approval-2026-11-09.md.
   Other imagery needs fresh owner approval. JS/resource compilation is
   not iOS/Android visual product acceptance.
+
+## 2026-11-09 Mainnet public logo recovery after #177
+
+This is a narrow follow-up to the existing public-image opt-in mechanism.
+It does not enable public media automatically, change network/issuer
+identity, change the fixed light unknown-Token fallback, or change native
+SecureAssetFetch's size, TLS, DNS, redirect and memory boundaries.
+
+- The fixed public Soroswap catalog currently includes both Stellar credit
+  assets with full classic issuers and Soroban-only contract tokens without
+  an issuer. The latter cannot match a classic credit asset and must not
+  poison the entire approved catalog. Only for the Soroswap source, a row
+  with an exact valid C-address, valid code and **no** issuer or asset
+  identity is explicitly classified as unsupported contract-only.
+  Such rows are not cached as credit assets or used as icon authority.
+- All other rows still require exact valid classic credit identities.
+  A malformed/partial issuer row, broken contract-only shape, unexpected
+  row or mixed valid and malformed classic assets rejects the *entire*
+  source and retains last-good cache; no generic corrupt-record skipping
+  or partial-cache replacement is permitted. Existing 12-hour source
+  cache, failure cooldown and Testnet isolation remain unchanged.
+- A mounted TokenAssetIcon must react to a successful shared icon-cache
+  revision from another mounted consumer, even when its own request was
+  previously cancelled/superseded. The cache-derived image is display-only;
+  other-asset revisions must never restart the icon network download.
+  React Native image decode rejection still rotates candidate URLs.
+- Existing explicit session consent remains default OFF; without opt-in
+  all credit assets deliberately show the approved local unknown-Token
+  image. Absence of safe, compatible image candidates also shows it.
+  This is not an issuer identity or trust indicator.
+- Tests cover the actual Soroswap mixed-source shape, unchanged strict
+  malformed-row rejection/last-good recovery, cache update on an already
+  mounted icon, and opt-out recovery. Live provider results and native
+  device UI acceptance remain separate evidence.
+
+## 2026-11-10 public token image policy: automatic display with persistent privacy opt-out
+
+This owner-approved product policy **supersedes** all earlier S06 rules
+requiring an opt-in session toggle for public Token images.
+
+- Public Token logo display is **ON by default** for both Mainnet and
+  Testnet when the native SecureAssetFetch capability is available. The app
+  fetches icon candidates **only when an active TokenAssetIcon consumer
+  requests one**, not as a background account/portfolio scan. If an
+  approved candidate is absent or fails safety/format rules, continue to
+  use the user-approved local image_unknown_trustline_light graphic.
+  Native XLM remains the local IconXlmSquare.
+- Do **not** place icon opt-in controls on Home, Activity or Add Asset.
+  The single Settings -> Privacy screen exposes "Load public token logos
+  automatically" with a persistent wallet-wide ON/OFF preference.
+  New installations and legacy preferences that have no such field
+  default ON. Explicit OFF is preserved across session restarts and
+  Mainnet/Testnet changes, and never silently reset to ON.
+- The preference reuses the existing validated NetworkSettings
+  preferencesJson Realm record, **without a Realm schema migration**.
+  The persistence transaction succeeds before enabling or disabling
+  the in-memory TokenIconPort. Failed writes leave the prior setting
+  and active transport behavior intact and show an in-page error.
+- Switching OFF immediately cancels pending metadata/image downloads
+  and clears memory image/failed-candidate caches, so mounted Token
+  rows revert to the local default. Inactive or retired sessions
+  cannot restart requests; ON allows visible assets to load again.
+  The old shared icon-cache update and aborted-request recovery rules
+  still apply.
+- Settings explains the privacy implication: external image providers
+  may observe the client's public IP address, request time, and
+  requested Token image/asset URL (which may identify the issuer).
+  Image requests do not *attach* the selected wallet/contact address,
+  secret key or signer. The Token-image
+  preference **does not** grant consent to S22 remote address avatars,
+  dApp browser content, or other third-party image categories.
+- Preserve strict URL allowlisting and HTTPS, public-address DNS/IP
+  checks, no redirects, native image size and dimension limits,
+  2-active/16-pending transport queue, metadata validation,
+  Mainnet/Testnet partitioning, session close and fail-closed behavior.
+  Never infer Token authenticity from an icon.
+- Tests cover preference migration and malformed fields, successful
+  persistence plus rollback on write failure/background cancellation,
+  immediate in-memory icon revocation/re-enable, no eager request
+  without an asset consumer, real AppServices restart/persistence
+  wiring, removal of redundant page toggles, and Privacy settings
+  navigation/disclosure. JS/Realm/CI gates do not certify native
+  visual/product-flow acceptance.
+
+## 2026-11-10 PR #180 offline curated-icon recovery (Work P2 follow-up)
+
+- Mainnet curated sources share a **single in-flight** fetch across active
+  TokenIconPort consumers. Once the fetch settles (including failures),
+  release that Promise and its controller. A newly mounted/active Token
+  consumer in the same AppServices session must be allowed to try again.
+- CachedAssetCatalog.loadSource remains the **only** authority for its
+  30-second failure cooldown, 12-hour successful cache TTL and last-good
+  source preservation. TokenIconPort must not permanently memoize a failed
+  directory refresh, force a refresh past cooldown, or run a timer/poll.
+- Offline bootstrap -> no cached directory/no issuer TOML -> local default
+  artwork; a later consumer during cooldown makes no extra network read;
+  after network recovery and cooldown, a later consumer obtains the newly
+  loaded curated icon without disabling privacy settings or restarting
+  AppServices. A fresh catalog prevents redundant network reads.
+- A cancelled/old refresh must not clear a newer in-flight refresh after
+  privacy OFF/ON or session retirement. No unauthorized background fetch,
+  Testnet curated directory, cross-network data, or altered native image
+  safety/issuer rules are permitted.
+- This is a repository-level regression: live Android/iOS offline-to-online
+  product-flow acceptance remains unexecuted and separate.

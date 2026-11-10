@@ -11,6 +11,20 @@ describe('network preference trust boundary', () => {
     expect(selectedNetwork(DEFAULT_NETWORK_PREFERENCES)).toEqual(NETWORKS['stellar-mainnet']);
     expect(Object.isFrozen(validateNetworkPreferences(DEFAULT_NETWORK_PREFERENCES))).toBe(true);
   });
+  it('upgrades legacy preferences to automatic public icons without losing a saved user opt-out', () => {
+    const legacy = { ...DEFAULT_NETWORK_PREFERENCES, externalTokenImagesEnabled: undefined };
+    expect(validateNetworkPreferences(legacy).externalTokenImagesEnabled).toBe(true);
+    expect(
+      validateNetworkPreferences({ ...legacy, externalTokenImagesEnabled: false }).externalTokenImagesEnabled,
+    ).toBe(false);
+    expect(validateNetworkPreferences({ ...legacy, externalTokenImagesEnabled: true }).externalTokenImagesEnabled).toBe(
+      true,
+    );
+    expect(() => validateNetworkPreferences({ ...legacy, externalTokenImagesEnabled: 'false' })).toThrow(
+      'invalid-network-preferences',
+    );
+  });
+
   it('retains only the built-in Testnet path without granting developer/custom-node authority', () => {
     const retained = validateNetworkPreferences({
       ...DEFAULT_NETWORK_PREFERENCES,

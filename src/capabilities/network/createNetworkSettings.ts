@@ -129,6 +129,14 @@ export function createNetworkSettings(
         listeners.delete(fn);
       };
     },
+    // A wallet-wide privacy preference, saved with existing network settings
+    // without triggering network retirement or a Realm schema migration.
+    setExternalTokenImagesEnabled(value: boolean) {
+      if (typeof value !== 'boolean') return Promise.reject(new Error('invalid-token-image-preference'));
+      return run(async signal => {
+        save({ ...snapshot.preferences, externalTokenImagesEnabled: value }, signal, false);
+      });
+    },
     enableDeveloperMode(passphrase: string) {
       return run(async signal => {
         await deps.authorize(passphrase, signal);

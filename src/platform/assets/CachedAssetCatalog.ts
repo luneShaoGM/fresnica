@@ -114,7 +114,7 @@ export function createCachedAssetCatalog(dependencies: {
         try {
           const body = await http.read(source.url, current);
           if (closed || current.aborted || signal.aborted) throw new Error('asset-catalog-cancelled');
-          const assets = curatedSourceAssetsFromPayload(JSON.parse(body) as unknown);
+          const assets = curatedSourceAssetsFromPayload(JSON.parse(body) as unknown, sourceId);
           const snapshot = normalizeCuratedSourceSnapshot(
             {
               schemaVersion: CURATED_CACHE_VERSION,

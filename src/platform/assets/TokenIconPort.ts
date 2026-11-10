@@ -10,13 +10,15 @@ const FAILED_CANDIDATE_TTL_MS = 60 * 60 * 1000;
 const MAX_CONCURRENT_ICON_LOADS = 2;
 
 // No wallet account address, signer, raw image bytes or credentials are persisted.
-// Explicit public-media consent is scoped to one network AppServices session.
+// Public imagery is enabled by the user's persisted wallet-wide privacy preference.
+// No image request runs without an active asset consumer. Turning it off clears session images.
 export function createTokenIconPort(
   input: Readonly<{
     networkId: string;
     metadata: TokenMetadataPort;
     catalog?: AssetCatalogPort;
     transport: SafePublicTransport;
+    initialEnabled?: boolean;
     now?: () => number;
   }>,
 ): TokenIconPort {
@@ -27,7 +29,7 @@ export function createTokenIconPort(
   const images = new Map<string, { uri: string; sourceUrl: string; expires: number }>();
   const failed = new Map<string, number>();
   const controllers = new Set<AbortController>();
-  let state: TokenIconState = Object.freeze({ enabled: false, revision: 0 });
+  let state: TokenIconState = Object.freeze({ enabled: available && input.initialEnabled === true, revision: 0 });
   let closed = false;
   let catalogRefresh: Promise<void> | undefined;
   let catalogController: AbortController | undefined;
@@ -76,18 +78,26 @@ export function createTokenIconPort(
     });
   }
 
-  // Curated Mainnet directories are fetched once per opt-in session, even if
-  // Home mounts many assets concurrently. Testnet uses verified issuer TOML
-  // only: no Mainnet issuer/logo candidate can cross the network boundary.
+  // Share only in-flight Mainnet directory loads across mounted consumers.
+  // The cached catalog owns its 12-hour TTL and 30-second failure cooldown,
+  // so a later consumer can retry after the network recovers. Testnet uses
+  // issuer TOML only; Mainnet candidates never cross the network boundary.
   function refreshCuratedCatalog(): Promise<void> {
     if (input.networkId !== 'stellar-mainnet' || !input.catalog?.loadSource) return Promise.resolve();
     if (!catalogRefresh) {
       catalogController = new AbortController();
       const signal = catalogController.signal;
       const loader = input.catalog.loadSource;
-      catalogRefresh = Promise.allSettled(
+      const current = Promise.allSettled(
         CURATED_ASSET_SOURCES.map(source => loader(input.networkId, source.id, signal)),
-      ).then(() => undefined);
+      ).then(() => {
+        // An old aborted request must not clear a newer session's loader.
+        if (catalogRefresh === current) {
+          catalogRefresh = undefined;
+          catalogController = undefined;
+        }
+      });
+      catalogRefresh = current;
     }
     return catalogRefresh;
   }

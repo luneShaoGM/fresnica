@@ -1,4 +1,10 @@
 import { createTokenIconPort } from '../TokenIconPort';
+import { createCachedAssetCatalog } from '../CachedAssetCatalog';
+import {
+  CURATED_CACHE_FAILURE_COOLDOWN_MS,
+  type CuratedSourceCacheRepository,
+  type CuratedSourceSnapshot,
+} from '../../../capabilities/trustline/curatedSourceCache';
 import type { TokenMetadataPort } from '../TokenMetadataResolver';
 import type { SafePublicTransport } from '../NativeSafePublicTransport';
 
@@ -43,6 +49,47 @@ function setup(networkId = 'stellar-mainnet', isNativeAvailable = true) {
 }
 
 describe('S06 token icon opt-in, fallback and lifecycle', () => {
+  it('starts enabled for automatic logos when configured and does no background image fetch without an asset consumer', async () => {
+    const baseline = setup();
+    baseline.icons.close();
+    const readIcon = jest.fn(async () => ({ mimeType: 'image/png' as const, dataUri }));
+    const metadata: TokenMetadataPort = {
+      peek: () => ({ source: 'curated', icons: [second] }),
+      resolve: async () => ({
+        metadata: { source: 'curated', icons: [second] },
+        fromCache: false,
+        stale: false,
+        refreshFailed: false,
+      }),
+      close: jest.fn(),
+    };
+    const transport: SafePublicTransport = {
+      available: true,
+      readIcon,
+      readText: jest.fn(),
+      close: jest.fn(),
+    };
+    const icons = createTokenIconPort({
+      networkId: 'stellar-mainnet',
+      metadata,
+      transport,
+      initialEnabled: true,
+    });
+    expect(icons.getSnapshot().enabled).toBe(true);
+    expect(readIcon).not.toHaveBeenCalled();
+    expect(await icons.loadIcon(asset, new AbortController().signal)).toBe(dataUri);
+    expect(readIcon).toHaveBeenCalledTimes(1);
+    icons.setEnabled(false);
+    expect(icons.getSnapshot().enabled).toBe(false);
+    expect(icons.readIcon(asset)).toBeUndefined();
+    expect(await icons.loadIcon(asset, new AbortController().signal)).toBeUndefined();
+    expect(readIcon).toHaveBeenCalledTimes(1);
+    icons.setEnabled(true);
+    expect(await icons.loadIcon(asset, new AbortController().signal)).toBe(dataUri);
+    expect(readIcon).toHaveBeenCalledTimes(2);
+    icons.close();
+  });
+
   it('does not request any remote image before explicit Mainnet consent', async () => {
     const { icons, readIcon } = setup();
     expect(icons.getSnapshot().enabled).toBe(false);
@@ -116,6 +163,85 @@ describe('S06 token icon opt-in, fallback and lifecycle', () => {
     expect(sourceLoads).toEqual(['lobstr', 'soroswap', 'stellarexpert']);
     expect(metadata.resolve).toHaveBeenCalledTimes(2);
     icons.close();
+  });
+
+  it('recovers curated-only logos after offline bootstrap and source cooldown in one enabled session', async () => {
+    let now = 10_000;
+    let online = false;
+    const stored = new Map<string, CuratedSourceSnapshot>();
+    const cache: CuratedSourceCacheRepository = {
+      read: (_networkId, sourceId) => stored.get(sourceId),
+      replace: snapshot => {
+        stored.set(snapshot.sourceId, snapshot);
+      },
+    };
+    const read = jest.fn(async () => {
+      if (!online) throw new Error('offline');
+      return JSON.stringify({ assets: [{ code: asset.code, issuer: asset.issuer, icon: second }] });
+    });
+    const catalog = createCachedAssetCatalog({
+      networkId: 'stellar-mainnet',
+      cache,
+      http: { read },
+      now: () => now,
+    });
+    const curatedMetadata = (identity: typeof asset) => {
+      const row = catalog
+        .readCachedSource('stellar-mainnet', 'lobstr')
+        ?.assets.find(item => item.code === identity.code && item.issuer === identity.issuer);
+      return row?.icon ? { source: 'curated' as const, icons: [row.icon] } : undefined;
+    };
+    const metadata: TokenMetadataPort = {
+      peek: curatedMetadata,
+      resolve: jest.fn(async identity => ({
+        metadata: curatedMetadata(identity),
+        fromCache: false,
+        stale: true,
+        refreshFailed: true,
+      })),
+      close: jest.fn(),
+    };
+    const readIcon = jest.fn(async () => ({ mimeType: 'image/png' as const, dataUri }));
+    const transport: SafePublicTransport = {
+      available: true,
+      readIcon,
+      readText: jest.fn(),
+      close: jest.fn(),
+    };
+    const icons = createTokenIconPort({
+      networkId: 'stellar-mainnet',
+      catalog,
+      metadata,
+      transport,
+      initialEnabled: true,
+      now: () => now,
+    });
+
+    // The first mounted consumer has no cached directory or issuer TOML.
+    expect(await icons.loadIcon(asset, new AbortController().signal)).toBeUndefined();
+    expect(read).toHaveBeenCalledTimes(3);
+    expect(readIcon).not.toHaveBeenCalled();
+
+    // Another mount during the 30-second failure cooldown cannot hammer a
+    // disconnected provider. Catalog retry policy stays in CachedAssetCatalog.
+    expect(await icons.loadIcon(asset, new AbortController().signal)).toBeUndefined();
+    expect(read).toHaveBeenCalledTimes(3);
+
+    // The network comes back in the same AppServices session. The following
+    // mounted consumer must re-enter loadSource and obtain its new logo.
+    online = true;
+    now += CURATED_CACHE_FAILURE_COOLDOWN_MS + 1;
+    expect(await icons.loadIcon(asset, new AbortController().signal)).toBe(dataUri);
+    expect(read).toHaveBeenCalledTimes(6);
+    expect(readIcon).toHaveBeenCalledWith(second, expect.any(AbortSignal));
+    expect(icons.readIcon(asset)).toBe(dataUri);
+
+    // Fresh 12-hour catalog snapshots prevent redundant network calls even
+    // though subsequent consumers may request a catalog refresh.
+    expect(await icons.loadIcon({ ...asset, code: 'EUR' }, new AbortController().signal)).toBeUndefined();
+    expect(read).toHaveBeenCalledTimes(6);
+    icons.close();
+    catalog.close();
   });
 
   it('retries a second candidate after the decoded image fails in React Native', async () => {

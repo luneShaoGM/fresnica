@@ -461,7 +461,6 @@ export function ActivityScreen({
         <ActivityFiltersSheet
           initial={{ type: filter, showHidden, showFailed, hiddenAssets, quantity: quantityFilter }}
           assets={selectableAssets}
-          networkId={account.networkId}
           refreshDisabled={headReadPending || state.kind === 'loading' || refreshing}
           onClose={() => setFiltersOpen(false)}
           onApply={value => {

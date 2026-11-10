@@ -607,6 +607,55 @@ Based on main118460b (includes merged #164/#166 and current shared S06 icons).
 compact header filter entry; draft Cancel/Apply; direction/type/exactasset/actual
 quantity filters, independent failed inclusion, unified reversible technical/
 small native payment visibility; Today/Yesterday by device local calendar; shared
-asset-pair icons and media consent inside appearance settings. No new spam
+asset-pair icons. Public Token image privacy moves to Settings -> Privacy under the later S06 policy. No new spam
 authority or History schema/write pipeline. S13 remains L3 partial pending actual
 dual-platform native, offline Retry/restart, dynamic-font and screen-reader evidence.
+
+### 2026-11-09 S06 public Token logo recovery candidate
+
+**Adapt / narrow repair:** after merged #177, preserve the correct
+owner-approved image_unknown_trustline_light fallback and local XLM
+artwork while recovering real public Token imagery where verified.
+Explicitly classify the approved Soroswap catalog's valid contract-only
+(no classic issuer) rows as unsupported rather than treating them as
+malformed *credit* assets; retain strict fail-closed behavior for corrupt
+credit/issuer rows and last-good source cache. Observe shared icon cache
+updates in mounted TokenAssetIcon without cancelling/restarting requests
+on unrelated revisions. Default-OFF public media consent, Mainnet/Testnet
+partitioning, security transport, app branding, Signer/authorization,
+exact-XDR and transaction/recovery pathways are unchanged. JS tests and
+repository integration checks are not Android/iOS product-flow acceptance.
+
+### S06 public Token imagery default-ON with persistent privacy choice — 2026-11-10 candidate (PR #180)
+
+Owner-approved product correction to the formerly opt-in-only public
+Token artwork: when an active Token icon view needs a real Logo, the
+safe native asset pipeline is automatically eligible on Mainnet and
+Testnet. The single Settings -> Privacy preference is ON by default
+and stored wallet-wide (across networks) in the existing validated
+NetworkPreferences JSON. OFF persists across restarts, aborts in-flight
+reads, discards memory image cache and shows the approved local
+unknown-token graphic. Persist before applying the in-memory switch;
+on storage failure, do not falsely claim the preference changed.
+Disclosure explains external provider IP/time/image URL and possible
+issuer visibility. No selected wallet/contact address, signer or
+sensitive material is attached to image requests. No authority for S22 remote account avatars is
+conferred. UI removes Home, Activity and Add Asset ad-hoc controls.
+Existing source-identity validation, insecure response rejection,
+bounded native transport, read-only candidate behavior, Mainnet/Testnet
+isolation, and signed transaction/recovery semantics remain unchanged.
+Device-level privacy/network/visual acceptance remains deferred.
+
+### PR #180 2026-11-10 S06 Work P2: offline curated-logo recovery
+
+**Targeted fix / Adapt:** Once all three allowed Mainnet curated source
+requests settle, TokenIconPort releases the shared in-flight Promise
+rather than keeping the first offline failure for the entire AppServices
+session. New mounted consumers retry through the existing
+CachedAssetCatalog cache/30-second cooldown (no polling, no forced
+refresh or bypass). Verified offline first mount, immediate re-mount
+without new HTTP reads, online recovery after cooldown, restored logo,
+and valid catalog re-use in a single session. Preserves opt-out,
+Testnet isolation, existing source/cache fail-closed behavior, secure
+native download, and local fallback. Native visual/offline recovery
+acceptance is deferred pending device execution.

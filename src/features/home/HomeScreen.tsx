@@ -21,7 +21,6 @@ import { AccountPickerModal } from './components/AccountPickerModal';
 import { AccountSummary } from './components/AccountSummary';
 import { AssetList, PinnedNativeAssetRow } from './components/AssetList';
 import { matchingNativeBalance, useNativeBalanceBreakdown } from './useNativeBalanceBreakdown';
-import { PublicIconToggle } from '../assets/TokenAssetIcon';
 import { SmallChevron, SmallClock } from '../../ui/components/SmallIcons';
 import { AppBrandMark } from '@ui/components/AppBrandMark';
 import { InactiveAccountPanel, type FriendbotFundingState } from './components/InactiveAccountPanel';
@@ -267,7 +266,6 @@ export function HomeScreen({
 
           {assetCategory === 'tokens' ? (
             <>
-              <PublicIconToggle networkId={account.networkId} />
               <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} showRefreshStatus={false} />
             </>
           ) : null}

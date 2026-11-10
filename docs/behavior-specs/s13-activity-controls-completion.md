@@ -41,10 +41,12 @@ create-account, claim/clawback and other families stay visible. This is only a
 reversible local amount display rule, not a dust/spam/scam or valuation assertion.
 Explain the threshold in the sheet. Loaded-set filtering never reads extra pages.
 
-Public logos use the existing shared S06 native-bounded port and consent state,
-with a compact setting row in the sheet and external-provider explanation. No
-new image fetching, metadata authority, default-on media or consent reset on
-sheet open. Missing/unsafe/unavailable image keeps the approved local fallback.
+Token logos use the existing shared S06 native-bounded port; the filter
+sheet never owns their privacy state. Starting 2026-11-10 the user-approved
+default-on media policy and persistent OFF control live only in
+Settings -> Privacy, with external-provider disclosure. Opening/closing
+Activity filters neither enables nor disables remote image access.
+Missing/unsafe/unavailable image keeps the approved local fallback.
 Both assets in an asset pair use shared TokenAssetIcon, with stable compact frames
 and descriptive row accessibility. Account avatar identity remains independent.
 
@@ -71,8 +73,8 @@ levels: fixtures/helper/native emulation are not real-ledger, real-device or
 screen-reader acceptance. Stage9 iOS System Auth cancel/retry remains deferred.
 
 Filters use draft state: Cancel discards type/hidden/failed/manualasset edits; Apply
-commits them atomically. Public icon consent is a separate immediate session setting
-(especially immediate opt-out), unaffected by filter Cancel. Existing operation
+commits them atomically. Persistent public Token image privacy belongs to
+Settings -> Privacy and is not altered by filter Cancel or Apply. Existing operation
 category semantics are retained; advanced amount/asset/direction query composition
 is not introduced by this UI correction.
 

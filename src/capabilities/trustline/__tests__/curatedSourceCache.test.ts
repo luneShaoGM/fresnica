@@ -74,6 +74,27 @@ describe('S06 curated source cache contract', () => {
     );
   });
 
+  it('accepts the real Soroswap mixed contract-only shape without discarding valid credit icons', () => {
+    const contractOnly = {
+      code: 'JQQQ',
+      contract: 'CAQYPRTX2E6H6BM57QRBYZWP667FPDYDUHMOQXGXM2HA64KO6AISRFEK',
+      icon: 'https://assets.example.org/contract.png',
+      decimals: 18,
+    };
+    expect(curatedSourceAssetsFromPayload({ assets: [asset, contractOnly] }, 'soroswap')).toEqual([asset]);
+    expect(() => curatedSourceAssetsFromPayload({ assets: [asset, contractOnly] }, 'lobstr'))
+      .toThrow('curated-source-invalid');
+    expect(() => curatedSourceAssetsFromPayload({
+      assets: [asset, { ...contractOnly, issuer: 'not-an-issuer' }],
+    }, 'soroswap')).toThrow('curated-source-invalid');
+    expect(() => curatedSourceAssetsFromPayload({
+      assets: [asset, { ...contractOnly, contract: 'bad' }],
+    }, 'soroswap')).toThrow('curated-source-invalid');
+    expect(() => curatedSourceAssetsFromPayload({
+      assets: [asset, contractOnly, { error: 'upstream' }],
+    }, 'soroswap')).toThrow('curated-source-invalid');
+  });
+
   it('rejects mixed valid and malformed rows across all supported asset-list shapes', () => {
     const malformed = { code: 'broken!', issuer };
     for (const payload of [

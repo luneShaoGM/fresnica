@@ -1,12 +1,8 @@
 import React, { useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { Image, StyleSheet, Switch, Text, View } from 'react-native';
+import { Image, StyleSheet } from 'react-native';
 
 import type { TokenAssetIdentity } from '../../capabilities/assets/TokenMetadataCache';
 import { TokenFallbackAvatar } from '../../ui/components/TokenFallbackAvatar';
-import { NativeButton } from '../../ui/components/NativeButton';
-import { useLocalization } from '../../locale';
-import { useThemedStyles } from '@ui/theme';
-import { createIconPreferenceStyles } from './iconPreferenceStyles';
 import { TokenIconContext } from './tokenIconContext';
 
 const EMPTY = Object.freeze({ enabled: false, revision: 0 });
@@ -20,39 +16,6 @@ function useIconContext() {
     service?.getSnapshot ?? (() => EMPTY),
   );
   return { service, snapshot };
-}
-
-export function PublicIconToggle({
-  networkId,
-  presentation = 'button',
-}: Readonly<{ networkId: string; presentation?: 'button' | 'setting' }>) {
-  const { t } = useLocalization();
-  const { service, snapshot } = useIconContext();
-  const preferenceStyles = useThemedStyles(createIconPreferenceStyles);
-  if ((networkId !== 'stellar-mainnet' && networkId !== 'stellar-testnet') || !service?.available) return null;
-  if (presentation === 'setting')
-    return (
-      <View style={preferenceStyles.row}>
-        <View style={preferenceStyles.copy}>
-          <Text style={preferenceStyles.title}>{t('activity.filters.logos')}</Text>
-          <Text style={preferenceStyles.hint}>{t('activity.filters.logosHint')}</Text>
-        </View>
-        <Switch
-          accessibilityLabel={t('activity.filters.logos')}
-          accessibilityHint={t('activity.filters.logosHint')}
-          value={snapshot.enabled}
-          onValueChange={value => service.setEnabled(value)}
-        />
-      </View>
-    );
-  return (
-    <NativeButton
-      label={t(snapshot.enabled ? 'assets.publicIcons.disable' : 'assets.publicIcons.enable')}
-      size="sm"
-      variant="secondary"
-      onPress={() => service.setEnabled(!snapshot.enabled)}
-    />
-  );
 }
 
 export function TokenAssetIcon({
@@ -99,6 +62,16 @@ export function TokenAssetIcon({
       .catch(() => undefined);
     return () => controller.abort();
   }, [active, code, credit, issuer, key, service, snapshot.enabled, retryRevision]);
+
+  // Another mounted consumer may complete the same asset's request after
+  // this instance was cancelled or superseded. Observe successful shared
+  // cache updates without restarting in-flight downloads on every revision.
+  useEffect(() => {
+    if (!active || !credit || !service?.available || !snapshot.enabled) return;
+    const cached = service.readIcon({ kind: 'credit', code, issuer });
+    if (!cached || (rejected.current?.key === key && rejected.current.uri === cached)) return;
+    setState(previous => (previous.key === key && previous.uri === cached ? previous : { key, uri: cached }));
+  }, [active, code, credit, issuer, key, service, snapshot.enabled, snapshot.revision]);
 
   if (!credit) {
     return (

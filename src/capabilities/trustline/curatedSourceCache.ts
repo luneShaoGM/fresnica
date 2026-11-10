@@ -86,7 +86,10 @@ export function normalizeCuratedSourceSnapshot(
 
 // A structurally bad source is not an authoritative empty directory. In particular
 // an invalid nonempty response must not overwrite a previous usable snapshot.
-export function curatedSourceAssetsFromPayload(payload: unknown): readonly CuratedAsset[] {
+export function curatedSourceAssetsFromPayload(
+  payload: unknown,
+  sourceId?: CuratedAssetSourceId,
+): readonly CuratedAsset[] {
   let records: readonly unknown[];
   if (Array.isArray(payload)) records = payload;
   else if (isRecord(payload)) {
@@ -104,9 +107,15 @@ export function curatedSourceAssetsFromPayload(payload: unknown): readonly Curat
   // Unlike permissive manual input parsing, a cached public source must be
   // complete: silently discarding even one malformed row would overwrite
   // last-good assets with a partial list for the entire cache TTL.
-  if (records.some(record => normalizeCuratedAssets([record]).length !== 1)) {
+  if (
+    records.some(record => !isSoroswapContractOnly(record, sourceId) && normalizeCuratedAssets([record]).length !== 1)
+  ) {
     throw new Error('curated-source-invalid');
   }
+  // The approved Soroswap list includes Soroban-only contracts, which are
+  // *not* classic (code, issuer) trustline assets. They cannot supply a
+  // credit-asset icon; keep the valid issued rows without relaxing the
+  // fail-closed behavior for a malformed credit row or other sources.
   const normalized = normalizeCuratedAssets(payload);
   if (normalized.length > CURATED_CACHE_MAX_ASSETS) throw new Error('curated-source-too-large');
 
@@ -120,6 +129,20 @@ export function curatedSourceAssetsFromPayload(payload: unknown): readonly Curat
         ...(text(asset.icon, 2048) && asset.icon?.startsWith('https://') ? { icon: asset.icon } : {}),
       }),
     ),
+  );
+}
+
+function isSoroswapContractOnly(record: unknown, sourceId: CuratedAssetSourceId | undefined): boolean {
+  return (
+    sourceId === 'soroswap' &&
+    isRecord(record) &&
+    typeof record.code === 'string' &&
+    isCuratedAssetCode(record.code) &&
+    typeof record.contract === 'string' &&
+    /^C[A-Z2-7]{55}$/.test(record.contract) &&
+    record.issuer === undefined &&
+    record.asset_issuer === undefined &&
+    record.asset === undefined
   );
 }
 

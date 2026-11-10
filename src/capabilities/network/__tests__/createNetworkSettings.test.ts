@@ -48,6 +48,37 @@ function setup(developerMode = true, initial?: NetworkPreferences) {
   };
 }
 describe('authenticated node and network settings', () => {
+  it('persists a wallet-wide icon privacy toggle without network restart and restores it after reopening', async () => {
+    const s = setup(false);
+    expect(s.settings.getSnapshot().preferences.externalTokenImagesEnabled).toBe(true);
+    await s.settings.setExternalTokenImagesEnabled(false);
+    expect(s.saved().externalTokenImagesEnabled).toBe(false);
+    expect(s.restart).not.toHaveBeenCalled();
+    const restored = setup(false, s.saved());
+    expect(restored.settings.getSnapshot().preferences.externalTokenImagesEnabled).toBe(false);
+    await s.settings.selectNode(main, NETWORKS[main].horizonUrl);
+    expect(s.saved().externalTokenImagesEnabled).toBe(false);
+    await s.settings.setExternalTokenImagesEnabled(true);
+    expect(s.saved().externalTokenImagesEnabled).toBe(true);
+    restored.settings.close();
+    s.settings.close();
+  });
+
+  it('preserves icon privacy on preference write failure or background cancellation', async () => {
+    const s = setup(false);
+    s.store.save.mockImplementationOnce(() => {
+      throw new Error('disk-full');
+    });
+    await expect(s.settings.setExternalTokenImagesEnabled(false)).rejects.toThrow('disk-full');
+    expect(s.settings.getSnapshot().preferences.externalTokenImagesEnabled).toBe(true);
+    expect(s.saved().externalTokenImagesEnabled).toBe(true);
+    await s.settings.setExternalTokenImagesEnabled(false);
+    expect(s.settings.getSnapshot().preferences.externalTokenImagesEnabled).toBe(false);
+    s.background();
+    await expect(s.settings.setExternalTokenImagesEnabled(true)).rejects.toThrow('operation-cancelled');
+    expect(s.saved().externalTokenImagesEnabled).toBe(false);
+  });
+
   it('requires authorization to enable and keeps old preferences on failure, then permits explicit retry', async () => {
     const s = setup(false);
     await expect(s.settings.addNode(testnet, 'https://a.test')).rejects.toThrow('developer-mode-required');

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Switch } from 'react-native';
 import { BottomSheet } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
-import { PublicIconToggle } from '../../assets/TokenAssetIcon';
 import { ActivityFiltersSheet, type ActivityDisplayFilters } from '../ActivityFiltersSheet';
 jest.mock('react', () => ({ ...jest.requireActual('react'), useState: jest.fn() }));
 jest.mock('../../../ui/theme', () => {
@@ -36,7 +35,7 @@ function find(
   }
   return undefined;
 }
-it('keeps edits draft until Apply; cancel/back preserve filters; metadata consent remains separate', () => {
+it('keeps edits draft until Apply; cancel/back preserve filters and image privacy is set elsewhere', () => {
   const identity = JSON.stringify(['USD', 'GISSUER']);
   const initial: ActivityDisplayFilters = {
     type: 'all',
@@ -57,7 +56,6 @@ it('keeps edits draft until Apply; cancel/back preserve filters; metadata consen
   const props = {
     initial,
     assets: ['native:XLM', identity],
-    networkId: 'stellar-testnet',
     onClose,
     onApply,
     onRefresh: jest.fn(),
@@ -75,7 +73,7 @@ it('keeps edits draft until Apply; cancel/back preserve filters; metadata consen
   expect(onClose).toHaveBeenCalledTimes(1);
   expect(onApply).not.toHaveBeenCalled();
   root = ActivityFiltersSheet(props);
-  expect(find(root, node => node.type === PublicIconToggle)?.props.presentation).toBe('setting');
+  expect(find(root, node => node.type === NativeButton && node.props.onPress === props.onRefresh)).toBeDefined();
   find(root, node => node.type === NativeButton && node.props.label === 'Apply')?.props.onPress?.();
   expect(onApply).toHaveBeenCalledWith(
     expect.objectContaining({ showHidden: true, hiddenAssets: new Set([identity]) }),
@@ -99,7 +97,6 @@ it('applies independent inclusive quantity controls and permits deselection with
   const props = {
     initial: draft,
     assets: [],
-    networkId: 'stellar-testnet',
     onClose: jest.fn(),
     onApply: jest.fn(),
     onRefresh: jest.fn(),
