@@ -23,6 +23,23 @@ describe('durable network preferences alongside unchanged wallet partitions', ()
     rmSync(directory, { recursive: true, force: true });
   });
   afterAll(() => Realm.shutdown());
+  it('persists independent avatar permission across reopen without promoting legacy defaults', async () => {
+    const store = new RealmNetworkPreferenceStore(preferences);
+    store.save(DEFAULT_NETWORK_PREFERENCES);
+    expect(store.load()?.externalAccountAvatarsEnabled).not.toBe(true);
+    store.save({ ...DEFAULT_NETWORK_PREFERENCES, externalAccountAvatarsEnabled: true });
+    const path = wallet.path;
+    preferences.close();
+    preferences = await openNetworkPreferences(path);
+    expect(new RealmNetworkPreferenceStore(preferences).load()?.externalAccountAvatarsEnabled).toBe(true);
+    new RealmNetworkPreferenceStore(preferences).save({
+      ...DEFAULT_NETWORK_PREFERENCES,
+      externalAccountAvatarsEnabled: false,
+    });
+    preferences.close();
+    preferences = await openNetworkPreferences(path);
+    expect(new RealmNetworkPreferenceStore(preferences).load()?.externalAccountAvatarsEnabled).toBe(false);
+  });
   it('reopens mode/node selection and retains original accounts and uncertain hashes across Mainnet/Testnet preferences', async () => {
     const accounts = new RealmAccountSignerRepository(wallet);
     const now = new Date();

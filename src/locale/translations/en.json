@@ -1162,5 +1162,7 @@
   "activity.filters.hideDust": "Hide dust",
   "activity.filters.dustHint": "Hides successful native XLM receipts up to 0.1 XLM, independently of Show hidden activity. No spam verdict.",
   "activity.filters.dustActive": "Dust filtered",
-  "activity.filters.revealDust": "Show dust activity"
+  "activity.filters.revealDust": "Show dust activity",
+  "settings.privacy.accountAvatars": "Account address avatars (StellarCN)",
+  "settings.privacy.accountAvatarsInfo": "Off by default. When enabled, Activity sends displayed full wallet and counterparty public addresses to horizon.stellarcn.org for avatars. The provider also sees your IP address and request time. Separate from token images; pictures do not verify account identity."
 }

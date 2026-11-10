@@ -41,22 +41,38 @@ export function activityRowPresentation(
       };
     }
     case 'failed':
-      return { title: names?.get(entry.sourceAccount)?.trim() || formatPublicAddress(entry.sourceAccount), operation: `${detail.title} · ${entry.operationType}`, subject: { kind: 'account', address: entry.sourceAccount } };
+      return {
+        title: names?.get(entry.sourceAccount)?.trim() || formatPublicAddress(entry.sourceAccount),
+        operation: `${detail.title} · ${entry.operationType}`,
+        subject: { kind: 'account', address: entry.sourceAccount },
+      };
     case 'account-control':
-      return { title: names?.get(entry.counterparty ?? entry.sourceAccount)?.trim() || formatPublicAddress(entry.counterparty ?? entry.sourceAccount),
-        operation: detail.title, subject: { kind: 'account', address: entry.counterparty ?? entry.sourceAccount } };
+      return {
+        title:
+          names?.get(entry.counterparty ?? entry.sourceAccount)?.trim() ||
+          formatPublicAddress(entry.counterparty ?? entry.sourceAccount),
+        operation: detail.title,
+        subject: { kind: 'account', address: entry.counterparty ?? entry.sourceAccount },
+      };
     case 'maintenance':
       return {
         title: names?.get(entry.sourceAccount)?.trim() || formatPublicAddress(entry.sourceAccount),
         operation: detail.title,
-        subject: { kind: 'account', address: entry.sourceAccount },
+        subject:
+          entry.operationType === 'extend_footprint_ttl' || entry.operationType === 'restore_footprint'
+            ? { kind: 'contract', identity: entry.sourceAccount }
+            : { kind: 'account', address: entry.sourceAccount },
       };
     case 'contract': {
       const identity = entry.contractId ?? entry.deployer;
       return {
-        title: entry.creationAsset?.code ?? (identity ? (identity.startsWith('G') ? names?.get(identity)?.trim() : undefined) || formatPublicAddress(identity) : detail.title),
+        title:
+          entry.creationAsset?.code ??
+          (identity
+            ? (identity.startsWith('G') ? names?.get(identity)?.trim() : undefined) || formatPublicAddress(identity)
+            : detail.title),
         operation: [detail.title, entry.functionName].filter(Boolean).join(' · '),
-        subject: entry.creationAsset ? { kind: 'asset', asset: entry.creationAsset } : identity ? (identity.startsWith('G') ? { kind: 'account', address: identity } : { kind: 'contract', identity }) : { kind: 'unsupported' },
+        subject: { kind: 'contract', identity: identity ?? entry.id },
         reserveMoney: (entry.events ?? [])
           .filter(event => event.direction !== 'neutral')
           .slice(0, 2)
@@ -75,13 +91,21 @@ export function activityRowPresentation(
     case 'claimable-reference':
       if (entry.asset && entry.amount !== undefined) {
         const claimed = entry.operationType === 'claim_claimable_balance';
-        return { title: entry.asset.code, operation: detail.title, subject: { kind: 'asset', asset: entry.asset },
-          money: { amount: `${claimed ? '+' : ''}${formatNumber(entry.amount, 7)}`, asset: entry.asset, tone: claimed ? 'positive' : 'neutral' } };
+        return {
+          title: entry.asset.code,
+          operation: detail.title,
+          subject: { kind: 'asset', asset: entry.asset },
+          money: {
+            amount: `${claimed ? '+' : ''}${formatNumber(entry.amount, 7)}`,
+            asset: entry.asset,
+            tone: claimed ? 'positive' : 'neutral',
+          },
+        };
       }
       return {
         title: formatPublicAddress(entry.balanceId),
         operation: detail.title,
-        subject: { kind: 'reference', identity: entry.balanceId },
+        subject: { kind: 'account', address: entry.sourceAccount },
       };
     case 'claimable-create':
     case 'clawback': {

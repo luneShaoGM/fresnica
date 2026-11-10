@@ -268,3 +268,27 @@ describe('authenticated node and network settings', () => {
     }
   });
 });
+
+it('keeps independent avatar consent unchanged on failed persistence and restores explicit choices', async () => {
+  const s = setup(false);
+  expect(s.settings.getSnapshot().preferences.externalAccountAvatarsEnabled).not.toBe(true);
+  s.store.save.mockImplementationOnce(() => {
+    throw new Error('disk-full');
+  });
+  await expect(s.settings.setExternalAccountAvatarsEnabled(true)).rejects.toThrow('disk-full');
+  expect(s.settings.getSnapshot().preferences.externalAccountAvatarsEnabled).not.toBe(true);
+  await s.settings.setExternalAccountAvatarsEnabled(true);
+  const restored = setup(false, s.saved());
+  expect(restored.settings.getSnapshot().preferences.externalAccountAvatarsEnabled).toBe(true);
+  s.store.save.mockImplementationOnce(() => {
+    throw new Error('disk-full');
+  });
+  await expect(s.settings.setExternalAccountAvatarsEnabled(false)).rejects.toThrow('disk-full');
+  expect(s.settings.getSnapshot().preferences.externalAccountAvatarsEnabled).toBe(true);
+  expect(s.restart).not.toHaveBeenCalled();
+  await s.settings.setExternalAccountAvatarsEnabled(false);
+  expect(s.saved().externalAccountAvatarsEnabled).toBe(false);
+  expect(s.saved().externalTokenImagesEnabled).toBe(true);
+  restored.settings.close();
+  s.settings.close();
+});

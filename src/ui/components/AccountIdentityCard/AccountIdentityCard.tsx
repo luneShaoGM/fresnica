@@ -11,6 +11,7 @@ export function AccountIdentityCard({
   label,
   presentation = 'card',
   secondary,
+  avatar,
   memoText,
   onPress,
 }: Readonly<{
@@ -19,6 +20,7 @@ export function AccountIdentityCard({
   label: string;
   presentation?: 'card' | 'compact' | 'selectable';
   secondary?: string;
+  avatar?: React.ReactNode;
   memoText?: string;
   onPress?: () => void;
 }>) {
@@ -26,7 +28,7 @@ export function AccountIdentityCard({
   if (presentation === 'compact') {
     return (
       <View style={styles.compact}>
-        <IdentityAvatar identity={address} />
+        {avatar ?? <IdentityAvatar identity={address} />}
         <View style={[styles.identity, styles.compactIdentity]}>
           <Text numberOfLines={1} ellipsizeMode="middle" style={styles.name}>
             {name.trim() || formatPublicAddress(address)}

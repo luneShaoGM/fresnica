@@ -9,7 +9,7 @@ import Svg, { Path } from 'react-native-svg';
 import { ActivityFiltersSheet } from './ActivityFiltersSheet';
 import { matchesActivityQuantity, type ActivityQuantityFilter } from './activityQuantityFilter';
 import { activityDateLabel, localActivityDay } from './activityDate';
-import { IdentityAvatar } from '@ui/components/IdentityAvatar';
+import { ActivityAccountAvatar, ActivitySymbol } from './ActivityAvatar';
 import { TokenAssetIcon } from '../assets/TokenAssetIcon';
 import { NativeButton } from '@ui/components/NativeButton';
 import { NativeField } from '@ui/components/NativeField';
@@ -461,6 +461,7 @@ export function ActivityScreen({
           dateFormatter={dateFormatter}
           entries={visibleEntries}
           identityNames={identityNames}
+          avatarActive={active}
           formatNumber={formatNumber}
           onLoadMore={loadMore}
           headReadPending={headReadPending}
@@ -503,6 +504,7 @@ type Translate = ReturnType<typeof useLocalization>['t'];
 type FormatNumber = ReturnType<typeof useLocalization>['formatNumber'];
 
 type ActivityContentProps = Readonly<{
+  avatarActive?: boolean;
   now?: Date;
   state: ActivityState;
   entries: readonly HistoryEntry[];
@@ -520,6 +522,7 @@ type ActivityContentProps = Readonly<{
 }>;
 
 export function ActivityContent({
+  avatarActive = false,
   now = new Date(),
   state,
   entries,
@@ -668,6 +671,7 @@ export function ActivityContent({
             styles,
             identityNames,
             now,
+            avatarActive,
           )}
           {state.loadMoreFailed ? <Text style={styles.loadMoreError}>{t('activity.loadMoreError')}</Text> : null}
           {loadMoreAction}
@@ -729,6 +733,7 @@ function renderEntries(
   styles: Styles,
   identityNames?: ActivityIdentityNames,
   now = new Date(),
+  avatarActive = false,
 ) {
   let previousDate = '';
 
@@ -748,6 +753,7 @@ function renderEntries(
         ) : null}
         <ActivityRow
           entry={entry}
+          avatarActive={avatarActive}
           identityNames={identityNames}
           formatNumber={formatNumber}
           onOpen={() => onOpenOperation(entry.id)}
@@ -761,6 +767,7 @@ function renderEntries(
 }
 
 export function ActivityRow({
+  avatarActive = false,
   entry,
   formatNumber,
   onOpen,
@@ -770,6 +777,7 @@ export function ActivityRow({
   identityNames,
 }: Readonly<{
   entry: HistoryEntry;
+  avatarActive?: boolean;
   formatNumber: FormatNumber;
   onOpen: () => void;
   styles: Styles;
@@ -797,6 +805,7 @@ export function ActivityRow({
       {presentation.subject.kind === 'account' ? (
         <AccountIdentityCard
           address={presentation.subject.address}
+          avatar={<ActivityAccountAvatar address={presentation.subject.address} active={avatarActive} />}
           name={presentation.title}
           label={presentation.operation}
           presentation="compact"
@@ -806,15 +815,19 @@ export function ActivityRow({
         <View style={styles.activitySubject}>
           {presentation.subject.kind === 'asset-pair' ? (
             <View style={styles.assetPair}>
-              <TokenAssetIcon asset={presentation.subject.source} small />
-              <TokenAssetIcon asset={presentation.subject.destination} small />
+              <View style={[styles.pairLayer, styles.pairFirst]}>
+                <TokenAssetIcon asset={presentation.subject.source} active={avatarActive} />
+              </View>
+              <View style={[styles.pairLayer, styles.pairSecond]}>
+                <TokenAssetIcon asset={presentation.subject.destination} active={avatarActive} />
+              </View>
             </View>
           ) : presentation.subject.kind === 'contract' ? (
-            <IdentityAvatar identity={`contract:${presentation.subject.identity}`} />
+            <ActivitySymbol document />
           ) : presentation.subject.kind === 'reference' ? (
-            <IdentityAvatar identity={`claimable:${presentation.subject.identity}`} />
+            <ActivitySymbol />
           ) : presentation.subject.kind === 'asset' ? (
-            <TokenAssetIcon asset={presentation.subject.asset} />
+            <TokenAssetIcon asset={presentation.subject.asset} active={avatarActive} />
           ) : (
             <View
               accessible={false}
@@ -853,7 +866,11 @@ export function ActivityRow({
               </Text>
               <View style={styles.assetCaption}>
                 <Text style={styles.activityAsset}>{money.asset.code}</Text>
-                <TokenAssetIcon asset={money.asset} small />
+                <View style={styles.captionIcon}>
+                  <View style={styles.captionIconScale}>
+                    <TokenAssetIcon asset={money.asset} active={avatarActive} small />
+                  </View>
+                </View>
               </View>
             </View>
           ))}

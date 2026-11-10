@@ -682,3 +682,18 @@ copy/share/QR, Balance Capability and transaction policy are unchanged.
 Behavior/provenance and acceptance boundaries:
 `behavior-specs/home-token-list-presentation.md`. No maturity promotion or
 new native acceptance is claimed; independent exact-HEAD review precedes merge.
+
+### S13 account-avatar alignment candidate — 2026-11-10
+
+Follow-up to merged #182; [avatar behavior contract](behavior-specs/s13-avatar-alignment.md)
+supersedes the audit-only implementation deferral for Activity. Adapt/clean-room,
+Stage4/S13 still L3 partial: account subjects use rounded-square images with generic
+person fallback, ordered diagonal asset pairs, contract/document glyphs and small
+caption asset icons. Activity bypasses local identity patterns; other S22 consumers
+keep existing visuals. New account-address media is independent of default-ON S06
+Token imagery: Settings -> Privacy default OFF, persist before applying, disclose
+full public addresses to horizon.stellarcn.org plus IP/time. Existing bounded native
+transport, memory-only image cache, lifecycle cancellation and late-result fencing;
+no names/Memo/signing data, persistent image cache, Realm schema or transaction change.
+No live provider or native visual/accessibility acceptance is claimed. Exact-HEAD
+independent review and CI pending; no maturity promotion.

@@ -24,6 +24,7 @@ export type NetworkPreferences = Readonly<{
   selectionConfirmed: boolean;
   retainedTestnet?: boolean;
   externalTokenImagesEnabled?: boolean;
+  externalAccountAvatarsEnabled?: boolean;
   networkId: NetworkId;
   endpoints: Readonly<Record<NetworkId, string>>;
   customNodes: Readonly<Record<NetworkId, readonly string[]>>;
@@ -58,6 +59,7 @@ export function validateNetworkPreferences(value: unknown): NetworkPreferences {
   const v = value as Record<string, unknown>;
   if (
     (v.retainedTestnet !== undefined && typeof v.retainedTestnet !== 'boolean') ||
+    (v.externalAccountAvatarsEnabled !== undefined && typeof v.externalAccountAvatarsEnabled !== 'boolean') ||
     (v.externalTokenImagesEnabled !== undefined && typeof v.externalTokenImagesEnabled !== 'boolean') ||
     typeof v.selectionConfirmed !== 'boolean' ||
     typeof v.developerMode !== 'boolean' ||
@@ -99,6 +101,9 @@ export function validateNetworkPreferences(value: unknown): NetworkPreferences {
     developerMode: v.developerMode,
     selectionConfirmed: v.selectionConfirmed,
     externalTokenImagesEnabled: v.externalTokenImagesEnabled !== false,
+    ...(typeof v.externalAccountAvatarsEnabled === 'boolean'
+      ? { externalAccountAvatarsEnabled: v.externalAccountAvatarsEnabled }
+      : {}),
     networkId: v.networkId,
     endpoints: Object.freeze(endpoints),
     customNodes: Object.freeze(customNodes),

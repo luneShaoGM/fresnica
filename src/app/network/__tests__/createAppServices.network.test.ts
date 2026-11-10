@@ -461,3 +461,38 @@ describe('production network composition and retirement', () => {
     services.close();
   });
 });
+
+it('wires independent default-OFF account avatars to durable permission and app retirement', async () => {
+  const modules = NativeModules as Record<string, unknown>;
+  const original = modules.SecureAssetFetch;
+  const fetch = jest.fn();
+  modules.SecureAssetFetch = { fetch, cancel: jest.fn() };
+  try {
+    const first = await createAppServices();
+    expect(first.accountAvatars?.getSnapshot().enabled).toBe(false);
+    await first.networkSettings?.setExternalTokenImagesEnabled(false);
+    expect(first.accountAvatars?.getSnapshot().enabled).toBe(false);
+    await first.networkSettings?.setExternalAccountAvatarsEnabled(true);
+    expect(first.accountAvatars?.getSnapshot()).toMatchObject({ enabled: true, readable: true });
+    first.ledgerReadRuntime.update({ foreground: false, connectivity: 'online' });
+    expect(first.accountAvatars?.getSnapshot().readable).toBe(false);
+    first.close();
+    expect(first.accountAvatars?.getSnapshot().enabled).toBe(false);
+    const restarted = await createAppServices();
+    expect(restarted.accountAvatars?.getSnapshot().enabled).toBe(true);
+    expect(restarted.tokenIcons.getSnapshot().enabled).toBe(false);
+    restarted.ledgerReadRuntime.update({ foreground: true, connectivity: 'offline' });
+    expect(restarted.accountAvatars?.getSnapshot().readable).toBe(false);
+    restarted.ledgerReadRuntime.update({ foreground: true, connectivity: 'online' });
+    expect(restarted.accountAvatars?.getSnapshot().readable).toBe(true);
+    await restarted.networkSettings?.setExternalAccountAvatarsEnabled(false);
+    restarted.close();
+    const off = await createAppServices();
+    expect(off.accountAvatars?.getSnapshot().enabled).toBe(false);
+    off.close();
+    expect(fetch).not.toHaveBeenCalled();
+  } finally {
+    if (original === undefined) delete modules.SecureAssetFetch;
+    else modules.SecureAssetFetch = original;
+  }
+});

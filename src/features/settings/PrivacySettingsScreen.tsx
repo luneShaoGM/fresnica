@@ -41,6 +41,16 @@ export function PrivacySettingsScreen({
       .finally(() => setSaving(false));
   };
 
+  const setAccountAvatars = (value: boolean) => {
+    if (!settings || saving || snapshot.busy) return;
+    setSaving(true);
+    setSaveFailed(false);
+    settings
+      .setExternalAccountAvatarsEnabled(value)
+      .catch(() => setSaveFailed(true))
+      .finally(() => setSaving(false));
+  };
+
   return (
     <SettingsSubpage title={t('settings.privacy')} onBack={onBack}>
       <View style={styles.section}>
@@ -55,6 +65,16 @@ export function PrivacySettingsScreen({
         </View>
         <Text style={styles.label}>{t('settings.privacy.tokenImagesInfo')}</Text>
         <Text style={styles.label}>{t('settings.privacy.tokenImagesNetworkInfo')}</Text>
+        <View style={styles.toggleRow}>
+          <Text style={styles.toggleTitle}>{t('settings.privacy.accountAvatars')}</Text>
+          <Switch
+            accessibilityLabel={t('settings.privacy.accountAvatars')}
+            disabled={!settings || saving || snapshot.busy}
+            onValueChange={setAccountAvatars}
+            value={snapshot.preferences.externalAccountAvatarsEnabled === true}
+          />
+        </View>
+        <Text style={styles.label}>{t('settings.privacy.accountAvatarsInfo')}</Text>
         {!settings ? <Text style={styles.label}>{t('settings.controlsUnavailable')}</Text> : null}
         {saveFailed ? <Text style={styles.label}>{t('settings.privacy.saveFailed')}</Text> : null}
       </View>

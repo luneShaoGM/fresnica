@@ -79,11 +79,13 @@ it.each(['claim_claimable_balance', 'clawback_claimable_balance'])(
     expect(entry).toMatchObject({ kind: 'claimable-reference', balanceId });
     expect(entry).not.toHaveProperty('amount');
     const row = activityRowPresentation(entry, t, formatNumber);
-    expect(row.subject).toEqual({ kind: 'reference', identity: balanceId });
+    expect(row.subject).toEqual({ kind: 'account', address: entry.sourceAccount });
     expect(row.money).toBeUndefined();
     expect(matchesActivitySearch(entry, balanceId, t, formatNumber)).toBe(true);
     expect(snapshot(entry).entries[0]).toEqual(entry);
-    expect(() => snapshot({ ...entry, amount: '999', asset: { kind: 'native', code: 'BAD' } } as unknown as HistoryEntry)).toThrow('history-cache-invalid-entry');
+    expect(() =>
+      snapshot({ ...entry, amount: '999', asset: { kind: 'native', code: 'BAD' } } as unknown as HistoryEntry),
+    ).toThrow('history-cache-invalid-entry');
   },
 );
 

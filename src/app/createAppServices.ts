@@ -19,6 +19,7 @@ import type { ContactBook } from '../features/contacts/contactBook';
 import { RealmContactStore } from '../platform/persistence/realm/RealmContactStore';
 import { copyPublicText } from '../platform/system/copyPublicText';
 import type { AssetCatalogPort } from '../capabilities/trustline/curatedAssetCatalog';
+import { createAccountAvatarPort, type AccountAvatarPort } from '../capabilities/contacts/AccountAvatars';
 import type { TokenIconPort } from '../capabilities/assets/TokenIcons';
 import { createNativeSafePublicTransport } from '../platform/assets/NativeSafePublicTransport';
 import { createTokenMetadataPort } from '../platform/assets/TokenMetadataResolver';
@@ -119,6 +120,7 @@ export type AppServices = Readonly<{
   dappPermissions: DappPermissionStore;
   assetCatalog: AssetCatalogPort;
   tokenIcons: TokenIconPort;
+  accountAvatars?: AccountAvatarPort;
   copyPublicText: (text: string) => Promise<void>;
   transactionRecovery: TransactionReconciliationCoordinator;
   ledgerReadInvalidation: LedgerReadInvalidationStore;
@@ -149,6 +151,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
   let closeDappCatalog = () => {};
   let closeAssetCatalog = () => {};
   let closeTokenIcons = () => {};
+  let closeAccountAvatars = () => {};
   let stopIconPrivacySync = () => {};
   let closeDappPermissions = () => {};
   let closeClaimables = () => {};
@@ -162,6 +165,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     closeDappCatalog();
     closeAssetCatalog();
     stopIconPrivacySync();
+    closeAccountAvatars();
     closeTokenIcons();
     closeDappPermissions();
     closeClaimables();
@@ -426,9 +430,25 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       initialEnabled: initialPreferences.externalTokenImagesEnabled !== false,
     });
     closeTokenIcons = tokenIcons.close;
+    const accountAvatars = createAccountAvatarPort({
+      available: publicAssetTransport.available,
+      initialEnabled: initialPreferences.externalAccountAvatarsEnabled === true,
+      loadImage: async (url, signal) => (await publicAssetTransport.readIcon(url, signal)).dataUri,
+    });
+    const syncAvatarRuntime = () => {
+      const runtime = ledgerReadRuntime.getSnapshot();
+      accountAvatars.setReadable(runtime.foreground && runtime.connectivity !== 'offline');
+    };
+    syncAvatarRuntime();
+    const stopAvatarRuntime = ledgerReadRuntime.subscribe(syncAvatarRuntime);
+    closeAccountAvatars = () => {
+      stopAvatarRuntime();
+      accountAvatars.close();
+    };
     if (networkSettings) {
       const settings = networkSettings;
       stopIconPrivacySync = settings.subscribe(() => {
+        accountAvatars.setEnabled(settings.getSnapshot().preferences.externalAccountAvatarsEnabled === true);
         tokenIcons.setEnabled(settings.getSnapshot().preferences.externalTokenImagesEnabled !== false);
       });
     }
@@ -440,6 +460,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       networkSettings,
       assetCatalog,
       tokenIcons,
+      accountAvatars,
       copyPublicText,
       contacts: {
         store: {

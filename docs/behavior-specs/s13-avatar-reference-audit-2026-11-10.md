@@ -144,3 +144,11 @@ Activity 账户主题的实际可见顺序：
 Token媒体设置自动变成钱包/联系人完整地址的外发授权。头像图片不是地址
 真实性证明。上述未实施的呈现差异可作为后续对齐规格输入，不应再标记
 为已经完成的 Stellar 头像规则。
+
+## Subsequent implementation candidate
+
+The audit above records the state at #182. The later
+[s13-avatar-alignment.md](s13-avatar-alignment.md) defines the user-requested
+Activity implementation and independent default-OFF address-media permission.
+It does not authorize live development requests using wallet/contact addresses,
+remote identity verification or changes to other S22 avatar consumers.

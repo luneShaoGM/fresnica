@@ -1162,5 +1162,7 @@
   "activity.filters.hideDust": "隱藏粉塵",
   "activity.filters.dustHint": "過濾成功收到的不超過 0.1 XLM 的原生付款，獨立於「顯示隱藏記錄」。不代表垃圾交易判定。",
   "activity.filters.dustActive": "已過濾粉塵",
-  "activity.filters.revealDust": "顯示粉塵記錄"
+  "activity.filters.revealDust": "顯示粉塵記錄",
+  "settings.privacy.accountAvatars": "帳戶地址頭像（StellarCN）",
+  "settings.privacy.accountAvatarsInfo": "預設關閉。開啟後，活動列表會把顯示的完整錢包及對方公開地址傳送至 horizon.stellarcn.org 取得頭像；提供方亦可見 IP 和請求時間。與代幣圖片設定獨立，圖片不證明帳戶身分。"
 }
