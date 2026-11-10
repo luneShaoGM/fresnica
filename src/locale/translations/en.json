@@ -1138,7 +1138,7 @@
   "activity.filters.title": "Filter activity",
   "activity.filters.type": "Type",
   "activity.filters.showFailed": "Show failed transactions",
-  "activity.filters.hiddenHint": "Includes technical records, manually hidden assets, and received native payments of 0.1 XLM or less. This is a display filter, not a spam verdict.",
+  "activity.filters.hiddenHint": "Includes technical records and assets you manually hide. Dust has its own switch.",
   "activity.filters.noAssets": "No issued assets in loaded activity.",
   "activity.filters.apply": "Apply",
   "activity.filters.clearType": "Remove type filter",
@@ -1158,5 +1158,9 @@
   "activity.filters.at-most": "At most (≤)",
   "activity.filters.at-least": "At least (≥)",
   "activity.filters.amountHint": "Select both a comparison and an amount. Uses actual quantities, not fiat value; asset and direction bind to the same leg.",
-  "activity.filters.remove": "Remove {{filter}} filter"
+  "activity.filters.remove": "Remove {{filter}} filter",
+  "activity.filters.hideDust": "Hide dust",
+  "activity.filters.dustHint": "Hides successful native XLM receipts up to 0.1 XLM, independently of Show hidden activity. No spam verdict.",
+  "activity.filters.dustActive": "Dust filtered",
+  "activity.filters.revealDust": "Show dust activity"
 }

@@ -1,4 +1,4 @@
-import { isNormallyHiddenHistory } from '../historyDisplayVisibility';
+import { isDustHistory, isNormallyHiddenHistory } from '../historyDisplayVisibility';
 import type { HistoryEntry } from '../types';
 const account = 'GSELF';
 const native = { kind: 'native', code: 'XLM' };
@@ -20,9 +20,9 @@ function row(changes: object = {}): HistoryEntry {
 }
 it('hides only verified received native amounts at the exact 0.1 boundary', () => {
   for (const amount of ['0.0000001', '0.1000000', '000.1'])
-    expect(isNormallyHiddenHistory(row({ amount }), account)).toBe(true);
+    expect(isDustHistory(row({ amount }))).toBe(true);
   for (const amount of ['0', '-0.1', '0.1000001', '0.10000000', '1e-7', 'NaN', '922337203685.4775808'])
-    expect(isNormallyHiddenHistory(row({ amount }), account)).toBe(false);
+    expect(isDustHistory(row({ amount }))).toBe(false);
   for (const changes of [
     { successful: false, kind: 'failed' },
     { successful: undefined },
@@ -31,8 +31,8 @@ it('hides only verified received native amounts at the exact 0.1 boundary', () =
     { asset: { kind: 'credit', code: 'XLM', issuer: 'GISSUER' } },
     { kind: 'create-account', operationType: 'create_account', startingBalance: '0.1' },
   ])
-    expect(isNormallyHiddenHistory(row(changes), account)).toBe(false);
-  expect(isNormallyHiddenHistory(row({ direction: 'self' }), account)).toBe(true);
+    expect(isDustHistory(row(changes))).toBe(false);
+  expect(isDustHistory(row({ direction: 'self' }))).toBe(true);
 });
 it('uses the destination leg for received or self paths, never the source quantity', () => {
   const path = {
@@ -43,11 +43,11 @@ it('uses the destination leg for received or self paths, never the source quanti
     destinationAmount: '0.1',
     destinationAsset: native,
   };
-  expect(isNormallyHiddenHistory(row(path), account)).toBe(true);
-  expect(isNormallyHiddenHistory(row({ ...path, direction: 'self' }), account)).toBe(true);
-  expect(isNormallyHiddenHistory(row({ ...path, direction: 'outgoing' }), account)).toBe(false);
+  expect(isDustHistory(row(path))).toBe(true);
+  expect(isDustHistory(row({ ...path, direction: 'self' }))).toBe(true);
+  expect(isDustHistory(row({ ...path, direction: 'outgoing' }))).toBe(false);
   expect(
-    isNormallyHiddenHistory(row({ ...path, destinationAmount: '0.1000001', sourceAmount: '0.0000001' }), account),
+    isDustHistory(row({ ...path, destinationAmount: '0.1000001', sourceAmount: '0.0000001' })),
   ).toBe(false);
 });
 it('uses the explicit seven technical types and preserves direct trust control and unknown records', () => {

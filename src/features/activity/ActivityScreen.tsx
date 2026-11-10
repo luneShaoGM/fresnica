@@ -1,6 +1,6 @@
 import { formatPublicAddress as shortAddress } from '@ui/formatPublicAddress';
 import { isPathSwap } from '@capabilities/history/pathPaymentHistory';
-import { isNormallyHiddenHistory } from '@capabilities/history/historyDisplayVisibility';
+import { isDustHistory, isNormallyHiddenHistory } from '@capabilities/history/historyDisplayVisibility';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
@@ -82,6 +82,7 @@ export function ActivityScreen({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [quantityFilter, setQuantityFilter] = useState<ActivityQuantityFilter>({});
   const [calendarNow, setCalendarNow] = useState(new Date());
+  const [hideDust, setHideDust] = useState(true);
   const requestVersion = useRef(0);
   const hasHydrated = useRef(false);
   const revalidating = useRef(false);
@@ -90,6 +91,7 @@ export function ActivityScreen({
     setFilter('all');
     setSearchText('');
     setShowHidden(false);
+    setHideDust(true);
     setHiddenAssets(new Set());
     setShowFailed(false);
     setFiltersOpen(false);
@@ -269,6 +271,7 @@ export function ActivityScreen({
       entry =>
         visibleByAssetPreference(entry, hiddenAssets, showHidden) &&
         (showHidden || !isNormallyHiddenHistory(entry, account.address)) &&
+        (!hideDust || !isDustHistory(entry)) &&
         (entry.kind !== 'failed' || showFailed || filter === 'failed') &&
         matchesActivityFilter(entry, filter) &&
         (filter !== 'other' || (entry.kind !== 'offer' && entry.kind !== 'liquidity-pool')) &&
@@ -281,6 +284,7 @@ export function ActivityScreen({
     filter,
     formatNumber,
     hiddenAssets,
+    hideDust,
     identityNames,
     quantityFilter,
     searchText,
@@ -354,12 +358,23 @@ export function ActivityScreen({
           returnKeyType="search"
           value={searchText}
         />
-        {filter !== 'all' ||
+        {hideDust ||
+        filter !== 'all' ||
         showHidden ||
         showFailed ||
         hiddenAssets.size > 0 ||
         Object.values(quantityFilter).some(Boolean) ? (
           <View style={styles.activeFilters}>
+            {hideDust ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('activity.filters.revealDust')}
+                onPress={() => setHideDust(false)}
+                style={styles.filterChip}
+              >
+                <Text style={styles.filterText}>{t('activity.filters.dustActive')} ×</Text>
+              </Pressable>
+            ) : null}
             {filter !== 'all' ? (
               <Pressable
                 accessibilityRole="button"
@@ -460,13 +475,14 @@ export function ActivityScreen({
       </ScrollView>
       {filtersOpen ? (
         <ActivityFiltersSheet
-          initial={{ type: filter, showHidden, showFailed, hiddenAssets, quantity: quantityFilter }}
+          initial={{ type: filter, showHidden, showFailed, hideDust, hiddenAssets, quantity: quantityFilter }}
           assets={selectableAssets}
           refreshDisabled={headReadPending || state.kind === 'loading' || refreshing}
           onClose={() => setFiltersOpen(false)}
           onApply={value => {
             setFilter(value.type);
             setShowHidden(value.showHidden);
+            setHideDust(value.hideDust);
             setShowFailed(value.showFailed);
             setHiddenAssets(value.hiddenAssets);
             setQuantityFilter(value.quantity);

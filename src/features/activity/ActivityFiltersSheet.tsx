@@ -11,6 +11,7 @@ import { createStyles } from './styles';
 export type ActivityDisplayFilters = Readonly<{
   type: ActivityFilter;
   showHidden: boolean;
+  hideDust: boolean;
   showFailed: boolean;
   hiddenAssets: ReadonlySet<string>;
   quantity: ActivityQuantityFilter;
@@ -186,6 +187,18 @@ export function ActivityFiltersSheet({
           ))}
         </View>
         <Text style={styles.settingHint}>{t('activity.filters.amountHint')}</Text>
+        <View style={styles.settingRow}>
+          <View style={styles.settingCopy}>
+            <Text style={styles.settingTitle}>{t('activity.filters.hideDust')}</Text>
+            <Text style={styles.settingHint}>{t('activity.filters.dustHint')}</Text>
+          </View>
+          <Switch
+            accessibilityLabel={t('activity.filters.hideDust')}
+            accessibilityHint={t('activity.filters.dustHint')}
+            value={draft.hideDust}
+            onValueChange={value => setDraft(current => ({ ...current, hideDust: value }))}
+          />
+        </View>
         <View style={styles.settingRow}>
           <View style={styles.settingCopy}>
             <Text style={styles.settingTitle}>{t('activity.visibility.showMarked')}</Text>

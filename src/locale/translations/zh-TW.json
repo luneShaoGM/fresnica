@@ -1138,7 +1138,7 @@
   "activity.filters.title": "篩選活動",
   "activity.filters.type": "類型",
   "activity.filters.showFailed": "顯示失敗交易",
-  "activity.filters.hiddenHint": "包含技術記錄、手動隱藏的資產，以及收到的不超過 0.1 XLM 的原生付款。這是顯示篩選，不代表垃圾資產判定。",
+  "activity.filters.hiddenHint": "包含技術記錄和手動隱藏的資產；粉塵由獨立開關控制。",
   "activity.filters.noAssets": "已載入的活動中沒有發行資產。",
   "activity.filters.apply": "套用",
   "activity.filters.clearType": "移除類型篩選",
@@ -1158,5 +1158,9 @@
   "activity.filters.at-most": "小於或等於（≤）",
   "activity.filters.at-least": "大於或等於（≥）",
   "activity.filters.amountHint": "需同時選擇比較方式與金額。按實際數量而非法幣價值篩選；資產、方向須命中同一條資金腿。",
-  "activity.filters.remove": "移除 {{filter}} 篩選"
+  "activity.filters.remove": "移除 {{filter}} 篩選",
+  "activity.filters.hideDust": "隱藏粉塵",
+  "activity.filters.dustHint": "過濾成功收到的不超過 0.1 XLM 的原生付款，獨立於「顯示隱藏記錄」。不代表垃圾交易判定。",
+  "activity.filters.dustActive": "已過濾粉塵",
+  "activity.filters.revealDust": "顯示粉塵記錄"
 }

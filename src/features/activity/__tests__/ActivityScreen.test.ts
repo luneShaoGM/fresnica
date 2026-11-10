@@ -166,8 +166,9 @@ function renderScreen(
   managingAssets = false,
   selectedAccount: AccountRecord = account,
   showFailed = false,
+  hideDust = true,
 ) {
-  const setters = Array.from({ length: 10 }, () => jest.fn());
+  const setters = Array.from({ length: 11 }, () => jest.fn());
   const values = [
     { kind: 'ready' as const, ...createActivityReadyState({ entries, nextCursor: 'cursor-1' }) },
     filter,
@@ -179,6 +180,7 @@ function renderScreen(
     managingAssets,
     {},
     now,
+    hideDust,
   ];
   let call = 0;
   mockedUseState.mockImplementation((initial: unknown) => {
@@ -210,7 +212,12 @@ describe('ActivityScreen filter/search closure', () => {
   it('opens a compact filter sheet while keeping search and the default list uncluttered', () => {
     const { root, setters } = renderScreen([trustline('trustline-1'), unsupported('other-1')]);
     const search = findElement(root, element => element.type === NativeField);
-    expect(search?.props).toMatchObject({ accessibilityLabel: 'Search activity', accessibilityHint: 'Search only the activity currently loaded on this device.', autoCapitalize: 'none', autoCorrect: false });
+    expect(search?.props).toMatchObject({
+      accessibilityLabel: 'Search activity',
+      accessibilityHint: 'Search only the activity currently loaded on this device.',
+      autoCapitalize: 'none',
+      autoCorrect: false,
+    });
     search?.props.onChangeText?.('GISSUER');
     expect(setters[2]).toHaveBeenCalledWith('GISSUER');
     findElement(root, element => element.props.accessibilityLabel === 'Filter activity')?.props.onPress?.();
@@ -219,7 +226,14 @@ describe('ActivityScreen filter/search closure', () => {
     expect(findElement(root, element => element.type === ActivityFiltersSheet)).toBeUndefined();
     const opened = renderScreen([trustline('trustline-1')], 'all', '', undefined, false, new Set(), false, true);
     const sheet = findElement(opened.root, element => element.type === ActivityFiltersSheet);
-    sheet?.props.onApply?.({ type: 'trustlines', showHidden: true, showFailed: true, hiddenAssets: new Set(), quantity: {} });
+    sheet?.props.onApply?.({
+      type: 'trustlines',
+      showHidden: true,
+      hideDust: true,
+      showFailed: true,
+      hiddenAssets: new Set(),
+      quantity: {},
+    });
     expect(opened.setters[1]).toHaveBeenCalledWith('trustlines');
     expect(opened.setters[4]).toHaveBeenCalledWith(true);
     expect(opened.setters[6]).toHaveBeenCalledWith(true);
@@ -467,7 +481,9 @@ it('renders a Swap pair with the actual destination leg and retains exact path n
   expect(textValues(row)).toContain('+7.7654321');
   expect(textValues(row)).toContain('USD');
   expect(textValues(row)).toContain('Swap');
-  expect(findElement(row, element => element.type === TokenAssetIcon && element.props.asset?.kind === 'credit')).toBeDefined();
+  expect(
+    findElement(row, element => element.type === TokenAssetIcon && element.props.asset?.kind === 'credit'),
+  ).toBeDefined();
   row.props.onPress?.();
   expect(props.onOpen).toHaveBeenCalledTimes(1);
   const onOpenOperation = jest.fn();
@@ -504,7 +520,9 @@ it.each(['manage_buy_offer', 'manage_sell_offer', 'create_passive_sell_offer'])(
     const row = ActivityRow({ ...props, entry });
     expect(textValues(row)).toContain('XLM → USD');
     expect(textValues(row).join(' ')).not.toContain(entry.amount);
-    expect(findElement(row, element => element.type === TokenAssetIcon && element.props.asset?.kind === 'credit')).toBeDefined();
+    expect(
+      findElement(row, element => element.type === TokenAssetIcon && element.props.asset?.kind === 'credit'),
+    ).toBeDefined();
     row.props.onPress?.();
     expect(props.onOpen).toHaveBeenCalledTimes(1);
   },
@@ -538,7 +556,13 @@ it.each(['liquidity_pool_deposit', 'liquidity_pool_withdraw'])(
 );
 
 it('hides technical records reversibly without losing loaded rows, cursor or issuing I/O', () => {
-  const technical = { ...unsupported('technical'), kind: 'maintenance' as const, operationType: 'manage_data', successful: true as const, dataName: 'public name' };
+  const technical = {
+    ...unsupported('technical'),
+    kind: 'maintenance' as const,
+    operationType: 'manage_data',
+    successful: true as const,
+    dataName: 'public name',
+  };
   const ordinary = unsupported('ordinary');
   const hidden = renderScreen([technical, ordinary], 'all', '', undefined, false);
   const content = findElement(hidden.root, element => element.type === ActivityContent);
@@ -649,7 +673,9 @@ it('keeps exact local identity icons instead of presenting unavailable remote im
       ],
     },
   });
-  expect(findElement(row, element => element.type === TokenAssetIcon && element.props.asset?.kind === 'credit')).toBeDefined();
+  expect(
+    findElement(row, element => element.type === TokenAssetIcon && element.props.asset?.kind === 'credit'),
+  ).toBeDefined();
   expect(row.props.accessibilityLabel).toContain('2');
   const { root } = renderScreen([trustline('example')], 'all', '', undefined, true, new Set(), false, false, {
     ...account,
@@ -665,7 +691,9 @@ it('relabels foreground midnight and resume, and clears its calendar timer on un
     jest.setSystemTime(new Date(2026, 10, 9, 23, 59, 59, 900));
     mockedUseEffect.mockReset();
     const { setters } = renderScreen([]);
-    const effect = mockedUseEffect.mock.calls.find(([, deps]) => Array.isArray(deps) && deps.length === 1 && deps[0] === true);
+    const effect = mockedUseEffect.mock.calls.find(
+      ([, deps]) => Array.isArray(deps) && deps.length === 1 && deps[0] === true,
+    );
     expect(effect).toBeDefined();
     const cleanup = effect?.[0]();
     expect(setters[9]).toHaveBeenCalledWith(new Date(2026, 10, 9, 23, 59, 59, 900));
@@ -673,14 +701,94 @@ it('relabels foreground midnight and resume, and clears its calendar timer on un
     expect(setters[9]).toHaveBeenLastCalledWith(new Date(2026, 10, 10, 0, 0, 0, 20));
     cleanup();
     expect(jest.getTimerCount()).toBe(0);
-  } finally { jest.useRealTimers(); }
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 it('keeps failed inclusion independent from known type filtering and never guesses failed quantities', () => {
-  const failed: HistoryEntry = { ...unsupported('failed-payment'), kind: 'failed', operationType: 'payment', successful: false, relatedAccounts: ['GSOURCE'] };
+  const failed: HistoryEntry = {
+    ...unsupported('failed-payment'),
+    kind: 'failed',
+    operationType: 'payment',
+    successful: false,
+    relatedAccounts: ['GSOURCE'],
+  };
   const normal = { ...trustline('ordinary') };
   const hidden = renderScreen([failed, normal], 'payments');
   expect(findElement(hidden.root, element => element.type === ActivityContent)?.props.entries).toEqual([]);
-  const included = renderScreen([failed, normal], 'payments', '', undefined, false, new Set(), false, false, account, true);
-  expect(findElement(included.root, element => element.type === ActivityContent)?.props.entries?.map(entry => entry.id)).toEqual(['failed-payment']);
+  const included = renderScreen(
+    [failed, normal],
+    'payments',
+    '',
+    undefined,
+    false,
+    new Set(),
+    false,
+    false,
+    account,
+    true,
+  );
+  expect(
+    findElement(included.root, element => element.type === ActivityContent)?.props.entries?.map(entry => entry.id),
+  ).toEqual(['failed-payment']);
+});
+
+it('exposes dust filtering explicitly and keeps it independent from technical/failed visibility', () => {
+  const dust: HistoryEntry = {
+    ...unsupported('dust'),
+    kind: 'payment',
+    operationType: 'payment',
+    successful: true,
+    amount: '0.1',
+    asset: { kind: 'native', code: 'XLM' },
+    direction: 'incoming',
+    counterparty: 'GPEER',
+    participants: [
+      { role: 'sender', identity: 'GPEER' },
+      { role: 'recipient', identity: account.address },
+    ],
+  };
+  const technical: HistoryEntry = {
+    ...unsupported('technical'),
+    kind: 'maintenance',
+    successful: true,
+    operationType: 'manage_data',
+    dataName: 'name',
+  };
+  const initial = renderScreen([dust, technical]);
+  expect(findElement(initial.root, node => node.type === ActivityContent)?.props.entries).toEqual([]);
+  const chip = findElement(initial.root, node => node.props.accessibilityLabel === 'Show dust activity');
+  expect(chip).toBeDefined();
+  chip?.props.onPress?.();
+  expect(initial.setters[10]).toHaveBeenCalledWith(false);
+  const technicalRevealed = renderScreen([dust, technical], 'all', '', undefined, true);
+  expect(
+    findElement(technicalRevealed.root, node => node.type === ActivityContent)?.props.entries?.map(entry => entry.id),
+  ).toEqual(['technical']);
+  const dustRevealed = renderScreen(
+    [dust, technical],
+    'all',
+    '',
+    undefined,
+    false,
+    new Set(),
+    false,
+    false,
+    account,
+    false,
+    false,
+  );
+  expect(
+    findElement(dustRevealed.root, node => node.type === ActivityContent)?.props.entries?.map(entry => entry.id),
+  ).toEqual(['dust']);
+  expect(findElement(dustRevealed.root, node => node.type === ActivityContent)?.props.state).toMatchObject({
+    nextCursor: 'cursor-1',
+  });
+  const reset = [...mockedUseEffect.mock.calls]
+    .reverse()
+    .find(([, deps]) => Array.isArray(deps) && deps[0] === account.address && deps[1] === account.networkId);
+  reset?.[0]();
+  expect(dustRevealed.setters[10]).toHaveBeenCalledWith(true);
+  expect(mockedLoadHistoryPage).not.toHaveBeenCalled();
 });
