@@ -42,7 +42,7 @@ it.each([
   (direction, amount, tone, operation) => {
     const row = activityRowPresentation({ ...payment, direction }, t, formatNumber);
     expect(row).toMatchObject({
-      title: 'GCOU****ARTY',
+      title: 'GCOU...ARTY',
       operation,
       subject: { kind: 'account', address: payment.counterparty },
       money: { amount, tone, asset: payment.asset },
@@ -57,7 +57,7 @@ it('uses current transient names for title and loaded-set search, with masked fa
   expect(activityRowPresentation(payment, t, formatNumber, names).title).toBe('Alice');
   expect(matchesActivitySearch(payment, 'alice', t, formatNumber, names)).toBe(true);
   names.delete(payment.counterparty);
-  expect(activityRowPresentation(payment, t, formatNumber, names).title).toBe('GCOU****ARTY');
+  expect(activityRowPresentation(payment, t, formatNumber, names).title).toBe('GCOU...ARTY');
   expect(matchesActivitySearch(payment, 'alice', t, formatNumber, names)).toBe(false);
 });
 it('uses account identity and signed starting balance for funding', () => {
@@ -68,7 +68,7 @@ it('uses account identity and signed starting balance for funding', () => {
     startingBalance: '12.123456789',
   };
   expect(activityRowPresentation(entry, t, formatNumber)).toMatchObject({
-    title: 'GCOU****ARTY',
+    title: 'GCOU...ARTY',
     operation: 'Create account',
     subject: { kind: 'account' },
     money: { amount: '−12.1234567', asset: { kind: 'native', code: 'XLM' } },

@@ -1,3 +1,4 @@
+import { formatPublicAddress } from '@ui/formatPublicAddress';
 import type { AccountRecord } from '../../capabilities/account/types';
 
 import type { BalanceDisplayState } from './balanceReadModel';
@@ -38,7 +39,7 @@ export function createHomeViewModel(
   return {
     accountLabel: account.label.trim() || 'Stellar account',
     accountAddress: account.address,
-    maskedAddress: maskAddress(account.address),
+    maskedAddress: formatPublicAddress(account.address),
     accountKindLabel: isReadOnly ? (isClassic ? 'Read-only classic account' : 'Contract account') : 'Classic account',
     networkLabel: networkLabel(account.networkId),
     isReadOnly,
@@ -50,12 +51,7 @@ export function createHomeViewModel(
   };
 }
 
-export function maskAddress(value: string): string {
-  if (value.length <= 20) {
-    return value;
-  }
-  return `${value.slice(0, 9)}…${value.slice(-7)}`;
-}
+export { formatPublicAddress as maskAddress } from '@ui/formatPublicAddress';
 
 function networkLabel(networkId: string): string {
   if (networkId === 'stellar-testnet') {

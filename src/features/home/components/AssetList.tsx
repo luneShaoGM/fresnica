@@ -42,7 +42,7 @@ export function AssetList({ balances, hiddenLiquidityPoolShareCount, onRefresh, 
   }
 
   return (
-    <View style={styles.assetList}>
+    <View>
       {issued.map(line => {
         const assetKey = line.asset.kind === 'native' ? 'XLM' : `${line.asset.code}:${line.asset.issuer}`;
 
@@ -66,10 +66,12 @@ export function AssetList({ balances, hiddenLiquidityPoolShareCount, onRefresh, 
             </View>
 
             <View style={styles.assetBalanceBlock}>
-              <Text selectable style={styles.assetBalance}>
-                {line.balance}
-              </Text>
-              <Text style={styles.assetSymbol}>{line.asset.code}</Text>
+              <View style={styles.assetAmountRow}>
+                <TokenAssetIcon asset={line.asset} small />
+                <Text selectable style={styles.assetBalance}>
+                  {line.balance}
+                </Text>
+              </View>
             </View>
           </Pressable>
         );
@@ -106,31 +108,38 @@ export function PinnedNativeAssetRow({
   return (
     <View testID="home-xlm-fixed" style={styles.pinnedNative}>
       <Pressable
-        accessibilityLabel={'XLM balance ' + line.balance}
+        accessibilityLabel={
+          'XLM ' +
+          t(breakdown ? 'home.asset.available' : 'home.asset.accountBalance') +
+          ' ' +
+          (breakdown?.available ?? line.balance)
+        }
         accessibilityRole="button"
         onPress={() => onOpenAsset(line.asset)}
-        style={styles.assetRow}
+        style={[styles.assetRow, styles.nativeAssetRow]}
       >
         <View style={styles.assetBadge}>
           <TokenAssetIcon asset={line.asset} />
         </View>
         <View style={styles.assetIdentity}>
           <Text style={styles.assetCode}>XLM</Text>
-          <Text style={styles.assetIssuer}>{t('home.asset.nativeExplanation')}</Text>
+          <Text style={styles.assetIssuer}>{t(breakdown ? 'home.asset.available' : 'home.asset.accountBalance')}</Text>
         </View>
         <View style={styles.assetBalanceBlock}>
-          <Text selectable style={styles.assetBalance}>
-            {line.balance}
-          </Text>
-          <Text style={styles.assetSymbol}>XLM</Text>
+          <View style={styles.assetAmountRow}>
+            <TokenAssetIcon asset={line.asset} small />
+            <Text selectable style={styles.assetBalance}>
+              {breakdown?.available ?? line.balance}
+            </Text>
+          </View>
         </View>
       </Pressable>
       <View style={styles.nativeBreakdownRow}>
         <Text style={styles.nativeBreakdownText}>
-          {t('home.asset.available')}: {breakdown?.available ?? '—'}
+          {t('home.asset.reserved')}
         </Text>
         <Text style={styles.nativeBreakdownText}>
-          {t('home.asset.reserved')}: {breakdown?.reserved ?? '—'}
+          {breakdown?.reserved ?? '—'} XLM
         </Text>
       </View>
     </View>

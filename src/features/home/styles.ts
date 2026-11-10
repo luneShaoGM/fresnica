@@ -9,18 +9,18 @@ export function createStyles(theme: AppTheme) {
     nativeFixedWrap: { paddingHorizontal: theme.spacing.lg },
     tokenScroll: { flex: 1 },
     tokenContent: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.xl },
-    pinnedNative: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.separatorSubtle },
+    pinnedNative: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.colors.separatorSubtle },
     nativeBreakdownRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: theme.spacing.md,
+      justifyContent: 'space-between',
       paddingBottom: theme.spacing.sm,
     },
     nativeBreakdownText: { ...theme.typography.caption, color: theme.colors.textSecondary },
     content: {
       paddingHorizontal: theme.spacing.lg,
       paddingTop: theme.spacing.sm,
-      paddingBottom: theme.spacing.xl,
+      paddingBottom: 0,
     },
     header: {
       minHeight: 48,
@@ -129,7 +129,7 @@ export function createStyles(theme: AppTheme) {
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: theme.spacing.sm,
-      marginBottom: theme.spacing.sm,
+      marginBottom: 0,
     },
     sectionTitle: {
       ...theme.typography.sectionTitle,
@@ -285,10 +285,6 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.negativeStrong,
       textAlign: 'center',
     },
-    assetList: {
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: theme.colors.separatorSubtle,
-    },
     assetRow: {
       minHeight: 68,
       flexDirection: 'row',
@@ -299,18 +295,10 @@ export function createStyles(theme: AppTheme) {
       paddingVertical: theme.spacing.sm,
     },
     assetBadge: {
-      minWidth: 44,
-      minHeight: 36,
+      width: 40,
+      minHeight: 40,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: theme.radii.md,
-      backgroundColor: theme.colors.surfaceMuted,
-      paddingHorizontal: theme.spacing.xs,
-    },
-    assetBadgeText: {
-      ...theme.typography.caption,
-      color: theme.colors.textPrimary,
-      fontWeight: '700',
     },
     assetIdentity: {
       flex: 1,
@@ -326,17 +314,18 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.textTertiary,
     },
     assetBalanceBlock: {
+      flexShrink: 1,
+      minWidth: 0,
       alignItems: 'flex-end',
       gap: theme.spacing.xs,
     },
+    assetAmountRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs, flexShrink: 1 },
+    nativeAssetRow: { minHeight: 56, borderBottomWidth: 0 },
     assetBalance: {
+      flexShrink: 1,
       ...theme.typography.label,
       color: theme.colors.textPrimary,
       fontVariant: ['tabular-nums'],
-    },
-    assetSymbol: {
-      ...theme.typography.caption,
-      color: theme.colors.textTertiary,
     },
     hiddenAssetsText: {
       ...theme.typography.caption,

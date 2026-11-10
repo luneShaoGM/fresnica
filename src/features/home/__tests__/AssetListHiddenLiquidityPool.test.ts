@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, Text } from 'react-native';
-import { AssetList } from '../components/AssetList';
+import { AssetList, PinnedNativeAssetRow } from '../components/AssetList';
+import { projectNativeBalanceBreakdown } from '../../../capabilities/balance/nativeBalanceBreakdown';
 
 jest.mock('@ui/theme', () => {
   const actual = jest.requireActual('@ui/theme') as typeof import('@ui/theme');
@@ -8,6 +9,25 @@ jest.mock('@ui/theme', () => {
     ...actual,
     useThemedStyles: (factory: (theme: typeof actual.defaultTheme) => unknown) => factory(actual.defaultTheme),
   };
+});
+
+it('presents available XLM and reserve separately, falls back honestly, and opens the exact native asset', () => {
+  const breakdown = projectNativeBalanceBreakdown({
+    address: 'GACCOUNT', subentryCount: 0, numSponsoring: 0, numSponsored: 0,
+    flags: { authRequired: false, authClawbackEnabled: false },
+    balances: [{ kind: 'native', balance: native.balance, sellingLiabilities: '0' }],
+  }, { baseReserveStroops: 5000000, baseFeeStroops: 100 });
+  const onOpenAsset = jest.fn();
+  const render = (value?: typeof breakdown) => PinnedNativeAssetRow({ line: native, breakdown: value, onOpenAsset, t: key => key });
+  const ready = render(breakdown);
+  expect(texts(ready)).toEqual(['XLM', 'home.asset.available', '11.0000000', 'home.asset.reserved', '1.0000000 XLM']);
+  const row = elements(ready, Pressable)[0].props as { onPress: () => void; accessibilityLabel: string };
+  expect(row.accessibilityLabel).toBe('XLM home.asset.available 11.0000000');
+  row.onPress();
+  expect(onOpenAsset).toHaveBeenCalledWith(native.asset);
+  expect(texts(render())).toContain('home.asset.accountBalance');
+  expect(texts(render())).toContain(native.balance);
+  expect(texts(render())).toContain('— XLM');
 });
 jest.mock('../../assets/TokenAssetIcon', () => ({ TokenAssetIcon: () => null }));
 

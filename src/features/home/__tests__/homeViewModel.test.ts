@@ -40,6 +40,8 @@ describe('createHomeViewModel', () => {
     expect(model.canFundWithFriendbot).toBe(false);
     expect(model.isReadOnly).toBe(false);
     expect(model.networkLabel).toBe('Testnet');
+    expect(model.maskedAddress).toBe('GABC...LMNO');
+    expect(model.accountAddress).toBe(account.address);
   });
 
   it.each(['active', 'inactive'] as const)('gates Send and Swap from a stale %s snapshot', status => {

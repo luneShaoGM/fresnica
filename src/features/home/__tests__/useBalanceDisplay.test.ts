@@ -12,6 +12,10 @@ import {
   balanceSnapshot,
 } from '../../../platform/persistence/__tests__/balanceCacheRepositoryContract';
 import { useBalanceDisplay } from '../useBalanceDisplay';
+import { matchingNativeBalance, useNativeBalanceBreakdown } from '../useNativeBalanceBreakdown';
+import type { BalanceProductDependencies } from '@capabilities/balance/BalanceCacheHydration';
+import type { NativeBalanceReader } from '@capabilities/balance/nativeBalanceBreakdown';
+import type { StellarAccountStateResult } from '@capabilities/stellar/types';
 
 type Slot = { value?: unknown; deps?: readonly unknown[]; cleanup?: () => void };
 let mockSlots: Slot[] = [];
@@ -502,4 +506,95 @@ it('keeps a no-cache error visible during automatic retry instead of flashing a 
   pending.resolve(active());
   await settle();
   expect(current.render(accountA, true, 1).state).toMatchObject({ kind: 'ready', stale: false });
+});
+
+function nativeSetup() {
+  const current = setup();
+  const response = (total = '10.0000000', subentryCount = 0): StellarAccountStateResult => ({
+    status: 'active',
+    account: {
+      address: accountA.address,
+      subentryCount,
+      numSponsoring: 0,
+      numSponsored: 0,
+      flags: { authRequired: false, authClawbackEnabled: false },
+      balances: [{ kind: 'native', balance: total, sellingLiabilities: '0' }],
+    },
+  });
+  const reader = {
+    networkId: accountA.networkId,
+    loadAccountState: jest.fn(async () => response()),
+    loadLedgerParameters: jest.fn(async () => ({ baseReserveStroops: 5000000, baseFeeStroops: 100 })),
+  };
+  const deps: BalanceProductDependencies = { ...current.deps, nativeReader: reader };
+  const useRender = (revision = 0, snapshot = 0, account = accountA, activeScreen = true, nativeReader: NativeBalanceReader = reader) => {
+    mockCursor = 0;
+    return useNativeBalanceBreakdown(account, nativeReader === reader ? deps : { ...deps, nativeReader }, activeScreen, revision, snapshot);
+  };
+  return { ...current, render: useRender, reader, response };
+}
+
+it('silently retains XLM details through revision, snapshot and focus refreshes and publishes new reserve data', async () => {
+  const current = nativeSetup();
+  current.render();
+  current.effects();
+  await settle();
+  const accepted = current.render();
+  expect(accepted).toMatchObject({ available: '9.0000000', reserved: '1.0000000' });
+  const next = deferred<StellarAccountStateResult>();
+  current.reader.loadAccountState.mockReturnValueOnce(next.promise);
+  expect(current.render(1, 1)).toBe(accepted);
+  current.effects();
+  expect(current.render(1, 1)).toBe(accepted);
+  next.resolve(current.response('10.0000000', 2));
+  await settle();
+  const updated = current.render(1, 1);
+  expect(updated).toMatchObject({ available: '8.0000000', reserved: '2.0000000' });
+  expect(matchingNativeBalance(updated, '11.0000000', false)).toBeUndefined();
+  expect(matchingNativeBalance(updated, '10.0000000', true)).toBeUndefined();
+  expect(current.render(1, 1, accountA, false)).toBeUndefined();
+  current.effects();
+  expect(current.render(1, 1)).toBe(updated);
+  current.effects();
+});
+
+it('clears XLM detail after a real refresh failure, and recovers on retry', async () => {
+  const current = nativeSetup();
+  current.render();
+  current.effects();
+  await settle();
+  const accepted = current.render();
+  current.reader.loadAccountState.mockRejectedValueOnce(new Error('offline'));
+  expect(current.render(1)).toBe(accepted);
+  current.effects();
+  await settle();
+  expect(current.render(1)).toBeUndefined();
+  current.render(2);
+  current.effects();
+  await settle();
+  expect(current.render(2)).toEqual(accepted);
+});
+
+it('isolates XLM details across account, network and reader changes and ignores obsolete completions', async () => {
+  const current = nativeSetup();
+  current.render();
+  current.effects();
+  await settle();
+  const accepted = current.render();
+  const obsolete = deferred<StellarAccountStateResult>();
+  current.reader.loadAccountState.mockReturnValueOnce(obsolete.promise);
+  current.render(1);
+  current.effects();
+  const otherAccount = { ...accountA, id: 'b', address: 'GB' };
+  expect(current.render(1, 0, otherAccount)).toBeUndefined();
+  current.effects();
+  obsolete.resolve(current.response());
+  await settle();
+  expect(current.render(1, 0, otherAccount)).toBeUndefined();
+  expect(current.render(1, 0, { ...accountA, networkId: 'stellar-mainnet' })).toBeUndefined();
+  current.effects();
+  expect(current.render(2, 0, accountA, true, { ...current.reader })).toBeUndefined();
+  current.effects();
+  await settle();
+  expect(current.render(2, 0, accountA, true, current.reader)).not.toBe(accepted);
 });
