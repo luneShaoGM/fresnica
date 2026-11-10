@@ -223,16 +223,6 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.textSecondary,
       textAlign: 'center',
     },
-    retryButton: {
-      minHeight: 40,
-      justifyContent: 'center',
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: theme.spacing.xs,
-    },
-    retryText: {
-      ...theme.typography.label,
-      color: theme.colors.actionPrimaryPressed,
-    },
     readOnlyNotice: {
       marginBottom: theme.spacing.md,
       borderRadius: theme.radii.md,
