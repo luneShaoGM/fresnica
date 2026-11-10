@@ -302,3 +302,25 @@ requiring an opt-in session toggle for public Token images.
   wiring, removal of redundant page toggles, and Privacy settings
   navigation/disclosure. JS/Realm/CI gates do not certify native
   visual/product-flow acceptance.
+
+## 2026-11-10 PR #180 offline curated-icon recovery (Work P2 follow-up)
+
+- Mainnet curated sources share a **single in-flight** fetch across active
+  TokenIconPort consumers. Once the fetch settles (including failures),
+  release that Promise and its controller. A newly mounted/active Token
+  consumer in the same AppServices session must be allowed to try again.
+- CachedAssetCatalog.loadSource remains the **only** authority for its
+  30-second failure cooldown, 12-hour successful cache TTL and last-good
+  source preservation. TokenIconPort must not permanently memoize a failed
+  directory refresh, force a refresh past cooldown, or run a timer/poll.
+- Offline bootstrap -> no cached directory/no issuer TOML -> local default
+  artwork; a later consumer during cooldown makes no extra network read;
+  after network recovery and cooldown, a later consumer obtains the newly
+  loaded curated icon without disabling privacy settings or restarting
+  AppServices. A fresh catalog prevents redundant network reads.
+- A cancelled/old refresh must not clear a newer in-flight refresh after
+  privacy OFF/ON or session retirement. No unauthorized background fetch,
+  Testnet curated directory, cross-network data, or altered native image
+  safety/issuer rules are permitted.
+- This is a repository-level regression: live Android/iOS offline-to-online
+  product-flow acceptance remains unexecuted and separate.

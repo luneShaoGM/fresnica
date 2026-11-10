@@ -78,18 +78,26 @@ export function createTokenIconPort(
     });
   }
 
-  // Curated Mainnet directories are fetched once per opt-in session, even if
-  // Home mounts many assets concurrently. Testnet uses verified issuer TOML
-  // only: no Mainnet issuer/logo candidate can cross the network boundary.
+  // Share only in-flight Mainnet directory loads across mounted consumers.
+  // The cached catalog owns its 12-hour TTL and 30-second failure cooldown,
+  // so a later consumer can retry after the network recovers. Testnet uses
+  // issuer TOML only; Mainnet candidates never cross the network boundary.
   function refreshCuratedCatalog(): Promise<void> {
     if (input.networkId !== 'stellar-mainnet' || !input.catalog?.loadSource) return Promise.resolve();
     if (!catalogRefresh) {
       catalogController = new AbortController();
       const signal = catalogController.signal;
       const loader = input.catalog.loadSource;
-      catalogRefresh = Promise.allSettled(
+      const current = Promise.allSettled(
         CURATED_ASSET_SOURCES.map(source => loader(input.networkId, source.id, signal)),
-      ).then(() => undefined);
+      ).then(() => {
+        // An old aborted request must not clear a newer session's loader.
+        if (catalogRefresh === current) {
+          catalogRefresh = undefined;
+          catalogController = undefined;
+        }
+      });
+      catalogRefresh = current;
     }
     return catalogRefresh;
   }

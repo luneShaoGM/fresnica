@@ -645,3 +645,17 @@ Existing source-identity validation, insecure response rejection,
 bounded native transport, read-only candidate behavior, Mainnet/Testnet
 isolation, and signed transaction/recovery semantics remain unchanged.
 Device-level privacy/network/visual acceptance remains deferred.
+
+### PR #180 2026-11-10 S06 Work P2: offline curated-logo recovery
+
+**Targeted fix / Adapt:** Once all three allowed Mainnet curated source
+requests settle, TokenIconPort releases the shared in-flight Promise
+rather than keeping the first offline failure for the entire AppServices
+session. New mounted consumers retry through the existing
+CachedAssetCatalog cache/30-second cooldown (no polling, no forced
+refresh or bypass). Verified offline first mount, immediate re-mount
+without new HTTP reads, online recovery after cooldown, restored logo,
+and valid catalog re-use in a single session. Preserves opt-out,
+Testnet isolation, existing source/cache fail-closed behavior, secure
+native download, and local fallback. Native visual/offline recovery
+acceptance is deferred pending device execution.
