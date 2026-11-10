@@ -14,6 +14,9 @@ before merge under the provenance policy.
 
 ## Visible behavior
 
+- Home Token lists have no bottom refresh text/button, including the empty
+  issued-token state. Pull-to-refresh and automatic silent revalidation remain
+  available; real failures retain their existing retry feedback.
 - The category header directly precedes pinned XLM, without an empty footer band.
 - XLM stays outside the independently scrolling issued-token region. Show its
   logo/name, a prominent available balance when verified, and a muted reserve

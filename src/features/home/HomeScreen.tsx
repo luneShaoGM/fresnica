@@ -411,7 +411,6 @@ function renderPortfolio(
     <AssetList
       balances={state.snapshot.balances}
       hiddenLiquidityPoolShareCount={state.snapshot.hiddenLiquidityPoolShareCount}
-      onRefresh={onRefresh}
       onOpenAsset={onOpenAsset}
     />
   );

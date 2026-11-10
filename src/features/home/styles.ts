@@ -223,16 +223,6 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.textSecondary,
       textAlign: 'center',
     },
-    retryButton: {
-      minHeight: 40,
-      justifyContent: 'center',
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: theme.spacing.xs,
-    },
-    retryText: {
-      ...theme.typography.label,
-      color: theme.colors.actionPrimaryPressed,
-    },
     readOnlyNotice: {
       marginBottom: theme.spacing.md,
       borderRadius: theme.radii.md,
@@ -333,17 +323,6 @@ export function createStyles(theme: AppTheme) {
       paddingTop: theme.spacing.sm,
     },
     freshness: { gap: theme.spacing.xs, paddingVertical: theme.spacing.sm },
-    refreshLink: {
-      alignSelf: 'center',
-      minHeight: 44,
-      justifyContent: 'center',
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: theme.spacing.sm,
-    },
-    refreshText: {
-      ...theme.typography.label,
-      color: theme.colors.actionPrimaryPressed,
-    },
     pressed: {
       opacity: 0.68,
     },

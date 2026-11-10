@@ -11,11 +11,10 @@ import { createStyles } from '../styles';
 type Props = Readonly<{
   balances: readonly BalanceLine[];
   hiddenLiquidityPoolShareCount: number;
-  onRefresh: () => void;
   onOpenAsset: (asset: BalanceLine['asset']) => void;
 }>;
 
-export function AssetList({ balances, hiddenLiquidityPoolShareCount, onRefresh, onOpenAsset }: Props) {
+export function AssetList({ balances, hiddenLiquidityPoolShareCount, onOpenAsset }: Props) {
   const styles = useThemedStyles(createStyles);
   const issued = balances.filter(line => line.asset.kind === 'credit');
   const hiddenPoolNotice =
@@ -30,13 +29,6 @@ export function AssetList({ balances, hiddenLiquidityPoolShareCount, onRefresh, 
       <View style={styles.stateBox}>
         <Text style={styles.stateText}>No other assets.</Text>
         {hiddenPoolNotice}
-        <Pressable
-          accessibilityRole="button"
-          onPress={onRefresh}
-          style={({ pressed }) => [styles.retryButton, pressed ? styles.pressed : undefined]}
-        >
-          <Text style={styles.retryText}>Refresh balances</Text>
-        </Pressable>
       </View>
     );
   }
@@ -78,14 +70,6 @@ export function AssetList({ balances, hiddenLiquidityPoolShareCount, onRefresh, 
       })}
 
       {hiddenPoolNotice}
-
-      <Pressable
-        accessibilityRole="button"
-        onPress={onRefresh}
-        style={({ pressed }) => [styles.refreshLink, pressed ? styles.pressed : undefined]}
-      >
-        <Text style={styles.refreshText}>Refresh balances</Text>
-      </Pressable>
     </View>
   );
 }
