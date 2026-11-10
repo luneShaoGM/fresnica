@@ -1,3 +1,4 @@
+import { formatPublicAddress as shortAddress } from '@ui/formatPublicAddress';
 import { claimPredicateSummary } from './claimPredicateSummary';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Pressable, ScrollView, Text, View } from 'react-native';
@@ -880,8 +881,4 @@ function participantRoleLabel(role: HistoryParticipantRole, t: Translate): strin
 
 function directionLabel(direction: HistoryDirection, t: Translate): string {
   return t(`activity.detail.${direction}`);
-}
-
-function shortAddress(value: string): string {
-  return value.length <= 22 ? value : `${value.slice(0, 9)}…${value.slice(-7)}`;
 }

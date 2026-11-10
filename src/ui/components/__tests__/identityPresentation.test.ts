@@ -26,7 +26,7 @@ function nodes(root: React.ReactNode, type: unknown): React.ReactElement<Props>[
 it('keeps the default account card address selectable with its public full-address accessibility label', () => {
   const root = AccountIdentityCard({ address: 'GCOUNTERPARTY', name: 'Alice', label: 'Recipient' });
   const text = nodes(root, Text);
-  expect(text.map(node => node.props.children)).toEqual(['Recipient', 'Alice', 'GCOU****ARTY']);
+  expect(text.map(node => node.props.children)).toEqual(['Recipient', 'Alice', 'GCOU...ARTY']);
   expect(nodes(root, IdentityAvatar)[0].props.identity).toBe('GCOUNTERPARTY');
   expect(text.find(node => node.props.selectable)?.props.accessibilityLabel).toBe('GCOUNTERPARTY');
 });
@@ -69,7 +69,7 @@ it('shows local identity source as secondary display text without changing the u
     'Recipient',
     'Alice',
     'Address-only match',
-    'GCOU****ARTY',
+    'GCOU...ARTY',
   ]);
 });
 it('keeps compact account avatars tied to exact address across renames, with masked fallback and no nested selectable control', () => {
@@ -85,7 +85,7 @@ it('keeps compact account avatars tied to exact address across renames, with mas
   const renamed = render('Bob');
   expect(nodes(initial, IdentityAvatar)[0].props.identity).toBe('GCOUNTERPARTY');
   expect(nodes(renamed, IdentityAvatar)[0].props.identity).toBe('GCOUNTERPARTY');
-  expect(nodes(render(''), Text).map(node => node.props.children)).toEqual(['GCOU****ARTY', 'Received · 12:34:56']);
+  expect(nodes(render(''), Text).map(node => node.props.children)).toEqual(['GCOU...ARTY', 'Received · 12:34:56']);
   expect(nodes(initial, Text).some(node => node.props.selectable)).toBe(false);
 });
 it('uses a deterministic local identity pattern that includes case and issuer input', () => {

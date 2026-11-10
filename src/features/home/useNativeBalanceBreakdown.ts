@@ -16,14 +16,12 @@ export function useNativeBalanceBreakdown(
   const revision = JSON.stringify([invalidationRevision, snapshotRevision ?? null]);
   const [state, setState] = useState<{
     partition: string;
-    revision: string;
     reader: NonNullable<BalanceProductDependencies['nativeReader']>;
     value: NativeBalanceBreakdown;
   }>();
   useEffect(() => {
     let current = true;
     if (!active || dependencies.networkId !== networkId || identityKind !== 'classic' || !nativeReader) {
-      setState(undefined);
       return () => {
         current = false;
       };
@@ -31,7 +29,7 @@ export function useNativeBalanceBreakdown(
     if (active && dependencies.networkId === networkId && identityKind === 'classic' && nativeReader) {
       void loadNativeBalanceBreakdown(nativeReader, { address, networkId, identityKind })
         .then(result => {
-          if (current) setState({ partition, revision, reader: nativeReader, value: result });
+          if (current) setState({ partition, reader: nativeReader, value: result });
         })
         .catch(() => {
           if (current) setState(undefined);
@@ -51,7 +49,7 @@ export function useNativeBalanceBreakdown(
     partition,
     revision,
   ]);
-  return active && state?.partition === partition && state.revision === revision && state.reader === nativeReader
+  return active && state?.partition === partition && state.reader === nativeReader
     ? state.value
     : undefined;
 }

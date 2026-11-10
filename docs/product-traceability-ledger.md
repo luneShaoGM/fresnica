@@ -670,3 +670,15 @@ records account remote-address images versus Fresnica local patterns, pair layou
 contract/document and unknown-reference differences. Avatar implementation is not
 changed by this investigation, and no new address-avatar provider is authorized.
 S13 stays L3 partial; native acceptance remains independently open.
+
+### S05/S06 Home Token list and shared address presentation — 2026-11-10 candidate
+
+Clean-room **Adapt** from the pinned Stellar Token list visual roles: compact
+category-to-XLM spacing, avatar/identity and amount icon alignment, available
+XLM with a separate reserve row, and silent same-partition reserve refresh.
+All existing address abbreviation helpers now delegate to the shared
+`first4...last4` formatter (S02/S09/S11/S13/S22 consumers). Exact identities,
+copy/share/QR, Balance Capability and transaction policy are unchanged.
+Behavior/provenance and acceptance boundaries:
+`behavior-specs/home-token-list-presentation.md`. No maturity promotion or
+new native acceptance is claimed; independent exact-HEAD review precedes merge.

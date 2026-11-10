@@ -1,3 +1,4 @@
+import { formatPublicAddress as maskRequestIssuer } from '@ui/formatPublicAddress';
 import React from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
@@ -289,10 +290,7 @@ export function RequestFormScreen(props: Props) {
   );
 }
 
-export function maskRequestIssuer(value: string): string {
-  if (value.length <= 16) return value;
-  return `${value.slice(0, 8)}…${value.slice(-6)}`;
-}
+export { formatPublicAddress as maskRequestIssuer } from '@ui/formatPublicAddress';
 
 type ActionStyles = ReturnType<typeof createRequestStyles>;
 

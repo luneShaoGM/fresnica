@@ -1,3 +1,4 @@
+import { formatPublicAddress as shortAddress } from '@ui/formatPublicAddress';
 import React from 'react';
 import {
   Pressable,
@@ -92,13 +93,6 @@ export function WalletReadyScreen({accounts, onAddAccount, onOpenSecurity}: Prop
       </View>
     </Screen>
   );
-}
-
-function shortAddress(address: string): string {
-  if (address.length <= 24) {
-    return address;
-  }
-  return `${address.slice(0, 10)}…${address.slice(-8)}`;
 }
 
 function createStyles(theme: AppTheme) {

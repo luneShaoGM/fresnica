@@ -1,3 +1,4 @@
+import { formatPublicAddress as shortAddress } from '@ui/formatPublicAddress';
 import { isPathSwap } from '@capabilities/history/pathPaymentHistory';
 import { isDustHistory, isNormallyHiddenHistory } from '@capabilities/history/historyDisplayVisibility';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -893,11 +894,4 @@ export function StatePanel({
       {action && onAction ? <NativeButton label={action} onPress={onAction} size="sm" variant="secondary" /> : null}
     </View>
   );
-}
-
-function shortAddress(value: string): string {
-  if (value.length <= 22) {
-    return value;
-  }
-  return `${value.slice(0, 9)}…${value.slice(-7)}`;
 }
