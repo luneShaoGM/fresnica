@@ -10,6 +10,13 @@ import {
   completeVerifiedSessionUnlock,
 } from './sessionLockState';
 
+type SessionRepository = ExistingAppPassphraseVerificationDependencies['repository'];
+export type NetworkAccessContinuation = Readonly<{
+  resume: (repository: SessionRepository) => number | undefined;
+  cancel: () => void;
+  isValid: () => boolean;
+}>;
+
 const policy = { enabled: true, backgroundTimeoutMs: 30_000 } as const;
 export type ApplicationSessionSnapshot = Readonly<{
   locked: boolean;
@@ -23,11 +30,15 @@ export type ApplicationSessionSnapshot = Readonly<{
 export function createApplicationSession(
   deps: ExistingAppPassphraseVerificationDependencies & { sessionAuthentication?: SessionAuthenticationPort },
   now: () => number = () => performance.now(),
+  continuation?: NetworkAccessContinuation,
 ) {
   let state = createSessionLockState({ ...policy, enabled: requiresExistingAppPassphrase(deps.repository) });
+  const continuedBackgroundRevision = continuation?.resume(deps.repository);
+  if (continuedBackgroundRevision !== undefined) state = completeVerifiedSessionUnlock();
   let foreground = false;
   let revision = 0;
-  let backgroundRevision = 0;
+  // Keep native privacy acknowledgements aligned across network generations.
+  let backgroundRevision = continuedBackgroundRevision ?? 0;
   let closed = false;
   let active: AbortController | undefined;
   let snapshot: ApplicationSessionSnapshot;
@@ -88,6 +99,29 @@ export function createApplicationSession(
       interrupt();
       state = markSessionLocked();
       publish();
+    },
+    continueAcrossNetworkChange(): NetworkAccessContinuation | undefined {
+      if (closed || !foreground || active || state.status !== 'unlocked') return undefined;
+      const inventory = JSON.stringify(deps.repository.listSigners());
+      const started = now();
+      const continuedRevision = backgroundRevision;
+      let available = true;
+      let cancelled = false;
+      const isValid = () => !cancelled && now() - started < policy.backgroundTimeoutMs;
+      // Browsing access survives one immediate rebuild; credentials and signing authority never transfer.
+      return {
+        resume(repository) {
+          const allowed = available;
+          available = false;
+          return allowed && isValid() && JSON.stringify(repository.listSigners()) === inventory
+            ? continuedRevision
+            : undefined;
+        },
+        cancel() {
+          cancelled = true;
+        },
+        isValid,
+      };
     },
     canUseBiometrics: () => deps.sessionAuthentication?.canAuthenticate() ?? Promise.resolve(false),
     async unlockWithBiometrics(reason: string, cancelLabel: string) {

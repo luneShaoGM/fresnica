@@ -9,6 +9,15 @@ System Auth preference and the earlier passphrase-only App-lock limitation.
 - App access: prefer the OS biometric button when strong biometrics are available
   and enrolled; preserve independently verified App Passphrase fallback. Existing
   protected-wallet cold/manual/30-second-background locking remains unchanged.
+- Confirmed network/node switching within the unlocked foreground App requires
+  confirmation only. Rebuilding immutable network services carries browsing access
+  once to the same signer inventory for at most 30 seconds; background during
+  rebuilding cancels it, including a return to foreground before completion.
+  Cold launch, manual lock and existing background locking still require unlock.
+  No passphrase, biometric proof or signing/export authority transfers. Old
+  network services and pending results remain retired; network identity checks,
+  endpoint probing, backup/busy/unresolved-submission guards remain authoritative.
+  Enabling Developer Mode is a separate existing warning/passphrase operation.
 - Every Payment, Trustline, Swap, Claimable and dApp transaction signature requires
   a freshly supplied App Passphrase. Review forms request it from the start;
   each explicit attempt consumes/clears the input. Retry requires new input.

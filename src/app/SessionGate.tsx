@@ -41,7 +41,7 @@ export function SessionGate({
     if (session && snapshot.foreground) refresh();
   }, [session, snapshot.foreground, refresh]);
   useLayoutEffect(() => {
-    if (!snapshot.foreground) return;
+    if (runtime.kind !== 'ready' || !snapshot.foreground) return;
     let live = true;
     const frame = requestAnimationFrame(() => {
       readNativePrivacyState()

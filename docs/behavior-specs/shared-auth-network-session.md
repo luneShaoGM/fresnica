@@ -6,6 +6,11 @@ S04/S24/S25; Phase 0 passed and architecture carriers 2a/2b/2c exist. Adapt prod
 
 This foundation does not implement generic biometric application unlock, new transaction authority, dApp signing or new cryptography. Existing routine/passphrase-required transaction authorization remains authoritative. Strict scope extends to app network-session composition and Network settings.
 
+Current authentication policy: [s04-authentication-policy.md](s04-authentication-policy.md)
+supersedes historical routine System Auth and blocked biometric-unlock statements
+below. Confirmed network selection preserves foreground browsing access across
+service rebuilding; it does not grant key-operation authority.
+
 ## Authentication design
 
 | Purpose | Authority | Current boundary |

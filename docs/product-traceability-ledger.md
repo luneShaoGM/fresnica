@@ -737,3 +737,18 @@ Work exact-HEAD review remains required before merge.
 ### 2026-11-11 S04 authentication policy correction (candidate)
 
 Owner defines all wallet-key operations, including ordinary signatures, as important. [Current policy](behavior-specs/s04-authentication-policy.md): biometrics for App access only, fresh App Passphrase for every transaction/message signature and key operation. Replaces the historical routine-signing System Auth preference and App-unlock upstream blocker. SDK/Core cryptography is unchanged; independent native OS authentication returns only an App-access result. S04/S07/S10/S11/S18/S19/S30 native product acceptance and exact-HEAD independent review remain separate; no L4 claim.
+
+
+### 2026-11-11 S04/S24 confirmed network switch access correction (candidate)
+
+Phase 0 passed; clean-room Adapt of existing Home/Settings network confirmation
+and App-session ownership. Confirmed selection retains foreground browsing access
+once across immutable network-service rebuilding for the same signer inventory.
+Background during rebuilding, timeout or changed inventory fails closed; native
+privacy background acknowledgements retain their cumulative count. Cold launch
+and manual/background locks remain. No credential/signing/export authority is
+carried; old SDK/services/results retire, and endpoint, network/account isolation,
+busy/backup/unresolved-submission guards remain. Current behavior:
+[authentication policy](behavior-specs/s04-authentication-policy.md).
+Automated lifecycle/composition/App-owner tests are separate from native
+network-switch acceptance and exact-HEAD Work review; no maturity promotion.

@@ -255,3 +255,98 @@ test('cancelled biometric completion cannot clear a newer in-flight authenticati
   await second;
   expect(f.session.getSnapshot().locked).toBe(false);
 });
+
+test('explicit network rebuild continues browsing once without another credential, old authority is retired', async () => {
+  const f = fixture();
+  f.session.setForeground(true);
+  await f.session.unlock('fixture phrase');
+  const oldSdk = f.session.bindSensitive({ sign: jest.fn() });
+  const continuation = f.session.continueAcrossNetworkChange();
+  f.session.close();
+  const next = createApplicationSession(
+    { repository: f.repository, sdk: {} as FresnicaSdkPort },
+    () => 0,
+    continuation,
+  );
+  next.setForeground(true);
+  expect(next.getSnapshot().locked).toBe(false);
+  expect(f.verify).toHaveBeenCalledTimes(1);
+  expect(() => oldSdk.sign()).toThrow('application-session-locked');
+  const replay = createApplicationSession(
+    { repository: f.repository, sdk: {} as FresnicaSdkPort },
+    () => 0,
+    continuation,
+  );
+  expect(replay.getSnapshot().locked).toBe(true);
+  next.lock();
+  expect(next.getSnapshot().locked).toBe(true);
+});
+test.each(['locked', 'background', 'pending'] as const)(
+  'network browsing continuation is unavailable while %s',
+  async action => {
+    const f = fixture();
+    f.session.setForeground(true);
+    if (action !== 'locked') await f.session.unlock('fixture phrase');
+    if (action === 'background') f.session.setForeground(false);
+    if (action === 'pending') {
+      f.session.lock();
+      let complete!: (verified: boolean) => void;
+      f.verify.mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            complete = resolve;
+          }),
+      );
+      const pending = f.session.unlock('fixture phrase');
+      expect(f.session.continueAcrossNetworkChange()).toBeUndefined();
+      complete(true);
+      await pending;
+      return;
+    }
+    expect(f.session.continueAcrossNetworkChange()).toBeUndefined();
+  },
+);
+test.each(['cancel', 'timeout', 'inventory'] as const)('network continuation fails closed after %s', async action => {
+  const f = fixture();
+  f.session.setForeground(true);
+  await f.session.unlock('fixture phrase');
+  const continuation = f.session.continueAcrossNetworkChange()!;
+  f.session.close();
+  if (action === 'cancel') continuation.cancel();
+  if (action === 'timeout') f.setTime(30000);
+  if (action === 'inventory')
+    f.repository.createSigner({
+      id: 'new',
+      kind: 'protected-software',
+      publicKey: 'GNEW',
+      envelopeJson: 'dummy',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  const next = createApplicationSession(
+    { repository: f.repository, sdk: {} as FresnicaSdkPort },
+    () => 0,
+    continuation,
+  );
+  expect(next.getSnapshot().locked).toBe(true);
+});
+
+test('network continuation keeps cumulative background acknowledgements without changing timeout behavior', async () => {
+  const f = fixture();
+  f.session.setForeground(true);
+  await f.session.unlock('fixture phrase');
+  f.session.setForeground(false);
+  f.setTime(100);
+  f.session.setForeground(true);
+  const continuation = f.session.continueAcrossNetworkChange();
+  f.session.close();
+  const next = createApplicationSession(
+    { repository: f.repository, sdk: {} as FresnicaSdkPort },
+    () => 100,
+    continuation,
+  );
+  next.setForeground(true);
+  expect(next.getSnapshot()).toMatchObject({ locked: false, backgroundRevision: 1 });
+  next.setForeground(false);
+  expect(next.getSnapshot().backgroundRevision).toBe(2);
+});

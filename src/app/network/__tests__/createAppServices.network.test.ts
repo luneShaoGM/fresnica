@@ -541,3 +541,27 @@ it('leases every product SDK before work so an old screen cannot reuse a later u
   await expect(fresh.send.sdk.verifyProtectedSignerPassphrase(input)).resolves.toBe(true);
   services.close();
 });
+
+it('confirmed network selection preserves App browsing access, retires old services and cold relaunch still locks', async () => {
+  mockPreferences = { ...DEFAULT_NETWORK_PREFERENCES, developerMode: true };
+  const changed = jest.fn();
+  const previous = await createAppServices({ onNetworkChanged: changed });
+  previous.applicationSession!.setForeground(true);
+  await previous.applicationSession!.unlock('fixture phrase');
+  mockSdk.verifyProtectedSignerPassphrase.mockClear();
+  mockProbe.mockResolvedValueOnce(NETWORKS['stellar-testnet'].networkPassphrase);
+  await previous.networkSettings!.selectNode('stellar-testnet', NETWORKS['stellar-testnet'].horizonUrl);
+  const continuation = changed.mock.calls[0][0];
+  expect(continuation).toBeDefined();
+  const next = await createAppServices({ networkAccessContinuation: continuation });
+  next.applicationSession!.setForeground(true);
+  expect(next.networkProfile.id).toBe('stellar-testnet');
+  expect(next.applicationSession!.getSnapshot().locked).toBe(false);
+  expect(mockSdk.verifyProtectedSignerPassphrase).not.toHaveBeenCalled();
+  expect(() => previous.security.sdk.verifyProtectedSignerPassphrase({} as never)).toThrow('network-session-retired');
+  const cold = await createAppServices();
+  expect(cold.applicationSession!.getSnapshot().locked).toBe(true);
+  previous.close();
+  next.close();
+  cold.close();
+});

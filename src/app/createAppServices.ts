@@ -1,5 +1,9 @@
 import { createSessionAuthentication } from '../platform/system/sessionAuthentication';
-import { createApplicationSession, type ApplicationSession } from './applicationSession';
+import {
+  createApplicationSession,
+  type ApplicationSession,
+  type NetworkAccessContinuation,
+} from './applicationSession';
 import { createNetworkAccountRepository } from '../capabilities/account/createNetworkAccountRepository';
 import { createWalletSelectionPreferences } from './createWalletSelectionPreferences';
 import { authorizeSensitiveSetting } from '../capabilities/application-security/authorizeSensitiveSetting';
@@ -140,7 +144,8 @@ export type CreateAppServicesOptions = Readonly<{
   realmPath?: string;
   fixedNetwork?: NetworkId;
   // The App owner must close the retired services after its screens unmount.
-  onNetworkChanged?: () => void;
+  onNetworkChanged?: (continuation?: NetworkAccessContinuation) => void;
+  networkAccessContinuation?: NetworkAccessContinuation;
 }>;
 
 export async function createAppServices(options: CreateAppServicesOptions = {}): Promise<AppServices> {
@@ -156,6 +161,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
   let closeTokenIcons = () => {};
   let closeAccountAvatars = () => {};
   let closeApplicationSession = () => {};
+  let continueApplicationAccess: () => NetworkAccessContinuation | undefined = () => undefined;
   let stopIconPrivacySync = () => {};
   let closeDappPermissions = () => {};
   let closeClaimables = () => {};
@@ -186,20 +192,26 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     realm.close();
   };
   const restartNetworkSession = () => {
+    const continuation = options.onNetworkChanged ? continueApplicationAccess() : undefined;
     // Retire authority immediately; the App owner disposes Realm after its old screens unmount.
     retire();
-    if (options.onNetworkChanged) options.onNetworkChanged();
+    if (options.onNetworkChanged) options.onNetworkChanged(continuation);
     else close();
   };
   try {
     const nativeModule = loadNativeFresnicaModule(NativeModules);
     const rawSdk = session.bind(new ReactNativeFresnicaSdk(nativeModule), true);
     const storedAccounts = new RealmAccountSignerRepository(realm);
-    const applicationSession = createApplicationSession({
-      sdk: rawSdk,
-      repository: storedAccounts,
-      sessionAuthentication: createSessionAuthentication(),
-    });
+    const applicationSession = createApplicationSession(
+      {
+        sdk: rawSdk,
+        repository: storedAccounts,
+        sessionAuthentication: createSessionAuthentication(),
+      },
+      undefined,
+      options.networkAccessContinuation,
+    );
+    continueApplicationAccess = applicationSession.continueAcrossNetworkChange;
     closeApplicationSession = applicationSession.close;
     // Explicit fixed-network carriers retain their existing helper contract.
     const sdk = options.fixedNetwork ? rawSdk : session.bind(applicationSession.bindSensitive(rawSdk));
