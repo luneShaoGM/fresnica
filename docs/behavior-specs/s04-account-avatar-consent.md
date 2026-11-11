@@ -6,4 +6,4 @@ New installations and legacy preferences without disclosure version 1 are OFF, i
 
 Tests cover defaults/legacy normalization, missing/invalid consent marker, confirmation/cancel, persistence failure, reopen, independent Token setting and runtime wiring. Native interaction/accessibility/network observation not implied. No maturity or release promotion.
 
-Implementation validation: complete current-tree Jest 263 suites / 2446 tests PASS; focused privacy/network suites 4 / 48 PASS; real Realm preferences close/reopen/rollback integration 1 suite / 4 tests PASS; TypeScript, targeted lint, architecture, aliases, provenance and locales PASS. Native interaction and independent Work review remain pending.
+Implementation validation: complete current-tree Jest 264 suites / 2450 tests PASS; focused privacy/network suites 4 / 48 PASS; real Realm preferences close/reopen/rollback integration 1 suite / 4 tests PASS; TypeScript, targeted lint, architecture, aliases, provenance and locales PASS. Native interaction and independent Work review remain pending.
