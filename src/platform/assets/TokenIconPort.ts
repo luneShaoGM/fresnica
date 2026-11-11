@@ -29,6 +29,14 @@ export function createTokenIconPort(
   const images = new Map<string, { uri: string; sourceUrl: string; expires: number }>();
   const failed = new Map<string, number>();
   const controllers = new Set<AbortController>();
+  const loads = new Map<
+    string,
+    {
+      controller: AbortController;
+      promise: Promise<string | undefined>;
+      consumers: number;
+    }
+  >();
   let state: TokenIconState = Object.freeze({ enabled: available && input.initialEnabled === true, revision: 0 });
   let closed = false;
   let catalogRefresh: Promise<void> | undefined;
@@ -108,6 +116,66 @@ export function createTokenIconPort(
     for (const listener of listeners) listener();
   };
 
+  async function loadIcon(asset: TokenAssetIdentity, signal: AbortSignal): Promise<string | undefined> {
+    if (closed || !state.enabled || !available || signal.aborted || !validTokenAsset(asset, input.networkId)) {
+      return;
+    }
+    const key = keyFor(asset);
+    const existing = images.get(key);
+    if (existing && existing.expires > now()) return existing.uri;
+    const controller = new AbortController();
+    controllers.add(controller);
+    const abort = () => controller.abort();
+    signal.addEventListener('abort', abort);
+    if (signal.aborted) controller.abort();
+    let acquired = false;
+    try {
+      acquired = await acquireIconSlot(controller.signal);
+      if (!acquired || closed || controller.signal.aborted || !state.enabled) return;
+      const queuedCache = images.get(key);
+      if (queuedCache && queuedCache.expires > now()) return queuedCache.uri;
+      await refreshCuratedCatalog();
+      if (closed || controller.signal.aborted || !state.enabled) return;
+      // Metadata cache must actually be populated and revalidated on opt-in:
+      // peeking only at curated rows would bypass the 7-day metadata TTL.
+      // Multiple mounted UI consumers may request the same asset. A
+      // superseded or offline metadata refresh must not discard a valid
+      // last-good candidate already available from the public cache.
+      let metadata = input.metadata.peek(asset);
+      try {
+        metadata = (await input.metadata.resolve(asset, controller.signal)).metadata ?? metadata;
+      } catch {
+        if (closed || controller.signal.aborted) return;
+      }
+      if (closed || !state.enabled || controller.signal.aborted) return;
+      // Subtitles must update even when metadata has no usable image.
+      emit();
+      for (const url of metadata?.icons ?? []) {
+        if (closed || !state.enabled || controller.signal.aborted) return;
+        const failedUntil = failed.get(url) ?? 0;
+        if (failedUntil > now()) continue;
+        try {
+          const result = await input.transport.readIcon(url, controller.signal);
+          if (closed || !state.enabled || controller.signal.aborted) return;
+          images.delete(key);
+          images.set(key, { uri: result.dataUri, sourceUrl: url, expires: now() + ICON_MEMORY_TTL_MS });
+          while (images.size > 24) images.delete(images.keys().next().value as string);
+          emit();
+          return result.dataUri;
+        } catch {
+          if (controller.signal.aborted || closed) return;
+          failed.set(url, now() + FAILED_CANDIDATE_TTL_MS);
+          if (failed.size > 120) failed.delete(failed.keys().next().value as string);
+        }
+      }
+      return;
+    } finally {
+      if (acquired) releaseIconSlot();
+      signal.removeEventListener('abort', abort);
+      controllers.delete(controller);
+    }
+  }
+
   return {
     available,
     getSnapshot: () => state,
@@ -121,6 +189,8 @@ export function createTokenIconPort(
         catalogController?.abort();
         catalogController = undefined;
         catalogRefresh = undefined;
+        for (const load of loads.values()) load.controller.abort();
+        loads.clear();
         for (const controller of controllers) controller.abort();
         images.clear();
         failed.clear();
@@ -156,61 +226,46 @@ export function createTokenIconPort(
       emit();
     },
     async loadIcon(asset, signal) {
-      if (closed || !state.enabled || !available || signal.aborted || !validTokenAsset(asset, input.networkId)) {
-        return;
-      }
+      if (closed || !state.enabled || !available || signal.aborted || !validTokenAsset(asset, input.networkId)) return;
       const key = keyFor(asset);
-      const existing = images.get(key);
-      if (existing && existing.expires > now()) return existing.uri;
-      const controller = new AbortController();
-      controllers.add(controller);
-      const abort = () => controller.abort();
-      signal.addEventListener('abort', abort);
-      if (signal.aborted) controller.abort();
-      let acquired = false;
-      try {
-        acquired = await acquireIconSlot(controller.signal);
-        if (!acquired || closed || controller.signal.aborted || !state.enabled) return;
-        await refreshCuratedCatalog();
-        if (closed || controller.signal.aborted || !state.enabled) return;
-        // Metadata cache must actually be populated and revalidated on opt-in:
-        // peeking only at curated rows would bypass the 7-day metadata TTL.
-        // Multiple mounted UI consumers may request the same asset. A
-        // superseded or offline metadata refresh must not discard a valid
-        // last-good candidate already available from the public cache.
-        let metadata = input.metadata.peek(asset);
-        try {
-          metadata = (await input.metadata.resolve(asset, controller.signal)).metadata ?? metadata;
-        } catch {
-          if (closed || controller.signal.aborted) return;
-        }
-        if (closed || !state.enabled || controller.signal.aborted) return;
-        // Subtitles must update even when metadata has no usable image.
-        emit();
-        for (const url of metadata?.icons ?? []) {
-          if (closed || !state.enabled || controller.signal.aborted) return;
-          const failedUntil = failed.get(url) ?? 0;
-          if (failedUntil > now()) continue;
-          try {
-            const result = await input.transport.readIcon(url, controller.signal);
-            if (closed || !state.enabled || controller.signal.aborted) return;
-            images.delete(key);
-            images.set(key, { uri: result.dataUri, sourceUrl: url, expires: now() + ICON_MEMORY_TTL_MS });
-            while (images.size > 24) images.delete(images.keys().next().value as string);
-            emit();
-            return result.dataUri;
-          } catch {
-            if (controller.signal.aborted || closed) return;
-            failed.set(url, now() + FAILED_CANDIDATE_TTL_MS);
-            if (failed.size > 120) failed.delete(failed.keys().next().value as string);
-          }
-        }
-        return;
-      } finally {
-        if (acquired) releaseIconSlot();
-        signal.removeEventListener('abort', abort);
-        controllers.delete(controller);
+      const cached = images.get(key);
+      if (cached && cached.expires > now()) return cached.uri;
+      let load = loads.get(key);
+      if (!load) {
+        const controller = new AbortController();
+        load = { controller, promise: loadIcon(asset, controller.signal), consumers: 0 };
+        const current = load;
+        loads.set(key, current);
+        current.promise = current.promise.finally(() => {
+          if (loads.get(key) === current) loads.delete(key);
+        });
       }
+      const current = load;
+      current.consumers += 1;
+      return new Promise<string | undefined>((resolve, reject) => {
+        let settled = false;
+        const finish = (value?: string, error?: unknown) => {
+          if (settled) return;
+          settled = true;
+          signal.removeEventListener('abort', abort);
+          current.controller.signal.removeEventListener('abort', abort);
+          current.consumers -= 1;
+          if (current.consumers === 0) {
+            if (loads.get(key) === current) loads.delete(key);
+            current.controller.abort();
+          }
+          if (error !== undefined) reject(error);
+          else resolve(value);
+        };
+        const abort = () => finish();
+        signal.addEventListener('abort', abort);
+        current.controller.signal.addEventListener('abort', abort);
+        current.promise.then(
+          value => finish(value),
+          error => finish(undefined, error),
+        );
+        if (signal.aborted || current.controller.signal.aborted) abort();
+      });
     },
     close() {
       if (closed) return;
@@ -219,6 +274,8 @@ export function createTokenIconPort(
       catalogController = undefined;
       catalogRefresh = undefined;
       for (const controller of controllers) controller.abort();
+      for (const load of loads.values()) load.controller.abort();
+      loads.clear();
       input.transport.close();
       input.metadata.close();
       controllers.clear();
