@@ -89,6 +89,7 @@ describe('S06 shared icon cache recovery across mounted UI consumers', () => {
       getSnapshot: () => ({ enabled, revision }),
       subscribe: () => () => undefined,
       readIcon,
+      readDomain: jest.fn(),
       loadIcon,
       rejectIcon: jest.fn(),
       setEnabled: value => {

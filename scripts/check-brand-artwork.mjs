@@ -23,6 +23,7 @@ function assertSize(path, width, height = width) {
 const artwork = [
   ['src/ui/components/TokenFallbackAvatar/assets/unknownTokenLight', 40],
   ['src/ui/assets/token/xlmSquare', 40],
+  ['src/ui/assets/token/xlmSymbol', 12],
   ['src/ui/assets/brand/fresnicaMark', 36],
 ];
 for (const [base, points] of artwork) {

@@ -1,35 +1,25 @@
-import React, { useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet } from 'react-native';
 
 import type { TokenAssetIdentity } from '../../capabilities/assets/TokenMetadataCache';
 import { TokenFallbackAvatar } from '../../ui/components/TokenFallbackAvatar';
-import { TokenIconContext } from './tokenIconContext';
-
-const EMPTY = Object.freeze({ enabled: false, revision: 0 });
-const noopSubscribe = () => () => {};
-
-function useIconContext() {
-  const service = useContext(TokenIconContext);
-  const snapshot = useSyncExternalStore(
-    service?.subscribe ?? noopSubscribe,
-    service?.getSnapshot ?? (() => EMPTY),
-    service?.getSnapshot ?? (() => EMPTY),
-  );
-  return { service, snapshot };
-}
+import { useTokenIconContext } from './tokenIconContext';
 
 export function TokenAssetIcon({
   asset,
   small = false,
   active = true,
   resizeMode = 'contain',
+  size,
 }: Readonly<{
   asset: { kind: 'native'; code: string } | TokenAssetIdentity;
   small?: boolean;
   active?: boolean;
   resizeMode?: 'contain' | 'cover';
+  size?: number;
 }>) {
-  const { service, snapshot } = useIconContext();
+  const { service, snapshot } = useTokenIconContext();
+  const dimensions = size === undefined ? undefined : { width: size, height: size };
   const code = asset.code;
   const credit = asset.kind === 'credit';
   const issuer = credit ? asset.issuer : '';
@@ -87,11 +77,11 @@ export function TokenAssetIcon({
         importantForAccessibility="no-hide-descendants"
         resizeMode={resizeMode}
         source={require('../../ui/assets/token/xlmSquare.png')}
-        style={[styles.icon, small ? styles.small : undefined]}
+        style={[styles.icon, small ? styles.small : undefined, dimensions]}
       />
     );
   }
-  if (!active || !snapshot.enabled || !uri || isRejected(uri)) return <TokenFallbackAvatar small={small} />;
+  if (!active || !snapshot.enabled || !uri || isRejected(uri)) return <TokenFallbackAvatar small={small} size={size} />;
   return (
     <Image
       accessible={false}
@@ -99,7 +89,7 @@ export function TokenAssetIcon({
       importantForAccessibility="no-hide-descendants"
       source={{ uri }}
       resizeMode={resizeMode}
-      style={[styles.icon, small ? styles.small : undefined]}
+      style={[styles.icon, small ? styles.small : undefined, dimensions]}
       onError={() => {
         rejected.current = { key, uri };
         if (credit) service?.rejectIcon({ kind: 'credit', code, issuer }, uri);

@@ -8,6 +8,7 @@ export interface TokenIconPort {
   subscribe(callback: () => void): () => void;
   setEnabled(value: boolean): void;
   readIcon(asset: TokenAssetIdentity): string | undefined;
+  readDomain(asset: TokenAssetIdentity): string | undefined;
   rejectIcon(asset: TokenAssetIdentity, uri: string): void;
   loadIcon(asset: TokenAssetIdentity, signal: AbortSignal): Promise<string | undefined>;
   close(): void;

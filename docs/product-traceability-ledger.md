@@ -717,7 +717,19 @@ partition retirement, retry and accessible load-more/gesture guards retained.
 Source raw layouts, native pixel equivalence and device acceptance are not inferred
 from passing helper/CI tests. Current exact-HEAD review/CI pending.
 
-
 ### S04 session/privacy candidate — 2026-11-11
 
 User-authorized strong App Passphrase policy; routine signing still prefers System Auth, important maintenance retains fresh-passphrase authority. Candidate implementation adds cold-start/manual/30-second-background access locking, SDK result-generation retirement, sensitive navigation remount and native privacy shielding; see `behavior-specs/s04-session-privacy.md`. Generic biometric app unlock remains upstream-blocked. This is unmerged implementation evidence, not native acceptance or maturity promotion. Stage 9 real-iPhone cancellation/retry remains deferred.
+
+### S05/S06 Home asset-row visual alignment — 2026-11-11 candidate
+
+Home-only layout now uses compact rounded avatars, smaller amount-prefix icons,
+cached domain/issuer subtitles, exact-string monetary formatting and a prominent
+XLM row with a grouped lock/reserve line. Accessibility text scaling reflows the
+identity/amount into separate lines. Domain reads reuse the network-scoped
+public metadata path without new requests; privacy/cancellation remain enforced.
+No transaction, persistence, fiat or asset-ordering authority changes. Existing
+Home strict architecture scope applies. Behavior: `behavior-specs/home-token-list-presentation.md`;
+validation/boundaries: `test/home-token-row-alignment.md`. Clean-room Adapt with
+already owner-approved XLM artwork; no S05/S06 maturity promotion. Independent
+Work exact-HEAD review remains required before merge.
