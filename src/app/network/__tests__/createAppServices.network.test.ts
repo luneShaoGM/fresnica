@@ -1,3 +1,4 @@
+import { leaseSessionServices } from '../../leaseSessionServices';
 import { NativeModules } from 'react-native';
 import { createAppServices } from '../../createAppServices';
 import { deleteLocalAccount } from '@capabilities/account/deleteLocalAccount';
@@ -512,5 +513,31 @@ it('production SDK is inaccessible before session unlock and after manual lock',
   await expect(services.security.sdk.verifyProtectedSignerPassphrase(input)).resolves.toBe(true);
   services.applicationSession?.lock();
   expect(() => services.security.sdk.verifyProtectedSignerPassphrase(input)).toThrow('application-session-locked');
+  services.close();
+});
+
+it('leases every product SDK before work so an old screen cannot reuse a later unlock', async () => {
+  const services = await createAppServices();
+  const access = services.applicationSession!;
+  access.setForeground(true);
+  await access.unlock('fixture phrase');
+  const old = leaseSessionServices(services, access.getSnapshot().revision);
+  access.lock();
+  await access.unlock('fixture phrase');
+  const input = { envelopeJson: '{encrypted}', appPassphrase: 'fixture phrase', expectedSignerPublicKey: 'GS' };
+  const before = mockSdk.verifyProtectedSignerPassphrase.mock.calls.length;
+  for (const dependencies of [
+    old.onboarding,
+    old.security,
+    old.send,
+    old.trustline,
+    old.swapExecution,
+    old.claimableTransaction,
+  ]) {
+    expect(() => dependencies.sdk.verifyProtectedSignerPassphrase(input)).toThrow('session-retired');
+  }
+  expect(mockSdk.verifyProtectedSignerPassphrase).toHaveBeenCalledTimes(before);
+  const fresh = leaseSessionServices(services, access.getSnapshot().revision);
+  await expect(fresh.send.sdk.verifyProtectedSignerPassphrase(input)).resolves.toBe(true);
   services.close();
 });

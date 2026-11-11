@@ -94,13 +94,14 @@ export function createApplicationSession(
       active?.abort();
       active = undefined;
     },
-    bindSensitive<T extends object>(target: T): T {
+    bindSensitive<T extends object>(target: T, expectedRevision?: number): T {
       return new Proxy(target, {
         get(object, key) {
           const value: unknown = Reflect.get(object, key);
           if (typeof value !== 'function') return value;
           return (...args: unknown[]) => {
             if (closed || !foreground || state.status === 'locked') throw new Error('application-session-locked');
+            if (expectedRevision !== undefined && expectedRevision !== revision) throw new Error('session-retired');
             const started = revision;
             const result: unknown = Reflect.apply(value, object, args);
             if (result instanceof Promise)

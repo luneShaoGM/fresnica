@@ -126,3 +126,26 @@ test('old SDK output cannot escape across a background or lock transition', asyn
   expect(() => sdk.sign()).toThrow('application-session-locked');
   expect(native).toHaveBeenCalledTimes(1);
 });
+
+test('a retired review cannot begin signing after a later successful unlock', async () => {
+  const f = fixture();
+  f.session.setForeground(true);
+  await f.session.unlock('fixture phrase');
+  const native = jest.fn(async () => 'dummy-signed');
+  const old = f.session.bindSensitive({ sign: native }, f.session.getSnapshot().revision);
+  let finishRead!: () => void;
+  const slowPreflight = new Promise<void>(resolve => {
+    finishRead = resolve;
+  });
+  const oldSubmission = (async () => {
+    await slowPreflight;
+    return old.sign();
+  })();
+  f.session.lock();
+  await f.session.unlock('fixture phrase');
+  finishRead();
+  await expect(oldSubmission).rejects.toThrow('session-retired');
+  expect(native).not.toHaveBeenCalled();
+  const fresh = f.session.bindSensitive({ sign: native }, f.session.getSnapshot().revision);
+  await expect(fresh.sign()).resolves.toBe('dummy-signed');
+});
