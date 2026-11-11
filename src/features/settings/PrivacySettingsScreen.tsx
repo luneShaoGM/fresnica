@@ -1,5 +1,6 @@
-import React, { useState, useSyncExternalStore } from 'react';
-import { Switch, Text, View } from 'react-native';
+import { AppModal, Button } from '@ui/components';
+import React, { useRef, useState, useSyncExternalStore } from 'react';
+import { ScrollView, Switch, Text, View } from 'react-native';
 import type { NetworkSettings } from '@capabilities/network/createNetworkSettings';
 import { DEFAULT_NETWORK_PREFERENCES } from '@capabilities/network/networkPreferences';
 import { useThemedStyles } from '@ui/theme';
@@ -30,6 +31,8 @@ export function PrivacySettingsScreen({
   );
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
+  const [avatarPrompt, setAvatarPrompt] = useState(false);
+  const avatarFlight = useRef(false);
 
   const setExternalTokenImages = (value: boolean) => {
     if (!settings || saving || snapshot.busy) return;
@@ -41,14 +44,25 @@ export function PrivacySettingsScreen({
       .finally(() => setSaving(false));
   };
 
-  const setAccountAvatars = (value: boolean) => {
-    if (!settings || saving || snapshot.busy) return;
+  const persistAccountAvatars = (value: boolean, disclosureAccepted = false) => {
+    if (!settings || saving || snapshot.busy || avatarFlight.current) return;
+    avatarFlight.current = true;
     setSaving(true);
     setSaveFailed(false);
     settings
-      .setExternalAccountAvatarsEnabled(value)
+      .setExternalAccountAvatarsEnabled(value, disclosureAccepted)
       .catch(() => setSaveFailed(true))
-      .finally(() => setSaving(false));
+      .finally(() => {
+        avatarFlight.current = false;
+        setSaving(false);
+      });
+  };
+  const setAccountAvatars = (value: boolean) => {
+    if (!settings || saving || snapshot.busy || avatarFlight.current) return;
+    if (value && snapshot.preferences.externalAccountAvatarsConsentVersion !== 1) {
+      setSaveFailed(false);
+      setAvatarPrompt(true);
+    } else persistAccountAvatars(value);
   };
 
   return (
@@ -71,13 +85,35 @@ export function PrivacySettingsScreen({
             accessibilityLabel={t('settings.privacy.accountAvatars')}
             disabled={!settings || saving || snapshot.busy}
             onValueChange={setAccountAvatars}
-            value={snapshot.preferences.externalAccountAvatarsEnabled !== false}
+            value={snapshot.preferences.externalAccountAvatarsEnabled === true}
           />
         </View>
         <Text style={styles.label}>{t('settings.privacy.accountAvatarsInfo')}</Text>
         {!settings ? <Text style={styles.label}>{t('settings.controlsUnavailable')}</Text> : null}
         {saveFailed ? <Text style={styles.label}>{t('settings.privacy.saveFailed')}</Text> : null}
       </View>
+      <AppModal visible={avatarPrompt} onRequestClose={() => setAvatarPrompt(false)}>
+        <ScrollView>
+          <Text accessibilityRole="header" style={styles.title}>
+            {t('settings.privacy.avatarConsentTitle')}
+          </Text>
+          <Text style={styles.label}>{t('settings.privacy.accountAvatarsInfo')}</Text>
+          <Text style={styles.label}>{t('settings.privacy.avatarConsentDetail')}</Text>
+          <Button
+            label={t('settings.privacy.avatarConsentAccept')}
+            onPress={() => {
+              if (!avatarPrompt) return;
+              setAvatarPrompt(false);
+              persistAccountAvatars(true, true);
+            }}
+          />
+          <Button
+            label={t('settings.privacy.avatarConsentCancel')}
+            variant="secondary"
+            onPress={() => setAvatarPrompt(false)}
+          />
+        </ScrollView>
+      </AppModal>
     </SettingsSubpage>
   );
 }

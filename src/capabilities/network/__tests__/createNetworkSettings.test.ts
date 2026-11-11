@@ -275,9 +275,9 @@ it('keeps independent avatar consent unchanged on failed persistence and restore
   s.store.save.mockImplementationOnce(() => {
     throw new Error('disk-full');
   });
-  await expect(s.settings.setExternalAccountAvatarsEnabled(true)).rejects.toThrow('disk-full');
+  await expect(s.settings.setExternalAccountAvatarsEnabled(true, true)).rejects.toThrow('disk-full');
   expect(s.settings.getSnapshot().preferences.externalAccountAvatarsEnabled).not.toBe(true);
-  await s.settings.setExternalAccountAvatarsEnabled(true);
+  await s.settings.setExternalAccountAvatarsEnabled(true, true);
   const restored = setup(false, s.saved());
   expect(restored.settings.getSnapshot().preferences.externalAccountAvatarsEnabled).toBe(true);
   s.store.save.mockImplementationOnce(() => {
@@ -290,5 +290,17 @@ it('keeps independent avatar consent unchanged on failed persistence and restore
   expect(s.saved().externalAccountAvatarsEnabled).toBe(false);
   expect(s.saved().externalTokenImagesEnabled).toBe(true);
   restored.settings.close();
+  s.settings.close();
+});
+
+it('requires a fresh disclosure before first enable and does not write on cancellation', async () => {
+  const s = setup(false);
+  await expect(s.settings.setExternalAccountAvatarsEnabled(true)).rejects.toThrow('account-avatar-consent-required');
+  expect(s.saved().externalAccountAvatarsEnabled).not.toBe(true);
+  await s.settings.setExternalAccountAvatarsEnabled(true, true);
+  expect(s.saved()).toMatchObject({ externalAccountAvatarsEnabled: true, externalAccountAvatarsConsentVersion: 1 });
+  await s.settings.setExternalAccountAvatarsEnabled(false);
+  await s.settings.setExternalAccountAvatarsEnabled(true);
+  expect(s.saved().externalAccountAvatarsEnabled).toBe(true);
   s.settings.close();
 });

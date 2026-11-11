@@ -440,7 +440,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     closeTokenIcons = tokenIcons.close;
     const accountAvatars = createAccountAvatarPort({
       available: publicAssetTransport.available,
-      initialEnabled: initialPreferences.externalAccountAvatarsEnabled !== false,
+      initialEnabled: initialPreferences.externalAccountAvatarsEnabled === true,
       loadImage: async (url, signal) => (await publicAssetTransport.readAvatar(url, signal)).dataUri,
     });
     const syncAvatarRuntime = () => {
@@ -456,7 +456,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     if (networkSettings) {
       const settings = networkSettings;
       stopIconPrivacySync = settings.subscribe(() => {
-        accountAvatars.setEnabled(settings.getSnapshot().preferences.externalAccountAvatarsEnabled !== false);
+        accountAvatars.setEnabled(settings.getSnapshot().preferences.externalAccountAvatarsEnabled === true);
         tokenIcons.setEnabled(settings.getSnapshot().preferences.externalTokenImagesEnabled !== false);
       });
     }

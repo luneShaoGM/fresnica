@@ -1,3 +1,4 @@
+import { AppModal, Button } from '@ui/components';
 import React from 'react';
 import { Switch, Text } from 'react-native';
 import { createNetworkSettings } from '../../../capabilities/network/createNetworkSettings';
@@ -7,7 +8,17 @@ import { PrivacySettingsScreen } from '../PrivacySettingsScreen';
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null, Screen: () => null }));
 jest.mock('react', () => ({
   ...jest.requireActual('react'),
-  useState: (initial: unknown) => [initial, jest.fn()],
+  useState: (initial: unknown) => {
+    const index = mockStateIndex++;
+    if (!(index in mockStates)) mockStates[index] = initial;
+    return [
+      mockStates[index],
+      (value: unknown) => {
+        mockStates[index] = value;
+      },
+    ];
+  },
+  useRef: (initial: unknown) => ({ current: initial }),
   useSyncExternalStore: (_subscribe: unknown, getSnapshot: () => unknown) => getSnapshot(),
 }));
 jest.mock('../../../locale', () => ({
@@ -18,10 +29,25 @@ jest.mock('../../../ui/theme', () => {
   return { ...actual, useThemedStyles: (factory: (theme: unknown) => unknown) => factory(actual.defaultTheme) };
 });
 
+const mockStates: unknown[] = [];
+let mockStateIndex = 0;
+beforeEach(() => {
+  mockStates.length = 0;
+  mockStateIndex = 0;
+});
+function renderPrivacy(props: Parameters<typeof PrivacySettingsScreen>[0]) {
+  mockStateIndex = 0;
+  return PrivacySettingsScreen(props);
+}
+
 type NodeProps = Readonly<{
   children?: React.ReactNode;
   value?: boolean;
   disabled?: boolean;
+  visible?: boolean;
+  label?: string;
+  onPress?: () => void;
+  onRequestClose?: () => void;
   onValueChange?: (value: boolean) => void;
 }>;
 function elements(root: React.ReactNode, type: unknown): React.ReactElement<NodeProps>[] {
@@ -55,7 +81,7 @@ function createSettings() {
 describe('single wallet-wide token image privacy control', () => {
   it('shows automatic external image requests and accurately explains IP, request time and opt-out', async () => {
     const { settings, write } = createSettings();
-    const render = () => PrivacySettingsScreen({ settings, onBack: jest.fn() });
+    const render = () => renderPrivacy({ settings, onBack: jest.fn() });
     const first = render();
     const input = elements(first, Switch)[0];
     expect(input.props.value).toBe(true);
@@ -74,7 +100,7 @@ describe('single wallet-wide token image privacy control', () => {
   });
 
   it('does not show an enabled writable toggle when persistent preferences are unavailable', () => {
-    const page = PrivacySettingsScreen({ settings: undefined, onBack: jest.fn() });
+    const page = renderPrivacy({ settings: undefined, onBack: jest.fn() });
     const input = elements(page, Switch)[0];
     expect(input.props.disabled).toBe(true);
     expect(input.props.value).toBe(true);
@@ -83,23 +109,46 @@ describe('single wallet-wide token image privacy control', () => {
 
 it('requires independent persisted address-avatar consent and explains full address disclosure', async () => {
   const { settings, write } = createSettings();
-  const render = () => PrivacySettingsScreen({ settings, onBack: jest.fn() });
-  expect(elements(render(), Switch)[1].props.value).toBe(true);
+  const render = () => renderPrivacy({ settings, onBack: jest.fn() });
+  expect(elements(render(), Switch)[1].props.value).toBe(false);
   const text = elements(render(), Text)
     .map(element => String(element.props.children))
     .join(' ');
   expect(text).toContain('horizon.stellarcn.org');
   expect(text).toContain('displayed wallet');
   elements(render(), Switch)[1].props.onValueChange?.(true);
+  expect(write).not.toHaveBeenCalled();
+  const prompt = elements(render(), AppModal)[0];
+  expect(prompt.props.visible).toBe(true);
+  elements(prompt, Button)
+    .find(node => node.props.label === 'I understand — enable avatars')
+    ?.props.onPress?.();
   await new Promise<void>(resolve => setImmediate(resolve));
   expect(write).toHaveBeenCalledWith(
-    expect.objectContaining({ externalAccountAvatarsEnabled: true, externalTokenImagesEnabled: true }),
+    expect.objectContaining({
+      externalAccountAvatarsEnabled: true,
+      externalAccountAvatarsConsentVersion: 1,
+      externalTokenImagesEnabled: true,
+    }),
   );
   elements(render(), Switch)[0].props.onValueChange?.(false);
   await new Promise<void>(resolve => setImmediate(resolve));
   expect(elements(render(), Switch)[1].props.value).toBe(true);
   elements(render(), Switch)[1].props.onValueChange?.(false);
   await new Promise<void>(resolve => setImmediate(resolve));
+  expect(settings.getSnapshot().preferences.externalAccountAvatarsEnabled).toBe(false);
+  settings.close();
+});
+
+it('cancels the first disclosure without saving or enabling avatars', () => {
+  const { settings, write } = createSettings();
+  const render = () => renderPrivacy({ settings, onBack: jest.fn() });
+  elements(render(), Switch)[1].props.onValueChange?.(true);
+  const prompt = elements(render(), AppModal)[0];
+  expect(prompt.props.visible).toBe(true);
+  prompt.props.onRequestClose?.();
+  expect(elements(render(), AppModal)[0].props.visible).toBe(false);
+  expect(write).not.toHaveBeenCalled();
   expect(settings.getSnapshot().preferences.externalAccountAvatarsEnabled).toBe(false);
   settings.close();
 });

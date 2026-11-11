@@ -131,10 +131,20 @@ export function createNetworkSettings(
     },
     // A wallet-wide privacy preference, saved with existing network settings
     // without triggering network retirement or a Realm schema migration.
-    setExternalAccountAvatarsEnabled(value: boolean) {
+    setExternalAccountAvatarsEnabled(value: boolean, disclosureAccepted = false) {
       if (typeof value !== 'boolean') return Promise.reject(new Error('invalid-account-avatar-preference'));
       return run(async signal => {
-        save({ ...snapshot.preferences, externalAccountAvatarsEnabled: value }, signal, false);
+        if (value && snapshot.preferences.externalAccountAvatarsConsentVersion !== 1 && !disclosureAccepted)
+          throw new Error('account-avatar-consent-required');
+        save(
+          {
+            ...snapshot.preferences,
+            externalAccountAvatarsEnabled: value,
+            ...(value ? { externalAccountAvatarsConsentVersion: 1 as const } : {}),
+          },
+          signal,
+          false,
+        );
       });
     },
     setExternalTokenImagesEnabled(value: boolean) {
