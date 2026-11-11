@@ -1,4 +1,4 @@
-package com.fresnica.mobile
+package com.fresnica.wallet
 
 import android.app.Activity
 import android.content.Intent

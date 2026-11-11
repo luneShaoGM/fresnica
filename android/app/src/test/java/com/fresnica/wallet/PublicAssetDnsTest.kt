@@ -1,4 +1,4 @@
-package com.fresnica.mobile
+package com.fresnica.wallet
 
 import java.net.InetAddress
 import java.net.InetSocketAddress

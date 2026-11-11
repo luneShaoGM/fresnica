@@ -1,4 +1,4 @@
-package com.fresnica.mobile
+package com.fresnica.wallet
 
 import android.graphics.BitmapFactory
 import android.util.Base64

@@ -26,6 +26,9 @@ RESULT="$ROOT/native-runtime-smoke-result.json"
 SMOKE_PORT="${FRESNICA_SMOKE_PORT:-8765}"
 METRO_PORT="${FRESNICA_METRO_PORT:-8081}"
 BUNDLE_ID="com.fresnica.mobile"
+if [[ "$PLATFORM" == "android" ]]; then
+  BUNDLE_ID="com.fresnica.wallet"
+fi
 TIMEOUT_MS="${FRESNICA_SMOKE_TIMEOUT_MS:-120000}"
 
 METRO_PID=""

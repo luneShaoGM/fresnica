@@ -1,4 +1,4 @@
-package com.fresnica.mobile
+package com.fresnica.wallet
 
 import androidx.webkit.ProxyConfig
 import androidx.webkit.ProxyController

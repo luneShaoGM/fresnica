@@ -1061,7 +1061,7 @@ Hardware Signer 候选验证矩阵（不是当前支持声明）：
 - Endpoint allowlist/guard。
 - 依赖与原生产物 hash 验证。
 - SBOM 与 artifact provenance。
-- 将 Android namespace/Application ID 从临时 `com.fresnica.mobile` 迁移并冻结为 `com.fresnica.wallet`，同步 Manifest provider、Deep Link/App Link、Firebase（若启用）、签名、CI 与商店记录。
+- Android namespace/Application ID 目标为 `com.fresnica.wallet`；2026-11-11 候选切片迁移 native packages、instrumentation 与 Android smoke launchers，并按用户授权复用 Stellar 生产签名材料，见 `docs/android-release.md`。商店记录、CI secrets 与发布验收仍独立待完成。
 - 冻结最终 iOS Bundle ID、Apple Team、entitlements、Associated Domains、APNs、provisioning profile、CI secrets 与 App Store Connect 记录；不得沿用 Stellar 的 `com.xrpllabs.xumm` 遗留值。
 - 本产品不迁移旧 Stellar/Xaman 数据；仍必须实现 legacy-data detection 和受控 fresh-start UX。同 Application ID 覆盖安装时不得读取旧授权或静默 wipe，用户确认恢复材料前不得删除可能仍需恢复的钱包数据。
 - Realm schema migration、当前 Fresnica 版本间的升级/回滚与故障 UX；“不迁移 Stellar”不等于以后无需 Fresnica schema migration。
@@ -1086,7 +1086,7 @@ Hardware Signer 候选验证矩阵（不是当前支持声明）：
 - 无 release credentials 时 `:app:assembleRelease` exit 1；根 `./gradlew assemble --dry-run` 因实际 task graph 包含 release packaging 同样 exit 1，不能通过入口名称绕过。
 - 本地仅在 `/tmp` 生成临时测试 PKCS12，并成功执行 `:app:assembleRelease`；`apksigner` 证明 APK 证书为 `CN=Fresnica Local Release Gate, O=Fresnica, C=US`，且不是 Android Debug。临时 keystore 已删除，不是生产签名材料。
 - `native-android-gate.yml` 已增加同样的无凭据 fail-closed 与 ephemeral CI release-signing gate；当前只完成本地 YAML/Gradle 验证，尚无本 commit 的远端 GitHub Actions 成功记录。
-- 生产 Android release keystore / CI secret 尚未配置；Application ID 仍是临时 `com.fresnica.mobile`，所以不得把本项写成“正式发布签名完成”。
+- 上述 2026-09-10 证据为历史状态。2026-11-11 候选切片已在本机配置用户授权复用的 Stellar keystore，并将 Android identity 改为 `com.fresnica.wallet`；CI production secrets、商店记录、当前签名产物验证和 Stage 9 产品验收分别记录，不因本机配置升级发布成熟度。
 
 退出条件：
 
