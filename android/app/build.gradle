@@ -55,14 +55,14 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.fresnica.mobile"
+    namespace "com.fresnica.wallet"
     defaultConfig {
-        applicationId "com.fresnica.mobile"
+        applicationId "com.fresnica.wallet"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
-        testInstrumentationRunner "com.fresnica.mobile.DappBrowserNetworkTest"
+        testInstrumentationRunner "com.fresnica.wallet.DappBrowserNetworkTest"
     }
     signingConfigs {
         debug {

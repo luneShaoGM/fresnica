@@ -1,4 +1,4 @@
-package com.fresnica.mobile
+package com.fresnica.wallet
 
 import android.os.Bundle
 import android.view.WindowManager

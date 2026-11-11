@@ -15,7 +15,7 @@ fi
 "$FRESNICA_BROWSER_ADB" -s "$FRESNICA_BROWSER_DEVICE" install -r -t android/app/build/outputs/apk/debug/app-debug.apk
 "$FRESNICA_BROWSER_ADB" -s "$FRESNICA_BROWSER_DEVICE" install -r -t android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 "$FRESNICA_BROWSER_ADB" -s "$FRESNICA_BROWSER_DEVICE" shell am instrument -w -r \
-  com.fresnica.mobile.test/com.fresnica.mobile.DappBrowserNetworkTest \
+  com.fresnica.wallet.test/com.fresnica.wallet.DappBrowserNetworkTest \
   | tee test-results/dapp-browser-native.log
 # Android's instrumentation command can exit zero even when a test failed.
 grep -q 'INSTRUMENTATION_RESULT: success=true' test-results/dapp-browser-native.log

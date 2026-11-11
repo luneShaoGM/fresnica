@@ -1,15 +1,15 @@
-package com.fresnica.mobile
+package com.fresnica.wallet
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.uimanager.ViewManager
 
-class SecureAssetFetchPackage : ReactPackage {
+class RequestPhotoQrPackage : ReactPackage {
   override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> =
-    listOf(SecureAssetFetchModule(reactContext))
+      listOf(RequestPhotoQrModule(reactContext))
 
   override fun createViewManagers(
-    reactContext: ReactApplicationContext
+      reactContext: ReactApplicationContext
   ): List<ViewManager<in Nothing, in Nothing>> = emptyList()
 }

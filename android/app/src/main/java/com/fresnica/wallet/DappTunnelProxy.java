@@ -1,4 +1,4 @@
-package com.fresnica.mobile;
+package com.fresnica.wallet;
 
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
