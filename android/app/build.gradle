@@ -115,3 +115,10 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+// Always verify the actual AAR, including incremental/local builds.
+def verifyFresnicaSdk = tasks.register('verifyFresnicaSdk', Exec) {
+    workingDir rootProject.projectDir.parentFile
+    commandLine 'node', 'scripts/verify-native-sdk.mjs', 'android'
+}
+tasks.named('preBuild').configure { dependsOn verifyFresnicaSdk }

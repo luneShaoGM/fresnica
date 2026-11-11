@@ -53,7 +53,9 @@ FresnicaSDK-0.3.1-apple.zip
 97545f6b5a3ab8b4fe05f0c8b7e012b4c76e9858500c373eea43fd21daa8d5be
 ```
 
-Prefer verifying against the release `SHA256SUMS` file rather than copying these values by hand when bootstrapping a new checkout.
+The committed `config/native-sdk-integrity.json` is the integrity authority. Release `SHA256SUMS` is supplementary only. After staging run `node scripts/verify-native-sdk.mjs android` or `node scripts/verify-native-sdk.mjs apple`. Both native build entrypoints also run this check on every build. Apple checks every installed framework file and symlink against a manifest derived from the archive with the pinned SHA-256 above, including incremental builds. Missing, changed or extra framework files fail closed.
+
+SDK upgrades must update the archive pin and derive the Apple file manifest from that verified archive in the same reviewed change. Never generate trusted pins from an unverified local installation. Adapter provenance remains governed by its existing upstream revision/manifest gates.
 
 ### 2. Stage the Native SDK binaries
 

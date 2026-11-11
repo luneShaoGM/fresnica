@@ -102,6 +102,9 @@ jobs:
           actual="$(sha256sum vendor/fresnica/native/fresnica-native-sdk-0.3.1.aar | awk '{print $1}')"
           test "$actual" = "$expected"
 
+      - name: Verify staged SDK against repository pins
+        run: node scripts/verify-native-sdk.mjs android
+
       - name: Verify consumer-toolchain adapter baseline
         shell: bash
         run: |

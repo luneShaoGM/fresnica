@@ -107,6 +107,9 @@ jobs:
           cp -R "$sdk" vendor/fresnica/native/FresnicaSDK.xcframework
           cp -R "$ffi" vendor/fresnica/native/FresnicaSDKFFI.xcframework
 
+      - name: Verify staged SDK against repository pins
+        run: node scripts/verify-native-sdk.mjs apple
+
       - name: Bootstrap React Native CocoaPods
         working-directory: ios
         env:
