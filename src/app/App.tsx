@@ -1,3 +1,4 @@
+import { SessionGate } from './SessionGate';
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState, StatusBar } from 'react-native';
 import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
@@ -42,8 +43,22 @@ export function App() {
     runtime.kind === 'ready' ? runtime.services.ledgerReadRuntime.getSnapshot : inactiveSnapshot,
     inactiveSnapshot,
   );
+  const access = runtime.kind === 'ready' ? runtime.services.applicationSession : undefined;
+  const accessSnapshot = useSyncExternalStore(
+    access?.subscribe ?? noSubscription,
+    access?.getSnapshot ?? (() => undefined),
+  );
   const [parsedDeepLink, setParsedDeepLink] = useState<RequestDeepLinkParsed>();
   const [resolvedDeepLink, setResolvedDeepLink] = useState<RequestDeepLinkResolved>();
+
+  useEffect(() => {
+    if (!accessSnapshot?.locked) return;
+    linkGeneration.current += 1;
+    intake.current?.dismiss();
+    resolvedFor.current = undefined;
+    setParsedDeepLink(undefined);
+    setResolvedDeepLink(undefined);
+  }, [accessSnapshot?.locked]);
 
   const captureDeepLink = useCallback((rawUrl: string) => {
     const services = servicesRef.current;
@@ -73,15 +88,17 @@ export function App() {
       runtime.kind === 'ready' &&
         runtime.bootstrap.kind === 'ready' &&
         runtime.services.networkSettings?.getSnapshot().preferences.selectionConfirmed !== false &&
-        readRuntime.foreground,
+        readRuntime.foreground &&
+        !accessSnapshot?.locked,
     );
     return () => intake.current?.setReady(false);
-  }, [runtime, readRuntime.foreground]);
+  }, [runtime, readRuntime.foreground, accessSnapshot?.locked]);
 
   useEffect(() => {
     let mounted = true;
     let ownedServices: AppServices | undefined;
     let stopLedgerReadLifecycle: (() => void) | undefined;
+    let stopSessionLifecycle: (() => void) | undefined;
 
     void createAppServices({
       onNetworkChanged: () => {
@@ -104,6 +121,13 @@ export function App() {
         }
 
         ownedServices = created;
+        created.applicationSession?.setForeground(AppState.currentState === 'active');
+        const sessionSubscription = AppState.addEventListener('change', state => {
+          // Native authentication can make iOS inactive; only real background retires authority.
+          if (state === 'background') created.applicationSession?.setForeground(false);
+          if (state === 'active') created.applicationSession?.setForeground(true);
+        });
+        stopSessionLifecycle = () => sessionSubscription.remove();
         servicesRef.current = created;
         stopLedgerReadLifecycle = startLedgerReadLifecycle({
           runtime: created.ledgerReadRuntime,
@@ -149,6 +173,7 @@ export function App() {
     return () => {
       mounted = false;
       stopLedgerReadLifecycle?.();
+      stopSessionLifecycle?.();
       ownedServices?.close();
       if (servicesRef.current === ownedServices) servicesRef.current = undefined;
     };
@@ -156,6 +181,7 @@ export function App() {
 
   useEffect(() => {
     if (
+      accessSnapshot?.locked ||
       parsedDeepLink === undefined ||
       runtime.kind !== 'ready' ||
       runtime.bootstrap.kind !== 'ready' ||
@@ -210,7 +236,7 @@ export function App() {
     return () => {
       active = false;
     };
-  }, [parsedDeepLink, runtime, readRuntime]);
+  }, [parsedDeepLink, runtime, readRuntime, accessSnapshot?.locked]);
 
   const refreshBootstrap = useCallback(() => {
     setRuntime(current => {
@@ -244,18 +270,20 @@ export function App() {
           <ThemeStatusBar />
           <LocalizationProvider locale={locale} onChangeLocale={handleChangeLocale}>
             <OverlayHost>
-              <AppNavigator
-                runtime={runtime}
-                onRefreshBootstrap={refreshBootstrap}
-                deepLink={resolvedDeepLink}
-                onDismissDeepLink={() => {
-                  linkGeneration.current += 1;
-                  intake.current?.dismiss();
-                  resolvedFor.current = undefined;
-                  setParsedDeepLink(undefined);
-                  setResolvedDeepLink(undefined);
-                }}
-              />
+              <SessionGate runtime={runtime} refresh={refreshBootstrap}>
+                <AppNavigator
+                  runtime={runtime}
+                  onRefreshBootstrap={refreshBootstrap}
+                  deepLink={resolvedDeepLink}
+                  onDismissDeepLink={() => {
+                    linkGeneration.current += 1;
+                    intake.current?.dismiss();
+                    resolvedFor.current = undefined;
+                    setParsedDeepLink(undefined);
+                    setResolvedDeepLink(undefined);
+                  }}
+                />
+              </SessionGate>
             </OverlayHost>
           </LocalizationProvider>
         </UiNativeProvider>

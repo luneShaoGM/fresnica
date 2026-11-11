@@ -1,3 +1,4 @@
+import { SessionControlsContext } from '../security/sessionControls';
 import React from 'react';
 import { Text, View } from 'react-native';
 
@@ -60,6 +61,9 @@ export function SettingsHomeScreen({
           </SettingsGroup>
 
           <SettingsGroup>
+            <SessionControlsContext.Consumer>
+              {session => (session?.canLock ? <ListRow onPress={session.lock} title={t('session.lockNow')} /> : null)}
+            </SessionControlsContext.Consumer>
             <ListRow onPress={onOpenSecurity} title={t('settings.security')} />
             <ListRow onPress={onOpenPrivacy} title={t('settings.privacy')} />
             <ListRow

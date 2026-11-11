@@ -1,3 +1,4 @@
+import { leaseSessionServices } from '../../leaseSessionServices';
 import { NativeModules } from 'react-native';
 import { createAppServices } from '../../createAppServices';
 import { deleteLocalAccount } from '@capabilities/account/deleteLocalAccount';
@@ -365,6 +366,9 @@ describe('production network composition and retirement', () => {
     expect(mockPreferenceRealm.close).toHaveBeenCalledTimes(1);
   });
   it('blocks switching while native verification is in progress', async () => {
+    const services = await createAppServices();
+    services.applicationSession?.setForeground(true);
+    await services.applicationSession?.unlock('fixture App Passphrase');
     let finish!: (verified: boolean) => void;
     mockSdk.verifyProtectedSignerPassphrase.mockImplementationOnce(
       () =>
@@ -372,7 +376,6 @@ describe('production network composition and retirement', () => {
           finish = resolve;
         }),
     );
-    const services = await createAppServices();
     const verification = services.security.sdk.verifyProtectedSignerPassphrase({
       envelopeJson: '{encrypted}',
       appPassphrase: 'fresh',
@@ -390,6 +393,8 @@ describe('production network composition and retirement', () => {
     mockUnresolved = [{ networkId: 'stellar-testnet', transactionHash: 'old', state: 'uncertain' }];
     const services = await createAppServices();
     expect(services.networkSettings?.getSnapshot().preferences.selectionConfirmed).toBe(false);
+    services.applicationSession?.setForeground(true);
+    await services.applicationSession?.unlock('fixture App Passphrase');
     await expect(
       services.networkSettings?.selectNode('stellar-mainnet', NETWORKS['stellar-mainnet'].horizonUrl),
     ).rejects.toThrow('pending-submission');
@@ -495,4 +500,44 @@ it('wires independent default-ON account avatars to durable permission and app r
     if (original === undefined) delete modules.SecureAssetFetch;
     else modules.SecureAssetFetch = original;
   }
+});
+
+it('production SDK is inaccessible before session unlock and after manual lock', async () => {
+  const services = await createAppServices();
+  expect(services.applicationSession?.getSnapshot().locked).toBe(true);
+  const input = { envelopeJson: '{encrypted}', appPassphrase: 'fixture phrase', expectedSignerPublicKey: 'GS' };
+  expect(() => services.security.sdk.verifyProtectedSignerPassphrase(input)).toThrow('application-session-locked');
+  expect(mockSdk.verifyProtectedSignerPassphrase).not.toHaveBeenCalled();
+  services.applicationSession?.setForeground(true);
+  await services.applicationSession?.unlock('fixture phrase');
+  await expect(services.security.sdk.verifyProtectedSignerPassphrase(input)).resolves.toBe(true);
+  services.applicationSession?.lock();
+  expect(() => services.security.sdk.verifyProtectedSignerPassphrase(input)).toThrow('application-session-locked');
+  services.close();
+});
+
+it('leases every product SDK before work so an old screen cannot reuse a later unlock', async () => {
+  const services = await createAppServices();
+  const access = services.applicationSession!;
+  access.setForeground(true);
+  await access.unlock('fixture phrase');
+  const old = leaseSessionServices(services, access.getSnapshot().revision);
+  access.lock();
+  await access.unlock('fixture phrase');
+  const input = { envelopeJson: '{encrypted}', appPassphrase: 'fixture phrase', expectedSignerPublicKey: 'GS' };
+  const before = mockSdk.verifyProtectedSignerPassphrase.mock.calls.length;
+  for (const dependencies of [
+    old.onboarding,
+    old.security,
+    old.send,
+    old.trustline,
+    old.swapExecution,
+    old.claimableTransaction,
+  ]) {
+    expect(() => dependencies.sdk.verifyProtectedSignerPassphrase(input)).toThrow('session-retired');
+  }
+  expect(mockSdk.verifyProtectedSignerPassphrase).toHaveBeenCalledTimes(before);
+  const fresh = leaseSessionServices(services, access.getSnapshot().revision);
+  await expect(fresh.send.sdk.verifyProtectedSignerPassphrase(input)).resolves.toBe(true);
+  services.close();
 });

@@ -29,7 +29,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       launchOptions: launchOptions
     )
 
+    PrivacyShield.cover()
     return true
+  }
+
+  func applicationWillResignActive(_ application: UIApplication) {
+    PrivacyShield.cover()
+  }
+
+  func applicationDidEnterBackground(_ application: UIApplication) {
+    PrivacyShield.recordBackground()
   }
 
   // The registered web+stellar scheme must reach Linking's warm-url listener.
@@ -49,5 +58,47 @@ class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
 #else
     Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
+  }
+}
+
+@objc(PrivacyShield)
+class PrivacyShield: NSObject {
+  private static var shield: UIWindow?
+  private static var generation = 0
+  private static var backgroundCount = 0
+  @objc static func requiresMainQueueSetup() -> Bool { true }
+  @objc var methodQueue: DispatchQueue { DispatchQueue.main }
+
+  static func cover() {
+    generation += 1
+    if shield == nil {
+      let cover = UIWindow(frame: UIScreen.main.bounds)
+      cover.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue + 1)
+      let controller = UIViewController()
+      controller.view.backgroundColor = UIColor.systemBackground
+      cover.rootViewController = controller
+      shield = cover
+    }
+    shield?.isHidden = false
+  }
+
+  static func recordBackground() { backgroundCount += 1 }
+
+  @objc func readState(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
+    guard UIApplication.shared.applicationState == .active else {
+      reject("privacy-not-active", "Application is not active", nil)
+      return
+    }
+    resolve(["generation": PrivacyShield.generation, "backgroundCount": PrivacyShield.backgroundCount])
+  }
+
+  @objc func reveal(_ expectedGeneration: Double, resolver resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
+    guard UIApplication.shared.applicationState == .active,
+          expectedGeneration == Double(PrivacyShield.generation) else {
+      reject("privacy-not-active", "Application is not active", nil)
+      return
+    }
+    PrivacyShield.shield?.isHidden = true
+    resolve(nil)
   }
 }
