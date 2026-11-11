@@ -1,1 +1,3 @@
 "NSCameraUsageDescription" = "掃描 Stellar 付款請求 QR Code。";
+
+"NSFaceIDUsageDescription" = "使用 Face ID 解鎖 Fresnica。每次簽名及復原資料操作仍需 App Passphrase。";

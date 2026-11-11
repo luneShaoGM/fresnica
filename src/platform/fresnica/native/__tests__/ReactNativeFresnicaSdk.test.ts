@@ -62,12 +62,14 @@ describe('ReactNativeFresnicaSdk', () => {
     const sdk = new ReactNativeFresnicaSdk(native);
     const message = 'domain.example wants access\nnonce=abc  ';
 
-    await sdk.signMessageWithSystemAuth({
-      envelopeJson: '{"v":1}',
-      expectedSignerPublicKey: 'GSIGNER',
-      message,
-      reason: 'Sign dApp challenge',
-    });
+    await expect(
+      sdk.signMessageWithSystemAuth({
+        envelopeJson: '{"v":1}',
+        expectedSignerPublicKey: 'GSIGNER',
+        message,
+        reason: 'Sign dApp challenge',
+      }),
+    ).rejects.toThrow('app-passphrase-required');
     await sdk.signMessageWithPassphrase({
       envelopeJson: '{"v":1}',
       appPassphrase: '123456',
@@ -75,7 +77,7 @@ describe('ReactNativeFresnicaSdk', () => {
       message,
     });
 
-    expect(native.signMessageWithSystemAuth).toHaveBeenCalledWith('{"v":1}', 'GSIGNER', message, 'Sign dApp challenge');
+    expect(native.signMessageWithSystemAuth).not.toHaveBeenCalled();
     expect(native.signMessageWithPasscode).toHaveBeenCalledWith('{"v":1}', '123456', 'GSIGNER', message);
   });
 
@@ -129,13 +131,15 @@ describe('ReactNativeFresnicaSdk', () => {
     native.signWithPasscode.mockResolvedValue('signed-passphrase');
     const sdk = new ReactNativeFresnicaSdk(native);
 
-    await sdk.signWithSystemAuth({
-      envelopeJson: '{"v":1}',
-      expectedSignerPublicKey: 'GSIGNER',
-      transactionXdrBase64: 'AAAA',
-      networkPassphrase: 'Test SDF Network ; September 2015',
-      reason: 'Confirm transaction',
-    });
+    await expect(
+      sdk.signWithSystemAuth({
+        envelopeJson: '{"v":1}',
+        expectedSignerPublicKey: 'GSIGNER',
+        transactionXdrBase64: 'AAAA',
+        networkPassphrase: 'Test SDF Network ; September 2015',
+        reason: 'Confirm transaction',
+      }),
+    ).rejects.toThrow('app-passphrase-required');
 
     await sdk.signWithPassphrase({
       envelopeJson: '{"v":1}',
@@ -145,13 +149,7 @@ describe('ReactNativeFresnicaSdk', () => {
       networkPassphrase: 'Test SDF Network ; September 2015',
     });
 
-    expect(native.signWithSystemAuth).toHaveBeenCalledWith(
-      '{"v":1}',
-      'GSIGNER',
-      'AAAA',
-      'Test SDF Network ; September 2015',
-      'Confirm transaction',
-    );
+    expect(native.signWithSystemAuth).not.toHaveBeenCalled();
     expect(native.signWithPasscode).toHaveBeenCalledWith(
       '{"v":1}',
       '123456',
@@ -178,19 +176,19 @@ describe('ReactNativeFresnicaSdk', () => {
 
   it('normalizes native promise rejections before they reach product code', async () => {
     const native = createNativeModule();
-    native.signWithSystemAuth.mockRejectedValue({
+    native.signWithPasscode.mockRejectedValue({
       code: 'user-cancel',
       message: 'Canceled',
     });
     const sdk = new ReactNativeFresnicaSdk(native);
 
     await expect(
-      sdk.signWithSystemAuth({
+      sdk.signWithPassphrase({
         envelopeJson: '{"v":1}',
         expectedSignerPublicKey: 'GSIGNER',
         transactionXdrBase64: 'AAAA',
         networkPassphrase: 'Test SDF Network ; September 2015',
-        reason: 'Confirm transaction',
+        appPassphrase: 'fresh phrase',
       }),
     ).rejects.toMatchObject({
       name: 'FresnicaNativeError',

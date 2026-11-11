@@ -31,54 +31,30 @@ function sdkWith(overrides?: Partial<FresnicaSdkPort>) {
 }
 
 describe('signReviewedTransaction', () => {
-  it('uses System Auth for the exact reviewed XDR when registered', async () => {
-    const sdk = sdkWith({ hasSignerSystemAuth: jest.fn().mockResolvedValue(true) });
-
-    await expect(
-      signReviewedTransaction({
-        sdk,
-        review,
-        signer,
-        systemAuthReason: 'Confirm transaction',
-        networkPassphrase: NETWORK_PASSPHRASE,
-      }),
-    ).resolves.toEqual({
-      status: 'signed',
-      authorization: 'system-auth',
-      signedTransactionXdrBase64: 'AAAA-system-signed',
-    });
-
-    expect(sdk.signWithSystemAuth).toHaveBeenCalledWith({
-      envelopeJson: signer.envelopeJson,
-      expectedSignerPublicKey: signer.publicKey,
-      transactionXdrBase64: review.transactionXdrBase64,
-      networkPassphrase: NETWORK_PASSPHRASE,
-      reason: 'Confirm transaction',
-    });
-  });
-
-  it.each(['user-cancel', 'system-auth-failed'])(
-    'propagates %s from native System Auth without falling back to passphrase',
-    async code => {
-      const sdk = sdkWith({
-        hasSignerSystemAuth: jest.fn().mockResolvedValue(true),
-        signWithSystemAuth: jest.fn().mockRejectedValue({ code }),
-      });
-
+  it.each([undefined, 'routine', 'passphrase-required'] as const)(
+    'never uses enrolled System Auth under policy %s',
+    async authorizationPolicy => {
+      const sdk = sdkWith({ hasSignerSystemAuth: jest.fn().mockResolvedValue(true) });
       await expect(
-        signReviewedTransaction({
-          sdk,
-          review,
-          signer,
-          systemAuthReason: 'Confirm transaction',
-          networkPassphrase: NETWORK_PASSPHRASE,
-        }),
-      ).rejects.toMatchObject({ code });
-
+        signReviewedTransaction({ sdk, review, signer, authorizationPolicy, networkPassphrase: NETWORK_PASSPHRASE }),
+      ).resolves.toEqual({ status: 'passphrase-required' });
+      expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
+      expect(sdk.signWithSystemAuth).not.toHaveBeenCalled();
       expect(sdk.signWithPassphrase).not.toHaveBeenCalled();
     },
   );
-
+  it('rejects wrong passphrase without system-auth fallback and requires fresh input on retry', async () => {
+    const sdk = sdkWith();
+    sdk.signWithPassphrase.mockRejectedValueOnce(new Error('invalid-passcode'));
+    await expect(
+      signReviewedTransaction({ sdk, review, signer, appPassphrase: 'wrong', networkPassphrase: NETWORK_PASSPHRASE }),
+    ).rejects.toThrow('invalid-passcode');
+    await expect(
+      signReviewedTransaction({ sdk, review, signer, networkPassphrase: NETWORK_PASSPHRASE }),
+    ).resolves.toEqual({ status: 'passphrase-required' });
+    expect(sdk.signWithPassphrase).toHaveBeenCalledTimes(1);
+    expect(sdk.signWithSystemAuth).not.toHaveBeenCalled();
+  });
   it('requires passphrase without inventing a feature-local fallback', async () => {
     const sdk = sdkWith();
     await expect(

@@ -143,7 +143,7 @@ describe('S11 Claimable final review and captured route lifetime', () => {
     // suspended review, stale passphrase prompt or disabled submit slide.
     const cleanup = mockActiveEffect?.();
     expect(mockStateSetters[11]).toHaveBeenCalledWith(false);
-    expect(mockStateSetters[12]).toHaveBeenCalledWith(false);
+    expect(mockStateSetters[12]).toHaveBeenCalledWith(true);
     const flowUpdater = mockStateSetters[9].mock.calls[0][0] as (previous: {
       kind: string;
       review?: ClaimableReview;

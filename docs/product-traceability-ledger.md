@@ -733,3 +733,7 @@ Home strict architecture scope applies. Behavior: `behavior-specs/home-token-lis
 validation/boundaries: `test/home-token-row-alignment.md`. Clean-room Adapt with
 already owner-approved XLM artwork; no S05/S06 maturity promotion. Independent
 Work exact-HEAD review remains required before merge.
+
+### 2026-11-11 S04 authentication policy correction (candidate)
+
+Owner defines all wallet-key operations, including ordinary signatures, as important. [Current policy](behavior-specs/s04-authentication-policy.md): biometrics for App access only, fresh App Passphrase for every transaction/message signature and key operation. Replaces the historical routine-signing System Auth preference and App-unlock upstream blocker. SDK/Core cryptography is unchanged; independent native OS authentication returns only an App-access result. S04/S07/S10/S11/S18/S19/S30 native product acceptance and exact-HEAD independent review remain separate; no L4 claim.

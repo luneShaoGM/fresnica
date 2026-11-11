@@ -1,13 +1,13 @@
-import type {FresnicaSdkPort} from '../../ports/FresnicaSdkPort';
-import type {PaymentReview} from '../../payment/buildPaymentReview';
-import {submitReviewedPayment} from '../../payment/submitReviewedPayment';
-import type {SignerRecord} from '../../signer/types';
-import type {TrustlineGatewayPort} from '../../trustline/TrustlineGateway';
-import type {TrustlineReview} from '../../trustline/buildTrustlineReview';
-import {submitReviewedTrustline} from '../../trustline/submitReviewedTrustline';
-import {InMemoryPendingSubmissionRepository} from '../../../platform/persistence/memory/InMemoryPendingSubmissionRepository';
-import {reconcilePendingSubmissions} from '../reconcilePendingSubmissions';
-import type {TransactionGatewayPort} from '../TransactionGateway';
+import type { FresnicaSdkPort } from '../../ports/FresnicaSdkPort';
+import type { PaymentReview } from '../../payment/buildPaymentReview';
+import { submitReviewedPayment } from '../../payment/submitReviewedPayment';
+import type { SignerRecord } from '../../signer/types';
+import type { TrustlineGatewayPort } from '../../trustline/TrustlineGateway';
+import type { TrustlineReview } from '../../trustline/buildTrustlineReview';
+import { submitReviewedTrustline } from '../../trustline/submitReviewedTrustline';
+import { InMemoryPendingSubmissionRepository } from '../../../platform/persistence/memory/InMemoryPendingSubmissionRepository';
+import { reconcilePendingSubmissions } from '../reconcilePendingSubmissions';
+import type { TransactionGatewayPort } from '../TransactionGateway';
 
 const NETWORK = Object.freeze({
   id: 'stellar-testnet',
@@ -30,7 +30,7 @@ const paymentReview: PaymentReview = Object.freeze({
   operation: 'payment',
   destination: 'GDESTINATION',
   amount: '1.0000000',
-  asset: Object.freeze({kind: 'native' as const}),
+  asset: Object.freeze({ kind: 'native' as const }),
 });
 
 const trustlineReview: TrustlineReview = Object.freeze({
@@ -39,7 +39,7 @@ const trustlineReview: TrustlineReview = Object.freeze({
   source: 'GTRUSTLINESOURCE',
   fee: '100',
   operation: 'set-limit',
-  asset: Object.freeze({code: 'USD', issuer: 'GISSUER'}),
+  asset: Object.freeze({ code: 'USD', issuer: 'GISSUER' }),
   limit: '100.0000000',
 });
 
@@ -50,7 +50,7 @@ function hashForSignedXdr(signedXdr: string): string {
 describe('shared Payment and Trustline submission recovery', () => {
   it('persists and reconciles S07 and S30 through one recovery repository', async () => {
     const repository = new InMemoryPendingSubmissionRepository();
-    const readInvalidation = {invalidate: jest.fn()};
+    const readInvalidation = { invalidate: jest.fn() };
     const recovery = {
       repository,
       readInvalidation,
@@ -59,8 +59,8 @@ describe('shared Payment and Trustline submission recovery', () => {
     const transactionGateway = {
       loadAccountAuthorization: jest.fn(async (address: string) => ({
         address,
-        thresholds: {low: 1, medium: 1, high: 2},
-        signers: [{kind: 'ed25519' as const, publicKey: signer.publicKey, weight: 1}],
+        thresholds: { low: 1, medium: 1, high: 2 },
+        signers: [{ kind: 'ed25519' as const, publicKey: signer.publicKey, weight: 1 }],
       })),
       transactionHash: jest.fn((signedXdr: string) => hashForSignedXdr(signedXdr)),
       submitTransaction: jest.fn(async (signedXdr: string) => ({
@@ -84,15 +84,14 @@ describe('shared Payment and Trustline submission recovery', () => {
     } as unknown as TrustlineGatewayPort;
     const sdk = {
       hasSignerSystemAuth: jest.fn().mockResolvedValue(true),
-      signWithSystemAuth: jest.fn(async (input: {transactionXdrBase64: string}) =>
-        input.transactionXdrBase64.includes('trustline')
-          ? 'signed-trustline-xdr'
-          : 'signed-payment-xdr',
+      signWithPassphrase: jest.fn(async (input: { transactionXdrBase64: string }) =>
+        input.transactionXdrBase64.includes('trustline') ? 'signed-trustline-xdr' : 'signed-payment-xdr',
       ),
     } as unknown as FresnicaSdkPort;
 
     await expect(
       submitReviewedPayment({
+        appPassphrase: 'test app passphrase',
         gateway: transactionGateway,
         sdk,
         review: paymentReview,
@@ -101,9 +100,10 @@ describe('shared Payment and Trustline submission recovery', () => {
         signer,
         networkPassphrase: NETWORK.networkPassphrase,
       }),
-    ).resolves.toMatchObject({status: 'uncertain', transactionHash: 'payment-hash'});
+    ).resolves.toMatchObject({ status: 'uncertain', transactionHash: 'payment-hash' });
     await expect(
       submitReviewedTrustline({
+        appPassphrase: 'test app passphrase',
         gateway: trustlineGateway,
         sdk,
         review: trustlineReview,
@@ -112,7 +112,7 @@ describe('shared Payment and Trustline submission recovery', () => {
         signer,
         network: NETWORK,
       }),
-    ).resolves.toMatchObject({status: 'uncertain', transactionHash: 'trustline-hash'});
+    ).resolves.toMatchObject({ status: 'uncertain', transactionHash: 'trustline-hash' });
 
     expect(
       repository

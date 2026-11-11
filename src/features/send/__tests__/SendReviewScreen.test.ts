@@ -1,5 +1,6 @@
 import React from 'react';
-import { Text, TextInput } from 'react-native';
+import { Text } from 'react-native';
+import { PassphraseInput } from '@ui/components/PassphraseInput';
 
 import type { PaymentReview } from '../../../capabilities/payment/buildPaymentReview';
 import { SlideToConfirm } from '../../../ui/SlideToConfirm';
@@ -31,6 +32,7 @@ jest.mock('../../../locale', () => ({
 type NodeProps = Readonly<{
   children?: React.ReactNode;
   accessibilityHint?: string;
+  hint?: string;
   accessibilityLabel?: string;
   accessibilityLiveRegion?: string;
   autoFocus?: boolean;
@@ -62,8 +64,9 @@ const baseProps: Parameters<typeof SendReviewScreen>[0] = {
   review,
   submitting: false,
   passphraseRequired: false,
-  appPassphrase: '',
-  onChangePassphrase: jest.fn(),
+  passphraseInput: { current: null },
+  hasPassphrase: false,
+  onPassphrasePresenceChange: jest.fn(),
   onConfirm: jest.fn(),
   onBack: jest.fn(),
 };
@@ -80,12 +83,9 @@ describe('SendReviewScreen authorization stages', () => {
     let slider: React.ReactElement<NodeProps> | undefined;
 
     visit(root, element => {
-      if (element.type === TextInput && element.props.accessibilityLabel === 'localized:app-passphrase') input = element;
+      if (element.type === PassphraseInput && element.props.label === 'localized:app-passphrase') input = element;
       if (element.type === Text && element.props.children === 'localized:app-passphrase') label = element;
-      if (
-        element.type === Text &&
-        element.props.children === 'localized:passphrase-required'
-      ) {
+      if (element.type === Text && element.props.children === 'localized:passphrase-required') {
         prompt = element;
       }
       if (element.type === SlideToConfirm) slider = element;
@@ -93,23 +93,24 @@ describe('SendReviewScreen authorization stages', () => {
 
     expect(input?.props.autoFocus).toBe(true);
     expect(label).toBeDefined();
-    expect(input?.props.accessibilityHint).toBe('localized:passphrase-hint');
+    expect(input?.props.hint).toBe('localized:passphrase-hint');
     expect(prompt?.props.accessibilityLiveRegion).toBe('assertive');
     expect(slider?.props.label).toBe('localized:slide-to-authorize');
     expect(slider?.props.disabled).toBe(true);
   });
 
   it('enables the second authorization slide only after a passphrase is entered', () => {
-    const root = renderReview({ passphraseRequired: true, appPassphrase: 'test-passphrase' });
+    const root = renderReview({ passphraseRequired: true, hasPassphrase: true });
     let input: React.ReactElement<NodeProps> | undefined;
     let slider: React.ReactElement<NodeProps> | undefined;
 
     visit(root, element => {
-      if (element.type === TextInput && element.props.accessibilityLabel === 'localized:app-passphrase') input = element;
+      if (element.type === PassphraseInput && element.props.label === 'localized:app-passphrase') input = element;
       if (element.type === SlideToConfirm) slider = element;
     });
 
-    expect(input?.props.value).toBe('test-passphrase');
+    expect(input).toBeDefined();
+    expect(input?.props.value).toBeUndefined();
     expect(slider?.props.label).toBe('localized:slide-to-authorize');
     expect(slider?.props.disabled).toBe(false);
   });
@@ -151,7 +152,7 @@ describe('SendReviewScreen authorization stages', () => {
     let slider: React.ReactElement<NodeProps> | undefined;
 
     visit(root, element => {
-      if (element.type === TextInput && element.props.accessibilityLabel === 'localized:app-passphrase') input = element;
+      if (element.type === PassphraseInput && element.props.label === 'localized:app-passphrase') input = element;
       if (element.type === SlideToConfirm) slider = element;
     });
 

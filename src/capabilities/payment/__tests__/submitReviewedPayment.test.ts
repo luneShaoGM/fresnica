@@ -71,7 +71,7 @@ function pendingRecovery() {
     markRejected: jest.fn(),
     markStillUnknown: jest.fn(),
   } satisfies jest.Mocked<PendingSubmissionRepository>;
-  const readInvalidation = {invalidate: jest.fn()};
+  const readInvalidation = { invalidate: jest.fn() };
   return {
     repository,
     readInvalidation,
@@ -96,6 +96,7 @@ function submitInput(gateway: jest.Mocked<TransactionGatewayPort>, sdk: jest.Moc
   return {
     pending,
     input: {
+      appPassphrase: 'test app passphrase',
       gateway,
       sdk,
       review,
@@ -111,22 +112,20 @@ describe('submitReviewedPayment', () => {
   it('revalidates ledger authorization, signs the exact reviewed XDR, then submits the exact signed XDR', async () => {
     const gateway = gatewayWith();
     const sdk = sdkWith(true);
-    const {pending, input} = submitInput(gateway, sdk);
+    const { pending, input } = submitInput(gateway, sdk);
 
-    await expect(
-      submitReviewedPayment(input),
-    ).resolves.toEqual({
+    await expect(submitReviewedPayment(input)).resolves.toEqual({
       status: 'submitted',
-      authorization: 'system-auth',
+      authorization: 'passphrase',
       hash: 'tx-hash',
       ledger: 77,
     });
 
     expect(gateway.loadAccountAuthorization).toHaveBeenCalledWith(review.source);
-    expect(sdk.signWithSystemAuth).toHaveBeenCalledWith(
+    expect(sdk.signWithPassphrase).toHaveBeenCalledWith(
       expect.objectContaining({ transactionXdrBase64: review.transactionXdrBase64 }),
     );
-    expect(gateway.submitTransaction).toHaveBeenCalledWith('AAAA-system-signed');
+    expect(gateway.submitTransaction).toHaveBeenCalledWith('AAAA-passphrase-signed');
     expect(pending.readInvalidation.invalidate).toHaveBeenCalledWith({
       networkId: review.networkId,
       accountId: 'account-1',
@@ -145,12 +144,7 @@ describe('submitReviewedPayment', () => {
     expect(pending.repository.create.mock.invocationCallOrder[0]).toBeLessThan(
       gateway.submitTransaction.mock.invocationCallOrder[0],
     );
-    expect(pending.repository.markConfirmed).toHaveBeenCalledWith(
-      review.networkId,
-      'tx-hash',
-      expect.any(Date),
-      77,
-    );
+    expect(pending.repository.markConfirmed).toHaveBeenCalledWith(review.networkId, 'tx-hash', expect.any(Date), 77);
   });
 
   it.each([
@@ -166,15 +160,7 @@ describe('submitReviewedPayment', () => {
 
     expect(pending.repository.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        intentKey: JSON.stringify([
-          'payment',
-          'payment',
-          'GDESTINATION',
-          'native',
-          '1.0000000',
-          expected,
-          memo.value,
-        ]),
+        intentKey: JSON.stringify(['payment', 'payment', 'GDESTINATION', 'native', '1.0000000', expected, memo.value]),
       }),
     );
   });
@@ -182,7 +168,7 @@ describe('submitReviewedPayment', () => {
   it('blocks the same economic intent before authorization while an earlier submission is unresolved', async () => {
     const gateway = gatewayWith();
     const sdk = sdkWith(true);
-    const {pending, input} = submitInput(gateway, sdk);
+    const { pending, input } = submitInput(gateway, sdk);
     pending.repository.findBlockingIntent.mockReturnValue({
       id: 'stellar-testnet:existing-hash',
       networkId: review.networkId,
@@ -215,7 +201,7 @@ describe('submitReviewedPayment', () => {
   it('does not broadcast when another matching intent wins the persistence race', async () => {
     const gateway = gatewayWith();
     const sdk = sdkWith(true);
-    const {pending, input} = submitInput(gateway, sdk);
+    const { pending, input } = submitInput(gateway, sdk);
     const concurrent = {
       id: 'stellar-testnet:concurrent-hash',
       networkId: review.networkId,
@@ -228,9 +214,7 @@ describe('submitReviewedPayment', () => {
       createdAt: new Date('2026-09-10T01:00:00.000Z'),
       updatedAt: new Date('2026-09-10T01:00:00.000Z'),
     };
-    pending.repository.findBlockingIntent
-      .mockReturnValueOnce(undefined)
-      .mockReturnValueOnce(concurrent);
+    pending.repository.findBlockingIntent.mockReturnValueOnce(undefined).mockReturnValueOnce(concurrent);
     pending.repository.create.mockImplementation(() => {
       throw new Error('pending-submission-intent-blocked');
     });
@@ -247,9 +231,7 @@ describe('submitReviewedPayment', () => {
     const gateway = gatewayWith({ weight: 1, threshold: 2 });
     const sdk = sdkWith(true);
 
-    await expect(
-      submitReviewedPayment(submitInput(gateway, sdk).input),
-    ).resolves.toEqual({
+    await expect(submitReviewedPayment(submitInput(gateway, sdk).input)).resolves.toEqual({
       status: 'authorization-blocked',
       reason: 'insufficient-weight',
       requiredWeight: 2,
@@ -269,9 +251,9 @@ describe('submitReviewedPayment', () => {
       expiresAtUnixSeconds: 1,
     });
 
-    await expect(
-      submitReviewedPayment({...submitInput(gateway, sdk).input, review: expiredReview}),
-    ).rejects.toThrow('Reviewed transaction is expired');
+    await expect(submitReviewedPayment({ ...submitInput(gateway, sdk).input, review: expiredReview })).rejects.toThrow(
+      'Reviewed transaction is expired',
+    );
 
     expect(gateway.loadAccountAuthorization).not.toHaveBeenCalled();
     expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
@@ -283,7 +265,7 @@ describe('submitReviewedPayment', () => {
     const sdk = sdkWith(false);
 
     await expect(
-      submitReviewedPayment(submitInput(gateway, sdk).input),
+      submitReviewedPayment({ ...submitInput(gateway, sdk).input, appPassphrase: undefined }),
     ).resolves.toEqual({
       status: 'passphrase-required',
     });
@@ -299,7 +281,7 @@ describe('submitReviewedPayment', () => {
       },
     });
     const sdk = sdkWith(true);
-    const {pending, input} = submitInput(gateway, sdk);
+    const { pending, input } = submitInput(gateway, sdk);
 
     await expect(submitReviewedPayment(input)).resolves.toEqual({
       status: 'rejected',
@@ -314,7 +296,7 @@ describe('submitReviewedPayment', () => {
       submission: { status: 'uncertain', transactionHash: 'cafebabe' },
     });
     const sdk = sdkWith(true);
-    const {pending, input} = submitInput(gateway, sdk);
+    const { pending, input } = submitInput(gateway, sdk);
 
     await expect(submitReviewedPayment(input)).resolves.toEqual({
       status: 'uncertain',
@@ -330,11 +312,11 @@ describe('submitReviewedPayment', () => {
 
   it('reconciles a timeout-style uncertain submission when the original hash later appears on-chain', async () => {
     const gateway = gatewayWith({
-      submission: {status: 'uncertain', transactionHash: 'late-confirmed-hash'},
+      submission: { status: 'uncertain', transactionHash: 'late-confirmed-hash' },
     });
     const sdk = sdkWith(true);
     const repository = new InMemoryPendingSubmissionRepository();
-    const readInvalidation = {invalidate: jest.fn()};
+    const readInvalidation = { invalidate: jest.fn() };
     const recovery = {
       repository,
       readInvalidation,
@@ -350,8 +332,9 @@ describe('submitReviewedPayment', () => {
         recovery,
         signer,
         networkPassphrase: NETWORK_PASSPHRASE,
+        appPassphrase: 'test app passphrase',
       }),
-    ).resolves.toEqual({status: 'uncertain', transactionHash: 'late-confirmed-hash'});
+    ).resolves.toEqual({ status: 'uncertain', transactionHash: 'late-confirmed-hash' });
     expect(repository.listUnresolved(review.networkId)).toHaveLength(1);
 
     gateway.loadTransactionOutcome.mockResolvedValue({
@@ -372,5 +355,4 @@ describe('submitReviewedPayment', () => {
       ledger: 88,
     });
   });
-
 });

@@ -90,7 +90,7 @@ export function ClaimableScreen({
   const [flow, setFlow] = useState<Flow>({ kind: 'list' });
   const [operationError, setOperationError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [passphrasePrompt, setPassphrasePrompt] = useState(false);
+  const [passphrasePrompt, setPassphrasePrompt] = useState(true);
   const passphraseRef = useRef('');
   const [passphraseAttempt, setPassphraseAttempt] = useState(0);
   const [technicalOpen, setTechnicalOpen] = useState(false);
@@ -158,7 +158,7 @@ export function ClaimableScreen({
       // controls without changing any already-durable transaction recovery.
       running.current = false;
       setSubmitting(false);
-      setPassphrasePrompt(false);
+      setPassphrasePrompt(true);
       setSelectedId(undefined);
       setFlow(current => (current.kind === 'review' || current.kind === 'preparing' ? { kind: 'list' } : current));
     }
@@ -218,7 +218,7 @@ export function ClaimableScreen({
     try {
       const review = await prepareClaimableReview(transaction, account, row);
       if (!activeRef.current || !isCurrentAccount() || operationGeneration.current !== requestVersion) return;
-      setPassphrasePrompt(false);
+      setPassphrasePrompt(true);
       setFlow({ kind: 'review', review });
     } catch {
       if (activeRef.current && operationGeneration.current === requestVersion) {
@@ -271,7 +271,7 @@ export function ClaimableScreen({
     passphraseRef.current = '';
     running.current = false;
     setSubmitting(false);
-    setPassphrasePrompt(false);
+    setPassphrasePrompt(true);
     setFlow({ kind: 'list' });
     refresh(true);
   };
@@ -280,7 +280,7 @@ export function ClaimableScreen({
     operationGeneration.current += 1;
     running.current = false;
     passphraseRef.current = '';
-    setPassphrasePrompt(false);
+    setPassphrasePrompt(true);
     setSubmitting(false);
     setOperationError('');
     setFlow({ kind: 'list' });

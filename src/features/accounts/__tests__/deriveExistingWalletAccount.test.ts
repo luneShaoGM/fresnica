@@ -295,7 +295,7 @@ describe('existing-wallet HD additional-account flow', () => {
     expect(repository.listSigners()).toHaveLength(2);
   });
 
-  it('registers System Auth only after durable derivation and preserves state on repair-required', async () => {
+  it('derives and persists the signer without enrolling a signing unlock key', async () => {
     const { dependencies, repository, sdk } = createDependencies();
     const source = protectedSigner('source');
     attachSource(dependencies, source);
@@ -312,7 +312,8 @@ describe('existing-wallet HD additional-account flow', () => {
       appPassphrase: 'current app passphrase',
     });
 
-    expect(result.systemAuthRegistration).toBe('repair-required');
+    expect(result.systemAuthRegistration).toBe('not-configured');
+    expect(sdk.registerSignerSystemAuth).not.toHaveBeenCalled();
     expect(repository.getAccount(result.account.account.id)).toEqual(result.account.account);
     expect(repository.getSigner(result.account.signer.id)).toEqual(result.account.signer);
   });

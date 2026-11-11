@@ -1,3 +1,4 @@
+import { PassphraseInput } from '@ui/components/PassphraseInput';
 import React, { useState } from 'react';
 import { AccessibilityInfo, Pressable, StyleSheet, Text, TextInput, type ViewStyle } from 'react-native';
 
@@ -127,6 +128,7 @@ type StateOverrides = Readonly<{
 type NodeProps = Readonly<{
   children?: React.ReactNode;
   accessibilityHint?: string;
+  hint?: string;
   accessibilityLabel?: string;
   accessibilityLiveRegion?: string;
   accessibilityRole?: string;
@@ -157,7 +159,7 @@ function renderWithState(overrides: StateOverrides = {}) {
     overrides.building ?? false,
     overrides.submitting ?? false,
     overrides.passphraseRequired ?? false,
-    overrides.appPassphrase ?? '',
+    Boolean(overrides.appPassphrase),
     overrides.error,
   ];
 
@@ -290,20 +292,19 @@ describe('ManageAssetsScreen Stage 4 hardening', () => {
     let slider: React.ReactElement<NodeProps> | undefined;
 
     visit(root, element => {
-      if (element.type === TextInput && element.props.accessibilityLabel === 'App Passphrase') {
+      if (element.type === PassphraseInput && element.props.label === 'App Passphrase') {
         passphraseInput = element;
       }
       if (element.type === SlideToConfirm) slider = element;
     });
 
     expect(passphraseInput?.props).toMatchObject({
-      accessibilityHint: 'Enter the current App Passphrase to authorize this asset change.',
-      autoComplete: 'off',
+      hint: 'Enter the current App Passphrase to authorize this asset change.',
+      label: 'App Passphrase',
       autoFocus: true,
-      importantForAutofill: 'no',
-      placeholder: 'Current App Passphrase',
-      spellCheck: false,
+      disabled: false,
     });
+    expect(passphraseInput?.props.value).toBeUndefined();
     expect(slider?.props).toMatchObject({
       label: 'Slide to authorize change',
       loadingLabel: 'Submitting…',

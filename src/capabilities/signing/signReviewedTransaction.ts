@@ -38,29 +38,7 @@ export async function signReviewedTransaction(input: {
   };
   if (!current()) return { status: 'unsupported-signer' };
 
-  const authorizationPolicy = input.authorizationPolicy ?? 'routine';
-  if (authorizationPolicy === 'routine') {
-    const hasSystemAuth = await sdk.hasSignerSystemAuth(signer.publicKey);
-    if (hasSystemAuth) {
-      // The SDK call may show native System Auth. Recheck after the await
-      // before allowing a retired dApp document to initiate it.
-      if (!current()) return { status: 'unsupported-signer' };
-      const signedTransactionXdrBase64 = await sdk.signWithSystemAuth({
-        envelopeJson: signer.envelopeJson,
-        expectedSignerPublicKey: signer.publicKey,
-        transactionXdrBase64: review.transactionXdrBase64,
-        networkPassphrase: input.networkPassphrase,
-        reason: input.systemAuthReason ?? 'Confirm Fresnica transaction',
-      });
-
-      return {
-        status: 'signed',
-        authorization: 'system-auth',
-        signedTransactionXdrBase64,
-      };
-    }
-  }
-
+  // Every wallet signature requires a fresh passphrase, including legacy routine callers.
   if (!input.appPassphrase) {
     return { status: 'passphrase-required' };
   }

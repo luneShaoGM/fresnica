@@ -13,9 +13,11 @@
 		5F09A0012CC4000100000001 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5F09A0052CC4000100000005 /* InfoPlist.strings */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		E7A91C2D2F4D4A11B0C00103 /* RequestPhotoQr.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A91C2B2F4D4A11B0C00101 /* RequestPhotoQr.swift */; };
+		A7B11C2D2F4D4A11B0C00103 /* SessionAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B11C2B2F4D4A11B0C00101 /* SessionAuthentication.swift */; };
 				E7A91C3D2F4D4A11B0C00203 /* SecureAssetFetch.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A91C3B2F4D4A11B0C00201 /* SecureAssetFetch.swift */; };
 				E7A91C4D2F4D4A11B0C00303 /* PublicAssetAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A91C4B2F4D4A11B0C00301 /* PublicAssetAddress.swift */; };
 		E7A91C2E2F4D4A11B0C00104 /* RequestPhotoQr.m in Sources */ = {isa = PBXBuildFile; fileRef = E7A91C2C2F4D4A11B0C00102 /* RequestPhotoQr.m */; };
+		A7B11C2E2F4D4A11B0C00104 /* SessionAuthentication.m in Sources */ = {isa = PBXBuildFile; fileRef = A7B11C2C2F4D4A11B0C00102 /* SessionAuthentication.m */; };
 				E7A91C3E2F4D4A11B0C00204 /* SecureAssetFetch.m in Sources */ = {isa = PBXBuildFile; fileRef = E7A91C3C2F4D4A11B0C00202 /* SecureAssetFetch.m */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 /* End PBXBuildFile section */
@@ -33,9 +35,11 @@
 		5F09A0042CC4000100000004 /* zh-Hant */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hant"; path = "Fresnica/zh-Hant.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Fresnica/AppDelegate.swift; sourceTree = "<group>"; };
 		E7A91C2B2F4D4A11B0C00101 /* RequestPhotoQr.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RequestPhotoQr.swift; path = Fresnica/RequestPhotoQr.swift; sourceTree = "<group>"; };
+		A7B11C2B2F4D4A11B0C00101 /* SessionAuthentication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SessionAuthentication.swift; path = Fresnica/SessionAuthentication.swift; sourceTree = "<group>"; };
 				E7A91C3B2F4D4A11B0C00201 /* SecureAssetFetch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SecureAssetFetch.swift; path = Fresnica/SecureAssetFetch.swift; sourceTree = "<group>"; };
 				E7A91C4B2F4D4A11B0C00301 /* PublicAssetAddress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PublicAssetAddress.swift; path = Fresnica/PublicAssetAddress.swift; sourceTree = "<group>"; };
 		E7A91C2C2F4D4A11B0C00102 /* RequestPhotoQr.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = RequestPhotoQr.m; path = Fresnica/RequestPhotoQr.m; sourceTree = "<group>"; };
+		A7B11C2C2F4D4A11B0C00102 /* SessionAuthentication.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = SessionAuthentication.m; path = Fresnica/SessionAuthentication.m; sourceTree = "<group>"; };
 				E7A91C3C2F4D4A11B0C00202 /* SecureAssetFetch.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = SecureAssetFetch.m; path = Fresnica/SecureAssetFetch.m; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = Fresnica/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
@@ -59,9 +63,11 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
 				E7A91C2B2F4D4A11B0C00101 /* RequestPhotoQr.swift */,
+				A7B11C2B2F4D4A11B0C00101 /* SessionAuthentication.swift */,
 				E7A91C3B2F4D4A11B0C00201 /* SecureAssetFetch.swift */,
 				E7A91C4B2F4D4A11B0C00301 /* PublicAssetAddress.swift */,
 				E7A91C2C2F4D4A11B0C00102 /* RequestPhotoQr.m */,
+				A7B11C2C2F4D4A11B0C00102 /* SessionAuthentication.m */,
 				E7A91C3C2F4D4A11B0C00202 /* SecureAssetFetch.m */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				5F09A0052CC4000100000005 /* InfoPlist.strings */,
@@ -285,9 +291,11 @@
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
 				E7A91C2D2F4D4A11B0C00103 /* RequestPhotoQr.swift in Sources */,
+				A7B11C2D2F4D4A11B0C00103 /* SessionAuthentication.swift in Sources */,
 				E7A91C3D2F4D4A11B0C00203 /* SecureAssetFetch.swift in Sources */,
 				E7A91C4D2F4D4A11B0C00303 /* PublicAssetAddress.swift in Sources */,
 				E7A91C2E2F4D4A11B0C00104 /* RequestPhotoQr.m in Sources */,
+				A7B11C2E2F4D4A11B0C00104 /* SessionAuthentication.m in Sources */,
 				E7A91C3E2F4D4A11B0C00204 /* SecureAssetFetch.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

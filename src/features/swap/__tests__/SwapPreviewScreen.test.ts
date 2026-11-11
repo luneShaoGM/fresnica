@@ -160,7 +160,7 @@ describe('Swap Preview user-visible scope', () => {
       if (node.type === Text) texts.push(node.props.children);
       if (typeof node.props.value === 'string') values.push(node.props.value);
     });
-    expect(slides).toEqual(['swap.execution.slide']);
+    expect(slides).toEqual(['swap.execution.slidePassphrase']);
     expect(buttons).not.toContain('swap.preview.done');
     expect(buttons).not.toContain('swap.preview.review');
     expect(buttons).not.toContain('swap.preview.getQuotes');
@@ -170,7 +170,7 @@ describe('Swap Preview user-visible scope', () => {
     expect(values).toContain('100');
   });
 
-  it('requires a secure app passphrase and another explicit slide when System Auth fallback is requested', () => {
+  it('requires a secure app passphrase and another explicit slide before signing', () => {
     render();
     stateSlots[1].current = false;
     stateSlots[8].current = { kind: 'review', review };
@@ -277,10 +277,12 @@ describe('Swap Preview user-visible scope', () => {
   });
 
   it('calls reviewed D1 once even if the authorization slide callback fires twice rapidly', async () => {
-    submitSwapReview.mockResolvedValue({ status: 'submitted', authorization: 'system-auth', hash: 'sent-hash' });
+    submitSwapReview.mockResolvedValue({ status: 'submitted', authorization: 'passphrase', hash: 'sent-hash' });
     render();
     stateSlots[1].current = false;
     stateSlots[8].current = { kind: 'review', review };
+    refSlots[4].current = { consume: jest.fn().mockReturnValueOnce('password'), clear: jest.fn() };
+    stateSlots[12].current = true;
     const root = render();
     let slide: React.ReactElement<NodeProps> | undefined;
     visit(root, node => {
@@ -290,7 +292,7 @@ describe('Swap Preview user-visible scope', () => {
     const second = slide?.props.onComplete?.();
     await Promise.all([first, second]);
     expect(submitSwapReview).toHaveBeenCalledTimes(1);
-    expect(submitSwapReview).toHaveBeenCalledWith(expect.anything(), account, review, expect.any(Function), undefined);
+    expect(submitSwapReview).toHaveBeenCalledWith(expect.anything(), account, review, expect.any(Function), 'password');
     expect(stateSlots[8].current).toMatchObject({
       kind: 'result',
       result: { status: 'submitted', hash: 'sent-hash' },
@@ -305,6 +307,8 @@ describe('Swap Preview user-visible scope', () => {
     render();
     stateSlots[1].current = false;
     stateSlots[8].current = { kind: 'review', review };
+    refSlots[4].current = { consume: jest.fn().mockReturnValueOnce('password'), clear: jest.fn() };
+    stateSlots[12].current = true;
     let slide: React.ReactElement<NodeProps> | undefined;
     visit(render(), node => {
       if (node.type === SlideToConfirm) slide = node;
@@ -337,6 +341,8 @@ describe('Swap Preview user-visible scope', () => {
     render();
     stateSlots[1].current = false;
     stateSlots[8].current = { kind: 'review', review };
+    refSlots[4].current = { consume: jest.fn().mockReturnValueOnce('password'), clear: jest.fn() };
+    stateSlots[12].current = true;
     let slide: React.ReactElement<NodeProps> | undefined;
     visit(render(), node => {
       if (node.type === SlideToConfirm) slide = node;
@@ -356,13 +362,15 @@ describe('Swap Preview user-visible scope', () => {
     expect(buttons).toContain('swap.history.check');
   });
 
-  it('keeps the same reviewed transaction across System Auth fallback and a second explicit slide', async () => {
+  it('keeps the same reviewed transaction across passphrase re-entry and a second explicit slide', async () => {
     submitSwapReview
       .mockResolvedValueOnce({ status: 'passphrase-required' })
       .mockResolvedValueOnce({ status: 'submitted', authorization: 'passphrase', hash: 'signed-hash' });
     render();
     stateSlots[1].current = false;
     stateSlots[8].current = { kind: 'review', review };
+    refSlots[4].current = { consume: jest.fn().mockReturnValueOnce('password'), clear: jest.fn() };
+    stateSlots[12].current = true;
     let slide: React.ReactElement<NodeProps> | undefined;
     visit(render(), node => {
       if (node.type === SlideToConfirm) slide = node;
@@ -385,7 +393,7 @@ describe('Swap Preview user-visible scope', () => {
       account,
       review,
       expect.any(Function),
-      undefined,
+      'password',
     );
     expect(submitSwapReview).toHaveBeenNthCalledWith(
       2,
@@ -402,13 +410,15 @@ describe('Swap Preview user-visible scope', () => {
   });
 
   it('never mislabels an accepted broadcast as a submission error when local history reading fails', async () => {
-    submitSwapReview.mockResolvedValue({ status: 'submitted', authorization: 'system-auth', hash: 'confirmed-hash' });
+    submitSwapReview.mockResolvedValue({ status: 'submitted', authorization: 'passphrase', hash: 'confirmed-hash' });
     listSwapHistory.mockImplementationOnce(() => {
       throw new Error('realm-read-unavailable');
     });
     render();
     stateSlots[1].current = false;
     stateSlots[8].current = { kind: 'review', review };
+    refSlots[4].current = { consume: jest.fn().mockReturnValueOnce('password'), clear: jest.fn() };
+    stateSlots[12].current = true;
     let slide: React.ReactElement<NodeProps> | undefined;
     visit(render(), node => {
       if (node.type === SlideToConfirm) slide = node;

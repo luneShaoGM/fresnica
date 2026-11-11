@@ -6,7 +6,6 @@ import {
 import type { OnboardingProvisioningDependencies } from '../onboarding/runOnboardingProvisioning';
 import {
   authorizeExistingWalletProtection,
-  registerPersistedSignerSystemAuth,
   type ExistingWalletSystemAuthRegistration,
 } from './existingWalletProtection';
 
@@ -60,11 +59,7 @@ export async function importExistingWalletAccount(
           label: input.label,
         });
 
-  const systemAuthRegistration = await registerPersistedSignerSystemAuth(
-    dependencies,
-    account.signer,
-    input.appPassphrase,
-  );
+  const systemAuthRegistration = 'not-configured' as const;
 
   return { account, systemAuthRegistration };
 }

@@ -45,14 +45,14 @@ function fixture() {
   const sdk = {
     hasSignerSystemAuth: jest.fn(async () => true),
     signWithSystemAuth: jest.fn(async () => 'signed-original-xdr'),
-    signWithPassphrase: jest.fn(async () => 'passphrase-signed-original-xdr'),
+    signWithPassphrase: jest.fn(async () => 'signed-original-xdr'),
   };
   const recovery = {
     repository,
     readInvalidation: { invalidate: jest.fn() },
     now: () => new Date(),
   };
-  const submit = (isCurrent: () => boolean, appPassphrase?: string) =>
+  const submit = (isCurrent: () => boolean, appPassphrase = 'test app passphrase') =>
     submitReviewedTransaction({
       gateway,
       sdk: sdk as unknown as FresnicaSdkPort,
@@ -92,37 +92,28 @@ describe('Claimable lifetime guard through shared authorization / signing / subm
     });
     await expect(submitted).rejects.toThrow('reviewed-transaction-session-retired');
     expect(f.sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
-    expect(f.sdk.signWithSystemAuth).not.toHaveBeenCalled();
+    expect(f.sdk.signWithPassphrase).not.toHaveBeenCalled();
     expectNoBroadcast(f);
   });
 
-  it('losing foreground while checking System Auth prevents the native signing call', async () => {
+  it('an enrolled signer cannot sign without an explicitly supplied passphrase', async () => {
     const f = fixture();
-    const available = deferred<boolean>();
-    f.sdk.hasSignerSystemAuth.mockReturnValueOnce(available.promise);
-    let foreground = true;
-    const submitted = f.submit(() => foreground);
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(f.sdk.hasSignerSystemAuth).toHaveBeenCalledTimes(1);
-
-    foreground = false;
-    available.resolve(true);
-    await expect(submitted).rejects.toThrow('reviewed-transaction-session-retired');
-    expect(f.sdk.signWithSystemAuth).not.toHaveBeenCalled();
+    await expect(f.submit(() => true, '')).resolves.toEqual({ status: 'passphrase-required' });
+    expect(f.sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
+    expect(f.sdk.signWithPassphrase).not.toHaveBeenCalled();
     expectNoBroadcast(f);
   });
 
-  it('leaving the route during pending native System Auth discards the signed envelope before a pending row or broadcast', async () => {
+  it('leaving the route during pending native passphrase signing discards the signed envelope before a pending row or broadcast', async () => {
     const f = fixture();
     const nativeAuth = deferred<string>();
-    f.sdk.signWithSystemAuth.mockReturnValueOnce(nativeAuth.promise);
+    f.sdk.signWithPassphrase.mockReturnValueOnce(nativeAuth.promise);
     let focusEpoch = 1;
     const capturedFocusEpoch = focusEpoch;
     const submitted = f.submit(() => focusEpoch === capturedFocusEpoch);
     await Promise.resolve();
     await Promise.resolve();
-    expect(f.sdk.signWithSystemAuth).toHaveBeenCalledTimes(1);
+    expect(f.sdk.signWithPassphrase).toHaveBeenCalledTimes(1);
 
     // The user navigates away, then rapidly returns. A boolean focused flag
     // would become true again; the captured epoch must remain retired.
@@ -182,7 +173,7 @@ describe('Claimable lifetime guard through shared authorization / signing / subm
     });
     await expect(f.submit(() => focused)).resolves.toEqual({
       status: 'submitted',
-      authorization: 'system-auth',
+      authorization: 'passphrase',
       hash: 'ORIGINAL_HASH',
       ledger: 123,
     });
@@ -193,7 +184,7 @@ describe('Claimable lifetime guard through shared authorization / signing / subm
   it('a continuously valid route uses the exact signed review once', async () => {
     const f = fixture();
     await expect(f.submit(() => true)).resolves.toMatchObject({ status: 'submitted', hash: 'ORIGINAL_HASH' });
-    expect(f.sdk.signWithSystemAuth).toHaveBeenCalledWith(
+    expect(f.sdk.signWithPassphrase).toHaveBeenCalledWith(
       expect.objectContaining({ transactionXdrBase64: review.transactionXdrBase64 }),
     );
     expect(f.gateway.submitTransaction).toHaveBeenCalledWith('signed-original-xdr');

@@ -1,5 +1,7 @@
 # S04 application session and sensitive-surface privacy
 
+> Current authentication policy: [S04 policy, 2026-11-11](s04-authentication-policy.md). App access uses independent OS biometrics or passphrase fallback; every key operation/signature requires fresh App Passphrase. This supersedes the historical routine-signing preference and generic-unlock blocker below.
+
 ## Authority and scope
 
 Phase 0 passed, 2a/2b reused, 2e application lock advanced without claiming generic biometric unlock. S04 with S01 sensitive backup/import entrypoints; Adapt lifecycle/privacy product roles, clean-room Fresnica implementation with no donor implementation. Application composition owns session lifetime; Application Security and SDK/Core retain passphrase verification and cryptographic authority. No numeric passcode or JS password verifier is introduced. Strict presentation scope includes SessionUnlockScreen.

@@ -639,7 +639,7 @@ describe('StellarPathPaymentSdkGateway', () => {
     };
     const sdk = {
       hasSignerSystemAuth: jest.fn(async () => true),
-      signWithSystemAuth: jest.fn(async () => 'signed-test-xdr'),
+      signWithPassphrase: jest.fn(async () => 'signed-test-xdr'),
     } as unknown as FresnicaSdkPort;
     const repository = new InMemoryPendingSubmissionRepository();
     const transactionGateway = {
@@ -668,6 +668,7 @@ describe('StellarPathPaymentSdkGateway', () => {
         { id: 'account-1', address: sourceAddress, networkId: TEST_GATEWAY_CONFIG.network.id, identityKind: 'classic' },
         review,
         signer,
+        'test app passphrase',
       ),
     ).resolves.toMatchObject({ status: 'submitted', hash: 'signed-hash' });
     expect(transactionGateway.submitTransaction).toHaveBeenCalledWith('signed-test-xdr');
@@ -696,6 +697,7 @@ describe('StellarPathPaymentSdkGateway', () => {
         { id: 'account-1', address: sourceAddress, networkId: TEST_GATEWAY_CONFIG.network.id, identityKind: 'classic' },
         { ...review, transactionXdrBase64: changedDestination },
         signer,
+        'test app passphrase',
       ),
     ).rejects.toThrow('path_payment_review_mismatch');
     expect(transactionGateway.submitTransaction).toHaveBeenCalledTimes(1);

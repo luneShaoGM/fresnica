@@ -20,6 +20,7 @@ const strictPresentationScopes = [
   'src/features/settings/PrivacySettingsScreen',
   'src/features/settings/SettingsHomeScreen',
   'src/features/security/SessionUnlockScreen/',
+  'src/features/security/SecuritySettingsScreen',
   'src/features/settings/SettingsSubpage',
   'src/features/settings/GeneralSettingsScreen',
   'src/features/settings/AdvancedSettingsScreen',

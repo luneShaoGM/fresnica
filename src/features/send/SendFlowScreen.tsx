@@ -1,3 +1,4 @@
+import type { PassphraseInputHandle } from '@ui/components/PassphraseInput';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { DestinationPicker } from '../contacts/DestinationPicker';
@@ -67,8 +68,8 @@ export function SendFlowScreen({
   const [memoValue, setMemoValue] = useState('');
   const [building, setBuilding] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [passphraseRequired, setPassphraseRequired] = useState(false);
-  const [appPassphrase, setAppPassphrase] = useState('');
+  const [passphraseRequired, setPassphraseRequired] = useState(true);
+  const [hasPassphrase, setHasPassphrase] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const { t } = useLocalization();
   const loadVersion = useRef(0);
@@ -84,6 +85,7 @@ export function SendFlowScreen({
   const scanGeneration = useRef(0);
   const buildGeneration = useRef(0);
   const pickedRecipientAddress = useRef<string | undefined>(undefined);
+  const passphraseInput = useRef<PassphraseInputHandle>(null);
   const capturedScanGeneration = scanGeneration.current;
   const closeScan = () => {
     scanLive.current = false;
@@ -108,8 +110,9 @@ export function SendFlowScreen({
     setAmount('');
     setMemoType('none');
     setMemoValue('');
-    setAppPassphrase('');
-    setPassphraseRequired(false);
+    passphraseInput.current?.clear();
+    setHasPassphrase(false);
+    setPassphraseRequired(true);
     setError(undefined);
 
     void loadBalanceSnapshot({ gateway: dependencies.gateway, networkId: dependencies.network.id }, account)
@@ -229,8 +232,9 @@ export function SendFlowScreen({
       });
 
       if (loadVersion.current !== version || generation !== buildGeneration.current || !activeRef.current) return;
-      setPassphraseRequired(false);
-      setAppPassphrase('');
+      setPassphraseRequired(true);
+      passphraseInput.current?.clear();
+      setHasPassphrase(false);
       setFlow({ kind: 'review', review });
     } catch (caught) {
       if (loadVersion.current === version && generation === buildGeneration.current && activeRef.current) {
@@ -275,9 +279,11 @@ export function SendFlowScreen({
       return;
     }
 
-    const passphrase = passphraseRequired ? appPassphrase : undefined;
+    const passphrase = passphraseRequired ? passphraseInput.current?.consume() : undefined;
+    if (passphraseRequired && !passphrase) return;
     if (passphraseRequired) {
-      setAppPassphrase('');
+      passphraseInput.current?.clear();
+      setHasPassphrase(false);
     }
 
     setSubmitting(true);
@@ -296,7 +302,7 @@ export function SendFlowScreen({
     } finally {
       setSubmitting(false);
     }
-  }, [account, appPassphrase, dependencies, flow, passphraseRequired, t]);
+  }, [account, dependencies, flow, passphraseRequired, t]);
 
   if (loadState.kind === 'loading') {
     return <SendStatusScreen title="Send" message="Loading current Stellar balances…" loading onBack={onDone} />;
@@ -325,13 +331,15 @@ export function SendFlowScreen({
         }
         submitting={submitting}
         passphraseRequired={passphraseRequired}
-        appPassphrase={appPassphrase}
+        passphraseInput={passphraseInput}
+        hasPassphrase={hasPassphrase}
         error={error}
-        onChangePassphrase={setAppPassphrase}
+        onPassphrasePresenceChange={setHasPassphrase}
         onConfirm={() => void submitReview()}
         onBack={() => {
-          setAppPassphrase('');
-          setPassphraseRequired(false);
+          passphraseInput.current?.clear();
+          setHasPassphrase(false);
+          setPassphraseRequired(true);
           setError(undefined);
           setFlow({ kind: 'form' });
           setEntryStep('recipient');
@@ -453,7 +461,8 @@ export function SendFlowScreen({
               building ||
               entryStep !== 'recipient' ||
               contacts.network.id !== account.networkId
-            ) return;
+            )
+              return;
             const fields = recipientFields(recipient);
             closeScan();
             pickedRecipientAddress.current = fields.destination;

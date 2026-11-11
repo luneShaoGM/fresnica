@@ -66,7 +66,15 @@ export function SessionGate({
   }, [snapshot, runtime.kind, session]);
   if (!snapshot.foreground) return null;
   if (session && snapshot.locked)
-    return <SessionUnlockScreen key={snapshot.revision} unlock={session.unlock} cancel={session.cancelUnlock} />;
+    return (
+      <SessionUnlockScreen
+        key={snapshot.revision}
+        unlock={session.unlock}
+        cancel={session.cancelUnlock}
+        canUseBiometrics={session.canUseBiometrics}
+        unlockWithBiometrics={session.unlockWithBiometrics}
+      />
+    );
   return (
     <SessionControlsContext.Provider value={session ? { canLock: snapshot.canLock, lock: session.lock } : undefined}>
       <React.Fragment key={snapshot.revision}>

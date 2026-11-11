@@ -1,3 +1,4 @@
+import type { SessionAuthenticationPort } from '../capabilities/ports/SessionAuthenticationPort';
 import { authorizeSensitiveSetting } from '../capabilities/application-security/authorizeSensitiveSetting';
 import type { ExistingAppPassphraseVerificationDependencies } from '../capabilities/application-security/verifyExistingAppPassphrase';
 import { requiresExistingAppPassphrase } from '../capabilities/application-security/verifyExistingAppPassphrase';
@@ -20,7 +21,7 @@ export type ApplicationSessionSnapshot = Readonly<{
 
 // App access is distinct from signing authorization. No credential or auth token is retained.
 export function createApplicationSession(
-  deps: ExistingAppPassphraseVerificationDependencies,
+  deps: ExistingAppPassphraseVerificationDependencies & { sessionAuthentication?: SessionAuthenticationPort },
   now: () => number = () => performance.now(),
 ) {
   let state = createSessionLockState({ ...policy, enabled: requiresExistingAppPassphrase(deps.repository) });
@@ -43,6 +44,7 @@ export function createApplicationSession(
   };
   const interrupt = () => {
     revision += 1;
+    deps.sessionAuthentication?.cancel();
     active?.abort();
     active = undefined;
   };
@@ -87,6 +89,33 @@ export function createApplicationSession(
       state = markSessionLocked();
       publish();
     },
+    canUseBiometrics: () => deps.sessionAuthentication?.canAuthenticate() ?? Promise.resolve(false),
+    async unlockWithBiometrics(reason: string, cancelLabel: string) {
+      if (closed || !foreground || active || state.status !== 'locked' || !deps.sessionAuthentication)
+        throw new Error('session-unlock-unavailable');
+      const owner = new AbortController();
+      const inventory = () => JSON.stringify(deps.repository.listSigners());
+      const before = inventory();
+      active = owner;
+      try {
+        const verified = await deps.sessionAuthentication.authenticate(reason, cancelLabel);
+        if (
+          verified !== true ||
+          closed ||
+          !foreground ||
+          owner.signal.aborted ||
+          active !== owner ||
+          inventory() !== before ||
+          !requiresExistingAppPassphrase(deps.repository)
+        )
+          throw new Error('session-auth-failed');
+        state = completeVerifiedSessionUnlock();
+        revision += 1;
+        publish();
+      } finally {
+        if (active === owner) active = undefined;
+      }
+    },
     async unlock(passphrase: string) {
       if (closed || !foreground || active || state.status !== 'locked') throw new Error('session-unlock-unavailable');
       const owner = new AbortController();
@@ -102,6 +131,7 @@ export function createApplicationSession(
       }
     },
     cancelUnlock() {
+      deps.sessionAuthentication?.cancel();
       active?.abort();
       active = undefined;
     },

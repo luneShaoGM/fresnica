@@ -70,10 +70,10 @@ describe('createDappTransactionSigner', () => {
 
   it('inspects the exact envelope and signs that same XDR', async () => {
     const transactionXdrBase64 = envelope();
-    const signWithSystemAuth = jest.fn().mockResolvedValue('signed-envelope');
+    const signWithPassphrase = jest.fn().mockResolvedValue('signed-envelope');
     const sdk = {
       hasSignerSystemAuth: jest.fn().mockResolvedValue(true),
-      signWithSystemAuth,
+      signWithPassphrase,
     } as unknown as FresnicaSdkPort;
     const repository = {
       getAccount: () => account,
@@ -95,20 +95,26 @@ describe('createDappTransactionSigner', () => {
     });
     if (inspected.status !== 'ready') throw new Error('invalid-inspection');
     await expect(
-      sign({ ...input, phase: 'sign', reviewedHash: inspected.intent.hash, isCurrent: () => true }),
+      sign({
+        appPassphrase: 'test app passphrase',
+        ...input,
+        phase: 'sign',
+        reviewedHash: inspected.intent.hash,
+        isCurrent: () => true,
+      }),
     ).resolves.toEqual({
       status: 'signed',
       signedTransaction: 'signed-envelope',
       signerAddress: address,
     });
-    expect(signWithSystemAuth).toHaveBeenCalledWith(expect.objectContaining({ transactionXdrBase64 }));
+    expect(signWithPassphrase).toHaveBeenCalledWith(expect.objectContaining({ transactionXdrBase64 }));
   });
 
   it('refuses to sign changed destinations and stale authorization before native auth', async () => {
-    const signWithSystemAuth = jest.fn().mockResolvedValue('signed-envelope');
+    const signWithPassphrase = jest.fn().mockResolvedValue('signed-envelope');
     const sdk = {
       hasSignerSystemAuth: jest.fn().mockResolvedValue(true),
-      signWithSystemAuth,
+      signWithPassphrase,
     } as unknown as FresnicaSdkPort;
     const repository = {
       getAccount: () => account,
@@ -133,6 +139,7 @@ describe('createDappTransactionSigner', () => {
     const fields = { accountId: account.id, accountAddress: address, networkId: account.networkId, networkPassphrase };
     await expect(
       sign({
+        appPassphrase: 'test app passphrase',
         ...fields,
         phase: 'sign',
         transactionXdrBase64: changed,
@@ -142,6 +149,7 @@ describe('createDappTransactionSigner', () => {
     ).resolves.toEqual({ status: 'invalid' });
     await expect(
       sign({
+        appPassphrase: 'test app passphrase',
         ...fields,
         phase: 'sign',
         transactionXdrBase64: first,
@@ -149,7 +157,7 @@ describe('createDappTransactionSigner', () => {
         isCurrent: () => false,
       }),
     ).resolves.toEqual({ status: 'invalid' });
-    expect(signWithSystemAuth).not.toHaveBeenCalled();
+    expect(signWithPassphrase).not.toHaveBeenCalled();
   });
 
   it('rejects an envelope that cannot be parsed before asking for a signature', async () => {

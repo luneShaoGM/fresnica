@@ -157,9 +157,7 @@ export function SettingsStackNavigator({
         )}
       </Stack.Screen>
       <Stack.Screen name="security-settings">
-        {({ navigation }) => (
-          <SecuritySettingsScreen dependencies={services.security} onClose={() => navigation.goBack()} />
-        )}
+        {({ navigation }) => <SecuritySettingsScreen onClose={() => navigation.goBack()} />}
       </Stack.Screen>
       <Stack.Screen name="privacy-settings">
         {({ navigation }) => (

@@ -1,3 +1,4 @@
+import { PassphraseInput, type PassphraseInputHandle } from '@ui/components/PassphraseInput';
 import { TokenAssetIcon } from '../assets/TokenAssetIcon';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -93,11 +94,12 @@ export function ManageAssetsScreen({
   const [limitEditor, setLimitEditor] = useState<LimitEditorState>();
   const [building, setBuilding] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [passphraseRequired, setPassphraseRequired] = useState(false);
-  const [appPassphrase, setAppPassphrase] = useState('');
+  const [passphraseRequired, setPassphraseRequired] = useState(true);
+  const [hasPassphrase, setHasPassphrase] = useState(false);
   const [error, setError] = useState<string>();
   const loadVersion = useRef(0);
   const consumedAddRef = useRef<AddAssetSelection | undefined>(undefined);
+  const passphraseInput = useRef<PassphraseInputHandle>(null);
 
   const loadTrustlines = useCallback(() => {
     const version = loadVersion.current + 1;
@@ -136,8 +138,9 @@ export function ManageAssetsScreen({
       setFlow({ kind: 'manage' });
       setAddSheetOpen(false);
       setLimitEditor(undefined);
-      setAppPassphrase('');
-      setPassphraseRequired(false);
+      passphraseInput.current?.clear();
+      setHasPassphrase(false);
+      setPassphraseRequired(true);
       setError(undefined);
     }
     loadTrustlines();
@@ -161,8 +164,9 @@ export function ManageAssetsScreen({
           ...(limit === undefined ? {} : { limit }),
         });
         if (version !== prepareVersion.current || !currentActive.current) return;
-        setAppPassphrase('');
-        setPassphraseRequired(false);
+        passphraseInput.current?.clear();
+        setHasPassphrase(false);
+        setPassphraseRequired(true);
         setFlow({ kind: 'review', review });
       } catch (caught) {
         if (version !== prepareVersion.current || !currentActive.current) return;
@@ -188,9 +192,11 @@ export function ManageAssetsScreen({
       return;
     }
 
-    const passphrase = passphraseRequired ? appPassphrase : undefined;
+    const passphrase = passphraseRequired ? passphraseInput.current?.consume() : undefined;
+    if (passphraseRequired && !passphrase) return;
     if (passphraseRequired) {
-      setAppPassphrase('');
+      passphraseInput.current?.clear();
+      setHasPassphrase(false);
     }
 
     setSubmitting(true);
@@ -216,13 +222,14 @@ export function ManageAssetsScreen({
     } finally {
       setSubmitting(false);
     }
-  }, [account, appPassphrase, dependencies, flow, passphraseRequired, t]);
+  }, [account, dependencies, flow, passphraseRequired, t]);
 
   const leaveReview = () => {
     prepareVersion.current += 1;
     setBuilding(false);
-    setAppPassphrase('');
-    setPassphraseRequired(false);
+    passphraseInput.current?.clear();
+    setHasPassphrase(false);
+    setPassphraseRequired(true);
     setError(undefined);
     if (openedForReviewRef.current) {
       (onReviewDismiss ?? onDone)();
@@ -309,22 +316,14 @@ export function ManageAssetsScreen({
             <View style={styles.passphraseBlock}>
               <Text style={styles.passphrasePrompt}>{t('trustlines.authorization.passphraseRequired')}</Text>
               <Text style={styles.fieldLabel}>{t('trustlines.authorization.appPassphrase')}</Text>
-              <TextInput
-                accessibilityHint={t('trustlines.authorization.passphraseHint')}
-                accessibilityLabel={t('trustlines.authorization.appPassphrase')}
-                autoCapitalize="none"
-                autoComplete="off"
-                autoCorrect={false}
+              <PassphraseInput
+                ref={passphraseInput}
                 autoFocus
-                editable={!submitting}
-                importantForAutofill="no"
-                spellCheck={false}
-                onChangeText={setAppPassphrase}
-                placeholder={t('trustlines.authorization.appPassphrasePlaceholder')}
-                placeholderTextColor={theme.colors.textTertiary}
-                secureTextEntry
+                label={t('trustlines.authorization.appPassphrase')}
+                hint={t('trustlines.authorization.passphraseHint')}
+                disabled={submitting}
+                onPresenceChange={setHasPassphrase}
                 style={styles.input}
-                value={appPassphrase}
               />
             </View>
           ) : null}
@@ -332,7 +331,7 @@ export function ManageAssetsScreen({
         </ScrollView>
         <View style={styles.bottomBar}>
           <SlideToConfirm
-            disabled={submitting || (passphraseRequired && appPassphrase.length === 0)}
+            disabled={submitting || (passphraseRequired && !hasPassphrase)}
             label={t(
               passphraseRequired
                 ? 'trustlines.authorization.slideToAuthorize'

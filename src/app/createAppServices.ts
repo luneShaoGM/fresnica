@@ -1,3 +1,4 @@
+import { createSessionAuthentication } from '../platform/system/sessionAuthentication';
 import { createApplicationSession, type ApplicationSession } from './applicationSession';
 import { createNetworkAccountRepository } from '../capabilities/account/createNetworkAccountRepository';
 import { createWalletSelectionPreferences } from './createWalletSelectionPreferences';
@@ -194,7 +195,11 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const nativeModule = loadNativeFresnicaModule(NativeModules);
     const rawSdk = session.bind(new ReactNativeFresnicaSdk(nativeModule), true);
     const storedAccounts = new RealmAccountSignerRepository(realm);
-    const applicationSession = createApplicationSession({ sdk: rawSdk, repository: storedAccounts });
+    const applicationSession = createApplicationSession({
+      sdk: rawSdk,
+      repository: storedAccounts,
+      sessionAuthentication: createSessionAuthentication(),
+    });
     closeApplicationSession = applicationSession.close;
     // Explicit fixed-network carriers retain their existing helper contract.
     const sdk = options.fixedNetwork ? rawSdk : session.bind(applicationSession.bindSensitive(rawSdk));

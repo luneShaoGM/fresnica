@@ -46,11 +46,12 @@ function fixture() {
   } satisfies TransactionGatewayPort;
   const sdk = {
     hasSignerSystemAuth: jest.fn(async () => true),
-    signWithSystemAuth: jest.fn(async () => 'signed-xdr'),
+    signWithPassphrase: jest.fn(async () => 'signed-xdr'),
   } as unknown as FresnicaSdkPort;
   const recovery = { repository, readInvalidation, now: () => new Date() };
   const submit = () =>
     submitReviewedTransaction({
+      appPassphrase: 'test app passphrase',
       gateway,
       sdk,
       review,

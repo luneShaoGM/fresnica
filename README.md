@@ -49,7 +49,7 @@ The repository intentionally has no Mobile-local `src/core` layer. `Core` refers
 
 Fresnica SDK/Core owns secret and mnemonic validation/derivation, protected-envelope semantics, signer identity checks, transaction signing and native System Auth helpers. Mobile owns UI/navigation, persistence, Horizon/network state and product orchestration.
 
-Product credential terminology is **app passphrase**, not PIN/passcode. New passphrases follow the current upstream minimum of 15 Unicode characters. Routine signing prefers System Auth; Reveal/Export, passphrase rotation/recovery and product-classified high-risk actions require a fresh strong passphrase. Binding API 2 compatibility names such as `appPasscode` and `signWithPasscode` remain confined to the native adapter boundary until upstream changes that contract.
+Product credential terminology is **app passphrase**, not PIN/passcode. New passphrases follow the current upstream minimum of 15 Unicode characters. App access may use OS biometrics with verified passphrase fallback. Every transaction/message signature and all wallet-key operations require a fresh App Passphrase; App unlock never grants signing or recovery authority. See `docs/behavior-specs/s04-authentication-policy.md`. Binding API 2 compatibility names such as `appPasscode` and `signWithPasscode` remain confined to the native adapter boundary until upstream changes that contract.
 
 `WalletUnlockKey`, raw private keys, mnemonic/secret material, passphrases and biometric cipher/authentication state must not enter normal JavaScript persistence, logs or analytics.
 
