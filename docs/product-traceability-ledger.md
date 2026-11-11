@@ -716,3 +716,16 @@ background expansion toward500; live cursors, exact-ID dedup, numeric token orde
 partition retirement, retry and accessible load-more/gesture guards retained.
 Source raw layouts, native pixel equivalence and device acceptance are not inferred
 from passing helper/CI tests. Current exact-HEAD review/CI pending.
+
+### S05/S06 Home asset-row visual alignment — 2026-11-11 candidate
+
+Home-only layout now uses compact rounded avatars, smaller amount-prefix icons,
+cached domain/issuer subtitles, exact-string monetary formatting and a prominent
+XLM row with a grouped lock/reserve line. Accessibility text scaling reflows the
+identity/amount into separate lines. Domain reads reuse the network-scoped
+public metadata path without new requests; privacy/cancellation remain enforced.
+No transaction, persistence, fiat or asset-ordering authority changes. Existing
+Home strict architecture scope applies. Behavior: `behavior-specs/home-token-list-presentation.md`;
+validation/boundaries: `test/home-token-row-alignment.md`. Clean-room Adapt with
+already owner-approved XLM artwork; no S05/S06 maturity promotion. Independent
+Work exact-HEAD review remains required before merge.

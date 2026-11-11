@@ -27,6 +27,9 @@ describe('shared asset icon presentation', () => {
     const small = TokenAssetIcon({ asset: { kind: 'native', code: 'XLM' }, small: true });
     expect(small.props.source).toEqual(native.props.source);
     expect(small.props.style[1]).toMatchObject({ width: 16, height: 16 });
+    const home = TokenAssetIcon({ asset: { kind: 'native', code: 'XLM' }, size: 35, resizeMode: 'cover' });
+    expect(home.props.style[2]).toMatchObject({ width: 35, height: 35 });
+    expect(home.props.resizeMode).toBe('cover');
   });
 
   it('uses the single local default image when public icon consent is off, not generated artwork', () => {
@@ -36,5 +39,9 @@ describe('shared asset icon presentation', () => {
     const small = TokenAssetIcon({ asset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' }, small: true });
     expect(small.type).toBe(TokenFallbackAvatar);
     expect(small.props.small).toBe(true);
+    const home = TokenAssetIcon({ asset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' }, size: 35 });
+    expect(home.props.size).toBe(35);
+    const homeSmall = TokenAssetIcon({ asset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' }, small: true, size: 12 });
+    expect(homeSmall.props.size).toBe(12);
   });
 });

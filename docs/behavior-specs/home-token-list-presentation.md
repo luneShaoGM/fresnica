@@ -41,3 +41,36 @@ account/network/reader changes, obsolete completion and total matching.
 Native layout, repeated refresh, large text and screen-reader acceptance on
 iOS/Android remain separate from JSX/hook tests. No native acceptance is
 claimed by these repository checks. Stage 9 iOS device System Auth remains deferred.
+
+## Asset-row visual alignment — 2026-11-10
+
+This S05/S06 maintenance slice adapts the visible roles established by the
+reference above; implementation is independently written in Fresnica.
+
+- Issued rows use 35-point rounded, cover-fit avatars, compact 55-point minimum
+  height (allowed to grow for accessibility), no per-row separator, a single-line
+  code with middle truncation and a muted issuer subtitle. Prefer an existing
+  validated metadata domain; otherwise use the shared abbreviated issuer.
+  Domain display reads only the current network-scoped icon/metadata port and
+  never initiates another remote request or implies issuer authenticity.
+- The amount prefix is a 12-point rounded, bordered token icon. Display exact
+  decimal strings with grouped integer digits and without redundant trailing
+  fractional zeros; never convert monetary values to Number or round them.
+  Keep full exact balances and issuer identity in accessibility labels and tap
+  callbacks. Single-line amounts may visually ellipsize on narrow screens.
+  Above 1.5x system font scale, move amounts to a full-width next line and
+  allow code/amount wrapping; never disable system text scaling.
+- XLM remains pinned with a more prominent, theme-colored name and amount,
+  distinct local monochrome XLM amount symbol, and the existing available versus
+  account-balance label. Its muted reserve row groups a lock capsule, label,
+  small XLM symbol and amount. Unknown reserves remain a dash; do not show zero.
+- Reuse the already owner-approved XLM artwork family. Do not copy donor code,
+  fonts or unrelated artwork. Use platform monospace fonts for monetary text.
+- No fiat estimates/toggle, LOCKED figures, privacy balance mode, ordering,
+  transaction changes or new persistence are introduced. Existing refresh,
+  failure, account/network isolation and image-privacy rules remain authoritative.
+- Verify exact decimal formatting, same-code/different-issuer callbacks and
+  accessibility, unavailable/ready XLM, cached-domain fallback, privacy/session
+  revocation and domain update after metadata completion even without an image.
+  Native narrow-screen, large-text, dark-theme and screen-reader acceptance
+  remains separate from repository tests; no product maturity promotion.

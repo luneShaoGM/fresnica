@@ -57,3 +57,14 @@ or weakened source gate was introduced.
 Android legacy/round/adaptive), rendering under device theme/scale/font,
 and Home/Activity/AssetDetails appearance require native product-flow QA.
 Resizing bitmaps cannot recover details lost in the source artwork.
+
+## 2026-11-10 Home XLM monetary symbol
+
+The same previously approved **XLM Icon** family also covers the monochrome
+symbol at `ios/Xaman/Images.xcassets/Icons/IconXlm.imageset/icon_xlm@3x.png`
+(SHA-256 `85954448cace109e2c37ac45448dbf6b206c599f271b3542560297fec5012c59`).
+It is independently resized/re-encoded with macOS sips to 12/24/36 px at
+`src/ui/assets/token/xlmSymbol{,@2x,@3x}.png`. It is tinted through AppTheme
+for the Home amount and reserve prefixes; the left avatar keeps xlmSquare.
+No donor component, font or other artwork is reused. Native theme/scale QA
+remains unexecuted by the resource and repository checks.
