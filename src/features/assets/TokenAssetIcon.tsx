@@ -28,11 +28,11 @@ export function TokenAssetIcon({
   const uri = active && credit && snapshot.enabled ? service?.readIcon({ kind: 'credit', code, issuer }) : undefined;
 
   useEffect(() => {
-    if (!active || !credit || !service?.available || !snapshot.enabled) return;
+    if (!active || !credit || !service?.available || !snapshot.enabled || uri) return;
     const controller = new AbortController();
     service.loadIcon({ kind: 'credit', code, issuer }, controller.signal).catch(() => undefined);
     return () => controller.abort();
-  }, [active, code, credit, issuer, service, snapshot.enabled, retryRevision]);
+  }, [active, code, credit, issuer, service, snapshot.enabled, retryRevision, uri]);
 
   if (!credit) {
     return (

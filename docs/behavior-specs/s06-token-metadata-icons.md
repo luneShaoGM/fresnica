@@ -340,3 +340,11 @@ service close aborts it. Late cancelled results cannot repopulate the cache.
 Existing consent, bounded transport, failure cooldown, cache limits and network
 partition rules remain unchanged. Automated tests cover these transitions;
 native iOS/Android visual acceptance remains pending.
+
+When a mounted active consumer observes an expired/evicted image on a later
+render, the transition to a cache miss starts one shared reload without
+requiring remount or a cache-revision change. Cached images start no load;
+ordinary metadata/cache notifications do not repeatedly retry an unresolved
+or failed miss. Refresh failure retains the local fallback and existing
+candidate cooldown. Tests use the actual icon service clock at the 10-minute
+TTL boundary for successful and offline refresh; native acceptance is pending.
