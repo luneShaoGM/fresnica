@@ -1164,12 +1164,16 @@
   "activity.filters.dustActive": "Dust filtered",
   "activity.filters.revealDust": "Show dust activity",
   "settings.privacy.accountAvatars": "Account address avatars (StellarCN)",
-  "settings.privacy.accountAvatarsInfo": "Account avatars load automatically from horizon.stellarcn.org using full displayed wallet and counterparty public addresses. The provider can see those addresses, your IP address and request time. Turn this off to use generic profile images. These images do not verify identity. This choice is separate from Token images.",
+  "settings.privacy.accountAvatarsInfo": "Off by default. Enabling loads account avatars from horizon.stellarcn.org using full displayed wallet and counterparty public addresses. The provider can see those addresses, your IP address and request time. Turn this off to use generic profile images. Images do not verify identity. This choice is separate from Token images.",
   "session.locked": "Wallet locked",
   "session.explanation": "Unlock with your App Passphrase. Routine signing still uses system authentication when available; exporting recovery material requires a fresh App Passphrase. System authentication for app unlock is not yet available.",
   "session.passphrase": "App Passphrase",
   "session.failed": "Unable to unlock. Check your App Passphrase and try again.",
   "session.unlock": "Unlock",
   "session.unlocking": "Unlocking…",
-  "session.lockNow": "Lock wallet now"
+  "session.lockNow": "Lock wallet now",
+  "settings.privacy.avatarConsentTitle": "Enable external account avatars?",
+  "settings.privacy.avatarConsentDetail": "This connects displayed addresses with your network activity at this provider. No private keys or App Passphrase are sent. You can turn this off in Privacy settings.",
+  "settings.privacy.avatarConsentAccept": "I understand — enable avatars",
+  "settings.privacy.avatarConsentCancel": "Keep avatars off"
 }

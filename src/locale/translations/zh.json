@@ -1164,12 +1164,16 @@
   "activity.filters.dustActive": "已过滤粉尘",
   "activity.filters.revealDust": "显示粉尘记录",
   "settings.privacy.accountAvatars": "账户地址头像（StellarCN）",
-  "settings.privacy.accountAvatarsInfo": "默认按完整公开地址从 horizon.stellarcn.org 加载账户头像。服务提供方可获知显示的钱包及交易对方地址、IP 地址和请求时间。关闭后使用通用用户头像；头像不代表身份认证。此选项与代币图片相互独立。",
+  "settings.privacy.accountAvatarsInfo": "默认关闭。启用后，按完整公开地址从 horizon.stellarcn.org 加载钱包及交易对方头像。服务方可获知这些地址、IP 地址和请求时间。关闭后使用通用用户头像；头像不代表身份认证。此选项与代币图片相互独立。",
   "session.locked": "钱包已锁定",
   "session.explanation": "使用 App Passphrase 解锁。普通签名仍优先使用系统认证；导出恢复材料需重新输入强密码。应用解锁的系统认证暂未提供。",
   "session.passphrase": "App Passphrase（强密码）",
   "session.failed": "无法解锁，请检查 App Passphrase 后重试。",
   "session.unlock": "解锁",
   "session.unlocking": "正在解锁…",
-  "session.lockNow": "立即锁定钱包"
+  "session.lockNow": "立即锁定钱包",
+  "settings.privacy.avatarConsentTitle": "启用外部账户头像？",
+  "settings.privacy.avatarConsentDetail": "这会让服务方关联显示的地址与你的网络活动。不会发送私钥或 App Passphrase。你可以随时在隐私设置中关闭。",
+  "settings.privacy.avatarConsentAccept": "我已了解，启用头像",
+  "settings.privacy.avatarConsentCancel": "保持关闭"
 }

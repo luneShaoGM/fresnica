@@ -25,6 +25,7 @@ export type NetworkPreferences = Readonly<{
   retainedTestnet?: boolean;
   externalTokenImagesEnabled?: boolean;
   externalAccountAvatarsEnabled?: boolean;
+  externalAccountAvatarsConsentVersion?: 1;
   networkId: NetworkId;
   endpoints: Readonly<Record<NetworkId, string>>;
   customNodes: Readonly<Record<NetworkId, readonly string[]>>;
@@ -37,6 +38,7 @@ export const DEFAULT_NETWORK_PREFERENCES: NetworkPreferences = Object.freeze({
   developerMode: false,
   selectionConfirmed: true,
   externalTokenImagesEnabled: true,
+  externalAccountAvatarsEnabled: false,
   networkId: 'stellar-mainnet',
   endpoints: Object.freeze({
     'stellar-mainnet': NETWORKS['stellar-mainnet'].horizonUrl,
@@ -59,6 +61,7 @@ export function validateNetworkPreferences(value: unknown): NetworkPreferences {
   const v = value as Record<string, unknown>;
   if (
     (v.retainedTestnet !== undefined && typeof v.retainedTestnet !== 'boolean') ||
+    (v.externalAccountAvatarsConsentVersion !== undefined && v.externalAccountAvatarsConsentVersion !== 1) ||
     (v.externalAccountAvatarsEnabled !== undefined && typeof v.externalAccountAvatarsEnabled !== 'boolean') ||
     (v.externalTokenImagesEnabled !== undefined && typeof v.externalTokenImagesEnabled !== 'boolean') ||
     typeof v.selectionConfirmed !== 'boolean' ||
@@ -101,9 +104,9 @@ export function validateNetworkPreferences(value: unknown): NetworkPreferences {
     developerMode: v.developerMode,
     selectionConfirmed: v.selectionConfirmed,
     externalTokenImagesEnabled: v.externalTokenImagesEnabled !== false,
-    ...(typeof v.externalAccountAvatarsEnabled === 'boolean'
-      ? { externalAccountAvatarsEnabled: v.externalAccountAvatarsEnabled }
-      : {}),
+    externalAccountAvatarsEnabled:
+      v.externalAccountAvatarsConsentVersion === 1 && v.externalAccountAvatarsEnabled === true,
+    ...(v.externalAccountAvatarsConsentVersion === 1 ? { externalAccountAvatarsConsentVersion: 1 as const } : {}),
     networkId: v.networkId,
     endpoints: Object.freeze(endpoints),
     customNodes: Object.freeze(customNodes),

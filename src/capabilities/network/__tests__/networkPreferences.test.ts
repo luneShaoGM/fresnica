@@ -98,10 +98,28 @@ it('keeps legacy account avatars OFF without coupling Token image permission', (
         ...DEFAULT_NETWORK_PREFERENCES,
         externalTokenImagesEnabled: token,
         externalAccountAvatarsEnabled: true,
+        externalAccountAvatarsConsentVersion: 1,
       }).externalAccountAvatarsEnabled,
     ).toBe(true);
   }
   expect(() =>
     validateNetworkPreferences({ ...DEFAULT_NETWORK_PREFERENCES, externalAccountAvatarsEnabled: 'true' }),
+  ).toThrow('invalid-network-preferences');
+});
+
+it('migrates legacy default-on and explicit-on without disclosure to OFF', () => {
+  expect(
+    validateNetworkPreferences({ ...DEFAULT_NETWORK_PREFERENCES, externalAccountAvatarsEnabled: true })
+      .externalAccountAvatarsEnabled,
+  ).toBe(false);
+  expect(
+    validateNetworkPreferences({
+      ...DEFAULT_NETWORK_PREFERENCES,
+      externalAccountAvatarsEnabled: false,
+      externalAccountAvatarsConsentVersion: 1,
+    }).externalAccountAvatarsEnabled,
+  ).toBe(false);
+  expect(() =>
+    validateNetworkPreferences({ ...DEFAULT_NETWORK_PREFERENCES, externalAccountAvatarsConsentVersion: 2 }),
   ).toThrow('invalid-network-preferences');
 });

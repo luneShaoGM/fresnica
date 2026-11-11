@@ -467,17 +467,17 @@ describe('production network composition and retirement', () => {
   });
 });
 
-it('wires independent default-ON account avatars to durable permission and app retirement', async () => {
+it('wires independent default-OFF account avatars to durable permission and app retirement', async () => {
   const modules = NativeModules as Record<string, unknown>;
   const original = modules.SecureAssetFetch;
   const fetch = jest.fn();
   modules.SecureAssetFetch = { fetch, cancel: jest.fn() };
   try {
     const first = await createAppServices();
-    expect(first.accountAvatars?.getSnapshot().enabled).toBe(true);
+    expect(first.accountAvatars?.getSnapshot().enabled).toBe(false);
     await first.networkSettings?.setExternalTokenImagesEnabled(false);
-    expect(first.accountAvatars?.getSnapshot().enabled).toBe(true);
-    await first.networkSettings?.setExternalAccountAvatarsEnabled(true);
+    expect(first.accountAvatars?.getSnapshot().enabled).toBe(false);
+    await first.networkSettings?.setExternalAccountAvatarsEnabled(true, true);
     expect(first.accountAvatars?.getSnapshot()).toMatchObject({ enabled: true, readable: true });
     first.ledgerReadRuntime.update({ foreground: false, connectivity: 'online' });
     expect(first.accountAvatars?.getSnapshot().readable).toBe(false);

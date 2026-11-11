@@ -1,0 +1,9 @@
+# S04 account avatar informed opt-in
+
+Phase 0 and existing Settings/Contacts foundations reused. S04 privacy / S13 address avatars, Adapt display-only product role, clean-room implementation. No donor source. Strict presentation scope extends PrivacySettingsScreen. Account avatars remain independent of Token image permission and do not grant signing or identity authority.
+
+New installations and legacy preferences without disclosure version 1 are OFF, including legacy explicit true. Existing false stays false. Privacy first-enable shows provider, complete displayed wallet/counterparty addresses, IP/time correlation, no private key/App Passphrase transmission, and opt-out. Cancel/back makes no write/request. Explicit acceptance saves enabled=true and disclosure version atomically in the existing preferences JSON; no Realm schema change. Capability rejects first enable without acceptance. Persistence failure leaves the old disabled state; no temporary enable before durable save. A previously acknowledged user may toggle again without repeated disclosure. Turning off reuses cancellation/cache clearing in the avatar port; a persistence failure reports failure and retains the prior saved preference.
+
+Tests cover defaults/legacy normalization, missing/invalid consent marker, confirmation/cancel, persistence failure, reopen, independent Token setting and runtime wiring. Native interaction/accessibility/network observation not implied. No maturity or release promotion.
+
+Implementation validation: complete current-tree Jest 264 suites / 2450 tests PASS; focused privacy/network suites 4 / 48 PASS; real Realm preferences close/reopen/rollback integration 1 suite / 4 tests PASS; TypeScript, targeted lint, architecture, aliases, provenance and locales PASS. Native interaction and independent Work review remain pending.

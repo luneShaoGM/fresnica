@@ -27,7 +27,11 @@ describe('durable network preferences alongside unchanged wallet partitions', ()
     const store = new RealmNetworkPreferenceStore(preferences);
     store.save(DEFAULT_NETWORK_PREFERENCES);
     expect(store.load()?.externalAccountAvatarsEnabled).not.toBe(true);
-    store.save({ ...DEFAULT_NETWORK_PREFERENCES, externalAccountAvatarsEnabled: true });
+    store.save({
+      ...DEFAULT_NETWORK_PREFERENCES,
+      externalAccountAvatarsEnabled: true,
+      externalAccountAvatarsConsentVersion: 1,
+    });
     const path = wallet.path;
     preferences.close();
     preferences = await openNetworkPreferences(path);
