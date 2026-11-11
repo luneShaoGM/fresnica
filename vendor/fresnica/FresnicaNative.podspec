@@ -14,6 +14,13 @@ Pod::Spec.new do |spec|
     'adapter/react-native/FresnicaRNAdapter.xcframework',
   ]
 
+  # Verify before adapter compilation as well as at the final app build entrypoint.
+  spec.script_phase = {
+    :name => 'Verify pinned Fresnica SDK',
+    :script => '/bin/sh "${PODS_TARGET_SRCROOT}/../../scripts/verify-native-sdk-apple.sh"',
+    :execution_position => :before_compile,
+  }
+
   spec.pod_target_xcconfig = {
     'OTHER_LDFLAGS' => '$(inherited) -ObjC',
   }

@@ -201,7 +201,7 @@
             outputPaths = ();
             runOnlyForDeploymentPostprocessing = 0;
             shellPath = /bin/sh;
-            shellScript = "set -e\ncd \"$SRCROOT/..\"\nNODE_BINARY=${NODE_BINARY:-node}\n\"$NODE_BINARY\" scripts/verify-native-sdk.mjs apple\n";
+            shellScript = "/bin/sh \"$SRCROOT/../scripts/verify-native-sdk-apple.sh\"\n";
         };
 
 		00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */ = {
