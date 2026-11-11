@@ -20,7 +20,7 @@
     "alias:check": "node scripts/check-module-aliases.mjs",
     "architecture:check": "node scripts/check-architecture.mjs",
     "locale:check": "node scripts/check-locales.mjs",
-    "check": "npm run typecheck && npm run smoke:product-flow:check && npm run format:check && npm run lint && npm run alias:check && npm run architecture:check && npm run provenance:check && npm run artwork:check && npm run locale:check && node scripts/apply-webview-bridge-patch.mjs --check && npm test",
+    "check": "node --test scripts/verify-native-sdk.test.mjs && npm run typecheck && npm run smoke:product-flow:check && npm run format:check && npm run lint && npm run alias:check && npm run architecture:check && npm run provenance:check && npm run artwork:check && npm run locale:check && node scripts/apply-webview-bridge-patch.mjs --check && npm test",
     "provenance:check": "node scripts/check-donor-collisions.mjs",
     "provenance:index": "node scripts/update-donor-blob-index.mjs",
     "smoke:product-flow:android": "bash scripts/run-product-flow-smoke.sh android --rebuild",

@@ -1,0 +1,134 @@
+{
+  "version": "0.3.1",
+  "appleArchiveSha256": "97545f6b5a3ab8b4fe05f0c8b7e012b4c76e9858500c373eea43fd21daa8d5be",
+  "android": {
+    "fresnica-native-sdk-0.3.1.aar": {
+      "sha256": "2acbeb065d33abea787b0877674f6f263ea44daa9cc9a032942d46c98e0c88bb"
+    }
+  },
+  "apple": {
+    "FresnicaSDK.xcframework/Info.plist": {
+      "sha256": "fd749ad9afaca843c2c86d3b4ec54d440a7dd59470c94880e8e66a0169186364"
+    },
+    "FresnicaSDK.xcframework/ios-arm64/FresnicaSDK.framework/FresnicaSDK": {
+      "sha256": "7ac68e3cbbab7eeeb6bba0320508d11d47a27cdbca059f7bf5ddd735b93d714e"
+    },
+    "FresnicaSDK.xcframework/ios-arm64/FresnicaSDK.framework/Info.plist": {
+      "sha256": "c63f394380fe02c2d296bc12ea25a2790164c1d6d41079d138a64d4402712312"
+    },
+    "FresnicaSDK.xcframework/ios-arm64/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/arm64-apple-ios.abi.json": {
+      "sha256": "73aee23047ab02ea1b6e918abcf8e0d56f160b1f8e0d0db9a6cebdac203484cb"
+    },
+    "FresnicaSDK.xcframework/ios-arm64/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/arm64-apple-ios.private.swiftinterface": {
+      "sha256": "fee6c1d0701d997bffd4734e37ebf33fd1601d19b201ee0fb524eb3aa9dfde00"
+    },
+    "FresnicaSDK.xcframework/ios-arm64/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/arm64-apple-ios.swiftdoc": {
+      "sha256": "e40dd78d08278607b80d87a34fa0bb566fab96829c1ad156efabeb3a301d85c1"
+    },
+    "FresnicaSDK.xcframework/ios-arm64/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/arm64-apple-ios.swiftinterface": {
+      "sha256": "fee6c1d0701d997bffd4734e37ebf33fd1601d19b201ee0fb524eb3aa9dfde00"
+    },
+    "FresnicaSDK.xcframework/ios-arm64_x86_64-simulator/FresnicaSDK.framework/FresnicaSDK": {
+      "sha256": "e8843f5375183c6eb5c8332a92e86ab412f08da1a4aa4b3ab0fa2dd0256869ae"
+    },
+    "FresnicaSDK.xcframework/ios-arm64_x86_64-simulator/FresnicaSDK.framework/Info.plist": {
+      "sha256": "47b4c7b68871bab73da868cdd43d8fca31436cbe96246170539bd12147141c43"
+    },
+    "FresnicaSDK.xcframework/ios-arm64_x86_64-simulator/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/arm64-apple-ios-simulator.abi.json": {
+      "sha256": "73aee23047ab02ea1b6e918abcf8e0d56f160b1f8e0d0db9a6cebdac203484cb"
+    },
+    "FresnicaSDK.xcframework/ios-arm64_x86_64-simulator/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/arm64-apple-ios-simulator.private.swiftinterface": {
+      "sha256": "e660ab5ccb95d2dafb9349fd8a06749d9f65b3f1e02d779dd58320fbe163f2fb"
+    },
+    "FresnicaSDK.xcframework/ios-arm64_x86_64-simulator/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/arm64-apple-ios-simulator.swiftdoc": {
+      "sha256": "9387d82c9b34e946b7ce77703c0b373343eb0e9a02d1c94cd1c87ccd1b50bb7b"
+    },
+    "FresnicaSDK.xcframework/ios-arm64_x86_64-simulator/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/arm64-apple-ios-simulator.swiftinterface": {
+      "sha256": "e660ab5ccb95d2dafb9349fd8a06749d9f65b3f1e02d779dd58320fbe163f2fb"
+    },
+    "FresnicaSDK.xcframework/ios-arm64_x86_64-simulator/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/x86_64-apple-ios-simulator.abi.json": {
+      "sha256": "73aee23047ab02ea1b6e918abcf8e0d56f160b1f8e0d0db9a6cebdac203484cb"
+    },
+    "FresnicaSDK.xcframework/ios-arm64_x86_64-simulator/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/x86_64-apple-ios-simulator.private.swiftinterface": {
+      "sha256": "9836c2b44596c6599d81f542621c347dac42f2fb34747f6358f916cc9a3b5d92"
+    },
+    "FresnicaSDK.xcframework/ios-arm64_x86_64-simulator/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/x86_64-apple-ios-simulator.swiftdoc": {
+      "sha256": "811246384f13399c69c9a9f0fa4a2ac25f5757694ea417572acfea4d388e5881"
+    },
+    "FresnicaSDK.xcframework/ios-arm64_x86_64-simulator/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/x86_64-apple-ios-simulator.swiftinterface": {
+      "sha256": "9836c2b44596c6599d81f542621c347dac42f2fb34747f6358f916cc9a3b5d92"
+    },
+    "FresnicaSDK.xcframework/ios-arm64_x86_64-simulator/FresnicaSDK.framework/_CodeSignature/CodeResources": {
+      "sha256": "814b61862537a7ebead989a7380fb6e037a884a5aa458e3c7127cc3fe59cd7a9"
+    },
+    "FresnicaSDK.xcframework/macos-arm64_x86_64/FresnicaSDK.framework/FresnicaSDK": {
+      "symlink": "Versions/Current/FresnicaSDK"
+    },
+    "FresnicaSDK.xcframework/macos-arm64_x86_64/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/arm64-apple-macos.abi.json": {
+      "sha256": "73aee23047ab02ea1b6e918abcf8e0d56f160b1f8e0d0db9a6cebdac203484cb"
+    },
+    "FresnicaSDK.xcframework/macos-arm64_x86_64/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/arm64-apple-macos.private.swiftinterface": {
+      "sha256": "4d8de59b4941aea6f67336acb86d36a3fd480de8c3a108893eea45dc0f7f7f90"
+    },
+    "FresnicaSDK.xcframework/macos-arm64_x86_64/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/arm64-apple-macos.swiftdoc": {
+      "sha256": "08697c619689ffa9d39b73b181f784071580c387d7afe8fd2cf54d8e66abca2e"
+    },
+    "FresnicaSDK.xcframework/macos-arm64_x86_64/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/arm64-apple-macos.swiftinterface": {
+      "sha256": "4d8de59b4941aea6f67336acb86d36a3fd480de8c3a108893eea45dc0f7f7f90"
+    },
+    "FresnicaSDK.xcframework/macos-arm64_x86_64/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/x86_64-apple-macos.abi.json": {
+      "sha256": "73aee23047ab02ea1b6e918abcf8e0d56f160b1f8e0d0db9a6cebdac203484cb"
+    },
+    "FresnicaSDK.xcframework/macos-arm64_x86_64/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/x86_64-apple-macos.private.swiftinterface": {
+      "sha256": "c8c83656ff7dd579c5c7a805bb838bd02ed30f50349c4742602ac63afe06297a"
+    },
+    "FresnicaSDK.xcframework/macos-arm64_x86_64/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/x86_64-apple-macos.swiftdoc": {
+      "sha256": "8a2cbaf93c39ae0d28f88e67ad46cbfae8c0ba128e79654aa230efc4c30c8d3c"
+    },
+    "FresnicaSDK.xcframework/macos-arm64_x86_64/FresnicaSDK.framework/Modules/FresnicaSDK.swiftmodule/x86_64-apple-macos.swiftinterface": {
+      "sha256": "c8c83656ff7dd579c5c7a805bb838bd02ed30f50349c4742602ac63afe06297a"
+    },
+    "FresnicaSDK.xcframework/macos-arm64_x86_64/FresnicaSDK.framework/Resources": {
+      "symlink": "Versions/Current/Resources"
+    },
+    "FresnicaSDK.xcframework/macos-arm64_x86_64/FresnicaSDK.framework/Versions/A/FresnicaSDK": {
+      "sha256": "24125cb95f61e04f5fb42b6ec33d1d945acb351fc343b02a2eff7e1feebcee0f"
+    },
+    "FresnicaSDK.xcframework/macos-arm64_x86_64/FresnicaSDK.framework/Versions/A/Resources/Info.plist": {
+      "sha256": "254f5e72e699109105b65ec18307f6cb9bb1271891759dc4d76f8a206f5b86eb"
+    },
+    "FresnicaSDK.xcframework/macos-arm64_x86_64/FresnicaSDK.framework/Versions/Current": {
+      "symlink": "A"
+    },
+    "FresnicaSDKFFI.xcframework/Info.plist": {
+      "sha256": "d4af75fff07f394ab1c9eea8674cc269ebe3e0894311923a14f24ef04da65ff8"
+    },
+    "FresnicaSDKFFI.xcframework/ios-arm64/Headers/FresnicaSDKFFI.h": {
+      "sha256": "7a205b53c0bbc6457b5a5d151d7043242e2f96bd2e6e5e42c90981137eb9b0de"
+    },
+    "FresnicaSDKFFI.xcframework/ios-arm64/Headers/module.modulemap": {
+      "sha256": "94d748f6b0789ce5b972768bcc06bb7c61322be67568ceb9753e510c3198f903"
+    },
+    "FresnicaSDKFFI.xcframework/ios-arm64/libfresnica_native_sdk.a": {
+      "sha256": "c7aa44b432465024e655fd960ac2d2982886e817a89cb9e509b930cfa30757fe"
+    },
+    "FresnicaSDKFFI.xcframework/ios-arm64_x86_64-simulator/Headers/FresnicaSDKFFI.h": {
+      "sha256": "7a205b53c0bbc6457b5a5d151d7043242e2f96bd2e6e5e42c90981137eb9b0de"
+    },
+    "FresnicaSDKFFI.xcframework/ios-arm64_x86_64-simulator/Headers/module.modulemap": {
+      "sha256": "94d748f6b0789ce5b972768bcc06bb7c61322be67568ceb9753e510c3198f903"
+    },
+    "FresnicaSDKFFI.xcframework/ios-arm64_x86_64-simulator/libfresnica_native_sdk.a": {
+      "sha256": "24f28d711cba7857558f9cda9ac523a18bb39c429d315fa5d9f2bad926de45aa"
+    },
+    "FresnicaSDKFFI.xcframework/macos-arm64_x86_64/Headers/FresnicaSDKFFI.h": {
+      "sha256": "7a205b53c0bbc6457b5a5d151d7043242e2f96bd2e6e5e42c90981137eb9b0de"
+    },
+    "FresnicaSDKFFI.xcframework/macos-arm64_x86_64/Headers/module.modulemap": {
+      "sha256": "94d748f6b0789ce5b972768bcc06bb7c61322be67568ceb9753e510c3198f903"
+    },
+    "FresnicaSDKFFI.xcframework/macos-arm64_x86_64/libfresnica_native_sdk.a": {
+      "sha256": "f834ab87e52621c1cac4d7f6566881e8b5ccfef81d791d216f217861a95d83a7"
+    }
+  }
+}
