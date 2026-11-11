@@ -49,6 +49,65 @@ function setup(networkId = 'stellar-mainnet', isNativeAvailable = true) {
 }
 
 describe('S06 token icon opt-in, fallback and lifecycle', () => {
+  it('reads domains only from the active validated asset partition without starting requests', () => {
+    const { icons, metadata } = setup();
+    const peek = jest.mocked(metadata.peek);
+    peek.mockImplementation(value => value.issuer === issuer && value.code === 'Usd'
+      ? { source: 'issuer-toml', icons: [], domain: 'issuer.example' }
+      : undefined);
+    expect(icons.readDomain(asset)).toBeUndefined();
+    expect(peek).not.toHaveBeenCalled();
+    icons.setEnabled(true);
+    expect(icons.readDomain(asset)).toBe('issuer.example');
+    expect(icons.readDomain({ ...asset, code: 'Other' })).toBeUndefined();
+    expect(icons.readDomain({ ...asset, issuer: 'invalid' })).toBeUndefined();
+    expect(metadata.resolve).not.toHaveBeenCalled();
+    icons.setEnabled(false);
+    expect(icons.readDomain(asset)).toBeUndefined();
+    icons.setEnabled(true);
+    icons.close();
+    expect(icons.readDomain(asset)).toBeUndefined();
+  });
+
+  it('notifies mounted subtitles when metadata resolves without a usable image', async () => {
+    const { icons, metadata, readIcon } = setup();
+    let domain: string | undefined;
+    jest.mocked(metadata.peek).mockImplementation(() => ({ source: 'issuer-toml', icons: [], domain }));
+    jest.mocked(metadata.resolve).mockImplementation(async () => {
+      domain = 'issuer.example';
+      return { metadata: metadata.peek(asset), fromCache: false, stale: false, refreshFailed: false };
+    });
+    icons.setEnabled(true);
+    const listener = jest.fn();
+    icons.subscribe(listener);
+    expect(icons.readDomain(asset)).toBeUndefined();
+    expect(await icons.loadIcon(asset, new AbortController().signal)).toBeUndefined();
+    expect(icons.readDomain(asset)).toBe('issuer.example');
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(readIcon).not.toHaveBeenCalled();
+    icons.close();
+  });
+
+  it('does not publish a late metadata completion after privacy is disabled', async () => {
+    const { icons, metadata, readIcon } = setup();
+    let finish!: (value: Awaited<ReturnType<TokenMetadataPort['resolve']>>) => void;
+    jest.mocked(metadata.resolve).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    icons.setEnabled(true);
+    const listener = jest.fn();
+    icons.subscribe(listener);
+    const pending = icons.loadIcon(asset, new AbortController().signal);
+    await new Promise<void>(resolve => setImmediate(resolve));
+    icons.setEnabled(false);
+    const revocationRevision = icons.getSnapshot().revision;
+    finish({ metadata: { source: 'issuer-toml', domain: 'issuer.example', icons: [] }, fromCache: false, stale: false, refreshFailed: false });
+    expect(await pending).toBeUndefined();
+    expect(icons.getSnapshot().revision).toBe(revocationRevision);
+    expect(icons.readDomain(asset)).toBeUndefined();
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(readIcon).not.toHaveBeenCalled();
+    icons.close();
+  });
+
   it('starts enabled for automatic logos when configured and does no background image fetch without an asset consumer', async () => {
     const baseline = setup();
     baseline.icons.close();

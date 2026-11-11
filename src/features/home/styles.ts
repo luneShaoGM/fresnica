@@ -1,22 +1,53 @@
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 import type { AppTheme } from '@ui/theme';
 
 export function createStyles(theme: AppTheme) {
+  const monetaryFont = Platform.select({ ios: 'Menlo', default: 'monospace' });
+  const nativeText = {
+    ...theme.typography.sectionTitle,
+    fontSize: 20,
+    lineHeight: 26,
+    fontFamily: monetaryFont,
+    color: theme.colors.secondary,
+  };
   return StyleSheet.create({
     homeLayout: { flex: 1 },
     headerScroll: { maxHeight: '55%', flexGrow: 0, flexShrink: 1 },
     nativeFixedWrap: { paddingHorizontal: theme.spacing.lg },
     tokenScroll: { flex: 1 },
     tokenContent: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.xl },
-    pinnedNative: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.colors.separatorSubtle },
+    pinnedNative: { paddingBottom: theme.spacing.sm },
     nativeBreakdownRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      justifyContent: 'space-between',
-      paddingBottom: theme.spacing.sm,
+      alignItems: 'center',
+      columnGap: 10,
+      rowGap: theme.spacing.xs,
+      paddingTop: 10,
+      paddingBottom: 5,
     },
     nativeBreakdownText: { ...theme.typography.caption, color: theme.colors.textSecondary },
+    nativeBreakdownValue: {
+      ...theme.typography.caption,
+      color: theme.colors.textSecondary,
+      fontFamily: monetaryFont,
+      fontWeight: '700',
+      flexShrink: 1,
+    },
+    nativeReserveLock: {
+      width: 35,
+      height: 18,
+      borderRadius: theme.radii.pill,
+      backgroundColor: theme.colors.surfaceMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    nativeReserveAmount: { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 1 },
+    nativeReserveSymbol: { width: 8, height: 8, tintColor: theme.colors.textSecondary },
+    nativeAmountSymbol: { width: 12, height: 12, tintColor: theme.colors.secondary },
+    nativeAssetCode: nativeText,
+    nativeAssetBalance: { ...nativeText, flexShrink: 1, fontVariant: ['tabular-nums'] },
     content: {
       paddingHorizontal: theme.spacing.lg,
       paddingTop: theme.spacing.sm,
@@ -276,23 +307,24 @@ export function createStyles(theme: AppTheme) {
       textAlign: 'center',
     },
     assetRow: {
-      minHeight: 68,
+      minHeight: 55,
       flexDirection: 'row',
       alignItems: 'center',
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.separatorSubtle,
-      gap: theme.spacing.sm,
-      paddingVertical: theme.spacing.sm,
+      gap: 10,
+      paddingVertical: theme.spacing.xs,
     },
     assetBadge: {
-      width: 40,
-      minHeight: 40,
+      width: 35,
+      height: 35,
+      borderRadius: 11,
+      overflow: 'hidden',
       alignItems: 'center',
       justifyContent: 'center',
     },
     assetIdentity: {
       flex: 1,
-      gap: theme.spacing.xs,
+      minWidth: 0,
+      gap: 3,
     },
     assetCode: {
       ...theme.typography.label,
@@ -301,21 +333,28 @@ export function createStyles(theme: AppTheme) {
     },
     assetIssuer: {
       ...theme.typography.caption,
-      color: theme.colors.textTertiary,
+      color: theme.colors.textSecondary,
     },
     assetBalanceBlock: {
       flexShrink: 1,
       minWidth: 0,
+      maxWidth: '60%',
       alignItems: 'flex-end',
       gap: theme.spacing.xs,
     },
+    assetRowLargeText: { flexWrap: 'wrap', rowGap: theme.spacing.sm },
+    assetIdentityLargeText: { flexBasis: '70%' },
+    assetBalanceLargeText: { width: '100%', maxWidth: '100%', flexShrink: 0 },
     assetAmountRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs, flexShrink: 1 },
-    nativeAssetRow: { minHeight: 56, borderBottomWidth: 0 },
+    assetSmallIcon: { borderRadius: 3, borderWidth: 1, borderColor: theme.colors.background, overflow: 'hidden', flexShrink: 0 },
+    nativeAssetRow: { minHeight: 56 },
     assetBalance: {
       flexShrink: 1,
       ...theme.typography.label,
       color: theme.colors.textPrimary,
       fontVariant: ['tabular-nums'],
+      fontFamily: monetaryFont,
+      fontWeight: '700',
     },
     hiddenAssetsText: {
       ...theme.typography.caption,

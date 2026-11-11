@@ -137,6 +137,14 @@ export function createTokenIconPort(
       }
       return stored.uri;
     },
+    readDomain(asset) {
+      if (closed || !state.enabled || !available || !validTokenAsset(asset, input.networkId)) return;
+      try {
+        return input.metadata.peek(asset)?.domain;
+      } catch {
+        return;
+      }
+    },
     rejectIcon(asset, uri) {
       if (closed || !state.enabled || !validTokenAsset(asset, input.networkId)) return;
       const key = keyFor(asset);
@@ -176,6 +184,9 @@ export function createTokenIconPort(
         } catch {
           if (closed || controller.signal.aborted) return;
         }
+        if (closed || !state.enabled || controller.signal.aborted) return;
+        // Subtitles must update even when metadata has no usable image.
+        emit();
         for (const url of metadata?.icons ?? []) {
           if (closed || !state.enabled || controller.signal.aborted) return;
           const failedUntil = failed.get(url) ?? 0;

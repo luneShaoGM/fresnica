@@ -1,12 +1,17 @@
 import React from 'react';
 import { TokenAssetIcon } from '../../assets/TokenAssetIcon';
-import { Pressable, Text, View } from 'react-native';
+import { useTokenIconContext } from '../../assets/tokenIconContext';
+import { Image, Pressable, Text, useWindowDimensions, View } from 'react-native';
 
 import type { BalanceLine } from '../../../capabilities/balance/types';
 import type { NativeBalanceBreakdown } from '../../../capabilities/balance/nativeBalanceBreakdown';
-import { useThemedStyles } from '@ui/theme';
+import { useAppTheme, useThemedStyles } from '@ui/theme';
+import { SmallLock } from '@ui/components/SmallIcons';
 import { maskAddress } from '../homeViewModel';
 import { createStyles } from '../styles';
+import { formatHomeAmount } from '../formatHomeAmount';
+
+const xlmSymbol = require('../../../ui/assets/token/xlmSymbol.png');
 
 type Props = Readonly<{
   balances: readonly BalanceLine[];
@@ -16,6 +21,8 @@ type Props = Readonly<{
 
 export function AssetList({ balances, hiddenLiquidityPoolShareCount, onOpenAsset }: Props) {
   const styles = useThemedStyles(createStyles);
+  const largeText = useWindowDimensions().fontScale > 1.5;
+  const { service, snapshot } = useTokenIconContext();
   const issued = balances.filter(line => line.asset.kind === 'credit');
   const hiddenPoolNotice =
     hiddenLiquidityPoolShareCount > 0 ? (
@@ -40,28 +47,34 @@ export function AssetList({ balances, hiddenLiquidityPoolShareCount, onOpenAsset
 
         return (
           <Pressable
-            accessibilityLabel={`${line.asset.code} balance ${line.balance}`}
+            accessibilityLabel={`${line.asset.code} ${line.asset.kind === 'credit' ? line.asset.issuer : ''} balance ${line.balance}`}
             accessibilityRole="button"
             key={assetKey}
             onPress={() => onOpenAsset(line.asset)}
-            style={({ pressed }) => [styles.assetRow, pressed ? styles.pressed : undefined]}
+            style={({ pressed }) => [styles.assetRow, largeText ? styles.assetRowLargeText : undefined, pressed ? styles.pressed : undefined]}
           >
             <View style={styles.assetBadge}>
-              <TokenAssetIcon asset={line.asset} />
+              <TokenAssetIcon asset={line.asset} size={35} resizeMode="cover" />
             </View>
 
-            <View style={styles.assetIdentity}>
-              <Text style={styles.assetCode}>{line.asset.code}</Text>
+            <View style={[styles.assetIdentity, largeText ? styles.assetIdentityLargeText : undefined]}>
+              <Text numberOfLines={largeText ? undefined : 1} ellipsizeMode="middle" style={styles.assetCode}>
+                {line.asset.code}
+              </Text>
               <Text numberOfLines={1} style={styles.assetIssuer}>
-                {line.asset.kind === 'credit' ? maskAddress(line.asset.issuer) : 'Stellar native asset'}
+                {line.asset.kind === 'credit'
+                  ? (snapshot.enabled ? service?.readDomain(line.asset) : undefined) || maskAddress(line.asset.issuer)
+                  : 'Stellar native asset'}
               </Text>
             </View>
 
-            <View style={styles.assetBalanceBlock}>
+            <View style={[styles.assetBalanceBlock, largeText ? styles.assetBalanceLargeText : undefined]}>
               <View style={styles.assetAmountRow}>
-                <TokenAssetIcon asset={line.asset} small />
-                <Text selectable style={styles.assetBalance}>
-                  {line.balance}
+                <View style={styles.assetSmallIcon}>
+                  <TokenAssetIcon asset={line.asset} small size={12} />
+                </View>
+                <Text numberOfLines={largeText ? undefined : 1} ellipsizeMode="tail" selectable style={styles.assetBalance}>
+                  {formatHomeAmount(line.balance)}
                 </Text>
               </View>
             </View>
@@ -88,6 +101,8 @@ export function PinnedNativeAssetRow({
   t: (key: string) => string;
 }>) {
   const styles = useThemedStyles(createStyles);
+  const theme = useAppTheme();
+  const largeText = useWindowDimensions().fontScale > 1.5;
   if (line.asset.kind !== 'native') return null;
   return (
     <View testID="home-xlm-fixed" style={styles.pinnedNative}>
@@ -100,31 +115,45 @@ export function PinnedNativeAssetRow({
         }
         accessibilityRole="button"
         onPress={() => onOpenAsset(line.asset)}
-        style={[styles.assetRow, styles.nativeAssetRow]}
+        style={[styles.assetRow, styles.nativeAssetRow, largeText ? styles.assetRowLargeText : undefined]}
       >
         <View style={styles.assetBadge}>
-          <TokenAssetIcon asset={line.asset} />
+          <TokenAssetIcon asset={line.asset} size={35} resizeMode="cover" />
         </View>
-        <View style={styles.assetIdentity}>
-          <Text style={styles.assetCode}>XLM</Text>
-          <Text style={styles.assetIssuer}>{t(breakdown ? 'home.asset.available' : 'home.asset.accountBalance')}</Text>
+        <View style={[styles.assetIdentity, largeText ? styles.assetIdentityLargeText : undefined]}>
+          <Text numberOfLines={1} style={styles.nativeAssetCode}>
+            XLM
+          </Text>
+          <Text numberOfLines={largeText ? undefined : 1} style={styles.assetIssuer}>
+            {t(breakdown ? 'home.asset.available' : 'home.asset.accountBalance')}
+          </Text>
         </View>
-        <View style={styles.assetBalanceBlock}>
+        <View style={[styles.assetBalanceBlock, largeText ? styles.assetBalanceLargeText : undefined]}>
           <View style={styles.assetAmountRow}>
-            <TokenAssetIcon asset={line.asset} small />
-            <Text selectable style={styles.assetBalance}>
-              {breakdown?.available ?? line.balance}
+            <Image accessible={false} source={xlmSymbol} resizeMode="contain" style={styles.nativeAmountSymbol} />
+            <Text numberOfLines={largeText ? undefined : 1} ellipsizeMode="tail" selectable style={styles.nativeAssetBalance}>
+              {formatHomeAmount(breakdown?.available ?? line.balance)}
             </Text>
           </View>
         </View>
       </Pressable>
-      <View style={styles.nativeBreakdownRow}>
+      <View
+        accessible
+        accessibilityLabel={`${t('home.asset.reserved')} ${breakdown?.reserved ?? '—'} XLM`}
+        style={styles.nativeBreakdownRow}
+      >
+        <View style={styles.nativeReserveLock}>
+          <SmallLock color={theme.colors.textSecondary} />
+        </View>
         <Text style={styles.nativeBreakdownText}>
           {t('home.asset.reserved')}
         </Text>
-        <Text style={styles.nativeBreakdownText}>
-          {breakdown?.reserved ?? '—'} XLM
-        </Text>
+        <View style={styles.nativeReserveAmount}>
+          <Image accessible={false} source={xlmSymbol} resizeMode="contain" style={styles.nativeReserveSymbol} />
+          <Text numberOfLines={largeText ? undefined : 1} ellipsizeMode="tail" style={styles.nativeBreakdownValue}>
+            {breakdown ? formatHomeAmount(breakdown.reserved) : '—'}
+          </Text>
+        </View>
       </View>
     </View>
   );

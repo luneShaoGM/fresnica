@@ -3,13 +3,29 @@ import { Pressable, Text } from 'react-native';
 import { AssetList, PinnedNativeAssetRow } from '../components/AssetList';
 import { projectNativeBalanceBreakdown } from '../../../capabilities/balance/nativeBalanceBreakdown';
 
+const mockIconState = { enabled: false, domain: undefined as string | undefined };
+const mockReadDomain = jest.fn(() => mockIconState.domain);
+const mockDimensions = { width: 390, height: 844, scale: 3, fontScale: 1 };
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  __esModule: true,
+  default: () => mockDimensions,
+}));
+
 jest.mock('@ui/theme', () => {
   const actual = jest.requireActual('@ui/theme') as typeof import('@ui/theme');
   return {
     ...actual,
+    useAppTheme: () => actual.defaultTheme,
     useThemedStyles: (factory: (theme: typeof actual.defaultTheme) => unknown) => factory(actual.defaultTheme),
   };
 });
+
+jest.mock('../../assets/tokenIconContext', () => ({
+  useTokenIconContext: () => ({
+    snapshot: { enabled: mockIconState.enabled, revision: 0 },
+    service: { readDomain: mockReadDomain },
+  }),
+}));
 
 it('presents available XLM and reserve separately, falls back honestly, and opens the exact native asset', () => {
   const breakdown = projectNativeBalanceBreakdown({
@@ -20,14 +36,14 @@ it('presents available XLM and reserve separately, falls back honestly, and open
   const onOpenAsset = jest.fn();
   const render = (value?: typeof breakdown) => PinnedNativeAssetRow({ line: native, breakdown: value, onOpenAsset, t: key => key });
   const ready = render(breakdown);
-  expect(texts(ready)).toEqual(['XLM', 'home.asset.available', '11.0000000', 'home.asset.reserved', '1.0000000 XLM']);
+  expect(texts(ready)).toEqual(['XLM', 'home.asset.available', '11', 'home.asset.reserved', '1']);
   const row = elements(ready, Pressable)[0].props as { onPress: () => void; accessibilityLabel: string };
   expect(row.accessibilityLabel).toBe('XLM home.asset.available 11.0000000');
   row.onPress();
   expect(onOpenAsset).toHaveBeenCalledWith(native.asset);
   expect(texts(render())).toContain('home.asset.accountBalance');
-  expect(texts(render())).toContain(native.balance);
-  expect(texts(render())).toContain('— XLM');
+  expect(texts(render())).toContain('12');
+  expect(texts(render())).toContain('—');
 });
 jest.mock('../../assets/TokenAssetIcon', () => ({ TokenAssetIcon: () => null }));
 
@@ -96,5 +112,56 @@ describe('Home hidden liquidity-pool positions', () => {
     expect(elements(root, Pressable)).toHaveLength(1);
     (elements(root, Pressable)[0].props as { onPress: () => void }).onPress();
     expect(onOpenAsset).toHaveBeenCalledWith(credit.asset);
+  });
+});
+
+describe('Home asset identity and exact amount presentation', () => {
+  afterEach(() => {
+    mockDimensions.fontScale = 1;
+    mockIconState.enabled = false;
+    mockIconState.domain = undefined;
+    mockReadDomain.mockClear();
+  });
+
+  it('prefers a cached domain and returns to the address when privacy disables media', () => {
+    mockIconState.enabled = true;
+    mockIconState.domain = 'issuer.example';
+    const render = () => AssetList({ balances: [credit], hiddenLiquidityPoolShareCount: 0, onOpenAsset: jest.fn() });
+    expect(texts(render())).toContain('issuer.example');
+    expect(mockReadDomain).toHaveBeenLastCalledWith(credit.asset);
+    mockIconState.domain = undefined;
+    expect(texts(render())).toContain('GISSUER');
+    mockIconState.domain = 'issuer.example';
+    mockIconState.enabled = false;
+    mockReadDomain.mockClear();
+    expect(texts(render())).toContain('GISSUER');
+    expect(mockReadDomain).not.toHaveBeenCalled();
+  });
+
+  it('preserves exact same-code issuer identities and full precision in taps and accessibility', () => {
+    const second = { asset: { ...credit.asset, issuer: 'GOTHERISSUER' }, balance: '9007199254740993.1234567' };
+    const onOpenAsset = jest.fn();
+    const root = AssetList({ balances: [credit, second], hiddenLiquidityPoolShareCount: 0, onOpenAsset });
+    expect(texts(root)).toContain('9,007,199,254,740,993.1234567');
+    const rows = elements(root, Pressable);
+    rows.forEach((row, index) => {
+      const props = row.props as { accessibilityLabel: string; onPress: () => void };
+      const line = [credit, second][index];
+      expect(props.accessibilityLabel).toBe(`USD ${line.asset.issuer} balance ${line.balance}`);
+      props.onPress();
+      expect(onOpenAsset).toHaveBeenLastCalledWith(line.asset);
+    });
+    const amount = elements(root, Text).find(node => node.props.children === '9,007,199,254,740,993.1234567');
+    expect(amount?.props).toMatchObject({ numberOfLines: 1, selectable: true });
+  });
+
+  it('allows complete multiline amounts at accessibility font sizes', () => {
+    mockDimensions.fontScale = 3;
+    const root = AssetList({ balances: [credit], hiddenLiquidityPoolShareCount: 0, onOpenAsset: jest.fn() });
+    const amount = elements(root, Text).find(node => node.props.children === '3');
+    expect(amount?.props).toMatchObject({ numberOfLines: undefined, selectable: true });
+    const nativeRoot = PinnedNativeAssetRow({ line: native, onOpenAsset: jest.fn(), t: key => key });
+    const nativeAmount = elements(nativeRoot, Text).find(node => node.props.children === '12');
+    expect(nativeAmount?.props).toMatchObject({ numberOfLines: undefined, selectable: true });
   });
 });

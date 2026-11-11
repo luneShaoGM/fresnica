@@ -23,3 +23,17 @@ export function SmallClock({ color }: Readonly<{ color: string }>): React.JSX.El
     </Svg>
   );
 }
+
+export function SmallLock({ color }: Readonly<{ color: string }>): React.JSX.Element {
+  return (
+    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" accessible={false}>
+      <Path
+        d="M7 10V7a5 5 0 0 1 10 0v3M5 10h14v11H5z"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
