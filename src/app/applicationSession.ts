@@ -15,6 +15,7 @@ export type ApplicationSessionSnapshot = Readonly<{
   foreground: boolean;
   revision: number;
   canLock: boolean;
+  backgroundRevision: number;
 }>;
 
 // App access is distinct from signing authorization. No credential or auth token is retained.
@@ -25,6 +26,7 @@ export function createApplicationSession(
   let state = createSessionLockState({ ...policy, enabled: requiresExistingAppPassphrase(deps.repository) });
   let foreground = false;
   let revision = 0;
+  let backgroundRevision = 0;
   let closed = false;
   let active: AbortController | undefined;
   let snapshot: ApplicationSessionSnapshot;
@@ -34,6 +36,7 @@ export function createApplicationSession(
       locked: state.status === 'locked',
       foreground,
       revision,
+      backgroundRevision,
       canLock: requiresExistingAppPassphrase(deps.repository),
     });
     listeners.forEach(listener => listener());
@@ -60,10 +63,18 @@ export function createApplicationSession(
       }
       foreground = value;
       if (!value) {
+        backgroundRevision += 1;
         interrupt();
         state = recordSessionBackground(state, now());
       } else
         state = resumeSession(state, { ...policy, enabled: requiresExistingAppPassphrase(deps.repository) }, now());
+      publish();
+    },
+    retireMissedBackground() {
+      if (closed) return;
+      interrupt();
+      backgroundRevision += 1;
+      if (requiresExistingAppPassphrase(deps.repository)) state = markSessionLocked('background-timeout');
       publish();
     },
     refreshInventory() {

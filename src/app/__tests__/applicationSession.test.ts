@@ -149,3 +149,12 @@ test('a retired review cannot begin signing after a later successful unlock', as
   const fresh = f.session.bindSensitive({ sign: native }, f.session.getSnapshot().revision);
   await expect(fresh.sign()).resolves.toBe('dummy-signed');
 });
+
+test('missed native background retires old results and conservatively requires authentication', async () => {
+  const f = fixture();
+  f.session.setForeground(true);
+  await f.session.unlock('fixture phrase');
+  const revision = f.session.getSnapshot().revision;
+  f.session.retireMissedBackground();
+  expect(f.session.getSnapshot()).toMatchObject({ locked: true, backgroundRevision: 1, revision: revision + 1 });
+});
