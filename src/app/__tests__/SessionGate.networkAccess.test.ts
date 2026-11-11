@@ -1,5 +1,4 @@
 import React from 'react';
-import { View } from 'react-native';
 import type { AppRuntimeState } from '../runtimeState';
 import { readNativePrivacyState, revealForegroundSurface } from '../../platform/system/privacyShield';
 
@@ -11,6 +10,10 @@ jest.mock('../../platform/system/privacyShield', () => ({
   readNativePrivacyState: jest.fn(),
   revealForegroundSurface: jest.fn(),
 }));
+
+function Child(_props: Readonly<{ runtime: AppRuntimeState }>) {
+  return null;
+}
 
 test('loading cannot acknowledge a missed native background before the replacement session can lock', async () => {
   let layout!: () => void | (() => void);
@@ -31,7 +34,11 @@ test('loading cannot acknowledge a missed native background before the replaceme
   try {
     jest.mocked(readNativePrivacyState).mockResolvedValue({ generation: 1, backgroundCount: 1 });
     const refresh = jest.fn();
-    SessionGate({ runtime: { kind: 'loading' }, refresh, children: React.createElement(View) });
+    SessionGate({
+      runtime: { kind: 'loading' },
+      refresh,
+      children: React.createElement(Child, { runtime: { kind: 'loading' } }),
+    });
     layout();
     expect(readNativePrivacyState).not.toHaveBeenCalled();
     const snapshot = { locked: false, foreground: true, revision: 0, backgroundRevision: 0, canLock: true };
@@ -42,7 +49,7 @@ test('loading cannot acknowledge a missed native background before the replaceme
       lock: jest.fn(),
     };
     const runtime = { kind: 'ready', services: { applicationSession: session } } as unknown as AppRuntimeState;
-    SessionGate({ runtime, refresh, children: React.createElement(View) });
+    SessionGate({ runtime, refresh, children: React.createElement(Child, { runtime: { kind: 'loading' } }) });
     layout();
     await Promise.resolve();
     await Promise.resolve();
