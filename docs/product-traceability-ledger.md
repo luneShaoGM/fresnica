@@ -716,3 +716,8 @@ background expansion toward500; live cursors, exact-ID dedup, numeric token orde
 partition retirement, retry and accessible load-more/gesture guards retained.
 Source raw layouts, native pixel equivalence and device acceptance are not inferred
 from passing helper/CI tests. Current exact-HEAD review/CI pending.
+
+
+### S04 session/privacy candidate — 2026-11-11
+
+User-authorized strong App Passphrase policy; routine signing still prefers System Auth, important maintenance retains fresh-passphrase authority. Candidate implementation adds cold-start/manual/30-second-background access locking, SDK result-generation retirement, sensitive navigation remount and native privacy shielding; see `behavior-specs/s04-session-privacy.md`. Generic biometric app unlock remains upstream-blocked. This is unmerged implementation evidence, not native acceptance or maturity promotion. Stage 9 real-iPhone cancellation/retry remains deferred.

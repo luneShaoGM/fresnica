@@ -365,6 +365,9 @@ describe('production network composition and retirement', () => {
     expect(mockPreferenceRealm.close).toHaveBeenCalledTimes(1);
   });
   it('blocks switching while native verification is in progress', async () => {
+    const services = await createAppServices();
+    services.applicationSession?.setForeground(true);
+    await services.applicationSession?.unlock('fixture App Passphrase');
     let finish!: (verified: boolean) => void;
     mockSdk.verifyProtectedSignerPassphrase.mockImplementationOnce(
       () =>
@@ -372,7 +375,6 @@ describe('production network composition and retirement', () => {
           finish = resolve;
         }),
     );
-    const services = await createAppServices();
     const verification = services.security.sdk.verifyProtectedSignerPassphrase({
       envelopeJson: '{encrypted}',
       appPassphrase: 'fresh',
@@ -390,6 +392,8 @@ describe('production network composition and retirement', () => {
     mockUnresolved = [{ networkId: 'stellar-testnet', transactionHash: 'old', state: 'uncertain' }];
     const services = await createAppServices();
     expect(services.networkSettings?.getSnapshot().preferences.selectionConfirmed).toBe(false);
+    services.applicationSession?.setForeground(true);
+    await services.applicationSession?.unlock('fixture App Passphrase');
     await expect(
       services.networkSettings?.selectNode('stellar-mainnet', NETWORKS['stellar-mainnet'].horizonUrl),
     ).rejects.toThrow('pending-submission');
@@ -495,4 +499,18 @@ it('wires independent default-ON account avatars to durable permission and app r
     if (original === undefined) delete modules.SecureAssetFetch;
     else modules.SecureAssetFetch = original;
   }
+});
+
+it('production SDK is inaccessible before session unlock and after manual lock', async () => {
+  const services = await createAppServices();
+  expect(services.applicationSession?.getSnapshot().locked).toBe(true);
+  const input = { envelopeJson: '{encrypted}', appPassphrase: 'fixture phrase', expectedSignerPublicKey: 'GS' };
+  expect(() => services.security.sdk.verifyProtectedSignerPassphrase(input)).toThrow('application-session-locked');
+  expect(mockSdk.verifyProtectedSignerPassphrase).not.toHaveBeenCalled();
+  services.applicationSession?.setForeground(true);
+  await services.applicationSession?.unlock('fixture phrase');
+  await expect(services.security.sdk.verifyProtectedSignerPassphrase(input)).resolves.toBe(true);
+  services.applicationSession?.lock();
+  expect(() => services.security.sdk.verifyProtectedSignerPassphrase(input)).toThrow('application-session-locked');
+  services.close();
 });

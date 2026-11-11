@@ -1164,5 +1164,12 @@
   "activity.filters.dustActive": "已過濾粉塵",
   "activity.filters.revealDust": "顯示粉塵記錄",
   "settings.privacy.accountAvatars": "帳戶地址頭像（StellarCN）",
-  "settings.privacy.accountAvatarsInfo": "預設按完整公開地址從 horizon.stellarcn.org 載入帳戶頭像。服務提供方可得知顯示的錢包及交易對方地址、IP 位址與請求時間。關閉後使用通用使用者頭像；頭像不代表身分認證。此選項與代幣圖片互相獨立。"
+  "settings.privacy.accountAvatarsInfo": "預設按完整公開地址從 horizon.stellarcn.org 載入帳戶頭像。服務提供方可得知顯示的錢包及交易對方地址、IP 位址與請求時間。關閉後使用通用使用者頭像；頭像不代表身分認證。此選項與代幣圖片互相獨立。",
+  "session.locked": "錢包已鎖定",
+  "session.explanation": "使用 App Passphrase 解鎖。一般簽名仍優先使用系統認證；匯出恢復材料需重新輸入強密碼。應用解鎖的系統認證暫未提供。",
+  "session.passphrase": "App Passphrase（強密碼）",
+  "session.failed": "無法解鎖，請檢查 App Passphrase 後重試。",
+  "session.unlock": "解鎖",
+  "session.unlocking": "正在解鎖…",
+  "session.lockNow": "立即鎖定錢包"
 }

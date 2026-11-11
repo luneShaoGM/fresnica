@@ -29,7 +29,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       launchOptions: launchOptions
     )
 
+    PrivacyShield.cover()
     return true
+  }
+
+  func applicationWillResignActive(_ application: UIApplication) {
+    PrivacyShield.cover()
   }
 
   // The registered web+stellar scheme must reach Linking's warm-url listener.
@@ -49,5 +54,33 @@ class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
 #else
     Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
+  }
+}
+
+@objc(PrivacyShield)
+class PrivacyShield: NSObject {
+  private static var shield: UIWindow?
+  @objc static func requiresMainQueueSetup() -> Bool { true }
+  @objc var methodQueue: DispatchQueue { DispatchQueue.main }
+
+  static func cover() {
+    if shield == nil {
+      let cover = UIWindow(frame: UIScreen.main.bounds)
+      cover.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue + 1)
+      let controller = UIViewController()
+      controller.view.backgroundColor = UIColor.systemBackground
+      cover.rootViewController = controller
+      shield = cover
+    }
+    shield?.isHidden = false
+  }
+
+  @objc func reveal(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
+    guard UIApplication.shared.applicationState == .active else {
+      reject("privacy-not-active", "Application is not active", nil)
+      return
+    }
+    PrivacyShield.shield?.isHidden = true
+    resolve(nil)
   }
 }

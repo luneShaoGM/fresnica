@@ -1,3 +1,4 @@
+import { createApplicationSession, type ApplicationSession } from './applicationSession';
 import { createNetworkAccountRepository } from '../capabilities/account/createNetworkAccountRepository';
 import { createWalletSelectionPreferences } from './createWalletSelectionPreferences';
 import { authorizeSensitiveSetting } from '../capabilities/application-security/authorizeSensitiveSetting';
@@ -100,6 +101,7 @@ export type AccountManagementDependencies = RenameAccountDependencies &
 
 export type AppServices = Readonly<{
   diagnostics: SessionLogger;
+  applicationSession?: ApplicationSession;
   networkProfile: NetworkProfile;
   networkSettings?: NetworkSettings;
   accountManagement: AccountManagementDependencies;
@@ -152,6 +154,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
   let closeAssetCatalog = () => {};
   let closeTokenIcons = () => {};
   let closeAccountAvatars = () => {};
+  let closeApplicationSession = () => {};
   let stopIconPrivacySync = () => {};
   let closeDappPermissions = () => {};
   let closeClaimables = () => {};
@@ -162,6 +165,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     if (retired) return;
     retired = true;
     session.close();
+    closeApplicationSession();
     closeDappCatalog();
     closeAssetCatalog();
     stopIconPrivacySync();
@@ -188,8 +192,12 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
   };
   try {
     const nativeModule = loadNativeFresnicaModule(NativeModules);
-    const sdk = session.bind(new ReactNativeFresnicaSdk(nativeModule), true);
+    const rawSdk = session.bind(new ReactNativeFresnicaSdk(nativeModule), true);
     const storedAccounts = new RealmAccountSignerRepository(realm);
+    const applicationSession = createApplicationSession({ sdk: rawSdk, repository: storedAccounts });
+    closeApplicationSession = applicationSession.close;
+    // Explicit fixed-network carriers retain their existing helper contract.
+    const sdk = options.fixedNetwork ? rawSdk : session.bind(applicationSession.bindSensitive(rawSdk));
     const localePreferences = new RealmLocalePreferenceStore(realm);
     const storedSelectionPreferences = new RealmDefaultAccountPreferenceStore(realm);
     const dappPermissions = new RealmDappPermissionStore(realm);
@@ -455,6 +463,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     diagnostics.info('app-services-ready', { details: { networkId: network.id } });
 
     return {
+      applicationSession: options.fixedNetwork ? undefined : applicationSession,
       diagnostics,
       networkProfile,
       networkSettings,
