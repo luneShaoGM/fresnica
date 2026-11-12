@@ -1,5 +1,6 @@
 import { Image } from 'react-native';
 import type { TokenIconPort } from '../../../capabilities/assets/TokenIcons';
+import { createTokenIconPort } from '../../../platform/assets/TokenIconPort';
 import { TokenFallbackAvatar } from '../../../ui/components/TokenFallbackAvatar';
 import { TokenAssetIcon } from '../TokenAssetIcon';
 
@@ -124,4 +125,106 @@ describe('S06 shared icon cache recovery across mounted UI consumers', () => {
     expect(render().type).toBe(TokenFallbackAvatar);
     mockRuntime.service = undefined;
   });
+});
+
+it('recovers identical bytes restored after a decode failure and follows shared invalidation', () => {
+  mockRuntime.states = [];
+  mockRuntime.refs = [];
+  mockRuntime.effects = [];
+  let revision = 0;
+  let cached: string | undefined = dataUri;
+  mockRuntime.service = {
+    available: true,
+    getSnapshot: () => ({ enabled: true, revision }),
+    subscribe: () => () => undefined,
+    readIcon: () => cached,
+    readDomain: jest.fn(),
+    loadIcon: () => new Promise(() => undefined),
+    rejectIcon: () => {
+      cached = undefined;
+      revision += 1;
+    },
+    setEnabled: jest.fn(),
+    close: jest.fn(),
+  };
+  const render = () => {
+    mockRuntime.resetRender();
+    const element = TokenAssetIcon({ asset });
+    mockRuntime.runEffects();
+    return element;
+  };
+  render();
+  const image = render();
+  expect(image.type).toBe(Image);
+  image.props.onError();
+  expect(render().type).toBe(TokenFallbackAvatar);
+  // A separate successful consumer restores exactly the same image bytes.
+  cached = dataUri;
+  revision += 1;
+  render();
+  expect(render().type).toBe(Image);
+  cached = undefined;
+  revision += 1;
+  expect(render().type).toBe(TokenFallbackAvatar);
+  cached = dataUri;
+  revision += 1;
+  // A new instance using that same service/cache displays the icon.
+  mockRuntime.states = [];
+  mockRuntime.refs = [];
+  mockRuntime.effects = [];
+  render();
+  expect(render().type).toBe(Image);
+  mockRuntime.service = undefined;
+});
+
+it.each([true, false])('reloads an expired cache entry while still mounted (refresh succeeds: %s)', async succeeds => {
+  mockRuntime.states = [];
+  mockRuntime.refs = [];
+  mockRuntime.effects = [];
+  let now = 0;
+  const readIcon = jest.fn(async () => ({ mimeType: 'image/png' as const, dataUri }));
+  const service = createTokenIconPort({
+    networkId: 'stellar-testnet',
+    initialEnabled: true,
+    now: () => now,
+    metadata: {
+      peek: () => ({ source: 'issuer-toml', icons: ['https://example.org/icon.png'] }),
+      resolve: jest.fn(async () => ({ fromCache: true, stale: false, refreshFailed: false })),
+      close: jest.fn(),
+    },
+    transport: { available: true, readIcon, readText: jest.fn(), close: jest.fn() },
+  });
+  await service.loadIcon(asset, new AbortController().signal);
+  const load = jest.spyOn(service, 'loadIcon');
+  mockRuntime.service = service;
+  const render = () => {
+    mockRuntime.resetRender();
+    const element = TokenAssetIcon({ asset });
+    mockRuntime.runEffects();
+    return element;
+  };
+  expect(render().type).toBe(Image);
+  const baselineLoads = load.mock.calls.length;
+  expect(readIcon).toHaveBeenCalledTimes(1);
+  const revisionBeforeExpiry = service.getSnapshot().revision;
+  if (!succeeds) readIcon.mockRejectedValueOnce(new Error('offline'));
+  now += 10 * 60 * 1000;
+  // A parent re-render sees expiry without a snapshot revision or remount.
+  expect(render().type).toBe(TokenFallbackAvatar);
+  expect(service.getSnapshot().revision).toBe(revisionBeforeExpiry);
+  expect(load).toHaveBeenCalledTimes(baselineLoads + 1);
+  render();
+  render();
+  expect(load).toHaveBeenCalledTimes(baselineLoads + 1);
+  await new Promise<void>(resolve => setImmediate(resolve));
+  expect(readIcon).toHaveBeenCalledTimes(2);
+  expect(render().type).toBe(succeeds ? Image : TokenFallbackAvatar);
+  render();
+  render();
+  // Success and failure both settle without a retry loop on cache revisions.
+  expect(load).toHaveBeenCalledTimes(baselineLoads + 1);
+  expect(readIcon).toHaveBeenCalledTimes(2);
+  for (const effect of mockRuntime.effects) effect.cleanup?.();
+  service.close();
+  mockRuntime.service = undefined;
 });

@@ -324,3 +324,27 @@ requiring an opt-in session toggle for public Token images.
   safety/issuer rules are permitted.
 - This is a repository-level regression: live Android/iOS offline-to-online
   product-flow acceptance remains unexecuted and separate.
+
+## 2026-11-11 shared consumer consistency correction
+
+S06/LC5-2, clean-room Adapt of the existing Fresnica contract; no donor code
+or artwork changes. Home and S13 Activity (including swap pairs and trustline
+subjects) render the same network/code/issuer cache entry through the existing
+TokenAssetIcon. A decode rejection invalidates that shared entry for all
+consumers; successful cache recovery, including identical image bytes from a
+later accepted candidate, restores all active consumers without remounting.
+There is no per-view permanent URI blacklist or retained private image copy.
+Concurrent requests for the same identity share one load. Cancelling one
+consumer leaves it running for others; the last cancellation, opt-out or
+service close aborts it. Late cancelled results cannot repopulate the cache.
+Existing consent, bounded transport, failure cooldown, cache limits and network
+partition rules remain unchanged. Automated tests cover these transitions;
+native iOS/Android visual acceptance remains pending.
+
+When a mounted active consumer observes an expired/evicted image on a later
+render, the transition to a cache miss starts one shared reload without
+requiring remount or a cache-revision change. Cached images start no load;
+ordinary metadata/cache notifications do not repeatedly retry an unresolved
+or failed miss. Refresh failure retains the local fallback and existing
+candidate cooldown. Tests use the actual icon service clock at the 10-minute
+TTL boundary for successful and offline refresh; native acceptance is pending.
