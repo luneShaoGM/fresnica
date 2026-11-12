@@ -1408,3 +1408,7 @@ visual QA and Stage 9 iOS System Auth remain separate/deferred.
 ## S04 security hardening candidate — 2026-11-11
 
 User priority: pinned local SDK build integrity → shared sensitive-background/session lock → explicit account-avatar opt-in. Separate integrity PR and lifecycle/privacy PR; no automatic merge. Session access uses the existing SDK App Passphrase verifier; generic System Auth app unlock remains blocked upstream. Routine System Auth signing and fresh-passphrase maintenance are unchanged. Native privacy/background/cancellation acceptance is pending; Stage 9 is not closed.
+
+## 2026-11-11 owner authentication-policy correction (candidate)
+
+[S04 policy](behavior-specs/s04-authentication-policy.md) supersedes routine System Auth signing: App access uses OS biometrics with verified passphrase fallback; all wallet transaction/message signatures and key operations require fresh App Passphrase. Independent platform App-unlock authentication never accesses keys. Existing exact-XDR, account/network isolation, cancellation and uncertain recovery are preserved. Code/build/test evidence is separate from real-device acceptance and Work exact-HEAD review; no maturity promotion.

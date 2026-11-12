@@ -1,3 +1,4 @@
+import type { NetworkAccessContinuation } from './applicationSession';
 import { SessionGate } from './SessionGate';
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState, StatusBar } from 'react-native';
@@ -32,6 +33,7 @@ export function App() {
   const [runtime, setRuntime] = useState<AppRuntimeState>({ kind: 'loading' });
   const [serviceGeneration, setServiceGeneration] = useState(0);
   const [locale, setLocale] = useState<SupportedLocale>(() => getDeviceLocale());
+  const networkAccess = useRef<NetworkAccessContinuation | undefined>(undefined);
   const servicesRef = useRef<AppServices | undefined>(undefined);
   const intake = useRef<ReturnType<typeof startRequestDeepLinkIntake> | undefined>(undefined);
   const linkGeneration = useRef(0);
@@ -50,6 +52,19 @@ export function App() {
   );
   const [parsedDeepLink, setParsedDeepLink] = useState<RequestDeepLinkParsed>();
   const [resolvedDeepLink, setResolvedDeepLink] = useState<RequestDeepLinkResolved>();
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'background') {
+        networkAccess.current?.cancel();
+        networkAccess.current = undefined;
+      }
+    });
+    return () => {
+      subscription.remove();
+      networkAccess.current?.cancel();
+    };
+  }, []);
 
   useEffect(() => {
     if (!accessSnapshot?.locked) return;
@@ -100,8 +115,16 @@ export function App() {
     let stopLedgerReadLifecycle: (() => void) | undefined;
     let stopSessionLifecycle: (() => void) | undefined;
 
+    const continuation = networkAccess.current;
     void createAppServices({
-      onNetworkChanged: () => {
+      networkAccessContinuation: continuation,
+      onNetworkChanged: nextAccess => {
+        networkAccess.current?.cancel();
+        networkAccess.current = nextAccess;
+        if (AppState.currentState === 'background') {
+          nextAccess?.cancel();
+          networkAccess.current = undefined;
+        }
         stopLedgerReadLifecycle?.();
         servicesRef.current = undefined;
         intake.current?.setReady(false);
@@ -115,12 +138,15 @@ export function App() {
       },
     })
       .then(created => {
+        if (networkAccess.current === continuation) networkAccess.current = undefined;
         if (!mounted) {
           created.close();
           return;
         }
 
         ownedServices = created;
+        if (continuation && (!continuation.isValid() || AppState.currentState === 'background'))
+          created.applicationSession?.lock();
         created.applicationSession?.setForeground(AppState.currentState === 'active');
         const sessionSubscription = AppState.addEventListener('change', state => {
           // Native authentication can make iOS inactive; only real background retires authority.

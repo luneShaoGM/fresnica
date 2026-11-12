@@ -5,14 +5,20 @@ import { useThemedStyles } from '@ui/theme';
 import { useLocalization } from '../../../locale';
 import { createStyles } from './styles';
 
-type Props = Readonly<{ unlock: (passphrase: string) => Promise<void>; cancel: () => void }>;
-export function SessionUnlockScreen({ unlock, cancel }: Props) {
+type Props = Readonly<{
+  unlock: (passphrase: string) => Promise<void>;
+  cancel: () => void;
+  canUseBiometrics: () => Promise<boolean>;
+  unlockWithBiometrics: (reason: string, cancelLabel: string) => Promise<void>;
+}>;
+export function SessionUnlockScreen({ unlock, cancel, canUseBiometrics, unlockWithBiometrics }: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const credential = useRef('');
   const field = useRef<React.ComponentRef<typeof TextInput>>(null);
   const live = useRef(true);
   const flight = useRef(false);
+  const [biometrics, setBiometrics] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -25,6 +31,34 @@ export function SessionUnlockScreen({ unlock, cancel }: Props) {
       cancel();
     };
   }, [cancel]);
+  useEffect(() => {
+    let current = true;
+    void canUseBiometrics()
+      .then(available => {
+        if (!current) return;
+        setBiometrics(available);
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [canUseBiometrics]);
+  async function submitBiometrics() {
+    if (flight.current) return;
+    flight.current = true;
+    setBusy(true);
+    setFailed(false);
+    credential.current = '';
+    field.current?.clear();
+    try {
+      await unlockWithBiometrics(t('session.biometricReason'), t('session.usePassphrase'));
+    } catch {
+      if (live.current) setFailed(true);
+    } finally {
+      flight.current = false;
+      if (live.current) setBusy(false);
+    }
+  }
   async function submit() {
     if (flight.current) return;
     flight.current = true;
@@ -49,6 +83,9 @@ export function SessionUnlockScreen({ unlock, cancel }: Props) {
           {t('session.locked')}
         </Text>
         <Text style={styles.body}>{t('session.explanation')}</Text>
+        {biometrics ? (
+          <Button label={t('session.biometricUnlock')} disabled={busy} onPress={() => void submitBiometrics()} />
+        ) : null}
         <View>
           <Text style={styles.body}>{t('session.passphrase')}</Text>
           <TextInput

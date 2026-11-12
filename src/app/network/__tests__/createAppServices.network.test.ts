@@ -398,7 +398,7 @@ describe('production network composition and retirement', () => {
     await expect(
       services.networkSettings?.selectNode('stellar-mainnet', NETWORKS['stellar-mainnet'].horizonUrl),
     ).rejects.toThrow('pending-submission');
-    await services.networkSettings?.enableDeveloperMode('fresh');
+    await services.networkSettings?.enableDeveloperMode();
     expect(mockPreferences?.selectionConfirmed).toBe(false);
     mockProbe.mockImplementation(async () => NETWORKS['stellar-testnet'].networkPassphrase);
     await services.networkSettings?.selectNode('stellar-testnet', NETWORKS['stellar-testnet'].horizonUrl);
@@ -427,9 +427,6 @@ describe('production network composition and retirement', () => {
         developerMode: false,
         retainedTestnet: true,
       });
-      await expect(services.networkSettings?.enableDeveloperMode('unused')).rejects.toThrow(
-        'protected-signer-required',
-      );
       if (pending)
         await expect(
           services.networkSettings?.selectNode('stellar-mainnet', NETWORKS['stellar-mainnet'].horizonUrl),
@@ -541,3 +538,46 @@ it('leases every product SDK before work so an old screen cannot reuse a later u
   await expect(fresh.send.sdk.verifyProtectedSignerPassphrase(input)).resolves.toBe(true);
   services.close();
 });
+
+it('confirmed network selection preserves App browsing access, retires old services and cold relaunch still locks', async () => {
+  mockPreferences = { ...DEFAULT_NETWORK_PREFERENCES, developerMode: true };
+  const changed = jest.fn();
+  const previous = await createAppServices({ onNetworkChanged: changed });
+  previous.applicationSession!.setForeground(true);
+  await previous.applicationSession!.unlock('fixture phrase');
+  mockSdk.verifyProtectedSignerPassphrase.mockClear();
+  mockProbe.mockResolvedValueOnce(NETWORKS['stellar-testnet'].networkPassphrase);
+  await previous.networkSettings!.selectNode('stellar-testnet', NETWORKS['stellar-testnet'].horizonUrl);
+  const continuation = changed.mock.calls[0][0];
+  expect(continuation).toBeDefined();
+  const next = await createAppServices({ networkAccessContinuation: continuation });
+  next.applicationSession!.setForeground(true);
+  expect(next.networkProfile.id).toBe('stellar-testnet');
+  expect(next.applicationSession!.getSnapshot().locked).toBe(false);
+  expect(mockSdk.verifyProtectedSignerPassphrase).not.toHaveBeenCalled();
+  expect(() => previous.security.sdk.verifyProtectedSignerPassphrase({} as never)).toThrow('network-session-retired');
+  const cold = await createAppServices();
+  expect(cold.applicationSession!.getSnapshot().locked).toBe(true);
+  previous.close();
+  next.close();
+  cold.close();
+});
+
+it.each(['protected-software', 'watch-only', 'external-only'])(
+  'enables Developer Mode for %s without SDK authorization, network restart or granting App access',
+  async kind => {
+    if (kind === 'watch-only') mockSigners = [];
+    if (kind === 'external-only') mockSigners = [{ id: 'external', publicKey: 'GX', kind: 'external' }];
+    mockPreferences = { ...DEFAULT_NETWORK_PREFERENCES };
+    const changed = jest.fn();
+    const services = await createAppServices({ onNetworkChanged: changed });
+    const locked = services.applicationSession!.getSnapshot().locked;
+    mockSdk.verifyProtectedSignerPassphrase.mockClear();
+    await services.networkSettings!.enableDeveloperMode();
+    expect(mockPreferences).toMatchObject({ developerMode: true, networkId: 'stellar-mainnet' });
+    expect(mockSdk.verifyProtectedSignerPassphrase).not.toHaveBeenCalled();
+    expect(services.applicationSession!.getSnapshot().locked).toBe(locked);
+    expect(changed).not.toHaveBeenCalled();
+    services.close();
+  },
+);

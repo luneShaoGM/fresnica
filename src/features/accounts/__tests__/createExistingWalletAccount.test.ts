@@ -78,6 +78,7 @@ describe('existing-wallet Create account flow', () => {
     expect(result.account.signer.backupState).toBe('pending');
     expect(repository.isWatchOnly(result.account.account.id)).toBe(false);
     expect(result.systemAuthRegistration).toBe('not-configured');
+    expect(sdk.registerSignerSystemAuth).not.toHaveBeenCalled();
   });
 
   it('rejects a new App Passphrase mismatch before Native or repository work', async () => {
@@ -155,7 +156,7 @@ describe('existing-wallet Create account flow', () => {
     expect(sdk.registerSignerSystemAuth).not.toHaveBeenCalled();
   });
 
-  it('keeps the created account and reports repair-required when System Auth status lookup fails', async () => {
+  it('keeps the created account and ignores legacy System Auth status errors', async () => {
     const { dependencies, repository, sdk } = createDependencies();
     sdk.hasSystemAuthDomain.mockRejectedValueOnce(new Error('system-auth-status-failed'));
 
@@ -164,12 +165,13 @@ describe('existing-wallet Create account flow', () => {
       confirmAppPassphrase: 'a sufficiently long passphrase',
     });
 
-    expect(result.systemAuthRegistration).toBe('repair-required');
+    expect(result.systemAuthRegistration).toBe('not-configured');
+    expect(sdk.registerSignerSystemAuth).not.toHaveBeenCalled();
     expect(repository.getAccount(result.account.account.id)).toEqual(result.account.account);
     expect(repository.getSigner(result.account.signer.id)).toEqual(result.account.signer);
   });
 
-  it('registers only the new signer after durable Account+Signer persistence', async () => {
+  it('persists a new signer without enrolling a signing unlock key', async () => {
     const { dependencies, repository, sdk } = createDependencies();
     sdk.hasSystemAuthDomain.mockImplementationOnce(async () => {
       expect(repository.listAccounts().map(account => account.address)).toContain('GGENERATED');
@@ -186,13 +188,14 @@ describe('existing-wallet Create account flow', () => {
       confirmAppPassphrase: 'a sufficiently long passphrase',
     });
 
-    expect(result.systemAuthRegistration).toBe('registered');
-    expect(sdk.registerSignerSystemAuth).toHaveBeenCalledTimes(1);
+    expect(result.systemAuthRegistration).toBe('not-configured');
+    expect(sdk.registerSignerSystemAuth).not.toHaveBeenCalled();
+    expect(sdk.registerSignerSystemAuth).not.toHaveBeenCalled();
     expect(sdk.initializeSystemAuth).not.toHaveBeenCalled();
     expect(sdk.removeSystemAuthDomain).not.toHaveBeenCalled();
   });
 
-  it('keeps the created account and reports repair-required when System Auth registration fails', async () => {
+  it('keeps the created account and does not use legacy System Auth registration', async () => {
     const { dependencies, repository, sdk } = createDependencies();
     sdk.hasSystemAuthDomain.mockResolvedValueOnce(true);
     sdk.registerSignerSystemAuth.mockRejectedValueOnce(new Error('system-auth-registration-failed'));
@@ -202,13 +205,14 @@ describe('existing-wallet Create account flow', () => {
       confirmAppPassphrase: 'a sufficiently long passphrase',
     });
 
-    expect(result.systemAuthRegistration).toBe('repair-required');
+    expect(result.systemAuthRegistration).toBe('not-configured');
+    expect(sdk.registerSignerSystemAuth).not.toHaveBeenCalled();
     expect(repository.getAccount(result.account.account.id)).toEqual(result.account.account);
     expect(repository.getSigner(result.account.signer.id)).toEqual(result.account.signer);
     expect(result.account.signer.backupState).toBe('pending');
   });
 
-  it('treats a false System Auth registration result as repair-required', async () => {
+  it('does not consult a legacy System Auth registration result', async () => {
     const { dependencies, repository, sdk } = createDependencies();
     sdk.hasSystemAuthDomain.mockResolvedValueOnce(true);
     sdk.registerSignerSystemAuth.mockResolvedValueOnce(false);
@@ -218,7 +222,8 @@ describe('existing-wallet Create account flow', () => {
       confirmAppPassphrase: 'a sufficiently long passphrase',
     });
 
-    expect(result.systemAuthRegistration).toBe('repair-required');
+    expect(result.systemAuthRegistration).toBe('not-configured');
+    expect(sdk.registerSignerSystemAuth).not.toHaveBeenCalled();
     expect(repository.isWatchOnly(result.account.account.id)).toBe(false);
   });
 });

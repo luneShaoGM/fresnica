@@ -7,6 +7,7 @@ import type { PathPaymentQuote, PreparedPathPaymentReview } from '@capabilities/
 import type { StellarPaymentAsset } from '@capabilities/stellar/types';
 import { NativeButton } from '@ui/components/NativeButton';
 import { SwapAmountInput } from '../SwapAmountInput';
+import { SwapPassphraseInput, type SwapPassphraseInputHandle } from '../SwapPassphraseInput';
 import { SwapPreviewScreen } from '../SwapPreviewScreen';
 import {
   loadSwapPreviewAssets,
@@ -552,7 +553,7 @@ it('clears the draft when a focus lifecycle reloads assets', async () => {
   expect(request).not.toHaveBeenCalled();
 });
 
-it('preserves an explicitly authorized submission across System Auth background handoff', async () => {
+it('retires a passphrase-authorized submission on real background without reviving after return', async () => {
   const reviewed = {
     transactionXdrBase64: 'UNSIGNED',
     networkId: account.networkId,
@@ -584,11 +585,23 @@ it('preserves an explicitly authorized submission across System Auth background 
   button(root, 'swap.preview.review').props.onPress?.();
   await settle();
   root = h.draw();
+  const field = find(root, node => node.type === SwapPassphraseInput)!;
+  const secure = field.props as unknown as {
+    ref: React.RefObject<SwapPassphraseInputHandle>;
+    onPresenceChange: (value: boolean) => void;
+  };
+  secure.ref.current = { consume: () => 'test app passphrase', clear: jest.fn() };
+  secure.onPresenceChange(true);
+  root = h.draw();
   const slide = find(root, node => node.type === SlideToConfirm);
   expect(slide).toBeDefined();
   slide?.props.onComplete?.();
+  expect(submitSwapReview).toHaveBeenCalledTimes(1);
+  const current = jest.mocked(submitSwapReview).mock.calls[0][3];
   h.draw({ foreground: false });
-  submitted.resolve({ status: 'submitted', hash: 'original-hash', authorization: 'system-auth' });
+  expect(current()).toBe(false);
+  h.expire();
+  submitted.resolve({ status: 'submitted', hash: 'original-hash', authorization: 'passphrase' });
   await settle();
   h.draw({ foreground: true });
   jest.advanceTimersByTime(1000);
@@ -598,7 +611,8 @@ it('preserves an explicitly authorized submission across System Auth background 
   expect(request).toHaveBeenCalledTimes(1);
   const terminal = h.draw();
   const resultView = find(terminal, node => typeof node.type === 'function' && node.type.name === 'SwapResultScreen');
-  expect(resultView).toBeDefined();
+  expect(resultView).toBeUndefined();
+  expect(current()).toBe(false);
 });
 
 it('ignores an already queued route tap while review preparation owns the request', async () => {

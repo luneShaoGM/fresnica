@@ -733,3 +733,74 @@ Home strict architecture scope applies. Behavior: `behavior-specs/home-token-lis
 validation/boundaries: `test/home-token-row-alignment.md`. Clean-room Adapt with
 already owner-approved XLM artwork; no S05/S06 maturity promotion. Independent
 Work exact-HEAD review remains required before merge.
+
+### 2026-11-11 S04 authentication policy correction (candidate)
+
+Owner defines all wallet-key operations, including ordinary signatures, as important. [Current policy](behavior-specs/s04-authentication-policy.md): biometrics for App access only, fresh App Passphrase for every transaction/message signature and key operation. Replaces the historical routine-signing System Auth preference and App-unlock upstream blocker. SDK/Core cryptography is unchanged; independent native OS authentication returns only an App-access result. S04/S07/S10/S11/S18/S19/S30 native product acceptance and exact-HEAD independent review remain separate; no L4 claim.
+
+
+### 2026-11-11 S04/S24 confirmed network switch access correction (candidate)
+
+Phase 0 passed; clean-room Adapt of existing Home/Settings network confirmation
+and App-session ownership. Confirmed selection retains foreground browsing access
+once across immutable network-service rebuilding for the same signer inventory.
+Background during rebuilding, timeout or changed inventory fails closed; native
+privacy background acknowledgements retain their cumulative count. Cold launch
+and manual/background locks remain. No credential/signing/export authority is
+carried; old SDK/services/results retire, and endpoint, network/account isolation,
+busy/backup/unresolved-submission guards remain. Current behavior:
+[authentication policy](behavior-specs/s04-authentication-policy.md).
+Automated lifecycle/composition/App-owner tests are separate from native
+network-switch acceptance and exact-HEAD Work review; no maturity promotion.
+
+
+### 2026-11-12 S04/S24/S01 excess authentication correction (candidate)
+
+Owner-approved narrow extension of #193; Phase 0 passed, clean-room Adapt of
+existing Advanced confirmation and HD additional-account roles. Enabling
+Developer Mode now requires one warning/confirmation only, with no wallet SDK
+authorization port, credential input or protected-signer requirement. It neither
+switches the network nor unlocks the App. Existing foreground/single-flight,
+persistence, endpoint identity, network isolation and pending-recovery guards
+remain. HD derivation retains fresh App Passphrase and exact source/index
+authentication inside SDK/Core; removes redundant pre-verification of all local
+signers. Failed SDK authentication has no product writes. Creation/import's
+existing protection policy remains. Onboarding copy now states biometric App
+access and passphrase-only key/signature operations. Current specs:
+[authentication](behavior-specs/s04-authentication-policy.md),
+[HD](behavior-specs/s01-hd-additional-account.md).
+Automated evidence is separate from native acceptance and exact-HEAD Work
+review; no maturity promotion.
+
+
+### 2026-11-12 S04 Android cancellation P2 correction (candidate)
+
+Independent #193 review of a95e713b0446c9ccaee714f67ce48316f3ddb039 reported
+NEEDS_FIX / one P2: cancelled native sessions released their busy fence before
+AndroidX terminal delivery, allowing the next BiometricPrompt to replace the
+Activity's shared callback. The narrow fix separates JS cancellation from native
+completion: settle the cancelled Promise false, retain native ownership until
+terminal callback, and reject early retries before creating a new prompt.
+Stale-ID cancellation and late-cancelled-success fail closed. App access remains
+separate from passphrase-only signing/export authority; no iOS or SDK crypto
+changes. Phase 0 passed; clean-room Adapt under existing S04 lifecycle ownership.
+
+Regression carrier uses production module + actual AndroidX 1.1.0 with delayed
+client execution, an empty debug-only host and a separate application ID. Native
+mechanism evidence is distinct from real-device biometric/product acceptance.
+See [current policy](behavior-specs/s04-authentication-policy.md). Old NEEDS_FIX
+review is historical evidence; the new exact HEAD requires independent review.
+
+
+Developer verification: the AndroidX regression failed on the old implementation
+with `retry-admitted-before-old-native-terminal`, then passed with the corrected
+native busy fence on Android emulator-5554. Actual AndroidX callbacks were queued
+by the injected executor; the biometric client was not replaced by a JS Promise
+mock. Success/cancel authentication is limited here to terminal-error/cancellation
+mechanics, not physical sensor success. Debug/test APK assembly and
+`:app:testDebugUnitTest` passed. `npm run check` passed 268 suites / 2493 tests,
+types/lint/architecture/provenance (998 files, zero unapproved donor collisions),
+artwork and locale gates. Local Gradle initially reused stale source snapshots;
+the final native regression disables file-system watching and recompiled the
+changed module/test before passing. No release repackaging or iOS rebuild was
+needed for this Android-only correction.

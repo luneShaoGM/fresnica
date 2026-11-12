@@ -57,6 +57,10 @@ The dependency model below is the target for all new and materially rewritten co
 - Exact transaction/XDR identity must remain bound across review, authorization, signing and submission where required.
 - Sensitive material must not be placed in navigation state or ordinary persistence for UI convenience.
 
+## Authentication policy (owner decision, 2026-11-11)
+
+- OS biometrics authorize App access only, with verified App Passphrase fallback. Every wallet transaction/message signature and key operation requires fresh App Passphrase. Never restore routine System Auth signing or reuse an App-unlock result as signing/export authorization. See `docs/behavior-specs/s04-authentication-policy.md`.
+
 ## Theme scope
 
 - Product UI depends on semantic `AppTheme` tokens, not raw color literals.

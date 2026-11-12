@@ -163,15 +163,8 @@ export class ReactNativeFresnicaSdk implements FresnicaSdkPort {
     return this.invoke(() => this.native.removeSystemAuthDomain());
   }
 
-  signMessageWithSystemAuth(input: SignMessageWithSystemAuthInput) {
-    return this.invoke(() =>
-      this.native.signMessageWithSystemAuth(
-        input.envelopeJson,
-        input.expectedSignerPublicKey,
-        input.message,
-        input.reason,
-      ),
-    );
+  signMessageWithSystemAuth(_input: SignMessageWithSystemAuthInput): Promise<string> {
+    return Promise.reject(new Error('app-passphrase-required'));
   }
 
   signMessageWithPassphrase(input: SignMessageWithPassphraseInput) {
@@ -185,16 +178,8 @@ export class ReactNativeFresnicaSdk implements FresnicaSdkPort {
     );
   }
 
-  signWithSystemAuth(input: SignWithSystemAuthInput) {
-    return this.invoke(() =>
-      this.native.signWithSystemAuth(
-        input.envelopeJson,
-        input.expectedSignerPublicKey,
-        input.transactionXdrBase64,
-        input.networkPassphrase,
-        input.reason,
-      ),
-    );
+  signWithSystemAuth(_input: SignWithSystemAuthInput): Promise<string> {
+    return Promise.reject(new Error('app-passphrase-required'));
   }
 
   /**

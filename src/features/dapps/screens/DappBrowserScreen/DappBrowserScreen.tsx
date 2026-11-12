@@ -221,7 +221,7 @@ export function DappBrowserScreen({
       origin: decision.origin,
       intent: inspected.intent,
       documentEpoch: documentEpoch.current,
-      passphraseRequired: false,
+      passphraseRequired: true,
     });
   };
 

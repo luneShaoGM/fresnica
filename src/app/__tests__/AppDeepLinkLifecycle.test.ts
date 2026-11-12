@@ -1,4 +1,5 @@
 import React from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import { createLedgerReadRuntime } from '../readModels/LedgerReadRuntime';
 import type { AppServices } from '../createAppServices';
 import { createAppServices } from '../createAppServices';
@@ -239,3 +240,50 @@ it('keeps the native navigation host stable while a new network session loads, a
   expect(after.deepLink).toBeUndefined();
   expect(after.navigatorKey).toBe(before.navigatorKey);
 });
+
+it.each([false, true])(
+  'network access handoff stays alive across rebuilding and cancels on background (background=%s)',
+  async background => {
+    const listeners = new Set<(state: AppStateStatus) => void>();
+    const subscription = jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, listener) => {
+      listeners.add(listener);
+      return {
+        remove: () => {
+          listeners.delete(listener);
+        },
+      };
+    });
+    try {
+      await flush();
+      let valid = true;
+      const continuation = {
+        resume: jest.fn(() => 0),
+        isValid: () => valid,
+        cancel: jest.fn(() => {
+          valid = false;
+        }),
+      };
+      const next = deferred<AppServices>();
+      jest.mocked(createAppServices).mockReturnValueOnce(next.promise);
+      jest.mocked(createAppServices).mock.calls[0][0]?.onNetworkChanged?.(continuation);
+      await flush();
+      expect(jest.mocked(createAppServices).mock.calls[1][0]?.networkAccessContinuation).toBe(continuation);
+      if (background) {
+        listeners.forEach(listener => listener('background'));
+        listeners.forEach(listener => listener('active'));
+      }
+      const lock = jest.fn();
+      const applicationSession = {
+        setForeground: jest.fn(),
+        lock,
+        getSnapshot: () => ({ locked: false, foreground: true }),
+      };
+      next.resolve({ ...services, applicationSession } as unknown as AppServices);
+      await flush();
+      expect(lock).toHaveBeenCalledTimes(background ? 1 : 0);
+      expect(continuation.cancel).toHaveBeenCalledTimes(background ? 1 : 0);
+    } finally {
+      subscription.mockRestore();
+    }
+  },
+);

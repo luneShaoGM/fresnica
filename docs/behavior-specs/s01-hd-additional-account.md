@@ -34,11 +34,16 @@ No eligible source means the HD action is unavailable; Mobile must not fall back
 
 ## App Passphrase ordering
 
-HD derivation requires the existing App Passphrase. Before invoking `deriveMnemonicSigner`, Mobile verifies every unique existing protected-signer `(signerPublicKey, envelopeJson)` target through the already frozen Existing-wallet verification orchestration.
+HD derivation requires a freshly supplied App Passphrase. The 2026-11-12 owner
+decision supersedes the earlier Mobile-wide pre-verification requirement:
+Mobile passes the exact selected source envelope/public key, index and passphrase
+to canonical `deriveMnemonicSigner` once. SDK/Core authenticates that source and
+protects the derived signer; Mobile does not separately verify unrelated wallets.
 
-Any verification failure, missing protected envelope or cancellation fails before derivation and before Account/Signer/default/System Auth writes.
-
-`deriveMnemonicSigner` then authenticates the selected source envelope again inside the canonical Native/Core operation. A secret-backed or identity-mismatched source must fail closed.
+Wrong source passphrase or source-identity mismatch fails inside SDK/Core before
+any Account/Signer/default writes. Missing envelope or ineligible source fails
+before SDK invocation. Existing App/network generation cancellation remains
+authoritative; no Reveal, secret export or biometric substitution is introduced.
 
 ## Explicit index and path policy
 
@@ -90,7 +95,7 @@ No mnemonic, mnemonic passphrase, secret seed or unlock key may cross this HD pr
 
 - source list contains only unique eligible mnemonic-backed protected signers reachable from visible current-network Accounts;
 - secret-backed, pending-backup, hidden-only and missing-envelope signers are not selectable;
-- wrong current App Passphrase verifies all unique protected targets and performs zero derivation/product writes;
+- wrong source App Passphrase is rejected by SDK/Core derivation and performs zero product writes; no separate wallet-wide verification;
 - invalid/non-integer/out-of-range index performs no Native derivation and zero writes;
 - UI displays `m/44'/148'/N'` before the derive action;
 - canonical `deriveMnemonicSigner` receives the exact selected source envelope/public key and explicit index;

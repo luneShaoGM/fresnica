@@ -86,7 +86,7 @@ export function SwapPreviewScreen({
   const [view, setView] = useState<ViewState>({ kind: 'form' });
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
-  const [passphraseRequired, setPassphraseRequired] = useState(false);
+  const [passphraseRequired, setPassphraseRequired] = useState(true);
   const [hasPassphrase, setHasPassphrase] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [history, setHistory] = useState<readonly PendingSubmissionRecord[]>([]);
@@ -139,7 +139,7 @@ export function SwapPreviewScreen({
     locked.current = false;
     setBusy(false);
     setError(undefined);
-    setPassphraseRequired(false);
+    setPassphraseRequired(true);
     clearPassphrase();
     setView({ kind: 'form' });
     setSettingsVisible(false);
@@ -159,7 +159,7 @@ export function SwapPreviewScreen({
     setError(undefined);
     setBusy(false);
     clearPassphrase();
-    setPassphraseRequired(false);
+    setPassphraseRequired(true);
     setSubmitting(false);
     setHistory([]);
     setReconcileError(undefined);
@@ -303,7 +303,7 @@ export function SwapPreviewScreen({
   ]);
 
   useEffect(() => {
-    // Do not invalidate the native System Auth handoff of an explicitly submitted review.
+    // The captured session guard independently retires an in-flight signature on real background.
     if (!foreground && !loading && (view.kind === 'form' || view.kind === 'quotes')) resetQuotes();
   }, [foreground, loading, view.kind, resetQuotes]);
 
@@ -365,7 +365,7 @@ export function SwapPreviewScreen({
     submitLocked.current = true;
     const generation = ++attempt.current;
     const session = captureSession();
-    const valid = () => generation === attempt.current && session();
+    const valid = () => generation === attempt.current && foregroundRef.current && session();
     setHasPassphrase(false);
     setSubmitting(true);
     setError(undefined);
@@ -377,7 +377,7 @@ export function SwapPreviewScreen({
         setPassphraseRequired(true);
         return;
       }
-      setPassphraseRequired(false);
+      setPassphraseRequired(true);
       setView({ kind: 'result', result });
       try {
         setHistory(listSwapHistory(execution, account, valid));

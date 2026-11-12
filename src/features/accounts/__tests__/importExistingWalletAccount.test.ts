@@ -89,6 +89,7 @@ describe('existing-wallet Import account flow', () => {
     expect(result.account.signer.backupState).toBe('not-required');
     expect(repository.isWatchOnly(result.account.account.id)).toBe(false);
     expect(result.systemAuthRegistration).toBe('not-configured');
+    expect(sdk.registerSignerSystemAuth).not.toHaveBeenCalled();
   });
 
   it('rejects new App Passphrase mismatch before Native protection or persistence', async () => {
@@ -211,7 +212,7 @@ describe('existing-wallet Import account flow', () => {
     expect(repository.listSigners()).toHaveLength(1);
   });
 
-  it('registers System Auth only after imported Account+Signer persistence', async () => {
+  it('imports Account+Signer without enrolling a signing unlock key', async () => {
     const { dependencies, repository, sdk } = createDependencies();
     sdk.hasSystemAuthDomain.mockImplementationOnce(async () => {
       expect(repository.listAccounts().map(account => account.address)).toContain('GIMPORTED');
@@ -226,12 +227,13 @@ describe('existing-wallet Import account flow', () => {
       confirmAppPassphrase: 'a sufficiently long passphrase',
     });
 
-    expect(result.systemAuthRegistration).toBe('registered');
-    expect(sdk.registerSignerSystemAuth).toHaveBeenCalledTimes(1);
+    expect(result.systemAuthRegistration).toBe('not-configured');
+    expect(sdk.registerSignerSystemAuth).not.toHaveBeenCalled();
+    expect(sdk.registerSignerSystemAuth).not.toHaveBeenCalled();
     expect(sdk.initializeSystemAuth).not.toHaveBeenCalled();
   });
 
-  it('preserves imported state and reports repair-required when System Auth registration fails', async () => {
+  it('preserves imported state and does not use legacy System Auth registration', async () => {
     const { dependencies, repository, sdk } = createDependencies();
     sdk.hasSystemAuthDomain.mockResolvedValueOnce(true);
     sdk.registerSignerSystemAuth.mockRejectedValueOnce(new Error('system-auth-registration-failed'));
@@ -243,7 +245,8 @@ describe('existing-wallet Import account flow', () => {
       confirmAppPassphrase: 'a sufficiently long passphrase',
     });
 
-    expect(result.systemAuthRegistration).toBe('repair-required');
+    expect(result.systemAuthRegistration).toBe('not-configured');
+    expect(sdk.registerSignerSystemAuth).not.toHaveBeenCalled();
     expect(repository.getAccount(result.account.account.id)).toEqual(result.account.account);
     expect(repository.getSigner(result.account.signer.id)).toEqual(result.account.signer);
   });

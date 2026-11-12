@@ -6,7 +6,6 @@ import {
 import type { ProvisionedAccount } from '../../capabilities/account/provisionAccount';
 import {
   authorizeExistingWalletProtection,
-  registerPersistedSignerSystemAuth,
   type ExistingWalletSystemAuthRegistration,
 } from './existingWalletProtection';
 
@@ -37,11 +36,7 @@ export async function createExistingWalletAccount(
     label: input.label,
   });
 
-  const systemAuthRegistration = await registerPersistedSignerSystemAuth(
-    dependencies,
-    generated.account.signer,
-    input.appPassphrase,
-  );
+  const systemAuthRegistration = 'not-configured' as const;
 
   return {
     account: generated.account,

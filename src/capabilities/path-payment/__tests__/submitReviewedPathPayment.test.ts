@@ -119,7 +119,7 @@ function fixture(review = reviewed()) {
   const sdk = {
     hasSignerSystemAuth: jest.fn(async () => true),
     signWithSystemAuth: jest.fn(async () => 'signed-path-xdr'),
-    signWithPassphrase: jest.fn(async () => 'passphrase-path-xdr'),
+    signWithPassphrase: jest.fn(async () => 'signed-path-xdr'),
   } as unknown as jest.Mocked<FresnicaSdkPort>;
   const recovery = { repository: repo, readInvalidation, now: () => new Date() };
   const signerRepository = { listSignersForAccount: jest.fn(() => [SIGNER]) };
@@ -143,13 +143,13 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
       const review = reviewed(mode);
       const { deps, gateway, inspector, sdk, repo } = fixture(review);
       const create = jest.spyOn(repo, 'create');
-      const result = await submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER);
-      expect(result).toEqual({ status: 'submitted', hash: 'path-hash-1', ledger: 42, authorization: 'system-auth' });
+      const result = await submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase');
+      expect(result).toEqual({ status: 'submitted', hash: 'path-hash-1', ledger: 42, authorization: 'passphrase' });
       expect(inspector.inspectPathPaymentTransaction).toHaveBeenCalledWith({
         transactionXdrBase64: 'unsigned-path-xdr',
         networkPassphrase: NETWORK.networkPassphrase,
       });
-      expect(sdk.signWithSystemAuth).toHaveBeenCalledWith(
+      expect(sdk.signWithPassphrase).toHaveBeenCalledWith(
         expect.objectContaining({
           transactionXdrBase64: 'unsigned-path-xdr',
           networkPassphrase: NETWORK.networkPassphrase,
@@ -176,7 +176,9 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
     const review = reviewed();
     expect(review.quote.expiresAtUnixMs).toBeLessThan(Date.now());
     const { deps } = fixture(review);
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).resolves.toMatchObject({
+    await expect(
+      submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase'),
+    ).resolves.toMatchObject({
       status: 'submitted',
     });
   });
@@ -205,8 +207,10 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
   it('propagates user authorization cancellation without pending row or broadcast', async () => {
     const review = reviewed();
     const { deps, gateway, sdk, repo } = fixture(review);
-    sdk.signWithSystemAuth.mockRejectedValue(new Error('user-cancelled'));
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).rejects.toThrow('user-cancelled');
+    sdk.signWithPassphrase.mockRejectedValue(new Error('user-cancelled'));
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase')).rejects.toThrow(
+      'user-cancelled',
+    );
     expect(gateway.submitTransaction).not.toHaveBeenCalled();
     expect(repo.listUnresolved(NETWORK.id)).toEqual([]);
   });
@@ -218,10 +222,12 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
       status: 'uncertain',
       transactionHash: 'path-hash-1',
     } as never);
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, first, SIGNER)).resolves.toMatchObject({
-      status: 'uncertain',
-      transactionHash: 'path-hash-1',
-    });
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, first, SIGNER, 'test app passphrase')).resolves.toMatchObject(
+      {
+        status: 'uncertain',
+        transactionHash: 'path-hash-1',
+      },
+    );
     expect(repo.listUnresolved(NETWORK.id)).toHaveLength(1);
     const second: PreparedPathPaymentReview = {
       ...reviewed(),
@@ -234,7 +240,9 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
       quote: { ...first.quote, destinationAmount: '12.0000000', path: [] },
     } as PreparedPathPaymentReview;
     inspector.inspectPathPaymentTransaction.mockReturnValue(project(second));
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, second, SIGNER)).resolves.toMatchObject({
+    await expect(
+      submitReviewedPathPayment(deps, ACCOUNT, second, SIGNER, 'test app passphrase'),
+    ).resolves.toMatchObject({
       status: 'uncertain',
       transactionHash: 'path-hash-1',
       reason: 'pending-reconciliation',
@@ -258,7 +266,7 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
   ])('rejects wrong %s before signer authorization', async (_label, wallet) => {
     const review = reviewed();
     const { deps, sdk, gateway } = fixture(review);
-    await expect(submitReviewedPathPayment(deps, wallet, review, SIGNER)).rejects.toThrow(
+    await expect(submitReviewedPathPayment(deps, wallet, review, SIGNER, 'test app passphrase')).rejects.toThrow(
       'path_payment_review_mismatch',
     );
     expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
@@ -277,10 +285,11 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
         ACCOUNT,
         review,
         SIGNER,
+        'test app passphrase',
       ),
     ).rejects.toThrow('path_payment_review_mismatch');
     Object.defineProperty(inspector, 'network', { value: { ...NETWORK, id: 'other' }, configurable: true });
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).rejects.toThrow(
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase')).rejects.toThrow(
       'path_payment_review_mismatch',
     );
     expect(gateway.loadAccountAuthorization).not.toHaveBeenCalled();
@@ -307,7 +316,7 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
     const base = reviewed();
     const review = { ...base, ...overrides } as PreparedPathPaymentReview;
     const { deps, gateway, sdk } = fixture(base);
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).rejects.toThrow(
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase')).rejects.toThrow(
       'path_payment_review_mismatch',
     );
     expect(gateway.loadAccountAuthorization).not.toHaveBeenCalled();
@@ -327,7 +336,7 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
     const review = reviewed();
     const { deps, inspector, sdk } = fixture(review);
     inspector.inspectPathPaymentTransaction.mockReturnValue({ ...project(review), ...drift });
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).rejects.toThrow(
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase')).rejects.toThrow(
       'path_payment_review_mismatch',
     );
     expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
@@ -337,24 +346,28 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
     const current = reviewed();
     const review = { ...current, expiresAtUnixSeconds: Math.floor(Date.now() / 1000) - 1 };
     const { deps, sdk, gateway } = fixture(review);
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).rejects.toThrow('expired');
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase')).rejects.toThrow(
+      'expired',
+    );
     expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
     expect(gateway.submitTransaction).not.toHaveBeenCalled();
   });
 
-  it('snapshots the selected signer before awaiting ledger authorization or system auth', async () => {
+  it('snapshots the selected signer before awaiting ledger authorization or passphrase signing', async () => {
     const review = reviewed();
     const { deps, sdk } = fixture(review);
     const mutableSigner = { ...SIGNER };
-    sdk.hasSignerSystemAuth.mockImplementationOnce(async () => {
+    sdk.signWithPassphrase.mockImplementationOnce(async () => {
       mutableSigner.publicKey = 'GATTACKER';
       mutableSigner.envelopeJson = '{"different":true}';
-      return true;
+      return 'signed-path-xdr';
     });
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, mutableSigner)).resolves.toMatchObject({
+    await expect(
+      submitReviewedPathPayment(deps, ACCOUNT, review, mutableSigner, 'test app passphrase'),
+    ).resolves.toMatchObject({
       status: 'submitted',
     });
-    expect(sdk.signWithSystemAuth).toHaveBeenCalledWith(
+    expect(sdk.signWithPassphrase).toHaveBeenCalledWith(
       expect.objectContaining({
         expectedSignerPublicKey: SIGNER.publicKey,
         envelopeJson: SIGNER.envelopeJson,
@@ -377,24 +390,24 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
         signers: [{ kind: 'ed25519' as const, publicKey: SIGNER.publicKey, weight: 1 }],
       };
     });
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).rejects.toThrow(
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase')).rejects.toThrow(
       'path_payment_review_mismatch',
     );
     expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
     expect(repo.listUnresolved(NETWORK.id)).toHaveLength(0);
   });
 
-  it('rejects a network rebind during system authorization before persistence or submit', async () => {
+  it('rejects a network rebind during passphrase signing before persistence or submit', async () => {
     const review = reviewed();
     const { deps, gateway, sdk, repo } = fixture(review);
-    sdk.signWithSystemAuth.mockImplementationOnce(async () => {
+    sdk.signWithPassphrase.mockImplementationOnce(async () => {
       Object.defineProperty(gateway, 'network', {
         value: { ...NETWORK, networkPassphrase: 'wrong-passphrase' },
         configurable: true,
       });
       return 'signed-path-xdr';
     });
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).rejects.toThrow(
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase')).rejects.toThrow(
       'path_payment_review_mismatch',
     );
     expect(gateway.submitTransaction).not.toHaveBeenCalled();
@@ -406,15 +419,15 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
     ['network', { networkId: 'stellar-mainnet' }],
     ['account ID', { id: 'wallet-other' }],
     ['account type', { identityKind: 'contract' as const }],
-  ])('rejects %s mutation during System Auth before persistence or broadcast', async (_field, mutation) => {
+  ])('rejects %s mutation during passphrase signing before persistence or broadcast', async (_field, mutation) => {
     const review = reviewed();
     const liveAccount: Pick<AccountRecord, 'id' | 'address' | 'networkId' | 'identityKind'> = { ...ACCOUNT };
     const { deps, gateway, sdk, repo, signerRepository } = fixture(review);
-    sdk.signWithSystemAuth.mockImplementationOnce(async () => {
+    sdk.signWithPassphrase.mockImplementationOnce(async () => {
       Object.assign(liveAccount, mutation);
       return 'signed-path-xdr';
     });
-    await expect(submitReviewedPathPayment(deps, liveAccount, review, SIGNER)).rejects.toThrow(
+    await expect(submitReviewedPathPayment(deps, liveAccount, review, SIGNER, 'test app passphrase')).rejects.toThrow(
       'path_payment_review_mismatch',
     );
     expect(signerRepository.listSignersForAccount).toHaveBeenCalledWith(ACCOUNT.id);
@@ -422,18 +435,14 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
     expect(repo.get(NETWORK.id, 'path-hash-1')).toBeUndefined();
   });
 
-  it('does not start System Auth signing when account changes during availability check', async () => {
+  it('does not consult enrolled System Auth without a passphrase', async () => {
     const review = reviewed();
-    const liveAccount: Pick<AccountRecord, 'id' | 'address' | 'networkId' | 'identityKind'> = { ...ACCOUNT };
     const { deps, sdk, gateway, repo } = fixture(review);
-    sdk.hasSignerSystemAuth.mockImplementationOnce(async () => {
-      liveAccount.address = 'GOTHER';
-      return true;
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).resolves.toEqual({
+      status: 'passphrase-required',
     });
-    await expect(submitReviewedPathPayment(deps, liveAccount, review, SIGNER)).rejects.toThrow(
-      'path_payment_review_mismatch',
-    );
-    expect(sdk.signWithSystemAuth).not.toHaveBeenCalled();
+    expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
+    expect(sdk.signWithPassphrase).not.toHaveBeenCalled();
     expect(gateway.submitTransaction).not.toHaveBeenCalled();
     expect(repo.get(NETWORK.id, 'path-hash-1')).toBeUndefined();
   });
@@ -454,7 +463,7 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
     expect(repo.get(NETWORK.id, 'path-hash-1')).toBeUndefined();
   });
 
-  it('rechecks account identity after awaited ledger authorization, before System Auth', async () => {
+  it('rechecks account identity after awaited ledger authorization, before passphrase signing', async () => {
     const review = reviewed();
     const liveAccount: Pick<AccountRecord, 'id' | 'address' | 'networkId' | 'identityKind'> = { ...ACCOUNT };
     const { deps, gateway, sdk, repo } = fixture(review);
@@ -466,7 +475,7 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
         signers: [{ kind: 'ed25519' as const, publicKey: SIGNER.publicKey, weight: 1 }],
       };
     });
-    await expect(submitReviewedPathPayment(deps, liveAccount, review, SIGNER)).rejects.toThrow(
+    await expect(submitReviewedPathPayment(deps, liveAccount, review, SIGNER, 'test app passphrase')).rejects.toThrow(
       'path_payment_review_mismatch',
     );
     expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
@@ -483,7 +492,9 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
       originalCreate(record);
       liveAccount.address = 'GOTHER';
     });
-    await expect(submitReviewedPathPayment(deps, liveAccount, review, SIGNER)).resolves.toMatchObject({
+    await expect(
+      submitReviewedPathPayment(deps, liveAccount, review, SIGNER, 'test app passphrase'),
+    ).resolves.toMatchObject({
       status: 'uncertain',
       transactionHash: 'path-hash-1',
     });
@@ -503,7 +514,9 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
       liveAccount.networkId = 'stellar-mainnet';
       return { status: 'accepted' as const, hash: 'path-hash-1', ledger: 42 };
     });
-    await expect(submitReviewedPathPayment(deps, liveAccount, review, SIGNER)).resolves.toMatchObject({
+    await expect(
+      submitReviewedPathPayment(deps, liveAccount, review, SIGNER, 'test app passphrase'),
+    ).resolves.toMatchObject({
       status: 'uncertain',
       transactionHash: 'path-hash-1',
     });
@@ -515,31 +528,31 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
     });
   });
 
-  it('rejects a stale external account selection during System Auth even if AccountRecord itself is unchanged', async () => {
+  it('rejects a stale external account selection during passphrase signing even if AccountRecord itself is unchanged', async () => {
     const review = reviewed();
     const { deps, isCurrentSession, sdk, gateway, repo } = fixture(review);
-    sdk.signWithSystemAuth.mockImplementationOnce(async () => {
+    sdk.signWithPassphrase.mockImplementationOnce(async () => {
       isCurrentSession.mockReturnValue(false);
       return 'signed-path-xdr';
     });
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).rejects.toThrow(
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase')).rejects.toThrow(
       'path_payment_review_mismatch',
     );
     expect(gateway.submitTransaction).not.toHaveBeenCalled();
     expect(repo.get(NETWORK.id, 'path-hash-1')).toBeUndefined();
   });
 
-  it('does not initiate native signing when external session is invalidated during System Auth availability', async () => {
+  it('cannot reuse a passphrase request after external selection changes', async () => {
     const review = reviewed();
     const { deps, isCurrentSession, sdk, gateway } = fixture(review);
-    sdk.hasSignerSystemAuth.mockImplementationOnce(async () => {
-      isCurrentSession.mockReturnValue(false);
-      return true;
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).resolves.toEqual({
+      status: 'passphrase-required',
     });
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).rejects.toThrow(
+    isCurrentSession.mockReturnValue(false);
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase')).rejects.toThrow(
       'path_payment_review_mismatch',
     );
-    expect(sdk.signWithSystemAuth).not.toHaveBeenCalled();
+    expect(sdk.signWithPassphrase).not.toHaveBeenCalled();
     expect(gateway.submitTransaction).not.toHaveBeenCalled();
   });
 
@@ -554,7 +567,7 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
         signers: [{ kind: 'ed25519' as const, publicKey: SIGNER.publicKey, weight: 1 }],
       };
     });
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).rejects.toThrow(
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase')).rejects.toThrow(
       'path_payment_review_mismatch',
     );
     expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
@@ -568,7 +581,9 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
       originalCreate(record);
       isCurrentSession.mockReturnValue(false);
     });
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).resolves.toMatchObject({
+    await expect(
+      submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase'),
+    ).resolves.toMatchObject({
       status: 'uncertain',
       transactionHash: 'path-hash-1',
     });
@@ -583,7 +598,9 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
       isCurrentSession.mockReturnValue(false);
       return { status: 'accepted' as const, hash: 'path-hash-1', ledger: 42 };
     });
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).resolves.toMatchObject({
+    await expect(
+      submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase'),
+    ).resolves.toMatchObject({
       status: 'uncertain',
       transactionHash: 'path-hash-1',
     });
@@ -595,14 +612,14 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
     const review = reviewed();
     const { deps, isCurrentSession, sdk, gateway } = fixture(review);
     const mutableDeps = { ...deps };
-    sdk.signWithSystemAuth.mockImplementationOnce(async () => {
+    sdk.signWithPassphrase.mockImplementationOnce(async () => {
       isCurrentSession.mockReturnValue(false);
       mutableDeps.isCurrentSession = jest.fn(() => true);
       return 'signed-path-xdr';
     });
-    await expect(submitReviewedPathPayment(mutableDeps, ACCOUNT, review, SIGNER)).rejects.toThrow(
-      'path_payment_review_mismatch',
-    );
+    await expect(
+      submitReviewedPathPayment(mutableDeps, ACCOUNT, review, SIGNER, 'test app passphrase'),
+    ).rejects.toThrow('path_payment_review_mismatch');
     expect(gateway.submitTransaction).not.toHaveBeenCalled();
   });
 
@@ -610,7 +627,13 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
     const review = reviewed();
     const { deps, sdk, gateway } = fixture(review);
     await expect(
-      submitReviewedPathPayment({ ...deps, isCurrentSession: undefined } as never, ACCOUNT, review, SIGNER),
+      submitReviewedPathPayment(
+        { ...deps, isCurrentSession: undefined } as never,
+        ACCOUNT,
+        review,
+        SIGNER,
+        'test app passphrase',
+      ),
     ).rejects.toThrow('path_payment_review_mismatch');
     expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
     expect(gateway.loadAccountAuthorization).not.toHaveBeenCalled();
@@ -626,7 +649,9 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
       });
       return { status: 'accepted' as const, hash: 'path-hash-1', ledger: 42 };
     });
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).resolves.toMatchObject({
+    await expect(
+      submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase'),
+    ).resolves.toMatchObject({
       status: 'uncertain',
       transactionHash: 'path-hash-1',
     });
@@ -638,7 +663,9 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
     const review = reviewed();
     const { deps, gateway, repo } = fixture(review);
     gateway.submitTransaction.mockRejectedValueOnce(new Error('network-broadcast-timeout'));
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).resolves.toMatchObject({
+    await expect(
+      submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase'),
+    ).resolves.toMatchObject({
       status: 'uncertain',
       transactionHash: 'path-hash-1',
     });
@@ -657,21 +684,21 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
         signers: [{ kind: 'ed25519' as const, publicKey: SIGNER.publicKey, weight: 1 }],
       };
     });
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).rejects.toThrow(
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase')).rejects.toThrow(
       'path_payment_signer_mismatch',
     );
     expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
     expect(repo.listUnresolved(NETWORK.id)).toHaveLength(0);
   });
 
-  it('rejects a signer unlinked while System Auth runs before creating a pending submission', async () => {
+  it('rejects a signer unlinked while passphrase signing runs before creating a pending submission', async () => {
     const review = reviewed();
     const { deps, sdk, gateway, signerRepository, repo } = fixture(review);
-    sdk.signWithSystemAuth.mockImplementationOnce(async () => {
+    sdk.signWithPassphrase.mockImplementationOnce(async () => {
       signerRepository.listSignersForAccount.mockReturnValue([]);
       return 'signed-path-xdr';
     });
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).rejects.toThrow(
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase')).rejects.toThrow(
       'path_payment_signer_mismatch',
     );
     expect(gateway.submitTransaction).not.toHaveBeenCalled();
@@ -688,7 +715,7 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
   ] as const)('rejects a forged reviewed Swap with invalid %s before authorization', async (_name, changes) => {
     const review = { ...reviewed(), ...changes } as PreparedPathPaymentReview;
     const { deps, gateway, sdk } = fixture(review);
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).rejects.toThrow(
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase')).rejects.toThrow(
       'path_payment_review_mismatch',
     );
     expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
@@ -703,7 +730,9 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
       transactionHash: 'path-hash-1',
       resultCode: 'tx_bad_seq',
     } as never);
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).resolves.toMatchObject({
+    await expect(
+      submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase'),
+    ).resolves.toMatchObject({
       status: 'rejected',
       transactionHash: 'path-hash-1',
     });
@@ -715,15 +744,15 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
     const review = reviewed();
     const { deps, signerRepository, sdk, gateway } = fixture(review);
     signerRepository.listSignersForAccount.mockReturnValueOnce([]);
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).resolves.toEqual({
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase')).resolves.toEqual({
       status: 'unsupported-signer',
     });
     signerRepository.listSignersForAccount.mockReturnValueOnce([SIGNER, { ...SIGNER, id: 'second' }]);
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).resolves.toEqual({
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase')).resolves.toEqual({
       status: 'unsupported-signer',
     });
     signerRepository.listSignersForAccount.mockReturnValueOnce([{ ...SIGNER, id: 'different' }]);
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).resolves.toEqual({
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase')).resolves.toEqual({
       status: 'unsupported-signer',
     });
     expect(signerRepository.listSignersForAccount).toHaveBeenCalledWith(ACCOUNT.id);
@@ -739,11 +768,13 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
       thresholds: { low: 1, medium: 2, high: 3 },
       signers: [{ kind: 'ed25519', publicKey: SIGNER.publicKey, weight: 1 }],
     });
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).resolves.toMatchObject({
+    await expect(
+      submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase'),
+    ).resolves.toMatchObject({
       status: 'authorization-blocked',
       reason: 'insufficient-weight',
     });
-    expect(sdk.signWithSystemAuth).not.toHaveBeenCalled();
+    expect(sdk.signWithPassphrase).not.toHaveBeenCalled();
     expect(gateway.submitTransaction).not.toHaveBeenCalled();
   });
 
@@ -755,7 +786,7 @@ describe('Swap-D1 exact-XDR-authorized submission bridge', () => {
       thresholds: { low: 1, medium: 1, high: 2 },
       signers: [{ kind: 'ed25519', publicKey: SIGNER.publicKey, weight: 1 }],
     });
-    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER)).rejects.toThrow(
+    await expect(submitReviewedPathPayment(deps, ACCOUNT, review, SIGNER, 'test app passphrase')).rejects.toThrow(
       'path_payment_review_mismatch',
     );
     expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();

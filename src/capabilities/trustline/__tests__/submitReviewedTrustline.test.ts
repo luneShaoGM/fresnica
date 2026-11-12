@@ -1,9 +1,9 @@
-import type {FresnicaSdkPort} from '../../ports/FresnicaSdkPort';
-import type {PendingSubmissionRepository} from '../../transaction/pendingSubmission';
-import type {SignerRecord} from '../../signer/types';
-import type {TrustlineGatewayPort} from '../TrustlineGateway';
-import type {TrustlineReview} from '../buildTrustlineReview';
-import {submitReviewedTrustline} from '../submitReviewedTrustline';
+import type { FresnicaSdkPort } from '../../ports/FresnicaSdkPort';
+import type { PendingSubmissionRepository } from '../../transaction/pendingSubmission';
+import type { SignerRecord } from '../../signer/types';
+import type { TrustlineGatewayPort } from '../TrustlineGateway';
+import type { TrustlineReview } from '../buildTrustlineReview';
+import { submitReviewedTrustline } from '../submitReviewedTrustline';
 
 const NETWORK = Object.freeze({
   id: 'stellar-testnet',
@@ -24,7 +24,7 @@ const review: TrustlineReview = Object.freeze({
   source: 'GSOURCE',
   fee: '100',
   operation: 'set-limit',
-  asset: Object.freeze({code: 'USD', issuer: 'GISSUER'}),
+  asset: Object.freeze({ code: 'USD', issuer: 'GISSUER' }),
   limit: '100.0000000',
 });
 
@@ -53,8 +53,8 @@ describe('submitReviewedTrustline', () => {
       }),
       loadAccountAuthorization: jest.fn().mockResolvedValue({
         address: review.source,
-        thresholds: {low: 1, medium: 1, high: 2},
-        signers: [{kind: 'ed25519', publicKey: signer.publicKey, weight: 1}],
+        thresholds: { low: 1, medium: 1, high: 2 },
+        signers: [{ kind: 'ed25519', publicKey: signer.publicKey, weight: 1 }],
       }),
       transactionHash: jest.fn().mockReturnValue('trustline-hash'),
       loadTransactionOutcome: jest.fn(),
@@ -66,18 +66,19 @@ describe('submitReviewedTrustline', () => {
     } as unknown as jest.Mocked<TrustlineGatewayPort>;
     const sdk = {
       hasSignerSystemAuth: jest.fn().mockResolvedValue(true),
-      signWithSystemAuth: jest.fn().mockResolvedValue('AAAA-signed-change-trust'),
+      signWithPassphrase: jest.fn().mockResolvedValue('AAAA-signed-change-trust'),
     } as unknown as jest.Mocked<FresnicaSdkPort>;
 
     await expect(
       submitReviewedTrustline({
+        appPassphrase: 'test app passphrase',
         gateway,
         sdk,
         review,
         accountId: 'account-1',
         recovery: {
           repository: pending,
-          readInvalidation: {invalidate: jest.fn()},
+          readInvalidation: { invalidate: jest.fn() },
           now: () => checkedAt,
         },
         signer,
@@ -85,7 +86,7 @@ describe('submitReviewedTrustline', () => {
       }),
     ).resolves.toEqual({
       status: 'submitted',
-      authorization: 'system-auth',
+      authorization: 'passphrase',
       hash: 'trustline-hash',
       ledger: 88,
     });
@@ -101,12 +102,7 @@ describe('submitReviewedTrustline', () => {
     expect(pending.create.mock.invocationCallOrder[0]).toBeLessThan(
       gateway.submitTransaction.mock.invocationCallOrder[0],
     );
-    expect(pending.markConfirmed).toHaveBeenCalledWith(
-      NETWORK.id,
-      'trustline-hash',
-      checkedAt,
-      88,
-    );
+    expect(pending.markConfirmed).toHaveBeenCalledWith(NETWORK.id, 'trustline-hash', checkedAt, 88);
   });
   it('blocks an unresolved matching trustline intent before authorization or signing', async () => {
     const pending = pendingRepository();
@@ -136,18 +132,19 @@ describe('submitReviewedTrustline', () => {
     } as unknown as jest.Mocked<TrustlineGatewayPort>;
     const sdk = {
       hasSignerSystemAuth: jest.fn(),
-      signWithSystemAuth: jest.fn(),
+      signWithPassphrase: jest.fn(),
     } as unknown as jest.Mocked<FresnicaSdkPort>;
 
     await expect(
       submitReviewedTrustline({
+        appPassphrase: 'test app passphrase',
         gateway,
         sdk,
         review,
         accountId: 'account-1',
         recovery: {
           repository: pending,
-          readInvalidation: {invalidate: jest.fn()},
+          readInvalidation: { invalidate: jest.fn() },
           now: () => checkedAt,
         },
         signer,
@@ -168,5 +165,4 @@ describe('submitReviewedTrustline', () => {
     expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
     expect(gateway.submitTransaction).not.toHaveBeenCalled();
   });
-
 });

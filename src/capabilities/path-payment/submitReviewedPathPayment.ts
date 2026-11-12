@@ -119,18 +119,6 @@ export async function submitReviewedPathPayment(
   // signature; otherwise a stale account could be signed in the meantime.
   const guardedSdk: FresnicaSdkPort = {
     ...dependencies.sdk,
-    hasSignerSystemAuth: async publicKey => {
-      assertSigningContext();
-      const available = await dependencies.sdk.hasSignerSystemAuth(publicKey);
-      assertSigningContext();
-      return available;
-    },
-    signWithSystemAuth: async request => {
-      assertSigningContext();
-      const signed = await dependencies.sdk.signWithSystemAuth(request);
-      assertSigningContext();
-      return signed;
-    },
     signWithPassphrase: async request => {
       assertSigningContext();
       const signed = await dependencies.sdk.signWithPassphrase(request);
