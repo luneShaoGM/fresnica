@@ -12,8 +12,41 @@ Stellar bd0f4540b2496a57314e4e29bc6fcf8ff691b60f. No donor source/test/art copie
 Activity account subjects use a 40-unit rounded square (radius11) address image,
 not local green identicons, contact branding or initials. If remote avatars are
 OFF, unavailable, loading or rejected, show an independently drawn generic person
-symbol. Names/Memo do not change avatar identity. Other AccountIdentityCard
-consumers retain their current behavior; compact Activity injects this visual.
+symbol. Names/Memo do not change avatar identity. Owner decision 2026-11-12
+extends this same presentation/loading/fallback policy to all existing user-avatar
+surfaces: Activity rows and operation-detail participants, contacts/address-book
+and destination pickers, Swap account card, Account Detail and Wallet Ready.
+Layouts may choose a larger frame (Account Detail: 68); image identity, cover
+scaling, rounded-square shape and person fallback are shared. AccountIdentityCard
+honors its avatar slot for card, compact and selectable variants; its default
+presentation fallback is the same generic person, never a green identicon.
+
+One AccountAvatarContext is composed around the complete App navigator, using
+the current service generation's existing AccountAvatarPort. Features load/read
+the exact trimmed address through one shared AccountAvatar; ui components remain
+presentation-only. Every render reads that service's memory cache rather than
+holding an independent image copy. A service/account change cannot expose the
+previous service/address image, including stale decode callbacks. Focus-aware
+consumers stop loads when inactive; unmount aborts. Default-off consent, privacy
+disclosure, foreground/connectivity gating and network-session retirement remain
+unchanged. No additional addresses are requested while privacy is off.
+
+Decode rejection publishes invalidation to all consumers of the shared service,
+bounds rejected identities to 64, and prevents an automatic bad-image retry loop.
+A later readable resume or permission reset permits a fresh attempt. Rejection
+for an old URI cannot remove a newer cached image.
+
+A still-mounted avatar observes the cached URI as an effect dependency. After a
+10-minute expiry, the next render's URI hit-to-miss transition starts one controlled
+load if active and enabled, only while the shared entry still exists. Capacity
+eviction leaves the shared fallback until a new mount, activation, identity/service
+change or lifecycle/policy revision permits an initial load again. In particular,
+more than 64 simultaneously mounted identities cannot reclaim each other's slots
+on successful cache publications. Cache capacity remains 64. A successful cache
+publication restores the shared image. A failed load remains fallback; unchanged
+missing URI on unrelated renders does not continuously retry. Decode-rejected
+images still use the shared rejection guard; lifecycle/policy changes remain the
+explicit retry paths. No timer or background polling is introduced.
 Single asset subjects keep shared S06 exact-identity TokenAssetIcon inside an
 Activity-only 40-unit frame with radius11 and cover image scaling. Other Token
 consumers keep contain scaling; approved local missing-token art is unchanged. Asset pairs

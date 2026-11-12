@@ -804,3 +804,96 @@ artwork and locale gates. Local Gradle initially reused stale source snapshots;
 the final native regression disables file-system watching and recompiled the
 changed module/test before passing. No release repackaging or iOS rebuild was
 needed for this Android-only correction.
+
+
+### 2026-11-12 S13/S22 shared account-avatar consistency (candidate)
+
+Owner promotes existing Activity address-avatar behavior to all current user
+avatar surfaces: operation participants, contacts/picker cards, Swap account card,
+Account Detail and Wallet Ready. Phase 0 passed; clean-room Adapt reuses Fresnica's
+existing display-only AccountAvatarPort and privacy consent. App owns one current
+service provider across routes; contacts owns the shared loader; ui owns image /
+generic person presentation. All card variants honor supplied avatars, and names
+or memos never choose imagery. Generic fallback replaces the inconsistent local
+identicons/initials at those consumers. Sizes may vary by layout, with shared
+rounded-square/cover and generic-person rules.
+
+Cache is the single image authority across surfaces/service generations. Decode
+failure propagates fallback without an infinite retry loop; old URI failure cannot
+remove a new image. Existing default-off disclosed avatar opt-in, bounded HTTPS
+transport/cache, lifecycle/cancel and network retirement remain. Token imagery,
+identity/name/address/memo authority, transactions and wallet schema are unchanged.
+Current behavior: [avatar alignment](behavior-specs/s13-avatar-alignment.md).
+Native visual / real provider / accessibility acceptance and independent exact-
+HEAD review remain separate; no maturity promotion or real address requests.
+
+
+Developer verification: `npm run check` passed 270 suites / 2511 tests,
+TypeScript, lint (warnings only), aliases/architecture, provenance (1004 files,
+zero unapproved donor collisions), artwork and all locale dictionaries. Coverage
+includes all card-avatar slots, shared image/fallback frame/accessibility, inactive
+participant propagation, old account/service/decode results, shared load/reject
+notifications and independent concurrent address reads. Navigation composition
+tests were adapted to the provider moving from Activity to the App root.
+Production Android and iOS JS bundles and assets compiled successfully. Local
+Watchman recrawl / React Native export warnings were supplementary build warnings,
+not a reason to change unrelated tooling. No native screenshot, real-provider
+request, physical-device visual or screen-reader acceptance was performed.
+
+
+### 2026-11-12 S13/S22 mounted avatar expiry P2 correction (candidate)
+
+Independent #194 review of 4994648892c2494c84873a45cb076ea69bcfc337 reported
+NEEDS_FIX / one P2: cache expiry/eviction changed the rendered URI without
+changing any load-effect dependency. Reuse the existing Token icon hit-to-miss
+pattern in shared AccountAvatar: observe URI, load only if missing, and keep
+foreground/consent/identity/policy and shared decode-rejection guards. Ordinary
+renders after failure do not create a retry loop. No polling, cache/transport
+policy changes, native code, transaction authority or image-provider changes.
+
+New regressions retain the same mounted hook instance and advance the actual
+AccountAvatarPort clock across its 600000ms TTL. Cover successful refresh,
+failure with bounded request count, decode rejection without looping, and
+64-entry eviction without a policy revision change. All three new cases fail
+against the reviewed implementation. Phase 0 passed, S13/S22 clean-room Adapt;
+native/provider/visual acceptance and new exact-HEAD Work review stay separate.
+
+Developer verification: all three new mounted TTL/eviction tests failed before
+the fix and passed afterward. Focused avatar tests: 2 suites / 18 tests passed.
+Full npm run check: 270 suites / 2514 tests plus TypeScript, lint (warnings only),
+architecture/provenance, artwork and locale gates passed. Separate full Jest run
+with Watchman disabled also passed. No new native package, provider request or
+visual/screen-reader acceptance is claimed for this effect-only correction.
+
+### 2026-11-12 S13/S22 mounted avatar capacity P2 correction (candidate)
+
+Independent #194 incremental review of
+d7bb95c185d7af2f5e5c4f8d2f656009bae3e295 confirmed the TTL fix, but returned
+NEEDS_FIX / one P2: 65 subscribed mounted identities can repeatedly evict and
+reload each other in the 64-entry shared cache. This correction supersedes the
+previous eviction-reload behavior while retaining automatic TTL refresh.
+
+Shared AccountAvatar now remembers the identity/service/policy of an observed
+image. Its URI hit-to-miss recovery asks the port to refresh only a retained
+expired entry; an absent capacity-evicted entry stays fallback until a new mount,
+activation, identity/service or lifecycle/policy change. Initial mount-effect
+replay still retries an aborted initial load. Capacity, transport, privacy,
+concurrency and rejection guards remain unchanged. No timers or visible-row
+special cases. Phase 0 passed; S13/S22 clean-room Adapt, no maturity promotion.
+
+Repository regression harness keeps 65 separate mounted hook instances, real
+shared-port subscriptions, effect dependencies/cleanup and successful download
+notifications. On the reviewed source it made 351 requests in the bounded run
+instead of 65. After correction it stabilizes at 65, ordinary re-renders keep
+images unchanged, and explicit reactivation adds exactly one request without
+starting another eviction loop. This is automated/helper evidence, not native
+React Native visual or physical-device acceptance. Existing TTL success/failure
+and decode-rejection cases remain covered, plus direct port miss/expiry policy
+and mount-effect replay. Focused verification passed: 3 suites / 21 tests.
+New exact-HEAD independent Work review remains required; PR is not merged.
+
+Developer verification: full npm run check with Watchman disabled passed
+271 suites / 2517 tests, TypeScript, lint (warnings only), formatting,
+aliases/architecture, provenance (1005 files, zero unapproved donor collisions),
+artwork, locale and bridge checks. Final TypeScript rerun passed after the
+mount-replay regression was added. Native/device/provider acceptance was not run.

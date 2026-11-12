@@ -1,3 +1,4 @@
+import { AccountAvatarContext } from '@features/contacts/accountAvatarContext';
 import React, {useMemo, useState} from 'react';
 import {ActivityIndicator, Text, View} from 'react-native';
 import {DefaultTheme, NavigationContainer} from '@react-navigation/native';
@@ -42,21 +43,23 @@ export function AppNavigator({runtime, onRefreshBootstrap, deepLink, onDismissDe
   if (runtime.kind !== 'ready') return <BootstrapScreen runtime={runtime} />;
 
   return (
-    <NavigationContainer theme={navigationTheme}>
-      <RootStack.Navigator screenOptions={{headerShown: false, animation: 'none'}}>
-        {renderRootScreen(
-          runtime,
-          onRefreshBootstrap,
-          deepLink,
-          dismissDeepLink,
-          () => {
-            if (deepLink?.kind === 'ready') setContinuedDeepLink(deepLink);
-          },
-          continuedDeepLink === deepLink,
-        )}
-        <RootStack.Screen name="locked" component={LockedPlaceholderScreen} />
-      </RootStack.Navigator>
-    </NavigationContainer>
+    <AccountAvatarContext.Provider value={runtime.services.accountAvatars}>
+      <NavigationContainer theme={navigationTheme}>
+        <RootStack.Navigator screenOptions={{headerShown: false, animation: 'none'}}>
+          {renderRootScreen(
+            runtime,
+            onRefreshBootstrap,
+            deepLink,
+            dismissDeepLink,
+            () => {
+              if (deepLink?.kind === 'ready') setContinuedDeepLink(deepLink);
+            },
+            continuedDeepLink === deepLink,
+          )}
+          <RootStack.Screen name="locked" component={LockedPlaceholderScreen} />
+        </RootStack.Navigator>
+      </NavigationContainer>
+    </AccountAvatarContext.Provider>
   );
 }
 

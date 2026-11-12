@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useThemedStyles } from '@ui/theme';
 import { formatPublicAddress } from '../../formatPublicAddress';
 import { createStyles } from './styles';
-import { IdentityAvatar } from '../IdentityAvatar';
+import { AccountAvatarImage } from '../AccountAvatarImage';
 
 export function AccountIdentityCard({
   address,
@@ -28,7 +28,7 @@ export function AccountIdentityCard({
   if (presentation === 'compact') {
     return (
       <View style={styles.compact}>
-        {avatar ?? <IdentityAvatar identity={address} />}
+        {avatar ?? <AccountAvatarImage />}
         <View style={[styles.identity, styles.compactIdentity]}>
           <Text numberOfLines={1} ellipsizeMode="middle" style={styles.name}>
             {name.trim() || formatPublicAddress(address)}
@@ -43,7 +43,7 @@ export function AccountIdentityCard({
   if (presentation === 'selectable') {
     const content = (
       <>
-        <IdentityAvatar identity={address} />
+        {avatar ?? <AccountAvatarImage />}
         <View style={styles.identity}>
           <Text numberOfLines={1} style={styles.name}>
             {name.trim() || formatPublicAddress(address)}
@@ -80,7 +80,7 @@ export function AccountIdentityCard({
   }
   return (
     <View style={styles.card}>
-      <IdentityAvatar identity={address} />
+      {avatar ?? <AccountAvatarImage />}
       <View style={styles.identity}>
         <Text style={styles.label}>{label}</Text>
         <Text style={styles.name}>{name.trim() || address}</Text>

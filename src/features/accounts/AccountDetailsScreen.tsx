@@ -1,3 +1,4 @@
+import { AccountAvatar } from '../contacts/AccountAvatar';
 import React, {useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 
@@ -10,6 +11,7 @@ import {useThemedStyles, type AppTheme} from '@ui/theme';
 type Props = Readonly<{
   account: AccountRecord;
   canHide: boolean;
+  active?: boolean;
   onSend: () => void;
   onManageAssets: () => void;
   onRename: (label: string) => void | Promise<void>;
@@ -23,6 +25,7 @@ type DeleteError = 'pending' | 'visible-required' | 'generic';
 export function AccountDetailsScreen({
   account,
   canHide,
+  active = true,
   onSend,
   onManageAssets,
   onRename,
@@ -111,7 +114,7 @@ export function AccountDetailsScreen({
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.identityBlock}>
-          <View style={styles.accountIcon}><Text style={styles.accountIconText}>{(account.label || 'S').slice(0, 1).toUpperCase()}</Text></View>
+          <AccountAvatar address={account.address} active={active} size={68} />
           <Text style={styles.accountLabel}>{account.label || 'Stellar account'}</Text>
           <Button label={t('accounts.rename.open')} onPress={openRename} variant="ghost" />
           <Text selectable style={styles.address}>{account.address}</Text>
@@ -274,8 +277,6 @@ function createStyles(theme: AppTheme) {
   headerSpacer: {width: 42},
   content: {paddingBottom: 34},
   identityBlock: {alignItems: 'center', paddingHorizontal: 24, paddingTop: 28, paddingBottom: 24, gap: 8},
-  accountIcon: {width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surfaceStrong},
-  accountIconText: {fontSize: 27, color: theme.colors.onSurfaceStrong, fontWeight: '800'},
   accountLabel: {fontSize: 20, lineHeight: 25, fontWeight: '800', color: theme.colors.textPrimary},
   address: {fontSize: 10, lineHeight: 15, color: theme.colors.textSecondary, textAlign: 'center', fontVariant: ['tabular-nums']},
   section: {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border},

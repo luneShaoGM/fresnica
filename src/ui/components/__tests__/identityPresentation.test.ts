@@ -1,3 +1,4 @@
+import { AccountAvatarImage } from '../AccountAvatarImage';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -27,7 +28,7 @@ it('keeps the default account card address selectable with its public full-addre
   const root = AccountIdentityCard({ address: 'GCOUNTERPARTY', name: 'Alice', label: 'Recipient' });
   const text = nodes(root, Text);
   expect(text.map(node => node.props.children)).toEqual(['Recipient', 'Alice', 'GCOU...ARTY']);
-  expect(nodes(root, IdentityAvatar)[0].props.identity).toBe('GCOUNTERPARTY');
+  expect(nodes(root, AccountAvatarImage)).toHaveLength(1);
   expect(text.find(node => node.props.selectable)?.props.accessibilityLabel).toBe('GCOUNTERPARTY');
 });
 it('renders a single selectable identity with memo and full-address accessibility, preserving its click handler', () => {
@@ -41,7 +42,7 @@ it('renders a single selectable identity with memo and full-address accessibilit
     onPress,
   });
   expect(nodes(root, Pressable)).toHaveLength(1);
-  expect(nodes(root, IdentityAvatar)[0].props.identity).toBe('GCOUNTERPARTY');
+  expect(nodes(root, AccountAvatarImage)).toHaveLength(1);
   expect(nodes(root, Text).map(node => node.props.children)).toEqual(['Alice', 'GCOUNTERPARTY', 'Memo ID: 7']);
   expect(root.props).toMatchObject({
     accessibilityRole: 'button',
@@ -83,8 +84,8 @@ it('keeps compact account avatars tied to exact address across renames, with mas
     });
   const initial = render('Alice');
   const renamed = render('Bob');
-  expect(nodes(initial, IdentityAvatar)[0].props.identity).toBe('GCOUNTERPARTY');
-  expect(nodes(renamed, IdentityAvatar)[0].props.identity).toBe('GCOUNTERPARTY');
+  expect(nodes(initial, AccountAvatarImage)).toHaveLength(1);
+  expect(nodes(renamed, AccountAvatarImage)).toHaveLength(1);
   expect(nodes(render(''), Text).map(node => node.props.children)).toEqual(['GCOU...ARTY', 'Received · 12:34:56']);
   expect(nodes(initial, Text).some(node => node.props.selectable)).toBe(false);
 });
@@ -116,4 +117,17 @@ it('batches all identity cells into one local SVG path instead of native cell vi
   const path = paths[0] as React.ReactElement<{ d: string }>;
   expect(path.props.d.match(/M/g)).toHaveLength(identityAvatarPattern(identity).filter(Boolean).length);
   expect(path.props.d).toMatch(/^(M[0-4] [0-4]h1v1h-1Z)+$/);
+});
+
+it.each(['card', 'compact', 'selectable'] as const)('preserves the supplied user avatar in %s cards', presentation => {
+  const avatar = React.createElement(AccountAvatarImage, { uri: 'data:image/png;base64,AAAA' });
+  const root = AccountIdentityCard({
+    address: 'GCOUNTERPARTY',
+    name: 'Alice',
+    label: 'Recipient',
+    presentation,
+    avatar,
+  });
+  expect(nodes(root, AccountAvatarImage)).toEqual([avatar]);
+  expect(nodes(root, IdentityAvatar)).toHaveLength(0);
 });

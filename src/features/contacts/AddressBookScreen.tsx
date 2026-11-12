@@ -1,3 +1,4 @@
+import { AccountAvatar } from './AccountAvatar';
 import React, { useEffect, useRef, useState } from 'react';
 import { Text } from 'react-native';
 import { searchContacts, type Contact } from '@capabilities/contacts/contacts';
@@ -113,6 +114,7 @@ export function AddressBookScreen({
               keyExtractor={contact => contact.id}
               renderItem={contact => (
                 <AccountIdentityCard
+                  avatar={<AccountAvatar address={contact.address} active={active} />}
                   address={contact.address}
                   name={contact.name}
                   label={t('contacts.local')}

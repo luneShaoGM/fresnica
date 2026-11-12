@@ -116,7 +116,7 @@ export function SettingsStackNavigator({
         {({ navigation, route }) => {
           const account = requireAccount(accounts, route.params.accountId);
           return (
-            <AccountDetailsScreen
+            <AccountDetailsRoute
               account={account}
               canHide={account.hidden || visibleAccountCount > 1}
               onBack={() => navigation.goBack()}
@@ -207,6 +207,11 @@ export function SettingsStackNavigator({
       </Stack.Screen>
     </Stack.Navigator>
   );
+}
+
+function AccountDetailsRoute(props: React.ComponentProps<typeof AccountDetailsScreen>) {
+  const active = useIsFocused();
+  return <AccountDetailsScreen {...props} active={active} />;
 }
 
 function AddressBookRoute(props: React.ComponentProps<typeof AddressBookScreen>) {

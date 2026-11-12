@@ -1,3 +1,4 @@
+import { AccountAvatar } from '../AccountAvatar';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable } from 'react-native';
 import { AccountIdentityCard, BottomSheet, Field, SectionedList } from '@ui/components';
@@ -36,6 +37,7 @@ jest.mock('../../../ui/theme', () => {
 type Props = {
   children?: React.ReactNode;
   recipientCard?: React.ReactNode;
+  avatar?: React.ReactElement<{ address: string; active?: boolean }>;
   label?: string;
   title?: string;
   name?: string;
@@ -252,6 +254,8 @@ it('does not assign a memo contact name to address-only Activity and offers a fr
   const draw = () => render(() => ParticipantCard({ book, label: 'Counterparty', address: row.address }));
   let root = draw();
   expect(nodes(root, AccountIdentityCard)[0].props.name).toBe('');
+  expect(nodes(root, AccountIdentityCard)[0].props.avatar?.type).toBe(AccountAvatar);
+  expect(nodes(root, AccountIdentityCard)[0].props.avatar?.props.address).toBe(row.address);
   nodes(root, Pressable)[0].props.onPress!();
   root = draw();
   button(root, 'contacts.add')();
@@ -1113,3 +1117,10 @@ it.each(['submitted', 'uncertain', 'rejected'])(
     else expect(card).toBeUndefined();
   },
 );
+
+it('uses the same address avatar for participant cards and disables it with an inactive detail', () => {
+  const root = render(() => ParticipantCard({ book, label: 'Recipient', address: row.address, active: false }));
+  const avatar = nodes(root, AccountIdentityCard)[0].props.avatar;
+  expect(avatar?.type).toBe(AccountAvatar);
+  expect(avatar?.props).toMatchObject({ address: row.address, active: false });
+});

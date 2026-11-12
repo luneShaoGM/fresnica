@@ -147,3 +147,71 @@ it('retains a normal256px response larger than the old Token budget', async () =
   expect(port.read(address)).toBe(large);
   port.close();
 });
+
+it('publishes decode rejection to all surfaces without repeatedly downloading the rejected image', async () => {
+  const loader = jest.fn(async () => uri);
+  const { port } = create(true, loader);
+  await port.load(address, new AbortController().signal);
+  const changed = jest.fn();
+  port.subscribe(changed);
+  const revision = port.getSnapshot().revision;
+  port.reject(address, uri);
+  expect(port.getSnapshot().revision).toBe(revision + 1);
+  expect(changed).toHaveBeenCalledTimes(1);
+  expect(port.read(address)).toBeUndefined();
+  expect(await port.load(address, new AbortController().signal)).toBeUndefined();
+  expect(loader).toHaveBeenCalledTimes(1);
+  port.setReadable(false);
+  port.setReadable(true);
+  expect(await port.load(address, new AbortController().signal)).toBe(uri);
+  expect(loader).toHaveBeenCalledTimes(2);
+  port.close();
+});
+
+it('notifies every mounted surface on a completed image without cancelling another address load', async () => {
+  const pending = [deferred<string>(), deferred<string>()];
+  let next = 0;
+  const { port } = create(
+    true,
+    jest.fn(() => pending[next++].promise),
+  );
+  const before = port.getSnapshot();
+  const list = jest.fn(() => port.read(address));
+  const detail = jest.fn(() => port.read(address));
+  port.subscribe(list);
+  port.subscribe(detail);
+  const first = port.load(address, new AbortController().signal);
+  const second = port.load(muxed, new AbortController().signal);
+  await Promise.resolve();
+  pending[0].resolve(uri);
+  expect(await first).toBe(uri);
+  expect(list).toHaveLastReturnedWith(uri);
+  expect(detail).toHaveLastReturnedWith(uri);
+  expect(port.getSnapshot()).not.toBe(before);
+  expect(port.getSnapshot().revision).toBe(before.revision);
+  pending[1].resolve(uri);
+  expect(await second).toBe(uri);
+  port.close();
+});
+
+it('automatic refresh only reloads a retained expired entry, never a capacity miss', async () => {
+  let now = 0;
+  const loadImage = jest.fn(async () => uri);
+  const port = createAccountAvatarPort({ available: true, initialEnabled: true, loadImage, now: () => now });
+  port.setReadable(true);
+  const signal = new AbortController().signal;
+  expect(await port.load(address, signal, { onlyExpired: true })).toBeUndefined();
+  expect(loadImage).not.toHaveBeenCalled();
+  await port.load(address, signal);
+  expect(await port.load(address, signal, { onlyExpired: true })).toBe(uri);
+  expect(loadImage).toHaveBeenCalledTimes(1);
+  now = 600000;
+  expect(await port.load(address, signal, { onlyExpired: true })).toBe(uri);
+  expect(loadImage).toHaveBeenCalledTimes(2);
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  for (let i = 1; i <= 64; i++)
+    await port.load('G' + 'A'.repeat(53) + alphabet[Math.floor(i / 32)] + alphabet[i % 32], signal);
+  expect(await port.load(address, signal, { onlyExpired: true })).toBeUndefined();
+  expect(loadImage).toHaveBeenCalledTimes(66);
+  port.close();
+});

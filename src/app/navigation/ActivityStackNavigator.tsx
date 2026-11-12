@@ -4,7 +4,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import type { AccountRecord } from '@capabilities/account/types';
 import { transactionExplorerUrl } from '@capabilities/network/transactionExplorer';
-import { AccountAvatarContext } from '@features/activity/accountAvatarContext';
 import { ActivityScreen } from '@features/activity/ActivityScreen';
 import { OperationDetailsScreen } from '@features/activity/OperationDetailsScreen';
 import { useContactList } from '@features/contacts/useContactList';
@@ -46,7 +45,6 @@ export function ActivityStackNavigator({ accounts, selectedAccountId, services }
   const partitionKey = activityHistoryPartitionKey(account);
 
   return (
-    <AccountAvatarContext.Provider value={services.accountAvatars}>
       <Stack.Navigator key={partitionKey} initialRouteName="activity" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="activity">
           {({ navigation }) => (
@@ -81,7 +79,6 @@ export function ActivityStackNavigator({ accounts, selectedAccountId, services }
           )}
         </Stack.Screen>
       </Stack.Navigator>
-    </AccountAvatarContext.Provider>
   );
 }
 

@@ -82,7 +82,7 @@ it('subscribes at composition, updates contacts and failures without replacing h
   const navigation = { navigate: jest.fn() };
   const render = (accounts = [account], selectedAccountId = account.id) => {
     const tree = ActivityStackNavigator({ accounts, selectedAccountId, services });
-    const route = React.Children.toArray(tree.props.children.props.children).find(
+    const route = React.Children.toArray(tree.props.children).find(
       child => React.isValidElement<RouteProps>(child) && child.props.name === 'activity',
     ) as React.ReactElement<RouteProps>;
     return route.props.children({ navigation });
@@ -135,7 +135,7 @@ it('subscribes at composition, updates contacts and failures without replacing h
     selectedAccountId: account.id,
     services,
   });
-  const detailRoute = React.Children.toArray(stack.props.children.props.children).find(
+  const detailRoute = React.Children.toArray(stack.props.children).find(
     child => React.isValidElement<RouteProps>(child) && child.props.name === 'operation-details',
   ) as React.ReactElement<{
     children(context: {
