@@ -898,6 +898,7 @@
   "contacts.deleteDetail": "Only this local contact is removed. Wallet accounts and on-chain funds are unaffected.",
   "contacts.keep": "Keep contact",
   "contacts.share": "Share contact",
+  "contacts.actionsHint": "Opens more account actions",
   "contacts.copy": "Copy address",
   "contacts.search": "Search name, address or memo",
   "contacts.empty": "No contacts",

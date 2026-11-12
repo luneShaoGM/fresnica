@@ -83,6 +83,7 @@ export function ParticipantCard({ book, label, address, memo, accounts = [], sca
     <View style={styles.card}>
       <Pressable
         accessibilityRole="button"
+        accessibilityHint={t('contacts.actionsHint')}
         accessibilityLabel={`${label}: ${displayName || address}`}
         onPress={() => {
           if (available() && !current.current) {
@@ -91,7 +92,23 @@ export function ParticipantCard({ book, label, address, memo, accounts = [], sca
           }
         }}
       >
-        <AccountIdentityCard avatar={<AccountAvatar address={address} active={active} />} address={address} name={displayName} label={label} secondary={sourceLabel} />
+        <AccountIdentityCard
+          avatar={<AccountAvatar address={address} active={active} />}
+          address={address}
+          name={displayName}
+          label={label}
+          secondary={sourceLabel}
+          trailing={
+            <Text
+              accessible={false}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={styles.moreActions}
+            >
+              ⋯
+            </Text>
+          }
+        />
       </Pressable>
       {active && sheet ? (
         <BottomSheet visible onClose={close} closeLabel={t('common.cancel')}>

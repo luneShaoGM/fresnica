@@ -898,6 +898,7 @@
   "contacts.deleteDetail": "只删除本地联系人，不影响钱包账户和链上资金。",
   "contacts.keep": "保留联系人",
   "contacts.share": "分享联系人",
+  "contacts.actionsHint": "点按查看更多账户操作",
   "contacts.copy": "复制地址",
   "contacts.search": "搜索姓名、地址或 Memo",
   "contacts.empty": "暂无联系人",

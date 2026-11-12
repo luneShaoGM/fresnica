@@ -49,6 +49,7 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.actionPrimaryPressed,
     },
     cacheRetryPressed: { opacity: 0.68 },
+    participant: { marginHorizontal: theme.spacing.lg },
     ready: { flex: 1 },
     hero: {
       alignItems: 'center',

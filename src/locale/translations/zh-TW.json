@@ -898,6 +898,7 @@
   "contacts.deleteDetail": "只刪除本機聯絡人，不影響錢包帳戶和鏈上資金。",
   "contacts.keep": "保留聯絡人",
   "contacts.share": "分享聯絡人",
+  "contacts.actionsHint": "點按查看更多帳戶操作",
   "contacts.copy": "複製地址",
   "contacts.search": "搜尋姓名、地址或 Memo",
   "contacts.empty": "暫無聯絡人",

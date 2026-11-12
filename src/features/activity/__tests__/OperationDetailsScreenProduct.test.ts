@@ -412,7 +412,7 @@ it.each(['GVALID', 'CCONTRACT', 'MMUXED'])(
   },
 );
 
-it('exposes both exact path legs, issuers and explicit muxed participant identities', () => {
+it('shows signed exact path legs and only the two explicit muxed participant identities', () => {
   mockedUseState.mockReset();
   const entry: HistoryEntry = {
     ...unsupported(),
@@ -447,14 +447,14 @@ it('exposes both exact path legs, issuers and explicit muxed participant identit
   expect(values).toEqual(
     expect.arrayContaining([
       'Actually sent',
-      '922,337,203,685.4775807 USD',
+      '−922,337,203,685.4775807 USD',
       'Actually received',
-      '0.0000001 EUR',
-      'GSOURCEISSUER',
-      'GDESTISSUER',
-      'Outgoing',
+      '+0.0000001 EUR',
     ]),
   );
+  for (const value of ['Direction', 'Outgoing', 'GSOURCEISSUER', 'GDESTISSUER', 'Source account', 'Counterparty']) {
+    expect(values).not.toContain(value);
+  }
   // ParticipantRows receives full display identities; the base is never used for contact selection.
   const participantRows = findElement(root, element => 'participants' in element.props);
   const props = participantRows?.props as unknown as { participants: readonly { identity: string }[] };
@@ -794,8 +794,10 @@ it('shows every contract event, exact large quantities and full identities witho
       'Mint',
       'Burn',
       '42',
-      '17,014,118,346,046,923,173,168,730,371,588.4105727 XLM',
-      '4 XLM',
+      '−17,014,118,346,046,923,173,168,730,371,588.4105727 XLM',
+      '−4 XLM',
+      '+2 XLM',
+      '−3 XLM',
     ]),
   );
   expect(values).toContain('Destination routing ID (not a Memo)');
@@ -874,4 +876,65 @@ it.each(['claim_claimable_balance', 'clawback_claimable_balance'])('shows verifi
   expect(labels).toContain(type === 'claim_claimable_balance' ? 'Quantity claimed' : 'Quantity removed');
   expect(messages).not.toContain(createLocalization('en').t('activity.detail.amountUnavailableExplanation'));
   if (type === 'clawback_claimable_balance') expect(messages).toContain(createLocalization('en').t('activity.detail.clawbackWarning'));
+});
+
+it.each(['payment', 'create-account'] as const)(
+  'shows %s quantity once, with direction signs and only its two exact participant roles',
+  kind => {
+    for (const [direction, sign] of [['incoming', '+'], ['outgoing', '−'], ['self', ''], ['neutral', '']] as const) {
+      const participants = [
+        { role: kind === 'payment' ? 'sender' : 'funder', identity: 'GSENDER' },
+        { role: kind === 'payment' ? 'recipient' : 'created-account', identity: 'GRECIPIENT' },
+      ] as const;
+      const entry: HistoryEntry = {
+        ...unsupported(),
+        direction,
+        counterparty: 'GRECIPIENT',
+        participants,
+        ...(kind === 'payment'
+          ? { kind, amount: '0.0000001', asset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' } }
+          : { kind, startingBalance: '0.0000001' }),
+      };
+      const { root } = renderWithState({
+        kind: 'loaded', result: { status: 'ready', entry }, source: 'online',
+        stale: false, refreshing: false, refreshFailed: false,
+      });
+      const labels: string[] = [];
+      const texts: unknown[] = [];
+      visit(root, element => {
+        const props = element.props as { label?: string; children?: unknown };
+        if (props.label) labels.push(props.label);
+        if (element.type === Text) texts.push(props.children);
+      });
+      expect(texts.filter(text => text === sign + '0.0000001 ' + (kind === 'payment' ? 'USD' : 'XLM'))).toHaveLength(1);
+      for (const label of ['Direction', 'Amount', 'Asset', 'Issuer', 'Source account', 'Counterparty', 'Starting balance']) {
+        expect(labels).not.toContain(label);
+      }
+      const rows = findElement(root, element => 'participants' in element.props)!;
+      expect((rows.props as unknown as { participants: unknown }).participants).toEqual(participants);
+      const renderRows = rows.type as (props: typeof rows.props) => React.ReactNode;
+      const identities: string[] = [];
+      visit(React.createElement(React.Fragment, {}, renderRows(rows.props)), element => {
+        const props = element.props as { value?: string };
+        if (props.value) identities.push(props.value);
+      });
+      // ParticipantRows returns an array, wrapped above so the lightweight visitor traverses it.
+      expect(identities).toEqual(['GSENDER', 'GRECIPIENT']);
+    }
+  },
+);
+
+it('insets actionable participant cards to align with the detail page content', () => {
+  const contacts = {
+    network: { id: account.networkId }, isClassicAccountAddress: () => true,
+  } as unknown as ContactBook;
+  const { root } = renderWithState({
+    kind: 'loaded', result: { status: 'ready', entry: unsupported() },
+    source: 'online', stale: false, refreshing: false, refreshFailed: false,
+  }, 'idle', jest.fn(), jest.fn<string | undefined, [string]>(() => trustedUrl), contacts);
+  const wrapper = findElement(root, element => {
+    const children = React.Children.toArray(element.props.children);
+    return children.some(child => React.isValidElement(child) && child.type === ParticipantCard);
+  });
+  expect((wrapper?.props as { style?: { marginHorizontal?: number } }).style?.marginHorizontal).toBe(defaultTheme.spacing.lg);
 });

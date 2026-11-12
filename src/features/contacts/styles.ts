@@ -11,6 +11,7 @@ export function createStyles(theme: AppTheme) {
     error: { ...theme.typography.body, color: theme.colors.negative },
     actions: { gap: theme.spacing.sm },
     types: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm },
+    moreActions: { fontSize: 24, lineHeight: 28, color: theme.colors.textSecondary },
     card: { gap: theme.spacing.xs, marginVertical: theme.spacing.sm },
     scanContent: { flex: 1, padding: theme.spacing.md, gap: theme.spacing.md },
     // Let the camera preview shrink on short screens so Retry/Cancel remain visible.
