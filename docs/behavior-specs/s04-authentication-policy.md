@@ -52,6 +52,14 @@ the legacy result field remains `not-configured` for compatibility.
 Android uses AndroidX BiometricPrompt without a CryptoObject. iOS uses a fresh
 LAContext for each biometric attempt, without authentication reuse. Requests
 have distinct IDs so cancellation/old callbacks cannot affect a newer prompt.
+Android cancellation settles the JS Promise with false immediately but retains
+the native request ID/prompt as busy until AndroidX delivers its terminal
+success/error callback. A retry during that drain is rejected before constructing
+another prompt; a late cancelled success has no pending Promise to unlock.
+Cancellation for a stale ID cannot cancel the next attempt. Request IDs alone
+cannot isolate AndroidX's shared per-Activity client callback:
+[official BiometricPrompt contract](https://developer.android.com/reference/androidx/biometric/BiometricPrompt).
+
 Native real-background/destruction cancellation plus App generation and signer
 inventory fences discard late success. iOS inactive during its system prompt is
 not itself a real-background transition. Raw native failure details stay out of
@@ -71,3 +79,21 @@ biometric success/cancel/retry/lockout/background, privacy cover, dynamic text a
 screen-reader acceptance remain separate. Prior iOS System Auth signing-cancel
 coverage is historical under this new policy; genuine iPhone App-unlock biometric
 acceptance is still required. No L4 or public-release approval is implied.
+
+
+## Android cancellation regression (PR #193 P2)
+
+Run `bash scripts/run-session-auth-native-test.sh` with Java 17, the Android SDK
+and an arm64 Android emulator (`FRESNICA_ANDROID_DEVICE` defaults to emulator-5554).
+The script builds an isolated `com.fresnica.wallet.sessionauthtest` debug carrier;
+the production application ID and default instrumentation runner are unchanged.
+The empty, non-exported debug-only FragmentActivity never opens wallet UI.
+
+The instrumented test uses the production module and actual AndroidX 1.1.0
+BiometricPrompt with a deliberately delayed client executor. It verifies immediate
+JS cancellation, rejected retry before the old AndroidX terminal is delivered,
+single settlement after draining, accepted new attempt, stale-ID cancellation,
+and background/cancel/retry. No hardware enrollment, secrets, funding or wallet
+writes are needed. This is native mechanism regression, not successful biometric
+or wallet product-flow acceptance; physical-device success/lockout/accessibility
+and lifecycle acceptance remain separate.

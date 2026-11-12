@@ -771,3 +771,36 @@ access and passphrase-only key/signature operations. Current specs:
 [HD](behavior-specs/s01-hd-additional-account.md).
 Automated evidence is separate from native acceptance and exact-HEAD Work
 review; no maturity promotion.
+
+
+### 2026-11-12 S04 Android cancellation P2 correction (candidate)
+
+Independent #193 review of a95e713b0446c9ccaee714f67ce48316f3ddb039 reported
+NEEDS_FIX / one P2: cancelled native sessions released their busy fence before
+AndroidX terminal delivery, allowing the next BiometricPrompt to replace the
+Activity's shared callback. The narrow fix separates JS cancellation from native
+completion: settle the cancelled Promise false, retain native ownership until
+terminal callback, and reject early retries before creating a new prompt.
+Stale-ID cancellation and late-cancelled-success fail closed. App access remains
+separate from passphrase-only signing/export authority; no iOS or SDK crypto
+changes. Phase 0 passed; clean-room Adapt under existing S04 lifecycle ownership.
+
+Regression carrier uses production module + actual AndroidX 1.1.0 with delayed
+client execution, an empty debug-only host and a separate application ID. Native
+mechanism evidence is distinct from real-device biometric/product acceptance.
+See [current policy](behavior-specs/s04-authentication-policy.md). Old NEEDS_FIX
+review is historical evidence; the new exact HEAD requires independent review.
+
+
+Developer verification: the AndroidX regression failed on the old implementation
+with `retry-admitted-before-old-native-terminal`, then passed with the corrected
+native busy fence on Android emulator-5554. Actual AndroidX callbacks were queued
+by the injected executor; the biometric client was not replaced by a JS Promise
+mock. Success/cancel authentication is limited here to terminal-error/cancellation
+mechanics, not physical sensor success. Debug/test APK assembly and
+`:app:testDebugUnitTest` passed. `npm run check` passed 268 suites / 2493 tests,
+types/lint/architecture/provenance (998 files, zero unapproved donor collisions),
+artwork and locale gates. Local Gradle initially reused stale source snapshots;
+the final native regression disables file-system watching and recompiled the
+changed module/test before passing. No release repackaging or iOS rebuild was
+needed for this Android-only correction.
