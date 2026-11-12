@@ -131,3 +131,12 @@ it.each(['card', 'compact', 'selectable'] as const)('preserves the supplied user
   expect(nodes(root, AccountAvatarImage)).toEqual([avatar]);
   expect(nodes(root, IdentityAvatar)).toHaveLength(0);
 });
+
+it('places the supplied card action indicator after the identity without making it another button', () => {
+  const trailing = React.createElement(Text, {}, '⋯');
+  const root = AccountIdentityCard({
+    address: 'GCOUNTERPARTY', name: 'Alice', label: 'Recipient', trailing,
+  });
+  expect(nodes(root, Text).at(-1)).toBe(trailing);
+  expect(nodes(root, Pressable)).toHaveLength(0);
+});

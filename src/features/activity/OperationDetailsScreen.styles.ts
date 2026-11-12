@@ -49,6 +49,7 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.actionPrimaryPressed,
     },
     cacheRetryPressed: { opacity: 0.68 },
+    participant: { marginHorizontal: theme.spacing.lg },
     ready: { flex: 1 },
     hero: {
       alignItems: 'center',
@@ -67,6 +68,7 @@ export function createStyles(theme: AppTheme) {
     },
     heroGlyph: { fontSize: 24, lineHeight: 29, fontWeight: '800', color: theme.colors.onSurfaceStrong },
     heroTitle: { ...theme.typography.sectionTitle, color: theme.colors.textPrimary, textAlign: 'center' },
+    heroAssetIdentity: { ...theme.typography.caption, color: theme.colors.textSecondary, textAlign: 'center' },
     heroPrimary: { ...theme.typography.body, color: theme.colors.textSecondary, textAlign: 'center' },
     warning: {
       marginHorizontal: theme.spacing.md,

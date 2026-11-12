@@ -1,6 +1,6 @@
 import { AccountAvatar } from '../AccountAvatar';
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable } from 'react-native';
+import { Pressable, Text } from 'react-native';
 import { AccountIdentityCard, BottomSheet, Field, SectionedList } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import type { Contact } from '@capabilities/contacts/contacts';
@@ -1123,4 +1123,20 @@ it('uses the same address avatar for participant cards and disables it with an i
   const avatar = nodes(root, AccountIdentityCard)[0].props.avatar;
   expect(avatar?.type).toBe(AccountAvatar);
   expect(avatar?.props).toMatchObject({ address: row.address, active: false });
+});
+
+it('marks participant cards as opening more actions without adding a second touch target', () => {
+  const root = render(() => ParticipantCard({ book, label: 'Sender', address: row.address }));
+  const pressables = nodes(root, Pressable);
+  expect(pressables).toHaveLength(1);
+  expect(pressables[0].props).toMatchObject({ accessibilityHint: 'contacts.actionsHint' });
+  const card = nodes(root, AccountIdentityCard)[0];
+  const trailing = (card.props as { trailing?: React.ReactNode }).trailing;
+  const glyph = nodes(trailing, Text)[0];
+  expect(glyph.props).toMatchObject({
+    children: '⋯', accessible: false, accessibilityElementsHidden: true,
+    importantForAccessibility: 'no-hide-descendants',
+  });
+  pressables[0].props.onPress!();
+  expect(nodes(render(() => ParticipantCard({ book, label: 'Sender', address: row.address })), BottomSheet)).toHaveLength(1);
 });

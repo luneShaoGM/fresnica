@@ -339,3 +339,30 @@ Slice 5d candidate adds operation-only account data history (name, no content or
 add/update/delete inference), specified in `s13-account-data-history.md`.
 Current maturity and native acceptance remain unchanged; other classic families,
 failure/visibility, constructor variants, amount enrichment and imagery stay open.
+
+## Detail presentation amendment (owner request, 2026-11-12)
+
+S13, existing Phase 0 foundations, Adapt / clean-room; Feature presentation and
+shared AccountIdentityCard only, with no maturity promotion. Payment, path payment
+and account-creation details show signed quantities instead of a Direction row:
+incoming +, outgoing −, self/neutral unsigned. Path details retain both exact
+actual legs, with − sent and + received. Payment/account-creation quantities
+appear once in the hero. Asset codes stay with quantities; redundant payment
+Asset rows and issuer/counterparty/source cards are removed. Payment keeps
+the full asset identity as compact selectable text below its hero amount; each
+path leg includes its own full asset identity below the actual quantity.
+Issued identities display exact case-sensitive code:issuer with the complete
+issuer address; native XLM is explicitly labeled as a native asset. These texts
+wrap without line caps, preserving same-code/different-issuer and native/issued
+XLM distinctions without additional participant cards. These transfer
+families show only their two exact participant roles/identities, including muxed
+identities without substituting base addresses. Trustline details likewise reuse
+their existing trustor/issuer pair without duplicate source/issuer cards; their
+nonmonetary asset/limit fields remain. Other operation-specific evidence and
+warnings stay intact. Contract-event quantities carry incoming/outgoing signs
+instead of a separate direction row, without inventing signs for neutral/self.
+Cards in details align with the page's horizontal inset. Actionable participant
+cards show a decorative trailing ellipsis and localized more-actions accessibility
+hint; the whole existing card opens the same menu. No extra ledger action,
+identity lookup, secret exposure, or network request is introduced. Automated
+presentation checks and simulator/helper evidence do not imply native acceptance.

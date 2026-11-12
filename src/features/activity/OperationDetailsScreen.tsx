@@ -16,6 +16,7 @@ import {
   type HistoryProductDependencies,
 } from '@capabilities/history/HistoryCacheHydration';
 import type {
+  HistoryAsset,
   HistoryDirection,
   HistoryEntry,
   HistoryParticipant,
@@ -241,15 +242,16 @@ export function OperationDetailsScreen({
           openExplorer,
           (address, label) =>
             contacts && contacts.network.id === account.networkId && contacts.isClassicAccountAddress(address) ? (
-              <ParticipantCard
-                key={`${account.networkId}:${address}:${label}`}
-                book={contacts}
-                scanner={scanner}
-                accounts={accounts}
-                address={address}
-                label={label}
-                active={active}
-              />
+              <View key={`${account.networkId}:${address}:${label}`} style={styles.participant}>
+                <ParticipantCard
+                  book={contacts}
+                  scanner={scanner}
+                  accounts={accounts}
+                  address={address}
+                  label={label}
+                  active={active}
+                />
+              </View>
             ) : (
               <DetailRow label={label} value={address} mono styles={styles} />
             ),
@@ -407,6 +409,8 @@ function renderEntry(
   renderAccount: (address: string, label: string) => React.ReactNode,
 ) {
   const presentation = activityEntryPresentation(entry, t, formatNumber);
+  const transfer = entry.kind === 'payment' || entry.kind === 'path-payment' || entry.kind === 'create-account';
+  const primary = transfer ? `${amountPrefix(entry.direction)}${presentation.primary}` : presentation.primary;
   return (
     <View style={styles.ready}>
       <View style={styles.hero}>
@@ -416,7 +420,10 @@ function renderEntry(
           </Text>
         </View>
         <Text style={styles.heroTitle}>{presentation.title}</Text>
-        <Text style={styles.heroPrimary}>{presentation.primary}</Text>
+        <Text style={styles.heroPrimary}>{primary}</Text>
+        {entry.kind === 'payment' ? (
+          <Text selectable style={styles.heroAssetIdentity}>{assetIdentityLabel(entry.asset, t)}</Text>
+        ) : null}
       </View>
 
       {entry.kind === 'unsupported' ? (
@@ -438,7 +445,9 @@ function renderEntry(
           styles={styles}
         />
         <DetailRow label={t('activity.detail.transactionHash')} value={entry.transactionHash} mono styles={styles} />
-        {renderAccount(entry.sourceAccount, t('activity.detail.sourceAccount'))}
+        {!transfer && entry.kind !== 'change-trust'
+          ? renderAccount(entry.sourceAccount, t('activity.detail.sourceAccount'))
+          : null}
         {entry.kind === 'trust-authorization' || entry.kind === 'trust-flags' ? (
           <>
             <DetailRow label={t('activity.detail.asset')} value={entry.asset.code} fullValue styles={styles} />
@@ -552,7 +561,7 @@ function renderEntry(
                 />
                 <DetailRow
                   label={t('activity.contract.quantity')}
-                  value={`${formatNumber(event.amount, 7)} ${event.asset.code}`}
+                  value={`${amountPrefix(event.direction)}${formatNumber(event.amount, 7)} ${event.asset.code}`}
                   fullValue
                   styles={styles}
                 />
@@ -579,11 +588,6 @@ function renderEntry(
                     <DetailRow label={t('activity.contract.to')} value={event.to} mono fullValue styles={styles} />
                   )
                 ) : null}
-                <DetailRow
-                  label={t('activity.detail.direction')}
-                  value={t(`activity.contract.direction.${event.direction}`)}
-                  styles={styles}
-                />
                 {event.destinationMuxedId === undefined ? null : (
                   <DetailRow
                     label={t('activity.contract.routingId')}
@@ -717,67 +721,26 @@ function renderEntry(
         {entry.kind === 'path-payment' ? (
           <>
             <DetailRow
-              label={t('activity.detail.direction')}
-              value={directionLabel(entry.direction, t)}
-              styles={styles}
-            />
-            <DetailRow
               label={t('activity.detail.actualSent')}
-              value={`${formatNumber(entry.sourceAmount, 7)} ${entry.sourceAsset.code}`}
+              value={`−${formatNumber(entry.sourceAmount, 7)} ${entry.sourceAsset.code}\n${assetIdentityLabel(entry.sourceAsset, t)}`}
+              fullValue
               styles={styles}
             />
-            {entry.sourceAsset.kind === 'credit'
-              ? renderAccount(entry.sourceAsset.issuer, t('activity.detail.sourceIssuer'))
-              : null}
             <DetailRow
               label={t('activity.detail.actualReceived')}
-              value={`${formatNumber(entry.destinationAmount, 7)} ${entry.destinationAsset.code}`}
+              value={`+${formatNumber(entry.destinationAmount, 7)} ${entry.destinationAsset.code}\n${assetIdentityLabel(entry.destinationAsset, t)}`}
+              fullValue
               styles={styles}
             />
-            {entry.destinationAsset.kind === 'credit'
-              ? renderAccount(entry.destinationAsset.issuer, t('activity.detail.destinationIssuer'))
-              : null}
             <ParticipantRows participants={entry.participants} t={t} renderAccount={renderAccount} />
           </>
         ) : null}
-        {entry.kind === 'payment' ? (
-          <>
-            <DetailRow
-              label={t('activity.detail.direction')}
-              value={directionLabel(entry.direction, t)}
-              styles={styles}
-            />
-            <DetailRow
-              label={t('activity.detail.amount')}
-              value={`${formatNumber(entry.amount)} ${entry.asset.code}`}
-              styles={styles}
-            />
-            <DetailRow label={t('activity.detail.asset')} value={entry.asset.code} styles={styles} />
-            {entry.asset.kind === 'credit' ? renderAccount(entry.asset.issuer, t('activity.detail.issuer')) : null}
-            {renderAccount(entry.counterparty, t('activity.detail.counterparty'))}
-            <ParticipantRows participants={entry.participants} t={t} renderAccount={renderAccount} />
-          </>
-        ) : null}
-        {entry.kind === 'create-account' ? (
-          <>
-            <DetailRow
-              label={t('activity.detail.direction')}
-              value={directionLabel(entry.direction, t)}
-              styles={styles}
-            />
-            <DetailRow
-              label={t('activity.detail.startingBalance')}
-              value={`${formatNumber(entry.startingBalance)} XLM`}
-              styles={styles}
-            />
-            {renderAccount(entry.counterparty, t('activity.detail.counterparty'))}
-            <ParticipantRows participants={entry.participants} t={t} renderAccount={renderAccount} />
-          </>
+        {entry.kind === 'payment' || entry.kind === 'create-account' ? (
+          <ParticipantRows participants={entry.participants} t={t} renderAccount={renderAccount} />
         ) : null}
         {entry.kind === 'change-trust' ? (
           <>
             <DetailRow label={t('activity.detail.asset')} value={entry.asset.code} styles={styles} />
-            {renderAccount(entry.asset.issuer, t('activity.detail.issuer'))}
             <DetailRow label={t('activity.detail.limit')} value={formatNumber(entry.limit)} styles={styles} />
             <ParticipantRows participants={entry.participants} t={t} renderAccount={renderAccount} />
           </>
@@ -879,6 +842,10 @@ function participantRoleLabel(role: HistoryParticipantRole, t: Translate): strin
   return t(`activity.detail.participant.${role}`);
 }
 
-function directionLabel(direction: HistoryDirection, t: Translate): string {
-  return t(`activity.detail.${direction}`);
+function amountPrefix(direction: HistoryDirection): string {
+  return direction === 'incoming' ? '+' : direction === 'outgoing' ? '−' : '';
+}
+
+function assetIdentityLabel(asset: HistoryAsset, t: Translate): string {
+  return asset.kind === 'native' ? `XLM · ${t('activity.detail.nativeAsset')}` : `${asset.code}:${asset.issuer}`;
 }
