@@ -21,7 +21,6 @@ export function createNetworkSettings(
   deps: Readonly<{
     store: NetworkPreferenceStore;
     initial?: NetworkPreferences;
-    authorize: (passphrase: string, signal: AbortSignal) => Promise<void>;
     probe: (endpoint: string, signal: AbortSignal) => Promise<string>;
     assertCanSwitch: (target: NetworkId) => void;
     restart: () => void;
@@ -153,9 +152,8 @@ export function createNetworkSettings(
         save({ ...snapshot.preferences, externalTokenImagesEnabled: value }, signal, false);
       });
     },
-    enableDeveloperMode(passphrase: string) {
+    enableDeveloperMode() {
       return run(async signal => {
-        await deps.authorize(passphrase, signal);
         save({ ...snapshot.preferences, developerMode: true }, signal, false);
       });
     },

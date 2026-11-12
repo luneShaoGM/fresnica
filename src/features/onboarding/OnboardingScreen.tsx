@@ -406,8 +406,8 @@ function PassphraseRequirements({
         <Text style={styles.requirementText}>Confirmation matches</Text>
       </View>
       <Text style={styles.passphrasePolicyText}>
-        Routine signing can use system authentication after it is enabled. Keep this passphrase for exports, recovery,
-        credential changes, and other high-risk maintenance.
+        Biometrics can unlock the app. Every transaction and message signature, key export, recovery, derivation, and
+        protection change requires your App Passphrase.
       </Text>
     </View>
   );

@@ -41,17 +41,15 @@ function nodes(root: React.ReactNode): React.ReactElement<Props>[] {
   return [root, ...React.Children.toArray(root.props.children).flatMap(nodes)];
 }
 function setup(developerMode = false, retainedTestnet = false) {
-  const authorize = jest.fn(async () => {});
   const settings = createNetworkSettings({
     initial: { ...DEFAULT_NETWORK_PREFERENCES, developerMode, ...(retainedTestnet ? { retainedTestnet: true } : {}) },
     store: { load: () => undefined, save: jest.fn() },
-    authorize,
     probe: async () => NETWORKS['stellar-mainnet'].networkPassphrase,
     assertCanSwitch: () => {},
     restart: () => {},
     isForeground: () => true,
   });
-  return { settings, authorize };
+  return { settings };
 }
 beforeEach(() => jest.clearAllMocks());
 describe('network management presentation and event wiring', () => {
@@ -68,23 +66,19 @@ describe('network management presentation and event wiring', () => {
     expect(bootstrap.some(n => n.type === Pressable && n.props.accessibilityLabel === 'Add node')).toBe(true);
   });
   it('requests a warning first without changing persisted mode or authenticating', () => {
-    const { settings, authorize } = setup();
+    const { settings } = setup();
     const setPrompt = jest.fn();
     jest.mocked(React.useState).mockReturnValueOnce([undefined, setPrompt]);
     const all = nodes(NetworkManagement({ settings, section: 'developer-mode' }));
     all.find(n => n.type === Switch)?.props.onValueChange?.(true);
-    expect(setPrompt).toHaveBeenCalledWith({ kind: 'enable-warning' });
-    expect(authorize).not.toHaveBeenCalled();
+    expect(setPrompt).toHaveBeenCalledWith({ kind: 'enable' });
     expect(settings.getSnapshot().preferences.developerMode).toBe(false);
   });
-  it('continues from warning to fresh credential entry without authorizing and permits cancellation', async () => {
-    const { settings, authorize } = setup();
+  it('permits cancelling the mode warning without changing preferences', () => {
+    const { settings } = setup();
     const setPrompt = jest.fn();
-    jest.mocked(React.useState).mockReturnValueOnce([{ kind: 'enable-warning' }, setPrompt]);
+    jest.mocked(React.useState).mockReturnValueOnce([{ kind: 'enable' }, setPrompt]);
     const all = nodes(NetworkManagement({ settings, section: 'developer-mode' }));
-    await all.find(n => n.type === NativeButton && n.props.label === 'Continue')?.props.onPress?.();
-    expect(setPrompt).toHaveBeenCalledWith({ kind: 'enable' });
-    expect(authorize).not.toHaveBeenCalled();
     all.find(n => n.type === NativeButton && n.props.label === 'Cancel')?.props.onPress?.();
     expect(setPrompt).toHaveBeenLastCalledWith(undefined);
     expect(settings.getSnapshot().preferences.developerMode).toBe(false);
@@ -144,23 +138,18 @@ describe('network management presentation and event wiring', () => {
     expect(setPrompt).toHaveBeenLastCalledWith(undefined);
     expect(select).not.toHaveBeenCalled();
   });
-  it('uses a secure transient field and forwards a fresh credential only on explicit confirmation', async () => {
-    const { settings, authorize } = setup();
-    jest
-      .mocked(React.useState)
-      .mockReturnValueOnce([{ kind: 'enable' }, jest.fn()])
-      .mockReturnValueOnce(['', jest.fn()])
-      .mockReturnValueOnce([undefined, jest.fn()]);
-    const all = nodes(NetworkManagement({ settings }));
-    const field = all.find(n => n.type === Field);
-    expect(field?.props.secureTextEntry).toBe(true);
-    field?.props.onChangeText?.('fresh secret');
-    expect(authorize).not.toHaveBeenCalled();
+  it('enables on a single confirmation without rendering a credential field', async () => {
+    const { settings } = setup();
+    const enable = jest.spyOn(settings, 'enableDeveloperMode');
+    jest.mocked(React.useState).mockReturnValueOnce([{ kind: 'enable' }, jest.fn()]);
+    const all = nodes(NetworkManagement({ settings, section: 'developer-mode' }));
+    expect(all.some(n => n.type === Field)).toBe(false);
+    expect(enable).not.toHaveBeenCalled();
     all.find(n => n.type === NativeButton && n.props.label === 'Confirm')?.props.onPress?.();
     for (let i = 0; i < 12; i += 1) await Promise.resolve();
-    expect(authorize).toHaveBeenCalledWith('fresh secret', expect.any(AbortSignal));
+    expect(enable).toHaveBeenCalledWith();
+    expect(enable).toHaveBeenCalledTimes(1);
     expect(settings.getSnapshot().preferences.developerMode).toBe(true);
-    expect(JSON.stringify(settings.getSnapshot())).not.toContain('fresh secret');
   });
   it('exposes built-in nodes without removal controls and projects no raw exception text', () => {
     const { settings } = setup(true);

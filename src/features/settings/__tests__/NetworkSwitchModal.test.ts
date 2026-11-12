@@ -61,7 +61,6 @@ function setup(initial: Partial<NetworkPreferences> = {}, assertCanSwitch = () =
   const settings = createNetworkSettings({
     initial: { ...DEFAULT_NETWORK_PREFERENCES, developerMode: true, ...initial },
     store: { load: () => undefined, save },
-    authorize: async () => {},
     probe,
     assertCanSwitch,
     restart,

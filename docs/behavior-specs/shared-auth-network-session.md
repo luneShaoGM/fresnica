@@ -17,7 +17,7 @@ service rebuilding; it does not grant key-operation authority.
 | --- | --- | --- |
 | Routine transaction | Standard review/sign pipeline; enrolled System Auth or existing passphrase fallback | Existing implementation; still bound to exact XDR/account/network |
 | High-risk maintenance | Fresh strong App Passphrase under shared Application Security policy | Reuse SDK verification/reveal/reprotect only for their real intended operations |
-| Enable Developer Mode | Explicit warning + fresh App Passphrase verified against every local protected software signer | New sensitive-setting orchestration; zero signers fails closed, including watch-only-only and external-only wallets |
+| Enable Developer Mode | Explicit warning + confirmation only (owner decision 2026-11-12) | No SDK authorization or protected signer requirement; does not grant App access or key-operation authority |
 | App-session biometric unlock | Generic challenge against existing native protection domain | BLOCKED upstream; availability, registration and dummy signing are not unlock proof |
 
 - Sensitive-setting authorization is operation-scoped: no reusable credential/token or persisted authenticated flag. A persisted Developer Mode preference is product state, not app unlock/signing authorization.
@@ -56,7 +56,7 @@ The earlier empty-target-partition presentation below describes the implemented 
 
 ## Acceptance
 
-Automated cases: successful/wrong/zero-signer/cancelled/changed-inventory authorization; persisted state validation/reopen; add/duplicate/wrong-network/timeout/cancel; select failure/atomic persistence; protected default/delete fallback; disable ordering/failure; late old gateway/native results; active signing/broadcast and unresolved cross-network guards; composition profile parity; foreground and navigation remount; original partitions retained.
+Automated cases: explicit mode confirmation/cancel/write-failure/retry without wallet authorization, including watch-only/external-only wallets; persisted state validation/reopen; add/duplicate/wrong-network/timeout/cancel; select failure/atomic persistence; protected default/delete fallback; disable ordering/failure; late old gateway/native results; active signing/broadcast and unresolved cross-network guards; composition profile parity; foreground and navigation remount; original partitions retained.
 
 Native product acceptance is separate: Android/iOS mode enable/cancel/retry, node add/test/select/remove and fallback, relaunch preferences, Testnet→Mainnet→Testnet account isolation, old review/quote cancellation, offline failure, interrupted SDK operation, dynamic font and TalkBack/VoiceOver. Do not submit live Mainnet transactions for this acceptance. No native acceptance or release maturity is implied by helper tests. Stage 9 iOS System Auth cancel/retry remains deferred.
 
@@ -73,7 +73,7 @@ Native product acceptance is separate: Android/iOS mode enable/cancel/retry, nod
 
 Review of `41ade33bdb5dbc96e59f50e491d11dfef727e822` found an entry deadlock for existing watch-only/external-only Testnet wallets. Composition now seeds `retainedTestnet` from existing Testnet accounts, including a wallet that previously chose Mainnet. The public preference survives explicit selection/relaunch, so returning to that partition does not depend on creating an unrelated signer. This is an explicit built-in-node retention exception to normal network visibility, not Developer Mode authentication.
 
-The same availability policy controls presentation and Capability selection/testing. No existing Testnet partition means no retention path for a fresh wallet. Mode-off retained access permits only the built-in Testnet URL; saved custom nodes remain hidden/unselectable, add/remove still require mode, and zero-target Developer Mode verification still fails. Existing probe, cancellation, persistence, busy/pending-backup and cross-network recovery guards remain in force. No account/signer/hash migration occurs.
+The same availability policy controls presentation and Capability selection/testing. No existing Testnet partition means no retention path for a fresh wallet. Mode-off retained access permits only the built-in Testnet URL; saved custom nodes remain hidden/unselectable, add/remove still require mode, and enabling Developer Mode now uses explicit warning/confirmation only, including zero-protected-signer wallets. Existing probe, cancellation, persistence, busy/pending-backup and cross-network recovery guards remain in force. No account/signer/hash migration occurs.
 
 Focused regression coverage includes watch-only/external-only legacy wallets with and without unresolved Testnet transactions; explicit selection and service reopen with mode=false; fresh-wallet visibility; wrong-network rejection; blocked custom-node selection/mutation; and real Realm close/reopen of the retained preference. Native acceptance remains unexecuted. The old NEEDS_FIX review is historical and a new exact-HEAD review is required.
 

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
 import type { NetworkSettings } from '@capabilities/network/createNetworkSettings';
@@ -13,7 +13,6 @@ import type { NodeHealthMonitor } from '@capabilities/network/NodeHealthMonitor'
 import { NetworkNodeHealth } from './NetworkNodeHealth';
 
 type Prompt =
-  | { kind: 'enable-warning' }
   | { kind: 'enable' | 'disable' }
   | { kind: 'add'; id: NetworkId }
   | { kind: 'select' | 'remove'; id: NetworkId; endpoint: string };
@@ -50,43 +49,33 @@ export function NetworkManagement({
   const [prompt, setPrompt] = useState<Prompt>();
   const [endpoint, setEndpoint] = useState('');
   const [error, setError] = useState<string>();
-  const credential = useRef('');
-  const input = useRef<React.ComponentRef<typeof TextInput>>(null);
   const mounted = useRef(true);
   const epoch = useRef(0);
-  const clear = useCallback(() => {
-    credential.current = '';
-    input.current?.clear();
-  }, []);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
       epoch.current += 1;
-      clear();
     };
-  }, [clear]);
+  }, []);
   useEffect(() => {
     epoch.current += 1;
-    clear();
     setPrompt(undefined);
     setEndpoint('');
-  }, [snapshot.interruption, clear]);
+  }, [snapshot.interruption]);
   useFocusEffect(
     useCallback(
       () => () => {
         epoch.current += 1;
-        clear();
         settings.cancel();
         setPrompt(undefined);
         setError(undefined);
       },
-      [clear, settings],
+      [settings],
     ),
   );
   const cancel = () => {
     epoch.current += 1;
-    clear();
     settings.cancel();
     setPrompt(undefined);
     setEndpoint('');
@@ -94,7 +83,6 @@ export function NetworkManagement({
   };
   const open = (next: Prompt) => {
     epoch.current += 1;
-    clear();
     setError(undefined);
     setEndpoint('');
     setPrompt(next);
@@ -110,22 +98,14 @@ export function NetworkManagement({
       }
     } catch (failure) {
       if (mounted.current && owner === epoch.current) setError(networkSettingsError(failure));
-    } finally {
-      if (owner === epoch.current) clear();
     }
   };
   const confirm = async () => {
     if (!prompt || busy) return;
-    if (prompt.kind === 'enable-warning') {
-      open({ kind: 'enable' });
-      return;
-    }
-    const passphrase = credential.current;
-    clear();
     await run(() => {
       switch (prompt.kind) {
         case 'enable':
-          return settings.enableDeveloperMode(passphrase);
+          return settings.enableDeveloperMode();
         case 'disable':
           return settings.disableDeveloperMode();
         case 'add':
@@ -163,7 +143,7 @@ export function NetworkManagement({
           accessibilityLabel={t('settings.developerMode')}
           disabled={busy}
           value={preferences.developerMode}
-          onValueChange={() => open({ kind: preferences.developerMode ? 'disable' : 'enable-warning' })}
+          onValueChange={() => open({ kind: preferences.developerMode ? 'disable' : 'enable' })}
         />
       ) : null}
       {section !== 'developer-mode'
@@ -273,19 +253,6 @@ export function NetworkManagement({
             contentContainerStyle={styles.dialogContent}
             keyboardShouldPersistTaps="handled"
           >
-            {prompt.kind === 'enable' ? (
-              <Field
-                ref={input}
-                label={t('networkManage.passphrase')}
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!busy}
-                onChangeText={text => {
-                  credential.current = text;
-                }}
-              />
-            ) : null}
             {prompt.kind === 'add' ? (
               <Field
                 label={t('networkManage.endpoint')}
@@ -303,13 +270,7 @@ export function NetworkManagement({
               </Text>
             ) : null}
             <NativeButton
-              label={t(
-                busy
-                  ? 'networkManage.working'
-                  : prompt.kind === 'enable-warning'
-                    ? 'settings.continue'
-                    : 'networkManage.confirm',
-              )}
+              label={t(busy ? 'networkManage.working' : 'networkManage.confirm')}
               disabled={busy}
               onPress={confirm}
               size="sm"

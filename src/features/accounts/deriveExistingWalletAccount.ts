@@ -2,10 +2,7 @@ import { orderAccounts } from '../../capabilities/account/accountOrder';
 import { deriveMnemonicAccount, type ProvisionedAccount } from '../../capabilities/account/provisionAccount';
 import type { SignerRecord } from '../../capabilities/signer/types';
 import type { OnboardingProvisioningDependencies } from '../onboarding/runOnboardingProvisioning';
-import {
-  authorizeExistingWalletProtection,
-  type ExistingWalletSystemAuthRegistration,
-} from './existingWalletProtection';
+import type { ExistingWalletSystemAuthRegistration } from './existingWalletProtection';
 
 const MAX_STELLAR_ACCOUNT_INDEX = 0x7fffffff;
 
@@ -70,8 +67,6 @@ export async function deriveExistingWalletAccount(
 ): Promise<ExistingWalletHdDeriveResult> {
   assertStellarAccountIndex(input.index);
   const source = requireEligibleSourceSigner(dependencies, input.sourceSignerId);
-
-  await authorizeExistingWalletProtection(dependencies, input.appPassphrase);
 
   const account = await deriveMnemonicAccount(dependencies, {
     sourceEnvelopeJson: source.envelopeJson!,

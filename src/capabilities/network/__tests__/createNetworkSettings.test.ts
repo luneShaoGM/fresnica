@@ -19,7 +19,6 @@ function setup(developerMode = true, initial?: NetworkPreferences) {
       saved = next;
     }),
   };
-  const authorize = jest.fn(async (_passphrase: string, _signal: AbortSignal) => {});
   const probe = jest.fn(
     async (_endpoint: string, _signal: AbortSignal): Promise<string> => NETWORKS[main].networkPassphrase,
   );
@@ -27,7 +26,6 @@ function setup(developerMode = true, initial?: NetworkPreferences) {
   const restart = jest.fn();
   const settings = createNetworkSettings({
     store,
-    authorize,
     probe,
     assertCanSwitch,
     restart,
@@ -36,7 +34,6 @@ function setup(developerMode = true, initial?: NetworkPreferences) {
   return {
     settings,
     store,
-    authorize,
     probe,
     restart,
     assertCanSwitch,
@@ -47,7 +44,7 @@ function setup(developerMode = true, initial?: NetworkPreferences) {
     },
   };
 }
-describe('authenticated node and network settings', () => {
+describe('confirmed node and network settings', () => {
   it('persists a wallet-wide icon privacy toggle without network restart and restores it after reopening', async () => {
     const s = setup(false);
     expect(s.settings.getSnapshot().preferences.externalTokenImagesEnabled).toBe(true);
@@ -79,30 +76,32 @@ describe('authenticated node and network settings', () => {
     expect(s.saved().externalTokenImagesEnabled).toBe(false);
   });
 
-  it('requires authorization to enable and keeps old preferences on failure, then permits explicit retry', async () => {
+  it('enables by explicit request without wallet authorization and preserves preferences on write failure', async () => {
     const s = setup(false);
     await expect(s.settings.addNode(testnet, 'https://a.test')).rejects.toThrow('developer-mode-required');
-    s.authorize.mockRejectedValueOnce(new Error('wrong-credential'));
-    await expect(s.settings.enableDeveloperMode('wrong')).rejects.toThrow('wrong-credential');
+    s.store.save.mockImplementationOnce(() => {
+      throw new Error('disk-full');
+    });
+    await expect(s.settings.enableDeveloperMode()).rejects.toThrow('disk-full');
+    expect(s.settings.getSnapshot().preferences.developerMode).toBe(false);
     expect(s.saved().developerMode).toBe(false);
-    expect(s.store.save).not.toHaveBeenCalled();
-    await s.settings.enableDeveloperMode('fresh secret');
-    expect(s.authorize).toHaveBeenLastCalledWith('fresh secret', expect.any(AbortSignal));
+    await s.settings.enableDeveloperMode();
     expect(s.saved().developerMode).toBe(true);
-    expect(JSON.stringify(s.settings.getSnapshot())).not.toContain('fresh secret');
+    expect(s.saved().networkId).toBe(main);
+    expect(s.probe).not.toHaveBeenCalled();
     expect(s.restart).not.toHaveBeenCalled();
   });
-  it('cancels late authorization and rejects duplicate submissions and background completion', async () => {
+  it('rejects duplicate mode confirmations and enabling in background or after close', async () => {
     const s = setup(false);
-    const auth = deferred<void>();
-    s.authorize.mockReturnValueOnce(auth.promise);
-    const work = s.settings.enableDeveloperMode('secret');
-    await expect(s.settings.enableDeveloperMode('second')).rejects.toThrow('network-settings-busy');
+    const work = s.settings.enableDeveloperMode();
+    await expect(s.settings.enableDeveloperMode()).rejects.toThrow('network-settings-busy');
+    await work;
     s.background();
-    auth.resolve();
-    await expect(work).rejects.toThrow('operation-cancelled');
-    expect(s.store.save).not.toHaveBeenCalled();
-    expect(s.settings.getSnapshot().busy).toBe(false);
+    await expect(s.settings.enableDeveloperMode()).rejects.toThrow('operation-cancelled');
+    const closed = setup(false);
+    closed.settings.close();
+    await expect(closed.settings.enableDeveloperMode()).rejects.toThrow('operation-cancelled');
+    expect(closed.store.save).not.toHaveBeenCalled();
   });
   it('keeps a retained partition restricted and verifies its node before selection', async () => {
     const s = setup(false, {
@@ -130,14 +129,12 @@ describe('authenticated node and network settings', () => {
     );
     await s.settings.selectNode(main, NETWORKS[main].horizonUrl);
     expect(s.saved().retainedTestnet).toBe(true);
-    expect(s.authorize).not.toHaveBeenCalled();
   });
   it('adds and selects a verified Mainnet node without Developer Mode', async () => {
     const s = setup(false);
     await s.settings.addNode(main, 'https://a.test');
     expect(s.saved().developerMode).toBe(false);
     expect(s.saved().customNodes[main]).toEqual(['https://a.test']);
-    expect(s.authorize).not.toHaveBeenCalled();
     await s.settings.selectNode(main, 'https://a.test');
     expect(s.saved().endpoints[main]).toBe('https://a.test');
     await s.settings.removeNode(main, 'https://a.test');

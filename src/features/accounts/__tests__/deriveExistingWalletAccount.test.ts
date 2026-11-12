@@ -140,7 +140,7 @@ describe('existing-wallet HD additional-account flow', () => {
     ]);
   });
 
-  it('verifies every protected target before deriving the exact selected source and index without Reveal', async () => {
+  it('authenticates only the exact selected source through SDK derivation without a separate wallet-wide verification', async () => {
     const { dependencies, repository, sdk } = createDependencies();
     const source = protectedSigner('source');
     const other = protectedSigner('other');
@@ -154,10 +154,8 @@ describe('existing-wallet HD additional-account flow', () => {
       label: 'HD 7',
     });
 
-    expect(sdk.verifyProtectedSignerPassphrase).toHaveBeenCalledTimes(2);
-    expect(Math.max(...sdk.verifyProtectedSignerPassphrase.mock.invocationCallOrder)).toBeLessThan(
-      sdk.deriveMnemonicSigner.mock.invocationCallOrder[0],
-    );
+    expect(sdk.verifyProtectedSignerPassphrase).not.toHaveBeenCalled();
+    expect(sdk.deriveMnemonicSigner).toHaveBeenCalledTimes(1);
     expect(sdk.deriveMnemonicSigner).toHaveBeenCalledWith({
       sourceEnvelopeJson: source.envelopeJson,
       appPassphrase: 'current app passphrase',
@@ -184,11 +182,11 @@ describe('existing-wallet HD additional-account flow', () => {
     expect(result.account.signer.backupState).toBe('not-required');
   });
 
-  it('fails before derivation and persistence when current App Passphrase verification fails', async () => {
+  it('fails without persistence when SDK rejects the source passphrase', async () => {
     const { dependencies, repository, sdk } = createDependencies();
     const source = protectedSigner('source');
     attachSource(dependencies, source);
-    sdk.verifyProtectedSignerPassphrase.mockRejectedValueOnce(
+    sdk.deriveMnemonicSigner.mockRejectedValueOnce(
       Object.assign(new Error('invalid-passcode'), { code: 'invalid-passcode' }),
     );
 
@@ -200,7 +198,8 @@ describe('existing-wallet HD additional-account flow', () => {
       }),
     ).rejects.toMatchObject({ code: 'invalid-passcode' });
 
-    expect(sdk.deriveMnemonicSigner).not.toHaveBeenCalled();
+    expect(sdk.deriveMnemonicSigner).toHaveBeenCalledTimes(1);
+    expect(sdk.verifyProtectedSignerPassphrase).not.toHaveBeenCalled();
     expect(sdk.hasSystemAuthDomain).not.toHaveBeenCalled();
     expect(repository.listAccounts()).toHaveLength(1);
     expect(repository.listSigners()).toEqual([source]);

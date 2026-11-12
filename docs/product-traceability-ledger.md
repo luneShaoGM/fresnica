@@ -752,3 +752,22 @@ busy/backup/unresolved-submission guards remain. Current behavior:
 [authentication policy](behavior-specs/s04-authentication-policy.md).
 Automated lifecycle/composition/App-owner tests are separate from native
 network-switch acceptance and exact-HEAD Work review; no maturity promotion.
+
+
+### 2026-11-12 S04/S24/S01 excess authentication correction (candidate)
+
+Owner-approved narrow extension of #193; Phase 0 passed, clean-room Adapt of
+existing Advanced confirmation and HD additional-account roles. Enabling
+Developer Mode now requires one warning/confirmation only, with no wallet SDK
+authorization port, credential input or protected-signer requirement. It neither
+switches the network nor unlocks the App. Existing foreground/single-flight,
+persistence, endpoint identity, network isolation and pending-recovery guards
+remain. HD derivation retains fresh App Passphrase and exact source/index
+authentication inside SDK/Core; removes redundant pre-verification of all local
+signers. Failed SDK authentication has no product writes. Creation/import's
+existing protection policy remains. Onboarding copy now states biometric App
+access and passphrase-only key/signature operations. Current specs:
+[authentication](behavior-specs/s04-authentication-policy.md),
+[HD](behavior-specs/s01-hd-additional-account.md).
+Automated evidence is separate from native acceptance and exact-HEAD Work
+review; no maturity promotion.

@@ -17,7 +17,8 @@ System Auth preference and the earlier passphrase-only App-lock limitation.
   No passphrase, biometric proof or signing/export authority transfers. Old
   network services and pending results remain retired; network identity checks,
   endpoint probing, backup/busy/unresolved-submission guards remain authoritative.
-  Enabling Developer Mode is a separate existing warning/passphrase operation.
+  Enabling Developer Mode is a separate warning/confirmation-only operation;
+  no protected signer or passphrase is required, including watch-only wallets.
 - Every Payment, Trustline, Swap, Claimable and dApp transaction signature requires
   a freshly supplied App Passphrase. Review forms request it from the start;
   each explicit attempt consumes/clears the input. Retry requires new input.
@@ -26,6 +27,9 @@ System Auth preference and the earlier passphrase-only App-lock limitation.
   controlled render props, only a Boolean presence signal.
 - Message signatures require App Passphrase too. The concrete Mobile SDK adapter
   rejects both legacy System Auth signing methods before invoking native code.
+- HD derivation supplies fresh App Passphrase only to the canonical SDK/Core
+  source-authentication/derivation operation. Do not separately verify all other
+  wallet signers. Wrong passphrase or mismatched source yields no product writes.
 - Reveal/export, signer derivation/import and protection changes retain their
   existing passphrase verification and SDK/Core cryptographic boundaries.
 - App unlock never creates a signing credential, grants signing/export authority,

@@ -6,7 +6,6 @@ import {
 } from './applicationSession';
 import { createNetworkAccountRepository } from '../capabilities/account/createNetworkAccountRepository';
 import { createWalletSelectionPreferences } from './createWalletSelectionPreferences';
-import { authorizeSensitiveSetting } from '../capabilities/application-security/authorizeSensitiveSetting';
 import { createNetworkSettings, type NetworkSettings } from '../capabilities/network/createNetworkSettings';
 import {
   DEFAULT_NETWORK_PREFERENCES,
@@ -391,7 +390,6 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       networkSettings = createNetworkSettings({
         store: preferences,
         initial: initialPreferences,
-        authorize: (passphrase, signal) => authorizeSensitiveSetting({ sdk, repository }, passphrase, signal),
         probe: publicReads.probe,
         isForeground: () => ledgerReadRuntime.getSnapshot().foreground,
         assertCanSwitch: target => {

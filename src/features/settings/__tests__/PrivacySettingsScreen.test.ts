@@ -69,7 +69,6 @@ function createSettings() {
   const settings = createNetworkSettings({
     initial: DEFAULT_NETWORK_PREFERENCES,
     store: { load: () => saved, save: write },
-    authorize: async () => undefined,
     probe: async () => '',
     assertCanSwitch: () => undefined,
     restart: jest.fn(),
