@@ -27,7 +27,10 @@ the exact trimmed address through one shared AccountAvatar; ui components remain
 presentation-only. Every render reads that service's memory cache rather than
 holding an independent image copy. A service/account change cannot expose the
 previous service/address image, including stale decode callbacks. Focus-aware
-consumers stop loads when inactive; unmount aborts. Default-off consent, privacy
+consumers stop loads when inactive; unmount aborts. Losing focus keeps a valid
+shared cached image visible during navigation transitions and does not initiate
+requests. OFF, expiry, rejection and service/address changes still take effect
+on the next render; no independent image copy is retained. Default-off consent, privacy
 disclosure, foreground/connectivity gating and network-session retirement remain
 unchanged. No additional addresses are requested while privacy is off.
 

@@ -19,8 +19,8 @@ export function AccountAvatar({
     emptySnapshot,
   );
   const key = accountAvatarAddress(address);
-  // Read the shared cache so another surface's rejection or a service change is immediate.
-  const uri = active && snapshot.enabled && key ? service?.read(key) : undefined;
+  // Keep cached media during navigation transitions; active only gates new loads.
+  const uri = snapshot.enabled && key ? service?.read(key) : undefined;
   const scope = useRef<Readonly<{ key: string; service: AccountAvatarPort; revision: number }> | undefined>(undefined);
   useEffect(() => {
     if (!active || !key || !service || !snapshot.enabled) {
