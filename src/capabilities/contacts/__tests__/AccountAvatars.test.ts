@@ -193,3 +193,25 @@ it('notifies every mounted surface on a completed image without cancelling anoth
   expect(await second).toBe(uri);
   port.close();
 });
+
+it('automatic refresh only reloads a retained expired entry, never a capacity miss', async () => {
+  let now = 0;
+  const loadImage = jest.fn(async () => uri);
+  const port = createAccountAvatarPort({ available: true, initialEnabled: true, loadImage, now: () => now });
+  port.setReadable(true);
+  const signal = new AbortController().signal;
+  expect(await port.load(address, signal, { onlyExpired: true })).toBeUndefined();
+  expect(loadImage).not.toHaveBeenCalled();
+  await port.load(address, signal);
+  expect(await port.load(address, signal, { onlyExpired: true })).toBe(uri);
+  expect(loadImage).toHaveBeenCalledTimes(1);
+  now = 600000;
+  expect(await port.load(address, signal, { onlyExpired: true })).toBe(uri);
+  expect(loadImage).toHaveBeenCalledTimes(2);
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  for (let i = 1; i <= 64; i++)
+    await port.load('G' + 'A'.repeat(53) + alphabet[Math.floor(i / 32)] + alphabet[i % 32], signal);
+  expect(await port.load(address, signal, { onlyExpired: true })).toBeUndefined();
+  expect(loadImage).toHaveBeenCalledTimes(66);
+  port.close();
+});

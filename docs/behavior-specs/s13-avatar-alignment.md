@@ -37,8 +37,12 @@ A later readable resume or permission reset permits a fresh attempt. Rejection
 for an old URI cannot remove a newer cached image.
 
 A still-mounted avatar observes the cached URI as an effect dependency. After a
-10-minute expiry or bounded-cache eviction, the next render's URI hit-to-miss
-transition starts one controlled load if active and enabled. A successful cache
+10-minute expiry, the next render's URI hit-to-miss transition starts one controlled
+load if active and enabled, only while the shared entry still exists. Capacity
+eviction leaves the shared fallback until a new mount, activation, identity/service
+change or lifecycle/policy revision permits an initial load again. In particular,
+more than 64 simultaneously mounted identities cannot reclaim each other's slots
+on successful cache publications. Cache capacity remains 64. A successful cache
 publication restores the shared image. A failed load remains fallback; unchanged
 missing URI on unrelated renders does not continuously retry. Decode-rejected
 images still use the shared rejection guard; lifecycle/policy changes remain the

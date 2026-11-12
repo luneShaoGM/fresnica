@@ -864,3 +864,36 @@ Full npm run check: 270 suites / 2514 tests plus TypeScript, lint (warnings only
 architecture/provenance, artwork and locale gates passed. Separate full Jest run
 with Watchman disabled also passed. No new native package, provider request or
 visual/screen-reader acceptance is claimed for this effect-only correction.
+
+### 2026-11-12 S13/S22 mounted avatar capacity P2 correction (candidate)
+
+Independent #194 incremental review of
+d7bb95c185d7af2f5e5c4f8d2f656009bae3e295 confirmed the TTL fix, but returned
+NEEDS_FIX / one P2: 65 subscribed mounted identities can repeatedly evict and
+reload each other in the 64-entry shared cache. This correction supersedes the
+previous eviction-reload behavior while retaining automatic TTL refresh.
+
+Shared AccountAvatar now remembers the identity/service/policy of an observed
+image. Its URI hit-to-miss recovery asks the port to refresh only a retained
+expired entry; an absent capacity-evicted entry stays fallback until a new mount,
+activation, identity/service or lifecycle/policy change. Initial mount-effect
+replay still retries an aborted initial load. Capacity, transport, privacy,
+concurrency and rejection guards remain unchanged. No timers or visible-row
+special cases. Phase 0 passed; S13/S22 clean-room Adapt, no maturity promotion.
+
+Repository regression harness keeps 65 separate mounted hook instances, real
+shared-port subscriptions, effect dependencies/cleanup and successful download
+notifications. On the reviewed source it made 351 requests in the bounded run
+instead of 65. After correction it stabilizes at 65, ordinary re-renders keep
+images unchanged, and explicit reactivation adds exactly one request without
+starting another eviction loop. This is automated/helper evidence, not native
+React Native visual or physical-device acceptance. Existing TTL success/failure
+and decode-rejection cases remain covered, plus direct port miss/expiry policy
+and mount-effect replay. Focused verification passed: 3 suites / 21 tests.
+New exact-HEAD independent Work review remains required; PR is not merged.
+
+Developer verification: full npm run check with Watchman disabled passed
+271 suites / 2517 tests, TypeScript, lint (warnings only), formatting,
+aliases/architecture, provenance (1005 files, zero unapproved donor collisions),
+artwork, locale and bridge checks. Final TypeScript rerun passed after the
+mount-replay regression was added. Native/device/provider acceptance was not run.

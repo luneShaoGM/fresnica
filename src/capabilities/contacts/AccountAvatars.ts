@@ -6,7 +6,7 @@ export interface AccountAvatarPort {
   setEnabled(enabled: boolean): void;
   setReadable(readable: boolean): void;
   read(address: string): string | undefined;
-  load(address: string, signal: AbortSignal): Promise<string | undefined>;
+  load(address: string, signal: AbortSignal, options?: Readonly<{ onlyExpired?: boolean }>): Promise<string | undefined>;
   reject(address: string, uri: string): void;
   close(): void;
 }
@@ -115,9 +115,12 @@ export function createAccountAvatarPort(
         publish(state);
       }
     },
-    async load(raw, signal) {
+    async load(raw, signal, options) {
       const address = accountAvatarAddress(raw);
       if (!address || closed || !state.enabled || signal.aborted || rejected.has(address)) return undefined;
+      // Capacity eviction must not make mounted consumers reclaim each other's slots.
+      const image = images.get(address);
+      if (options?.onlyExpired && !image) return undefined;
       const cached = read(address);
       if (cached || !state.readable) return cached;
       const owner = new AbortController();

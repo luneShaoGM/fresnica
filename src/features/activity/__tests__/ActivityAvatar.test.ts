@@ -216,7 +216,7 @@ it('makes one controlled reload when an expired mounted image fails, without ret
   }
   expect(loadImage).toHaveBeenCalledTimes(2);
 });
-it('reloads an evicted image on a still mounted avatar without a policy revision change', async () => {
+it('holds an evicted mounted image until reactivation instead of reclaiming capacity', async () => {
   const loadImage = jest.fn(async () => uri);
   const port = createAccountAvatarPort({ available: true, initialEnabled: true, loadImage });
   port.setReadable(true);
@@ -233,7 +233,26 @@ it('reloads an evicted image on a still mounted avatar without a policy revision
   expect(port.read(address)).toBeUndefined();
   expect(render().props.uri).toBeUndefined();
   await flush();
+  expect(render().props.uri).toBeUndefined();
+  expect(loadImage).toHaveBeenCalledTimes(65);
+  render(address, false);
+  render();
+  await flush();
   expect(render().props.uri).toBe(uri);
   expect(port.getSnapshot().revision).toBe(revision);
   expect(loadImage).toHaveBeenCalledTimes(66);
+});
+
+it('retries the initial load when mount effects are cleaned up and replayed', async () => {
+  const loadImage = jest.fn(async () => uri);
+  const port = createAccountAvatarPort({ available: true, initialEnabled: true, loadImage });
+  port.setReadable(true);
+  mockRuntime.service = port;
+  render();
+  // Strict Mode preserves refs while replaying effect setup after cleanup.
+  mockRuntime.effects.forEach(effect => effect.cleanup?.());
+  mockRuntime.effects = [];
+  render();
+  await flush();
+  expect(render().props.uri).toBe(uri);
 });
