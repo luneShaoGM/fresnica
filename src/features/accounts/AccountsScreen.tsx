@@ -8,6 +8,7 @@ import { NativeButton } from '@ui/components/NativeButton';
 import type { AccountRecord } from '../../capabilities/account/types';
 import { useLocalization } from '../../locale';
 import { createStyles } from './styles';
+import { CopyAddressButton } from './CopyAddressButton';
 import { useThemedStyles } from '@ui/theme';
 
 type Props = Readonly<{
@@ -15,10 +16,11 @@ type Props = Readonly<{
   onOpenAccount: (accountId: string) => void;
   onAddAccount: () => void;
   onMoveAccount: (accountId: string, direction: AccountMoveDirection) => void | Promise<void>;
+  copyPublicText: (text: string) => Promise<void>;
   onBack: () => void;
 }>;
 
-export function AccountsScreen({ accounts, onOpenAccount, onAddAccount, onMoveAccount, onBack }: Props) {
+export function AccountsScreen({ accounts, onOpenAccount, onAddAccount, onMoveAccount, copyPublicText, onBack }: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const [movingAccountId, setMovingAccountId] = useState<string | undefined>();
@@ -84,6 +86,7 @@ export function AccountsScreen({ accounts, onOpenAccount, onAddAccount, onMoveAc
               </Text>
               <Text style={styles.network}>{account.networkId}</Text>
             </Pressable>
+            <CopyAddressButton key={account.address} address={account.address} copyPublicText={copyPublicText} />
             <View style={styles.sortControls}>
               <Pressable
                 accessibilityLabel={t('accounts.sort.moveUp')}

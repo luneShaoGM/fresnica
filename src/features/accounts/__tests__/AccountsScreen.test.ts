@@ -6,6 +6,7 @@ import { defaultTheme } from '@ui/theme';
 import { NativeButton } from '@ui/components/NativeButton';
 
 import type { AccountRecord } from '../../../capabilities/account/types';
+import { CopyAddressButton } from '../CopyAddressButton';
 import { AccountsScreen } from '../AccountsScreen';
 import { createStyles } from '../styles';
 
@@ -101,7 +102,14 @@ describe('AccountsScreen sort controls', () => {
     const styles = createStyles(defaultTheme);
 
     for (const accounts of [[], [account('visible'), { ...account('hidden'), hidden: true }]]) {
-      const root = AccountsScreen({ accounts, onBack, onOpenAccount, onAddAccount, onMoveAccount });
+      const root = AccountsScreen({
+        copyPublicText: jest.fn(async () => undefined),
+        accounts,
+        onBack,
+        onOpenAccount,
+        onAddAccount,
+        onMoveAccount,
+      });
       const header = React.Children.toArray(root.props.children).find(
         (child): child is React.ReactElement<TestElementProps> =>
           React.isValidElement<TestElementProps>(child) && child.type === View,
@@ -155,7 +163,14 @@ describe('AccountsScreen sort controls', () => {
     const onBack = jest.fn();
 
     for (const accounts of [[], [account('visible'), { ...account('hidden'), hidden: true }]]) {
-      const root = AccountsScreen({ accounts, onOpenAccount, onAddAccount, onMoveAccount, onBack });
+      const root = AccountsScreen({
+        copyPublicText: jest.fn(async () => undefined),
+        accounts,
+        onOpenAccount,
+        onAddAccount,
+        onMoveAccount,
+        onBack,
+      });
       let add: React.ReactElement<TestElementProps> | undefined;
       visit(root, element => {
         if (element.type === NativeButton) add = element;
@@ -202,6 +217,7 @@ describe('AccountsScreen sort controls', () => {
 
   it('exposes disabled move boundaries to assistive technology and visually dims them', () => {
     const root = AccountsScreen({
+      copyPublicText: jest.fn(async () => undefined),
       accounts: [account('a'), account('b')],
       onOpenAccount: jest.fn(),
       onAddAccount: jest.fn(),
@@ -227,6 +243,7 @@ describe('AccountsScreen sort controls', () => {
     mockedUseState.mockReturnValueOnce([undefined, jest.fn()]).mockReturnValueOnce([true, jest.fn()]);
 
     const root = AccountsScreen({
+      copyPublicText: jest.fn(async () => undefined),
       accounts: [account('a'), account('b')],
       onOpenAccount: jest.fn(),
       onAddAccount: jest.fn(),
@@ -242,9 +259,38 @@ describe('AccountsScreen sort controls', () => {
     expect(errorElement?.props.accessibilityLiveRegion).toBeUndefined();
   });
 
+  it('wires each copy button outside the details card with its exact address', () => {
+    const copyPublicText = jest.fn(async () => undefined);
+    const root = AccountsScreen({
+      accounts: [account('first'), { ...account('hidden'), hidden: true }],
+      copyPublicText,
+      onOpenAccount: jest.fn(),
+      onAddAccount: jest.fn(),
+      onMoveAccount: jest.fn(),
+      onBack: jest.fn(),
+    });
+    const copies: React.ReactElement<{ address: string; copyPublicText: typeof copyPublicText }>[] = [];
+    visit(root, element => {
+      if (element.type === CopyAddressButton)
+        copies.push(element as React.ReactElement<{ address: string; copyPublicText: typeof copyPublicText }>);
+    });
+    expect(copies.map(element => element.props)).toEqual([
+      { address: 'Gfirst', copyPublicText },
+      { address: 'Ghidden', copyPublicText },
+    ]);
+    visit(root, element => {
+      if (element.props.onPress) {
+        visit(element.props.children, child => {
+          expect(child.type).not.toBe(CopyAddressButton);
+        });
+      }
+    });
+  });
+
   it('announces an asynchronous reorder failure', async () => {
     const onMoveAccount = jest.fn().mockRejectedValue(new Error('write-failed'));
     const root = AccountsScreen({
+      copyPublicText: jest.fn(async () => undefined),
       accounts: [account('a'), account('b')],
       onOpenAccount: jest.fn(),
       onAddAccount: jest.fn(),

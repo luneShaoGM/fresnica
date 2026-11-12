@@ -1179,5 +1179,7 @@
   "session.usePassphrase": "使用 App Passphrase",
   "security.policy.title": "安全",
   "security.policy.keys": "每次交易簽名和訊息簽名均需重新輸入 App Passphrase。查看或匯出金鑰、衍生簽名者及更改保護也需要口令。生物辨識不能取代這些操作所需的口令。",
-  "signature.passphraseRequired": "每次簽名都需要 App Passphrase，且僅授權本次操作。"
+  "signature.passphraseRequired": "每次簽名都需要 App Passphrase，且僅授權本次操作。",
+  "accounts.copy.success": "地址已複製。",
+  "accounts.copy.error": "無法複製地址，請重試。"
 }

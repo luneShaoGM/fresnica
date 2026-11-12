@@ -1179,5 +1179,7 @@
   "session.usePassphrase": "Use App Passphrase",
   "security.policy.title": "Security",
   "security.policy.keys": "Every transaction and message signature requires a fresh App Passphrase. Revealing or exporting keys, deriving signers and changing protection also require your App Passphrase. Biometrics never replace it for these operations.",
-  "signature.passphraseRequired": "Every signature requires your App Passphrase. It authorizes this operation only."
+  "signature.passphraseRequired": "Every signature requires your App Passphrase. It authorizes this operation only.",
+  "accounts.copy.success": "Address copied.",
+  "accounts.copy.error": "Unable to copy the address. Try again."
 }
