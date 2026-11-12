@@ -19,6 +19,15 @@ export function BalanceFreshnessNotice({ state, onRefresh, showRefreshStatus = t
       : state.stale
         ? 'balance.cache.stale'
         : 'balance.cache.current';
+  if (!showRefreshStatus) {
+    return (
+      <View style={styles.balanceHint}>
+        <Text accessibilityLiveRegion="polite" style={styles.balanceHintText}>
+          {t(key)}
+        </Text>
+      </View>
+    );
+  }
   return (
     <View style={styles.freshness}>
       <Text style={styles.stateText}>{t(key)}</Text>

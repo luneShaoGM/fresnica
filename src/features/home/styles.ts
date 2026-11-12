@@ -361,6 +361,16 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.textTertiary,
       paddingTop: theme.spacing.sm,
     },
+    balanceHint: {
+      flexShrink: 0,
+      marginHorizontal: theme.spacing.lg,
+      marginVertical: theme.spacing.xs,
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: theme.spacing.xs,
+      borderRadius: theme.radii.sm,
+      backgroundColor: theme.colors.surfaceMuted,
+    },
+    balanceHintText: { ...theme.typography.caption, color: theme.colors.textSecondary },
     freshness: { gap: theme.spacing.xs, paddingVertical: theme.spacing.sm },
     pressed: {
       opacity: 0.68,

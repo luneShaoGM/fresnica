@@ -263,12 +263,6 @@ export function HomeScreen({
               </Pressable>
             ) : null}
           </View>
-
-          {assetCategory === 'tokens' ? (
-            <>
-              <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} showRefreshStatus={false} />
-            </>
-          ) : null}
         </ScrollView>
         {assetCategory === 'tokens' && nativeLine ? (
           <View style={styles.nativeFixedWrap}>
@@ -312,6 +306,9 @@ export function HomeScreen({
                 styles,
               )}
         </ScrollView>
+        {assetCategory === 'tokens' ? (
+          <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} showRefreshStatus={false} />
+        ) : null}
       </View>
       <AccountPickerModal
         accounts={selectableAccounts}
