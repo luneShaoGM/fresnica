@@ -1,6 +1,6 @@
-import { Image } from 'react-native';
 import { createAccountAvatarPort, type AccountAvatarPort } from '../../../capabilities/contacts/AccountAvatars';
-import { ActivityAccountAvatar, ActivitySymbol } from '../ActivityAvatar';
+import { ActivityAccountAvatar } from '../ActivityAvatar';
+import { AccountAvatarImage } from '../../../ui/components/AccountAvatarImage';
 type AnyEffect = Readonly<{ deps?: readonly unknown[]; cleanup?: () => void }>;
 const mockRuntime = {
   service: undefined as AccountAvatarPort | undefined,
@@ -96,15 +96,15 @@ afterEach(() => {
   mockRuntime.service = undefined;
 });
 it('renders a generic profile without service, consent, or an active valid public identity', async () => {
-  expect(render().type).toBe(ActivitySymbol);
+  expect(render().props.uri).toBeUndefined();
   const loadImage = jest.fn(async () => uri);
   const port = createAccountAvatarPort({ available: true, initialEnabled: false, loadImage });
   port.setReadable(true);
   mockRuntime.service = port;
-  expect(render().type).toBe(ActivitySymbol);
+  expect(render().props.uri).toBeUndefined();
   port.setEnabled(true);
-  expect(render(address, false).type).toBe(ActivitySymbol);
-  expect(render('invalid').type).toBe(ActivitySymbol);
+  expect(render(address, false).props.uri).toBeUndefined();
+  expect(render('invalid').props.uri).toBeUndefined();
   await flush();
   expect(loadImage).not.toHaveBeenCalled();
 });
@@ -116,20 +116,20 @@ it('uses bounded inline images and ignores old account decode errors after ident
   render();
   await flush();
   const first = render();
-  expect(first.type).toBe(Image);
-  expect(first.props.source.uri).toBe(uri);
-  expect(render(other).type).toBe(ActivitySymbol);
+  expect(first.type).toBe(AccountAvatarImage);
+  expect(first.props.uri).toBe(uri);
+  expect(render(other).props.uri).toBeUndefined();
   await flush();
   const next = render(other);
-  expect(next.type).toBe(Image);
-  expect(next.props.source.uri).toBe(otherUri);
+  expect(next.type).toBe(AccountAvatarImage);
+  expect(next.props.uri).toBe(otherUri);
   first.props.onError();
-  expect(render(other).props.source.uri).toBe(otherUri);
+  expect(render(other).props.uri).toBe(otherUri);
   next.props.onError();
-  expect(render(other).type).toBe(ActivitySymbol);
+  expect(render(other).props.uri).toBeUndefined();
   expect(loadImage).toHaveBeenCalledTimes(2);
   port.setEnabled(false);
-  expect(render(other).type).toBe(ActivitySymbol);
+  expect(render(other).props.uri).toBeUndefined();
 });
 it('aborts a departed row and never displays its late result on another account', async () => {
   let complete!: (value: string) => void;
@@ -147,7 +147,26 @@ it('aborts a departed row and never displays its late result on another account'
   expect(loadImage.mock.calls[0][1].aborted).toBe(true);
   complete(uri);
   await flush();
-  expect(render(other).props.source.uri).toBe(otherUri);
+  expect(render(other).props.uri).toBe(otherUri);
   expect(port.read(address)).toBeUndefined();
-  expect(render(other, false).type).toBe(ActivitySymbol);
+  expect(render(other, false).props.uri).toBeUndefined();
+});
+
+it('never reuses a previous service generation image or decode error for the same address', async () => {
+  const firstPort = createAccountAvatarPort({ available: true, initialEnabled: true, loadImage: async () => uri });
+  firstPort.setReadable(true);
+  mockRuntime.service = firstPort;
+  render();
+  await flush();
+  const old = render();
+  expect(old.props.uri).toBe(uri);
+  const nextPort = createAccountAvatarPort({ available: true, initialEnabled: true, loadImage: async () => otherUri });
+  nextPort.setReadable(true);
+  mockRuntime.service = nextPort;
+  expect(render().props.uri).toBeUndefined();
+  await flush();
+  expect(render().props.uri).toBe(otherUri);
+  old.props.onError();
+  expect(render().props.uri).toBe(otherUri);
+  firstPort.close();
 });

@@ -804,3 +804,38 @@ artwork and locale gates. Local Gradle initially reused stale source snapshots;
 the final native regression disables file-system watching and recompiled the
 changed module/test before passing. No release repackaging or iOS rebuild was
 needed for this Android-only correction.
+
+
+### 2026-11-12 S13/S22 shared account-avatar consistency (candidate)
+
+Owner promotes existing Activity address-avatar behavior to all current user
+avatar surfaces: operation participants, contacts/picker cards, Swap account card,
+Account Detail and Wallet Ready. Phase 0 passed; clean-room Adapt reuses Fresnica's
+existing display-only AccountAvatarPort and privacy consent. App owns one current
+service provider across routes; contacts owns the shared loader; ui owns image /
+generic person presentation. All card variants honor supplied avatars, and names
+or memos never choose imagery. Generic fallback replaces the inconsistent local
+identicons/initials at those consumers. Sizes may vary by layout, with shared
+rounded-square/cover and generic-person rules.
+
+Cache is the single image authority across surfaces/service generations. Decode
+failure propagates fallback without an infinite retry loop; old URI failure cannot
+remove a new image. Existing default-off disclosed avatar opt-in, bounded HTTPS
+transport/cache, lifecycle/cancel and network retirement remain. Token imagery,
+identity/name/address/memo authority, transactions and wallet schema are unchanged.
+Current behavior: [avatar alignment](behavior-specs/s13-avatar-alignment.md).
+Native visual / real provider / accessibility acceptance and independent exact-
+HEAD review remain separate; no maturity promotion or real address requests.
+
+
+Developer verification: `npm run check` passed 270 suites / 2511 tests,
+TypeScript, lint (warnings only), aliases/architecture, provenance (1004 files,
+zero unapproved donor collisions), artwork and all locale dictionaries. Coverage
+includes all card-avatar slots, shared image/fallback frame/accessibility, inactive
+participant propagation, old account/service/decode results, shared load/reject
+notifications and independent concurrent address reads. Navigation composition
+tests were adapted to the provider moving from Activity to the App root.
+Production Android and iOS JS bundles and assets compiled successfully. Local
+Watchman recrawl / React Native export warnings were supplementary build warnings,
+not a reason to change unrelated tooling. No native screenshot, real-provider
+request, physical-device visual or screen-reader acceptance was performed.

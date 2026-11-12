@@ -1,3 +1,4 @@
+import { AccountAvatar } from '../contacts/AccountAvatar';
 import { formatPublicAddress as shortAddress } from '@ui/formatPublicAddress';
 import React from 'react';
 import {
@@ -55,11 +56,7 @@ export function WalletReadyScreen({accounts, onAddAccount, onOpenSecurity}: Prop
                 styles.accountRow,
                 index < accounts.length - 1 ? styles.accountRowBorder : undefined,
               ]}>
-              <View style={styles.accountAvatar}>
-                <Text style={styles.accountAvatarText}>
-                  {(account.label || 'S').slice(0, 1).toUpperCase()}
-                </Text>
-              </View>
+              <AccountAvatar address={account.address} />
               <View style={styles.accountIdentity}>
                 <Text numberOfLines={1} style={styles.accountLabel}>
                   {account.label || 'Stellar account'}
@@ -125,8 +122,6 @@ function createStyles(theme: AppTheme) {
   accountList: {marginHorizontal: 20, borderRadius: 12, backgroundColor: theme.colors.surfaceMuted, overflow: 'hidden'},
   accountRow: {minHeight: 72, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 10},
   accountRowBorder: {borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.colors.border},
-  accountAvatar: {width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surfaceStrong},
-  accountAvatarText: {color: theme.colors.onSurfaceStrong, fontSize: 15, lineHeight: 19, fontWeight: '800'},
   accountIdentity: {flex: 1, gap: 3},
   accountLabel: {color: theme.colors.textPrimary, fontSize: 14, lineHeight: 18, fontWeight: '800'},
   address: {color: theme.colors.textSecondary, fontFamily: 'monospace', fontSize: 10, lineHeight: 14},

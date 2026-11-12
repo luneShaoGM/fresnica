@@ -1,3 +1,4 @@
+import { AccountAvatar } from '../contacts/AccountAvatar';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
@@ -638,7 +639,7 @@ export function SwapPreviewScreen({
           <Text style={styles.text}>{t('swap.preview.notice')}</Text>
           <Text style={styles.secondary}>{t('swap.execution.safePreview')}</Text>
         </View>
-        <AccountIdentityCard address={account.address} name={account.label} label={t('swap.preview.account')} />
+        <AccountIdentityCard avatar={<AccountAvatar address={account.address} active={active} />} address={account.address} name={account.label} label={t('swap.preview.account')} />
 
         {loading ? <ActivityIndicator accessibilityLabel={t('swap.preview.loading')} /> : null}
         {!loading && assets.length < 2 ? (

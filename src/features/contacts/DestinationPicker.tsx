@@ -1,3 +1,4 @@
+import { AccountAvatar } from './AccountAvatar';
 import React, { useState } from 'react';
 import { ScrollView, Text } from 'react-native';
 import type { AccountRecord } from '@capabilities/account/types';
@@ -51,6 +52,7 @@ export function DestinationPicker({
         {matches.map(contact => (
           <AccountIdentityCard
             key={contact.id}
+            avatar={<AccountAvatar address={contact.address} />}
             address={contact.address}
             name={contact.name}
             label={t('settings.addressBook')}
@@ -70,6 +72,7 @@ export function DestinationPicker({
         {own.map(account => (
           <AccountIdentityCard
             key={account.id}
+            avatar={<AccountAvatar address={account.address} />}
             address={account.address}
             name={account.label}
             label={t('settings.accounts')}

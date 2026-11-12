@@ -26,6 +26,7 @@ export function createAccountAvatarPort(
 ): AccountAvatarPort {
   const now = input.now ?? Date.now;
   const images = new Map<string, { uri: string; expires: number }>();
+  const rejected = new Set<string>();
   const listeners = new Set<() => void>();
   const controllers = new Set<AbortController>();
   const waiting = new Set<() => void>();
@@ -93,6 +94,7 @@ export function createAccountAvatarPort(
       if (closed || state.enabled === (input.available && enabled)) return;
       if (!enabled) {
         images.clear();
+        rejected.clear();
         cancel();
       }
       publish({ ...state, enabled: input.available && enabled });
@@ -100,16 +102,22 @@ export function createAccountAvatarPort(
     setReadable(readable) {
       if (closed || state.readable === readable) return;
       if (!readable) cancel();
+      else rejected.clear();
       publish({ ...state, readable });
     },
     read,
     reject(raw, uri) {
       const address = accountAvatarAddress(raw);
-      if (address && images.get(address)?.uri === uri) images.delete(address);
+      if (address && images.get(address)?.uri === uri) {
+        images.delete(address);
+        rejected.add(address);
+        while (rejected.size > 64) rejected.delete(rejected.values().next().value!);
+        publish(state);
+      }
     },
     async load(raw, signal) {
       const address = accountAvatarAddress(raw);
-      if (!address || closed || !state.enabled || signal.aborted) return undefined;
+      if (!address || closed || !state.enabled || signal.aborted || rejected.has(address)) return undefined;
       const cached = read(address);
       if (cached || !state.readable) return cached;
       const owner = new AbortController();
@@ -144,6 +152,9 @@ export function createAccountAvatarPort(
           images.delete(address);
           images.set(address, { uri, expires: now() + 600_000 });
           while (images.size > 64) images.delete(images.keys().next().value!);
+          // Refresh all surfaces without retiring other in-flight image reads.
+          state = Object.freeze({ ...state });
+          listeners.forEach(listener => listener());
           return uri;
         } finally {
           release();
@@ -162,6 +173,7 @@ export function createAccountAvatarPort(
       if (closed) return;
       closed = true;
       images.clear();
+      rejected.clear();
       cancel();
       publish({ enabled: false, readable: false });
       listeners.clear();

@@ -1,3 +1,4 @@
+import { AccountAvatar } from './AccountAvatar';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { findContact } from '@capabilities/contacts/contacts';
@@ -90,7 +91,7 @@ export function ParticipantCard({ book, label, address, memo, accounts = [], sca
           }
         }}
       >
-        <AccountIdentityCard address={address} name={displayName} label={label} secondary={sourceLabel} />
+        <AccountIdentityCard avatar={<AccountAvatar address={address} active={active} />} address={address} name={displayName} label={label} secondary={sourceLabel} />
       </Pressable>
       {active && sheet ? (
         <BottomSheet visible onClose={close} closeLabel={t('common.cancel')}>
