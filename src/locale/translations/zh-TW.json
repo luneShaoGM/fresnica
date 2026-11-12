@@ -297,6 +297,7 @@
   "send.scan.purpose": "掃描 Stellar G 地址或同網路 SEP-7 付款 QR Code。僅會填入收款地址與備註，發送前仍須覆核並授權。",
   "send.navigation.done": "完成",
   "common.back": "返回",
+  "activity.detail.nativeAsset": "原生資產",
   "activity.detail.asset": "資產",
   "activity.detail.issuer": "發行方",
   "home.inactive.title": "帳戶尚未啟用",

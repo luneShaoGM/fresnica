@@ -27,7 +27,7 @@ import {
   source,
 } from '../../../capabilities/history/__tests__/contractHistory.fixtures';
 import type { HistoryClaimPredicate } from '../../../capabilities/history/types';
-import type { HistoryEntry } from '../../../capabilities/history/types';
+import type { HistoryAsset, HistoryEntry } from '../../../capabilities/history/types';
 import { createLocalization } from '../../../locale/localization';
 import { ParticipantCard } from '../../contacts/ParticipantCard';
 import type { ContactBook, ContactScanner } from '../../contacts/contactBook';
@@ -447,12 +447,12 @@ it('shows signed exact path legs and only the two explicit muxed participant ide
   expect(values).toEqual(
     expect.arrayContaining([
       'Actually sent',
-      '−922,337,203,685.4775807 USD',
+      '−922,337,203,685.4775807 USD\nUSD:GSOURCEISSUER',
       'Actually received',
-      '+0.0000001 EUR',
+      '+0.0000001 EUR\nEUR:GDESTISSUER',
     ]),
   );
-  for (const value of ['Direction', 'Outgoing', 'GSOURCEISSUER', 'GDESTISSUER', 'Source account', 'Counterparty']) {
+  for (const value of ['Direction', 'Outgoing', 'Sent asset issuer', 'Received asset issuer', 'Source account', 'Counterparty']) {
     expect(values).not.toContain(value);
   }
   // ParticipantRows receives full display identities; the base is never used for contact selection.
@@ -937,4 +937,61 @@ it('insets actionable participant cards to align with the detail page content', 
     return children.some(child => React.isValidElement(child) && child.type === ParticipantCard);
   });
   expect((wrapper?.props as { style?: { marginHorizontal?: number } }).style?.marginHorizontal).toBe(defaultTheme.spacing.lg);
+});
+
+const assetIdentityCases: ReadonlyArray<readonly [HistoryAsset, string]> = [
+  [{ kind: 'native', code: 'XLM' }, 'XLM · Native asset'],
+  [{ kind: 'credit', code: 'XLM', issuer: 'G' + 'A'.repeat(55) }, 'XLM:G' + 'A'.repeat(55)],
+  [{ kind: 'credit', code: 'USD', issuer: 'G' + 'A'.repeat(55) }, 'USD:G' + 'A'.repeat(55)],
+  [{ kind: 'credit', code: 'USD', issuer: 'G' + 'B'.repeat(55) }, 'USD:G' + 'B'.repeat(55)],
+];
+
+it.each(assetIdentityCases)('retains the full payment asset identity for %j without adding account cards', (asset, identity) => {
+  const entry: HistoryEntry = {
+    ...unsupported(), kind: 'payment', direction: 'outgoing', amount: '0.0000001', asset,
+    counterparty: 'GRECIPIENT',
+    participants: [{ role: 'sender', identity: 'GSENDER' }, { role: 'recipient', identity: 'GRECIPIENT' }],
+  };
+  const { root } = renderWithState({
+    kind: 'loaded', result: { status: 'ready', entry }, source: 'online',
+    stale: false, refreshing: false, refreshFailed: false,
+  });
+  const text = findElement(root, element => element.type === Text && element.props.children === identity);
+  expect(text).toBeDefined();
+  expect((text?.props as { selectable?: boolean }).selectable).toBe(true);
+  expect((text?.props as { numberOfLines?: number }).numberOfLines).toBeUndefined();
+  const rows = findElement(root, element => 'participants' in element.props)!;
+  expect((rows.props as unknown as { participants: unknown }).participants).toEqual(entry.participants);
+  expect(findElement(root, element => element.type === ParticipantCard)).toBeUndefined();
+});
+
+it.each([
+  [assetIdentityCases[0], assetIdentityCases[1]],
+  [assetIdentityCases[1], assetIdentityCases[0]],
+  [assetIdentityCases[2], assetIdentityCases[3]],
+  [assetIdentityCases[3], assetIdentityCases[2]],
+])('retains both complete path asset identities for %j → %j', ([sourceAsset, sourceIdentity], [destinationAsset, destinationIdentity]) => {
+  const entry: HistoryEntry = {
+    ...unsupported(), kind: 'path-payment', successful: true, direction: 'self',
+    sourceAmount: '922337203685.4775807', sourceAsset,
+    destinationAmount: '0.0000001', destinationAsset, counterparty: 'GSENDER',
+    participants: [{ role: 'sender', identity: 'GSENDER' }, { role: 'recipient', identity: 'GSENDER' }],
+  };
+  const { root } = renderWithState({
+    kind: 'loaded', result: { status: 'ready', entry }, source: 'online',
+    stale: false, refreshing: false, refreshFailed: false,
+  });
+  for (const [label, value] of [
+    ['Actually sent', '−922,337,203,685.4775807 ' + sourceAsset.code + '\n' + sourceIdentity],
+    ['Actually received', '+0.0000001 ' + destinationAsset.code + '\n' + destinationIdentity],
+  ]) {
+    const row = findElement(root, element => (element.props as { label?: string }).label === label)!;
+    expect(row.props).toMatchObject({ value, fullValue: true });
+    const renderRow = row.type as (props: typeof row.props) => React.ReactNode;
+    const text = findElement(renderRow(row.props), element => element.type === Text && element.props.children === value);
+    expect((text?.props as { numberOfLines?: number }).numberOfLines).toBeUndefined();
+  }
+  const rows = findElement(root, element => 'participants' in element.props)!;
+  expect((rows.props as unknown as { participants: unknown }).participants).toEqual(entry.participants);
+  expect(findElement(root, element => element.type === ParticipantCard)).toBeUndefined();
 });

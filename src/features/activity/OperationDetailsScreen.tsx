@@ -16,6 +16,7 @@ import {
   type HistoryProductDependencies,
 } from '@capabilities/history/HistoryCacheHydration';
 import type {
+  HistoryAsset,
   HistoryDirection,
   HistoryEntry,
   HistoryParticipant,
@@ -420,6 +421,9 @@ function renderEntry(
         </View>
         <Text style={styles.heroTitle}>{presentation.title}</Text>
         <Text style={styles.heroPrimary}>{primary}</Text>
+        {entry.kind === 'payment' ? (
+          <Text selectable style={styles.heroAssetIdentity}>{assetIdentityLabel(entry.asset, t)}</Text>
+        ) : null}
       </View>
 
       {entry.kind === 'unsupported' ? (
@@ -718,12 +722,14 @@ function renderEntry(
           <>
             <DetailRow
               label={t('activity.detail.actualSent')}
-              value={`−${formatNumber(entry.sourceAmount, 7)} ${entry.sourceAsset.code}`}
+              value={`−${formatNumber(entry.sourceAmount, 7)} ${entry.sourceAsset.code}\n${assetIdentityLabel(entry.sourceAsset, t)}`}
+              fullValue
               styles={styles}
             />
             <DetailRow
               label={t('activity.detail.actualReceived')}
-              value={`+${formatNumber(entry.destinationAmount, 7)} ${entry.destinationAsset.code}`}
+              value={`+${formatNumber(entry.destinationAmount, 7)} ${entry.destinationAsset.code}\n${assetIdentityLabel(entry.destinationAsset, t)}`}
+              fullValue
               styles={styles}
             />
             <ParticipantRows participants={entry.participants} t={t} renderAccount={renderAccount} />
@@ -838,4 +844,8 @@ function participantRoleLabel(role: HistoryParticipantRole, t: Translate): strin
 
 function amountPrefix(direction: HistoryDirection): string {
   return direction === 'incoming' ? '+' : direction === 'outgoing' ? '−' : '';
+}
+
+function assetIdentityLabel(asset: HistoryAsset, t: Translate): string {
+  return asset.kind === 'native' ? `XLM · ${t('activity.detail.nativeAsset')}` : `${asset.code}:${asset.issuer}`;
 }

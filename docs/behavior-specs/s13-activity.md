@@ -348,7 +348,13 @@ and account-creation details show signed quantities instead of a Direction row:
 incoming +, outgoing −, self/neutral unsigned. Path details retain both exact
 actual legs, with − sent and + received. Payment/account-creation quantities
 appear once in the hero. Asset codes stay with quantities; redundant payment
-Asset rows and issuer/counterparty/source cards are removed. These transfer
+Asset rows and issuer/counterparty/source cards are removed. Payment keeps
+the full asset identity as compact selectable text below its hero amount; each
+path leg includes its own full asset identity below the actual quantity.
+Issued identities display exact case-sensitive code:issuer with the complete
+issuer address; native XLM is explicitly labeled as a native asset. These texts
+wrap without line caps, preserving same-code/different-issuer and native/issued
+XLM distinctions without additional participant cards. These transfer
 families show only their two exact participant roles/identities, including muxed
 identities without substituting base addresses. Trustline details likewise reuse
 their existing trustor/issuer pair without duplicate source/issuer cards; their

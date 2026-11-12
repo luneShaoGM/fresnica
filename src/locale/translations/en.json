@@ -297,6 +297,7 @@
   "send.scan.purpose": "Scan a Stellar G address or a same-network SEP-7 payment QR. Only the destination and memo will be filled in. Sending still requires review and authorization.",
   "send.navigation.done": "Done",
   "common.back": "Back",
+  "activity.detail.nativeAsset": "Native asset",
   "activity.detail.asset": "Asset",
   "activity.detail.issuer": "Issuer",
   "home.inactive.title": "Your account is not activated",
