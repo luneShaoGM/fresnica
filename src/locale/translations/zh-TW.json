@@ -1179,5 +1179,20 @@
   "session.usePassphrase": "使用 App Passphrase",
   "security.policy.title": "安全",
   "security.policy.keys": "每次交易簽名和訊息簽名均需重新輸入 App Passphrase。查看或匯出金鑰、衍生簽名者及更改保護也需要口令。生物辨識不能取代這些操作所需的口令。",
-  "signature.passphraseRequired": "每次簽名都需要 App Passphrase，且僅授權本次操作。"
+  "signature.passphraseRequired": "每次簽名都需要 App Passphrase，且僅授權本次操作。",
+  "recovery.title": "復原資料",
+  "recovery.warning": "取得這些資料的人可以控制你的資金。請離線保存；顯示 60 秒、離開頁面或切到背景後隱藏。僅在可信裝置上複製，其他應用程式可能讀取剪貼簿。",
+  "recovery.unavailable": "此帳號沒有可匯出的本機復原資料。請先完成待備份流程；硬體及唯讀帳號無法在此匯出金鑰。",
+  "recovery.current": "目前的 App Passphrase",
+  "recovery.fresh": "為本次操作重新輸入 App Passphrase。",
+  "recovery.reveal": "顯示復原資料",
+  "recovery.copy": "複製復原資料（30 秒）",
+  "recovery.copied": "已複製到本機，30 秒後或切到背景／關閉時清除；不會清除你後來複製的其他內容。",
+  "recovery.hide": "隱藏並清除",
+  "recovery.error": "無法顯示或複製復原資料，請重新輸入口令再試。",
+  "recovery.change": "變更 App Passphrase",
+  "recovery.new": "新的 App Passphrase",
+  "recovery.confirm": "確認新的 App Passphrase",
+  "recovery.changeNote": "將變更所有網路下本機軟體簽署者的保護口令。新口令至少 15 個字元，需與舊口令不同並準確確認。請先完成待備份與未決交易；成功後 App 鎖定，使用新口令解鎖。",
+  "recovery.changeError": "儲存的口令未變更。請檢查目前口令、新口令長度與確認內容，完成待處理操作後重新輸入全部欄位。"
 }

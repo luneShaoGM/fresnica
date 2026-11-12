@@ -1,3 +1,4 @@
+import { signerInventory, type ProtectionUpdate } from '../../../capabilities/application-security/recoveryManagement';
 import type Realm from 'realm';
 import type {
   AccountSignerRegistration,
@@ -23,6 +24,24 @@ import type {PersistedAccount, PersistedSigner} from './types';
 
 export class RealmAccountSignerRepository implements AccountSignerRepository {
   constructor(private readonly realm: Realm) {}
+
+  replaceProtection(expected: readonly SignerRecord[], updates: readonly ProtectionUpdate[], now: Date): void {
+    const replace = () => {
+      if (signerInventory(this.listSigners()) !== signerInventory(expected)) throw new Error('protection-context-changed');
+      const targets = expected.filter(s => s.kind === 'protected-software');
+      if (updates.length !== targets.length || new Set(updates.map(u => u.id)).size !== targets.length ||
+          targets.some(s => !updates.some(u => u.id === s.id && u.protectedSigner.signerPublicKey === s.publicKey && Boolean(u.protectedSigner.envelopeJson))))
+        throw new Error('protection-update-invalid');
+      for (const update of updates) {
+        const record = this.realm.objectForPrimaryKey(SIGNER_ENTITY, update.id);
+        const signer = record as unknown as PersistedSigner;
+        signer.envelopeJson = update.protectedSigner.envelopeJson;
+        signer.envelopeRevision = `${now.getTime()}:${update.id}`;
+        signer.updatedAt = now;
+      }
+    };
+    this.realm.write(replace);
+  }
 
   createAccount(account: AccountRecord): void {
     this.realm.write(() => {

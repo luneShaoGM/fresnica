@@ -13,6 +13,12 @@ export function leaseSessionServices(services: AppServices, revision: number): A
     ...services,
     onboarding: bind(services.onboarding),
     security: bind(services.security),
+    recoveryManagement: services.recoveryManagement
+      ? {
+          ...bind(services.recoveryManagement),
+          repository: session.bindSensitive(services.recoveryManagement.repository, revision),
+        }
+      : undefined,
     send: bind(services.send),
     trustline: bind(services.trustline),
     swapExecution: bind(services.swapExecution),
