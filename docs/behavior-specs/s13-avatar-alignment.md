@@ -35,6 +35,14 @@ Decode rejection publishes invalidation to all consumers of the shared service,
 bounds rejected identities to 64, and prevents an automatic bad-image retry loop.
 A later readable resume or permission reset permits a fresh attempt. Rejection
 for an old URI cannot remove a newer cached image.
+
+A still-mounted avatar observes the cached URI as an effect dependency. After a
+10-minute expiry or bounded-cache eviction, the next render's URI hit-to-miss
+transition starts one controlled load if active and enabled. A successful cache
+publication restores the shared image. A failed load remains fallback; unchanged
+missing URI on unrelated renders does not continuously retry. Decode-rejected
+images still use the shared rejection guard; lifecycle/policy changes remain the
+explicit retry paths. No timer or background polling is introduced.
 Single asset subjects keep shared S06 exact-identity TokenAssetIcon inside an
 Activity-only 40-unit frame with radius11 and cover image scaling. Other Token
 consumers keep contain scaling; approved local missing-token art is unchanged. Asset pairs

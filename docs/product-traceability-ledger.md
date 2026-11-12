@@ -839,3 +839,28 @@ Production Android and iOS JS bundles and assets compiled successfully. Local
 Watchman recrawl / React Native export warnings were supplementary build warnings,
 not a reason to change unrelated tooling. No native screenshot, real-provider
 request, physical-device visual or screen-reader acceptance was performed.
+
+
+### 2026-11-12 S13/S22 mounted avatar expiry P2 correction (candidate)
+
+Independent #194 review of 4994648892c2494c84873a45cb076ea69bcfc337 reported
+NEEDS_FIX / one P2: cache expiry/eviction changed the rendered URI without
+changing any load-effect dependency. Reuse the existing Token icon hit-to-miss
+pattern in shared AccountAvatar: observe URI, load only if missing, and keep
+foreground/consent/identity/policy and shared decode-rejection guards. Ordinary
+renders after failure do not create a retry loop. No polling, cache/transport
+policy changes, native code, transaction authority or image-provider changes.
+
+New regressions retain the same mounted hook instance and advance the actual
+AccountAvatarPort clock across its 600000ms TTL. Cover successful refresh,
+failure with bounded request count, decode rejection without looping, and
+64-entry eviction without a policy revision change. All three new cases fail
+against the reviewed implementation. Phase 0 passed, S13/S22 clean-room Adapt;
+native/provider/visual acceptance and new exact-HEAD Work review stay separate.
+
+Developer verification: all three new mounted TTL/eviction tests failed before
+the fix and passed afterward. Focused avatar tests: 2 suites / 18 tests passed.
+Full npm run check: 270 suites / 2514 tests plus TypeScript, lint (warnings only),
+architecture/provenance, artwork and locale gates passed. Separate full Jest run
+with Watchman disabled also passed. No new native package, provider request or
+visual/screen-reader acceptance is claimed for this effect-only correction.

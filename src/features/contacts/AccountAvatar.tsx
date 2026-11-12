@@ -19,14 +19,14 @@ export function AccountAvatar({
     emptySnapshot,
   );
   const key = accountAvatarAddress(address);
+  // Read the shared cache so another surface's rejection or a service change is immediate.
+  const uri = active && snapshot.enabled && key ? service?.read(key) : undefined;
   useEffect(() => {
-    if (!active || !key || !service || !snapshot.enabled) return;
+    if (!active || !key || !service || !snapshot.enabled || uri) return;
     const owner = new AbortController();
     service.load(key, owner.signal).catch(() => undefined);
     return () => owner.abort();
-  }, [active, key, service, snapshot.enabled, snapshot.revision]);
-  // Read the shared cache so another surface's rejection or a service change is immediate.
-  const uri = active && snapshot.enabled && key ? service?.read(key) : undefined;
+  }, [active, key, service, snapshot.enabled, snapshot.revision, uri]);
   return (
     <AccountAvatarImage
       uri={uri}

@@ -170,3 +170,70 @@ it('never reuses a previous service generation image or decode error for the sam
   expect(render().props.uri).toBe(otherUri);
   firstPort.close();
 });
+
+it('reloads an expired image on the same mounted avatar using the real service clock', async () => {
+  let now = 0;
+  const loadImage = jest.fn().mockResolvedValueOnce(uri).mockResolvedValueOnce(otherUri);
+  const port = createAccountAvatarPort({ available: true, initialEnabled: true, loadImage, now: () => now });
+  port.setReadable(true);
+  mockRuntime.service = port;
+  render();
+  await flush();
+  expect(render().props.uri).toBe(uri);
+  now = 599999;
+  expect(render().props.uri).toBe(uri);
+  expect(loadImage).toHaveBeenCalledTimes(1);
+  const revision = port.getSnapshot().revision;
+  now = 600000;
+  expect(render().props.uri).toBeUndefined();
+  await flush();
+  expect(render().props.uri).toBe(otherUri);
+  expect(loadImage).toHaveBeenCalledTimes(2);
+  expect(port.getSnapshot().revision).toBe(revision);
+  // URI missing also triggers the effect after decode rejection, but the shared port blocks a retry loop.
+  render().props.onError();
+  for (let i = 0; i < 5; i++) {
+    expect(render().props.uri).toBeUndefined();
+    await flush();
+  }
+  expect(loadImage).toHaveBeenCalledTimes(2);
+});
+it('makes one controlled reload when an expired mounted image fails, without retrying on unrelated renders', async () => {
+  let now = 0;
+  const loadImage = jest.fn().mockResolvedValueOnce(uri).mockRejectedValueOnce(new Error('fixture-load-failed'));
+  const port = createAccountAvatarPort({ available: true, initialEnabled: true, loadImage, now: () => now });
+  port.setReadable(true);
+  mockRuntime.service = port;
+  render();
+  await flush();
+  expect(render().props.uri).toBe(uri);
+  now = 600001;
+  expect(render().props.uri).toBeUndefined();
+  await flush();
+  for (let i = 0; i < 5; i++) {
+    expect(render().props.uri).toBeUndefined();
+    await flush();
+  }
+  expect(loadImage).toHaveBeenCalledTimes(2);
+});
+it('reloads an evicted image on a still mounted avatar without a policy revision change', async () => {
+  const loadImage = jest.fn(async () => uri);
+  const port = createAccountAvatarPort({ available: true, initialEnabled: true, loadImage });
+  port.setReadable(true);
+  mockRuntime.service = port;
+  render();
+  await flush();
+  expect(render().props.uri).toBe(uri);
+  const revision = port.getSnapshot().revision;
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  for (let i = 1; i <= 64; i++) {
+    const otherAddress = 'G' + 'A'.repeat(53) + alphabet[Math.floor(i / 32)] + alphabet[i % 32];
+    await port.load(otherAddress, new AbortController().signal);
+  }
+  expect(port.read(address)).toBeUndefined();
+  expect(render().props.uri).toBeUndefined();
+  await flush();
+  expect(render().props.uri).toBe(uri);
+  expect(port.getSnapshot().revision).toBe(revision);
+  expect(loadImage).toHaveBeenCalledTimes(66);
+});
