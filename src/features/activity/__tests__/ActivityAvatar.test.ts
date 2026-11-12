@@ -149,7 +149,7 @@ it('aborts a departed row and never displays its late result on another account'
   await flush();
   expect(render(other).props.uri).toBe(otherUri);
   expect(port.read(address)).toBeUndefined();
-  expect(render(other, false).props.uri).toBeUndefined();
+  expect(render(other, false).props.uri).toBe(otherUri);
 });
 
 it('never reuses a previous service generation image or decode error for the same address', async () => {
@@ -255,4 +255,51 @@ it('retries the initial load when mount effects are cleaned up and replayed', as
   render();
   await flush();
   expect(render().props.uri).toBe(uri);
+});
+
+it('keeps the cached avatar through blur and refocus while honoring identity and privacy changes', async () => {
+  const loadImage = jest.fn(async () => uri);
+  const port = createAccountAvatarPort({ available: true, initialEnabled: true, loadImage });
+  port.setReadable(true);
+  mockRuntime.service = port;
+  render();
+  await flush();
+  expect(render().props.uri).toBe(uri);
+  expect(render(address, false).props.uri).toBe(uri);
+  expect(render(other, false).props.uri).toBeUndefined();
+  expect(render(address, false).props.uri).toBe(uri);
+  expect(render().props.uri).toBe(uri);
+  await flush();
+  expect(loadImage).toHaveBeenCalledTimes(1);
+  port.setEnabled(false);
+  expect(render(address, false).props.uri).toBeUndefined();
+  port.setEnabled(true);
+  expect(render(address, false).props.uri).toBeUndefined();
+  await flush();
+  expect(loadImage).toHaveBeenCalledTimes(1);
+});
+
+it('aborts an in-flight avatar on blur and retries on refocus without accepting the late result', async () => {
+  let complete!: (value: string) => void;
+  const pending = new Promise<string>(resolve => {
+    complete = resolve;
+  });
+  const loadImage = jest.fn((_url: string, _signal: AbortSignal) => pending);
+  const port = createAccountAvatarPort({ available: true, initialEnabled: true, loadImage });
+  port.setReadable(true);
+  mockRuntime.service = port;
+  render();
+  await flush();
+  expect(loadImage).toHaveBeenCalledTimes(1);
+  expect(render(address, false).props.uri).toBeUndefined();
+  expect(loadImage.mock.calls[0][1].aborted).toBe(true);
+  complete(uri);
+  await flush();
+  expect(port.read(address)).toBeUndefined();
+  expect(render(address, false).props.uri).toBeUndefined();
+  expect(loadImage).toHaveBeenCalledTimes(1);
+  render();
+  await flush();
+  expect(render().props.uri).toBe(uri);
+  expect(loadImage).toHaveBeenCalledTimes(2);
 });
