@@ -177,3 +177,10 @@ it('hides only the reserve panel while preserving the available amount and exact
   const button = elements(hidden, Pressable)[0] as React.ReactElement<{ onPress(): void }>;
   button.props.onPress(); expect(onOpenAsset).toHaveBeenCalledWith(native.asset);
 });
+
+it('applies the selected display formatter to pinned XLM without changing the value passed to it', () => {
+  const formatAmount = jest.fn((value: string) => `formatted:${value}`);
+  const root = PinnedNativeAssetRow({ line: native, onOpenAsset: jest.fn(), t: key => key, formatAmount });
+  expect(formatAmount).toHaveBeenCalledWith('12.0000000');
+  expect(texts(root)).toContain('formatted:12.0000000');
+});

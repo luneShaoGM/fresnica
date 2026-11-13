@@ -156,7 +156,7 @@ export function PinnedNativeAssetRow({
               selectable
               style={styles.nativeAssetBalance}
             >
-              {formatHomeAmount(breakdown?.available ?? line.balance)}
+              {formatAmount(breakdown?.available ?? line.balance)}
             </Text>
           </View>
         </View>
