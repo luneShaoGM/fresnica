@@ -1,5 +1,6 @@
 import React from 'react';
-import { RefreshControl } from 'react-native';
+import { RefreshControl, ScrollView } from 'react-native';
+import { NativeButton } from '@ui/components/NativeButton';
 import { Button } from '@ui/components';
 import { HomeScreen } from '../HomeScreen';
 import { InactiveAccountPanel } from '../components/InactiveAccountPanel';
@@ -68,7 +69,9 @@ jest.mock('@ui/theme', () => {
     useThemedStyles: (factory: (theme: typeof actual.defaultTheme) => unknown) => factory(actual.defaultTheme),
   };
 });
-jest.mock('../../../locale', () => ({ useLocalization: () => ({ t: (key: string) => key }) }));
+jest.mock('../../../locale', () => ({
+  useLocalization: () => ({ t: (key: string) => key, formatDate: (date: Date) => date.toISOString() }),
+}));
 
 const accountA: AccountRecord = {
   id: 'a',
@@ -286,6 +289,7 @@ function homeFrame(current: ReturnType<typeof setup>, revision = 0) {
   const content = panel ? InactiveAccountPanel(panel.props as React.ComponentProps<typeof InactiveAccountPanel>) : null;
   const controls = elements(root).flatMap(node => elements(node.props.refreshControl));
   return {
+    root,
     fundAccount,
     state: mockSlots[0].value,
     buttons: elements(content).filter(node => node.type === Button),
@@ -487,7 +491,16 @@ it('omits Home refresh copy and timestamps while retaining honest cache/failure 
   expect(JSON.stringify(cached)).toContain('balance.cache.stale');
   expect(JSON.stringify(cached)).not.toContain('balance.cache.refreshing');
   expect(JSON.stringify(cached)).not.toContain('balance.cache.updated');
-  expect(JSON.stringify(render({ ...ready, stale: true, refreshFailed: true }))).toContain('balance.cache.failed');
+  const failed = render({ ...ready, stale: true, refreshFailed: true });
+  expect(JSON.stringify(failed)).toContain('balance.cache.failed');
+  expect(JSON.stringify(failed)).toContain('"accessibilityLiveRegion":"polite"');
+  expect(elements(failed).some(node => node.type === NativeButton)).toBe(false);
+  const retry = jest.fn();
+  const detail = BalanceFreshnessNotice({ state: { ...ready, stale: true, refreshFailed: true }, onRefresh: retry });
+  const button = elements(detail).find(node => node.type === NativeButton);
+  expect(button?.props.label).toBe('balance.cache.retry');
+  button?.props.onPress?.();
+  expect(retry).toHaveBeenCalledTimes(1);
 });
 
 it('keeps a no-cache error visible during automatic retry instead of flashing a loader', async () => {
@@ -597,4 +610,24 @@ it('isolates XLM details across account, network and reader changes and ignores 
   current.effects();
   await settle();
   expect(current.render(2, 0, accountA, true, current.reader)).not.toBe(accepted);
+});
+
+it('places Home cached failure feedback outside both scroll regions and clears it after success', async () => {
+  const current = setup();
+  homeFrame(current);
+  current.effects();
+  await settle();
+  current.gateway.loadAccountBalances.mockRejectedValueOnce(new Error('offline'));
+  homeFrame(current, 1);
+  current.effects();
+  await settle();
+  const failed = homeFrame(current, 1);
+  expect(failed.notice).toBeDefined();
+  for (const scroll of elements(failed.root).filter(node => node.type === ScrollView)) {
+    expect(elements(scroll.props.children).some(node => node.type === BalanceFreshnessNotice)).toBe(false);
+  }
+  homeFrame(current, 2);
+  current.effects();
+  await settle();
+  expect(homeFrame(current, 2).notice).toBeUndefined();
 });

@@ -74,3 +74,20 @@ reference above; implementation is independently written in Fresnica.
   revocation and domain update after metadata completion even without an image.
   Native narrow-screen, large-text, dark-theme and screen-reader acceptance
   remains separate from repository tests; no product maturity promotion.
+
+## Refresh failure light feedback — 2026-11-12
+
+S05/S06 presentation maintenance; maturity and Capability ownership unchanged.
+Adapt the user-reported clipped failure feedback using existing Fresnica UI,
+independently written with no donor implementation or new architecture scope.
+
+- With cached balances, show a compact, politely announced text hint below the
+  asset scrolling region, outside the height-limited header and pinned XLM.
+  Text wraps with system font size; no fixed height, overlay or large Retry button.
+- Keep the failure/previous-balances message visible so cached data is never
+  presented as current. Pull-to-refresh remains the retry path. Fresh success
+  removes the hint; other accounts/networks use their own existing display state.
+- No-cache failures retain their full error state and explicit retry action.
+  Detail sheets keep their existing timestamp and Retry presentation.
+- Repository layout/behavior checks are distinct from Android/iOS native visual,
+  large-text and screen-reader acceptance; native acceptance is not claimed.
