@@ -1,6 +1,5 @@
 import { ThemeSettingsScreen } from '@features/settings/ThemeSettingsScreen/ThemeSettingsScreen';
 import { SessionLogsScreen } from '@features/settings/SessionLogsScreen/SessionLogsScreen';
-import { pickImagePalette, cancelImagePalette } from '@platform/system/presentationPreferences';
 import React from 'react';
 import { Linking, Share } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
@@ -107,10 +106,20 @@ export function SettingsStackNavigator({
         )}
       </Stack.Screen>
       <Stack.Screen name="theme-settings">
-        {({ navigation }) => <ThemeSettingsRoute onBack={() => navigation.goBack()} />}
+        {({ navigation }) => (
+          <ThemeSettingsRoute selection={services.themeImageSelection} onBack={() => navigation.goBack()} />
+        )}
       </Stack.Screen>
       <Stack.Screen name="session-logs">
-        {({ navigation }) => services.networkSettings ? <SessionLogsRoute source={services.diagnostics} settings={services.networkSettings} onBack={() => navigation.goBack()} /> : null}
+        {({ navigation }) =>
+          services.networkSettings ? (
+            <SessionLogsRoute
+              source={services.diagnostics}
+              settings={services.networkSettings}
+              onBack={() => navigation.goBack()}
+            />
+          ) : null
+        }
       </Stack.Screen>
       <Stack.Screen name="accounts-settings">
         {({ navigation }) => (
@@ -262,11 +271,13 @@ export function openSupportWebsite(
     .finally(unsubscribe);
 }
 
-function ThemeSettingsRoute({ onBack }: Readonly<{ onBack(): void }>) {
+function ThemeSettingsRoute({ onBack, selection }: Omit<React.ComponentProps<typeof ThemeSettingsScreen>, 'active'>) {
   const active = useIsFocused();
-  return <ThemeSettingsScreen active={active} onBack={onBack} pickPalette={pickImagePalette} cancelPalette={cancelImagePalette} />;
+  return <ThemeSettingsScreen active={active} onBack={onBack} selection={selection} />;
 }
-const shareSessionLogs = async (message: string) => { await Share.share({ message }); };
+const shareSessionLogs = async (message: string) => {
+  await Share.share({ message });
+};
 function SessionLogsRoute(props: Omit<React.ComponentProps<typeof SessionLogsScreen>, 'share' | 'active'>) {
   const active = useIsFocused();
   return <SessionLogsScreen {...props} active={active} share={shareSessionLogs} />;

@@ -39,42 +39,26 @@ beforeEach(() => {
   mockUpdate.mockClear();
   mockCleanup = undefined;
 });
-it('keeps the old theme on picker cancellation and refuses a late picker result after unmount', async () => {
-  const props = {
-    active: true,
-    pickPalette: jest.fn(async () => undefined),
-    cancelPalette: jest.fn(),
-    onBack: jest.fn(),
+it('starts a service-owned picker that survives gate unmount, but cancels on explicit back or blur', async () => {
+  const selection = {
+    getSnapshot: () => ({ busy: false, error: false }),
+    subscribe: jest.fn(),
+    start: jest.fn(async () => {}),
+    cancel: jest.fn(),
+    close: jest.fn(),
   };
-  let root = ThemeSettingsScreen(props);
+  const onBack = jest.fn();
+  const root = ThemeSettingsScreen({ active: true, selection, onBack });
   await find(root, 'preferences.pickImage')?.();
+  expect(selection.start).toHaveBeenCalledTimes(1);
+  mockCleanup?.();
+  expect(selection.cancel).not.toHaveBeenCalled();
+  root.props.onBack();
+  expect(selection.cancel).toHaveBeenCalledTimes(1);
+  expect(onBack).toHaveBeenCalledTimes(1);
+  ThemeSettingsScreen({ active: false, selection, onBack });
+  expect(selection.cancel).toHaveBeenCalledTimes(2);
   expect(mockUpdate).not.toHaveBeenCalled();
-  mockCleanup?.();
-  let finish: (palette: { primary: string; secondary: string }) => void = () => undefined;
-  root = ThemeSettingsScreen({
-    ...props,
-    pickPalette: () =>
-      new Promise(resolve => {
-        finish = resolve;
-      }),
-  });
-  const pending = find(root, 'preferences.pickImage')?.();
-  mockCleanup?.();
-  finish({ primary: '#113355', secondary: '#224466' });
-  await pending;
-  expect(mockUpdate).not.toHaveBeenCalled();
-});
-it('saves validated picker output only for the current screen', async () => {
-  const imagePalette = { primary: '#113355', secondary: '#224466' };
-  const root = ThemeSettingsScreen({
-    active: true,
-    pickPalette: async () => imagePalette,
-    cancelPalette: jest.fn(),
-    onBack: jest.fn(),
-  });
-  await find(root, 'preferences.pickImage')?.();
-  expect(mockUpdate).toHaveBeenCalledWith({ theme: 'image', imagePalette });
-  mockCleanup?.();
 });
 it('exports only an explicit developer-mode session snapshot and gates disabled mode', async () => {
   const share = jest.fn(async () => undefined),

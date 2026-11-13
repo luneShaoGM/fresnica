@@ -8,7 +8,13 @@ import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-c
 
 import { useAppTheme } from '@ui/theme';
 
-import { getDeviceLocale, LocalizationProvider, resolveLocale, type SupportedLocale } from '../locale';
+import {
+  getDeviceLocale,
+  getDeviceNumberLocale,
+  LocalizationProvider,
+  resolveLocale,
+  type SupportedLocale,
+} from '../locale';
 import { createAppServices, type AppServices } from './createAppServices';
 import { startRequestDeepLinkIntake } from './readModels/startRequestDeepLinkIntake';
 import type { LedgerReadRuntimeSnapshot } from './readModels/LedgerReadRuntime';
@@ -53,7 +59,10 @@ export function App() {
     access?.getSnapshot ?? (() => undefined),
   );
   const generalPreferences = runtime.kind === 'ready' ? runtime.services.generalPreferences : undefined;
-  const preferences = useSyncExternalStore(generalPreferences?.subscribe ?? noSubscription, generalPreferences?.getSnapshot ?? (() => DEFAULT_GENERAL_PREFERENCES));
+  const preferences = useSyncExternalStore(
+    generalPreferences?.subscribe ?? noSubscription,
+    generalPreferences?.getSnapshot ?? (() => DEFAULT_GENERAL_PREFERENCES),
+  );
   const [parsedDeepLink, setParsedDeepLink] = useState<RequestDeepLinkParsed>();
   const [resolvedDeepLink, setResolvedDeepLink] = useState<RequestDeepLinkResolved>();
 
@@ -298,7 +307,12 @@ export function App() {
       <PresentationPreferences controller={generalPreferences}>
         <UiNativeProvider locale={locale}>
           <ThemeStatusBar />
-          <LocalizationProvider locale={locale} onChangeLocale={handleChangeLocale} numberLocale={preferences.systemSeparators ? getDeviceLocale() : 'en'} displayPreferences={preferences}>
+          <LocalizationProvider
+            locale={locale}
+            onChangeLocale={handleChangeLocale}
+            numberLocale={preferences.systemSeparators ? getDeviceNumberLocale() : 'en'}
+            displayPreferences={preferences}
+          >
             <OverlayHost>
               <SessionGate runtime={runtime} refresh={refreshBootstrap}>
                 <AppNavigator

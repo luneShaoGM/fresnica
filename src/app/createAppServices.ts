@@ -1,7 +1,15 @@
+import { createThemeImageSelection, type ThemeImageSelection } from '@capabilities/preferences/createThemeImageSelection';
+import { pickImagePalette, cancelImagePalette } from '@platform/system/presentationPreferences';
 import type { XlmQuotePort } from '@capabilities/valuation/xlmQuote';
 import { createCoinGeckoXlmQuotes } from '@platform/valuation/CoinGeckoXlmQuotes';
-import { createGeneralPreferences, type GeneralPreferenceController } from '@capabilities/preferences/generalPreferences';
-import { openGeneralPreferences, RealmGeneralPreferenceStore } from '@platform/persistence/realm/RealmGeneralPreferenceStore';
+import {
+  createGeneralPreferences,
+  type GeneralPreferenceController,
+} from '@capabilities/preferences/generalPreferences';
+import {
+  openGeneralPreferences,
+  RealmGeneralPreferenceStore,
+} from '@platform/persistence/realm/RealmGeneralPreferenceStore';
 import { createSessionAuthentication } from '../platform/system/sessionAuthentication';
 import {
   createApplicationSession,
@@ -110,6 +118,7 @@ export type AccountManagementDependencies = RenameAccountDependencies &
 export type AppServices = Readonly<{
   diagnostics: SessionLogger;
   generalPreferences?: GeneralPreferenceController;
+  themeImageSelection?: ThemeImageSelection;
   xlmQuotes?: XlmQuotePort;
   applicationSession?: ApplicationSession;
   networkProfile: NetworkProfile;
@@ -161,6 +170,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
   let closeReadRecovery = () => {};
   let closePreferences = () => {};
   let closeGeneralPreferences = () => {};
+  let closeThemeImageSelection = () => {};
   let closeXlmQuotes = () => {};
   let stopSettingsLifecycle = () => {};
   let closeDappCatalog = () => {};
@@ -179,6 +189,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     if (retired) return;
     retired = true;
     session.close();
+    closeThemeImageSelection();
     closeApplicationSession();
     closeDappCatalog();
     closeXlmQuotes();
@@ -209,8 +220,14 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
   };
   try {
     const generalRealm = await openGeneralPreferences(realm.path);
-    const generalPreferences = createGeneralPreferences(new RealmGeneralPreferenceStore(generalRealm), session.assertOpen);
-    closeGeneralPreferences = () => { generalPreferences.close(); generalRealm.close(); };
+    const generalPreferences = createGeneralPreferences(
+      new RealmGeneralPreferenceStore(generalRealm),
+      session.assertOpen,
+    );
+    closeGeneralPreferences = () => {
+      generalPreferences.close();
+      generalRealm.close();
+    };
     const nativeModule = loadNativeFresnicaModule(NativeModules);
     const rawSdk = session.bind(new ReactNativeFresnicaSdk(nativeModule), true);
     const storedAccounts = new RealmAccountSignerRepository(realm);
@@ -223,6 +240,15 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       undefined,
       options.networkAccessContinuation,
     );
+    const themeImageSelection = createThemeImageSelection({
+      preferences: generalPreferences,
+      pickPalette: pickImagePalette,
+      cancelPalette: cancelImagePalette,
+      getAccess: applicationSession.getSnapshot,
+      subscribeAccess: applicationSession.subscribe,
+      assertOpen: session.assertOpen,
+    });
+    closeThemeImageSelection = themeImageSelection.close;
     continueApplicationAccess = applicationSession.continueAcrossNetworkChange;
     closeApplicationSession = applicationSession.close;
     // Explicit fixed-network carriers retain their existing helper contract.
@@ -496,6 +522,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       applicationSession: options.fixedNetwork ? undefined : applicationSession,
       diagnostics,
       generalPreferences,
+      themeImageSelection,
       xlmQuotes,
       networkProfile,
       networkSettings,
