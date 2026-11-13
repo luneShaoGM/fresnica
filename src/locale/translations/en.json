@@ -1218,5 +1218,18 @@
   "recovery.new": "New App Passphrase",
   "recovery.confirm": "Confirm new App Passphrase",
   "recovery.changeNote": "Changes protection for every local software signer across all networks. Use at least 15 characters, confirm exactly, and choose a different passphrase. Finish pending backups and unresolved transactions first. Success locks the App; unlock with your new passphrase.",
-  "recovery.changeError": "No stored passphrase was changed. Check your current passphrase, minimum length and confirmation, finish pending work, then enter all fields again."
+  "recovery.changeError": "No stored passphrase was changed. Check your current passphrase, minimum length and confirmation, finish pending work, then enter all fields again.",
+  "security.settings.biometric": "Use biometrics for App unlock",
+  "security.settings.timeout": "Lock after leaving the App",
+  "security.settings.timeout0": "Immediately",
+  "security.settings.timeout30000": "30 seconds",
+  "security.settings.timeout60000": "1 minute",
+  "security.settings.timeout300000": "5 minutes",
+  "security.settings.capture": "Protect screenshots (Android)",
+  "security.settings.captureNote": "Only Developer Mode allows main-screen capture. Dialogs and background previews stay protected.",
+  "security.settings.captureWarning": "Allowing screenshots exposes wallet screens, including recovery material, to capture and recording. Use only on a trusted development device. Changes require Save.",
+  "security.settings.allowCapture": "Allow screenshots",
+  "security.settings.save": "Save security settings",
+  "security.settings.error": "Unable to save. Check your settings and retry; re-enter your passphrase if required. Screenshot protection stays on after a failed change.",
+  "security.settings.biometricNote": "Used only when biometrics are available and enrolled on this device. App Passphrase unlock remains available."
 }

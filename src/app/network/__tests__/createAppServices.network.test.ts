@@ -94,7 +94,7 @@ jest.mock('../../../platform/persistence/realm', () => ({
   })),
   createRealmRecordId: () => 'id',
 }));
-jest.mock('../../../platform/persistence/realm/RealmGeneralPreferenceStore', () => ({ openGeneralPreferences: jest.fn(async () => ({ close: jest.fn() })), RealmGeneralPreferenceStore: jest.fn(() => ({ load: () => undefined, save: jest.fn() })) }));
+jest.mock('../../../platform/persistence/realm/RealmGeneralPreferenceStore', () => ({ openGeneralPreferences: jest.fn(async () => ({ close: jest.fn() })), RealmGeneralPreferenceStore: jest.fn(() => ({ load: () => undefined, save: jest.fn() })), RealmSecurityPreferenceStore: jest.fn(() => ({ load: () => undefined, save: jest.fn() })) }));
 jest.mock('../../../platform/persistence/realm/RealmNetworkPreferenceStore', () => ({
   openNetworkPreferences: jest.fn(async () => mockPreferenceRealm),
   RealmNetworkPreferenceStore: jest.fn(() => ({ load: () => mockPreferences, save: mockSave })),

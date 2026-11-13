@@ -22,6 +22,11 @@ class MainActivity : ReactActivity() {
     window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
   }
 
+  override fun onPause() {
+    window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    super.onPause()
+  }
+
   /**
    * Returns the instance of the [ReactActivityDelegate]. We use [DefaultReactActivityDelegate]
    * which allows you to enable New Architecture with a single boolean flags [fabricEnabled]
