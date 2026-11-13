@@ -20,6 +20,7 @@ jest.mock('../OverlayHost', () => ({ OverlayHost: () => null }));
 jest.mock('../readModels/startLedgerReadLifecycle', () => ({ startLedgerReadLifecycle: () => () => {} }));
 jest.mock('../../locale', () => ({
   getDeviceLocale: () => 'en',
+  getDeviceNumberLocale: () => 'de-CH',
   resolveLocale: () => 'en',
   LocalizationProvider: () => null,
 }));
@@ -76,6 +77,7 @@ const { App } = require('../App') as typeof import('../App');
 async function settle() {
   for (let i = 0; i < 20; i++) await Promise.resolve();
 }
+let numberLocale: unknown;
 async function render() {
   stateIndex = refIndex = effectIndex = memoIndex = 0;
   const tree = App();
@@ -88,6 +90,7 @@ async function render() {
   let props: Record<string, unknown> = {};
   function visit(node: React.ReactNode) {
     if (!React.isValidElement<Record<string, unknown>>(node)) return;
+    if (node.type === require('../../locale').LocalizationProvider) numberLocale = node.props.numberLocale;
     if (node.type === AppNavigator) props = { ...node.props, navigatorKey: node.key };
     React.Children.forEach(node.props.children as React.ReactNode, visit);
   }
@@ -113,6 +116,7 @@ const unsubscribe = jest.fn();
 beforeEach(() => {
   states.length = refs.length = effects.length = memos.length = 0;
   jest.clearAllMocks();
+  jest.spyOn(AppState, 'addEventListener').mockReturnValue({ remove: jest.fn() });
   runtime = createLedgerReadRuntime();
   services = {
     ledgerReadRuntime: runtime,
@@ -287,3 +291,18 @@ it.each([false, true])(
     }
   },
 );
+
+it('wires the full device region into number formatting only while system separators are enabled', async () => {
+  const { createGeneralPreferences } = require('@capabilities/preferences/generalPreferences');
+  const preferences = createGeneralPreferences({ load: () => undefined, save: jest.fn() });
+  services = { ...services, generalPreferences: preferences };
+  jest.mocked(createAppServices).mockResolvedValue(services);
+  await flush();
+  expect(numberLocale).toBe('de-CH');
+  preferences.update({ systemSeparators: false });
+  await flush();
+  expect(numberLocale).toBe('en');
+  preferences.update({ systemSeparators: true });
+  await flush();
+  expect(numberLocale).toBe('de-CH');
+});

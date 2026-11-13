@@ -13,7 +13,10 @@ export function AdvancedSettingsScreen({
   onBack,
   onOpenNetwork,
   onOpenAbout,
-}: Readonly<{ settings?: NetworkSettings; onBack: () => void; onOpenNetwork: () => void; onOpenAbout: () => void }>) {
+  onOpenLogs,
+  appVersion,
+  sessionId,
+}: Readonly<{ settings?: NetworkSettings; onBack: () => void; onOpenNetwork: () => void; onOpenAbout: () => void; onOpenLogs?: () => void; appVersion?: string; sessionId?: string }>) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   return (
@@ -26,30 +29,31 @@ export function AdvancedSettingsScreen({
         <Text style={styles.label}>{t('settings.releaseInformation')}</Text>
       </View>
       <ListRow title={t('settings.about')} onPress={onOpenAbout} />
-      {['version', 'changeLog'].map(key => (
+      <ListRow title={t('settings.version')} subtitle={appVersion ?? t('settings.unavailable')} />
+      {['changeLog'].map(key => (
         <ListRow key={key} title={t('settings.' + key)} subtitle={t('settings.unavailable')} />
       ))}
       <View style={styles.section}>
         <Text style={styles.label}>{t('settings.debug')}</Text>
       </View>
-      <ListRow title={t('settings.deviceId')} subtitle={t('settings.unavailable')} />
+      <ListRow title={t('preferences.sessionId')} subtitle={sessionId ?? t('settings.unavailable')} />
       {settings ? (
-        <DeveloperSection settings={settings} />
+        <DeveloperSection settings={settings} onOpenLogs={onOpenLogs} />
       ) : (
         <ListRow title={t('settings.developerMode')} subtitle={t('settings.controlsUnavailable')} />
       )}
-      <ListRow title={t('settings.sessionLogs')} subtitle={t('settings.unavailable')} />
+
     </SettingsSubpage>
   );
 }
-function DeveloperSection({ settings }: Readonly<{ settings: NetworkSettings }>) {
+function DeveloperSection({ settings, onOpenLogs }: Readonly<{ settings: NetworkSettings; onOpenLogs?: () => void; appVersion?: string; sessionId?: string }>) {
   const { t } = useLocalization();
   const snapshot = useSyncExternalStore(settings.subscribe, settings.getSnapshot);
   return (
     <>
       <NetworkManagement settings={settings} section="developer-mode" />
       {snapshot.preferences.developerMode ? (
-        <ListRow title={t('settings.developerTools')} subtitle={t('settings.unavailable')} />
+        <ListRow title={t('settings.sessionLogs')} onPress={onOpenLogs} />
       ) : null}
     </>
   );

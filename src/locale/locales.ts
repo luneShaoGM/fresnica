@@ -111,6 +111,16 @@ export function getDeviceLocale(): SupportedLocale {
   }
 }
 
+// Number formatting keeps the device region independently of supported UI translations.
+export function getDeviceNumberLocale(): string {
+  try {
+    const raw = Intl.NumberFormat().resolvedOptions().locale;
+    return Intl.getCanonicalLocales(raw)[0] ?? 'en';
+  } catch {
+    return 'en';
+  }
+}
+
 function normalizeLocale(locale: string): string {
   return locale.trim().replace(/_/g, '-').toLowerCase();
 }

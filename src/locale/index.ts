@@ -7,6 +7,7 @@ export {
 } from './localization';
 export {
   getDeviceLocale,
+  getDeviceNumberLocale,
   LOCALE_DESCRIPTORS,
   resolveLocale,
   type LocaleDescriptor,
