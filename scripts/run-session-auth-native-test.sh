@@ -24,6 +24,6 @@ mkdir -p test-results
 "$FRESNICA_AUTH_ADB" -s "$FRESNICA_AUTH_DEVICE" install -r -t android/app/build/outputs/apk/debug/app-debug.apk
 "$FRESNICA_AUTH_ADB" -s "$FRESNICA_AUTH_DEVICE" install -r -t android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 "$FRESNICA_AUTH_ADB" -s "$FRESNICA_AUTH_DEVICE" shell am instrument -w -r \
-  com.fresnica.wallet.sessionauthtest.test/com.fresnica.wallet.SessionAuthenticationNativeTest \
+  com.fresnica.wallet.test.sessionauthtest.test/com.fresnica.wallet.SessionAuthenticationNativeTest \
   | tee test-results/session-auth-native.log
 grep -q 'INSTRUMENTATION_RESULT: success=true' test-results/session-auth-native.log

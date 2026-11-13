@@ -85,7 +85,7 @@ acceptance is still required. No L4 or public-release approval is implied.
 
 Run `bash scripts/run-session-auth-native-test.sh` with Java 17, the Android SDK
 and an arm64 Android emulator (`FRESNICA_ANDROID_DEVICE` defaults to emulator-5554).
-The script builds an isolated `com.fresnica.wallet.sessionauthtest` debug carrier;
+The script builds an isolated `com.fresnica.wallet.test.sessionauthtest` debug carrier;
 the production application ID and default instrumentation runner are unchanged.
 The empty, non-exported debug-only FragmentActivity never opens wallet UI.
 

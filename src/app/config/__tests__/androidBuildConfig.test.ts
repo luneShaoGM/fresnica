@@ -36,15 +36,29 @@ describe('Android native compatibility', () => {
     expect(source).toContain('debug signing fallback is forbidden');
   });
 
-  it('keeps the production identity and isolates the signed test release', () => {
+  it('pins the requested Android install identity and keeps native class names stable', () => {
     const source = readAndroidAppBuildGradle();
-    expect(source).toContain('applicationId "com.fresnica.wallet"');
-    expect(source).toContain('manifestPlaceholders += [appLabel: "@string/app_name"]');
-    expect(source).toMatch(/betaRelease\s*\{\s*initWith release/);
-    expect(source).toContain('applicationIdSuffix ".test"');
-    expect(source).toContain('manifestPlaceholders.appLabel = "Fresnica Test"');
-    expect(source).toContain("matchingFallbacks = ['release']");
+    expect(source).toContain('namespace "com.fresnica.wallet"');
+    expect(source).toContain('applicationId "com.fresnica.wallet.test"');
+    expect(source).not.toContain('applicationIdSuffix ".test"');
+    expect(source).not.toMatch(/\bbetaRelease\s*\{/);
     const manifest = readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8');
-    expect((manifest.match(/android:label="\$\{appLabel\}"/g) ?? []).length).toBe(2);
+    expect((manifest.match(/android:label="@string\/app_name"/g) ?? []).length).toBe(2);
+  });
+
+  it('keeps Android smoke and instrumentation launchers aligned to the new install ID', () => {
+    for (const path of [
+      'scripts/run-native-runtime-smoke.sh',
+      'scripts/run-product-flow-smoke.sh',
+      'scripts/run-transaction-recovery-smoke.sh',
+    ]) {
+      expect(readFileSync(path, 'utf8')).toContain('BUNDLE_ID="com.fresnica.wallet.test"');
+    }
+    expect(readFileSync('scripts/run-dapp-browser-native-tests.sh', 'utf8')).toContain(
+      'com.fresnica.wallet.test.test/com.fresnica.wallet.DappBrowserNetworkTest',
+    );
+    expect(readFileSync('scripts/run-session-auth-native-test.sh', 'utf8')).toContain(
+      'com.fresnica.wallet.test.sessionauthtest.test/com.fresnica.wallet.SessionAuthenticationNativeTest',
+    );
   });
 });

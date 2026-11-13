@@ -1061,7 +1061,7 @@ Hardware Signer 候选验证矩阵（不是当前支持声明）：
 - Endpoint allowlist/guard。
 - 依赖与原生产物 hash 验证。
 - SBOM 与 artifact provenance。
-- Android namespace/Application ID 目标为 `com.fresnica.wallet`；2026-11-11 候选切片迁移 native packages、instrumentation 与 Android smoke launchers，并按用户授权复用 Stellar 生产签名材料，见 `docs/android-release.md`。商店记录、CI secrets 与发布验收仍独立待完成。
+- Android namespace 保留 `com.fresnica.wallet`；Application ID 按 2026-11-13 用户决定改为 `com.fresnica.wallet.test`；2026-11-11 候选切片迁移 native packages、instrumentation 与 Android smoke launchers，并按用户授权复用 Stellar 生产签名材料，见 `docs/android-release.md`。商店记录、CI secrets 与发布验收仍独立待完成。
 - 冻结最终 iOS Bundle ID、Apple Team、entitlements、Associated Domains、APNs、provisioning profile、CI secrets 与 App Store Connect 记录；不得沿用 Stellar 的 `com.xrpllabs.xumm` 遗留值。
 - 本产品不迁移旧 Stellar/Xaman 数据；仍必须实现 legacy-data detection 和受控 fresh-start UX。同 Application ID 覆盖安装时不得读取旧授权或静默 wipe，用户确认恢复材料前不得删除可能仍需恢复的钱包数据。
 - Realm schema migration、当前 Fresnica 版本间的升级/回滚与故障 UX；“不迁移 Stellar”不等于以后无需 Fresnica schema migration。
@@ -1164,7 +1164,7 @@ npm run test:realm
 - SDEX、Claimable、Friendbot、Address Book、Developer Mode、LP、General、Advanced、Security、About、Terms、主题和多语言切换全部属于完整计划范围。
 - 自定义图片提取并生成 AppTheme 是完整主题功能的完成门，不要求在基础交易闭环之前完成最终视觉。
 - Ledger Nano X/Flex/Stax + BLE + iOS/Android 是候选矩阵；只有逐组合实测通过的项才进入某个 release 的支持声明。
-- Android 最终 Application ID 是 `com.fresnica.wallet`；iOS 最终 Bundle ID 待产品/Apple Developer 配置确认。旧数据不迁移，但覆盖安装必须使用受控 fresh-start UX。
+- Android 当前发布 Application ID 按 2026-11-13 用户决定为 `com.fresnica.wallet.test`（原生 namespace 保持 `com.fresnica.wallet`）；iOS 最终 Bundle ID 待产品/Apple Developer 配置确认。旧数据不迁移，但覆盖安装必须使用受控 fresh-start UX。
 
 ### Push Notification 当前可交付边界
 

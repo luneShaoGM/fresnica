@@ -27,7 +27,7 @@ SMOKE_PORT="${FRESNICA_SMOKE_PORT:-8765}"
 METRO_PORT="${FRESNICA_METRO_PORT:-8081}"
 BUNDLE_ID="com.fresnica.mobile"
 if [[ "$PLATFORM" == "android" ]]; then
-  BUNDLE_ID="com.fresnica.wallet"
+  BUNDLE_ID="com.fresnica.wallet.test"
 fi
 TIMEOUT_MS="${FRESNICA_SMOKE_TIMEOUT_MS:-120000}"
 
