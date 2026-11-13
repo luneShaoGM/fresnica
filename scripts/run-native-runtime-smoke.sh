@@ -27,7 +27,7 @@ SMOKE_PORT="${FRESNICA_SMOKE_PORT:-8765}"
 METRO_PORT="${FRESNICA_METRO_PORT:-8081}"
 BUNDLE_ID="com.fresnica.mobile"
 if [[ "$PLATFORM" == "android" ]]; then
-  BUNDLE_ID="com.fresnica.wallet"
+  BUNDLE_ID="com.fresnica.wallet.test"
 fi
 TIMEOUT_MS="${FRESNICA_SMOKE_TIMEOUT_MS:-120000}"
 
@@ -128,7 +128,7 @@ launch_android() {
     adb install -r "$ROOT/android/app/build/outputs/apk/debug/app-debug.apk"
   fi
   adb shell am force-stop "$BUNDLE_ID"
-  adb shell am start -W -n "$BUNDLE_ID/.MainActivity" >/dev/null
+  adb shell am start -W -n "$BUNDLE_ID/com.fresnica.wallet.MainActivity" >/dev/null
 }
 
 launch_ios() {

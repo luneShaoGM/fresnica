@@ -57,7 +57,7 @@ android {
 
     namespace "com.fresnica.wallet"
     defaultConfig {
-        applicationId "com.fresnica.wallet"
+        applicationId "com.fresnica.wallet.test"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

@@ -1,15 +1,25 @@
 # Android release identity and local signing
 
-Stage 9 release-engineering slice. Android namespace and Application ID are
-`com.fresnica.wallet`; iOS remains `com.fresnica.mobile`. Native source packages,
-instrumentation runner and Android smoke launchers use the Android identity.
-Manifest provider authorities use `${applicationId}` or library manifest placeholders.
-The existing `web+stellar` SEP-7 scheme remains the protocol scheme.
+Stage 9 release-engineering slice. Per the owner's 2026-11-13 decision,
+the Android Application ID is `com.fresnica.wallet.test` for both Debug
+and Release. The Java/Kotlin namespace and instrumentation class names remain
+`com.fresnica.wallet`, and iOS remains `com.fresnica.mobile`. The Android
+smoke scripts target the new install ID. Manifest provider authorities use
+`${applicationId}` or library placeholders. The
+`web+stellar` SEP-7 scheme remains unchanged.
 
-This identity is a separate Android installation from `com.fresnica.mobile`.
-There is no automatic transfer of accounts, signers or Realm data. Preserve the
-old installation and verified recovery materials; do not clear or uninstall it
-as part of installing the new package.
+This is a different Android installation from the earlier
+`com.fresnica.wallet` and `com.fresnica.mobile` packages. No account,
+signer, permission or Realm data migrates automatically. Preserve prior
+installations and verified recovery materials; never uninstall, reset or
+overwrite an existing wallet as part of this identity change.
+
+The former `betaRelease` variant was removed because the standard
+`release` build now already uses the requested test package ID.
+Debug and Release cannot coexist under this same ID; Android also blocks
+updates signed with a different certificate. Distribute the release-signed
+artifact, and never remove existing wallet data merely to resolve a signing
+mismatch.
 
 ## Signing
 

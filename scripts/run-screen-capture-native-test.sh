@@ -24,6 +24,6 @@ mkdir -p test-results
 "$FRESNICA_CAPTURE_ADB" -s "$FRESNICA_CAPTURE_DEVICE" install -r -t android/app/build/outputs/apk/debug/app-debug.apk
 "$FRESNICA_CAPTURE_ADB" -s "$FRESNICA_CAPTURE_DEVICE" install -r -t android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 "$FRESNICA_CAPTURE_ADB" -s "$FRESNICA_CAPTURE_DEVICE" shell am instrument -w -r \
-  com.fresnica.wallet.capturetest.test/com.fresnica.wallet.ScreenCaptureProtectionNativeTest \
+  com.fresnica.wallet.test.capturetest.test/com.fresnica.wallet.ScreenCaptureProtectionNativeTest \
   | tee test-results/screen-capture-native.log
 grep -q 'INSTRUMENTATION_RESULT: success=true' test-results/screen-capture-native.log

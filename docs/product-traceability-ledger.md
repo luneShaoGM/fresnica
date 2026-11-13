@@ -52,7 +52,7 @@ This map assigns construction order without reducing final scope. An ID is compl
 | Stage 7 | S14–S21 | Catalog, browser, origin policy, permissions, Freighter request matrix, SEP-53/Soroban and controlled system bridges are clean-room, revocable, auditable and routed through standard review/sign/submit. |
 | Stage 8 | S03, S06, S11–S13, S22–S28 | Remaining asset, claimable, LP, contact, diagnostics, support, platform and external-signer behavior reaches the relevant §7/§9 contract. Hardware support is limited to combinations proven on actual devices. |
 | Stage 8B | Backend-dependent portions of S14, S17, S24 and S27 | Versioned backend contracts and threat models exist; unavailable/not-configured/degraded states are honest and do not block unrelated local-wallet capability. |
-| Stage 9 | S04, S24, S27, S29 and all release-critical IDs | Android identity is `com.fresnica.wallet`; the new iOS Bundle ID is frozen; legacy data is never silently adopted or erased; release signing, SBOM/provenance and critical native E2E matrix pass. |
+| Stage 9 | S04, S24, S27, S29 and all release-critical IDs | Android Application ID is `com.fresnica.wallet.test` (2026-11-13 owner decision; native namespace `com.fresnica.wallet`); the new iOS Bundle ID is frozen; legacy data is never silently adopted or erased; release signing, SBOM/provenance and critical native E2E matrix pass. |
 
 ## Stage 2.5 recovery evidence
 
