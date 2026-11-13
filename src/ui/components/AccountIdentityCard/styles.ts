@@ -19,7 +19,7 @@ export function createStyles(theme: AppTheme) {
     },
     pressed: { backgroundColor: theme.colors.surfaceMuted },
     compactIdentity: { minWidth: 0 },
-    identity: { flex: 1, gap: theme.spacing.xs },
+    identity: { flex: 1, minWidth: 0, gap: theme.spacing.xs },
     label: { ...theme.typography.caption, color: theme.colors.textSecondary },
     name: { ...theme.typography.label, color: theme.colors.textPrimary },
     address: { ...theme.typography.caption, color: theme.colors.textSecondary },

@@ -12,6 +12,7 @@ import type { BalanceProductDependencies } from '../../../capabilities/balance/B
 import type { FriendbotDependencies } from '../../../capabilities/network/fundTestnetAccountWithFriendbot';
 import { HomeScreen } from '../HomeScreen';
 import { AssetList, PinnedNativeAssetRow } from '../components/AssetList';
+import { BalanceFreshnessNotice } from '../components/BalanceFreshnessNotice';
 import { Pressable, ScrollView, View } from 'react-native';
 import { AppBrandMark } from '@ui/components/AppBrandMark';
 import { InactiveAccountPanel } from '../components/InactiveAccountPanel';
@@ -282,7 +283,11 @@ describe('Home native balance-state presentation', () => {
     const layout = screenChildren[0];
     expect(layout.type).toBe(View);
     const regions = React.Children.toArray(layout.props.children) as React.ReactElement<NodeProps>[];
-    expect(regions.map(region => region.type)).toEqual([ScrollView, View, ScrollView]);
+    expect(regions.map(region => region.type)).toEqual([ScrollView, View, ScrollView, BalanceFreshnessNotice]);
+    expect(regions[3].props).toMatchObject({ showRefreshStatus: false });
+    for (const region of regions.slice(0, 3)) {
+      expect(findElement(region, element => element.type === BalanceFreshnessNotice)).toBeUndefined();
+    }
     expect(findElement(regions[0], element => element.type === PinnedNativeAssetRow)).toBeUndefined();
     expect(findElement(regions[1], element => element.type === PinnedNativeAssetRow)?.props.line).toMatchObject({
       asset: { kind: 'native', code: 'XLM' },
@@ -314,7 +319,11 @@ describe('Home native balance-state presentation', () => {
     }).root;
     const tokenLayout = React.Children.toArray(tokens.props.children)[0] as React.ReactElement<NodeProps>;
     const tokenRegions = React.Children.toArray(tokenLayout.props.children) as React.ReactElement<NodeProps>[];
-    expect(tokenRegions.map(region => region.type)).toEqual([ScrollView, View, ScrollView]);
+    expect(tokenRegions.map(region => region.type)).toEqual([ScrollView, View, ScrollView, BalanceFreshnessNotice]);
+    expect(tokenRegions[3].props).toMatchObject({ state, showRefreshStatus: false });
+    for (const region of tokenRegions.slice(0, 3)) {
+      expect(findElement(region, node => node.type === BalanceFreshnessNotice)).toBeUndefined();
+    }
     expect(findElement(tokenRegions[0], node => node.type === AppBrandMark)).toBeDefined();
     expect(findElement(tokenRegions[1], node => node.type === PinnedNativeAssetRow)).toBeDefined();
     expect(findElement(tokenRegions[2], node => node.type === AssetList)?.props.hiddenLiquidityPoolShareCount).toBe(2);
@@ -332,6 +341,7 @@ describe('Home native balance-state presentation', () => {
     const claimableLayout = React.Children.toArray(claimable.props.children)[0] as React.ReactElement<NodeProps>;
     const claimableRegions = React.Children.toArray(claimableLayout.props.children) as React.ReactElement<NodeProps>[];
     expect(claimableRegions.map(region => region.type)).toEqual([ScrollView, ScrollView]);
+    expect(findElement(claimableLayout, node => node.type === BalanceFreshnessNotice)).toBeUndefined();
     expect(findElement(claimableRegions[0], node => node.type === AppBrandMark)).toBeDefined();
     expect(findElement(claimableRegions[1], node => node.type === AssetList)).toBeUndefined();
     expect(findElement(claimableRegions[1], node => node.type === PinnedNativeAssetRow)).toBeUndefined();

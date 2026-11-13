@@ -12,3 +12,9 @@ RCT_EXTERN_METHOD(pickQr:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(readState:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 RCT_EXTERN_METHOD(reveal:(double)expectedGeneration resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 @end
+
+@interface RCT_EXTERN_MODULE(PresentationPreferences, NSObject)
+RCT_EXTERN_METHOD(pickPalette:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(cancelPalette)
+RCT_EXTERN_METHOD(impact)
+@end

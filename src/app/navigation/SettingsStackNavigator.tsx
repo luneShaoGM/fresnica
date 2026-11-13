@@ -1,5 +1,10 @@
-import React from 'react';
-import { Linking } from 'react-native';
+import { ThemeSettingsScreen } from '@features/settings/ThemeSettingsScreen/ThemeSettingsScreen';
+import { SessionLogsScreen } from '@features/settings/SessionLogsScreen/SessionLogsScreen';
+import { Linking, Share } from 'react-native';
+import { RecoveryMaterialScreen } from '@features/security/RecoveryManagement/RecoveryMaterialScreen';
+import { ChangePassphraseScreen } from '@features/security/RecoveryManagement/ChangePassphraseScreen';
+import { createSensitiveClipboard } from '@platform/system/sensitiveClipboard';
+import React, { useMemo } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
@@ -82,21 +87,42 @@ export function SettingsStackNavigator({
       </Stack.Screen>
       <Stack.Screen name="general-settings">
         {({ navigation }) => (
-          <GeneralSettingsScreen
+          <GeneralSettingsRoute
+            quotes={services.xlmQuotes}
             onBack={() => navigation.goBack()}
             onOpenLanguage={() => navigation.navigate('language-settings')}
+            onOpenTheme={() => navigation.navigate('theme-settings')}
           />
         )}
       </Stack.Screen>
       <Stack.Screen name="advanced-settings">
         {({ navigation }) => (
           <AdvancedSettingsScreen
+            appVersion={APP_CONFIG.appVersion}
+            sessionId={services.diagnostics.sessionId}
             settings={services.networkSettings}
             onBack={() => navigation.goBack()}
             onOpenNetwork={() => navigation.navigate('network-settings')}
             onOpenAbout={() => navigation.navigate('about')}
+            onOpenLogs={() => navigation.navigate('session-logs')}
           />
         )}
+      </Stack.Screen>
+      <Stack.Screen name="theme-settings" listeners={{ beforeRemove: () => services.themeImageSelection?.cancel() }}>
+        {({ navigation }) => (
+          <ThemeSettingsRoute selection={services.themeImageSelection} onBack={() => navigation.goBack()} />
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="session-logs">
+        {({ navigation }) =>
+          services.networkSettings ? (
+            <SessionLogsRoute
+              source={services.diagnostics}
+              settings={services.networkSettings}
+              onBack={() => navigation.goBack()}
+            />
+          ) : null
+        }
       </Stack.Screen>
       <Stack.Screen name="accounts-settings">
         {({ navigation }) => (
@@ -121,6 +147,7 @@ export function SettingsStackNavigator({
               account={account}
               copyPublicText={services.copyPublicText}
               canHide={account.hidden || visibleAccountCount > 1}
+              onOpenRecovery={services.recoveryManagement ? () => navigation.navigate('recovery-material', { accountId: account.id }) : undefined}
               onBack={() => navigation.goBack()}
               onRename={label => {
                 renameAccount(services.accountManagement, account.id, label);
@@ -159,7 +186,13 @@ export function SettingsStackNavigator({
         )}
       </Stack.Screen>
       <Stack.Screen name="security-settings">
-        {({ navigation }) => <SecuritySettingsScreen onClose={() => navigation.goBack()} />}
+        {({ navigation }) => <SecuritySettingsScreen onClose={() => navigation.goBack()} accounts={accounts} onChangePassphrase={services.recoveryManagement ? () => navigation.navigate('change-passphrase') : undefined} onOpenRecovery={services.recoveryManagement ? accountId => navigation.navigate('recovery-material', { accountId }) : undefined} />}
+      </Stack.Screen>
+      <Stack.Screen name="recovery-material">
+        {({ navigation, route }) => services.recoveryManagement ? <RecoveryMaterialRoute dependencies={services.recoveryManagement} accountId={route.params.accountId} onBack={() => navigation.goBack()} /> : null}
+      </Stack.Screen>
+      <Stack.Screen name="change-passphrase">
+        {({ navigation }) => services.recoveryManagement ? <ChangePassphraseRoute dependencies={services.recoveryManagement} onBack={() => navigation.goBack()} onChanged={() => { navigation.popToTop(); services.applicationSession?.lock(); onAccountsChanged(); }} /> : null}
       </Stack.Screen>
       <Stack.Screen name="privacy-settings">
         {({ navigation }) => (
@@ -248,4 +281,31 @@ export function openSupportWebsite(
       }
     })
     .finally(unsubscribe);
+}
+
+function ThemeSettingsRoute({ onBack, selection }: Omit<React.ComponentProps<typeof ThemeSettingsScreen>, 'active'>) {
+  const active = useIsFocused();
+  return <ThemeSettingsScreen active={active} onBack={onBack} selection={selection} />;
+}
+const shareSessionLogs = async (message: string) => {
+  await Share.share({ message });
+};
+function SessionLogsRoute(props: Omit<React.ComponentProps<typeof SessionLogsScreen>, 'share' | 'active'>) {
+  const active = useIsFocused();
+  return <SessionLogsScreen {...props} active={active} share={shareSessionLogs} />;
+}
+
+function GeneralSettingsRoute(props: Omit<React.ComponentProps<typeof GeneralSettingsScreen>, 'active'>) {
+  const active = useIsFocused();
+  return <GeneralSettingsScreen {...props} active={active} />;
+}
+
+function RecoveryMaterialRoute(props: Omit<React.ComponentProps<typeof RecoveryMaterialScreen>, 'active' | 'clipboard'>) {
+  const active = useIsFocused();
+  const clipboard = useMemo(() => createSensitiveClipboard(), []);
+  return <RecoveryMaterialScreen {...props} active={active} clipboard={clipboard} />;
+}
+function ChangePassphraseRoute(props: Omit<React.ComponentProps<typeof ChangePassphraseScreen>, 'active'>) {
+  const active = useIsFocused();
+  return <ChangePassphraseScreen {...props} active={active} />;
 }

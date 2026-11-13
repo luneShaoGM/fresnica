@@ -165,3 +165,22 @@ describe('Home asset identity and exact amount presentation', () => {
     expect(nativeAmount?.props).toMatchObject({ numberOfLines: undefined, selectable: true });
   });
 });
+
+it('hides only the reserve panel while preserving the available amount and exact asset action', () => {
+  const onOpenAsset = jest.fn();
+  const breakdown = { available: '10.0000000', reserved: '2.0000000' } as Parameters<typeof PinnedNativeAssetRow>[0]['breakdown'];
+  const visible = PinnedNativeAssetRow({ line: native, breakdown, onOpenAsset, t: key => key, showReserve: true });
+  const hidden = PinnedNativeAssetRow({ line: native, breakdown, onOpenAsset, t: key => key, showReserve: false });
+  expect(texts(visible)).toContain('home.asset.reserved');
+  expect(texts(hidden)).not.toContain('home.asset.reserved');
+  expect(texts(hidden)).toContain('10');
+  const button = elements(hidden, Pressable)[0] as React.ReactElement<{ onPress(): void }>;
+  button.props.onPress(); expect(onOpenAsset).toHaveBeenCalledWith(native.asset);
+});
+
+it('applies the selected display formatter to pinned XLM without changing the value passed to it', () => {
+  const formatAmount = jest.fn((value: string) => `formatted:${value}`);
+  const root = PinnedNativeAssetRow({ line: native, onOpenAsset: jest.fn(), t: key => key, formatAmount });
+  expect(formatAmount).toHaveBeenCalledWith('12.0000000');
+  expect(texts(root)).toContain('formatted:12.0000000');
+});

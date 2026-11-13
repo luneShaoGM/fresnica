@@ -7,7 +7,7 @@ import com.facebook.react.uimanager.ViewManager
 
 class RequestPhotoQrPackage : ReactPackage {
   override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> =
-      listOf(RequestPhotoQrModule(reactContext))
+      listOf(RequestPhotoQrModule(reactContext), PresentationPreferencesModule(reactContext))
 
   override fun createViewManagers(
       reactContext: ReactApplicationContext

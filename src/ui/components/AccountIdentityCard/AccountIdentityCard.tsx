@@ -12,6 +12,7 @@ export function AccountIdentityCard({
   presentation = 'card',
   secondary,
   avatar,
+  trailing,
   memoText,
   onPress,
 }: Readonly<{
@@ -21,6 +22,7 @@ export function AccountIdentityCard({
   presentation?: 'card' | 'compact' | 'selectable';
   secondary?: string;
   avatar?: React.ReactNode;
+  trailing?: React.ReactNode;
   memoText?: string;
   onPress?: () => void;
 }>) {
@@ -89,6 +91,7 @@ export function AccountIdentityCard({
           {formatPublicAddress(address)}
         </Text>
       </View>
+      {trailing}
     </View>
   );
 }

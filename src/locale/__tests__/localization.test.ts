@@ -127,3 +127,8 @@ describe('localization', () => {
     expect(locales.find(locale => locale.code === 'fr')?.translated).toBe(false);
   });
 });
+
+it('can choose device number separators independently of UI language without floating-point loss', () => {
+  expect(createLocalization('en', 'de').formatNumber('9007199254740993.1234567', 7)).toBe('9.007.199.254.740.993,1234567');
+  expect(createLocalization('de', 'en').formatNumber('1234.5000000', 7)).toBe('1,234.5');
+});

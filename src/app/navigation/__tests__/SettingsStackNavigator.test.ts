@@ -1,8 +1,8 @@
 import React from 'react';
+import { defaultTheme } from '@ui/theme';
 import type { AppServices } from '../../createAppServices';
 import { SettingsStackNavigator } from '../SettingsStackNavigator';
 import { SettingsHomeScreen } from '@features/settings/SettingsHomeScreen';
-import { GeneralSettingsScreen } from '@features/settings/GeneralSettingsScreen';
 import { PrivacySettingsScreen } from '@features/settings/PrivacySettingsScreen';
 import { AdvancedSettingsScreen } from '@features/settings/AdvancedSettingsScreen';
 import { NetworkSettingsScreen } from '@features/settings/NetworkSettingsScreen';
@@ -42,6 +42,7 @@ type ScreenProps = {
 it('wires Settings→General→Language and Settings→Advanced→Network with the live session and back history', () => {
   const navigation = { navigate: jest.fn(), goBack: jest.fn() };
   const services = {
+    diagnostics: { sessionId: 'test-session' },
     networkSettings: {},
     nodeReadSession: {},
     contacts: { network: { id: 'stellar-mainnet' } },
@@ -83,7 +84,7 @@ it('wires Settings→General→Language and Settings→Advanced→Network with t
   home.props.onOpenGeneral?.();
   expect(navigation.navigate).toHaveBeenLastCalledWith('general-settings');
   const general = screen('general-settings');
-  expect(general.type).toBe(GeneralSettingsScreen);
+  expect(general.type).toEqual(expect.any(Function));
   general.props.onOpenLanguage?.();
   expect(navigation.navigate).toHaveBeenLastCalledWith('language-settings');
   general.props.onBack?.();
@@ -105,3 +106,68 @@ it('wires Settings→General→Language and Settings→Advanced→Network with t
   network.props.onBack?.();
   expect(navigation.goBack).toHaveBeenCalledTimes(2);
 });
+
+it.each(['native-back', 'background-gate'] as const)(
+  'handles pending selection on %s without relying on blur',
+  async removal => {
+    const { createThemeImageSelection } =
+      require('@capabilities/preferences/createThemeImageSelection') as typeof import('@capabilities/preferences/createThemeImageSelection');
+    const { createGeneralPreferences } =
+      require('@capabilities/preferences/generalPreferences') as typeof import('@capabilities/preferences/generalPreferences');
+    const save = jest.fn(),
+      cancelPalette = jest.fn();
+    const preferences = createGeneralPreferences({ load: () => undefined, save });
+    let foreground = true;
+    let accessChanged = () => {};
+    let finish!: (palette: { primary: string; secondary: string }) => void;
+    const selection = createThemeImageSelection({
+      preferences,
+      pickPalette: () =>
+        new Promise(resolve => {
+          finish = resolve;
+        }),
+      cancelPalette,
+      getAccess: () => ({ foreground, locked: false }),
+      subscribeAccess: listener => {
+        accessChanged = listener;
+        return () => {};
+      },
+      assertOpen: () => {},
+    });
+    const root = SettingsStackNavigator({
+      accounts: [],
+      services: { diagnostics: { sessionId: 'fixture' }, themeImageSelection: selection } as unknown as AppServices,
+      onAccountsChanged: jest.fn(),
+      onCreatedAccountReady: jest.fn(),
+      onSend: jest.fn(),
+      onManageAssets: jest.fn(),
+    });
+    type Route = { name: string; listeners?: { beforeRemove(): void } };
+    const route = React.Children.toArray(root.props.children).find(
+      node => React.isValidElement<Route>(node) && node.props.name === 'theme-settings',
+    ) as React.ReactElement<Route>;
+    const pending = selection.start();
+    // Native-stack removal emits beforeRemove even when the screen never receives blur.
+    // Gate teardown removes the navigation tree without a navigation removal action.
+    if (removal === 'native-back') route.props.listeners!.beforeRemove();
+    else {
+      foreground = false;
+      accessChanged();
+    }
+    finish({ primary: defaultTheme.colors.primary, secondary: defaultTheme.colors.secondary });
+    await pending;
+    expect(save).not.toHaveBeenCalled();
+    if (removal === 'background-gate') {
+      expect(cancelPalette).not.toHaveBeenCalled();
+      foreground = true;
+      accessChanged();
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(preferences.getSnapshot().theme).toBe('image');
+    } else {
+      expect(cancelPalette).toHaveBeenCalledTimes(1);
+      expect(preferences.getSnapshot().theme).toBe('system');
+      expect(selection.getSnapshot().busy).toBe(false);
+    }
+    selection.close();
+  },
+);

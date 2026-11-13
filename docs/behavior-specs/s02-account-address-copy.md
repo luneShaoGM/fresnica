@@ -8,4 +8,4 @@ Existing S02 maintenance; Phase 0 foundations reused, aggregate maturity unchang
 - Pending writes disable the button. Completion shows localized accessible feedback. Failure shows a generic message and permits retry, without rendering native error contents.
 - Navigation, reorder, rename, hide/delete and account/network selection retain their existing behavior.
 
-Automated component tests are helper evidence; native clipboard, narrow-screen, large-text and VoiceOver/TalkBack acceptance remain pending. This slice does not add post-onboarding recovery-phrase viewing. That requires a separate fresh App Passphrase and SDK/Core security lifecycle slice.
+Automated component tests are helper evidence; native clipboard, narrow-screen, large-text and VoiceOver/TalkBack acceptance remain pending. Post-onboarding recovery material viewing is provided by the separate S03 flow in `s03-recovery-management.md`; its fresh App Passphrase and SDK/Core lifecycle remain unchanged by address copying.

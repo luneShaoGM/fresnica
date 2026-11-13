@@ -1,3 +1,4 @@
+import { signerInventory, type ProtectionUpdate } from '../../../capabilities/application-security/recoveryManagement';
 import type {
   AccountSignerRegistration,
   AccountSignerRepository,
@@ -21,6 +22,21 @@ export class InMemoryAccountSignerRepository implements AccountSignerRepository 
   private readonly accounts = new Map<string, AccountRecord>();
   private readonly signers = new Map<string, SignerRecord>();
   private readonly references = new Map<string, AccountSignerReference>();
+
+  replaceProtection(expected: readonly SignerRecord[], updates: readonly ProtectionUpdate[], now: Date): void {
+    const replace = () => {
+      if (signerInventory(this.listSigners()) !== signerInventory(expected)) throw new Error('protection-context-changed');
+      const targets = expected.filter(s => s.kind === 'protected-software');
+      if (updates.length !== targets.length || new Set(updates.map(u => u.id)).size !== targets.length ||
+          targets.some(s => !updates.some(u => u.id === s.id && u.protectedSigner.signerPublicKey === s.publicKey && Boolean(u.protectedSigner.envelopeJson))))
+        throw new Error('protection-update-invalid');
+      for (const update of updates) {
+        const signer = this.signers.get(update.id)!;
+        this.signers.set(update.id, { ...signer, envelopeJson: update.protectedSigner.envelopeJson, envelopeRevision: `${now.getTime()}:${update.id}`, updatedAt: now });
+      }
+    };
+    replace();
+  }
 
   createAccount(account: AccountRecord): void {
     this.assertAccountIdentityAvailable(account);

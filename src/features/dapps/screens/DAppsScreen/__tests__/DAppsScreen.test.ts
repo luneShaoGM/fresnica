@@ -47,6 +47,7 @@ let stateCursor = 0;
 let effectCursor = 0;
 
 const react = jest.requireActual<typeof import('react')>('react');
+jest.spyOn(react, 'useContext').mockReturnValue(undefined);
 
 jest.spyOn(react, 'useState').mockImplementation(((initial: unknown) => {
   const index = stateCursor;

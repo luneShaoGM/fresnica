@@ -1,3 +1,5 @@
+import type { XlmQuotePort } from '@capabilities/valuation/xlmQuote';
+import { NativeFiatEstimate } from '@features/valuation/NativeFiatEstimate';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
@@ -29,6 +31,7 @@ import { createHomeViewModel, type HomeBalanceState } from './homeViewModel';
 import { createStyles } from './styles';
 
 type Props = Readonly<{
+  xlmQuotes?: XlmQuotePort;
   account: AccountRecord;
   accountCount: number;
   selectableAccounts: readonly AccountRecord[];
@@ -56,6 +59,7 @@ type Props = Readonly<{
 }>;
 
 export function HomeScreen({
+  xlmQuotes,
   account,
   accountCount,
   selectableAccounts,
@@ -82,7 +86,7 @@ export function HomeScreen({
   active,
 }: Props) {
   const theme = useAppTheme();
-  const { t } = useLocalization();
+  const { t, formatNumber, displayPreferences } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const {
     state: balanceState,
@@ -263,16 +267,11 @@ export function HomeScreen({
               </Pressable>
             ) : null}
           </View>
-
-          {assetCategory === 'tokens' ? (
-            <>
-              <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} showRefreshStatus={false} />
-            </>
-          ) : null}
         </ScrollView>
         {assetCategory === 'tokens' && nativeLine ? (
           <View style={styles.nativeFixedWrap}>
-            <PinnedNativeAssetRow line={nativeLine} breakdown={safeNativeDetails} onOpenAsset={onOpenAsset} t={t} />
+            <PinnedNativeAssetRow showReserve={displayPreferences?.reserveDisplay} formatAmount={formatNumber ? value => formatNumber(value, 7) : undefined} line={nativeLine} breakdown={safeNativeDetails} onOpenAsset={onOpenAsset} t={t} />
+            {account.networkId === 'stellar-mainnet' ? <NativeFiatEstimate quotes={xlmQuotes} amount={safeNativeDetails?.available ?? nativeLine.balance} currency={displayPreferences?.currency ?? 'USD'} active={active} /> : null}
           </View>
         ) : null}
         <ScrollView
@@ -310,8 +309,12 @@ export function HomeScreen({
                 onOpenAsset,
                 theme.colors.actionPrimary,
                 styles,
+                formatNumber ? value => formatNumber(value, 7) : undefined,
               )}
         </ScrollView>
+        {assetCategory === 'tokens' ? (
+          <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} showRefreshStatus={false} />
+        ) : null}
       </View>
       <AccountPickerModal
         accounts={selectableAccounts}
@@ -363,6 +366,7 @@ function renderPortfolio(
   onOpenAsset: (asset: BalanceAsset) => void,
   loadingColor: string,
   styles: ReturnType<typeof createStyles>,
+  formatAmount?: (value: string) => string,
 ): React.ReactNode {
   if (state.kind === 'loading') {
     return (
@@ -409,6 +413,7 @@ function renderPortfolio(
 
   return (
     <AssetList
+      formatAmount={formatAmount}
       balances={state.snapshot.balances}
       hiddenLiquidityPoolShareCount={state.snapshot.hiddenLiquidityPoolShareCount}
       onOpenAsset={onOpenAsset}

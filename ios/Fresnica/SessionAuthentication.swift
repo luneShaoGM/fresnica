@@ -69,3 +69,40 @@ final class SessionAuthentication: NSObject {
   }
   private func cancelCurrent() { finish(false) }
 }
+
+// Separate from App authentication: deliberate, device-local recovery export only.
+@objc(SensitiveClipboard)
+final class SensitiveClipboard: NSObject {
+  private var owner: String?
+  private var changeCount: Int?
+  private var observer: NSObjectProtocol?
+  override init() {
+    super.init()
+    observer = NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in self?.clearCurrent() }
+  }
+  deinit { if let observer { NotificationCenter.default.removeObserver(observer) } }
+  @objc static func requiresMainQueueSetup() -> Bool { true }
+  @objc(copy:text:resolver:rejecter:)
+  func copy(_ id: String, text: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    DispatchQueue.main.async {
+      guard UIApplication.shared.applicationState == .active, !id.isEmpty, !text.isEmpty, text.utf8.count <= 16384 else {
+        reject("sensitive-copy-unavailable", "sensitive-copy-unavailable", nil); return
+      }
+      UIPasteboard.general.setItems([[UIPasteboard.typeAutomatic: text]], options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(30)])
+      self.owner = id
+      self.changeCount = UIPasteboard.general.changeCount
+      let writtenCount = self.changeCount
+      DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
+        if self?.owner == id && self?.changeCount == writtenCount { self?.clearCurrent() }
+      }
+      resolve(nil)
+    }
+  }
+  @objc(clear:)
+  func clear(_ id: String) { DispatchQueue.main.async { if self.owner == id { self.clearCurrent() } } }
+  private func clearCurrent() {
+    if let changeCount, UIPasteboard.general.changeCount == changeCount { UIPasteboard.general.items = [] }
+    owner = nil
+    changeCount = nil
+  }
+}

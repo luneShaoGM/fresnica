@@ -1,4 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useAppTheme } from '@ui/theme';
+import { contrastText } from '@ui/theme/appearanceTheme';
+import { FeedbackContext } from '@ui/feedback';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -27,8 +30,13 @@ export function SlideToConfirm({
   disabled = false,
   loading = false,
   loadingLabel = 'Submitting…',
-  color = '#00CA8A',
+  color: suppliedColor,
 }: Props) {
+  const theme = useAppTheme();
+  const color = suppliedColor ?? theme.colors.actionPrimary;
+  const feedback = useContext(FeedbackContext);
+  const feedbackRef = useRef(feedback);
+  feedbackRef.current = feedback;
   const translateX = useRef(new Animated.Value(0)).current;
   const [trackWidth, setTrackWidth] = useState(0);
   const maxTravel = Math.max(0, trackWidth - KNOB_SIZE - TRACK_PADDING * 2);
@@ -77,6 +85,7 @@ export function SlideToConfirm({
               useNativeDriver: true,
             }).start(({ finished }) => {
               if (finished) {
+                feedbackRef.current?.();
                 onCompleteRef.current();
               }
             });
@@ -107,6 +116,7 @@ export function SlideToConfirm({
 
   const triggerAccessibleComplete = () => {
     if (!disabledRef.current) {
+      feedbackRef.current?.();
       onCompleteRef.current();
     }
   };
@@ -120,7 +130,7 @@ export function SlideToConfirm({
       onLayout={onLayout}
       style={[styles.track, { backgroundColor: color }, disabled || loading ? styles.disabled : undefined]}
     >
-      <Text style={styles.label}>{loading ? loadingLabel : label}</Text>
+      <Text style={[styles.label, { color: contrastText(color) }]}>{loading ? loadingLabel : label}</Text>
       <Animated.View {...panResponder.panHandlers} style={[styles.knob, { transform: [{ translateX }] }]}>
         {loading ? <ActivityIndicator color={color} size="small" /> : <Text style={[styles.arrow, { color }]}>››</Text>}
       </Animated.View>

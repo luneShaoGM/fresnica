@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useContext } from 'react';
+import { FeedbackContext } from '@ui/feedback';
 import {Pressable, Text} from 'react-native';
 
 import {useThemedStyles} from '@ui/theme';
@@ -16,12 +17,13 @@ export type ButtonProps = Readonly<{
 
 export function Button({label, onPress, disabled, variant = 'primary'}: ButtonProps) {
   const styles = useThemedStyles(createStyles);
+  const feedback = useContext(FeedbackContext);
 
   return (
     <Pressable
       accessibilityRole="button"
       disabled={disabled}
-      onPress={onPress}
+      onPress={feedback && onPress ? () => { feedback(); onPress(); } : onPress}
       style={({pressed}) => [
         styles.base,
         buttonStyle(styles, variant),

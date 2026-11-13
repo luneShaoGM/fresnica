@@ -29,7 +29,7 @@ const translations: Partial<Record<SupportedLocale, TranslationDictionary>> = {
   'zh-TW': require('./translations/zh-TW.json') as TranslationDictionary,
 };
 
-export function createLocalization(localeInput: string): LocalizationRuntime {
+export function createLocalization(localeInput: string, numberLocale?: string): LocalizationRuntime {
   const locale = resolveLocale(localeInput);
   const localeTranslations = translations[locale];
 
@@ -58,7 +58,7 @@ export function createLocalization(localeInput: string): LocalizationRuntime {
     })),
     t,
     tPlural,
-    formatNumber: (value, precision = 8) => formatNumber(value, locale, precision),
+    formatNumber: (value, precision = 8) => formatNumber(value, numberLocale ?? locale, precision),
     formatDate: value => formatDate(value, locale),
   };
 }
@@ -103,7 +103,7 @@ function interpolate(template: string, params: TranslationParams): string {
 
 function formatNumber(
   value: string | number,
-  locale: SupportedLocale,
+  locale: string,
   precision: number,
 ): string {
   const raw = String(value).trim();
