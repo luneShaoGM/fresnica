@@ -108,7 +108,7 @@ export function SettingsStackNavigator({
           />
         )}
       </Stack.Screen>
-      <Stack.Screen name="theme-settings">
+      <Stack.Screen name="theme-settings" listeners={{ beforeRemove: () => services.themeImageSelection?.cancel() }}>
         {({ navigation }) => (
           <ThemeSettingsRoute selection={services.themeImageSelection} onBack={() => navigation.goBack()} />
         )}
