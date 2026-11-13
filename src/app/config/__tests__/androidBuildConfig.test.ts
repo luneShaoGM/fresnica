@@ -36,4 +36,15 @@ describe('Android native compatibility', () => {
     expect(source).toContain('debug signing fallback is forbidden');
   });
 
+  it('keeps the production identity and isolates the signed test release', () => {
+    const source = readAndroidAppBuildGradle();
+    expect(source).toContain('applicationId "com.fresnica.wallet"');
+    expect(source).toContain('manifestPlaceholders += [appLabel: "@string/app_name"]');
+    expect(source).toMatch(/betaRelease\s*\{\s*initWith release/);
+    expect(source).toContain('applicationIdSuffix ".test"');
+    expect(source).toContain('manifestPlaceholders.appLabel = "Fresnica Test"');
+    expect(source).toContain("matchingFallbacks = ['release']");
+    const manifest = readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8');
+    expect((manifest.match(/android:label="\$\{appLabel\}"/g) ?? []).length).toBe(2);
+  });
 });

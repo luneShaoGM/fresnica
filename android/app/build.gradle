@@ -58,6 +58,7 @@ android {
     namespace "com.fresnica.wallet"
     defaultConfig {
         applicationId "com.fresnica.wallet"
+        manifestPlaceholders += [appLabel: "@string/app_name"]
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -90,6 +91,12 @@ android {
             }
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+        betaRelease {
+            initWith release
+            applicationIdSuffix ".test"
+            manifestPlaceholders.appLabel = "Fresnica Test"
+            matchingFallbacks = ['release']
         }
     }
 }

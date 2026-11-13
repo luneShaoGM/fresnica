@@ -37,3 +37,29 @@ Outputs are `android/app/build/outputs/apk/release/app-release.apk` and
 certificate, package identity and packaged ABIs before distribution. A signed
 artifact does not close native product acceptance, Testnet soak, store setup,
 legal content, independent Work review or the remaining Stage 9 release gates.
+
+## Separate Android test release
+
+For testers, the `betaRelease` build type uses Application ID
+`com.fresnica.wallet.test` and launcher label `Fresnica Test`. It reuses
+Android source namespace `com.fresnica.wallet`, the production code, and the
+Release minification and signing policy. It does **not** replace the
+`release` build type or modify iOS Bundle ID `com.fresnica.mobile`.
+
+Build with the four securely provisioned `FRESNICA_ANDROID_RELEASE_*`
+properties described above (for example, in the configured local signing
+environment):
+
+```sh
+cd android
+./gradlew :app:assembleBetaRelease :app:bundleBetaRelease --no-watch-fs
+```
+
+The intended outputs are
+`android/app/build/outputs/apk/betaRelease/app-betaRelease.apk` and
+`android/app/build/outputs/bundle/betaRelease/app-betaRelease.aab`.
+Before distributing, verify the built APK/AAB package identity and signing
+certificate. The test package installs independently and has separate app data;
+there is no account, signer, or Realm migration. Never uninstall or clear the
+production app as part of testing; confirm backups/recovery materials first.
+This is a signed distribution build, not native product-flow acceptance.
