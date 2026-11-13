@@ -27,26 +27,33 @@ export function ChangePassphraseScreen({
   const next = useRef<PassphraseInputHandle>(null);
   const confirmation = useRef<PassphraseInputHandle>(null);
   const request = useRef<AbortController | undefined>(undefined);
+  const foreground = useRef(true);
   const [presence, setPresence] = useState([false, false, false]);
   const [status, setStatus] = useState<'idle' | 'busy' | 'error'>('idle');
-  const clear = () => {
+  const clear = (resetState = true) => {
     request.current?.abort();
+    request.current = undefined;
     current.current?.clear();
     next.current?.clear();
     confirmation.current?.clear();
+    if (resetState) {
+      setPresence([false, false, false]);
+      setStatus('idle');
+    }
   };
   useEffect(() => {
     if (!active) clear();
     const subscription = AppState.addEventListener('change', state => {
-      if (state !== 'active') clear();
+      foreground.current = state === 'active';
+      if (!foreground.current) clear();
     });
     return () => {
-      clear();
+      clear(false);
       subscription.remove();
     };
   }, [active, dependencies]);
   const change = async () => {
-    if (!active || request.current) return;
+    if (!active || !foreground.current || request.current) return;
     const currentPassphrase = current.current?.consume() ?? '';
     const newPassphrase = next.current?.consume() ?? '';
     const confirm = confirmation.current?.consume() ?? '';
