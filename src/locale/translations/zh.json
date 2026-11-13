@@ -1182,6 +1182,8 @@
   "security.policy.title": "安全",
   "security.policy.keys": "每次交易签名和消息签名均需重新输入 App Passphrase。查看或导出密钥、派生签名者及更改保护也需要口令。生物识别不能替代这些操作所需的口令。",
   "signature.passphraseRequired": "每次签名都需要 App Passphrase，且仅授权本次操作。",
+  "accounts.copy.success": "地址已复制。",
+  "accounts.copy.error": "无法复制地址，请重试。",
   "preferences.theme.light": "浅色",
   "preferences.theme.dark": "深色",
   "preferences.theme.system": "跟随系统",
