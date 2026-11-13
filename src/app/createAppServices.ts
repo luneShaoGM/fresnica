@@ -1,3 +1,7 @@
+import type { XlmQuotePort } from '@capabilities/valuation/xlmQuote';
+import { createCoinGeckoXlmQuotes } from '@platform/valuation/CoinGeckoXlmQuotes';
+import { createGeneralPreferences, type GeneralPreferenceController } from '@capabilities/preferences/generalPreferences';
+import { openGeneralPreferences, RealmGeneralPreferenceStore } from '@platform/persistence/realm/RealmGeneralPreferenceStore';
 import { createSessionAuthentication } from '../platform/system/sessionAuthentication';
 import {
   createApplicationSession,
@@ -105,6 +109,8 @@ export type AccountManagementDependencies = RenameAccountDependencies &
 
 export type AppServices = Readonly<{
   diagnostics: SessionLogger;
+  generalPreferences?: GeneralPreferenceController;
+  xlmQuotes?: XlmQuotePort;
   applicationSession?: ApplicationSession;
   networkProfile: NetworkProfile;
   networkSettings?: NetworkSettings;
@@ -154,6 +160,8 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
   const session = createServiceSession();
   let closeReadRecovery = () => {};
   let closePreferences = () => {};
+  let closeGeneralPreferences = () => {};
+  let closeXlmQuotes = () => {};
   let stopSettingsLifecycle = () => {};
   let closeDappCatalog = () => {};
   let closeAssetCatalog = () => {};
@@ -173,6 +181,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     session.close();
     closeApplicationSession();
     closeDappCatalog();
+    closeXlmQuotes();
     closeAssetCatalog();
     stopIconPrivacySync();
     closeAccountAvatars();
@@ -188,6 +197,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     closed = true;
     retire();
     closePreferences();
+    closeGeneralPreferences();
     realm.close();
   };
   const restartNetworkSession = () => {
@@ -198,6 +208,9 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     else close();
   };
   try {
+    const generalRealm = await openGeneralPreferences(realm.path);
+    const generalPreferences = createGeneralPreferences(new RealmGeneralPreferenceStore(generalRealm), session.assertOpen);
+    closeGeneralPreferences = () => { generalPreferences.close(); generalRealm.close(); };
     const nativeModule = loadNativeFresnicaModule(NativeModules);
     const rawSdk = session.bind(new ReactNativeFresnicaSdk(nativeModule), true);
     const storedAccounts = new RealmAccountSignerRepository(realm);
@@ -436,6 +449,8 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       cache: new RealmCuratedSourceCacheRepository(realm),
     });
     closeAssetCatalog = assetCatalog.close;
+    const xlmQuotes = createCoinGeckoXlmQuotes(createNativeSafePublicTransport());
+    closeXlmQuotes = xlmQuotes.close;
     const publicAssetTransport = createNativeSafePublicTransport();
     const tokenMetadata = createTokenMetadataPort({
       networkId: networkProfile.id,
@@ -480,6 +495,8 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     return {
       applicationSession: options.fixedNetwork ? undefined : applicationSession,
       diagnostics,
+      generalPreferences,
+      xlmQuotes,
       networkProfile,
       networkSettings,
       assetCatalog,

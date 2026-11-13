@@ -1,3 +1,4 @@
+import ImageIO
 import PhotosUI
 import React
 import UIKit
@@ -111,4 +112,57 @@ final class RequestPhotoQr: NSObject, PHPickerViewControllerDelegate {
     }
     return rendered.cgImage
   }
+}
+
+// Settings-only, local image sampling. Neither image bytes nor paths cross the bridge.
+@objc(PresentationPreferences)
+final class PresentationPreferences: NSObject, PHPickerViewControllerDelegate {
+  private var resolver: RCTPromiseResolveBlock?
+  private var rejecter: RCTPromiseRejectBlock?
+  private var picker: PHPickerViewController?
+  @objc static func requiresMainQueueSetup() -> Bool { true }
+  @objc(impact) func impact() { DispatchQueue.main.async { UIImpactFeedbackGenerator(style: .light).impactOccurred() } }
+  @objc(pickPalette:rejecter:)
+  func pickPalette(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    DispatchQueue.main.async {
+      guard self.resolver == nil, UIApplication.shared.applicationState == .active,
+        var presenter = UIApplication.shared.delegate?.window??.rootViewController else {
+        reject("image-palette-unavailable", "image-palette-unavailable", nil); return
+      }
+      while let next = presenter.presentedViewController { presenter = next }
+      self.resolver = resolve; self.rejecter = reject
+      var configuration = PHPickerConfiguration(); configuration.filter = .images; configuration.selectionLimit = 1
+      let picker = PHPickerViewController(configuration: configuration); self.picker = picker; picker.delegate = self
+      presenter.present(picker, animated: true)
+    }
+  }
+  @objc(cancelPalette) func cancelPalette() {
+    DispatchQueue.main.async { self.picker?.dismiss(animated: false); self.finish(nil) }
+  }
+  func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+    picker.dismiss(animated: true)
+    guard let provider = results.first?.itemProvider else { finish(nil); return }
+    provider.loadFileRepresentation(forTypeIdentifier: "public.image") { [weak self, weak picker] url, _ in
+      guard let url, let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= 10 * 1024 * 1024,
+        let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+        let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true, kCGImageSourceThumbnailMaxPixelSize: 64] as CFDictionary) else {
+        DispatchQueue.main.async { if self?.picker === picker { self?.fail() } }; return
+      }
+      var bytes = [UInt8](repeating: 0, count: 64 * 64 * 4)
+      var colors: [Int: Int] = [:]
+      bytes.withUnsafeMutableBytes { buffer in
+        if let context = CGContext(data: buffer.baseAddress, width: 64, height: 64, bitsPerComponent: 8, bytesPerRow: 256, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
+          context.draw(image, in: CGRect(x: 0, y: 0, width: 64, height: 64))
+        }
+      }
+      for index in stride(from: 0, to: bytes.count, by: 4) where bytes[index + 3] > 200 {
+        let color = ((Int(bytes[index]) & 240) + 8) << 16 | ((Int(bytes[index+1]) & 240) + 8) << 8 | ((Int(bytes[index+2]) & 240) + 8)
+        colors[color, default: 0] += 1
+      }
+      let samples = colors.sorted { $0.value > $1.value }.prefix(16).map { String(format: "#%06X", $0.key) }
+      DispatchQueue.main.async { if self?.picker === picker { if samples.isEmpty { self?.fail() } else { self?.finish(samples) } } }
+    }
+  }
+  private func finish(_ value: [String]?) { resolver?(value); resolver = nil; rejecter = nil; picker = nil }
+  private func fail() { rejecter?("image-palette-unavailable", "image-palette-unavailable", nil); resolver = nil; rejecter = nil; picker = nil }
 }

@@ -89,6 +89,7 @@ export function HomeStackNavigator({
         {({ navigation }) => (
           <>
             <HomeWithAssetSheets
+              xlmQuotes={services.xlmQuotes}
               key={JSON.stringify([selectedAccount.id, selectedAccount.networkId])}
               navigation={navigation}
               catalog={services.assetCatalog}

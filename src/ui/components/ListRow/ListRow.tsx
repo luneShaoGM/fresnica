@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useContext } from 'react';
+import { FeedbackContext } from '@ui/feedback';
 import {Pressable, Text, View} from 'react-native';
 
 import {useThemedStyles} from '@ui/theme';
@@ -17,6 +18,7 @@ export type ListRowProps = Readonly<{
 
 export function ListRow({title, subtitle, leading, trailing, onPress, disabled, selected}: ListRowProps) {
   const styles = useThemedStyles(createStyles);
+  const feedback = useContext(FeedbackContext);
   const content = (
     <>
       {leading ? <View style={styles.leading}>{leading}</View> : null}
@@ -36,7 +38,7 @@ export function ListRow({title, subtitle, leading, trailing, onPress, disabled, 
       accessibilityRole="button"
       accessibilityState={{disabled: Boolean(disabled), selected: Boolean(selected)}}
       disabled={disabled}
-      onPress={onPress}
+      onPress={feedback && onPress ? () => { feedback(); onPress(); } : onPress}
       style={({pressed}) => [
         styles.row,
         selected ? styles.selected : undefined,

@@ -1,10 +1,12 @@
+import { PresentationPreferences } from './PresentationPreferences';
+import { DEFAULT_GENERAL_PREFERENCES } from '@capabilities/preferences/generalPreferences';
 import type { NetworkAccessContinuation } from './applicationSession';
 import { SessionGate } from './SessionGate';
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState, StatusBar } from 'react-native';
 import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { AppThemeProvider, useAppTheme } from '@ui/theme';
+import { useAppTheme } from '@ui/theme';
 
 import { getDeviceLocale, LocalizationProvider, resolveLocale, type SupportedLocale } from '../locale';
 import { createAppServices, type AppServices } from './createAppServices';
@@ -50,6 +52,8 @@ export function App() {
     access?.subscribe ?? noSubscription,
     access?.getSnapshot ?? (() => undefined),
   );
+  const generalPreferences = runtime.kind === 'ready' ? runtime.services.generalPreferences : undefined;
+  const preferences = useSyncExternalStore(generalPreferences?.subscribe ?? noSubscription, generalPreferences?.getSnapshot ?? (() => DEFAULT_GENERAL_PREFERENCES));
   const [parsedDeepLink, setParsedDeepLink] = useState<RequestDeepLinkParsed>();
   const [resolvedDeepLink, setResolvedDeepLink] = useState<RequestDeepLinkResolved>();
 
@@ -291,10 +295,10 @@ export function App() {
 
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-      <AppThemeProvider>
+      <PresentationPreferences controller={generalPreferences}>
         <UiNativeProvider locale={locale}>
           <ThemeStatusBar />
-          <LocalizationProvider locale={locale} onChangeLocale={handleChangeLocale}>
+          <LocalizationProvider locale={locale} onChangeLocale={handleChangeLocale} numberLocale={preferences.systemSeparators ? getDeviceLocale() : 'en'} displayPreferences={preferences}>
             <OverlayHost>
               <SessionGate runtime={runtime} refresh={refreshBootstrap}>
                 <AppNavigator
@@ -313,7 +317,7 @@ export function App() {
             </OverlayHost>
           </LocalizationProvider>
         </UiNativeProvider>
-      </AppThemeProvider>
+      </PresentationPreferences>
     </SafeAreaProvider>
   );
 }

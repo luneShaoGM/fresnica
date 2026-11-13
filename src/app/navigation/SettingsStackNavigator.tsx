@@ -1,5 +1,8 @@
+import { ThemeSettingsScreen } from '@features/settings/ThemeSettingsScreen/ThemeSettingsScreen';
+import { SessionLogsScreen } from '@features/settings/SessionLogsScreen/SessionLogsScreen';
+import { pickImagePalette, cancelImagePalette } from '@platform/system/presentationPreferences';
 import React from 'react';
-import { Linking } from 'react-native';
+import { Linking, Share } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
@@ -82,21 +85,32 @@ export function SettingsStackNavigator({
       </Stack.Screen>
       <Stack.Screen name="general-settings">
         {({ navigation }) => (
-          <GeneralSettingsScreen
+          <GeneralSettingsRoute
+            quotes={services.xlmQuotes}
             onBack={() => navigation.goBack()}
             onOpenLanguage={() => navigation.navigate('language-settings')}
+            onOpenTheme={() => navigation.navigate('theme-settings')}
           />
         )}
       </Stack.Screen>
       <Stack.Screen name="advanced-settings">
         {({ navigation }) => (
           <AdvancedSettingsScreen
+            appVersion={APP_CONFIG.appVersion}
+            sessionId={services.diagnostics.sessionId}
             settings={services.networkSettings}
             onBack={() => navigation.goBack()}
             onOpenNetwork={() => navigation.navigate('network-settings')}
             onOpenAbout={() => navigation.navigate('about')}
+            onOpenLogs={() => navigation.navigate('session-logs')}
           />
         )}
+      </Stack.Screen>
+      <Stack.Screen name="theme-settings">
+        {({ navigation }) => <ThemeSettingsRoute onBack={() => navigation.goBack()} />}
+      </Stack.Screen>
+      <Stack.Screen name="session-logs">
+        {({ navigation }) => services.networkSettings ? <SessionLogsRoute source={services.diagnostics} settings={services.networkSettings} onBack={() => navigation.goBack()} /> : null}
       </Stack.Screen>
       <Stack.Screen name="accounts-settings">
         {({ navigation }) => (
@@ -246,4 +260,19 @@ export function openSupportWebsite(
       }
     })
     .finally(unsubscribe);
+}
+
+function ThemeSettingsRoute({ onBack }: Readonly<{ onBack(): void }>) {
+  const active = useIsFocused();
+  return <ThemeSettingsScreen active={active} onBack={onBack} pickPalette={pickImagePalette} cancelPalette={cancelImagePalette} />;
+}
+const shareSessionLogs = async (message: string) => { await Share.share({ message }); };
+function SessionLogsRoute(props: Omit<React.ComponentProps<typeof SessionLogsScreen>, 'share' | 'active'>) {
+  const active = useIsFocused();
+  return <SessionLogsScreen {...props} active={active} share={shareSessionLogs} />;
+}
+
+function GeneralSettingsRoute(props: Omit<React.ComponentProps<typeof GeneralSettingsScreen>, 'active'>) {
+  const active = useIsFocused();
+  return <GeneralSettingsScreen {...props} active={active} />;
 }

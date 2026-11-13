@@ -18,6 +18,8 @@ export function createStyles(theme: AppTheme) {
     section: { marginTop: theme.spacing.lg, gap: theme.spacing.sm },
     toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.md },
     toggleTitle: { ...theme.typography.body, color: theme.colors.textPrimary, flexShrink: 1 },
+    helper: { ...theme.typography.body, color: theme.colors.textSecondary, marginVertical: theme.spacing.sm },
+    error: { ...theme.typography.body, color: theme.colors.negative },
     label: { ...theme.typography.caption, color: theme.colors.textSecondary },
   });
 }

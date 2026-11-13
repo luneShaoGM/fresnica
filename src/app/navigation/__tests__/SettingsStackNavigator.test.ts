@@ -2,7 +2,6 @@ import React from 'react';
 import type { AppServices } from '../../createAppServices';
 import { SettingsStackNavigator } from '../SettingsStackNavigator';
 import { SettingsHomeScreen } from '@features/settings/SettingsHomeScreen';
-import { GeneralSettingsScreen } from '@features/settings/GeneralSettingsScreen';
 import { PrivacySettingsScreen } from '@features/settings/PrivacySettingsScreen';
 import { AdvancedSettingsScreen } from '@features/settings/AdvancedSettingsScreen';
 import { NetworkSettingsScreen } from '@features/settings/NetworkSettingsScreen';
@@ -42,6 +41,7 @@ type ScreenProps = {
 it('wires Settings→General→Language and Settings→Advanced→Network with the live session and back history', () => {
   const navigation = { navigate: jest.fn(), goBack: jest.fn() };
   const services = {
+    diagnostics: { sessionId: 'test-session' },
     networkSettings: {},
     nodeReadSession: {},
     contacts: { network: { id: 'stellar-mainnet' } },
@@ -83,7 +83,7 @@ it('wires Settings→General→Language and Settings→Advanced→Network with t
   home.props.onOpenGeneral?.();
   expect(navigation.navigate).toHaveBeenLastCalledWith('general-settings');
   const general = screen('general-settings');
-  expect(general.type).toBe(GeneralSettingsScreen);
+  expect(general.type).toEqual(expect.any(Function));
   general.props.onOpenLanguage?.();
   expect(navigation.navigate).toHaveBeenLastCalledWith('language-settings');
   general.props.onBack?.();

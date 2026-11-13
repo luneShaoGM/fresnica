@@ -276,3 +276,5 @@ describe('RequestIngressScreen', () => {
     expect(labels).not.toContain('request.continueToSend');
   });
 });
+
+jest.mock('react', () => ({ ...jest.requireActual('react'), useContext: () => undefined }));

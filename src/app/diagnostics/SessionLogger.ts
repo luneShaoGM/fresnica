@@ -61,7 +61,7 @@ export class SessionLogger {
     return JSON.stringify(
       {
         sessionId: this.sessionId,
-        entries: this.buffer,
+        entries: this.buffer.map(({ timestamp, level, event }) => ({ timestamp, level, event: /^[a-z][a-z0-9-]{0,99}$/.test(event) ? event : '[REDACTED]', details: '[REDACTED]' })),
       },
       null,
       2,

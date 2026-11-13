@@ -15,11 +15,12 @@ const xlmSymbol = require('../../../ui/assets/token/xlmSymbol.png');
 
 type Props = Readonly<{
   balances: readonly BalanceLine[];
+  formatAmount?: (value: string) => string;
   hiddenLiquidityPoolShareCount: number;
   onOpenAsset: (asset: BalanceLine['asset']) => void;
 }>;
 
-export function AssetList({ balances, hiddenLiquidityPoolShareCount, onOpenAsset }: Props) {
+export function AssetList({ balances, hiddenLiquidityPoolShareCount, onOpenAsset, formatAmount = formatHomeAmount }: Props) {
   const styles = useThemedStyles(createStyles);
   const largeText = useWindowDimensions().fontScale > 1.5;
   const { service, snapshot } = useTokenIconContext();
@@ -74,7 +75,7 @@ export function AssetList({ balances, hiddenLiquidityPoolShareCount, onOpenAsset
                   <TokenAssetIcon asset={line.asset} small size={12} />
                 </View>
                 <Text numberOfLines={largeText ? undefined : 1} ellipsizeMode="tail" selectable style={styles.assetBalance}>
-                  {formatHomeAmount(line.balance)}
+                  {formatAmount(line.balance)}
                 </Text>
               </View>
             </View>
@@ -92,11 +93,15 @@ export function AssetList({ balances, hiddenLiquidityPoolShareCount, onOpenAsset
 export function PinnedNativeAssetRow({
   line,
   breakdown,
+  reserveDisplay = 'spendable',
+  formatAmount = formatHomeAmount,
   onOpenAsset,
   t,
 }: Readonly<{
   line: BalanceLine;
   breakdown?: NativeBalanceBreakdown;
+  reserveDisplay?: 'total' | 'spendable';
+  formatAmount?: (value: string) => string;
   onOpenAsset: (asset: BalanceLine['asset']) => void;
   t: (key: string) => string;
 }>) {
@@ -109,9 +114,9 @@ export function PinnedNativeAssetRow({
       <Pressable
         accessibilityLabel={
           'XLM ' +
-          t(breakdown ? 'home.asset.available' : 'home.asset.accountBalance') +
+          t(reserveDisplay === 'spendable' && breakdown ? 'home.asset.available' : 'home.asset.accountBalance') +
           ' ' +
-          (breakdown?.available ?? line.balance)
+          (reserveDisplay === 'spendable' ? breakdown?.available ?? line.balance : line.balance)
         }
         accessibilityRole="button"
         onPress={() => onOpenAsset(line.asset)}
@@ -125,14 +130,14 @@ export function PinnedNativeAssetRow({
             XLM
           </Text>
           <Text numberOfLines={largeText ? undefined : 1} style={styles.assetIssuer}>
-            {t(breakdown ? 'home.asset.available' : 'home.asset.accountBalance')}
+            {t(reserveDisplay === 'spendable' && breakdown ? 'home.asset.available' : 'home.asset.accountBalance')}
           </Text>
         </View>
         <View style={[styles.assetBalanceBlock, largeText ? styles.assetBalanceLargeText : undefined]}>
           <View style={styles.assetAmountRow}>
             <Image accessible={false} source={xlmSymbol} resizeMode="contain" style={styles.nativeAmountSymbol} />
             <Text numberOfLines={largeText ? undefined : 1} ellipsizeMode="tail" selectable style={styles.nativeAssetBalance}>
-              {formatHomeAmount(breakdown?.available ?? line.balance)}
+              {formatHomeAmount(reserveDisplay === 'spendable' ? breakdown?.available ?? line.balance : line.balance)}
             </Text>
           </View>
         </View>
@@ -151,7 +156,7 @@ export function PinnedNativeAssetRow({
         <View style={styles.nativeReserveAmount}>
           <Image accessible={false} source={xlmSymbol} resizeMode="contain" style={styles.nativeReserveSymbol} />
           <Text numberOfLines={largeText ? undefined : 1} ellipsizeMode="tail" style={styles.nativeBreakdownValue}>
-            {breakdown ? formatHomeAmount(breakdown.reserved) : '—'}
+            {breakdown ? formatAmount(breakdown.reserved) : '—'}
           </Text>
         </View>
       </View>
