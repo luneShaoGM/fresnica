@@ -1181,5 +1181,20 @@
   "session.usePassphrase": "使用 App Passphrase",
   "security.policy.title": "安全",
   "security.policy.keys": "每次交易签名和消息签名均需重新输入 App Passphrase。查看或导出密钥、派生签名者及更改保护也需要口令。生物识别不能替代这些操作所需的口令。",
-  "signature.passphraseRequired": "每次签名都需要 App Passphrase，且仅授权本次操作。"
+  "signature.passphraseRequired": "每次签名都需要 App Passphrase，且仅授权本次操作。",
+  "recovery.title": "恢复材料",
+  "recovery.warning": "获得这些材料的人可以控制你的资金。请离线保存；显示 60 秒、离开页面或切后台后隐藏。仅在可信设备上复制，其他应用可能读取剪贴板。",
+  "recovery.unavailable": "此账号没有可导出的本地恢复材料。请先完成待备份流程；硬件及只读账号无法在这里导出密钥。",
+  "recovery.current": "当前 App Passphrase",
+  "recovery.fresh": "为本次操作重新输入 App Passphrase。",
+  "recovery.reveal": "显示恢复材料",
+  "recovery.copy": "复制恢复材料（30 秒）",
+  "recovery.copied": "已复制到本机，30 秒后或切后台／关闭时清除；不会清除你后来复制的其他内容。",
+  "recovery.hide": "隐藏并清除",
+  "recovery.error": "无法显示或复制恢复材料，请重新输入口令再试。",
+  "recovery.change": "修改 App Passphrase",
+  "recovery.new": "新的 App Passphrase",
+  "recovery.confirm": "确认新的 App Passphrase",
+  "recovery.changeNote": "将修改所有网络下本地软件签名者的保护口令。新口令至少 15 个字符，需与旧口令不同并准确确认。请先完成待备份和未决交易；成功后 App 锁定，使用新口令解锁。",
+  "recovery.changeError": "保存的口令未更改。请检查当前口令、新口令长度和确认内容，完成待处理操作后重新输入全部字段。"
 }

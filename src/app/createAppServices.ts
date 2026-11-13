@@ -1,3 +1,4 @@
+import type { RecoveryManagementDependencies } from '../capabilities/application-security/recoveryManagement';
 import { createSessionAuthentication } from '../platform/system/sessionAuthentication';
 import {
   createApplicationSession,
@@ -111,6 +112,7 @@ export type AppServices = Readonly<{
   accountManagement: AccountManagementDependencies;
   onboarding: OnboardingProvisioningDependencies;
   security: ApplicationSecurityDependencies;
+  recoveryManagement?: RecoveryManagementDependencies;
   balance: BalanceProductDependencies;
   friendbot: FriendbotDependencies;
   send: SendProductDependencies;
@@ -533,6 +535,13 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         createId: () => createRealmRecordId(),
         now: () => new Date(),
         networkId: network.id,
+      },
+      recoveryManagement: {
+        sdk,
+        repository: session.bind(applicationSession.bindSensitive(storedAccounts)),
+        hasUnresolvedSubmission: () => pendingSubmissions.listUnresolved().length > 0,
+        assertCurrent: () => { session.assertOpen(); const state = applicationSession.getSnapshot(); if (state.locked || !state.foreground) throw new Error('application-session-locked'); },
+        now: () => new Date(),
       },
       security: {
         sdk,

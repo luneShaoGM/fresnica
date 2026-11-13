@@ -1181,5 +1181,20 @@
   "session.usePassphrase": "Use App Passphrase",
   "security.policy.title": "Security",
   "security.policy.keys": "Every transaction and message signature requires a fresh App Passphrase. Revealing or exporting keys, deriving signers and changing protection also require your App Passphrase. Biometrics never replace it for these operations.",
-  "signature.passphraseRequired": "Every signature requires your App Passphrase. It authorizes this operation only."
+  "signature.passphraseRequired": "Every signature requires your App Passphrase. It authorizes this operation only.",
+  "recovery.title": "Recovery material",
+  "recovery.warning": "Anyone with this material can control your funds. Keep it offline. It hides after 60 seconds or when you leave. Copy only on a trusted device; other apps may read the clipboard.",
+  "recovery.unavailable": "No exportable local recovery material is available for this account. Finish any pending backup first. Hardware and watch-only accounts cannot export keys here.",
+  "recovery.current": "Current App Passphrase",
+  "recovery.fresh": "Enter the App Passphrase again for this operation.",
+  "recovery.reveal": "Show recovery material",
+  "recovery.copy": "Copy recovery material (30 seconds)",
+  "recovery.copied": "Copied locally. Clears after 30 seconds or on background/close, unless you replace the clipboard.",
+  "recovery.hide": "Hide and clear",
+  "recovery.error": "Unable to show or copy recovery material. Re-enter your passphrase and try again.",
+  "recovery.change": "Change App Passphrase",
+  "recovery.new": "New App Passphrase",
+  "recovery.confirm": "Confirm new App Passphrase",
+  "recovery.changeNote": "Changes protection for every local software signer across all networks. Use at least 15 characters, confirm exactly, and choose a different passphrase. Finish pending backups and unresolved transactions first. Success locks the App; unlock with your new passphrase.",
+  "recovery.changeError": "No stored passphrase was changed. Check your current passphrase, minimum length and confirmation, finish pending work, then enter all fields again."
 }
