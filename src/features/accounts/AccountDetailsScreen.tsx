@@ -6,6 +6,7 @@ import {AppModal, Button, Field, Screen} from '@ui/components';
 
 import type {AccountRecord} from '../../capabilities/account/types';
 import {useLocalization} from '../../locale';
+import { CopyAddressButton } from './CopyAddressButton';
 import {useThemedStyles, type AppTheme} from '@ui/theme';
 
 type Props = Readonly<{
@@ -17,6 +18,7 @@ type Props = Readonly<{
   onRename: (label: string) => void | Promise<void>;
   onToggleHidden: () => void | Promise<void>;
   onDelete: () => void | Promise<void>;
+  copyPublicText: (text: string) => Promise<void>;
   onOpenRecovery?: () => void;
   onBack: () => void;
 }>;
@@ -33,6 +35,7 @@ export function AccountDetailsScreen({
   onToggleHidden,
   onDelete,
   onBack,
+  copyPublicText,
   onOpenRecovery,
 }: Props) {
   const {t} = useLocalization();
@@ -120,6 +123,7 @@ export function AccountDetailsScreen({
           <Text style={styles.accountLabel}>{account.label || 'Stellar account'}</Text>
           <Button label={t('accounts.rename.open')} onPress={openRename} variant="ghost" />
           <Text selectable style={styles.address}>{account.address}</Text>
+          <CopyAddressButton key={account.address} address={account.address} copyPublicText={copyPublicText} />
         </View>
 
         <View style={styles.section}>

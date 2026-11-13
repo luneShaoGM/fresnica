@@ -128,6 +128,7 @@ export function SettingsStackNavigator({
         {({ navigation }) => (
           <AccountsScreen
             accounts={orderedAccountList}
+            copyPublicText={services.copyPublicText}
             onBack={() => navigation.goBack()}
             onOpenAccount={accountId => navigation.navigate('account-details', { accountId })}
             onAddAccount={() => navigation.navigate('add-account')}
@@ -144,6 +145,7 @@ export function SettingsStackNavigator({
           return (
             <AccountDetailsRoute
               account={account}
+              copyPublicText={services.copyPublicText}
               canHide={account.hidden || visibleAccountCount > 1}
               onOpenRecovery={services.recoveryManagement ? () => navigation.navigate('recovery-material', { accountId: account.id }) : undefined}
               onBack={() => navigation.goBack()}
