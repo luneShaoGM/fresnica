@@ -61,4 +61,20 @@ describe('Android native compatibility', () => {
       'com.fresnica.wallet.test.sessionauthtest.test/com.fresnica.wallet.SessionAuthenticationNativeTest',
     );
   });
+  it('launches the namespace-qualified MainActivity from the new installation', () => {
+    const script = readFileSync('scripts/run-native-runtime-smoke.sh', 'utf8');
+    expect(script).toContain('adb shell am start -W -n "$BUNDLE_ID/com.fresnica.wallet.MainActivity"');
+    expect(script).not.toContain('"$BUNDLE_ID/.MainActivity"');
+  });
+
+  it('targets the #202 screen-capture instrumentation under the new installation', () => {
+    const script = readFileSync('scripts/run-screen-capture-native-test.sh', 'utf8');
+    expect(script).toContain("android.buildTypes.getByName('debug').applicationIdSuffix = '.capturetest'");
+    expect(script).toContain(
+      "android.defaultConfig.testInstrumentationRunner = 'com.fresnica.wallet.ScreenCaptureProtectionNativeTest'",
+    );
+    expect(script).toContain(
+      'com.fresnica.wallet.test.capturetest.test/com.fresnica.wallet.ScreenCaptureProtectionNativeTest',
+    );
+  });
 });

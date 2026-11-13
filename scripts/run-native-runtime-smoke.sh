@@ -128,7 +128,7 @@ launch_android() {
     adb install -r "$ROOT/android/app/build/outputs/apk/debug/app-debug.apk"
   fi
   adb shell am force-stop "$BUNDLE_ID"
-  adb shell am start -W -n "$BUNDLE_ID/.MainActivity" >/dev/null
+  adb shell am start -W -n "$BUNDLE_ID/com.fresnica.wallet.MainActivity" >/dev/null
 }
 
 launch_ios() {
