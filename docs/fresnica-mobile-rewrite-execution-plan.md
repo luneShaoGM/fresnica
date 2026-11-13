@@ -1412,3 +1412,10 @@ User priority: pinned local SDK build integrity → shared sensitive-background/
 ## 2026-11-11 owner authentication-policy correction (candidate)
 
 [S04 policy](behavior-specs/s04-authentication-policy.md) supersedes routine System Auth signing: App access uses OS biometrics with verified passphrase fallback; all wallet transaction/message signatures and key operations require fresh App Passphrase. Independent platform App-unlock authentication never accesses keys. Existing exact-XDR, account/network isolation, cancellation and uncertain recovery are preserved. Code/build/test evidence is separate from real-device acceptance and Work exact-HEAD review; no maturity promotion.
+
+
+### S04 security controls candidate — 2026-11-13
+
+Base main cb949884730f3c21479830afa274a0b19dcf7b62 includes merged S03 #199 and S23/S25 #200. One S04 candidate PR adds persisted App biometric preference, bounded background lock duration and Developer-Mode-only Android screenshot control. Reuses SDK fresh-passphrase verification, existing session/independent OS authentication and privacy cover; does not change signing or ledger semantics. [Behavior and evidence](behavior-specs/s04-security-settings.md). Native mechanism tests do not replace product/real-device acceptance; Stage 9 iPhone remains deferred. Independent Work exact-HEAD review and owner merge remain required.
+
+Owner chose to wait for an upstream LP withdrawal Capability contract before completing the separate SDEX/LP PR. Fresnica upstream main 38e804b435be5d3c6a0400de4e79f102822cb8e0 has Normative SDEX and sdex-v1 conformance vectors, but no LP withdrawal contract. No read-only substitute or invented Mobile withdrawal semantics will be shipped as completion.

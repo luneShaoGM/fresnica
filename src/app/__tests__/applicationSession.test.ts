@@ -350,3 +350,76 @@ test('network continuation keeps cumulative background acknowledgements without 
   next.setForeground(false);
   expect(next.getSnapshot().backgroundRevision).toBe(2);
 });
+
+test('configured timeout and disabled biometric preference enforce access without weakening passphrase fallback', async () => {
+  const repository = new InMemoryAccountSignerRepository();
+  repository.createSigner({
+    id: 'p',
+    kind: 'protected-software',
+    publicKey: 'fixture',
+    envelopeJson: 'fixture',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  let time = 0;
+  let biometricUnlock = true;
+  const authenticate = jest.fn(async () => true);
+  const session = createApplicationSession(
+    {
+      repository,
+      sdk: { verifyProtectedSignerPassphrase: async () => true } as unknown as FresnicaSdkPort,
+      sessionAuthentication: { canAuthenticate: async () => true, authenticate, cancel: jest.fn() },
+      getSecurityPreferences: () => ({ biometricUnlock, backgroundTimeoutMs: 60000, screenCaptureProtection: true }),
+    },
+    () => time,
+  );
+  session.setForeground(true);
+  await session.unlock('fresh');
+  session.setForeground(false);
+  time = 30000;
+  session.setForeground(true);
+  expect(session.getSnapshot().locked).toBe(false);
+  session.setForeground(false);
+  time = 90000;
+  session.setForeground(true);
+  expect(session.getSnapshot().locked).toBe(true);
+  biometricUnlock = false;
+  session.refreshSecurityPreferences();
+  expect(await session.canUseBiometrics()).toBe(false);
+  await expect(session.unlockWithBiometrics('unlock', 'cancel')).rejects.toThrow();
+  expect(authenticate).not.toHaveBeenCalled();
+  await session.unlock('fresh');
+  expect(session.getSnapshot().locked).toBe(false);
+});
+
+test('disabling biometric preference cancels an in-flight OS prompt and drops late success', async () => {
+  const f = fixture();
+  let enabled = true;
+  let finish!: (value: boolean) => void;
+  const cancel = jest.fn();
+  const session = createApplicationSession({
+    repository: f.repository,
+    sdk: { verifyProtectedSignerPassphrase: async () => true } as unknown as FresnicaSdkPort,
+    getSecurityPreferences: () => ({
+      biometricUnlock: enabled,
+      backgroundTimeoutMs: 30000,
+      screenCaptureProtection: true,
+    }),
+    sessionAuthentication: {
+      canAuthenticate: async () => true,
+      authenticate: () =>
+        new Promise(resolve => {
+          finish = resolve;
+        }),
+      cancel,
+    },
+  });
+  session.setForeground(true);
+  const pending = session.unlockWithBiometrics('unlock', 'cancel');
+  enabled = false;
+  session.refreshSecurityPreferences();
+  finish(true);
+  await expect(pending).rejects.toThrow();
+  expect(cancel).toHaveBeenCalled();
+  expect(session.getSnapshot().locked).toBe(true);
+});

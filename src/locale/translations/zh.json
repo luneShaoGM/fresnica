@@ -1216,5 +1216,18 @@
   "recovery.new": "新的 App Passphrase",
   "recovery.confirm": "确认新的 App Passphrase",
   "recovery.changeNote": "将修改所有网络下本地软件签名者的保护口令。新口令至少 15 个字符，需与旧口令不同并准确确认。请先完成待备份和未决交易；成功后 App 锁定，使用新口令解锁。",
-  "recovery.changeError": "保存的口令未更改。请检查当前口令、新口令长度和确认内容，完成待处理操作后重新输入全部字段。"
+  "recovery.changeError": "保存的口令未更改。请检查当前口令、新口令长度和确认内容，完成待处理操作后重新输入全部字段。",
+  "security.settings.biometric": "使用生物识别解锁 App",
+  "security.settings.timeout": "离开 App 后锁定",
+  "security.settings.timeout0": "立即",
+  "security.settings.timeout30000": "30 秒",
+  "security.settings.timeout60000": "1 分钟",
+  "security.settings.timeout300000": "5 分钟",
+  "security.settings.capture": "保护截屏（Android）",
+  "security.settings.captureNote": "仅开发者模式可关闭；后台预览仍受保护。",
+  "security.settings.captureWarning": "允许截屏会使钱包页面（包括恢复材料）可被截屏和录制。仅在可信开发设备上使用，保存后才生效。",
+  "security.settings.allowCapture": "允许截屏",
+  "security.settings.save": "保存安全设置",
+  "security.settings.error": "保存失败，请检查设置后重试；如需口令，请重新输入。修改失败后截屏保护保持开启。",
+  "security.settings.biometricNote": "仅在设备支持且已录入生物识别时使用，始终可用 App Passphrase 解锁。"
 }
