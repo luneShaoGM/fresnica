@@ -1,11 +1,16 @@
 package com.fresnica.wallet
 
+import android.view.Window
 import android.view.WindowManager
 import com.facebook.react.bridge.*
+import com.facebook.react.interfaces.ExtraWindowEventListener
 
-class ScreenCaptureProtectionModule(private val context: ReactApplicationContext) : ReactContextBaseJavaModule(context), LifecycleEventListener {
+class ScreenCaptureProtectionModule(private val context: ReactApplicationContext) : ReactContextBaseJavaModule(context), LifecycleEventListener, ExtraWindowEventListener {
   @Volatile private var resumed = context.lifecycleState == com.facebook.react.common.LifecycleState.RESUMED
-  init { context.addLifecycleEventListener(this) }
+  init {
+    context.addLifecycleEventListener(this)
+    context.addExtraWindowEventListener(this)
+  }
   override fun getName() = "ScreenCaptureProtection"
   @ReactMethod fun setProtected(required: Boolean, promise: Promise) {
     UiThreadUtil.runOnUiThread {
@@ -17,8 +22,19 @@ class ScreenCaptureProtectionModule(private val context: ReactApplicationContext
     }
   }
   private fun protect() { context.currentActivity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+  // Dialogs have independent windows; keep them protected even during the Activity's capture opt-out.
+  override fun onExtraWindowCreate(window: Window) { window.addFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+  override fun onExtraWindowDestroy(window: Window) = Unit
   override fun onHostResume() { resumed = true; protect() }
   override fun onHostPause() { resumed = false; protect() }
   override fun onHostDestroy() { resumed = false; protect() }
-  override fun invalidate() { resumed = false; UiThreadUtil.runOnUiThread { protect() }; context.removeLifecycleEventListener(this); super.invalidate() }
+  override fun invalidate() {
+    resumed = false
+    UiThreadUtil.runOnUiThread {
+      protect()
+      context.removeExtraWindowEventListener(this)
+    }
+    context.removeLifecycleEventListener(this)
+    super.invalidate()
+  }
 }

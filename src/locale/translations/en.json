@@ -1226,7 +1226,7 @@
   "security.settings.timeout60000": "1 minute",
   "security.settings.timeout300000": "5 minutes",
   "security.settings.capture": "Protect screenshots (Android)",
-  "security.settings.captureNote": "Always protected outside Developer Mode. Background previews stay protected.",
+  "security.settings.captureNote": "Only Developer Mode allows main-screen capture. Dialogs and background previews stay protected.",
   "security.settings.captureWarning": "Allowing screenshots exposes wallet screens, including recovery material, to capture and recording. Use only on a trusted development device. Changes require Save.",
   "security.settings.allowCapture": "Allow screenshots",
   "security.settings.save": "Save security settings",

@@ -1226,7 +1226,7 @@
   "security.settings.timeout60000": "1 分鐘",
   "security.settings.timeout300000": "5 分鐘",
   "security.settings.capture": "保護截圖（Android）",
-  "security.settings.captureNote": "僅開發者模式可關閉；背景預覽仍受保護。",
+  "security.settings.captureNote": "僅開發者模式可允許主頁面截圖；彈窗和背景預覽始終受保護。",
   "security.settings.captureWarning": "允許截圖將使錢包頁面（包括復原資料）可被截圖及錄影。僅在可信開發裝置使用，儲存後才生效。",
   "security.settings.allowCapture": "允許截圖",
   "security.settings.save": "儲存安全設定",
