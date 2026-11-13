@@ -17,6 +17,7 @@ type Props = Readonly<{
   onRename: (label: string) => void | Promise<void>;
   onToggleHidden: () => void | Promise<void>;
   onDelete: () => void | Promise<void>;
+  onOpenRecovery?: () => void;
   onBack: () => void;
 }>;
 
@@ -32,6 +33,7 @@ export function AccountDetailsScreen({
   onToggleHidden,
   onDelete,
   onBack,
+  onOpenRecovery,
 }: Props) {
   const {t} = useLocalization();
   const styles = useThemedStyles(createStyles);
@@ -140,6 +142,7 @@ export function AccountDetailsScreen({
           </>
         ) : null}
 
+        {onOpenRecovery ? <View style={styles.actionRow}><Button label={t('recovery.title')} onPress={onOpenRecovery} variant="secondary" /></View> : null}
         <Text style={styles.sectionLabel}>{t('accounts.localActions')}</Text>
         <View style={styles.actionRow}>
           <Button

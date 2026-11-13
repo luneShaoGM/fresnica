@@ -39,6 +39,8 @@ export type SettingsStackParamList = {
   'account-details': ProductRouteParams['account-details'];
   'add-account': ProductRouteParams['add-account'];
   'security-settings': ProductRouteParams['security-settings'];
+  'recovery-material': { accountId: string };
+  'change-passphrase': undefined;
   'privacy-settings': undefined;
   'connected-dapps': undefined;
   'address-book': ProductRouteParams['address-book'];
