@@ -1186,8 +1186,6 @@
   "preferences.theme.dark": "Dark",
   "preferences.theme.system": "Follow system",
   "preferences.theme.image": "Image palette (follows system appearance)",
-  "preferences.balance.total": "Show total XLM balance",
-  "preferences.balance.spendable": "Show available XLM after reserve and liabilities",
   "preferences.saveError": "Unable to save. Your previous preference is still active; try again.",
   "preferences.separatorsNote": "Display uses device region when enabled; otherwise comma grouping and a decimal point. Transaction input rules stay the same.",
   "preferences.quoteNote": "Public XLM market quote only, not an account or token-portfolio valuation. The external provider may be unavailable or rate limited.",

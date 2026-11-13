@@ -37,7 +37,7 @@ it('General opens Language/Theme and exposes real persisted preference controls'
   expect(onOpenTheme).toHaveBeenCalledTimes(1);
   for (const currency of ['USD', 'EUR', 'CNY'])
     expect(rows.find(n => n.props.title === currency)?.props.onPress).toBeDefined();
-  expect(DEFAULT_GENERAL_PREFERENCES.reserveDisplay).toBe('spendable');
+  expect(DEFAULT_GENERAL_PREFERENCES.reserveDisplay).toBe(true);
 });
 it('Advanced always exposes Network and About, and shows no fictitious mode switch if management is unavailable', () => {
   const onOpenNetwork = jest.fn(),

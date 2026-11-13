@@ -84,16 +84,17 @@ export function GeneralSettingsScreen({
           />
         }
       />
-      <Text style={styles.label}>{t('settings.reserveDisplay')}</Text>
-      {(['total', 'spendable'] as const).map(reserveDisplay => (
-        <ListRow
-          key={reserveDisplay}
-          title={t(`preferences.balance.${reserveDisplay}`)}
-          selected={preferences.reserveDisplay === reserveDisplay}
-          disabled={!controller}
-          onPress={() => update({ reserveDisplay })}
-        />
-      ))}
+      <ListRow
+        title={t('settings.reserveDisplay')}
+        trailing={
+          <Switch
+            accessibilityLabel={t('settings.reserveDisplay')}
+            disabled={!controller}
+            value={preferences.reserveDisplay}
+            onValueChange={reserveDisplay => update({ reserveDisplay })}
+          />
+        }
+      />
       {error ? (
         <Text accessibilityRole="alert" style={styles.helper}>
           {t('preferences.saveError')}

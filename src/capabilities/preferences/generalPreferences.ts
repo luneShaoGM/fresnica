@@ -6,14 +6,14 @@ export type GeneralPreferences = Readonly<{
   currency: 'USD' | 'EUR' | 'CNY';
   haptics: boolean;
   systemSeparators: boolean;
-  reserveDisplay: 'total' | 'spendable';
+  reserveDisplay: boolean;
 }>;
 export const DEFAULT_GENERAL_PREFERENCES: GeneralPreferences = Object.freeze({
   theme: 'system',
   currency: 'USD',
   haptics: true,
   systemSeparators: true,
-  reserveDisplay: 'spendable',
+  reserveDisplay: true,
 });
 export interface GeneralPreferenceStore {
   load(): unknown;
@@ -29,7 +29,7 @@ export function validateGeneralPreferences(raw: unknown): GeneralPreferences {
     !['USD', 'EUR', 'CNY'].includes(String(value.currency)) ||
     typeof value.haptics !== 'boolean' ||
     typeof value.systemSeparators !== 'boolean' ||
-    !['total', 'spendable'].includes(String(value.reserveDisplay))
+    typeof value.reserveDisplay !== 'boolean'
   )
     throw new Error('invalid-preferences');
   let imagePalette: ImagePalette | undefined;
@@ -54,7 +54,7 @@ export function validateGeneralPreferences(raw: unknown): GeneralPreferences {
     currency: value.currency as GeneralPreferences['currency'],
     haptics: value.haptics,
     systemSeparators: value.systemSeparators,
-    reserveDisplay: value.reserveDisplay as GeneralPreferences['reserveDisplay'],
+    reserveDisplay: value.reserveDisplay as boolean,
     ...(imagePalette ? { imagePalette } : {}),
   });
 }

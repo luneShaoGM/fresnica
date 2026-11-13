@@ -276,8 +276,8 @@ export function HomeScreen({
         </ScrollView>
         {assetCategory === 'tokens' && nativeLine ? (
           <View style={styles.nativeFixedWrap}>
-            <PinnedNativeAssetRow reserveDisplay={displayPreferences?.reserveDisplay} formatAmount={formatNumber ? value => formatNumber(value, 7) : undefined} line={nativeLine} breakdown={safeNativeDetails} onOpenAsset={onOpenAsset} t={t} />
-            {account.networkId === 'stellar-mainnet' ? <NativeFiatEstimate quotes={xlmQuotes} amount={displayPreferences?.reserveDisplay === 'total' ? nativeLine.balance : safeNativeDetails?.available ?? nativeLine.balance} currency={displayPreferences?.currency ?? 'USD'} active={active} /> : null}
+            <PinnedNativeAssetRow showReserve={displayPreferences?.reserveDisplay} formatAmount={formatNumber ? value => formatNumber(value, 7) : undefined} line={nativeLine} breakdown={safeNativeDetails} onOpenAsset={onOpenAsset} t={t} />
+            {account.networkId === 'stellar-mainnet' ? <NativeFiatEstimate quotes={xlmQuotes} amount={safeNativeDetails?.available ?? nativeLine.balance} currency={displayPreferences?.currency ?? 'USD'} active={active} /> : null}
           </View>
         ) : null}
         <ScrollView

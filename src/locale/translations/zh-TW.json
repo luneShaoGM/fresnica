@@ -1186,8 +1186,6 @@
   "preferences.theme.dark": "深色",
   "preferences.theme.system": "跟隨系統",
   "preferences.theme.image": "圖片主題（跟隨系統明暗）",
-  "preferences.balance.total": "顯示 XLM 總餘額",
-  "preferences.balance.spendable": "顯示扣除儲備與負債後的可用 XLM",
   "preferences.saveError": "無法儲存，仍使用先前的偏好，請重試。",
   "preferences.separatorsNote": "開啟後依裝置地區顯示數字；關閉後使用逗號分組與小數點。交易輸入規則保持不變。",
   "preferences.quoteNote": "僅顯示公開 XLM 市場報價，不代表帳號或全部資產估值。外部服務可能無法使用或限流。",

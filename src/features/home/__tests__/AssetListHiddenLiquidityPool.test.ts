@@ -165,3 +165,15 @@ describe('Home asset identity and exact amount presentation', () => {
     expect(nativeAmount?.props).toMatchObject({ numberOfLines: undefined, selectable: true });
   });
 });
+
+it('hides only the reserve panel while preserving the available amount and exact asset action', () => {
+  const onOpenAsset = jest.fn();
+  const breakdown = { available: '10.0000000', reserved: '2.0000000' } as Parameters<typeof PinnedNativeAssetRow>[0]['breakdown'];
+  const visible = PinnedNativeAssetRow({ line: native, breakdown, onOpenAsset, t: key => key, showReserve: true });
+  const hidden = PinnedNativeAssetRow({ line: native, breakdown, onOpenAsset, t: key => key, showReserve: false });
+  expect(texts(visible)).toContain('home.asset.reserved');
+  expect(texts(hidden)).not.toContain('home.asset.reserved');
+  expect(texts(hidden)).toContain('10');
+  const button = elements(hidden, Pressable)[0] as React.ReactElement<{ onPress(): void }>;
+  button.props.onPress(); expect(onOpenAsset).toHaveBeenCalledWith(native.asset);
+});
