@@ -4,7 +4,7 @@ import { Linking, Share } from 'react-native';
 import { RecoveryMaterialScreen } from '@features/security/RecoveryManagement/RecoveryMaterialScreen';
 import { ChangePassphraseScreen } from '@features/security/RecoveryManagement/ChangePassphraseScreen';
 import { createSensitiveClipboard } from '@platform/system/sensitiveClipboard';
-import React, { useMemo } from 'react';
+import React, { useMemo, useSyncExternalStore } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
@@ -186,7 +186,7 @@ export function SettingsStackNavigator({
         )}
       </Stack.Screen>
       <Stack.Screen name="security-settings">
-        {({ navigation }) => <SecuritySettingsScreen onClose={() => navigation.goBack()} accounts={accounts} onChangePassphrase={services.recoveryManagement ? () => navigation.navigate('change-passphrase') : undefined} onOpenRecovery={services.recoveryManagement ? accountId => navigation.navigate('recovery-material', { accountId }) : undefined} />}
+        {({ navigation }) => <SecuritySettingsRoute settings={services.securitySettings} networkSettings={services.networkSettings} onClose={() => navigation.goBack()} accounts={accounts} onChangePassphrase={services.recoveryManagement ? () => navigation.navigate('change-passphrase') : undefined} onOpenRecovery={services.recoveryManagement ? accountId => navigation.navigate('recovery-material', { accountId }) : undefined} />}
       </Stack.Screen>
       <Stack.Screen name="recovery-material">
         {({ navigation, route }) => services.recoveryManagement ? <RecoveryMaterialRoute dependencies={services.recoveryManagement} accountId={route.params.accountId} onBack={() => navigation.goBack()} /> : null}
@@ -308,4 +308,11 @@ function RecoveryMaterialRoute(props: Omit<React.ComponentProps<typeof RecoveryM
 function ChangePassphraseRoute(props: Omit<React.ComponentProps<typeof ChangePassphraseScreen>, 'active'>) {
   const active = useIsFocused();
   return <ChangePassphraseScreen {...props} active={active} />;
+}
+
+const noSecuritySubscription = () => () => {};
+function SecuritySettingsRoute({ networkSettings, ...props }: React.ComponentProps<typeof SecuritySettingsScreen> & { networkSettings?: AppServices['networkSettings'] }) {
+  const active = useIsFocused();
+  const developerMode = useSyncExternalStore(networkSettings?.subscribe ?? noSecuritySubscription, () => networkSettings?.getSnapshot().preferences.developerMode === true);
+  return <SecuritySettingsScreen {...props} active={active} developerMode={developerMode} />;
 }

@@ -1,4 +1,9 @@
-import { createThemeImageSelection, type ThemeImageSelection } from '@capabilities/preferences/createThemeImageSelection';
+import { createSecuritySettings, type SecuritySettings } from '@capabilities/application-security/securitySettings';
+import { setScreenCaptureProtection } from '@platform/system/screenCaptureProtection';
+import {
+  createThemeImageSelection,
+  type ThemeImageSelection,
+} from '@capabilities/preferences/createThemeImageSelection';
 import { pickImagePalette, cancelImagePalette } from '@platform/system/presentationPreferences';
 import type { XlmQuotePort } from '@capabilities/valuation/xlmQuote';
 import { createCoinGeckoXlmQuotes } from '@platform/valuation/CoinGeckoXlmQuotes';
@@ -9,6 +14,7 @@ import {
 import {
   openGeneralPreferences,
   RealmGeneralPreferenceStore,
+  RealmSecurityPreferenceStore,
 } from '@platform/persistence/realm/RealmGeneralPreferenceStore';
 import type { RecoveryManagementDependencies } from '../capabilities/application-security/recoveryManagement';
 import { createSessionAuthentication } from '../platform/system/sessionAuthentication';
@@ -119,6 +125,7 @@ export type AccountManagementDependencies = RenameAccountDependencies &
 export type AppServices = Readonly<{
   diagnostics: SessionLogger;
   generalPreferences?: GeneralPreferenceController;
+  securitySettings?: SecuritySettings;
   themeImageSelection?: ThemeImageSelection;
   xlmQuotes?: XlmQuotePort;
   applicationSession?: ApplicationSession;
@@ -180,6 +187,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
   let closeTokenIcons = () => {};
   let closeAccountAvatars = () => {};
   let closeApplicationSession = () => {};
+  let closeSecuritySettings = () => {};
   let continueApplicationAccess: () => NetworkAccessContinuation | undefined = () => undefined;
   let stopIconPrivacySync = () => {};
   let closeDappPermissions = () => {};
@@ -192,6 +200,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     retired = true;
     session.close();
     closeThemeImageSelection();
+    closeSecuritySettings();
     closeApplicationSession();
     closeDappCatalog();
     closeXlmQuotes();
@@ -233,15 +242,46 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const nativeModule = loadNativeFresnicaModule(NativeModules);
     const rawSdk = session.bind(new ReactNativeFresnicaSdk(nativeModule), true);
     const storedAccounts = new RealmAccountSignerRepository(realm);
-    const applicationSession = createApplicationSession(
+    const securitySettings = createSecuritySettings({
+      repository: storedAccounts,
+      sdk: rawSdk,
+      store: new RealmSecurityPreferenceStore(generalRealm),
+      assertOpen: session.assertOpen,
+      getAccess: () => applicationSession.getSnapshot(),
+      developerMode: () => networkSettings?.getSnapshot().preferences.developerMode === true,
+      applyScreenProtection: setScreenCaptureProtection,
+    });
+    const applicationSession: ApplicationSession = createApplicationSession(
       {
         sdk: rawSdk,
         repository: storedAccounts,
         sessionAuthentication: createSessionAuthentication(),
+        getSecurityPreferences: securitySettings.getSnapshot,
       },
       undefined,
       options.networkAccessContinuation,
     );
+    let stopScreenNetwork = () => {};
+    const stopSecurityPolicy = securitySettings.subscribe(applicationSession.refreshSecurityPreferences);
+    const syncScreenProtection = () => {
+      const access = applicationSession.getSnapshot();
+      const required =
+        securitySettings.getSnapshot().screenCaptureProtection ||
+        !access.foreground ||
+        access.locked ||
+        networkSettings?.getSnapshot().preferences.developerMode !== true;
+      setScreenCaptureProtection(required).catch(() => undefined);
+    };
+    const stopScreenAccess = applicationSession.subscribe(syncScreenProtection);
+    const stopScreenPreferences = securitySettings.subscribe(syncScreenProtection);
+    closeSecuritySettings = () => {
+      stopScreenNetwork();
+      stopSecurityPolicy();
+      stopScreenAccess();
+      stopScreenPreferences();
+      securitySettings.close();
+      setScreenCaptureProtection(true).catch(() => undefined);
+    };
     const themeImageSelection = createThemeImageSelection({
       preferences: generalPreferences,
       pickPalette: pickImagePalette,
@@ -447,6 +487,8 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         },
         restart: restartNetworkSession,
       });
+      stopScreenNetwork = networkSettings.subscribe(syncScreenProtection);
+      syncScreenProtection();
       stopSettingsLifecycle = ledgerReadRuntime.subscribe(() => {
         if (!ledgerReadRuntime.getSnapshot().foreground) networkSettings?.cancel();
       });
@@ -524,6 +566,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       applicationSession: options.fixedNetwork ? undefined : applicationSession,
       diagnostics,
       generalPreferences,
+      securitySettings,
       themeImageSelection,
       xlmQuotes,
       networkProfile,
@@ -584,7 +627,11 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         sdk,
         repository: session.bind(applicationSession.bindSensitive(storedAccounts)),
         hasUnresolvedSubmission: () => pendingSubmissions.listUnresolved().length > 0,
-        assertCurrent: () => { session.assertOpen(); const state = applicationSession.getSnapshot(); if (state.locked || !state.foreground) throw new Error('application-session-locked'); },
+        assertCurrent: () => {
+          session.assertOpen();
+          const state = applicationSession.getSnapshot();
+          if (state.locked || !state.foreground) throw new Error('application-session-locked');
+        },
         now: () => new Date(),
       },
       security: {

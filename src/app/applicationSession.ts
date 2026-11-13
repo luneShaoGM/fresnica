@@ -1,3 +1,7 @@
+import {
+  DEFAULT_SECURITY_PREFERENCES,
+  type SecurityPreferences,
+} from '../capabilities/application-security/securitySettings';
 import type { SessionAuthenticationPort } from '../capabilities/ports/SessionAuthenticationPort';
 import { authorizeSensitiveSetting } from '../capabilities/application-security/authorizeSensitiveSetting';
 import type { ExistingAppPassphraseVerificationDependencies } from '../capabilities/application-security/verifyExistingAppPassphrase';
@@ -17,7 +21,7 @@ export type NetworkAccessContinuation = Readonly<{
   isValid: () => boolean;
 }>;
 
-const policy = { enabled: true, backgroundTimeoutMs: 30_000 } as const;
+const handoffTimeoutMs = 30_000;
 export type ApplicationSessionSnapshot = Readonly<{
   locked: boolean;
   foreground: boolean;
@@ -28,11 +32,16 @@ export type ApplicationSessionSnapshot = Readonly<{
 
 // App access is distinct from signing authorization. No credential or auth token is retained.
 export function createApplicationSession(
-  deps: ExistingAppPassphraseVerificationDependencies & { sessionAuthentication?: SessionAuthenticationPort },
+  deps: ExistingAppPassphraseVerificationDependencies & {
+    sessionAuthentication?: SessionAuthenticationPort;
+    getSecurityPreferences?(): SecurityPreferences;
+  },
   now: () => number = () => performance.now(),
   continuation?: NetworkAccessContinuation,
 ) {
-  let state = createSessionLockState({ ...policy, enabled: requiresExistingAppPassphrase(deps.repository) });
+  const preferences = () => deps.getSecurityPreferences?.() ?? DEFAULT_SECURITY_PREFERENCES;
+  const policy = () => ({ enabled: true, backgroundTimeoutMs: preferences().backgroundTimeoutMs });
+  let state = createSessionLockState({ ...policy(), enabled: requiresExistingAppPassphrase(deps.repository) });
   const continuedBackgroundRevision = continuation?.resume(deps.repository);
   if (continuedBackgroundRevision !== undefined) state = completeVerifiedSessionUnlock();
   let foreground = false;
@@ -80,7 +89,7 @@ export function createApplicationSession(
         interrupt();
         state = recordSessionBackground(state, now());
       } else
-        state = resumeSession(state, { ...policy, enabled: requiresExistingAppPassphrase(deps.repository) }, now());
+        state = resumeSession(state, { ...policy(), enabled: requiresExistingAppPassphrase(deps.repository) }, now());
       publish();
     },
     retireMissedBackground() {
@@ -107,7 +116,7 @@ export function createApplicationSession(
       const continuedRevision = backgroundRevision;
       let available = true;
       let cancelled = false;
-      const isValid = () => !cancelled && now() - started < policy.backgroundTimeoutMs;
+      const isValid = () => !cancelled && now() - started < handoffTimeoutMs;
       // Browsing access survives one immediate rebuild; credentials and signing authority never transfer.
       return {
         resume(repository) {
@@ -123,9 +132,24 @@ export function createApplicationSession(
         isValid,
       };
     },
-    canUseBiometrics: () => deps.sessionAuthentication?.canAuthenticate() ?? Promise.resolve(false),
+    refreshSecurityPreferences() {
+      if (closed) return;
+      if (active || state.status === 'locked') interrupt();
+      publish();
+    },
+    canUseBiometrics: () =>
+      preferences().biometricUnlock
+        ? (deps.sessionAuthentication?.canAuthenticate() ?? Promise.resolve(false))
+        : Promise.resolve(false),
     async unlockWithBiometrics(reason: string, cancelLabel: string) {
-      if (closed || !foreground || active || state.status !== 'locked' || !deps.sessionAuthentication)
+      if (
+        closed ||
+        !foreground ||
+        active ||
+        state.status !== 'locked' ||
+        !deps.sessionAuthentication ||
+        !preferences().biometricUnlock
+      )
         throw new Error('session-unlock-unavailable');
       const owner = new AbortController();
       const inventory = () => JSON.stringify(deps.repository.listSigners());
@@ -135,6 +159,7 @@ export function createApplicationSession(
         const verified = await deps.sessionAuthentication.authenticate(reason, cancelLabel);
         if (
           verified !== true ||
+          !preferences().biometricUnlock ||
           closed ||
           !foreground ||
           owner.signal.aborted ||
