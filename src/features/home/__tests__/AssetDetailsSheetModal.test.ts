@@ -1,4 +1,5 @@
 import React from 'react';
+import { Pressable } from 'react-native';
 import { AppModal } from '@ui/components';
 import type { AccountRecord } from '../../../capabilities/account/types';
 import type { BalanceProductDependencies } from '../../../capabilities/balance/BalanceCacheHydration';
@@ -86,5 +87,10 @@ describe('XLM details shared swipeable modal', () => {
     result.props.onRequestClose();
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(React.Children.count(result.props.children)).toBe(1);
+    const header = result.props.swipeHeader;
+    const headerChildren = React.isValidElement<{ children?: React.ReactNode }>(header)
+      ? React.Children.toArray(header.props.children)
+      : [];
+    expect(headerChildren.some(child => React.isValidElement(child) && child.type === Pressable)).toBe(true);
   });
 });

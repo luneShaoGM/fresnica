@@ -5,7 +5,14 @@ import type { AppTheme } from '../../ui/theme';
 export function createAssetDetailsSheetStyles(theme: AppTheme) {
   return StyleSheet.create({
     sheet: { flex: 1, paddingHorizontal: theme.spacing.lg, gap: theme.spacing.md },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.lg,
+      paddingBottom: theme.spacing.md,
+    },
     title: { ...theme.typography.sectionTitle, color: theme.colors.textPrimary, flex: 1 },
     close: {
       minHeight: 44,
