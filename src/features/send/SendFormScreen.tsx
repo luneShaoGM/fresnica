@@ -1,5 +1,5 @@
 import React from 'react';
-import { TokenAssetIcon } from '../assets/TokenAssetIcon';
+import { AssetPicker } from '../assets/AssetPicker';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { Screen } from '@ui/components';
@@ -14,6 +14,7 @@ import { createSendFormStyles } from './styles';
 
 type Props = Readonly<{
   step: 'details' | 'recipient';
+  active?: boolean;
   accountLabel: string;
   requestMessage?: string;
   balances: readonly BalanceLine[];
@@ -38,6 +39,7 @@ type Props = Readonly<{
 
 export function SendFormScreen({
   step,
+  active = true,
   accountLabel,
   requestMessage,
   balances,
@@ -98,36 +100,13 @@ export function SendFormScreen({
         {step === 'details' ? (
           <>
             <Text style={styles.sectionLabel}>ASSET</Text>
-            <ScrollView
-              contentContainerStyle={styles.assetList}
-              horizontal
-              keyboardShouldPersistTaps="handled"
-              showsHorizontalScrollIndicator={false}
-            >
-              {balances.map(line => {
-                const selected = sendAssetKey(line.asset) === sendAssetKey(selectedAsset);
-                return (
-                  <Pressable
-                    key={sendAssetKey(line.asset)}
-                    onPress={() => onSelectAsset(line.asset)}
-                    disabled={building}
-                    style={({ pressed }) => [
-                      styles.assetCard,
-                      selected ? styles.assetCardSelected : undefined,
-                      pressed ? styles.pressed : undefined,
-                    ]}
-                  >
-                    <View style={[styles.assetIcon, selected ? styles.assetIconSelected : undefined]}>
-                      <TokenAssetIcon asset={line.asset} small />
-                    </View>
-                    <Text style={styles.assetCode}>{line.asset.code}</Text>
-                    <Text numberOfLines={1} style={styles.assetBalance}>
-                      {line.balance}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+            <AssetPicker
+              balances={balances}
+              selectedAsset={selectedAsset}
+              disabled={building || !active}
+              onSelect={onSelectAsset}
+              label={t('assets.picker.title')}
+            />
 
             <View style={styles.balanceLine}>
               <Text style={styles.balanceLabel}>Available</Text>
