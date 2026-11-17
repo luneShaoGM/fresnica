@@ -1,3 +1,4 @@
+import { PassphrasePrompt } from '../../../ui/components/PassphrasePrompt/PassphrasePrompt';
 import React, { useEffect, useRef, useState } from 'react';
 import type { AccountRecord } from '@capabilities/account/types';
 import { loadBalanceSnapshot } from '@capabilities/balance/loadBalanceSnapshot';
@@ -17,6 +18,10 @@ jest.mock('react', () => ({
   useEffect: jest.fn(),
   useCallback: (fn: unknown) => fn,
 }));
+jest.mock('../../../ui/theme', () => {
+  const actual = jest.requireActual('../../../ui/theme');
+  return { ...actual, useThemedStyles: (factory: (theme: unknown) => unknown) => factory(actual.defaultTheme) };
+});
 jest.mock('../../../locale', () => ({ useLocalization: () => ({ t: (key: string) => key }) }));
 jest.mock('@capabilities/balance/loadBalanceSnapshot', () => ({ loadBalanceSnapshot: jest.fn() }));
 jest.mock('../sendProductFlow', () => ({
@@ -176,4 +181,38 @@ it('clears the entered amount when selecting an asset in Details', async () => {
   form.props.onSelectAsset(native);
   expect(screen(draw(intent), SendFormScreen).props.amount).toBe('');
   expect(buildSendReview).not.toHaveBeenCalled();
+});
+
+it('retires a busy Send on password-prompt expiry and ignores the deferred submission result', async () => {
+  const intent = await mount();
+  screen(draw(intent), SendFormScreen).props.onContinue();
+  screen(draw(intent), SendFormScreen).props.onContinue();
+  for (let i = 0; i < 4; i++) await Promise.resolve();
+  const review = screen(draw(intent), SendReviewScreen);
+  review.props.passphraseInput.current = { consume: jest.fn(() => 'legacy fixture password'), clear: jest.fn() };
+  let complete!: (result: Awaited<ReturnType<typeof submitSendReview>>) => void;
+  jest.mocked(submitSendReview).mockImplementationOnce(
+    () =>
+      new Promise(resolve => {
+        complete = resolve;
+      }),
+  );
+  review.props.onConfirm();
+  const current = jest.mocked(submitSendReview).mock.calls[0][4]!;
+  expect(current()).toBe(true);
+  const busy = screen(draw(intent), SendReviewScreen);
+  expect(busy.props.submitting).toBe(true);
+  // Render the already-open child prompt; its timer callback must retire the parent's request.
+  jest.mocked(useState).mockImplementationOnce(() => [true, jest.fn()] as ReturnType<typeof useState>);
+  const prompt = screen(SendReviewScreen(busy.props), PassphrasePrompt);
+  expect(prompt.props.visible).toBe(true);
+  expect(prompt.props.busy).toBe(true);
+  prompt.props.onExpire();
+  expect(current()).toBe(false);
+  expect(screen(draw(intent), SendFormScreen).props.step).toBe('recipient');
+  complete({ status: 'uncertain', transactionHash: 'ORIGINAL_HASH', reason: 'pending-reconciliation' });
+  for (let i = 0; i < 4; i++) await Promise.resolve();
+  expect(screen(draw(intent), SendFormScreen).props.step).toBe('recipient');
+  expect(submitSendReview).toHaveBeenCalledTimes(1);
+  expect(current()).toBe(false);
 });

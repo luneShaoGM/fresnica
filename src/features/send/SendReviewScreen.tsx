@@ -1,5 +1,6 @@
-import { PassphraseInput, type PassphraseInputHandle } from '@ui/components/PassphraseInput';
-import React from 'react';
+import { type PassphraseInputHandle } from '@ui/components/PassphraseInput';
+import React, { useState } from 'react';
+import { PassphrasePrompt } from '../../ui/components/PassphrasePrompt/PassphrasePrompt';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { Screen } from '@ui/components';
@@ -11,6 +12,8 @@ import { SlideToConfirm } from '../../ui/SlideToConfirm';
 import { createSendReviewStyles } from './styles';
 
 type Props = Readonly<{
+  active?: boolean;
+  onCancelAuthorization?: () => void;
   recipientCard?: React.ReactNode;
   review: PaymentReview;
   submitting: boolean;
@@ -25,6 +28,8 @@ type Props = Readonly<{
 
 export function SendReviewScreen({
   review,
+  active = true,
+  onCancelAuthorization,
   recipientCard,
   submitting,
   passphraseRequired,
@@ -35,6 +40,7 @@ export function SendReviewScreen({
   onConfirm,
   onBack,
 }: Props) {
+  const [authorizing, setAuthorizing] = useState(false);
   const { t } = useLocalization();
   const styles = useThemedStyles(createSendReviewStyles);
   const memoLabel =
@@ -79,43 +85,50 @@ export function SendReviewScreen({
             <ReviewRow label="Expires" value={new Date(review.expiresAtUnixSeconds * 1000).toLocaleString()} />
           )}
         </View>
-
-        <View style={styles.authorizationNote}>
-          <Text style={styles.authorizationTitle}>Authorization</Text>
-          <Text style={styles.authorizationText}>{t('signature.passphraseRequired')}</Text>
-        </View>
       </ScrollView>
 
-      {error ? (
+      {error && !authorizing ? (
         <Text accessibilityLiveRegion="assertive" style={styles.error}>
           {error}
         </Text>
       ) : null}
 
-      {passphraseRequired ? (
-        <View style={styles.passphraseBlock}>
-          <Text accessibilityLiveRegion="assertive" style={styles.passphrasePrompt}>
-            {t('send.authorization.passphraseRequired')}
-          </Text>
-          <Text style={styles.passphraseLabel}>{t('send.authorization.appPassphrase')}</Text>
-          <PassphraseInput
-            ref={passphraseInput}
-            autoFocus
-            label={t('send.authorization.appPassphrase')}
-            hint={t('send.authorization.passphraseHint')}
-            disabled={submitting}
-            onPresenceChange={onPassphrasePresenceChange}
-            style={styles.passphraseInput}
-          />
-        </View>
-      ) : null}
+      <PassphrasePrompt
+        visible={authorizing}
+        active={active}
+        busy={submitting}
+        title={t('passphrase.prompt.title')}
+        label={t('send.authorization.appPassphrase')}
+        hint={t('send.authorization.passphraseHint')}
+        confirmLabel={t('passphrase.prompt.sign')}
+        cancelLabel={t('common.cancel')}
+        inputRef={passphraseInput}
+        hasValue={hasPassphrase}
+        error={error}
+        expiresAtUnixMs={review.expiresAtUnixSeconds === undefined ? undefined : review.expiresAtUnixSeconds * 1000}
+        onExpire={() => {
+          passphraseInput.current?.clear();
+          setAuthorizing(false);
+          onBack();
+        }}
+        onPresenceChange={onPassphrasePresenceChange}
+        onConfirm={onConfirm}
+        onCancel={() => {
+          passphraseInput.current?.clear();
+          setAuthorizing(false);
+          onCancelAuthorization?.();
+        }}
+      />
 
       <View style={styles.bottomBar}>
         <SlideToConfirm
-          disabled={submitting || (passphraseRequired && !hasPassphrase)}
-          label={passphraseRequired ? t('send.authorization.slideToAuthorize') : 'Slide to send'}
+          disabled={submitting || authorizing || !active}
+          label={t('send.authorization.slideToAuthorize')}
           loading={submitting}
-          onComplete={onConfirm}
+          onComplete={() => {
+            if (passphraseRequired) setAuthorizing(true);
+            else onConfirm();
+          }}
         />
       </View>
     </Screen>

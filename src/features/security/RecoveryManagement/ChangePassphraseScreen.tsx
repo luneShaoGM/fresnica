@@ -1,3 +1,5 @@
+import { assessNewProtectionPassphrase } from '../../../capabilities/application-security/newPassphrasePolicy';
+import { NewPassphraseGuidance } from '../NewPassphraseGuidance/NewPassphraseGuidance';
 import React, { useEffect, useRef, useState } from 'react';
 import { AppState, Text, View } from 'react-native';
 import {
@@ -29,6 +31,8 @@ export function ChangePassphraseScreen({
   const request = useRef<AbortController | undefined>(undefined);
   const foreground = useRef(true);
   const [presence, setPresence] = useState([false, false, false]);
+  const [assessment, setAssessment] = useState(assessNewProtectionPassphrase(''));
+  const [shortRiskAccepted, setShortRiskAccepted] = useState(false);
   const [status, setStatus] = useState<'idle' | 'busy' | 'error'>('idle');
   const clear = (resetState = true) => {
     request.current?.abort();
@@ -38,6 +42,8 @@ export function ChangePassphraseScreen({
     confirmation.current?.clear();
     if (resetState) {
       setPresence([false, false, false]);
+      setShortRiskAccepted(false);
+      setAssessment(assessNewProtectionPassphrase(''));
       setStatus('idle');
     }
   };
@@ -66,6 +72,7 @@ export function ChangePassphraseScreen({
         newPassphrase,
         confirmation: confirm,
         signal: owner.signal,
+        shortPassphraseRiskAccepted: shortRiskAccepted,
       });
       if (!owner.signal.aborted) onChanged();
     } catch {
@@ -96,15 +103,38 @@ export function ChangePassphraseScreen({
             hint={t('recovery.fresh')}
             disabled={status === 'busy'}
             style={styles.input}
+            onTextChange={
+              index === 1
+                ? value => {
+                    setAssessment(assessNewProtectionPassphrase(value));
+                    setShortRiskAccepted(false);
+                  }
+                : undefined
+            }
             onPresenceChange={value => setPresence(previous => previous.map((p, i) => (i === index ? value : p)))}
           />
         ))}
+        <NewPassphraseGuidance
+          assessment={assessment}
+          accepted={shortRiskAccepted}
+          disabled={status === 'busy'}
+          onAccept={setShortRiskAccepted}
+        />
         {status === 'error' ? (
           <Text accessibilityRole="alert" style={styles.error}>
             {t('recovery.changeError')}
           </Text>
         ) : null}
-        <Button label={t('recovery.change')} disabled={status === 'busy' || presence.some(p => !p)} onPress={change} />
+        <Button
+          label={t('recovery.change')}
+          disabled={
+            status === 'busy' ||
+            presence.some(p => !p) ||
+            !!assessment.rejection ||
+            (!assessment.meetsMinimum && !shortRiskAccepted)
+          }
+          onPress={change}
+        />
         <Button
           label={t('common.cancel')}
           onPress={() => {

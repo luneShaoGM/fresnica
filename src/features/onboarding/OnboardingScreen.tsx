@@ -1,3 +1,4 @@
+import { NewPassphraseGuidance } from '../security/NewPassphraseGuidance/NewPassphraseGuidance';
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -45,9 +46,13 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
   const [generatedBackup, setGeneratedBackup] = useState<GeneratedBackupState>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [shortRiskAccepted, setShortRiskAccepted] = useState(false);
   const passphraseAssessment = assessNewProtectionPassphrase(appPassphrase);
   const passphraseConfirmationMatches = confirmPassphrase.length > 0 && appPassphrase === confirmPassphrase;
-  const passphraseReady = passphraseAssessment.meetsMinimum && passphraseConfirmationMatches;
+  const passphraseReady =
+    !passphraseAssessment.rejection &&
+    (passphraseAssessment.meetsMinimum || shortRiskAccepted) &&
+    passphraseConfirmationMatches;
 
   function chooseMethod(nextMethod: OnboardingMethod) {
     clearSensitiveInputs();
@@ -67,11 +72,12 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
     setSecret('');
     setMnemonic('');
     setAppPassphrase('');
+    setShortRiskAccepted(false);
     setConfirmPassphrase('');
   }
 
   function validatePassphrase() {
-    assertNewProtectionPassphrase(appPassphrase);
+    assertNewProtectionPassphrase(appPassphrase, shortRiskAccepted);
     if (appPassphrase !== confirmPassphrase) {
       throw new Error('app-passphrase-confirmation-mismatch');
     }
@@ -98,6 +104,7 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
         await runSecretImportOnboarding(dependencies, {
           secret,
           appPassphrase,
+          shortPassphraseRiskAccepted: shortRiskAccepted,
           label,
         });
         clearSensitiveInputs();
@@ -111,6 +118,7 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
           mnemonicPassphrase: '',
           index: 0,
           appPassphrase,
+          shortPassphraseRiskAccepted: shortRiskAccepted,
           label,
         });
         clearSensitiveInputs();
@@ -124,6 +132,7 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
         mnemonicPassphrase: '',
         index: 0,
         appPassphrase,
+        shortPassphraseRiskAccepted: shortRiskAccepted,
         label,
       });
 
@@ -275,8 +284,11 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
             <Field
               label="App passphrase"
               value={appPassphrase}
-              onChangeText={setAppPassphrase}
-              placeholder="At least 15 characters"
+              onChangeText={value => {
+                setAppPassphrase(value);
+                setShortRiskAccepted(false);
+              }}
+              placeholder="15 or more characters recommended"
               secureTextEntry
               autoCapitalize="none"
               autoComplete="new-password"
@@ -291,6 +303,12 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
               autoCapitalize="none"
               autoComplete="new-password"
               textContentType="newPassword"
+            />
+            <NewPassphraseGuidance
+              assessment={passphraseAssessment}
+              accepted={shortRiskAccepted}
+              disabled={busy}
+              onAccept={setShortRiskAccepted}
             />
             <PassphraseRequirements
               unicodeScalarCount={passphraseAssessment.unicodeScalarCount}
@@ -396,7 +414,7 @@ function PassphraseRequirements({
       <View style={styles.requirementRow}>
         <Text style={meetsMinimum ? styles.requirementMet : styles.requirementPending}>{meetsMinimum ? '✓' : '○'}</Text>
         <Text style={styles.requirementText}>
-          {unicodeScalarCount}/{NEW_PROTECTION_PASSPHRASE_MIN_UNICODE_SCALARS} characters minimum
+          {unicodeScalarCount}/{NEW_PROTECTION_PASSPHRASE_MIN_UNICODE_SCALARS} characters recommended
         </Text>
       </View>
       <View style={styles.requirementRow}>

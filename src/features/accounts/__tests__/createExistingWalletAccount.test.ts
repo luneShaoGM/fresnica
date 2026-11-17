@@ -227,3 +227,41 @@ describe('existing-wallet Create account flow', () => {
     expect(repository.isWatchOnly(result.account.account.id)).toBe(false);
   });
 });
+
+it.each(['1234', 'river sky'])(
+  'creates using an exactly verified legacy credential without new-password screening (%s)',
+  async passphrase => {
+    const { dependencies, repository, sdk } = createDependencies();
+    repository.createSigner(protectedSigner('old'));
+    const result = await createExistingWalletAccount(dependencies, { appPassphrase: passphrase });
+    expect(sdk.verifyProtectedSignerPassphrase).toHaveBeenCalledWith({
+      envelopeJson: '{old-envelope}',
+      appPassphrase: passphrase,
+      expectedSignerPublicKey: 'GOLD',
+    });
+    expect(sdk.generateMnemonic).toHaveBeenCalledWith(expect.objectContaining({ appPassphrase: passphrase }));
+    expect(repository.getAccount(result.account.account.id)?.address).toBe('GGENERATED');
+    expect(result.backup.mnemonic).toBe('alpha beta gamma');
+  },
+);
+it('creates the first protected signer in a watch-only wallet with explicit short-password risk acceptance', async () => {
+  const { dependencies, repository, sdk } = createDependencies();
+  repository.createAccount({
+    id: 'watch',
+    address: 'GWATCH',
+    identityKind: 'classic',
+    networkId: dependencies.networkId,
+    label: 'Watch',
+    sortOrder: 0,
+    hidden: false,
+    createdAt: now,
+    updatedAt: now,
+  });
+  const input = { appPassphrase: 'river sky', confirmAppPassphrase: 'river sky' };
+  await expect(createExistingWalletAccount(dependencies, input)).rejects.toThrow('app-passphrase-short-risk-required');
+  expect(sdk.generateMnemonic).not.toHaveBeenCalled();
+  const result = await createExistingWalletAccount(dependencies, { ...input, shortPassphraseRiskAccepted: true });
+  expect(sdk.generateMnemonic).toHaveBeenCalledWith(expect.objectContaining({ appPassphrase: 'river sky' }));
+  expect(repository.getSigner(result.account.signer.id)?.backupState).toBe('pending');
+  expect(repository.isWatchOnly('watch')).toBe(true);
+});

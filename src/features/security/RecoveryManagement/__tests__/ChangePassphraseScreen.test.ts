@@ -59,6 +59,7 @@ function fixture() {
     label?: string;
     disabled?: boolean;
     onPress?: () => Promise<void>;
+    onTextChange?: (v: string) => void;
     onPresenceChange?: (v: boolean) => void;
     children?: React.ReactNode;
   };
@@ -108,7 +109,9 @@ it.each([false, true])(
     jest.mocked(changeWalletPassphrase).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
     const h = fixture();
     try {
-      h.render().fields.forEach(field => field.onPresenceChange!(true));
+      h.render().fields.forEach(
+        field => (field.onTextChange?.('amber river under quiet moon'), field.onPresenceChange!(true)),
+      );
       const oldRequest = h.render().change.onPress!();
       expect(h.render().fields.every(field => field.disabled)).toBe(true);
       const signal = jest.mocked(changeWalletPassphrase).mock.calls[0][1].signal!;
@@ -122,7 +125,9 @@ it.each([false, true])(
         await oldRequest;
       }
       h.lifecycle('active');
-      h.render().fields.forEach(field => field.onPresenceChange!(true));
+      h.render().fields.forEach(
+        field => (field.onTextChange?.('amber river under quiet moon'), field.onPresenceChange!(true)),
+      );
       expect(h.render().change.disabled).toBe(false);
       const retry = h.render().change.onPress!();
       if (duringRetry) {

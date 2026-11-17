@@ -13,13 +13,14 @@ export async function authorizeExistingWalletProtection(
   dependencies: ExistingWalletProtectionDependencies,
   appPassphrase: string,
   confirmAppPassphrase?: string,
+  shortPassphraseRiskAccepted = false,
 ): Promise<void> {
   if (requiresExistingAppPassphrase(dependencies.repository)) {
     await verifyExistingAppPassphrase(dependencies, appPassphrase);
     return;
   }
 
-  assertNewProtectionPassphrase(appPassphrase);
+  assertNewProtectionPassphrase(appPassphrase, shortPassphraseRiskAccepted);
   if (appPassphrase !== confirmAppPassphrase) {
     throw new Error('app-passphrase-confirmation-mismatch');
   }

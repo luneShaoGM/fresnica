@@ -14,6 +14,7 @@ export type ExistingWalletSecretImportInput = Readonly<{
   secret: string;
   appPassphrase: string;
   confirmAppPassphrase?: string;
+  shortPassphraseRiskAccepted?: boolean;
   label?: string;
 }>;
 
@@ -25,6 +26,7 @@ export type ExistingWalletMnemonicImportInput = Readonly<{
   language?: string;
   appPassphrase: string;
   confirmAppPassphrase?: string;
+  shortPassphraseRiskAccepted?: boolean;
   label?: string;
 }>;
 
@@ -39,7 +41,12 @@ export async function importExistingWalletAccount(
   dependencies: OnboardingProvisioningDependencies,
   input: ExistingWalletImportInput,
 ): Promise<ExistingWalletImportResult> {
-  await authorizeExistingWalletProtection(dependencies, input.appPassphrase, input.confirmAppPassphrase);
+  await authorizeExistingWalletProtection(
+    dependencies,
+    input.appPassphrase,
+    input.confirmAppPassphrase,
+    input.shortPassphraseRiskAccepted,
+  );
 
   const account =
     input.kind === 'secret'

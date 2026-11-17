@@ -1,6 +1,18 @@
 import React from 'react';
-import { Text } from 'react-native';
-import { PassphraseInput } from '@ui/components/PassphraseInput';
+import { PassphrasePrompt } from '../../../ui/components/PassphrasePrompt/PassphrasePrompt';
+let mockAuthorizing = false;
+jest.mock('react', () => ({
+  ...jest.requireActual('react'),
+  useState: () => [
+    mockAuthorizing,
+    (v: boolean) => {
+      mockAuthorizing = v;
+    },
+  ],
+}));
+beforeEach(() => {
+  mockAuthorizing = false;
+});
 
 import type { PaymentReview } from '../../../capabilities/payment/buildPaymentReview';
 import { SlideToConfirm } from '../../../ui/SlideToConfirm';
@@ -75,64 +87,28 @@ function renderReview(overrides: Partial<Parameters<typeof SendReviewScreen>[0]>
   return SendReviewScreen({ ...baseProps, ...overrides });
 }
 describe('SendReviewScreen authorization stages', () => {
-  it('shows and focuses the App Passphrase stage after passphrase-required', () => {
-    const root = renderReview({ passphraseRequired: true });
-    let input: React.ReactElement<NodeProps> | undefined;
-    let label: React.ReactElement<NodeProps> | undefined;
-    let prompt: React.ReactElement<NodeProps> | undefined;
-    let slider: React.ReactElement<NodeProps> | undefined;
-
-    visit(root, element => {
-      if (element.type === PassphraseInput && element.props.label === 'localized:app-passphrase') input = element;
-      if (element.type === Text && element.props.children === 'localized:app-passphrase') label = element;
-      if (element.type === Text && element.props.children === 'localized:passphrase-required') {
-        prompt = element;
-      }
-      if (element.type === SlideToConfirm) slider = element;
+  it('opens the password prompt only after the slide, and cancellation returns to review', () => {
+    const inputRef = { current: { clear: jest.fn(), consume: jest.fn() } };
+    let root = renderReview({ passphraseRequired: true, passphraseInput: inputRef });
+    let slide: React.ReactElement<{ onComplete(): void }> | undefined;
+    let prompt: React.ReactElement<Parameters<typeof PassphrasePrompt>[0]> | undefined;
+    visit(root, e => {
+      if (e.type === SlideToConfirm) slide = e as typeof slide;
+      if (e.type === PassphrasePrompt) prompt = e as typeof prompt;
     });
-
-    expect(input?.props.autoFocus).toBe(true);
-    expect(label).toBeDefined();
-    expect(input?.props.hint).toBe('localized:passphrase-hint');
-    expect(prompt?.props.accessibilityLiveRegion).toBe('assertive');
-    expect(slider?.props.label).toBe('localized:slide-to-authorize');
-    expect(slider?.props.disabled).toBe(true);
-  });
-
-  it('enables the second authorization slide only after a passphrase is entered', () => {
-    const root = renderReview({ passphraseRequired: true, hasPassphrase: true });
-    let input: React.ReactElement<NodeProps> | undefined;
-    let slider: React.ReactElement<NodeProps> | undefined;
-
-    visit(root, element => {
-      if (element.type === PassphraseInput && element.props.label === 'localized:app-passphrase') input = element;
-      if (element.type === SlideToConfirm) slider = element;
+    expect(prompt?.props.visible).toBe(false);
+    slide?.props.onComplete();
+    root = renderReview({ passphraseRequired: true, passphraseInput: inputRef });
+    visit(root, e => {
+      if (e.type === PassphrasePrompt) prompt = e as typeof prompt;
     });
-
-    expect(input).toBeDefined();
-    expect(input?.props.value).toBeUndefined();
-    expect(slider?.props.label).toBe('localized:slide-to-authorize');
-    expect(slider?.props.disabled).toBe(false);
+    expect(prompt?.props.visible).toBe(true);
+    expect(prompt?.props.inputRef).toBe(inputRef);
+    prompt?.props.onCancel();
+    expect(inputRef.current.clear).toHaveBeenCalled();
+    expect(mockAuthorizing).toBe(false);
+    expect(baseProps.onConfirm).not.toHaveBeenCalled();
   });
-
-  it.each(['Authentication was cancelled.', 'System authentication failed. Try again.'])(
-    'announces %s and restores the Send slide after authorization failure',
-    error => {
-      const root = renderReview({ error });
-      let errorText: React.ReactElement<NodeProps> | undefined;
-      let slider: React.ReactElement<NodeProps> | undefined;
-
-      visit(root, element => {
-        if (element.type === Text && element.props.children === error) errorText = element;
-        if (element.type === SlideToConfirm) slider = element;
-      });
-
-      expect(errorText?.props.accessibilityLiveRegion).toBe('assertive');
-      expect(slider?.props.disabled).toBe(false);
-      expect(slider?.props.loading).toBe(false);
-      expect(slider?.props.label).toBe('Slide to send');
-    },
-  );
 
   it('labels Return distinctly from Hash while rendering the canonical transaction memo', () => {
     const memo = 'ab'.repeat(32);
@@ -152,12 +128,11 @@ describe('SendReviewScreen authorization stages', () => {
     let slider: React.ReactElement<NodeProps> | undefined;
 
     visit(root, element => {
-      if (element.type === PassphraseInput && element.props.label === 'localized:app-passphrase') input = element;
       if (element.type === SlideToConfirm) slider = element;
     });
 
     expect(input).toBeUndefined();
-    expect(slider?.props.label).toBe('Slide to send');
+    expect(slider?.props.label).toBe('localized:slide-to-authorize');
     expect(slider?.props.disabled).toBe(false);
   });
 });

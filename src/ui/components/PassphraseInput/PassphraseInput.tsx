@@ -2,7 +2,8 @@ import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef 
 import { TextInput, type StyleProp, type TextStyle } from 'react-native';
 
 // The native secure field is uncontrolled. Only a Boolean availability signal
-// escapes this boundary into React state; no password is a render prop or state.
+// enters React state. A transient validation callback may inspect the input,
+// but no password is a render prop or state.
 export function createTransientPassphraseBuffer() {
   let text = '';
   return {
@@ -34,11 +35,12 @@ type Props = Readonly<{
   disabled: boolean;
   autoFocus?: boolean;
   style: StyleProp<TextStyle>;
+  onTextChange?: (value: string) => void;
   onPresenceChange: (present: boolean) => void;
 }>;
 
 export const PassphraseInput = forwardRef<PassphraseInputHandle, Props>(function SecurePassphraseField(
-  { label, hint, disabled, autoFocus, style, onPresenceChange },
+  { label, hint, disabled, autoFocus, style, onPresenceChange, onTextChange },
   ref,
 ) {
   const nativeInput = useRef<React.ElementRef<typeof TextInput>>(null);
@@ -92,6 +94,7 @@ export const PassphraseInput = forwardRef<PassphraseInputHandle, Props>(function
       secureTextEntry
       defaultValue=""
       onChangeText={value => {
+        onTextChange?.(value);
         buffer.current.replace(value);
         onPresenceChange(buffer.current.hasValue());
       }}

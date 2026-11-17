@@ -1,0 +1,82 @@
+[
+  {
+    "value": "",
+    "allowed": false
+  },
+  {
+    "value": "   ",
+    "allowed": false
+  },
+  {
+    "value": "111111111111111",
+    "allowed": false
+  },
+  {
+    "value": "１２３４５６",
+    "allowed": false
+  },
+  {
+    "value": "١٢٣٤٥٦",
+    "allowed": false
+  },
+  {
+    "value": "1 2 3 4",
+    "allowed": false
+  },
+  {
+    "value": "🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐🔐",
+    "allowed": false
+  },
+  {
+    "value": "abcabcabcabcabc",
+    "allowed": false
+  },
+  {
+    "value": "A a A a",
+    "allowed": false
+  },
+  {
+    "value": "Password123!",
+    "allowed": false
+  },
+  {
+    "value": "abcdefghijklmnop",
+    "allowed": false
+  },
+  {
+    "value": "qwertyuiop",
+    "allowed": false
+  },
+  {
+    "value": "correct horse battery staple",
+    "allowed": false
+  },
+  {
+    "value": "river sky",
+    "allowed": true
+  },
+  {
+    "value": "amber river under quiet moon",
+    "allowed": true
+  },
+  {
+    "value": "萤火照亮自己的路前行吧钱包安全",
+    "allowed": true
+  },
+  {
+    "value": "rain 7 lanterns!",
+    "allowed": true
+  },
+  {
+    "value": "Password123456!",
+    "allowed": false
+  },
+  {
+    "value": "000password###",
+    "allowed": false
+  },
+  {
+    "value": "               x               ",
+    "allowed": false
+  }
+]

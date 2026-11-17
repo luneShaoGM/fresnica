@@ -1,5 +1,6 @@
 import { sendSelectableBalances } from '../assets/assetSelection';
 import type { PassphraseInputHandle } from '@ui/components/PassphraseInput';
+import { AppState } from 'react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { DestinationPicker } from '../contacts/DestinationPicker';
@@ -276,8 +277,22 @@ export function SendFlowScreen({
     void buildReview();
   };
 
+  const submitLocked = useRef(false);
+  useEffect(() => {
+    const retire = () => {
+      buildGeneration.current += 1;
+      passphraseInput.current?.clear();
+    };
+    const listener = AppState.addEventListener('change', state => {
+      if (state !== 'active') retire();
+    });
+    return () => {
+      retire();
+      listener.remove();
+    };
+  }, []);
   const submitReview = useCallback(async () => {
-    if (flow.kind !== 'review') {
+    if (flow.kind !== 'review' || !activeRef.current || submitting || submitLocked.current) {
       return;
     }
 
@@ -288,10 +303,16 @@ export function SendFlowScreen({
       setHasPassphrase(false);
     }
 
+    const version = loadVersion.current;
+    const generation = buildGeneration.current;
+    const current = () =>
+      activeRef.current && version === loadVersion.current && generation === buildGeneration.current;
+    submitLocked.current = true;
     setSubmitting(true);
     setError(undefined);
     try {
-      const result = await submitSendReview(dependencies, account, flow.review, passphrase);
+      const result = await submitSendReview(dependencies, account, flow.review, passphrase, current);
+      if (!current()) return;
 
       if (result.status === 'passphrase-required') {
         setPassphraseRequired(true);
@@ -300,11 +321,12 @@ export function SendFlowScreen({
 
       setFlow({ kind: 'result', result, recipient: { address: flow.review.destination, memo: flow.review.memo } });
     } catch (caught) {
-      setError(readableError(caught, t));
+      if (current()) setError(readableError(caught, t));
     } finally {
+      submitLocked.current = false;
       setSubmitting(false);
     }
-  }, [account, dependencies, flow, passphraseRequired, t]);
+  }, [account, dependencies, flow, passphraseRequired, submitting, t]);
 
   if (loadState.kind === 'loading') {
     return <SendStatusScreen title="Send" message="Loading current Stellar balances…" loading onBack={onDone} />;
@@ -317,6 +339,12 @@ export function SendFlowScreen({
   if (flow.kind === 'review') {
     return (
       <SendReviewScreen
+        key={flow.review.transactionXdrBase64}
+        active={active}
+        onCancelAuthorization={() => {
+          buildGeneration.current += 1;
+          setError(undefined);
+        }}
         review={flow.review}
         recipientCard={
           contacts ? (
@@ -339,6 +367,7 @@ export function SendFlowScreen({
         onPassphrasePresenceChange={setHasPassphrase}
         onConfirm={() => void submitReview()}
         onBack={() => {
+          buildGeneration.current += 1;
           passphraseInput.current?.clear();
           setHasPassphrase(false);
           setPassphraseRequired(true);

@@ -66,6 +66,7 @@ export async function submitSendReview(
   account: AccountRecord,
   review: PaymentReview,
   appPassphrase?: string,
+  isCurrentSession?: () => boolean,
 ): Promise<SendSubmissionResult> {
   assertSendSource(account, dependencies.network.id);
 
@@ -88,6 +89,7 @@ export async function submitSendReview(
   }
 
   return submitReviewedPayment({
+    isCurrentSession,
     gateway: dependencies.gateway,
     sdk: dependencies.sdk,
     review: exactReview,

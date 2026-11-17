@@ -260,3 +260,56 @@ describe('AddAccountScreen Existing-wallet account choices', () => {
     expect(labels).not.toContain('Confirm App Passphrase');
   });
 });
+
+it('requires short-password consent, resets it on edit, and prevents weak-password override', () => {
+  const values: unknown[] = [];
+  let cursor = 0;
+  mockedUseState.mockImplementation((initial: unknown) => {
+    const index = cursor++;
+    if (!(index in values)) values[index] = index === 0 ? 'create' : initial;
+    return [
+      values[index],
+      (value: unknown) => {
+        values[index] = typeof value === 'function' ? (value as (previous: unknown) => unknown)(values[index]) : value;
+      },
+    ];
+  });
+  const deps = dependencies();
+  const draw = () => {
+    cursor = 0;
+    const nodes: React.ReactElement<Record<string, unknown>>[] = [];
+    const walk = (node: React.ReactNode) => {
+      if (!React.isValidElement<Record<string, unknown>>(node)) return;
+      nodes.push(node);
+      React.Children.forEach(node.props.children as React.ReactNode, walk);
+    };
+    walk(
+      AddAccountScreen({
+        dependencies: deps,
+        onCreatedAccountReady: jest.fn(),
+        onAccountPersisted: jest.fn(),
+        onWatchOnlyComplete: jest.fn(),
+        onCancel: jest.fn(),
+      }),
+    );
+    return {
+      edit: (label: string, value: string) =>
+        (nodes.find(n => n.props.label === label)!.props.onChangeText as (v: string) => void)(value),
+      consent: nodes.find(n => typeof n.props.onAccept === 'function')!.props,
+      create: nodes.find(n => n.props.label === 'Create account')!.props,
+    };
+  };
+  draw().edit('New App Passphrase', 'river sky');
+  draw().edit('Confirm App Passphrase', 'river sky');
+  expect(draw().create.disabled).toBe(true);
+  (draw().consent.onAccept as (v: boolean) => void)(true);
+  expect(draw().create.disabled).toBe(false);
+  draw().edit('New App Passphrase', 'river moon');
+  draw().edit('Confirm App Passphrase', 'river moon');
+  expect(draw().consent.accepted).toBe(false);
+  expect(draw().create.disabled).toBe(true);
+  draw().edit('New App Passphrase', '111111111111111');
+  draw().edit('Confirm App Passphrase', '111111111111111');
+  (draw().consent.onAccept as (v: boolean) => void)(true);
+  expect(draw().create.disabled).toBe(true);
+});
