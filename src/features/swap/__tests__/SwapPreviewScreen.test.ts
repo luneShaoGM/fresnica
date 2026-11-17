@@ -1,3 +1,4 @@
+import { PassphrasePrompt } from '../../../ui/components/PassphrasePrompt/PassphrasePrompt';
 import React from 'react';
 import { Text } from 'react-native';
 import type { AccountRecord } from '../../../capabilities/account/types';
@@ -7,7 +8,6 @@ import { SlideToConfirm } from '../../../ui/SlideToConfirm';
 import { SwapResultScreen } from '../SwapResultScreen';
 import { SwapAmountInput } from '../SwapAmountInput';
 import type { SwapTerminalResult } from '../SwapResultScreen';
-import { SwapPassphraseInput } from '../SwapPassphraseInput';
 
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null, Screen: () => null }));
 jest.mock('../swapSubmissionProductFlow', () => ({
@@ -91,6 +91,7 @@ type NodeProps = Readonly<{
   value?: string;
   label?: string;
   onPress?: () => void;
+  onConfirm?: () => Promise<void>;
   onComplete?: () => void;
   secureTextEntry?: boolean;
   disabled?: boolean;
@@ -120,6 +121,7 @@ function render(overrides: Partial<React.ComponentProps<typeof SwapPreviewScreen
   });
 }
 beforeEach(() => {
+  jest.spyOn(Date, 'now').mockReturnValue(1782000000000);
   stateSlots.length = 0;
   refSlots.length = 0;
   submitSwapReview.mockReset();
@@ -160,33 +162,38 @@ describe('Swap Preview user-visible scope', () => {
       if (node.type === Text) texts.push(node.props.children);
       if (typeof node.props.value === 'string') values.push(node.props.value);
     });
-    expect(slides).toEqual(['swap.execution.slidePassphrase']);
+    expect(slides).toEqual(['swap.execution.slide']);
     expect(buttons).not.toContain('swap.preview.done');
     expect(buttons).not.toContain('swap.preview.review');
     expect(buttons).not.toContain('swap.preview.getQuotes');
-    expect(texts).toContain('swap.execution.authorizationNotice');
+    expect(texts).not.toContain('swap.execution.authorizationNotice');
     expect(values).toContain('USD · GISSUER');
     expect(values).toContain('9.9000000');
     expect(values).toContain('100');
   });
 
-  it('requires a secure app passphrase and another explicit slide before signing', () => {
+  it('opens the password prompt after the slide without signing', () => {
     render();
     stateSlots[1].current = false;
     stateSlots[8].current = { kind: 'review', review };
-    stateSlots[11].current = true;
-    stateSlots[12].current = true;
-    const root = render();
-    let secureInput: React.ReactElement<NodeProps> | undefined;
     let slide: React.ReactElement<NodeProps> | undefined;
-    visit(root, node => {
-      if (node.type === SwapPassphraseInput) secureInput = node;
+    let prompt: React.ReactElement<Parameters<typeof PassphrasePrompt>[0]> | undefined;
+    visit(render(), node => {
       if (node.type === SlideToConfirm) slide = node;
+      if (node.type === PassphrasePrompt) prompt = node as unknown as typeof prompt;
     });
-    expect(secureInput).toBeDefined();
-    expect(secureInput?.props.value).toBeUndefined();
-    expect(stateSlots[12].current).toBe(true); // Availability only, never the password.
-    expect(slide?.props.label).toBe('swap.execution.slidePassphrase');
+    expect(prompt?.props.visible).toBe(false);
+    slide?.props.onComplete?.();
+    visit(render(), node => {
+      if (node.type === PassphrasePrompt) prompt = node as unknown as typeof prompt;
+    });
+    expect(prompt?.props.visible).toBe(true);
+    expect(submitSwapReview).not.toHaveBeenCalled();
+    prompt?.props.onCancel();
+    visit(render(), node => {
+      if (node.type === PassphrasePrompt) prompt = node as unknown as typeof prompt;
+    });
+    expect(prompt?.props.visible).toBe(false);
   });
 
   it('shows uncertain transaction hash without offering a second submit after broadcast uncertainty', () => {
@@ -286,10 +293,10 @@ describe('Swap Preview user-visible scope', () => {
     const root = render();
     let slide: React.ReactElement<NodeProps> | undefined;
     visit(root, node => {
-      if (node.type === SlideToConfirm) slide = node;
+      if (node.type === PassphrasePrompt) slide = node;
     });
-    const first = slide?.props.onComplete?.();
-    const second = slide?.props.onComplete?.();
+    const first = slide?.props.onConfirm?.();
+    const second = slide?.props.onConfirm?.();
     await Promise.all([first, second]);
     expect(submitSwapReview).toHaveBeenCalledTimes(1);
     expect(submitSwapReview).toHaveBeenCalledWith(expect.anything(), account, review, expect.any(Function), 'password');
@@ -311,9 +318,9 @@ describe('Swap Preview user-visible scope', () => {
     stateSlots[12].current = true;
     let slide: React.ReactElement<NodeProps> | undefined;
     visit(render(), node => {
-      if (node.type === SlideToConfirm) slide = node;
+      if (node.type === PassphrasePrompt) slide = node;
     });
-    await slide?.props.onComplete?.();
+    await slide?.props.onConfirm?.();
     expect(stateSlots[8].current).toMatchObject({
       kind: 'result',
       result: { status: 'uncertain', transactionHash: 'HASH_FROM_ORIGINAL_BROADCAST' },
@@ -345,9 +352,9 @@ describe('Swap Preview user-visible scope', () => {
     stateSlots[12].current = true;
     let slide: React.ReactElement<NodeProps> | undefined;
     visit(render(), node => {
-      if (node.type === SlideToConfirm) slide = node;
+      if (node.type === PassphrasePrompt) slide = node;
     });
-    await slide?.props.onComplete?.();
+    await slide?.props.onConfirm?.();
     const buttons: string[] = [];
     const slides: string[] = [];
     visit(render(), node => {
@@ -373,19 +380,19 @@ describe('Swap Preview user-visible scope', () => {
     stateSlots[12].current = true;
     let slide: React.ReactElement<NodeProps> | undefined;
     visit(render(), node => {
-      if (node.type === SlideToConfirm) slide = node;
+      if (node.type === PassphrasePrompt) slide = node;
     });
-    await slide?.props.onComplete?.();
+    await slide?.props.onConfirm?.();
     expect(stateSlots[11].current).toBe(true);
     const consume = jest.fn(() => 'password');
     const clear = jest.fn();
     refSlots[4].current = { consume, clear };
     stateSlots[12].current = true;
     visit(render(), node => {
-      if (node.type === SlideToConfirm) slide = node;
+      if (node.type === PassphrasePrompt) slide = node;
     });
-    expect(slide?.props.label).toBe('swap.execution.slidePassphrase');
-    await slide?.props.onComplete?.();
+    expect(slide?.props.label).toBe('swap.execution.appPassphrase');
+    await slide?.props.onConfirm?.();
     expect(submitSwapReview).toHaveBeenCalledTimes(2);
     expect(submitSwapReview).toHaveBeenNthCalledWith(
       1,
@@ -421,9 +428,9 @@ describe('Swap Preview user-visible scope', () => {
     stateSlots[12].current = true;
     let slide: React.ReactElement<NodeProps> | undefined;
     visit(render(), node => {
-      if (node.type === SlideToConfirm) slide = node;
+      if (node.type === PassphrasePrompt) slide = node;
     });
-    await slide?.props.onComplete?.();
+    await slide?.props.onConfirm?.();
     expect(stateSlots[8].current).toMatchObject({
       kind: 'result',
       result: { status: 'submitted', hash: 'confirmed-hash' },

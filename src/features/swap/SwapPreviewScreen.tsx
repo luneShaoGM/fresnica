@@ -1,3 +1,4 @@
+import { PassphrasePrompt } from '../../ui/components/PassphrasePrompt/PassphrasePrompt';
 import { AssetPicker } from '../assets/AssetPicker';
 import { AccountAvatar } from '../contacts/AccountAvatar';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -25,7 +26,7 @@ import {
   type SwapPreviewProductDependencies,
 } from './swapPreviewProductFlow';
 import { createSwapPreviewStyles } from './styles';
-import { SwapPassphraseInput, type SwapPassphraseInputHandle } from './SwapPassphraseInput';
+import { type SwapPassphraseInputHandle } from './SwapPassphraseInput';
 import {
   listSwapHistory,
   reconcileSwapPending,
@@ -102,6 +103,7 @@ export function SwapPreviewScreen({
   const [spendableRevision, setSpendableRevision] = useState(0);
   const [maxLoading, setMaxLoading] = useState(false);
   const [quoteExpiryRevision, setQuoteExpiryRevision] = useState(0);
+  const [authorizing, setAuthorizing] = useState(false);
   const attempt = useRef(0);
   const locked = useRef(false);
   const submitLocked = useRef(false);
@@ -131,6 +133,7 @@ export function SwapPreviewScreen({
   const clearPassphrase = useCallback(() => {
     securePassphraseInput.current?.clear();
     setHasPassphrase(false);
+    setAuthorizing(false);
   }, []);
 
   const resetQuotes = useCallback(() => {
@@ -357,7 +360,12 @@ export function SwapPreviewScreen({
   }, [account, busy, maxLoading, captureSession, dependencies, renderedDraftRevision, slippageInput, t, view]);
 
   const confirmSwap = useCallback(async () => {
-    if (view.kind !== 'review' || busy || submitting || submitLocked.current) return;
+    if (view.kind !== 'review' || busy || submitting || submitLocked.current || !foregroundRef.current) return;
+    if (Date.now() >= view.review.expiresAtUnixSeconds * 1000) {
+      clearPassphrase();
+      setError(t('swap.error.quoteExpired'));
+      return;
+    }
     // Never initiate a second trade while prior submission for this account
     // could still be on the network.
     if (history.some(record => record.state === 'uncertain' || record.state === 'submitting')) {
@@ -384,6 +392,7 @@ export function SwapPreviewScreen({
         return;
       }
       setPassphraseRequired(true);
+      setAuthorizing(false);
       setView({ kind: 'result', result });
       try {
         setHistory(listSwapHistory(execution, account, valid));
@@ -400,7 +409,7 @@ export function SwapPreviewScreen({
         if (valid()) setSubmitting(false);
       }
     }
-  }, [account, busy, captureSession, execution, history, passphraseRequired, submitting, t, view]);
+  }, [account, busy, captureSession, clearPassphrase, execution, history, passphraseRequired, submitting, t, view]);
 
   const checkPending = useCallback(async () => {
     if (reconcileLocked.current || submitting || busy) return;
@@ -899,24 +908,8 @@ export function SwapPreviewScreen({
               value={new Date(view.review.expiresAtUnixSeconds * 1000).toLocaleString()}
             />
             <View style={styles.notice}>
-              <Text style={styles.text}>{t('swap.execution.authorizationNotice')}</Text>
               {unresolved ? <Text style={styles.error}>{t('swap.error.pending')}</Text> : null}
             </View>
-            {passphraseRequired ? (
-              <View style={styles.section}>
-                <Text accessibilityLiveRegion="assertive" style={styles.text}>
-                  {t('swap.execution.passphraseRequired')}
-                </Text>
-                <SwapPassphraseInput
-                  ref={securePassphraseInput}
-                  label={t('swap.execution.appPassphrase')}
-                  hint={t('swap.execution.passphraseHint')}
-                  disabled={submitting}
-                  onPresenceChange={setHasPassphrase}
-                  style={styles.input}
-                />
-              </View>
-            ) : null}
           </>
         ) : null}
         {historyPanel}
@@ -927,6 +920,27 @@ export function SwapPreviewScreen({
         ) : null}
       </ScrollView>
 
+      <PassphrasePrompt
+        visible={authorizing && view.kind === 'review'}
+        active={foreground && active}
+        busy={submitting}
+        title={t('passphrase.prompt.title')}
+        label={t('swap.execution.appPassphrase')}
+        hint={t('swap.execution.passphraseHint')}
+        confirmLabel={t('passphrase.prompt.sign')}
+        cancelLabel={t('common.cancel')}
+        inputRef={securePassphraseInput}
+        hasValue={hasPassphrase}
+        error={error}
+        onPresenceChange={setHasPassphrase}
+        onConfirm={() => void confirmSwap()}
+        expiresAtUnixMs={view.kind === 'review' ? view.review.expiresAtUnixSeconds * 1000 : undefined}
+        onExpire={resetQuotes}
+        onCancel={() => {
+          clearPassphrase();
+          setError(undefined);
+        }}
+      />
       <View style={styles.footer}>
         {view.kind === 'form' ? (
           <NativeButton
@@ -965,10 +979,14 @@ export function SwapPreviewScreen({
         ) : view.kind === 'review' ? (
           <>
             <SlideToConfirm
-              label={passphraseRequired ? t('swap.execution.slidePassphrase') : t('swap.execution.slide')}
+              label={t('swap.execution.slide')}
               loading={submitting}
-              disabled={busy || submitting || unresolved || (passphraseRequired && !hasPassphrase)}
-              onComplete={() => confirmSwap()}
+              disabled={busy || submitting || unresolved || authorizing}
+              onComplete={() => {
+                setError(undefined);
+                if (passphraseRequired) setAuthorizing(true);
+                else void confirmSwap();
+              }}
             />
             <NativeButton
               label={t('swap.preview.requote')}

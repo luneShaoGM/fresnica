@@ -1,3 +1,4 @@
+import { assertNewProtectionPassphrase } from '../../capabilities/application-security/newPassphrasePolicy';
 import {
   generateMnemonicAccount,
   importMnemonicAccount,
@@ -44,8 +45,9 @@ export async function runWatchOnlyOnboarding(
 
 export async function runSecretImportOnboarding(
   dependencies: OnboardingProvisioningDependencies,
-  input: Omit<ImportSecretAccountInput, 'networkId'>,
+  input: Omit<ImportSecretAccountInput, 'networkId'> & Readonly<{ shortPassphraseRiskAccepted?: boolean }>,
 ): Promise<Readonly<{ account: ProvisionedAccount; state: OnboardingState }>> {
+  assertNewProtectionPassphrase(input.appPassphrase, input.shortPassphraseRiskAccepted);
   const account = await importSecretAccount(dependencies, {
     ...input,
     networkId: dependencies.networkId,
@@ -59,8 +61,9 @@ export async function runSecretImportOnboarding(
 
 export async function runMnemonicImportOnboarding(
   dependencies: OnboardingProvisioningDependencies,
-  input: Omit<ImportMnemonicAccountInput, 'networkId'>,
+  input: Omit<ImportMnemonicAccountInput, 'networkId'> & Readonly<{ shortPassphraseRiskAccepted?: boolean }>,
 ): Promise<Readonly<{ account: ProvisionedAccount; state: OnboardingState }>> {
+  assertNewProtectionPassphrase(input.appPassphrase, input.shortPassphraseRiskAccepted);
   const account = await importMnemonicAccount(dependencies, {
     ...input,
     networkId: dependencies.networkId,
@@ -74,8 +77,9 @@ export async function runMnemonicImportOnboarding(
 
 export async function runGeneratedMnemonicOnboarding(
   dependencies: OnboardingProvisioningDependencies,
-  input: Omit<GenerateMnemonicAccountInput, 'networkId'>,
+  input: Omit<GenerateMnemonicAccountInput, 'networkId'> & Readonly<{ shortPassphraseRiskAccepted?: boolean }>,
 ): Promise<GeneratedOnboardingResult> {
+  assertNewProtectionPassphrase(input.appPassphrase, input.shortPassphraseRiskAccepted);
   const generated = await generateMnemonicAccount(dependencies, {
     ...input,
     networkId: dependencies.networkId,

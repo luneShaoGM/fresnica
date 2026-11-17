@@ -58,9 +58,15 @@ export async function revealRecoveryMaterial(
 }
 export async function changeWalletPassphrase(
   deps: RecoveryManagementDependencies,
-  input: Readonly<{ currentPassphrase: string; newPassphrase: string; confirmation: string; signal: AbortSignal }>,
+  input: Readonly<{
+    currentPassphrase: string;
+    newPassphrase: string;
+    confirmation: string;
+    shortPassphraseRiskAccepted?: boolean;
+    signal: AbortSignal;
+  }>,
 ): Promise<void> {
-  assertNewProtectionPassphrase(input.newPassphrase);
+  assertNewProtectionPassphrase(input.newPassphrase, input.shortPassphraseRiskAccepted);
   if (
     !input.currentPassphrase ||
     input.newPassphrase !== input.confirmation ||

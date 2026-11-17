@@ -15,6 +15,10 @@ export type FeatureErrorProjectionOptions = Readonly<{
 const BUILTIN_MESSAGES: Readonly<Record<string, string>> = {
   'invalid-passcode': 'The app passphrase is incorrect.',
   'invalid-passphrase': 'The app passphrase is incorrect.',
+  'app-passphrase-empty': 'Enter an App Passphrase.',
+  'app-passphrase-numeric-only': 'A numeric PIN cannot protect this wallet. Choose a passphrase.',
+  'app-passphrase-predictable': 'This passphrase is too predictable. Choose a different phrase.',
+  'app-passphrase-short-risk-required': 'Confirm the offline-guessing risk before using a shorter passphrase.',
   'app-passphrase-too-short': 'Use an app passphrase of at least 15 characters.',
   'app-passphrase-confirmation-mismatch': 'The app passphrase confirmation does not match.',
   'protected-signer-envelope-missing': 'A protected signer is missing its local protection data.',
@@ -63,29 +67,24 @@ const BUILTIN_RETRYABLE = new Set([
   'trustline-review-clawback-state-changed',
 ]);
 
-export function projectFeatureError(
-  error: unknown,
-  options: FeatureErrorProjectionOptions,
-): FeatureErrorProjection {
+export function projectFeatureError(error: unknown, options: FeatureErrorProjectionOptions): FeatureErrorProjection {
   const code = extractErrorCode(error);
   const messages = options.messages ?? {};
-  const message = code ? messages[code] ?? BUILTIN_MESSAGES[code] : undefined;
+  const message = code ? (messages[code] ?? BUILTIN_MESSAGES[code]) : undefined;
   const retryableCodes = new Set(options.retryableCodes ?? []);
-  const retryable = code
-    ? retryableCodes.has(code) || BUILTIN_RETRYABLE.has(code)
-    : Boolean(options.fallbackRetryable);
+  const retryable = code ? retryableCodes.has(code) || BUILTIN_RETRYABLE.has(code) : Boolean(options.fallbackRetryable);
 
   return {
     message: message ?? options.fallbackMessage,
     retryable,
     cancelled: code === 'user-cancel',
-    ...(code === undefined ? {} : {code}),
+    ...(code === undefined ? {} : { code }),
   };
 }
 
 function extractErrorCode(error: unknown): string | undefined {
   if (error !== null && typeof error === 'object') {
-    const code = (error as {code?: unknown}).code;
+    const code = (error as { code?: unknown }).code;
     if (typeof code === 'string' && code.trim().length > 0) {
       return normalizeCode(code);
     }

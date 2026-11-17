@@ -1,9 +1,6 @@
 import type { FresnicaSdkPort } from '../ports/FresnicaSdkPort';
 import type { TransactionGatewayPort } from '../transaction/TransactionGateway';
-import {
-  createTransactionIntentIdentity,
-  type PendingSubmissionDependencies,
-} from '../transaction/pendingSubmission';
+import { createTransactionIntentIdentity, type PendingSubmissionDependencies } from '../transaction/pendingSubmission';
 import type { SignerRecord } from '../signer/types';
 import {
   submitReviewedTransaction,
@@ -21,6 +18,7 @@ export async function submitReviewedPayment(input: {
   recovery: PendingSubmissionDependencies;
   signer: SignerRecord;
   appPassphrase?: string;
+  isCurrentSession?: () => boolean;
   systemAuthReason?: string;
   networkPassphrase: string;
 }): Promise<SubmitReviewedPaymentResult> {
@@ -32,6 +30,7 @@ export async function submitReviewedPayment(input: {
     intent: paymentSubmissionIntent(input.review),
     recovery: input.recovery,
     signer: input.signer,
+    isCurrent: input.isCurrentSession,
     thresholdLevel: 'medium',
     ...(input.appPassphrase === undefined ? {} : { appPassphrase: input.appPassphrase }),
     ...(input.systemAuthReason === undefined ? {} : { systemAuthReason: input.systemAuthReason }),
@@ -41,9 +40,7 @@ export async function submitReviewedPayment(input: {
 
 function paymentSubmissionIntent(review: PaymentReview) {
   const assetComponents =
-    review.asset.kind === 'native'
-      ? ['native']
-      : ['credit', review.asset.code, review.asset.issuer];
+    review.asset.kind === 'native' ? ['native'] : ['credit', review.asset.code, review.asset.issuer];
   return createTransactionIntentIdentity('payment', [
     review.operation,
     review.destination,

@@ -12,6 +12,7 @@ import {
 export type ExistingWalletCreateInput = Readonly<{
   appPassphrase: string;
   confirmAppPassphrase?: string;
+  shortPassphraseRiskAccepted?: boolean;
   label?: string;
 }>;
 
@@ -25,7 +26,12 @@ export async function createExistingWalletAccount(
   dependencies: OnboardingProvisioningDependencies,
   input: ExistingWalletCreateInput,
 ): Promise<ExistingWalletCreateResult> {
-  await authorizeExistingWalletProtection(dependencies, input.appPassphrase, input.confirmAppPassphrase);
+  await authorizeExistingWalletProtection(
+    dependencies,
+    input.appPassphrase,
+    input.confirmAppPassphrase,
+    input.shortPassphraseRiskAccepted,
+  );
 
   const generated = await runGeneratedMnemonicOnboarding(dependencies, {
     language: 'english',

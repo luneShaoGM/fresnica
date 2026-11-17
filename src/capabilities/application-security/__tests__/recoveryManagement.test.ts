@@ -158,3 +158,21 @@ it('repository rejects a partial set and stale inventory without changing either
   expect(() => repository.replaceProtection(captured, [], now)).toThrow();
   expect(repository.listSigners().map(s => s.envelopeJson)).toEqual(['old-a', 'old-b']);
 });
+
+it('requires per-operation risk acceptance for a short new passphrase and never permits a weak override', async () => {
+  const { deps, sdk } = setup();
+  const input = { ...rotation(), newPassphrase: 'river sky', confirmation: 'river sky' };
+  await expect(changeWalletPassphrase(deps, input)).rejects.toThrow('app-passphrase-short-risk-required');
+  expect(sdk.reprotect).not.toHaveBeenCalled();
+  await expect(
+    changeWalletPassphrase(deps, {
+      ...input,
+      shortPassphraseRiskAccepted: true,
+      newPassphrase: '111111111111111',
+      confirmation: '111111111111111',
+    }),
+  ).rejects.toThrow('app-passphrase-numeric-only');
+  expect(sdk.reprotect).not.toHaveBeenCalled();
+  await expect(changeWalletPassphrase(deps, { ...input, shortPassphraseRiskAccepted: true })).resolves.toBeUndefined();
+  expect(sdk.reprotect).toHaveBeenCalledTimes(2);
+});

@@ -905,3 +905,17 @@ mount-replay regression was added. Native/device/provider acceptance was not run
 ## S07 / S10 shared asset selection — 2026-11-16
 
 Behavior/acceptance scope: [Send / Swap asset selection](behavior-specs/send-swap-asset-selection.md). Clean-room adaptation of the asset-selection role. Shared feature-owned bottom sheet, code/issuer search, icons and balances; Send positive-balance candidates and amount reset; Swap opposite-side exchange and draft/quote reset. No maturity promotion or native acceptance claim. Existing transaction/SDK boundaries retained.
+
+
+### S04 / S07 / S10 password policy and authentication overlay — 2026-11-17 candidate
+
+Adapt, clean-room from Stellar password-overlay behavior; no donor code. Existing
+accounts/onboarding/security owners follow upstream
+15-character recommendation and explicit short-password risk acceptance, adding
+Mobile-only numeric/weak-password screening. No upstream repository change. Existing
+credential verification stays compatible. Send/Swap keep exact reviewed transaction
+identity while using shared PassphrasePrompt after the slide; no duplicate summary
+or advance password notice. Feature UI + presentation primitive + existing common
+submission guard only; SDK/Core, schema, native media/biometrics and cryptographic
+formats unchanged. See s04-authentication-policy.md for lifecycle/cancel/expiry.
+Automated evidence is not Android/iOS product acceptance; native acceptance pending.

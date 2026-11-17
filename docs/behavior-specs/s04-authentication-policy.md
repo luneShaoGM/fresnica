@@ -20,7 +20,7 @@ System Auth preference and the earlier passphrase-only App-lock limitation.
   Enabling Developer Mode is a separate warning/confirmation-only operation;
   no protected signer or passphrase is required, including watch-only wallets.
 - Every Payment, Trustline, Swap, Claimable and dApp transaction signature requires
-  a freshly supplied App Passphrase. Review forms request it from the start;
+  a freshly supplied App Passphrase. Send/Swap request it in the shared password prompt after explicit Review confirmation; other consumers retain their existing entry surfaces;
   each explicit attempt consumes/clears the input. Retry requires new input.
   Send and Trustline reuse the existing Swap/dApp transient input implementation
   through a shared presentation primitive: no passphrase in React state or
@@ -97,3 +97,41 @@ and background/cancel/retry. No hardware enrollment, secrets, funding or wallet
 writes are needed. This is native mechanism regression, not successful biometric
 or wallet product-flow acceptance; physical-device success/lockout/accessibility
 and lifecycle acceptance remain separate.
+
+
+## 2026-11-17 password policy and Send/Swap prompt
+
+Owner-approved S04/S07/S10 slice, clean-room Adapt of Stellar's independent
+password overlay behavior. Feature owners: accounts/onboarding/security,
+send and swap. Existing Fresnica Capability/SDK/Core remains authorization
+and encryption authority; no donor implementation, vault, dependency, native
+bridge or envelope-format changes.
+
+Latest upstream baseline `Fresnica/fresnica@85d6cdfd787d45b6ee35294e38379aa76d213e43`
+recommends 15 Unicode scalars, permits shorter non-empty phrases only with
+explicit offline-guessing risk acceptance, and preserves existing credentials.
+Mobile adds product-level rejection for Unicode numeric-only, whitespace-only,
+single-character passwords, exact repetition, common whole passwords (including
+simple numeric/symbol affixes) and alphabet/keyboard sequences, with
+bounded local screening and fixtures, not an entropy claim. These are additional
+Mobile constraints; no upstream repository change or SDK release is required.
+No forced character-type mixture, credential normalization or remote password
+lookup. Existing unlock/verification/HD-source credentials are not re-screened.
+New protection and rotation require a fresh acknowledgement for short phrases;
+editing the new password clears it. Weak-password rejection cannot be overridden.
+
+Send/Swap Review no longer embeds a password field or pre-announces a password
+step. The slide opens the shared PassphrasePrompt with title, secure input,
+Cancel and Confirm-and-sign only, without a duplicated transaction summary.
+It never re-prepares/re-quotes a reviewed transaction. Password is consumed/cleared
+before signing with the existing pipeline. Wrong password stays retryable inside
+the prompt with new input; cancel signs/submits nothing. Double taps are gated.
+Background, focus/account/network retirement and review expiry clear the field
+and retire authorization; expiry requires rebuilding Review. App unlock never
+becomes signing authority. Send now passes its UI generation guard to the common
+submission pipeline, including after an asynchronous signature.
+
+Automated policy, legacy verification, rotation, prompt lifecycle/expiry and
+Send/Swap recovery checks are supplementary; Android/iOS native keyboard,
+focus, cancellation/error retry and screen-reader product acceptance remain
+pending. No L4 promotion or native acceptance claim.

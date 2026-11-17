@@ -1,3 +1,4 @@
+import { NewPassphraseGuidance } from '../security/NewPassphraseGuidance/NewPassphraseGuidance';
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -61,15 +62,20 @@ export function AddAccountScreen({
   const [error, setError] = useState<string>();
   const hdSourceCandidates = listExistingWalletHdSourceCandidates(dependencies);
   const requiresCurrentPassphrase = requiresExistingAppPassphrase(dependencies.repository);
+  const [shortRiskAccepted, setShortRiskAccepted] = useState(false);
   const passphraseAssessment = assessNewProtectionPassphrase(appPassphrase);
   const newPassphraseReady =
-    passphraseAssessment.meetsMinimum && confirmPassphrase.length > 0 && confirmPassphrase === appPassphrase;
+    !passphraseAssessment.rejection &&
+    (passphraseAssessment.meetsMinimum || shortRiskAccepted) &&
+    confirmPassphrase.length > 0 &&
+    confirmPassphrase === appPassphrase;
 
   function clearSensitiveInputs() {
     setSecret('');
     setMnemonic('');
     setMnemonicPassphrase('');
     setAppPassphrase('');
+    setShortRiskAccepted(false);
     setConfirmPassphrase('');
   }
 
@@ -108,7 +114,9 @@ export function AddAccountScreen({
     try {
       const result = await createExistingWalletAccount(dependencies, {
         appPassphrase,
-        ...(requiresCurrentPassphrase ? {} : { confirmAppPassphrase: confirmPassphrase }),
+        ...(requiresCurrentPassphrase
+          ? {}
+          : { confirmAppPassphrase: confirmPassphrase, shortPassphraseRiskAccepted: shortRiskAccepted }),
         label,
       });
       clearSensitiveInputs();
@@ -131,7 +139,9 @@ export function AddAccountScreen({
               kind: 'secret',
               secret,
               appPassphrase,
-              ...(requiresCurrentPassphrase ? {} : { confirmAppPassphrase: confirmPassphrase }),
+              ...(requiresCurrentPassphrase
+                ? {}
+                : { confirmAppPassphrase: confirmPassphrase, shortPassphraseRiskAccepted: shortRiskAccepted }),
               label,
             })
           : await importExistingWalletAccount(dependencies, {
@@ -141,7 +151,9 @@ export function AddAccountScreen({
               index: parseDerivationIndex(mnemonicIndex),
               ...(mnemonicLanguage.trim() ? { language: mnemonicLanguage.trim() } : {}),
               appPassphrase,
-              ...(requiresCurrentPassphrase ? {} : { confirmAppPassphrase: confirmPassphrase }),
+              ...(requiresCurrentPassphrase
+                ? {}
+                : { confirmAppPassphrase: confirmPassphrase, shortPassphraseRiskAccepted: shortRiskAccepted }),
               label,
             });
       clearSensitiveInputs();
@@ -435,7 +447,10 @@ export function AddAccountScreen({
         <Field
           label={requiresCurrentPassphrase ? t('accounts.add.currentPassphrase') : t('accounts.add.newPassphrase')}
           value={appPassphrase}
-          onChangeText={setAppPassphrase}
+          onChangeText={value => {
+            setAppPassphrase(value);
+            setShortRiskAccepted(false);
+          }}
           placeholder={
             requiresCurrentPassphrase
               ? t('accounts.add.currentPassphrasePlaceholder')
@@ -457,6 +472,12 @@ export function AddAccountScreen({
               secureTextEntry
               autoCapitalize="none"
               autoCorrect={false}
+            />
+            <NewPassphraseGuidance
+              assessment={passphraseAssessment}
+              accepted={shortRiskAccepted}
+              disabled={busy}
+              onAccept={setShortRiskAccepted}
             />
             <Text style={styles.passphraseHint}>
               {t('accounts.add.passphraseMinimum', {
