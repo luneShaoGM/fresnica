@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -152,5 +153,39 @@ describe('AppModal sheet-to-dialog drag handoff', () => {
     expect(stop).toHaveBeenCalled();
     expect(reset).toHaveBeenCalledWith(0);
     expect(surfaceStyle('sheet', true).transform).toEqual([{ translateY: mockOffset }]);
+  });
+
+  it.each([false, true])('keeps header dragging separate from body scrolling with contentSized=%s', contentSized => {
+    const onClose = jest.fn();
+    const header = React.createElement(Pressable, { accessibilityRole: 'button', onPress: onClose });
+    const body = React.createElement(ScrollView);
+    const createResponder = jest.spyOn(PanResponder, 'create');
+    const modal = AppModal({
+      visible: true,
+      presentation: 'sheet',
+      swipeToDismiss: true,
+      swipeHeader: header,
+      contentSized,
+      dragDismissLabel: '向下拖动关闭',
+      onRequestClose: onClose,
+      children: body,
+    });
+
+    const dragRegion = elements(modal).find(item => item.type === View && 'onResponderMove' in item.props);
+    expect(dragRegion).toBeDefined();
+    expect(elements(dragRegion).some(item => item.type === Pressable)).toBe(true);
+    expect(elements(dragRegion).some(item => item.type === ScrollView)).toBe(false);
+    expect(elements(dragRegion).some(item => item.props.accessibilityLabel === '向下拖动关闭')).toBe(true);
+    expect(elements(modal).some(item => item.type === ScrollView)).toBe(true);
+    expect(
+      createResponder.mock.lastCall?.[0]?.onMoveShouldSetPanResponder?.({} as never, { dy: 40, dx: 1 } as never),
+    ).toBe(true);
+    expect(
+      createResponder.mock.lastCall?.[0]?.onMoveShouldSetPanResponder?.({} as never, { dy: -40, dx: 1 } as never),
+    ).toBe(false);
+    expect(header.props.onPress).toBe(onClose);
+
+    createResponder.mock.lastCall?.[0]?.onPanResponderRelease?.({} as never, { dy: 124, vy: 0.25 } as never);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

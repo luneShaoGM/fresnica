@@ -23,6 +23,7 @@ export type {
 } from '../../capabilities/stellar/types';
 
 export type HorizonBalanceLike = {
+  sponsor?: string;
   asset_type: string;
   balance: string;
   asset_code?: string;

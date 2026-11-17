@@ -1,3 +1,6 @@
+import { createMarkets, type Markets } from '../capabilities/markets/createMarkets';
+import { StellarMarketGateway } from '../platform/stellar/StellarMarketGateway';
+import { horizonReadJson } from '../platform/stellar/horizonReadHttp';
 import { createSecuritySettings, type SecuritySettings } from '@capabilities/application-security/securitySettings';
 import { setScreenCaptureProtection } from '@platform/system/screenCaptureProtection';
 import {
@@ -142,6 +145,7 @@ export type AppServices = Readonly<{
   swapExecution: SwapSubmissionProductDependencies;
   history: HistoryProductDependencies;
   trustline: TrustlineProductDependencies;
+  markets?: Markets;
   claimables: ClaimableProduct;
   claimableTransaction: ClaimableTransactionDependencies;
   request: RequestProductDependencies;
@@ -405,6 +409,23 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
             .filter(account => account.networkId === network.id && account.address === address)
             .map(account => [account.id, ledgerReadInvalidation.getRevision(network.id, account.id)]),
         ),
+    });
+    const markets = createMarkets({
+      network,
+      repository,
+      sdk,
+      recovery,
+      now: () => Date.now(),
+      monotonic: () => performance.now(),
+      gateway: session.bind(
+        new StellarMarketGateway(
+          network,
+          stellarGateway,
+          path => nodeReadSession.run((signal, endpoint) => horizonReadJson(endpoint + path, signal)),
+          networkProfile.horizonUrl,
+        ),
+        new Set(['submitTransaction']),
+      ),
     });
     const pathPaymentGateway = session.bind(
       new StellarPathPaymentSdkGateway({
@@ -696,6 +717,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         recovery,
         network,
       },
+      markets,
       claimables,
       claimableTransaction: {
         network,

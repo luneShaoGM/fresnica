@@ -1,3 +1,4 @@
+import { AssetPicker } from '../assets/AssetPicker';
 import { AccountAvatar } from '../contacts/AccountAvatar';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -75,7 +76,7 @@ export function SwapPreviewScreen({
 }: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createSwapPreviewStyles);
-  const [assets, setAssets] = useState<readonly StellarPaymentAsset[]>([]);
+  const [assets, setAssets] = useState<Awaited<ReturnType<typeof loadSwapPreviewAssets>>>([]);
   const [loading, setLoading] = useState(true);
   const [assetLoadRevision, setAssetLoadRevision] = useState(0);
   const [sourceIndex, setSourceIndex] = useState(0);
@@ -115,6 +116,10 @@ export function SwapPreviewScreen({
   const maxReadLocked = useRef(false);
   const maxSurfaceRef = useRef(view.kind === 'form' || view.kind === 'quotes');
   maxSurfaceRef.current = view.kind === 'form' || view.kind === 'quotes';
+  const pickerBalances = assets.map(asset => ({
+    asset: asset.kind === 'native' ? ({ kind: 'native', code: 'XLM' } as const) : asset,
+    balance: asset.balance,
+  }));
   const selectedSourceAsset = assets[sourceIndex];
   const spendableKey = JSON.stringify([
     account.id,
@@ -639,7 +644,12 @@ export function SwapPreviewScreen({
           <Text style={styles.text}>{t('swap.preview.notice')}</Text>
           <Text style={styles.secondary}>{t('swap.execution.safePreview')}</Text>
         </View>
-        <AccountIdentityCard avatar={<AccountAvatar address={account.address} active={active} />} address={account.address} name={account.label} label={t('swap.preview.account')} />
+        <AccountIdentityCard
+          avatar={<AccountAvatar address={account.address} active={active} />}
+          address={account.address}
+          name={account.label}
+          label={t('swap.preview.account')}
+        />
 
         {loading ? <ActivityIndicator accessibilityLabel={t('swap.preview.loading')} /> : null}
         {!loading && assets.length < 2 ? (
@@ -654,22 +664,29 @@ export function SwapPreviewScreen({
           <>
             <View style={styles.section}>
               <Text style={styles.label}>{t('swap.preview.source')}</Text>
-              <View style={styles.choices}>
-                {assets.map((asset, index) => (
-                  <AssetChoice
-                    key={'source-' + assetLabel(asset)}
-                    asset={asset}
-                    selected={sourceIndex === index}
-                    disabled={preparing}
-                    onPress={() => {
-                      if (preparing) return;
-                      setSourceIndex(index);
-                      if (index === destinationIndex) setDestinationIndex((index + 1) % assets.length);
-                      resetQuotes();
-                    }}
-                  />
-                ))}
-              </View>
+              <AssetPicker
+                key={`${account.id}:${account.networkId}:${account.address}`}
+                balances={pickerBalances}
+                selectedAsset={pickerBalances[sourceIndex].asset}
+                disabled={preparing || !active}
+                label={t('swap.preview.source')}
+                onSelect={asset => {
+                  if (preparing) return;
+                  const index = pickerBalances.findIndex(
+                    line =>
+                      line.asset.kind === asset.kind &&
+                      line.asset.code === asset.code &&
+                      (line.asset.kind !== 'credit' || (asset.kind === 'credit' && line.asset.issuer === asset.issuer)),
+                  );
+                  if (index < 0) return;
+                  setSourceIndex(index);
+                  if (index === destinationIndex) setDestinationIndex(sourceIndex);
+                  setMode('strict_send');
+                  setSettingsVisible(false);
+                  setAmount('');
+                  resetQuotes();
+                }}
+              />
               <SwapAmountInput
                 accessibilityLabel={t('swap.form.payAmount')}
                 disabled={preparing}
@@ -729,22 +746,29 @@ export function SwapPreviewScreen({
             />
             <View style={styles.section}>
               <Text style={styles.label}>{t('swap.preview.destination')}</Text>
-              <View style={styles.choices}>
-                {assets.map((asset, index) => (
-                  <AssetChoice
-                    key={'destination-' + assetLabel(asset)}
-                    asset={asset}
-                    selected={destinationIndex === index}
-                    disabled={preparing}
-                    onPress={() => {
-                      if (preparing) return;
-                      setDestinationIndex(index);
-                      if (index === sourceIndex) setSourceIndex((index + 1) % assets.length);
-                      resetQuotes();
-                    }}
-                  />
-                ))}
-              </View>
+              <AssetPicker
+                key={`${account.id}:${account.networkId}:${account.address}`}
+                balances={pickerBalances}
+                selectedAsset={pickerBalances[destinationIndex].asset}
+                disabled={preparing || !active}
+                label={t('swap.preview.destination')}
+                onSelect={asset => {
+                  if (preparing) return;
+                  const index = pickerBalances.findIndex(
+                    line =>
+                      line.asset.kind === asset.kind &&
+                      line.asset.code === asset.code &&
+                      (line.asset.kind !== 'credit' || (asset.kind === 'credit' && line.asset.issuer === asset.issuer)),
+                  );
+                  if (index < 0) return;
+                  setDestinationIndex(index);
+                  if (index === sourceIndex) setSourceIndex(destinationIndex);
+                  setMode('strict_send');
+                  setSettingsVisible(false);
+                  setAmount('');
+                  resetQuotes();
+                }}
+              />
               <SwapAmountInput
                 accessibilityLabel={t('swap.form.receiveAmount')}
                 disabled={preparing}
@@ -957,36 +981,6 @@ export function SwapPreviewScreen({
         ) : null}
       </View>
     </Screen>
-  );
-}
-
-function AssetChoice({
-  asset,
-  selected,
-  disabled,
-  onPress,
-}: Readonly<{
-  asset: StellarPaymentAsset;
-  selected: boolean;
-  disabled: boolean;
-  onPress: () => void;
-}>) {
-  const styles = useThemedStyles(createSwapPreviewStyles);
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected, disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={[styles.choice, selected ? styles.choiceSelected : undefined]}
-    >
-      <Text style={styles.choiceText}>{asset.kind === 'native' ? 'XLM' : asset.code}</Text>
-      {asset.kind === 'credit' ? (
-        <Text numberOfLines={2} style={styles.mono}>
-          {asset.issuer}
-        </Text>
-      ) : null}
-    </Pressable>
   );
 }
 

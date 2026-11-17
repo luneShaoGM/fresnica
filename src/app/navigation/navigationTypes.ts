@@ -12,6 +12,7 @@ export type RootStackParamList = {
 };
 
 export type HomeStackParamList = {
+  orders: { accountId: string };
   home: ProductRouteParams['home'];
   'add-account': ProductRouteParams['add-account'];
   'asset-details': ProductRouteParams['asset-details'];

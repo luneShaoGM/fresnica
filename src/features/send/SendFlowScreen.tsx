@@ -1,3 +1,4 @@
+import { sendSelectableBalances } from '../assets/assetSelection';
 import type { PassphraseInputHandle } from '@ui/components/PassphraseInput';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -136,7 +137,8 @@ export function SendFlowScreen({
           });
           return;
         }
-        if (snapshot.balances.length === 0) {
+        const selectable = sendSelectableBalances(snapshot.balances);
+        if (selectable.length === 0) {
           setLoadState({
             kind: 'blocked',
             title: 'No assets available',
@@ -150,7 +152,7 @@ export function SendFlowScreen({
             requestIntent,
             account,
             dependencies.network,
-            snapshot.balances,
+            selectable,
             dependencies.repository.isWatchOnly(account.id),
           );
           if (prefill.kind === 'blocked') {
@@ -173,8 +175,8 @@ export function SendFlowScreen({
           setMemoValue(prefill.memoValue);
         } else {
           const requested = initialAsset
-            ? snapshot.balances.find(line => sameBalanceAsset(line.asset, initialAsset))
-            : snapshot.balances[0];
+            ? selectable.find(line => sameBalanceAsset(line.asset, initialAsset))
+            : selectable[0];
           if (!requested) {
             setLoadState({
               kind: 'blocked',
@@ -185,7 +187,7 @@ export function SendFlowScreen({
           }
           setSelectedAsset(requested.asset);
         }
-        setLoadState({ kind: 'ready', balances: snapshot.balances });
+        setLoadState({ kind: 'ready', balances: selectable });
       })
       .catch(caught => {
         if (loadVersion.current === version) {
@@ -371,6 +373,8 @@ export function SendFlowScreen({
   return (
     <>
       <SendFormScreen
+        key={`${account.id}:${account.networkId}:${account.address}`}
+        active={active}
         step={entryStep}
         accountLabel={account.label || account.address}
         requestMessage={requestIntent?.message}
@@ -383,7 +387,9 @@ export function SendFlowScreen({
         building={building}
         error={error}
         onSelectAsset={asset => {
+          if (!activeRef.current || building) return;
           setSelectedAsset(asset);
+          setAmount('');
           setError(undefined);
         }}
         onChooseRecipient={

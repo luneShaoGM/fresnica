@@ -29,6 +29,28 @@ function options(showClaimable: boolean, current: 'tokens' | 'claimable', onSele
 }
 
 describe('Stellar-style Home asset category chooser', () => {
+  it('offers a separate in-place LP category when the pool Capability is available', () => {
+    const select = jest.fn();
+    const root = AssetCategoryDialog({
+      visible: true,
+      current: 'pools',
+      showPools: true,
+      showClaimable: true,
+      onClose: jest.fn(),
+      onSelect: select,
+    });
+    const nodes = React.Children.toArray(root.props.children).filter(
+      child => React.isValidElement<{ accessibilityRole?: string }>(child) && child.props.accessibilityRole === 'radio',
+    ) as Option[];
+    expect(nodes.map(node => node.props.accessibilityLabel)).toEqual([
+      'claimable.category.assets',
+      'market.pools',
+      'claimable.category.claimable',
+    ]);
+    expect(nodes[1].props.accessibilityState.selected).toBe(true);
+    nodes[1].props.onPress();
+    expect(select).toHaveBeenCalledWith('pools');
+  });
   it('shows only Assets when the current network/account has never seen Claimable and Developer Mode is off', () => {
     const { root, nodes } = options(false, 'tokens');
     expect(root.props.visible).toBe(true);
@@ -36,7 +58,7 @@ describe('Stellar-style Home asset category chooser', () => {
     expect(nodes[0].props.accessibilityState.selected).toBe(true);
   });
 
-  it('selects Claimable in place; never offers unimplemented LP actions', () => {
+  it('selects Claimable in place when the pool Capability is absent', () => {
     const { nodes, onSelect } = options(true, 'tokens');
     expect(nodes.map(node => node.props.accessibilityLabel)).toEqual([
       'claimable.category.assets',

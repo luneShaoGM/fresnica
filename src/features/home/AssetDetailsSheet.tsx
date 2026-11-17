@@ -82,8 +82,12 @@ export function AssetDetailsSheet({
     line && asset?.kind === 'native' ? matchingNativeBalance(nativeDetails, line.balance, !nativeReady) : undefined;
 
   return (
-    <AppModal presentation="sheet" swipeToDismiss onRequestClose={onClose} visible={visible && asset !== undefined}>
-      <View style={styles.sheet}>
+    <AppModal
+      presentation="sheet"
+      swipeToDismiss
+      onRequestClose={onClose}
+      visible={visible && asset !== undefined}
+      swipeHeader={
         <View style={styles.header}>
           <Text numberOfLines={1} style={styles.title}>
             {asset?.kind === 'native' ? t('home.asset.balanceTitle') : (asset?.code ?? t('home.asset.balanceTitle'))}
@@ -92,6 +96,9 @@ export function AssetDetailsSheet({
             <Text style={styles.closeText}>{t('common.close')}</Text>
           </Pressable>
         </View>
+      }
+    >
+      <View style={styles.sheet}>
         <BalanceFreshnessNotice state={balanceState} onRefresh={refresh} />
         <Pressable accessibilityRole="button" onPress={() => refresh()}>
           <Text style={styles.helper}>{t('trustlines.add.retry')}</Text>
