@@ -1,3 +1,4 @@
+import { AssetPicker } from '@features/assets/AssetPicker';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Modal, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
@@ -5,7 +6,7 @@ import type { AccountRecord } from '@capabilities/account/types';
 import type { Markets } from '@capabilities/markets/createMarkets';
 import type { Asset, MarketRequest, MarketReview, Offer } from '@capabilities/markets/types';
 import { assetKey } from '@capabilities/stellar/classicAmounts';
-import { AppModal, Screen } from '@ui/components';
+import { Screen } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import { PassphraseInput, type PassphraseInputHandle } from '@ui/components/PassphraseInput';
 import { SlideToConfirm } from '@ui/SlideToConfirm';
@@ -93,7 +94,6 @@ export function MarketsScreen({
   const [side, setSide] = useState<'buy' | 'sell'>('sell');
   const [base, setBase] = useState<Asset>({ kind: 'native' }),
     [counter, setCounter] = useState<Asset>();
-  const [picker, setPicker] = useState<'base' | 'counter'>();
   const [all, setAll] = useState(true),
     [close, setClose] = useState(false),
     [slippage, setSlippage] = useState('50');
@@ -120,7 +120,6 @@ export function MarketsScreen({
     setPresent(false);
     setBusy(false);
     setError('');
-    setPicker(undefined);
     setFlow({ kind: 'list' });
   };
   const refresh = useCallback(() => {
@@ -145,7 +144,6 @@ export function MarketsScreen({
       retire();
       setBusy(false);
       setPresent(false);
-      setPicker(undefined);
       setFlow(current => (current.kind === 'result' ? current : { kind: 'list' }));
       return;
     }
@@ -257,8 +255,8 @@ export function MarketsScreen({
     setQuantity('');
     setPrice('');
     setSide('sell');
-    setBase(offer?.selling ?? data?.assets[0] ?? { kind: 'native' });
-    setCounter(offer?.buying ?? data?.assets[1]);
+    setBase(offer?.selling ?? data?.balances[0]?.asset ?? { kind: 'native' });
+    setCounter(offer?.buying ?? data?.balances[1]?.asset);
     setFlow({ kind: 'offer', ...(offer ? { offer } : {}) });
   };
   const shownAmount = (text: string) => (formatNumber ? formatNumber(text, 7) : text);
@@ -422,17 +420,19 @@ export function MarketsScreen({
                   ) : (
                     <>
                       <Text style={styles.label}>{t('market.pairHint')}</Text>
-                      <NativeButton
-                        label={t('market.base') + ': ' + assetKey(base)}
-                        variant="secondary"
-                        disabled={busy}
-                        onPress={() => setPicker('base')}
+                      <AssetPicker
+                        label={t('market.base')}
+                        balances={data?.balances ?? []}
+                        selectedAsset={base.kind === 'native' ? { kind: 'native', code: 'XLM' } : base}
+                        disabled={busy || !active}
+                        onSelect={setBase}
                       />
-                      <NativeButton
-                        label={t('market.counter') + ': ' + (counter ? assetKey(counter) : t('market.chooseAsset'))}
-                        variant="secondary"
-                        disabled={busy}
-                        onPress={() => setPicker('counter')}
+                      <AssetPicker
+                        label={t('market.counter')}
+                        balances={data?.balances ?? []}
+                        selectedAsset={counter?.kind === 'credit' ? counter : { kind: 'native', code: 'XLM' }}
+                        disabled={busy || !active}
+                        onSelect={setCounter}
                       />
                       <View style={styles.row}>
                         {choose('sell', side === 'sell', () => setSide('sell'))}
@@ -584,23 +584,6 @@ export function MarketsScreen({
           </Screen>
         </Modal>
       ) : null}
-      <AppModal visible={active && picker !== undefined} onRequestClose={() => setPicker(undefined)}>
-        <ScrollView>
-          <Text style={styles.heading}>{t('market.chooseAsset')}</Text>
-          {data?.assets.map(asset => (
-            <NativeButton
-              key={assetKey(asset)}
-              label={assetKey(asset)}
-              variant="secondary"
-              onPress={() => {
-                if (picker === 'base') setBase(asset);
-                else setCounter(asset);
-                setPicker(undefined);
-              }}
-            />
-          ))}
-        </ScrollView>
-      </AppModal>
     </>
   );
 }

@@ -83,17 +83,13 @@ describe('S12 actual XDR prepare, shared authorization and durable recovery', ()
   });
   it('requires a new preparation if an All position changes while XDR is being constructed', async () => {
     const f = fixture();
-    f.base.loadAccountState
-      .mockResolvedValueOnce({ status: 'active', account: state })
-      .mockResolvedValueOnce({
-        status: 'active',
-        account: {
-          ...state,
-          balances: state.balances.map(line =>
-            line.kind === 'liquidity-pool-share' ? { ...line, balance: '6' } : line,
-          ),
-        },
-      });
+    f.base.loadAccountState.mockResolvedValueOnce({ status: 'active', account: state }).mockResolvedValueOnce({
+      status: 'active',
+      account: {
+        ...state,
+        balances: state.balances.map(line => (line.kind === 'liquidity-pool-share' ? { ...line, balance: '6' } : line)),
+      },
+    });
     await expect(f.product.prepare(account.id, { ...exit, close: true }, () => true)).rejects.toThrow(
       'pool_state_stale',
     );
@@ -121,6 +117,18 @@ describe('S12 actual XDR prepare, shared authorization and durable recovery', ()
     const review = await f.product.prepare(account.id, exit, () => true);
     await expect(f.product.submit(review, 'test-passphrase', () => true)).rejects.toThrow('watch_only');
     expect(f.sign).not.toHaveBeenCalled();
+  });
+  it('does not present a kept zero-balance pool trustline as a withdrawable position', async () => {
+    const f = fixture();
+    f.base.loadAccountState.mockResolvedValue({
+      status: 'active',
+      account: {
+        ...state,
+        balances: state.balances.map(line => (line.kind === 'liquidity-pool-share' ? { ...line, balance: '0' } : line)),
+      },
+    });
+    expect((await f.product.list(account.id, 'pools')).positions).toEqual([]);
+    expect(f.read).not.toHaveBeenCalled();
   });
   it('keeps a pool share row visible when its pool detail lookup fails, and does not load orders for pools', async () => {
     const f = fixture();

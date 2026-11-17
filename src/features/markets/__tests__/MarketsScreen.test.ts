@@ -82,7 +82,10 @@ const review = {
   ],
 } as MarketReview;
 const list = {
-  assets: [native, usd],
+  balances: [
+    { asset: { ...native, code: 'XLM' as const }, balance: '1000' },
+    { asset: usd, balance: '1000' },
+  ],
   offers: [],
   positions: [{ id: poolId, shares: '5', pool, underlyingA: '10', underlyingB: '20' }],
 };

@@ -1,3 +1,4 @@
+import type { BalanceLine } from '../balance/types';
 import type { AccountRecord } from '../account/types';
 import type { StellarAccountState } from '../stellar/types';
 import { amount, assetKey, stroops } from '../stellar/classicAmounts';
@@ -7,7 +8,6 @@ import { createTransactionIntentIdentity } from '../transaction/pendingSubmissio
 import { submitReviewedTransaction } from '../transaction/submitReviewedTransaction';
 import type {
   EncodedMarketOperation,
-  Asset,
   MarketDependencies,
   MarketOperation,
   MarketRequest,
@@ -243,7 +243,7 @@ export function createMarkets(dependencies: MarketDependencies) {
       if (offers.some(offer => offer.seller !== source.address)) throw new Error('offer_owner_mismatch');
       const positions = await Promise.all(
         loaded.balances
-          .filter(line => kind === 'pools' && line.kind === 'liquidity-pool-share')
+          .filter(line => kind === 'pools' && line.kind === 'liquidity-pool-share' && stroops(line.balance) > 0n)
           .map(async line => {
             if (line.kind !== 'liquidity-pool-share') throw new Error('invalid_request');
             try {
@@ -267,11 +267,11 @@ export function createMarkets(dependencies: MarketDependencies) {
       return {
         offers,
         positions,
-        assets: loaded.balances.flatMap<Asset>(line =>
+        balances: loaded.balances.flatMap<BalanceLine>(line =>
           line.kind === 'native'
-            ? [{ kind: 'native' as const }]
+            ? [{ asset: { kind: 'native', code: 'XLM' }, balance: line.balance }]
             : line.kind === 'credit'
-              ? [{ kind: 'credit' as const, code: line.code, issuer: line.issuer }]
+              ? [{ asset: { kind: 'credit', code: line.code, issuer: line.issuer }, balance: line.balance }]
               : [],
         ),
       };
