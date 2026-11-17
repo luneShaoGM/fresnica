@@ -111,7 +111,10 @@ describe('Swap product read-only quote → prepare → exact-XDR review', () => 
   it('loads only current Classic account real balances, preserving full issuer identity', async () => {
     const { deps, loadAccountBalances } = fixture();
     const assets = await loadSwapPreviewAssets(deps as never, account, () => true);
-    expect(assets).toEqual([XLM, USD]);
+    expect(assets).toEqual([
+      { ...XLM, balance: '20.0000000' },
+      { ...USD, balance: '9.0000000' },
+    ]);
     expect(loadAccountBalances).toHaveBeenCalledWith(account.address);
   });
 

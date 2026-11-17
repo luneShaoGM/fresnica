@@ -21,6 +21,7 @@ export type AppModalProps = React.PropsWithChildren<
     title?: string;
     description?: string;
     swipeToDismiss?: boolean;
+    swipeHeader?: React.ReactNode;
   }>
 >;
 
@@ -30,6 +31,7 @@ export function AppModal({
   title,
   description,
   swipeToDismiss = false,
+  swipeHeader,
   children,
   presentation = 'dialog',
 }: AppModalProps) {
@@ -81,9 +83,14 @@ export function AppModal({
             style={presentation === 'sheet' ? styles.sheetContent : styles.dialogContent}
           >
             {draggable ? (
-              <View accessibilityLabel="Drag down to close" style={styles.dragTarget} {...responder.panHandlers}>
-                <View style={styles.dragHandle} />
+              <View {...responder.panHandlers}>
+                <View accessibilityLabel="Drag down to close" style={styles.dragTarget}>
+                  <View style={styles.dragHandle} />
+                </View>
+                {swipeHeader}
               </View>
+            ) : presentation === 'sheet' ? (
+              swipeHeader
             ) : null}
             {title ? <Text style={styles.title}>{title}</Text> : null}
             {description ? <Text style={styles.description}>{description}</Text> : null}

@@ -1,5 +1,14 @@
 import React from 'react';
-import { Animated, PanResponder, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  Animated,
+  PanResponder,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { AppModal } from '../AppModal';
 
 let mockOffset: Animated.Value;
@@ -70,5 +79,36 @@ describe('AppModal sheet-to-dialog drag handoff', () => {
     expect(stop).toHaveBeenCalled();
     expect(reset).toHaveBeenCalledWith(0);
     expect(surfaceStyle('sheet', true).transform).toEqual([{ translateY: mockOffset }]);
+  });
+
+  it('lets the sheet header start a drag without making the scroll body a gesture target', () => {
+    const onClose = jest.fn();
+    const header = React.createElement(Pressable, { accessibilityRole: 'button', onPress: onClose });
+    const body = React.createElement(ScrollView);
+    const createResponder = jest.spyOn(PanResponder, 'create');
+    const modal = AppModal({
+      visible: true,
+      presentation: 'sheet',
+      swipeToDismiss: true,
+      swipeHeader: header,
+      onRequestClose: onClose,
+      children: body,
+    });
+
+    const dragRegion = elements(modal).find(item => item.type === View && 'onResponderMove' in item.props);
+    expect(dragRegion).toBeDefined();
+    expect(elements(dragRegion).some(item => item.type === Pressable)).toBe(true);
+    expect(elements(dragRegion).some(item => item.type === ScrollView)).toBe(false);
+    expect(elements(modal).some(item => item.type === ScrollView)).toBe(true);
+    expect(
+      createResponder.mock.lastCall?.[0]?.onMoveShouldSetPanResponder?.({} as never, { dy: 40, dx: 1 } as never),
+    ).toBe(true);
+    expect(
+      createResponder.mock.lastCall?.[0]?.onMoveShouldSetPanResponder?.({} as never, { dy: -40, dx: 1 } as never),
+    ).toBe(false);
+    expect(header.props.onPress).toBe(onClose);
+
+    createResponder.mock.lastCall?.[0]?.onPanResponderRelease?.({} as never, { dy: 124, vy: 0.25 } as never);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

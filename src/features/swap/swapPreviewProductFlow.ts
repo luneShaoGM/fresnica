@@ -57,7 +57,7 @@ export async function loadSwapPreviewAssets(
   deps: SwapPreviewProductDependencies,
   account: AccountRecord,
   isCurrent: () => boolean,
-): Promise<readonly StellarPaymentAsset[]> {
+): Promise<readonly (StellarPaymentAsset & Readonly<{ balance: string }>)[]> {
   assertCurrent(deps, account, isCurrent);
   const balance = await loadBalanceSnapshot(deps.balance, account);
   assertCurrent(deps, account, isCurrent);
@@ -66,8 +66,8 @@ export async function loadSwapPreviewAssets(
   }
   const assets = balance.balances.map(line =>
     line.asset.kind === 'native'
-      ? ({ kind: 'native' } as const)
-      : ({ kind: 'credit', code: line.asset.code, issuer: line.asset.issuer } as const),
+      ? ({ kind: 'native', balance: line.balance } as const)
+      : ({ kind: 'credit', code: line.asset.code, issuer: line.asset.issuer, balance: line.balance } as const),
   );
   if (assets.length < 2) throw new Error('swap-assets-unavailable');
   return Object.freeze(assets.map(asset => Object.freeze(asset)));
