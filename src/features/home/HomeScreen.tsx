@@ -42,7 +42,9 @@ type Props = Readonly<{
   onAddAccount: () => void;
   onSend: () => void;
   onManageAssets: () => void;
-  assetCategory?: 'tokens' | 'claimable';
+  assetCategory?: 'tokens' | 'claimable' | 'pools';
+  poolsContent?: React.ReactNode;
+  onOrders?: () => void;
   onOpenAssetCategory?: () => void;
   onShowClaimable?: () => void;
   claimableContent?: React.ReactNode;
@@ -74,6 +76,8 @@ export function HomeScreen({
   onOpenAssetCategory,
   onShowClaimable,
   claimableContent,
+  poolsContent,
+  onOrders,
   onClaimablePullRefresh,
   claimableNowCount = 0,
   onOpenAsset,
@@ -237,7 +241,11 @@ export function HomeScreen({
                 style={styles.categoryTitleButton}
               >
                 <Text style={styles.sectionTitle}>
-                  {assetCategory === 'claimable' ? t('claimable.category.claimable') : t('claimable.category.assets')}
+                  {assetCategory === 'pools'
+                    ? t('market.pools')
+                    : assetCategory === 'claimable'
+                      ? t('claimable.category.claimable')
+                      : t('claimable.category.assets')}
                 </Text>
                 <SmallChevron color={theme.colors.textSecondary} />
               </Pressable>
@@ -253,6 +261,11 @@ export function HomeScreen({
                 </Pressable>
               ) : null}
             </View>
+            {onOrders ? (
+              <Pressable accessibilityRole="button" onPress={onOrders} style={styles.sectionLinkButton}>
+                <Text style={styles.sectionLink}>{t('market.orders')}</Text>
+              </Pressable>
+            ) : null}
             {assetCategory === 'tokens' ? (
               <Pressable
                 accessibilityRole="button"
@@ -280,7 +293,7 @@ export function HomeScreen({
           refreshControl={
             <RefreshControl
               onRefresh={() => {
-                if (assetCategory === 'claimable') {
+                if (assetCategory !== 'tokens') {
                   onClaimablePullRefresh?.();
                   return;
                 }
@@ -296,21 +309,23 @@ export function HomeScreen({
           }
           showsVerticalScrollIndicator={false}
         >
-          {assetCategory === 'claimable'
-            ? claimableContent
-            : renderPortfolio(
-                balanceState,
-                viewModel.accountAddress,
-                friendbotAvailable,
-                visibleFriendbotState,
-                verifiedInactive === true,
-                fundWithFriendbot,
-                refreshBalances,
-                onOpenAsset,
-                theme.colors.actionPrimary,
-                styles,
-                formatNumber ? value => formatNumber(value, 7) : undefined,
-              )}
+          {assetCategory === 'pools'
+            ? poolsContent
+            : assetCategory === 'claimable'
+              ? claimableContent
+              : renderPortfolio(
+                  balanceState,
+                  viewModel.accountAddress,
+                  friendbotAvailable,
+                  visibleFriendbotState,
+                  verifiedInactive === true,
+                  fundWithFriendbot,
+                  refreshBalances,
+                  onOpenAsset,
+                  theme.colors.actionPrimary,
+                  styles,
+                  formatNumber ? value => formatNumber(value, 7) : undefined,
+                )}
         </ScrollView>
         {assetCategory === 'tokens' ? (
           <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} showRefreshStatus={false} />

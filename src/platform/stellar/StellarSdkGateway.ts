@@ -387,11 +387,15 @@ function mapAccountState(account: HorizonAccountLike): StellarAccountState {
             isClawbackEnabled: balance.is_clawback_enabled ?? false,
           };
         case 'liquidity_pool_shares':
-          if (!balance.liquidity_pool_id) {
+          if (
+            !balance.liquidity_pool_id ||
+            (balance.sponsor !== undefined && !StrKey.isValidEd25519PublicKey(balance.sponsor))
+          ) {
             throw new Error('invalid-horizon-liquidity-pool-balance');
           }
           return {
             kind: 'liquidity-pool-share' as const,
+            ...(balance.sponsor === undefined ? {} : { sponsor: balance.sponsor }),
             balance: balance.balance,
             liquidityPoolId: balance.liquidity_pool_id,
           };
@@ -418,7 +422,7 @@ function transactionHashHex(transaction: Transaction): string {
 
 function deterministicSubmissionRejection(
   error: unknown,
-): { rejected: false } | { rejected: true; resultCode?: string } {
+): { rejected: false } | { rejected: true; resultCode?: string; operationResultCodes?: readonly string[] } {
   if (error === null || typeof error !== 'object') {
     return { rejected: false };
   }
@@ -449,7 +453,16 @@ function deterministicSubmissionRejection(
   }
 
   const transactionCode = (resultCodes as { transaction?: unknown }).transaction;
-  return typeof transactionCode === 'string' ? { rejected: true, resultCode: transactionCode } : { rejected: true };
+  const operations = (resultCodes as { operations?: unknown }).operations;
+  const operationResultCodes =
+    Array.isArray(operations) && operations.every(code => typeof code === 'string')
+      ? (operations as string[])
+      : undefined;
+  return {
+    rejected: true,
+    ...(typeof transactionCode === 'string' ? { resultCode: transactionCode } : {}),
+    ...(operationResultCodes ? { operationResultCodes } : {}),
+  };
 }
 
 function decodeUtf8(bytes: Uint8Array): string {
@@ -841,6 +854,9 @@ export class StellarSdkGateway implements StellarGateway {
           status: 'rejected',
           transactionHash,
           ...(rejection.resultCode === undefined ? {} : { resultCode: rejection.resultCode }),
+          ...(rejection.operationResultCodes === undefined
+            ? {}
+            : { operationResultCodes: rejection.operationResultCodes }),
         };
       }
 

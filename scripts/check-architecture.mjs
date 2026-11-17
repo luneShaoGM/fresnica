@@ -30,6 +30,7 @@ const strictPresentationScopes = [
   'src/features/settings/AdvancedSettingsScreen',
   'src/features/trustlines/',
   'src/features/swap/',
+  'src/features/markets/',
   'src/features/assets/AssetPicker',
   'src/features/assets/assetPickerStyles',
   'src/features/assets/assetSelection',

@@ -56,9 +56,10 @@ const account: AccountRecord = {
   updatedAt: new Date('2026-10-27T00:00:00Z'),
 };
 
-function renderHomeEntry(swapEnabled: boolean, watchOnly = false, selectedAccount = account) {
+function renderHomeEntry(swapEnabled: boolean, watchOnly = false, selectedAccount = account, markets = false) {
   const navigate = jest.fn();
   const services = {
+    markets: markets ? { networkId: selectedAccount.networkId } : undefined,
     onboarding: { repository: { isWatchOnly: () => watchOnly } },
     ledgerReadRuntime: { subscribe: jest.fn(), getSnapshot: () => ({ foreground: true }) },
     ledgerReadInvalidation: { subscribe: jest.fn(), getRevision: () => 0 },
@@ -79,7 +80,7 @@ function renderHomeEntry(swapEnabled: boolean, watchOnly = false, selectedAccoun
     name: string;
     children: (props: {
       navigation: { navigate: typeof navigate };
-    }) => React.ReactElement<{ children?: React.ReactNode; onSwap?: () => void }>;
+    }) => React.ReactElement<{ children?: React.ReactNode; onSwap?: () => void; onOrders?: () => void }>;
   }>;
   const home = React.Children.toArray(root.props.children)
     .filter((child): child is React.ReactElement<HomeEntry> => React.isValidElement<HomeEntry>(child))
@@ -87,12 +88,35 @@ function renderHomeEntry(swapEnabled: boolean, watchOnly = false, selectedAccoun
   expect(home).toBeDefined();
   const screen = home?.props.children({ navigation: { navigate } });
   const homeScreen = React.Children.toArray(screen?.props.children).find(
-    (child): child is React.ReactElement<{ onSwap?: () => void }> => React.isValidElement(child),
+    (child): child is React.ReactElement<{ onSwap?: () => void; onOrders?: () => void }> => React.isValidElement(child),
   );
-  return { navigate, onSwap: homeScreen?.props.onSwap };
+  return { navigate, onSwap: homeScreen?.props.onSwap, onOrders: homeScreen?.props.onOrders, root };
 }
 
 describe('Home Swap entry wiring', () => {
+  it('opens independent SDEX orders for a read-only Classic account without using the Swap route', () => {
+    const { navigate, onOrders, onSwap } = renderHomeEntry(false, true, account, true);
+    expect(onSwap).toBeUndefined();
+    expect(onOrders).toBeDefined();
+    onOrders?.();
+    expect(navigate).toHaveBeenCalledWith('orders', { accountId: account.id });
+  });
+  it('refuses an orders route for another account instead of silently choosing a visible account', () => {
+    const { root } = renderHomeEntry(false, false, account, true);
+    const route = React.Children.toArray(root.props.children).find(
+      child => React.isValidElement<{ name: string }>(child) && child.props.name === 'orders',
+    ) as React.ReactElement<{
+      children: (context: {
+        route: { params: { accountId: string } };
+        navigation: { popToTop: () => void };
+      }) => React.ReactElement;
+    }>;
+    const denied = route.props.children({
+      route: { params: { accountId: 'other' } },
+      navigation: { popToTop: jest.fn() },
+    });
+    expect(typeof denied.type === 'function' && denied.type.name).toBe('AssetAccountUnavailable');
+  });
   it('routes an eligible account to the same swap screen as Actions, using public account identity only', () => {
     const { navigate, onSwap } = renderHomeEntry(true);
     expect(onSwap).toBeDefined();
