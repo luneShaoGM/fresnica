@@ -69,30 +69,27 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.actionPrimaryPressed,
       fontWeight: '700',
     },
-    overlay: {
-      flex: 1,
-      justifyContent: 'flex-end',
-      backgroundColor: theme.colors.overlayBackdrop,
-    },
-    actionsSheet: {
-      backgroundColor: theme.colors.surface,
-      borderTopLeftRadius: theme.radii.lg,
-      borderTopRightRadius: theme.radii.lg,
+    actionsScroll: { flexShrink: 1 },
+    actionsContent: {
       paddingHorizontal: theme.spacing.lg,
       paddingTop: theme.spacing.lg,
       paddingBottom: theme.spacing.lg,
       gap: theme.spacing.md,
     },
     actionsTitle: {
+      flex: 1,
       ...theme.typography.sectionTitle,
       color: theme.colors.textPrimary,
     },
     actionRow: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       gap: theme.spacing.sm,
     },
     actionItem: {
-      flex: 1,
+      flexGrow: 1,
+      flexBasis: '28%',
+      minWidth: 88,
       minHeight: 54,
       alignItems: 'center',
       justifyContent: 'center',
@@ -117,5 +114,13 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.textTertiary,
       textAlign: 'center',
     },
+    actionsHeader: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
+    closeButton: {
+      minHeight: 48,
+      minWidth: 48,
+      justifyContent: 'center',
+      paddingHorizontal: theme.spacing.sm,
+    },
+    sectionTitle: { ...theme.typography.label, color: theme.colors.textSecondary },
   });
 }

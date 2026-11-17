@@ -1,5 +1,9 @@
 # Fresnica Mobile｜当前基线与执行队列
 
+## 2026-11-16 Actions owner-requested queue
+
+GitHub baseline `main@2152ce858b54f9073e525814e1d92b41fedf280b`. Current user priority is all identified Actions differences, implemented as the five slices in [Actions alignment](behavior-specs/actions-stellar-alignment.md). A1 covers the slide/drag/scroll/localized-close panel; A2 scan, A3 persistent Recent, A4 featured suggestions and A5 fixed actions/Swap preflight follow after each preceding slice is reviewed and user-merged. A1 is an unmerged candidate, not native product acceptance. Existing open #203 (asset-detail header drag) and #204 (asset picker) are separate work; do not silently merge or replay either. Earlier dated milestones and remaining product/release requirements remain historical evidence and outstanding scope.
+
 ## 2026-11-06 当前 `main` 状态（优先于下方历史队列）
 
 **事实源：** GitHub `luneShaoGM/fresnica` 的

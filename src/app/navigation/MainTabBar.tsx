@@ -2,7 +2,7 @@ import type { NodeReadFailure } from '@capabilities/network/NodeReadError';
 import { NativeButton } from '@ui/components/NativeButton';
 import React, { useCallback, useEffect } from 'react';
 import type { AccountSyncMode } from '@capabilities/account-sync/AccountEffects';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -138,50 +138,66 @@ export function MainTabBar({
     }
     present(
       ACTIONS_OVERLAY_ID,
-      <Pressable style={styles.overlay} onPress={dismiss}>
-        <Pressable onPress={event => event.stopPropagation()}>
-          <SafeAreaView edges={['right', 'bottom', 'left']} style={styles.actionsSheet}>
-            <Text style={styles.actionsTitle}>{t('nav.actions')}</Text>
-            <View style={styles.actionRow}>
-              {(['send', 'swap', 'request'] as const).map(action => {
-                const enabled = !!selectedAccountId && actionAvailability[action];
-                const label = t(ACTION_LABEL_KEYS[action]);
-                return (
-                  <Pressable
-                    accessibilityLabel={label}
-                    accessibilityRole="button"
-                    accessibilityState={{ disabled: !enabled }}
-                    disabled={!enabled}
-                    key={action}
-                    onPress={() => selectAction(action)}
-                    style={({ pressed }) => [
-                      styles.actionItem,
-                      !enabled ? styles.actionItemDisabled : undefined,
-                      pressed ? styles.pressed : undefined,
-                    ]}
-                  >
-                    <Text style={styles.actionLabel}>{label}</Text>
-                    {!enabled ? (
-                      <Text style={styles.actionStatus}>
-                        {t(
-                          action === 'request' || !actionState
-                            ? 'nav.comingSoon'
-                            : actionState === 'inactive'
-                              ? 'nav.accountInactive'
-                              : actionState === 'checking'
-                                ? 'nav.accountChecking'
-                                : 'nav.accountUnavailable',
-                        )}
-                      </Text>
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </View>
-          </SafeAreaView>
-        </Pressable>
-      </Pressable>,
-      { statusBarContent: 'light' },
+      <ScrollView bounces={false} style={styles.actionsScroll} contentContainerStyle={styles.actionsContent}>
+        <View style={styles.actionsHeader}>
+          <Text accessibilityRole="header" style={styles.actionsTitle}>
+            {t('nav.actions')}
+          </Text>
+          <Pressable
+            accessibilityLabel={t('nav.actionsClose')}
+            accessibilityRole="button"
+            onPress={dismiss}
+            style={styles.closeButton}
+          >
+            <Text style={styles.actionLabel}>{t('nav.actionsClose')}</Text>
+          </Pressable>
+        </View>
+        <Text accessibilityRole="header" style={styles.sectionTitle}>
+          {t('nav.quickActions')}
+        </Text>
+        <View style={styles.actionRow}>
+          {(['send', 'swap', 'request'] as const).map(action => {
+            const enabled = !!selectedAccountId && actionAvailability[action];
+            const label = t(ACTION_LABEL_KEYS[action]);
+            return (
+              <Pressable
+                accessibilityLabel={label}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !enabled }}
+                disabled={!enabled}
+                key={action}
+                onPress={() => selectAction(action)}
+                style={({ pressed }) => [
+                  styles.actionItem,
+                  !enabled ? styles.actionItemDisabled : undefined,
+                  pressed ? styles.pressed : undefined,
+                ]}
+              >
+                <Text style={styles.actionLabel}>{label}</Text>
+                {!enabled ? (
+                  <Text style={styles.actionStatus}>
+                    {t(
+                      action === 'request' || !actionState
+                        ? 'nav.comingSoon'
+                        : actionState === 'inactive'
+                          ? 'nav.accountInactive'
+                          : actionState === 'checking'
+                            ? 'nav.accountChecking'
+                            : 'nav.accountUnavailable',
+                    )}
+                  </Text>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      </ScrollView>,
+      {
+        statusBarContent: 'light',
+        presentation: 'sheet',
+        closeLabel: t('nav.actionsClose'),
+        dragDismissLabel: t('nav.actionsDragClose'),
+      },
     );
   }, [actionAvailability, actionState, dismiss, present, selectedAccountId, styles, t, selectAction]);
 
