@@ -22,6 +22,8 @@ export function createStyles(theme: AppTheme) {
       gap: 0,
     },
     sheetContent: { flex: 1 },
+    contentSizedSheet: { height: 'auto', flexShrink: 1 },
+    contentSizedSheetContent: { flex: 0, flexShrink: 1 },
     dialogContent: { gap: theme.spacing.md, flexShrink: 1 },
     dragTarget: { alignItems: 'center', justifyContent: 'center', height: 28 },
     dragHandle: {

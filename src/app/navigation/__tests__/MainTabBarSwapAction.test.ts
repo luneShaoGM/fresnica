@@ -1,6 +1,6 @@
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
 import React from 'react';
-import { Pressable } from 'react-native';
+import { Pressable, ScrollView } from 'react-native';
 import type { MainTabBarProps } from '../MainTabBar';
 
 const mockEffects: Array<() => void> = [];
@@ -133,6 +133,41 @@ describe('Swap action uses the current account route', () => {
     expect(findPressable(overlay, 'nav.send')?.props.disabled).toBe(true);
     expect(findPressable(overlay, 'nav.swap')?.props.disabled).toBe(true);
     expect(textValues(overlay)).toContain('nav.accountInactive');
+  });
+
+  it('uses the scrollable sheet and closes explicitly without dispatching an action', () => {
+    const { overlay, navigate } = renderSwap(true);
+    expect(React.isValidElement(overlay) && overlay.type).toBe(ScrollView);
+    expect(mockPresentOverlay.mock.lastCall?.[2]).toEqual({
+      presentation: 'sheet',
+      statusBarContent: 'light',
+      closeLabel: 'nav.actionsClose',
+      dragDismissLabel: 'nav.actionsDragClose',
+    });
+    expect(textValues(overlay)).toContain('nav.quickActions');
+    findPressable(overlay, 'nav.actionsClose')?.props.onPress?.();
+    expect(mockDismissOverlay).toHaveBeenCalledTimes(1);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('replaces the open sheet callbacks after an account change', () => {
+    renderSwap(true);
+    mockActiveOverlayId = 'actions';
+    const { navigate } = renderSwap(true, undefined, { selectedAccountId: 'wallet-2' }, undefined, false);
+    mockEffects.at(-1)?.();
+    const overlay = mockPresentOverlay.mock.lastCall?.[1] as React.ReactNode;
+    findPressable(overlay, 'nav.send')?.props.onPress?.();
+    expect(navigate).toHaveBeenCalledWith('home', { screen: 'send-form', params: { accountId: 'wallet-2' } });
+  });
+
+  it('closes an open sheet when the selected account disappears', () => {
+    renderSwap(true);
+    mockActiveOverlayId = 'actions';
+    mockPresentOverlay.mockClear();
+    renderSwap(true, undefined, { selectedAccountId: undefined }, undefined, false);
+    mockEffects.at(-1)?.();
+    expect(mockDismissOverlay).toHaveBeenCalled();
+    expect(mockPresentOverlay).not.toHaveBeenCalled();
   });
 });
 

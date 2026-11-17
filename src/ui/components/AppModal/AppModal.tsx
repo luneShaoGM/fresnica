@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Animated, Modal, PanResponder, Pressable, Text, View } from 'react-native';
+import { Animated, Modal, PanResponder, Pressable, Text, View, type ModalProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useThemedStyles } from '@ui/theme';
@@ -21,6 +21,10 @@ export type AppModalProps = React.PropsWithChildren<
     title?: string;
     description?: string;
     swipeToDismiss?: boolean;
+    animationType?: ModalProps['animationType'];
+    contentSized?: boolean;
+    closeLabel?: string;
+    dragDismissLabel?: string;
     swipeHeader?: React.ReactNode;
   }>
 >;
@@ -34,6 +38,10 @@ export function AppModal({
   swipeHeader,
   children,
   presentation = 'dialog',
+  animationType = 'fade',
+  contentSized = false,
+  closeLabel = 'Close dialog',
+  dragDismissLabel = 'Drag down to close',
 }: AppModalProps) {
   const styles = useThemedStyles(createStyles);
   const offsetY = useRef(new Animated.Value(0)).current;
@@ -65,26 +73,45 @@ export function AppModal({
   );
 
   const Container = presentation === 'sheet' ? SafeAreaView : View;
-  const containerProps = presentation === 'sheet' ? { edges: ['bottom'] as const } : {};
+  const containerProps =
+    presentation === 'sheet'
+      ? { edges: contentSized ? (['right', 'bottom', 'left'] as const) : (['bottom'] as const) }
+      : {};
   return (
-    <Modal animationType="fade" onRequestClose={onRequestClose} statusBarTranslucent transparent visible={visible}>
+    <Modal
+      animationType={animationType}
+      onRequestClose={onRequestClose}
+      statusBarTranslucent
+      transparent
+      visible={visible}
+    >
       <View style={[styles.overlay, presentation === 'sheet' ? styles.sheetOverlay : undefined]}>
-        <Pressable accessibilityLabel="Close dialog" onPress={onRequestClose} style={styles.backdrop} />
+        <Pressable
+          accessibilityLabel={closeLabel}
+          accessibilityRole="button"
+          onPress={onRequestClose}
+          style={styles.backdrop}
+        />
         <Animated.View
           style={[
             styles.dialog,
             presentation === 'sheet' ? styles.sheet : undefined,
+            presentation === 'sheet' && contentSized ? styles.contentSizedSheet : undefined,
             draggable ? { transform: [{ translateY: offsetY }] } : undefined,
           ]}
         >
           <Container
             {...containerProps}
             accessibilityViewIsModal
-            style={presentation === 'sheet' ? styles.sheetContent : styles.dialogContent}
+            onAccessibilityEscape={onRequestClose}
+            style={[
+              presentation === 'sheet' ? styles.sheetContent : styles.dialogContent,
+              presentation === 'sheet' && contentSized ? styles.contentSizedSheetContent : undefined,
+            ]}
           >
             {draggable ? (
               <View {...responder.panHandlers}>
-                <View accessibilityLabel="Drag down to close" style={styles.dragTarget}>
+                <View accessibilityLabel={dragDismissLabel} style={styles.dragTarget}>
                   <View style={styles.dragHandle} />
                 </View>
                 {swipeHeader}

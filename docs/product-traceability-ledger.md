@@ -1,5 +1,9 @@
 # Fresnica Mobile Product Traceability Ledger
 
+## 2026-11-16 Actions alignment candidate
+
+Owner requested all identified Stellar Actions differences, delivered in successive slices. [Behavior and complete queue](behavior-specs/actions-stellar-alignment.md): A1 panel → A2 general scan → A3 persistent Recent → A4 featured suggestions → A5 final shortcuts/Swap preflight. Trace: S05 shell / S09 / S10 / S14–S17; §7.8 HomeActions and §14 modal roles, clean-room Adapt. A1 uses the existing shared modal and retains current Capability availability/routing. This is an unmerged presentation candidate; no maturity/native acceptance upgrade. Later slices retain all frozen authentication, M-address deferral, account/network and exact-XDR boundaries.
+
 > Stage 0 stable product ledger. Source behavior comes from `origin/Stellar@stellar-migration`; security/business semantics come from `origin/fresnica`. Donor implementation is clean-room by default under `docs/provenance/README.md`.
 
 > **2026-11-06 实时交付覆盖：** 本文顶部成熟度及下方候选表均保留各阶段的原始范围/证据，不能单凭缓存 PR 升级整个 S06/S14/LC5。当前已合并事实以文末 2026-11-06 状态补充为准。
