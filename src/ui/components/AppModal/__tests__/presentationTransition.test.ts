@@ -189,12 +189,13 @@ describe('AppModal sheet-to-dialog drag handoff', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('captures downward content pulls only at the scroll top and counts only post-capture travel', () => {
+  it('keeps a continuous touch stream when the child ScrollView refuses responder termination', () => {
     let scrollY = 150;
     const onClose = jest.fn();
     const createResponder = jest.spyOn(PanResponder, 'create');
-    const offsetChange = jest.spyOn(mockOffset, 'setValue');
-    const body = React.createElement(ScrollView);
+    const setOffset = jest.spyOn(mockOffset, 'setValue');
+    const childRefusesHandoff = jest.fn(() => false);
+    const body = React.createElement(ScrollView, { onResponderTerminationRequest: childRefusesHandoff });
     const modal = AppModal({
       visible: true,
       presentation: 'sheet',
@@ -203,48 +204,85 @@ describe('AppModal sheet-to-dialog drag handoff', () => {
       onRequestClose: onClose,
       children: body,
     });
-    const contentRegion = elements(modal).find(
-      item =>
-        item.type === View &&
-        'onMoveShouldSetResponderCapture' in item.props &&
-        elements(item).some(child => child.type === ScrollView),
-    );
-    expect(contentRegion).toBeDefined();
-    expect(elements(contentRegion).some(item => item.type === ScrollView)).toBe(true);
-    const contentResponder = createResponder.mock.calls[1]?.[0];
-    const motion = (dy: number, dx = 0, vy = 0) => ({ dy, dx, vy }) as never;
+    const region = elements(modal).find(item => item.type === View && 'onTouchMoveCapture' in item.props);
+    if (!region) throw new Error('Missing content touch region');
+    const handlers = region.props as {
+      onTouchStartCapture: (event: never) => void;
+      onTouchMoveCapture: (event: never) => void;
+      onTouchEndCapture: () => void;
+    };
+    const touch = (y: number, t: number, x = 5) =>
+      ({ nativeEvent: { pageX: x, pageY: y, timestamp: t, touches: [{}] } }) as never;
 
-    expect(contentResponder?.onMoveShouldSetPanResponderCapture?.({} as never, motion(180))).toBe(false);
+    // Only the header needs PanResponder. Raw touch events do not negotiate
+    // ownership against ScrollView's _handleResponderTerminationRequest.
+    expect(createResponder).toHaveBeenCalledTimes(1);
+    expect(elements(region).some(item => item.type === ScrollView)).toBe(true);
+    handlers.onTouchStartCapture(touch(200, 0));
+    handlers.onTouchMoveCapture(touch(260, 30));
+    handlers.onTouchMoveCapture(touch(310, 60));
+    expect(setOffset).not.toHaveBeenCalled();
+    expect(childRefusesHandoff()).toBe(false);
     scrollY = 0;
-    expect(contentResponder?.onMoveShouldSetPanResponderCapture?.({} as never, motion(-40))).toBe(false);
-    expect(contentResponder?.onMoveShouldSetPanResponderCapture?.({} as never, motion(40, 90))).toBe(false);
-    expect(contentResponder?.onMoveShouldSetPanResponderCapture?.({} as never, motion(40, 2))).toBe(true);
-
-    contentResponder?.onPanResponderGrant?.({} as never, motion(170));
-    contentResponder?.onPanResponderMove?.({} as never, motion(220));
-    expect(offsetChange).toHaveBeenLastCalledWith(50);
-    contentResponder?.onPanResponderRelease?.({} as never, motion(300, 0, 0.2));
+    handlers.onTouchMoveCapture(touch(316, 70));
+    expect(setOffset).not.toHaveBeenCalled();
+    handlers.onTouchMoveCapture(touch(327, 90));
+    expect(setOffset).toHaveBeenLastCalledWith(11);
+    handlers.onTouchMoveCapture(touch(455, 180));
+    expect(setOffset).toHaveBeenLastCalledWith(139);
+    handlers.onTouchEndCapture();
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('returns the content to rest after a short pull without closing', () => {
+  it('does not hijack scrolling or close after sideways/upward/short/cancelled touch movement', () => {
+    let scrollY = 80;
     const onClose = jest.fn();
-    const createResponder = jest.spyOn(PanResponder, 'create');
     const springStart = jest.fn();
     jest
       .spyOn(Animated, 'spring')
       .mockReturnValue({ start: springStart } as unknown as ReturnType<typeof Animated.spring>);
-    AppModal({
+    const modal = AppModal({
       visible: true,
       presentation: 'sheet',
       swipeToDismiss: true,
-      scrollContentAtTop: () => true,
+      scrollContentAtTop: () => scrollY <= 1,
       onRequestClose: onClose,
+      children: React.createElement(ScrollView),
     });
-    const contentResponder = createResponder.mock.calls[1]?.[0];
-    contentResponder?.onPanResponderGrant?.({} as never, { dy: 9 } as never);
-    contentResponder?.onPanResponderRelease?.({} as never, { dy: 55, vy: 0.1 } as never);
+    const region = elements(modal).find(item => item.type === View && 'onTouchMoveCapture' in item.props);
+    if (!region) throw new Error('Missing content touch region');
+    const handlers = region.props as {
+      onTouchStartCapture: (event: never) => void;
+      onTouchMoveCapture: (event: never) => void;
+      onTouchEndCapture: () => void;
+      onTouchCancelCapture: () => void;
+    };
+    const touch = (y: number, t: number, x = 5) =>
+      ({ nativeEvent: { pageX: x, pageY: y, timestamp: t, touches: [{}] } }) as never;
+
+    handlers.onTouchStartCapture(touch(250, 0));
+    handlers.onTouchMoveCapture(touch(300, 30));
+    handlers.onTouchEndCapture();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(springStart).not.toHaveBeenCalled();
+
+    scrollY = 0;
+    handlers.onTouchStartCapture(touch(250, 50));
+    handlers.onTouchMoveCapture(touch(260, 70, 70));
+    handlers.onTouchMoveCapture(touch(230, 90, 70));
+    handlers.onTouchEndCapture();
+    expect(springStart).not.toHaveBeenCalled();
+
+    handlers.onTouchStartCapture(touch(250, 110));
+    handlers.onTouchMoveCapture(touch(263, 140));
+    handlers.onTouchEndCapture();
     expect(onClose).not.toHaveBeenCalled();
     expect(springStart).toHaveBeenCalledTimes(1);
+
+    handlers.onTouchStartCapture(touch(250, 160));
+    handlers.onTouchMoveCapture(touch(330, 190));
+    handlers.onTouchCancelCapture();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(springStart).toHaveBeenCalledTimes(2);
   });
 });

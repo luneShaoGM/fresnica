@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Animated, Modal, PanResponder, Pressable, Text, View, type ModalProps } from 'react-native';
+import {
+  Animated,
+  Modal,
+  PanResponder,
+  Pressable,
+  Text,
+  View,
+  type GestureResponderEvent,
+  type ModalProps,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useThemedStyles } from '@ui/theme';
@@ -76,31 +85,92 @@ export function AppModal({
       }),
     [draggable, offsetY, onRequestClose],
   );
-  const contentResponder = useMemo(() => {
+  // Raw touch callbacks continue to fire while the inner ScrollView owns (and refuses to
+  // relinquish) the RN responder. Do not negotiate a second PanResponder for the body.
+  const contentTouchHandlers = useMemo(() => {
     if (!scrollContentAtTop) return undefined;
-    let gestureStartY = 0;
-    const canDragContent = (dy: number, dx: number) =>
-      draggable && scrollContentAtTop?.() === true && shouldStartSheetSwipe(dy, dx);
-    return PanResponder.create({
-      onMoveShouldSetPanResponderCapture: (_, gesture) => canDragContent(gesture.dy, gesture.dx),
-      onMoveShouldSetPanResponder: (_, gesture) => canDragContent(gesture.dy, gesture.dx),
-      onPanResponderGrant: (_, gesture) => {
-        // A scroll can reach the top partway through a gesture. Count only the pull beyond that point.
-        gestureStartY = gesture.dy;
-        offsetY.stopAnimation();
-      },
-      onPanResponderMove: (_, gesture) => offsetY.setValue(Math.max(0, gesture.dy - gestureStartY)),
-      onPanResponderRelease: (_, gesture) => {
-        if (shouldDismissSheetSwipe(gesture.dy - gestureStartY, gesture.vy)) {
-          onRequestClose();
-        } else {
-          Animated.spring(offsetY, { toValue: 0, useNativeDriver: true }).start();
+    type Trace = {
+      lastX: number;
+      lastY: number;
+      lastTime: number;
+      topPull: number;
+      wasAtTop: boolean;
+      anchorY: number | null;
+      distance: number;
+      velocityY: number;
+    };
+    let trace: Trace | undefined;
+    const begin = (event: GestureResponderEvent) => {
+      const { pageX, pageY, timestamp } = event.nativeEvent;
+      trace = {
+        lastX: pageX,
+        lastY: pageY,
+        lastTime: timestamp,
+        topPull: 0,
+        wasAtTop: scrollContentAtTop(),
+        anchorY: null,
+        distance: 0,
+        velocityY: 0,
+      };
+    };
+    const rebound = () => Animated.spring(offsetY, { toValue: 0, useNativeDriver: true }).start();
+    const finish = (cancelled: boolean) => {
+      const finished = trace;
+      trace = undefined;
+      if (finished?.anchorY == null) return;
+      if (!cancelled && shouldDismissSheetSwipe(finished.distance, finished.velocityY)) {
+        onRequestClose();
+      } else {
+        rebound();
+      }
+    };
+    return {
+      onTouchStartCapture: (event: GestureResponderEvent) => {
+        if (!draggable || event.nativeEvent.touches.length !== 1) {
+          finish(true);
+          return;
         }
+        begin(event);
       },
-      onPanResponderTerminate: () => {
-        Animated.spring(offsetY, { toValue: 0, useNativeDriver: true }).start();
+      onTouchMoveCapture: (event: GestureResponderEvent) => {
+        if (!draggable) return;
+        if (event.nativeEvent.touches.length !== 1) {
+          finish(true);
+          return;
+        }
+        const { pageX, pageY, timestamp } = event.nativeEvent;
+        if (!trace) {
+          begin(event);
+          return;
+        }
+        const dy = pageY - trace.lastY;
+        const dx = pageX - trace.lastX;
+        const elapsed = timestamp - trace.lastTime;
+        trace.lastX = pageX;
+        trace.lastY = pageY;
+        trace.lastTime = timestamp;
+        if (trace.anchorY === null) {
+          const atTop = scrollContentAtTop();
+          // The move that first reaches the top can include distance consumed by scrolling.
+          // Start measuring on the next move, so consumed scroll travel never moves the sheet.
+          if (!atTop || !trace.wasAtTop || dy <= 0 || dy <= Math.abs(dx)) {
+            trace.wasAtTop = atTop;
+            trace.topPull = 0;
+            return;
+          }
+          trace.topPull += dy;
+          if (trace.topPull <= 8) return;
+          // Ignore distance spent scrolling; the sheet moves only for pull travel at the top.
+          trace.anchorY = pageY - trace.topPull;
+          offsetY.stopAnimation();
+        }
+        trace.distance = Math.max(0, pageY - trace.anchorY);
+        trace.velocityY = dy > 0 && elapsed > 0 ? dy / elapsed : 0;
+        offsetY.setValue(trace.distance);
       },
-    });
+      onTouchEndCapture: () => finish(false),
+      onTouchCancelCapture: () => finish(true),
+    };
   }, [draggable, scrollContentAtTop, offsetY, onRequestClose]);
 
   const Container = presentation === 'sheet' ? SafeAreaView : View;
@@ -153,7 +223,7 @@ export function AppModal({
             {title ? <Text style={styles.title}>{title}</Text> : null}
             {description ? <Text style={styles.description}>{description}</Text> : null}
             {draggable && scrollContentAtTop ? (
-              <View style={styles.sheetSwipeContent} {...contentResponder?.panHandlers}>
+              <View style={styles.sheetSwipeContent} {...contentTouchHandlers}>
                 {children}
               </View>
             ) : (
