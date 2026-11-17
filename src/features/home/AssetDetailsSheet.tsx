@@ -1,5 +1,13 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 
 import { AppModal } from '@ui/components';
 import { useAppTheme, useThemedStyles } from '@ui/theme';
@@ -68,6 +76,11 @@ export function AssetDetailsSheet({
       : balanceState;
   const [confirmCopy, setConfirmCopy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const scrollOffsetY = useRef(0);
+  const onBodyScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    scrollOffsetY.current = Math.max(0, event.nativeEvent.contentOffset.y);
+  }, []);
+  const scrollContentAtTop = useCallback(() => scrollOffsetY.current <= 1, []);
   const line = state.kind === 'ready' ? state.line : undefined;
   const actionable = active && balanceState.kind === 'ready' && !balanceState.stale && !balanceState.refreshing;
   const nativeReady = actionable && visible && asset?.kind === 'native' && !!line;
@@ -85,6 +98,7 @@ export function AssetDetailsSheet({
     <AppModal
       presentation="sheet"
       swipeToDismiss
+      scrollContentAtTop={scrollContentAtTop}
       onRequestClose={onClose}
       visible={visible && asset !== undefined}
       swipeHeader={
@@ -122,7 +136,14 @@ export function AssetDetailsSheet({
             <Text style={styles.statusText}>{t('home.asset.missing')}</Text>
           </View>
         ) : asset.kind === 'native' ? (
-          <NativeBalance canSign={canSign} line={line} breakdown={safeNativeDetails} styles={styles} t={t} />
+          <NativeBalance
+            canSign={canSign}
+            line={line}
+            breakdown={safeNativeDetails}
+            onScroll={onBodyScroll}
+            styles={styles}
+            t={t}
+          />
         ) : (
           <IssuedAsset
             asset={asset}
@@ -142,6 +163,7 @@ export function AssetDetailsSheet({
             }}
             onRemove={() => onRemove(asset)}
             onSend={() => onSend(asset)}
+            onScroll={onBodyScroll}
             styles={styles}
             t={t}
           />
@@ -155,17 +177,26 @@ function NativeBalance({
   line,
   breakdown,
   canSign,
+  onScroll,
   styles,
   t,
 }: Readonly<{
   line: BalanceLine;
   breakdown?: NativeBalanceBreakdown;
   canSign: boolean;
+  onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   styles: ReturnType<typeof createAssetDetailsSheetStyles>;
   t: (key: string, params?: Record<string, string>) => string;
 }>): React.JSX.Element {
   return (
-    <ScrollView contentContainerStyle={styles.bodyContent} style={styles.body}>
+    <ScrollView
+      contentContainerStyle={styles.bodyContent}
+      style={styles.body}
+      scrollEventThrottle={16}
+      onScroll={onScroll}
+      bounces={false}
+      overScrollMode="never"
+    >
       <View style={styles.balanceBlock}>
         <TokenAssetIcon asset={{ kind: 'native', code: 'XLM' }} />
       </View>
@@ -271,6 +302,7 @@ function IssuedAsset({
   onSend,
   onRemove,
   onCopy,
+  onScroll,
   styles,
   t,
 }: Readonly<{
@@ -283,11 +315,19 @@ function IssuedAsset({
   onSend: () => void;
   onRemove: () => void;
   onCopy: () => void;
+  onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   styles: ReturnType<typeof createAssetDetailsSheetStyles>;
   t: (key: string, params?: Record<string, string>) => string;
 }>): React.JSX.Element {
   return (
-    <ScrollView contentContainerStyle={styles.bodyContent} style={styles.body}>
+    <ScrollView
+      contentContainerStyle={styles.bodyContent}
+      style={styles.body}
+      scrollEventThrottle={16}
+      onScroll={onScroll}
+      bounces={false}
+      overScrollMode="never"
+    >
       <View style={styles.balanceBlock}>
         <TokenAssetIcon asset={asset} />
         <Text style={styles.amount}>{line.balance}</Text>

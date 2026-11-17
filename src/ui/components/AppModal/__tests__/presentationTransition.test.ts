@@ -188,4 +188,63 @@ describe('AppModal sheet-to-dialog drag handoff', () => {
     createResponder.mock.lastCall?.[0]?.onPanResponderRelease?.({} as never, { dy: 124, vy: 0.25 } as never);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('captures downward content pulls only at the scroll top and counts only post-capture travel', () => {
+    let scrollY = 150;
+    const onClose = jest.fn();
+    const createResponder = jest.spyOn(PanResponder, 'create');
+    const offsetChange = jest.spyOn(mockOffset, 'setValue');
+    const body = React.createElement(ScrollView);
+    const modal = AppModal({
+      visible: true,
+      presentation: 'sheet',
+      swipeToDismiss: true,
+      scrollContentAtTop: () => scrollY <= 1,
+      onRequestClose: onClose,
+      children: body,
+    });
+    const contentRegion = elements(modal).find(
+      item =>
+        item.type === View &&
+        'onMoveShouldSetResponderCapture' in item.props &&
+        elements(item).some(child => child.type === ScrollView),
+    );
+    expect(contentRegion).toBeDefined();
+    expect(elements(contentRegion).some(item => item.type === ScrollView)).toBe(true);
+    const contentResponder = createResponder.mock.calls[1]?.[0];
+    const motion = (dy: number, dx = 0, vy = 0) => ({ dy, dx, vy }) as never;
+
+    expect(contentResponder?.onMoveShouldSetPanResponderCapture?.({} as never, motion(180))).toBe(false);
+    scrollY = 0;
+    expect(contentResponder?.onMoveShouldSetPanResponderCapture?.({} as never, motion(-40))).toBe(false);
+    expect(contentResponder?.onMoveShouldSetPanResponderCapture?.({} as never, motion(40, 90))).toBe(false);
+    expect(contentResponder?.onMoveShouldSetPanResponderCapture?.({} as never, motion(40, 2))).toBe(true);
+
+    contentResponder?.onPanResponderGrant?.({} as never, motion(170));
+    contentResponder?.onPanResponderMove?.({} as never, motion(220));
+    expect(offsetChange).toHaveBeenLastCalledWith(50);
+    contentResponder?.onPanResponderRelease?.({} as never, motion(300, 0, 0.2));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns the content to rest after a short pull without closing', () => {
+    const onClose = jest.fn();
+    const createResponder = jest.spyOn(PanResponder, 'create');
+    const springStart = jest.fn();
+    jest
+      .spyOn(Animated, 'spring')
+      .mockReturnValue({ start: springStart } as unknown as ReturnType<typeof Animated.spring>);
+    AppModal({
+      visible: true,
+      presentation: 'sheet',
+      swipeToDismiss: true,
+      scrollContentAtTop: () => true,
+      onRequestClose: onClose,
+    });
+    const contentResponder = createResponder.mock.calls[1]?.[0];
+    contentResponder?.onPanResponderGrant?.({} as never, { dy: 9 } as never);
+    contentResponder?.onPanResponderRelease?.({} as never, { dy: 55, vy: 0.1 } as never);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(springStart).toHaveBeenCalledTimes(1);
+  });
 });

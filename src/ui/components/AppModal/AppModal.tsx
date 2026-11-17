@@ -13,6 +13,10 @@ export function shouldDismissSheetSwipe(distanceY: number, velocityY: number): b
   return distanceY > DISMISS_DISTANCE || (distanceY > 16 && velocityY > DISMISS_VELOCITY);
 }
 
+export function shouldStartSheetSwipe(distanceY: number, distanceX: number): boolean {
+  return distanceY > 8 && distanceY > Math.abs(distanceX);
+}
+
 export type AppModalProps = React.PropsWithChildren<
   Readonly<{
     visible: boolean;
@@ -26,6 +30,7 @@ export type AppModalProps = React.PropsWithChildren<
     closeLabel?: string;
     dragDismissLabel?: string;
     swipeHeader?: React.ReactNode;
+    scrollContentAtTop?: () => boolean;
   }>
 >;
 
@@ -36,6 +41,7 @@ export function AppModal({
   description,
   swipeToDismiss = false,
   swipeHeader,
+  scrollContentAtTop,
   children,
   presentation = 'dialog',
   animationType = 'fade',
@@ -55,8 +61,7 @@ export function AppModal({
   const responder = useMemo(
     () =>
       PanResponder.create({
-        onMoveShouldSetPanResponder: (_, gesture) =>
-          draggable && gesture.dy > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+        onMoveShouldSetPanResponder: (_, gesture) => draggable && shouldStartSheetSwipe(gesture.dy, gesture.dx),
         onPanResponderMove: (_, gesture) => offsetY.setValue(Math.max(0, gesture.dy)),
         onPanResponderRelease: (_, gesture) => {
           if (shouldDismissSheetSwipe(gesture.dy, gesture.vy)) {
@@ -71,6 +76,32 @@ export function AppModal({
       }),
     [draggable, offsetY, onRequestClose],
   );
+  const contentResponder = useMemo(() => {
+    if (!scrollContentAtTop) return undefined;
+    let gestureStartY = 0;
+    const canDragContent = (dy: number, dx: number) =>
+      draggable && scrollContentAtTop?.() === true && shouldStartSheetSwipe(dy, dx);
+    return PanResponder.create({
+      onMoveShouldSetPanResponderCapture: (_, gesture) => canDragContent(gesture.dy, gesture.dx),
+      onMoveShouldSetPanResponder: (_, gesture) => canDragContent(gesture.dy, gesture.dx),
+      onPanResponderGrant: (_, gesture) => {
+        // A scroll can reach the top partway through a gesture. Count only the pull beyond that point.
+        gestureStartY = gesture.dy;
+        offsetY.stopAnimation();
+      },
+      onPanResponderMove: (_, gesture) => offsetY.setValue(Math.max(0, gesture.dy - gestureStartY)),
+      onPanResponderRelease: (_, gesture) => {
+        if (shouldDismissSheetSwipe(gesture.dy - gestureStartY, gesture.vy)) {
+          onRequestClose();
+        } else {
+          Animated.spring(offsetY, { toValue: 0, useNativeDriver: true }).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(offsetY, { toValue: 0, useNativeDriver: true }).start();
+      },
+    });
+  }, [draggable, scrollContentAtTop, offsetY, onRequestClose]);
 
   const Container = presentation === 'sheet' ? SafeAreaView : View;
   const containerProps =
@@ -121,7 +152,13 @@ export function AppModal({
             ) : null}
             {title ? <Text style={styles.title}>{title}</Text> : null}
             {description ? <Text style={styles.description}>{description}</Text> : null}
-            {children}
+            {draggable && scrollContentAtTop ? (
+              <View style={styles.sheetSwipeContent} {...contentResponder?.panHandlers}>
+                {children}
+              </View>
+            ) : (
+              children
+            )}
           </Container>
         </Animated.View>
       </View>
