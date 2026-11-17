@@ -70,6 +70,21 @@ export function HomeStackNavigator({
   const closeNetworkSwitch = useCallback(() => setNetworkSwitchVisible(false), []);
   const selectedAccount = resolveVisibleAccount(accounts, selectedAccountId);
   const canSign = !services.onboarding.repository.isWatchOnly(selectedAccount.id);
+  const marketSelectionRevision = useSyncExternalStore(
+    subscribeToSwapSelection,
+    () => getCurrentSwapSelection()?.selectionRevision ?? 0,
+    () => 0,
+  );
+  const captureMarketSession = (isCurrentFocusEpoch: () => boolean) =>
+    services.markets
+      ? captureSwapCurrentSession({
+          account: selectedAccount,
+          network: services.markets.network,
+          getCurrentSelection: getCurrentSwapSelection,
+          isCurrentFocusEpoch,
+        })
+      : () => false;
+
   // Async Continue callbacks must read the latest account selection, not their render's captured value.
   const selectionRef = useRef({ selectedAccountId, accounts });
   selectionRef.current = { selectedAccountId, accounts };
@@ -95,6 +110,8 @@ export function HomeStackNavigator({
               navigation={navigation}
               catalog={services.assetCatalog}
               markets={services.markets}
+              marketSelectionRevision={marketSelectionRevision}
+              captureMarketSession={captureMarketSession}
               claimables={services.claimables}
               claimableTransaction={services.claimableTransaction}
               isSelectedAccount={() => {
@@ -224,6 +241,8 @@ export function HomeStackNavigator({
               key={JSON.stringify([selectedAccount.id, selectedAccount.networkId])}
               account={selectedAccount}
               product={services.markets}
+              selectionRevision={marketSelectionRevision}
+              captureSession={captureMarketSession}
               kind="orders"
               active={readRuntime.foreground}
               canSign={canSign}
@@ -450,6 +469,8 @@ function HomeWithAssetSheets({
   catalog,
   claimables,
   markets,
+  marketSelectionRevision,
+  captureMarketSession,
   claimableTransaction,
   isSelectedAccount,
   onRecover,
@@ -461,6 +482,8 @@ function HomeWithAssetSheets({
   navigation: NativeStackNavigationProp<HomeStackParamList, 'home'>;
   catalog: AppServices['assetCatalog'];
   markets?: AppServices['markets'];
+  marketSelectionRevision: number;
+  captureMarketSession: (isCurrentFocusEpoch: () => boolean) => () => boolean;
   claimables: AppServices['claimables'];
   claimableTransaction: AppServices['claimableTransaction'];
   isSelectedAccount: () => boolean;
@@ -557,6 +580,8 @@ function HomeWithAssetSheets({
             <MarketsScreen
               account={props.account}
               product={markets}
+              selectionRevision={marketSelectionRevision}
+              captureSession={captureMarketSession}
               kind="pools"
               active={active}
               canSign={props.canSign}

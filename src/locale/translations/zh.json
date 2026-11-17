@@ -1341,5 +1341,6 @@
   "market.error.watch_only": "只读账户无法签署。",
   "market.error.unsupported_signer": "暂不支持当前签名配置。",
   "market.sponsorReserveReleased": "赞助方释放储备（XLM）",
-  "market.subentriesReleased": "移除的池份额储备单位"
+  "market.subentriesReleased": "移除的池份额储备单位",
+  "market.selectionChanged": "账户或网络选择已变化，请重新确认交易。"
 }

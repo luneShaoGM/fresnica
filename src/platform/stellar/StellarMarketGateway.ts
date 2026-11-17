@@ -48,9 +48,10 @@ function canonicalAsset(value: unknown): MarketAsset {
 }
 function recordAsset(value: unknown): MarketAsset {
   const raw = object(value);
-  return raw.asset_type === 'native'
-    ? { kind: 'native' }
-    : canonicalAsset(`${text(raw.asset_code)}:${text(raw.asset_issuer)}`);
+  if (raw.asset_type === 'native') return { kind: 'native' };
+  if (raw.asset_type !== 'credit_alphanum4' && raw.asset_type !== 'credit_alphanum12')
+    throw new Error('market_invalid_asset');
+  return canonicalAsset(`${text(raw.asset_code)}:${text(raw.asset_issuer)}`);
 }
 function ratio(value: unknown): Price {
   const raw = object(value);

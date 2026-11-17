@@ -236,6 +236,7 @@ export function createMarkets(dependencies: MarketDependencies) {
   }
   return Object.freeze({
     networkId: network.id,
+    network: Object.freeze({ ...network }),
     async list(id: string, kind: 'orders' | 'pools') {
       const source = account(id);
       const loaded = await state(id);

@@ -1341,5 +1341,6 @@
   "market.error.watch_only": "Read-only accounts cannot sign.",
   "market.error.unsupported_signer": "This signing configuration is not supported here.",
   "market.sponsorReserveReleased": "Sponsor reserve released (XLM)",
-  "market.subentriesReleased": "Pool-share reserve units removed"
+  "market.subentriesReleased": "Pool-share reserve units removed",
+  "market.selectionChanged": "Account or network selection changed. Review the transaction again."
 }

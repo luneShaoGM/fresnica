@@ -1341,5 +1341,6 @@
   "market.error.watch_only": "唯讀帳戶無法簽署。",
   "market.error.unsupported_signer": "暫不支援目前簽署配置。",
   "market.sponsorReserveReleased": "贊助方釋放儲備（XLM）",
-  "market.subentriesReleased": "移除的池份額儲備單位"
+  "market.subentriesReleased": "移除的池份額儲備單位",
+  "market.selectionChanged": "帳戶或網路選擇已變更，請重新確認交易。"
 }

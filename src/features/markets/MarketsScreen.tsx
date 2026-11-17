@@ -26,6 +26,8 @@ type Flow =
 type Props = Readonly<{
   account: AccountRecord;
   product: Markets;
+  selectionRevision: number;
+  captureSession: (isCurrentFocusEpoch: () => boolean) => () => boolean;
   kind: 'orders' | 'pools';
   active: boolean;
   canSign: boolean;
@@ -60,6 +62,8 @@ const knownErrors = new Set([
 export function MarketsScreen({
   account,
   product,
+  selectionRevision,
+  captureSession,
   kind,
   active: foreground,
   canSign,
@@ -82,6 +86,7 @@ export function MarketsScreen({
   const epoch = useRef(0),
     readEpoch = useRef(0),
     running = useRef(false);
+  const reviewSession = useRef<(() => boolean) | undefined>(undefined);
   const password = useRef<PassphraseInputHandle>(null);
   const [present, setPresent] = useState(false);
   const [busy, setBusy] = useState(false),
@@ -102,9 +107,20 @@ export function MarketsScreen({
     epoch.current += 1;
     readEpoch.current += 1;
     running.current = false;
+    reviewSession.current = undefined;
     password.current?.clear();
   }, []);
   useFocusEffect(useCallback(() => () => retire(), [retire]));
+  useEffect(() => {
+    epoch.current += 1;
+    reviewSession.current = undefined;
+    running.current = false;
+    password.current?.clear();
+    setBusy(false);
+    setPresent(false);
+    setError('');
+    setFlow(current => (current.kind === 'result' ? current : { kind: 'list' }));
+  }, [selectionRevision]);
   useEffect(() => () => retire(), [retire]);
   useEffect(() => {
     const subscription = AppState.addEventListener('change', next => {
@@ -116,6 +132,7 @@ export function MarketsScreen({
   const reset = () => {
     epoch.current += 1;
     running.current = false;
+    reviewSession.current = undefined;
     password.current?.clear();
     setPresent(false);
     setBusy(false);
@@ -163,33 +180,44 @@ export function MarketsScreen({
     setBusy(true);
     setError('');
     const lease = ++epoch.current;
-    const current = () => activeRef.current && isCurrentAccount() && lease === epoch.current;
+    const current = captureSession(() => activeRef.current && isCurrentAccount() && lease === epoch.current);
     try {
       const review = await product.prepare(account.id, request, current);
       if (current()) {
+        reviewSession.current = undefined;
         password.current?.clear();
         setPresent(false);
+        reviewSession.current = current;
         setFlow({ kind: 'review', review });
       }
     } catch (failure) {
       if (current()) onError(failure);
     } finally {
-      if (current()) {
+      if (lease === epoch.current && activeRef.current) {
         running.current = false;
         setBusy(false);
+        if (!current()) {
+          setFlow({ kind: 'list' });
+          setError('market.selectionChanged');
+        }
       }
     }
   }
   async function submit(review: MarketReview, presentedEpoch: number) {
     if (!activeRef.current || !isCurrentAccount() || !canSign || running.current || presentedEpoch !== epoch.current)
       return;
+    const current = reviewSession.current;
+    if (!current || !current()) {
+      reset();
+      setError('market.selectionChanged');
+      return;
+    }
     const passphrase = password.current?.consume();
     if (!passphrase) return;
     running.current = true;
     setBusy(true);
     setError('');
-    const lease = epoch.current;
-    const current = () => activeRef.current && isCurrentAccount() && lease === epoch.current;
+
     try {
       const result = await product.submit(review, passphrase, current);
       if (current()) {
@@ -211,9 +239,13 @@ export function MarketsScreen({
     } catch (failure) {
       if (current()) onError(failure);
     } finally {
-      if (current()) {
+      if (presentedEpoch === epoch.current && activeRef.current) {
         running.current = false;
         setBusy(false);
+        if (!current()) {
+          setFlow({ kind: 'list' });
+          setError('market.selectionChanged');
+        }
       }
     }
   }

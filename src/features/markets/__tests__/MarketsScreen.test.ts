@@ -15,6 +15,7 @@ let mockStates: unknown[] = [],
 let mockEffects: (() => void | (() => void))[] = [];
 let mockBlur: (() => void) | undefined;
 let mockFocused = true;
+let mockSelectionRevision = 0;
 jest.mock('react', () => ({
   ...jest.requireActual('react'),
   useState: (initial: unknown) => {
@@ -100,6 +101,11 @@ function render(canSign = true) {
     MarketsScreen({
       account,
       product,
+      selectionRevision: mockSelectionRevision,
+      captureSession: focus => {
+        const revision = mockSelectionRevision;
+        return () => focus() && revision === mockSelectionRevision;
+      },
       kind: 'pools',
       active: true,
       canSign,
@@ -150,6 +156,7 @@ beforeEach(() => {
   mockRefs = [];
   mockEffects = [];
   mockFocused = true;
+  mockSelectionRevision = 0;
   mockBlur = undefined;
   prepare = jest.fn(async () => review);
   submit = jest.fn(async () => ({ status: 'submitted', hash: 'hash' }));
@@ -206,7 +213,7 @@ describe('S12 product lifetime and native input boundary', () => {
     if (cause === 'blur') mockBlur?.();
     else if (cause === 'background') background?.('inactive');
     else {
-      const cleanup = mockEffects[0]?.();
+      const cleanup = mockEffects[1]?.();
       if (typeof cleanup === 'function') cleanup();
     }
     (slide.props.onComplete as () => void)();
@@ -214,24 +221,36 @@ describe('S12 product lifetime and native input boundary', () => {
     expect(submit).not.toHaveBeenCalled();
     expect(clear).toHaveBeenCalled();
   });
-  it('retires an already-running authorization and ignores its late result', async () => {
+  it('does not revive a captured review after A -> B -> A before React commits', async () => {
     const tree = await openReview();
     const slide = tree.find(node => node.type === SlideToConfirm)!;
-    let resolve!: (value: unknown) => void;
-    submit.mockReturnValueOnce(
-      new Promise(done => {
-        resolve = done;
-      }),
-    );
+    mockSelectionRevision += 2;
     (slide.props.onComplete as () => void)();
-    const current = submit.mock.calls[0][2] as () => boolean;
-    expect(current()).toBe(true);
-    background?.('background');
-    expect(current()).toBe(false);
-    resolve({ status: 'submitted', hash: 'late' });
     await settle();
-    expect(
-      mockStates.some(value => !!value && typeof value === 'object' && 'kind' in value && value.kind === 'result'),
-    ).toBe(false);
+    expect(submit).not.toHaveBeenCalled();
   });
+  it.each(['background', 'account revision'])(
+    'retires an already-running authorization on %s and ignores its late result',
+    async cause => {
+      const tree = await openReview();
+      const slide = tree.find(node => node.type === SlideToConfirm)!;
+      let resolve!: (value: unknown) => void;
+      submit.mockReturnValueOnce(
+        new Promise(done => {
+          resolve = done;
+        }),
+      );
+      (slide.props.onComplete as () => void)();
+      const current = submit.mock.calls[0][2] as () => boolean;
+      expect(current()).toBe(true);
+      if (cause === 'background') background?.('background');
+      else mockSelectionRevision += 2;
+      expect(current()).toBe(false);
+      resolve({ status: 'submitted', hash: 'late' });
+      await settle();
+      expect(
+        mockStates.some(value => !!value && typeof value === 'object' && 'kind' in value && value.kind === 'result'),
+      ).toBe(false);
+    },
+  );
 });

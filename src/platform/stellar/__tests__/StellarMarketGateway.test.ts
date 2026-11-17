@@ -42,6 +42,7 @@ describe('S12 provider validation and independent exact envelope inspection', ()
       { ...rawOffer, id: 12 },
       { ...rawOffer, amount: 'NaN' },
       { ...rawOffer, seller: issuer },
+      { ...rawOffer, selling: { asset_type: 'liquidity_pool_shares', asset_code: 'usd', asset_issuer: issuer } },
     ]) {
       f.read.mockResolvedValueOnce({ _embedded: { records: [row] } });
       await expect(f.gateway.listOffers(address)).rejects.toThrow();
