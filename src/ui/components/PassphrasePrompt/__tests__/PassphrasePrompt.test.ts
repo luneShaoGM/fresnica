@@ -83,8 +83,8 @@ it('clears and closes on background and cannot resume authentication on foregrou
   expect(h.props.onCancel).toHaveBeenCalledTimes(1);
   expect(h.props.onConfirm).not.toHaveBeenCalled();
 });
-it('retires an expired review instead of retaining a usable credential', () => {
-  const h = fixture({ expiresAtUnixMs: Date.now() + 1000 });
+it.each([false, true])('retires an expired review instead of retaining a usable credential (busy=%s)', busy => {
+  const h = fixture({ busy, expiresAtUnixMs: Date.now() + 1000 });
   jest.advanceTimersByTime(1000);
   expect(h.props.inputRef.current?.clear).toHaveBeenCalled();
   expect(h.props.onExpire).toHaveBeenCalledTimes(1);

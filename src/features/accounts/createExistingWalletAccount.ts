@@ -1,9 +1,8 @@
-import {
-  runGeneratedMnemonicOnboarding,
-  type GeneratedMnemonicBackup,
-  type OnboardingProvisioningDependencies,
+import type {
+  GeneratedMnemonicBackup,
+  OnboardingProvisioningDependencies,
 } from '../onboarding/runOnboardingProvisioning';
-import type { ProvisionedAccount } from '../../capabilities/account/provisionAccount';
+import { generateMnemonicAccount, type ProvisionedAccount } from '../../capabilities/account/provisionAccount';
 import {
   authorizeExistingWalletProtection,
   type ExistingWalletSystemAuthRegistration,
@@ -33,7 +32,9 @@ export async function createExistingWalletAccount(
     input.shortPassphraseRiskAccepted,
   );
 
-  const generated = await runGeneratedMnemonicOnboarding(dependencies, {
+  // Authorization above owns first-time policy or exact existing-credential verification.
+  const generated = await generateMnemonicAccount(dependencies, {
+    networkId: dependencies.networkId,
     language: 'english',
     strength: 128,
     mnemonicPassphrase: '',
@@ -45,8 +46,8 @@ export async function createExistingWalletAccount(
   const systemAuthRegistration = 'not-configured' as const;
 
   return {
-    account: generated.account,
-    backup: generated.backup,
+    account: { account: generated.account, signer: generated.signer },
+    backup: { mnemonic: generated.mnemonic, language: generated.language, index: generated.index },
     systemAuthRegistration,
   };
 }

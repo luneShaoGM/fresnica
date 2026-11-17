@@ -1006,3 +1006,75 @@ it.each([
     });
   },
 );
+
+it('releases an expired Review submission only when its owner settles, then permits a fresh confirmation', async () => {
+  const reviewed: PreparedPathPaymentReview = {
+    source: 'GA',
+    networkId: account.networkId,
+    destination: account.address,
+    transactionXdrBase64: 'original-xdr',
+    sourceAsset: { kind: 'native' },
+    destinationAsset: assets[1],
+    quotedSourceAmount: '2',
+    quotedDestinationAmount: '3',
+    path: [],
+    mode: 'strict_send',
+    sendAmount: '2',
+    quote: quote(),
+    destinationMinimum: '2.9',
+    slippageBps: 100,
+    fee: '100',
+    expiresAtUnixSeconds: 2_000_000_000,
+  };
+  prepare.mockResolvedValue(reviewed);
+  const first = deferred<Awaited<ReturnType<typeof submitSwapReview>>>();
+  const second = deferred<Awaited<ReturnType<typeof submitSwapReview>>>();
+  jest.mocked(submitSwapReview).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+  const h = setup();
+  await h.mount();
+  const build = async (enterAmount = false) => {
+    if (enterAmount) input(h.draw(), 'pay').props.onChangeAmount?.('2');
+    h.draw();
+    jest.advanceTimersByTime(500);
+    await settle();
+    button(h.draw(), 'swap.preview.review').props.onPress?.();
+    await settle();
+    return h.draw();
+  };
+  const prompt = (root: React.ReactNode) =>
+    find(root, node => node.type === PassphrasePrompt)!.props as unknown as React.ComponentProps<
+      typeof PassphrasePrompt
+    >;
+  let root = await build(true);
+  let auth = prompt(root);
+  auth.inputRef.current = { consume: () => 'fixture password', clear: jest.fn() };
+  auth.onPresenceChange(true);
+  h.draw();
+  auth.onConfirm();
+  expect(submitSwapReview).toHaveBeenCalledTimes(1);
+  const oldCurrent = jest.mocked(submitSwapReview).mock.calls[0][3];
+  auth = prompt(h.draw());
+  expect(auth.busy).toBe(true);
+  auth.onExpire();
+  h.draw();
+  expect(oldCurrent()).toBe(false);
+  root = await build();
+  auth = prompt(root);
+  auth.inputRef.current = { consume: () => 'fresh fixture password', clear: jest.fn() };
+  auth.onPresenceChange(true);
+  auth.onConfirm();
+  expect(submitSwapReview).toHaveBeenCalledTimes(1); // The old owner has not settled yet.
+  first.reject(new Error('swap-session-stale'));
+  await settle();
+  auth = prompt(h.draw());
+  expect(auth.busy).toBe(false);
+  auth.onConfirm();
+  auth.onConfirm();
+  expect(submitSwapReview).toHaveBeenCalledTimes(2);
+  expect(jest.mocked(submitSwapReview).mock.calls[1][3]()).toBe(true);
+  second.resolve({ status: 'submitted', hash: 'FRESH_HASH', authorization: 'passphrase' });
+  await settle();
+  const resultView = find(h.draw(), node => typeof node.type === 'function' && node.type.name === 'SwapResultScreen');
+  expect(resultView).toBeDefined();
+  h.dispose();
+});

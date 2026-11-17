@@ -367,6 +367,7 @@ export function SendFlowScreen({
         onPassphrasePresenceChange={setHasPassphrase}
         onConfirm={() => void submitReview()}
         onBack={() => {
+          buildGeneration.current += 1;
           passphraseInput.current?.clear();
           setHasPassphrase(false);
           setPassphraseRequired(true);

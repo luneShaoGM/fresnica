@@ -135,3 +135,21 @@ Automated policy, legacy verification, rotation, prompt lifecycle/expiry and
 Send/Swap recovery checks are supplementary; Android/iOS native keyboard,
 focus, cancellation/error retry and screen-reader product acceptance remain
 pending. No L4 promotion or native acceptance claim.
+
+
+### PR #208 review follow-up: creation compatibility and busy expiry
+
+Existing-wallet creation now calls the account-generation capability only after
+its owning authorization step: first-time policy and short-risk acceptance are
+checked once; a verified legacy credential is reused byte-for-byte without
+re-entering the first-onboarding policy. First onboarding retains its own guard.
+Send invalidates its captured generation before returning from Review to the
+form, including busy password-prompt expiry. A pre-broadcast signature completed
+later cannot create/broadcast a pending intent or overwrite the current UI.
+Swap retains the one submission lock until its sole owner settles, even after
+Review expiry/rebuild; that owner's finally releases it independently of the
+quote/review generation. No new attempt acquires it earlier. Shared durable
+pending/original-hash reconciliation after broadcast remains unchanged.
+Regression evidence covers complete Create paths (legacy numeric/short and
+watch-only first short-risk consent), deferred Send expiry and deferred Swap
+expiry/rebuild/settlement/retry. Native product acceptance remains pending.

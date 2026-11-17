@@ -404,10 +404,10 @@ export function SwapPreviewScreen({
     } catch (caught) {
       if (valid()) setError(errorText(caught, t));
     } finally {
-      if (generation === attempt.current) {
-        submitLocked.current = false;
-        if (valid()) setSubmitting(false);
-      }
+      // No replacement can acquire this lock before its sole owner settles,
+      // even if expiry has already retired the Review generation.
+      submitLocked.current = false;
+      setSubmitting(false);
     }
   }, [account, busy, captureSession, clearPassphrase, execution, history, passphraseRequired, submitting, t, view]);
 
