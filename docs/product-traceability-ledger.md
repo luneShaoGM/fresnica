@@ -897,3 +897,7 @@ Developer verification: full npm run check with Watchman disabled passed
 aliases/architecture, provenance (1005 files, zero unapproved donor collisions),
 artwork, locale and bridge checks. Final TypeScript rerun passed after the
 mount-replay regression was added. Native/device/provider acceptance was not run.
+
+## S07 / S10 shared asset selection — 2026-11-16
+
+Behavior/acceptance scope: [Send / Swap asset selection](behavior-specs/send-swap-asset-selection.md). Clean-room adaptation of the asset-selection role. Shared feature-owned bottom sheet, code/issuer search, icons and balances; Send positive-balance candidates and amount reset; Swap opposite-side exchange and draft/quote reset. No maturity promotion or native acceptance claim. Existing transaction/SDK boundaries retained.

@@ -1231,5 +1231,11 @@
   "security.settings.allowCapture": "允许截屏",
   "security.settings.save": "保存安全设置",
   "security.settings.error": "保存失败，请检查设置后重试；如需口令，请重新输入。修改失败后截屏保护保持开启。",
-  "security.settings.biometricNote": "仅在设备支持且已录入生物识别时使用，始终可用 App Passphrase 解锁。"
+  "security.settings.biometricNote": "仅在设备支持且已录入生物识别时使用，始终可用 App Passphrase 解锁。",
+  "assets.picker.title": "选择资产",
+  "assets.picker.search": "搜索资产代码或发行方",
+  "assets.picker.clear": "清空搜索",
+  "assets.picker.empty": "没有匹配的资产",
+  "assets.picker.native": "原生资产",
+  "assets.picker.balance": "余额"
 }

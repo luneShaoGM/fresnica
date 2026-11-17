@@ -168,3 +168,12 @@ describe('Merged #159 Memo Return with #162 staged Send', () => {
     expect(buildSendReview).not.toHaveBeenCalled();
   });
 });
+
+
+it('clears the entered amount when selecting an asset in Details', async () => {
+  const intent = await mount();
+  const form = screen(draw(intent), SendFormScreen);
+  form.props.onSelectAsset(native);
+  expect(screen(draw(intent), SendFormScreen).props.amount).toBe('');
+  expect(buildSendReview).not.toHaveBeenCalled();
+});

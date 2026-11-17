@@ -6,6 +6,7 @@ import type { AccountRecord } from '@capabilities/account/types';
 import type { PathPaymentQuote, PreparedPathPaymentReview } from '@capabilities/path-payment/types';
 import type { StellarPaymentAsset } from '@capabilities/stellar/types';
 import { NativeButton } from '@ui/components/NativeButton';
+import { AssetPicker } from '../../assets/AssetPicker';
 import { SwapAmountInput } from '../SwapAmountInput';
 import { SwapPassphraseInput, type SwapPassphraseInputHandle } from '../SwapPassphraseInput';
 import { SwapPreviewScreen } from '../SwapPreviewScreen';
@@ -85,10 +86,10 @@ const account = {
   hidden: false,
   label: 'A',
 } as AccountRecord;
-const assets: readonly StellarPaymentAsset[] = [
-  { kind: 'native' },
-  { kind: 'credit', code: 'usd', issuer: 'GISSUER' },
-  { kind: 'credit', code: 'EUR', issuer: 'GOTHER' },
+const assets: Awaited<ReturnType<typeof loadSwapPreviewAssets>> = [
+  { kind: 'native', balance: '10' },
+  { kind: 'credit', code: 'usd', issuer: 'GISSUER', balance: '20' },
+  { kind: 'credit', code: 'EUR', issuer: 'GOTHER', balance: '0' },
 ];
 function quote(source = '2.0000000', destination = '3.0000000'): PathPaymentQuote {
   return {
@@ -520,19 +521,26 @@ it('invalidates the old pair on explicit asset selection and preserves issuer/co
   jest.advanceTimersByTime(500);
   await settle();
   root = h.draw();
-  const choice = find(
-    root,
-    node => typeof node.type === 'function' && node.type.name === 'AssetChoice' && node.key === 'source-usd · GISSUER',
-  );
+  const choice = find(root, node => node.type === AssetPicker && node.props.label === 'swap.preview.source');
   expect(choice).toBeDefined();
-  choice?.props.onPress?.();
+  (choice?.props as React.ComponentProps<typeof AssetPicker>).onSelect({
+    kind: 'credit',
+    code: 'usd',
+    issuer: 'GISSUER',
+  });
   root = h.draw();
   expect(input(root, 'receive').props.value).toBe('');
   jest.advanceTimersByTime(500);
   await settle();
+  expect(input(root, 'pay').props.value).toBe('');
+  expect(request).toHaveBeenCalledTimes(1);
+  input(root, 'pay').props.onChangeAmount?.('2');
+  h.draw();
+  jest.advanceTimersByTime(500);
+  await settle();
   expect(request.mock.calls[1][2]).toMatchObject({
     sourceAsset: assets[1],
-    destinationAsset: assets[2],
+    destinationAsset: assets[0],
     fixedAmount: '2',
   });
 });
@@ -721,11 +729,12 @@ it('drops an old source Max result after a new asset and shows the new asset onl
   spendable.mockReturnValueOnce(pending.promise);
   button(root, 'swap.form.max').props.onPress?.();
   root = h.draw();
-  const choice = find(
-    root,
-    node => typeof node.type === 'function' && node.type.name === 'AssetChoice' && node.key === 'source-usd · GISSUER',
-  );
-  choice?.props.onPress?.();
+  const choice = find(root, node => node.type === AssetPicker && node.props.label === 'swap.preview.source');
+  (choice?.props as React.ComponentProps<typeof AssetPicker>).onSelect({
+    kind: 'credit',
+    code: 'usd',
+    issuer: 'GISSUER',
+  });
   h.draw();
   await settle();
   pending.resolve('999.0000000');
@@ -963,3 +972,34 @@ it('allows a new Get Quotes action after failed Requote without reviving the dis
   expect(prepare).not.toHaveBeenCalled();
   expect(request).toHaveBeenCalledTimes(3);
 });
+
+it.each([
+  ['source', 1, 1, 0],
+  ['source', 2, 2, 1],
+  ['destination', 0, 1, 0],
+  ['destination', 2, 0, 2],
+] as const)(
+  'selects %s asset %s with exact opposite-side exchange',
+  async (side, selected, expectedSource, expectedDestination) => {
+    const h = setup();
+    let root = await h.mount();
+    input(root, 'pay').props.onChangeAmount?.('2');
+    root = h.draw();
+    const picker = find(root, node => node.type === AssetPicker && node.props.label === `swap.preview.${side}`);
+    const asset = assets[selected];
+    (picker?.props as React.ComponentProps<typeof AssetPicker>).onSelect(
+      asset.kind === 'native' ? { kind: 'native', code: 'XLM' } : asset,
+    );
+    root = h.draw();
+    expect(input(root, 'pay').props.value).toBe('');
+    expect(input(root, 'receive').props.value).toBe('');
+    input(root, 'pay').props.onChangeAmount?.('1');
+    h.draw();
+    jest.advanceTimersByTime(500);
+    await settle();
+    expect(request.mock.lastCall?.[2]).toMatchObject({
+      sourceAsset: assets[expectedSource],
+      destinationAsset: assets[expectedDestination],
+    });
+  },
+);

@@ -1231,5 +1231,11 @@
   "security.settings.allowCapture": "Allow screenshots",
   "security.settings.save": "Save security settings",
   "security.settings.error": "Unable to save. Check your settings and retry; re-enter your passphrase if required. Screenshot protection stays on after a failed change.",
-  "security.settings.biometricNote": "Used only when biometrics are available and enrolled on this device. App Passphrase unlock remains available."
+  "security.settings.biometricNote": "Used only when biometrics are available and enrolled on this device. App Passphrase unlock remains available.",
+  "assets.picker.title": "Select asset",
+  "assets.picker.search": "Search asset code or issuer",
+  "assets.picker.clear": "Clear search",
+  "assets.picker.empty": "No matching assets",
+  "assets.picker.native": "Native asset",
+  "assets.picker.balance": "Balance"
 }
