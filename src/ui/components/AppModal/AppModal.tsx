@@ -1,15 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import {
-  Animated,
-  Modal,
-  PanResponder,
-  Pressable,
-  Text,
-  View,
-  type GestureResponderEvent,
-  type ModalProps,
-} from 'react-native';
+import { Animated, Modal, PanResponder, Pressable, Text, View, type ModalProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useThemedStyles } from '@ui/theme';
 
@@ -40,6 +32,7 @@ export type AppModalProps = React.PropsWithChildren<
     dragDismissLabel?: string;
     swipeHeader?: React.ReactNode;
     scrollContentAtTop?: () => boolean;
+    nativeScrollGesture?: ReturnType<typeof Gesture.Native>;
   }>
 >;
 
@@ -51,6 +44,7 @@ export function AppModal({
   swipeToDismiss = false,
   swipeHeader,
   scrollContentAtTop,
+  nativeScrollGesture,
   children,
   presentation = 'dialog',
   animationType = 'fade',
@@ -85,95 +79,52 @@ export function AppModal({
       }),
     [draggable, offsetY, onRequestClose],
   );
-  // Raw touch callbacks continue to fire while the inner ScrollView owns (and refuses to
-  // relinquish) the RN responder. Do not negotiate a second PanResponder for the body.
-  const contentTouchHandlers = useMemo(() => {
-    if (!scrollContentAtTop) return undefined;
-    type Trace = {
-      lastX: number;
-      lastY: number;
-      lastTime: number;
-      topPull: number;
-      wasAtTop: boolean;
-      anchorY: number | null;
-      distance: number;
-      velocityY: number;
-    };
-    let trace: Trace | undefined;
-    const begin = (event: GestureResponderEvent) => {
-      const { pageX, pageY, timestamp } = event.nativeEvent;
-      trace = {
-        lastX: pageX,
-        lastY: pageY,
-        lastTime: timestamp,
-        topPull: 0,
-        wasAtTop: scrollContentAtTop(),
-        anchorY: null,
-        distance: 0,
-        velocityY: 0,
-      };
-    };
+  // A native Pan gesture is simultaneous with the native ScrollView handler.
+  // Android stops delivering JS touch events after native scrolling starts, so a
+  // parent PanResponder or raw onTouch callback cannot handle this handoff.
+  const contentPan = useMemo(() => {
+    if (!scrollContentAtTop || !nativeScrollGesture) return undefined;
+    let anchorY: number | undefined;
+    let dragY = 0;
     const rebound = () => Animated.spring(offsetY, { toValue: 0, useNativeDriver: true }).start();
-    const finish = (cancelled: boolean) => {
-      const finished = trace;
-      trace = undefined;
-      if (finished?.anchorY == null) return;
-      if (!cancelled && shouldDismissSheetSwipe(finished.distance, finished.velocityY)) {
-        onRequestClose();
-      } else {
-        rebound();
-      }
-    };
-    return {
-      onTouchStartCapture: (event: GestureResponderEvent) => {
-        if (!draggable || event.nativeEvent.touches.length !== 1) {
-          finish(true);
+    return Gesture.Pan()
+      .minDistance(8)
+      .maxPointers(1)
+      .simultaneousWithExternalGesture(nativeScrollGesture)
+      .runOnJS(true)
+      .onStart(() => {
+        anchorY = undefined;
+        dragY = 0;
+        offsetY.stopAnimation();
+      })
+      .onUpdate(event => {
+        if (anchorY === undefined) {
+          if (!scrollContentAtTop()) return;
+          // The first event observed at the top can include native scroll travel.
+          // Anchor here and count only movement from subsequent updates.
+          anchorY = event.translationY;
           return;
         }
-        begin(event);
-      },
-      onTouchMoveCapture: (event: GestureResponderEvent) => {
-        if (!draggable) return;
-        if (event.nativeEvent.touches.length !== 1) {
-          finish(true);
-          return;
+        // Once top is reached, native scroll offsets can jitter around zero.
+        // Do not reset the drag anchor during the remainder of this finger gesture.
+        dragY = Math.max(0, event.translationY - anchorY);
+        offsetY.setValue(dragY);
+      })
+      .onEnd((event, success) => {
+        if (!success) return; // Interrupted gestures rebound in onFinalize.
+        if (shouldDismissSheetSwipe(dragY, event.velocityY / 1000)) {
+          onRequestClose();
+        } else {
+          rebound();
         }
-        const { pageX, pageY, timestamp } = event.nativeEvent;
-        if (!trace) {
-          begin(event);
-          return;
-        }
-        const dy = pageY - trace.lastY;
-        const dx = pageX - trace.lastX;
-        const elapsed = timestamp - trace.lastTime;
-        trace.lastX = pageX;
-        trace.lastY = pageY;
-        trace.lastTime = timestamp;
-        if (trace.anchorY === null) {
-          const atTop = scrollContentAtTop();
-          // The move that first reaches the top can include distance consumed by scrolling.
-          // Start measuring on the next move, so consumed scroll travel never moves the sheet.
-          if (!atTop || !trace.wasAtTop || dy <= 0 || dy <= Math.abs(dx)) {
-            trace.wasAtTop = atTop;
-            trace.topPull = 0;
-            return;
-          }
-          trace.topPull += dy;
-          if (trace.topPull <= 8) return;
-          // Ignore distance spent scrolling; the sheet moves only for pull travel at the top.
-          trace.anchorY = pageY - trace.topPull;
-          offsetY.stopAnimation();
-        }
-        trace.distance = Math.max(0, pageY - trace.anchorY);
-        trace.velocityY = dy > 0 && elapsed > 0 ? dy / elapsed : 0;
-        offsetY.setValue(trace.distance);
-      },
-      onTouchEndCapture: () => finish(false),
-      onTouchCancelCapture: () => finish(true),
-    };
-  }, [draggable, scrollContentAtTop, offsetY, onRequestClose]);
+      })
+      .onFinalize((_, success) => {
+        if (!success) rebound();
+      });
+  }, [nativeScrollGesture, scrollContentAtTop, offsetY, onRequestClose]);
 
   const Container = presentation === 'sheet' ? SafeAreaView : View;
+  const ModalRoot = contentPan ? GestureHandlerRootView : View;
   const containerProps =
     presentation === 'sheet'
       ? { edges: contentSized ? (['right', 'bottom', 'left'] as const) : (['bottom'] as const) }
@@ -186,7 +137,7 @@ export function AppModal({
       transparent
       visible={visible}
     >
-      <View style={[styles.overlay, presentation === 'sheet' ? styles.sheetOverlay : undefined]}>
+      <ModalRoot style={[styles.overlay, presentation === 'sheet' ? styles.sheetOverlay : undefined]}>
         <Pressable
           accessibilityLabel={closeLabel}
           accessibilityRole="button"
@@ -222,16 +173,18 @@ export function AppModal({
             ) : null}
             {title ? <Text style={styles.title}>{title}</Text> : null}
             {description ? <Text style={styles.description}>{description}</Text> : null}
-            {draggable && scrollContentAtTop ? (
-              <View style={styles.sheetSwipeContent} {...contentTouchHandlers}>
-                {children}
-              </View>
+            {draggable && contentPan ? (
+              <GestureDetector gesture={contentPan}>
+                <View style={styles.sheetSwipeContent} collapsable={false}>
+                  {children}
+                </View>
+              </GestureDetector>
             ) : (
               children
             )}
           </Container>
         </Animated.View>
-      </View>
+      </ModalRoot>
     </Modal>
   );
 }

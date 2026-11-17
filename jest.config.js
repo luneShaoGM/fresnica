@@ -2,6 +2,7 @@ const { createJestModuleNameMapper } = require('./config/moduleAliases.cjs');
 
 module.exports = {
   preset: '@react-native/jest-preset',
+  setupFilesAfterEnv: ['react-native-gesture-handler/jestSetup'],
   testMatch: ['<rootDir>/src/**/__tests__/**/*.test.ts'],
   testPathIgnorePatterns: ['/node_modules/', '/origin/', '/vendor/'],
   modulePathIgnorePatterns: ['<rootDir>/origin/', '<rootDir>/vendor/'],

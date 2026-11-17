@@ -11,6 +11,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppModal } from '../AppModal';
 
 let mockOffset: Animated.Value;
@@ -33,6 +34,7 @@ type ElementProps = {
   children?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
+  gesture?: unknown;
   onPress?: () => void;
   onAccessibilityEscape?: () => void;
   edges?: readonly string[];
@@ -189,100 +191,94 @@ describe('AppModal sheet-to-dialog drag handoff', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps a continuous touch stream when the child ScrollView refuses responder termination', () => {
-    let scrollY = 150;
+  it('coordinates with native ScrollView gesture without negotiating JS responder ownership', () => {
+    let scrollY = 80;
     const onClose = jest.fn();
+    const native = Gesture.Native();
     const createResponder = jest.spyOn(PanResponder, 'create');
     const setOffset = jest.spyOn(mockOffset, 'setValue');
-    const childRefusesHandoff = jest.fn(() => false);
-    const body = React.createElement(ScrollView, { onResponderTerminationRequest: childRefusesHandoff });
-    const modal = AppModal({
+    const springStart = jest.fn();
+    jest
+      .spyOn(Animated, 'spring')
+      .mockReturnValue({ start: springStart } as unknown as ReturnType<typeof Animated.spring>);
+    const root = AppModal({
       visible: true,
       presentation: 'sheet',
       swipeToDismiss: true,
       scrollContentAtTop: () => scrollY <= 1,
+      nativeScrollGesture: native,
       onRequestClose: onClose,
-      children: body,
+      children: React.createElement(ScrollView),
     });
-    const region = elements(modal).find(item => item.type === View && 'onTouchMoveCapture' in item.props);
-    if (!region) throw new Error('Missing content touch region');
-    const handlers = region.props as {
-      onTouchStartCapture: (event: never) => void;
-      onTouchMoveCapture: (event: never) => void;
-      onTouchEndCapture: () => void;
-    };
-    const touch = (y: number, t: number, x = 5) =>
-      ({ nativeEvent: { pageX: x, pageY: y, timestamp: t, touches: [{}] } }) as never;
 
-    // Only the header needs PanResponder. Raw touch events do not negotiate
-    // ownership against ScrollView's _handleResponderTerminationRequest.
-    expect(createResponder).toHaveBeenCalledTimes(1);
-    expect(elements(region).some(item => item.type === ScrollView)).toBe(true);
-    handlers.onTouchStartCapture(touch(200, 0));
-    handlers.onTouchMoveCapture(touch(260, 30));
-    handlers.onTouchMoveCapture(touch(310, 60));
-    expect(setOffset).not.toHaveBeenCalled();
-    expect(childRefusesHandoff()).toBe(false);
+    expect(createResponder).toHaveBeenCalledTimes(1); // Header only; no parent body PanResponder
+    expect(root.props.children.type).toBe(GestureHandlerRootView);
+    const detector = elements(root).find(item => item.type === GestureDetector);
+    if (!detector) throw new Error('Missing native gesture detector');
+    const pan = detector.props.gesture as ReturnType<typeof Gesture.Pan>;
+    expect(pan.config.simultaneousWith).toContain(native);
+    expect(pan.config.runOnJS).toBe(true);
+    expect(elements(detector).some(item => item.type === ScrollView)).toBe(true);
+
+    // The gesture callbacks are emitted by native RNGH independently of RN's cancelled JS
+    // touch stream. Simulation validates our JS distance gates, not native event dispatch.
+    pan.handlers.onStart?.({} as never);
+    pan.handlers.onUpdate?.({ translationY: 75 } as never);
+    pan.handlers.onUpdate?.({ translationY: 130 } as never);
+    expect(setOffset).not.toHaveBeenCalled(); // Native ScrollView still owns actual scrolling
     scrollY = 0;
-    handlers.onTouchMoveCapture(touch(316, 70));
-    expect(setOffset).not.toHaveBeenCalled();
-    handlers.onTouchMoveCapture(touch(327, 90));
-    expect(setOffset).toHaveBeenLastCalledWith(11);
-    handlers.onTouchMoveCapture(touch(455, 180));
-    expect(setOffset).toHaveBeenLastCalledWith(139);
-    handlers.onTouchEndCapture();
+    pan.handlers.onUpdate?.({ translationY: 145 } as never); // Reaching top: not counted
+    pan.handlers.onUpdate?.({ translationY: 180 } as never);
+    expect(setOffset).toHaveBeenLastCalledWith(35);
+    scrollY = 3; // Native scroll reports a transient offset after arriving at the edge.
+    pan.handlers.onUpdate?.({ translationY: 230 } as never);
+    expect(setOffset).toHaveBeenLastCalledWith(85);
+    pan.handlers.onUpdate?.({ translationY: 270 } as never);
+    expect(setOffset).toHaveBeenLastCalledWith(125);
+    pan.handlers.onEnd?.({ velocityY: 200 } as never, true);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('does not hijack scrolling or close after sideways/upward/short/cancelled touch movement', () => {
-    let scrollY = 80;
+  it('keeps normal scrolling and rebounds short or interrupted sheet pulls', () => {
+    let scrollY = 100;
     const onClose = jest.fn();
     const springStart = jest.fn();
     jest
       .spyOn(Animated, 'spring')
       .mockReturnValue({ start: springStart } as unknown as ReturnType<typeof Animated.spring>);
+    const native = Gesture.Native();
     const modal = AppModal({
       visible: true,
       presentation: 'sheet',
       swipeToDismiss: true,
       scrollContentAtTop: () => scrollY <= 1,
+      nativeScrollGesture: native,
       onRequestClose: onClose,
       children: React.createElement(ScrollView),
     });
-    const region = elements(modal).find(item => item.type === View && 'onTouchMoveCapture' in item.props);
-    if (!region) throw new Error('Missing content touch region');
-    const handlers = region.props as {
-      onTouchStartCapture: (event: never) => void;
-      onTouchMoveCapture: (event: never) => void;
-      onTouchEndCapture: () => void;
-      onTouchCancelCapture: () => void;
-    };
-    const touch = (y: number, t: number, x = 5) =>
-      ({ nativeEvent: { pageX: x, pageY: y, timestamp: t, touches: [{}] } }) as never;
+    const detector = elements(modal).find(item => item.type === GestureDetector);
+    if (!detector) throw new Error('Missing detector');
+    const pan = detector.props.gesture as ReturnType<typeof Gesture.Pan>;
 
-    handlers.onTouchStartCapture(touch(250, 0));
-    handlers.onTouchMoveCapture(touch(300, 30));
-    handlers.onTouchEndCapture();
-    expect(onClose).not.toHaveBeenCalled();
-    expect(springStart).not.toHaveBeenCalled();
-
-    scrollY = 0;
-    handlers.onTouchStartCapture(touch(250, 50));
-    handlers.onTouchMoveCapture(touch(260, 70, 70));
-    handlers.onTouchMoveCapture(touch(230, 90, 70));
-    handlers.onTouchEndCapture();
-    expect(springStart).not.toHaveBeenCalled();
-
-    handlers.onTouchStartCapture(touch(250, 110));
-    handlers.onTouchMoveCapture(touch(263, 140));
-    handlers.onTouchEndCapture();
+    pan.handlers.onStart?.({} as never);
+    pan.handlers.onUpdate?.({ translationY: 75 } as never);
+    pan.handlers.onEnd?.({ velocityY: 200 } as never, true);
     expect(onClose).not.toHaveBeenCalled();
     expect(springStart).toHaveBeenCalledTimes(1);
 
-    handlers.onTouchStartCapture(touch(250, 160));
-    handlers.onTouchMoveCapture(touch(330, 190));
-    handlers.onTouchCancelCapture();
+    scrollY = 0;
+    pan.handlers.onStart?.({} as never);
+    pan.handlers.onUpdate?.({ translationY: 30 } as never);
+    pan.handlers.onUpdate?.({ translationY: 47 } as never);
+    pan.handlers.onEnd?.({ velocityY: 100 } as never, true);
     expect(onClose).not.toHaveBeenCalled();
     expect(springStart).toHaveBeenCalledTimes(2);
+
+    pan.handlers.onStart?.({} as never);
+    pan.handlers.onUpdate?.({ translationY: 10 } as never);
+    pan.handlers.onUpdate?.({ translationY: 170 } as never);
+    pan.handlers.onFinalize?.({} as never, false);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(springStart).toHaveBeenCalledTimes(3);
   });
 });

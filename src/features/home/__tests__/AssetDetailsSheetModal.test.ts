@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, ScrollView } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
 import type { BalanceAsset } from '../../../capabilities/balance/types';
 import { AppModal } from '@ui/components';
 import type { AccountRecord } from '../../../capabilities/account/types';
@@ -15,6 +16,7 @@ jest.mock('react', () => {
     useState: (initial: unknown) => [initial, jest.fn()],
     useRef: (initial: unknown) => ({ current: initial }),
     useCallback: (callback: unknown) => callback,
+    useMemo: (factory: () => unknown) => factory(),
   };
 });
 jest.mock('@ui/theme', () => {
@@ -105,6 +107,7 @@ describe('XLM details shared swipeable modal', () => {
       : [];
     expect(headerChildren.some(child => React.isValidElement(child) && child.type === Pressable)).toBe(true);
     expect(result.props.scrollContentAtTop?.()).toBe(true);
+    expect(result.props.nativeScrollGesture).toBeDefined();
 
     const sheetBody = result.props.children as React.ReactElement<{ children: React.ReactNode }>;
     const content = React.Children.toArray(sheetBody.props.children);
@@ -148,10 +151,13 @@ describe('XLM details shared swipeable modal', () => {
       throw new Error('Expected issued-asset scroll body');
     }
     const renderIssuedBody = issuedBody.type as (props: { onScroll: (event: unknown) => void }) => React.ReactElement<{
-      onScroll: unknown;
-      scrollEventThrottle: number;
+      gesture: unknown;
+      children: React.ReactElement<{ onScroll: unknown; scrollEventThrottle: number }>;
     }>;
-    const scrollView = renderIssuedBody(issuedBody.props);
+    const scrollWrapper = renderIssuedBody(issuedBody.props);
+    expect(scrollWrapper.type).toBe(GestureDetector);
+    expect(scrollWrapper.props.gesture).toBe(result.props.nativeScrollGesture);
+    const scrollView = scrollWrapper.props.children;
     expect(scrollView.type).toBe(ScrollView);
     expect(scrollView.props.onScroll).toBe(issuedBody.props.onScroll);
     expect(scrollView.props.scrollEventThrottle).toBe(16);

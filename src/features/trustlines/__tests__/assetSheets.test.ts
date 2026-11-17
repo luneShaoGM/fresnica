@@ -18,6 +18,7 @@ let mockEffects: Array<() => void> = [];
 jest.mock('react', () => ({
   ...jest.requireActual('react'),
   useCallback: (fn: unknown) => fn,
+  useMemo: (factory: () => unknown) => factory(),
   useState: (initial: unknown) => {
     const i = mockCursor++;
     if (!mockSlots[i]) mockSlots[i] = { value: initial };
