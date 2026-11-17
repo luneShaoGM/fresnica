@@ -865,6 +865,36 @@ describe('StellarSdkGateway', () => {
     });
   });
 
+  it('preserves operation result codes for LP-specific normalization without changing the transaction hash', async () => {
+    const horizon = server();
+    horizon.submitTransaction.mockRejectedValue({
+      response: {
+        status: 400,
+        data: { extras: { result_codes: { transaction: 'tx_failed', operations: ['op_under_minimum'] } } },
+      },
+    });
+    const gateway = new StellarSdkGateway(TEST_GATEWAY_CONFIG, horizon);
+    const xdr = await paymentXdr(gateway);
+    await expect(gateway.submitTransaction(xdr)).resolves.toEqual({
+      status: 'rejected',
+      transactionHash: transactionHashHex(xdr),
+      resultCode: 'tx_failed',
+      operationResultCodes: ['op_under_minimum'],
+    });
+  });
+
+  it('preserves current pool-share sponsorship for withdrawal review', async () => {
+    const account = horizonAccount();
+    account.balances = [
+      { asset_type: 'liquidity_pool_shares', balance: '1', liquidity_pool_id: 'a'.repeat(64), sponsor: signerAddress },
+    ];
+    const gateway = new StellarSdkGateway(TEST_GATEWAY_CONFIG, server(account));
+    await expect(gateway.loadAccountState(sourceAddress)).resolves.toMatchObject({
+      status: 'active',
+      account: { balances: [{ kind: 'liquidity-pool-share', sponsor: signerAddress }] },
+    });
+  });
+
   it('normalizes a transport failure as uncertain without claiming rejection', async () => {
     const horizon = server();
     horizon.submitTransaction.mockRejectedValue(new Error('timeout'));

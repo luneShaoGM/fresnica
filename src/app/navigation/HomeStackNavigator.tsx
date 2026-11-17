@@ -1,3 +1,4 @@
+import { MarketsScreen } from '@features/markets/MarketsScreen';
 import { NetworkSwitchModal } from '@features/settings/NetworkSwitchModal';
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
@@ -93,6 +94,7 @@ export function HomeStackNavigator({
               key={JSON.stringify([selectedAccount.id, selectedAccount.networkId])}
               navigation={navigation}
               catalog={services.assetCatalog}
+              markets={services.markets}
               claimables={services.claimables}
               claimableTransaction={services.claimableTransaction}
               isSelectedAccount={() => {
@@ -120,6 +122,11 @@ export function HomeStackNavigator({
               onSelectAccount={onSelectAccount}
               onSwitchNetwork={services.networkSettings ? () => setNetworkSwitchVisible(true) : undefined}
               onAddAccount={() => navigation.navigate('add-account')}
+              onOrders={
+                services.markets && selectedAccount.identityKind === 'classic'
+                  ? () => navigation.navigate('orders', { accountId: selectedAccount.id })
+                  : undefined
+              }
               onSend={() => navigation.navigate('send-form', { accountId: selectedAccount.id })}
               onSwap={swapEnabled ? () => navigation.navigate('swap', { accountId: selectedAccount.id }) : undefined}
               onRequest={
@@ -200,6 +207,32 @@ export function HomeStackNavigator({
               requestIntent={route.params.requestIntent}
               initialAsset={route.params.initialAsset}
               onDone={() => navigation.popToTop()}
+            />
+          );
+        }}
+      </Stack.Screen>
+      <Stack.Screen name="orders">
+        {({ navigation, route }) => {
+          if (
+            !services.markets ||
+            selectedAccount.id !== route.params.accountId ||
+            selectedAccount.networkId !== services.markets.networkId
+          )
+            return <AssetAccountUnavailable onBack={() => navigation.popToTop()} />;
+          return (
+            <MarketsScreen
+              key={JSON.stringify([selectedAccount.id, selectedAccount.networkId])}
+              account={selectedAccount}
+              product={services.markets}
+              kind="orders"
+              active={readRuntime.foreground}
+              canSign={canSign}
+              invalidationRevision={invalidationRevision}
+              onBack={() => navigation.goBack()}
+              onRecover={() => services.transactionRecovery.reconcile('manual-refresh')}
+              isCurrentAccount={() =>
+                navigation.isFocused() && selectionRef.current.selectedAccountId === route.params.accountId
+              }
             />
           );
         }}
@@ -416,6 +449,7 @@ function HomeWithAssetSheets({
   navigation,
   catalog,
   claimables,
+  markets,
   claimableTransaction,
   isSelectedAccount,
   onRecover,
@@ -426,6 +460,7 @@ function HomeWithAssetSheets({
   foreground: boolean;
   navigation: NativeStackNavigationProp<HomeStackParamList, 'home'>;
   catalog: AppServices['assetCatalog'];
+  markets?: AppServices['markets'];
   claimables: AppServices['claimables'];
   claimableTransaction: AppServices['claimableTransaction'];
   isSelectedAccount: () => boolean;
@@ -475,6 +510,7 @@ function HomeWithAssetSheets({
   }, [active, canReadClaimable, claimables, props.account]);
   const onSnapshotUpdated = useCallback((snapshot: ClaimableState) => setClaimableState(snapshot), []);
   const chooseCategory = (next: HomeAssetCategory) => {
+    if (next === 'pools' && (!markets || props.account.identityKind !== 'classic')) return;
     if (next === 'claimable' && !showClaimable) return;
     // Advance the non-revivable session epoch synchronously. A fast
     // Claimable -> Assets -> Claimable sequence must never revive an
@@ -516,6 +552,26 @@ function HomeWithAssetSheets({
         onOpenAssetCategory={() => setCategoryPickerVisible(true)}
         onShowClaimable={showClaimable ? () => chooseCategory('claimable') : undefined}
         onClaimablePullRefresh={() => setRefreshSignal(value => value + 1)}
+        poolsContent={
+          assetCategory === 'pools' && markets ? (
+            <MarketsScreen
+              account={props.account}
+              product={markets}
+              kind="pools"
+              active={active}
+              canSign={props.canSign}
+              invalidationRevision={props.invalidationRevision}
+              refreshSignal={refreshSignal}
+              onRecover={onRecover}
+              isCurrentAccount={() =>
+                categoryRef.current.value === 'pools' &&
+                categoryRef.current.epoch === renderedCategoryEpoch &&
+                navigation.isFocused() &&
+                isSelectedAccount()
+              }
+            />
+          ) : undefined
+        }
         claimableContent={
           assetCategory === 'claimable' && canReadClaimable ? (
             <ClaimableScreen
@@ -538,6 +594,7 @@ function HomeWithAssetSheets({
       <AssetCategoryDialog
         visible={active && categoryPickerVisible}
         current={assetCategory}
+        showPools={!!markets && props.account.identityKind === 'classic'}
         showClaimable={showClaimable}
         onClose={() => setCategoryPickerVisible(false)}
         onSelect={chooseCategory}

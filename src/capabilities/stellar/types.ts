@@ -30,6 +30,7 @@ export type StellarTrustlineBalance = Readonly<{
 }>;
 
 export type StellarLiquidityPoolBalance = Readonly<{
+  sponsor?: string;
   kind: 'liquidity-pool-share';
   balance: string;
   liquidityPoolId: string;
