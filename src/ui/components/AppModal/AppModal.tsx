@@ -84,7 +84,8 @@ export function AppModal({
   // parent PanResponder or raw onTouch callback cannot handle this handoff.
   const contentPan = useMemo(() => {
     if (!scrollContentAtTop || !nativeScrollGesture) return undefined;
-    let anchorY: number | undefined;
+    let anchor: { x: number; y: number } | undefined;
+    let dragging = false;
     let dragY = 0;
     const rebound = () => Animated.spring(offsetY, { toValue: 0, useNativeDriver: true }).start();
     return Gesture.Pan()
@@ -93,21 +94,26 @@ export function AppModal({
       .simultaneousWithExternalGesture(nativeScrollGesture)
       .runOnJS(true)
       .onStart(() => {
-        anchorY = undefined;
+        anchor = undefined;
+        dragging = false;
         dragY = 0;
         offsetY.stopAnimation();
       })
       .onUpdate(event => {
-        if (anchorY === undefined) {
+        if (anchor === undefined) {
           if (!scrollContentAtTop()) return;
           // The first event observed at the top can include native scroll travel.
           // Anchor here and count only movement from subsequent updates.
-          anchorY = event.translationY;
+          anchor = { x: event.translationX, y: event.translationY };
           return;
         }
         // Once top is reached, native scroll offsets can jitter around zero.
         // Do not reset the drag anchor during the remainder of this finger gesture.
-        dragY = Math.max(0, event.translationY - anchorY);
+        const distanceY = event.translationY - anchor.y;
+        const distanceX = event.translationX - anchor.x;
+        if (!dragging && !shouldStartSheetSwipe(distanceY, distanceX)) return;
+        dragging = true;
+        dragY = Math.max(0, distanceY);
         offsetY.setValue(dragY);
       })
       .onEnd((event, success) => {

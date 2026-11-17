@@ -223,19 +223,58 @@ describe('AppModal sheet-to-dialog drag handoff', () => {
     // The gesture callbacks are emitted by native RNGH independently of RN's cancelled JS
     // touch stream. Simulation validates our JS distance gates, not native event dispatch.
     pan.handlers.onStart?.({} as never);
-    pan.handlers.onUpdate?.({ translationY: 75 } as never);
-    pan.handlers.onUpdate?.({ translationY: 130 } as never);
+    pan.handlers.onUpdate?.({ translationX: 240, translationY: 75 } as never);
+    pan.handlers.onUpdate?.({ translationX: 240, translationY: 130 } as never);
     expect(setOffset).not.toHaveBeenCalled(); // Native ScrollView still owns actual scrolling
     scrollY = 0;
-    pan.handlers.onUpdate?.({ translationY: 145 } as never); // Reaching top: not counted
-    pan.handlers.onUpdate?.({ translationY: 180 } as never);
+    pan.handlers.onUpdate?.({ translationX: 240, translationY: 145 } as never); // Reaching top: not counted
+    pan.handlers.onUpdate?.({ translationX: 244, translationY: 180 } as never);
     expect(setOffset).toHaveBeenLastCalledWith(35);
     scrollY = 3; // Native scroll reports a transient offset after arriving at the edge.
-    pan.handlers.onUpdate?.({ translationY: 230 } as never);
+    pan.handlers.onUpdate?.({ translationX: 244, translationY: 230 } as never);
     expect(setOffset).toHaveBeenLastCalledWith(85);
-    pan.handlers.onUpdate?.({ translationY: 270 } as never);
+    pan.handlers.onUpdate?.({ translationX: 244, translationY: 270 } as never);
     expect(setOffset).toHaveBeenLastCalledWith(125);
     pan.handlers.onEnd?.({ velocityY: 200 } as never, true);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['rightward diagonal', 280, 125],
+    ['leftward diagonal', -280, 125],
+    ['equal diagonal', 136, 125],
+    ['upward pull', 12, -150],
+    ['small downward movement', 12, 9],
+  ])('does not move or dismiss the body on a %s, even with high release velocity', (_, x, y) => {
+    const onClose = jest.fn();
+    const setOffset = jest.spyOn(mockOffset, 'setValue');
+    const root = AppModal({
+      visible: true,
+      presentation: 'sheet',
+      swipeToDismiss: true,
+      scrollContentAtTop: () => true,
+      nativeScrollGesture: Gesture.Native(),
+      onRequestClose: onClose,
+      children: React.createElement(ScrollView),
+    });
+    const detector = elements(root).find(item => item.type === GestureDetector);
+    if (!detector) throw new Error('Missing detector');
+    const pan = detector.props.gesture as ReturnType<typeof Gesture.Pan>;
+
+    // Native Pan can activate horizontally; sheet dragging still needs vertical intent.
+    pan.handlers.onStart?.({} as never);
+    pan.handlers.onUpdate?.({ translationX: 12, translationY: 1 } as never);
+    pan.handlers.onUpdate?.({ translationX: x, translationY: y } as never);
+    pan.handlers.onEnd?.({ velocityY: 2000 } as never, true);
+    expect(setOffset).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Reuse the same handler for a fresh downward flick after the rejected gesture.
+    pan.handlers.onStart?.({} as never);
+    pan.handlers.onUpdate?.({ translationX: 0, translationY: 10 } as never);
+    pan.handlers.onUpdate?.({ translationX: 2, translationY: 40 } as never);
+    expect(setOffset).toHaveBeenLastCalledWith(30);
+    pan.handlers.onEnd?.({ velocityY: 1300 } as never, true);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -261,22 +300,22 @@ describe('AppModal sheet-to-dialog drag handoff', () => {
     const pan = detector.props.gesture as ReturnType<typeof Gesture.Pan>;
 
     pan.handlers.onStart?.({} as never);
-    pan.handlers.onUpdate?.({ translationY: 75 } as never);
+    pan.handlers.onUpdate?.({ translationX: 0, translationY: 75 } as never);
     pan.handlers.onEnd?.({ velocityY: 200 } as never, true);
     expect(onClose).not.toHaveBeenCalled();
     expect(springStart).toHaveBeenCalledTimes(1);
 
     scrollY = 0;
     pan.handlers.onStart?.({} as never);
-    pan.handlers.onUpdate?.({ translationY: 30 } as never);
-    pan.handlers.onUpdate?.({ translationY: 47 } as never);
+    pan.handlers.onUpdate?.({ translationX: 0, translationY: 30 } as never);
+    pan.handlers.onUpdate?.({ translationX: 0, translationY: 47 } as never);
     pan.handlers.onEnd?.({ velocityY: 100 } as never, true);
     expect(onClose).not.toHaveBeenCalled();
     expect(springStart).toHaveBeenCalledTimes(2);
 
     pan.handlers.onStart?.({} as never);
-    pan.handlers.onUpdate?.({ translationY: 10 } as never);
-    pan.handlers.onUpdate?.({ translationY: 170 } as never);
+    pan.handlers.onUpdate?.({ translationX: 0, translationY: 10 } as never);
+    pan.handlers.onUpdate?.({ translationX: 0, translationY: 170 } as never);
     pan.handlers.onFinalize?.({} as never, false);
     expect(onClose).not.toHaveBeenCalled();
     expect(springStart).toHaveBeenCalledTimes(3);
