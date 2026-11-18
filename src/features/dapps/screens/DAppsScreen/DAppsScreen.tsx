@@ -26,6 +26,8 @@ type CatalogState =
 type Section = 'home' | 'recent';
 
 export function DAppsScreen({
+  scannedUrl,
+  clearScannedUrl,
   catalog,
   showInterfaceSample = __DEV__,
   openExternalUrl,
@@ -36,6 +38,8 @@ export function DAppsScreen({
   online = true,
   focused = active,
 }: Readonly<{
+  scannedUrl?: string;
+  clearScannedUrl?: () => void;
   catalog: DappCatalogPort;
   active?: boolean;
   online?: boolean;
@@ -183,6 +187,13 @@ export function DAppsScreen({
       setSelectedDetail(undefined);
     }
   }, [active, focused]);
+
+  useEffect(() => {
+    if (!scannedUrl || !active || !focused || !mountedRef.current || openingRef.current) return;
+    // A QR is never a trusted catalog item. Reuse the custom URL confirmation.
+    prepareWebsite(scannedUrl);
+    clearScannedUrl?.();
+  }, [scannedUrl, active, focused, clearScannedUrl]);
 
   const urlSheetSession = urlSheetSessionRef.current;
 

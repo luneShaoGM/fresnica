@@ -19,6 +19,7 @@ export type RequestScannerViewComponent = React.ComponentType<RequestScannerView
 
 type Props = Readonly<{
   carrier: RequestIngressCarrier;
+  generalScan?: boolean;
   result?: RequestIngressResult;
   permissionState?: RequestIngressPermissionViewState;
   platformError?: RequestIngressPlatformError;
@@ -41,7 +42,11 @@ type Props = Readonly<{
 export function RequestIngressScreen(props: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createRequestIngressStyles);
-  const title = props.carrier === 'paste' ? t('request.ingress.title.paste') : t('request.ingress.title.scan');
+  const title = props.generalScan
+    ? t('actions.scan')
+    : props.carrier === 'paste'
+      ? t('request.ingress.title.paste')
+      : t('request.ingress.title.scan');
 
   return (
     <Screen scrollable={false} contentInset="none">
@@ -94,7 +99,9 @@ function ScannerState(props: Props) {
     const ScannerView = props.ScannerView;
     return (
       <>
-        <Text style={styles.purpose}>{t('request.ingress.scan.purpose')}</Text>
+        <Text style={styles.purpose}>
+          {t(props.generalScan ? 'actions.scanPurpose' : 'request.ingress.scan.purpose')}
+        </Text>
         <View accessibilityLabel={t('request.ingress.scan.camera')} style={styles.scannerFrame}>
           <ScannerView
             active={props.scannerActive}
@@ -117,7 +124,10 @@ function ScannerState(props: Props) {
   if (permission === 'checking') {
     return (
       <View style={styles.center}>
-        <StatusCard title={t('request.ingress.permission.checking')} body={t('request.ingress.scan.purpose')} />
+        <StatusCard
+          title={t('request.ingress.permission.checking')}
+          body={t(props.generalScan ? 'actions.scanPurpose' : 'request.ingress.scan.purpose')}
+        />
         <PhotoAction {...props} />
       </View>
     );

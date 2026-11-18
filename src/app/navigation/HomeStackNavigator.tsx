@@ -282,6 +282,16 @@ export function HomeStackNavigator({
             services={services}
             navigation={navigation}
             getCurrentSelection={() => selectionRef.current}
+            initialScan={route.params.initialScan === true}
+            onScannedWebsite={url => {
+              if (!navigation.isFocused() || selectionRef.current.selectedAccountId !== route.params.accountId) return;
+              const tabs = navigation.getParent() as BottomTabNavigationProp<MainTabParamList> | undefined;
+              navigation.popToTop();
+              tabs?.navigate('dapps', {
+                screen: 'dapps',
+                params: { scannedUrl: url },
+              });
+            }}
           />
         )}
       </Stack.Screen>
@@ -395,6 +405,8 @@ type RequestRouteProps = Readonly<{
   services: AppServices;
   navigation: NativeStackNavigationProp<HomeStackParamList, 'request'>;
   getCurrentSelection: () => Readonly<{ selectedAccountId: string; accounts: readonly AccountRecord[] }>;
+  initialScan?: boolean;
+  onScannedWebsite?: (url: string) => void;
 }>;
 
 function RequestRoute({
@@ -404,6 +416,8 @@ function RequestRoute({
   services,
   navigation,
   getCurrentSelection,
+  initialScan,
+  onScannedWebsite,
 }: RequestRouteProps) {
   const focusLifetimeRef = useRef<ReturnType<typeof createRequestRouteFocusLifetime> | undefined>(undefined);
   if (focusLifetimeRef.current === undefined) {
@@ -424,6 +438,8 @@ function RequestRoute({
     <RequestFlowScreen
       account={account}
       activeAccountId={activeAccountId}
+      initialScan={initialScan}
+      onScannedWebsite={onScannedWebsite}
       dependencies={services.request}
       onDone={() => navigation.popToTop()}
       onContinueSend={async (intent, isCurrent) => {

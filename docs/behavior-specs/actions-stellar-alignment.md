@@ -10,8 +10,8 @@ Phase 2b shell exists; this extends its presentation under §7.8 Overlay/HomeAct
 
 | Slice | Required behavior | Status |
 | --- | --- | --- |
-| A1 panel | Bottom slide presentation, handle/downward dismissal, backdrop/system-back/explicit close, scrollable bounded content, localized labels, quick-action section and existing account availability | Implemented candidate; automated checks passed; independent review/native acceptance pending |
-| A2 general scan | Actions opens one shared scan flow; public address/SEP-7 → existing reviewed payment flow; HTTPS → existing dApp confirmation/browser; permission denial, cancel, invalid/sensitive input and network/account changes fail safely | Queued |
+| A1 panel | Bottom slide presentation, handle/downward dismissal, backdrop/system-back/explicit close, scrollable bounded content, localized labels, quick-action section and existing account availability | Merged in PR #205; native product-flow acceptance not claimed |
+| A2 general scan | Actions opens one shared scan flow; public address/SEP-7 → existing reviewed payment flow; HTTPS → existing dApp confirmation/browser; permission denial, cancel, invalid/sensitive input and network/account changes fail safely | Implementation candidate in `feat/actions-a2-general-scan-2026-11-18`; independent exact-HEAD review and native acceptance pending |
 | A3 Recent | Persist public visit history, deduplicate and show latest four dApps with display identity; share it with the dApps page; record actual opens and support reopen/offline/restart without persisting full query strings or credentials | Queued |
 | A4 suggestions | Preserve explicit featured catalog semantics, show cached suggestions immediately, refresh after opening, retain cache on failure, network partitioning and approved icon policy; display metadata never grants trust | Queued |
 | A5 shortcuts | Align final fixed-action inventory, Swap preflight and one-asset/direct vs multi-asset selection, unavailable feedback and close-before-navigation behavior; reconcile conditional Activity shortcut with the frozen four-tab shell | Queued |
@@ -26,6 +26,14 @@ Each slice starts from then-current merged main. A1 deliberately retains Send/Sw
 - Backdrop, system back, accessibility escape and Close dismiss without navigation or any account, signer, transaction or persistence mutation. Reopening resets drag offset.
 - Keep the current Send/Swap/Request routes and Capability-derived availability. Refresh an already open panel when account, balance availability, locale or theme changes; never retain the previous account's action callback.
 - Existing consumers of the shared modal keep their presentation, size, drag thresholds and labels unless they opt into the new options. The Actions overlay retains its light status-bar override while visible.
+
+## A2 general scan implementation candidate — 2026-11-18
+
+- Baseline `main@faf298025d99bd0e9f8d147c7b70f56de301f44a` (includes merged #205 Actions panel, #207 asset drag and #210 header changes). Branch `feat/actions-a2-general-scan-2026-11-18`.
+- Actions keeps the existing Send/Swap/Request shortcuts, adds a localized Scan QR button, closes the panel and routes to the existing Request scanner in general-scan mode. The existing camera/check/request permission, retry, torch, photo QR and payment parsing are reused. Existing Request paste/scan entry remains payment-specific.
+- Public Classic addresses and supported SEP-7 payment intents continue through the existing Request-to-Send eligibility check and reviewed Send flow. HTTPS QR inputs go through Fresnica public URL validation, then enter the existing dApps **untrusted URL confirmation**. Scanning never launches a browser, grants wallet connection, mints curated trust, or signs; user must explicitly confirm opening. Non-HTTPS URL, private/IP literal host, URL credentials, sensitive payload and unsupported request formats never acquire dApp privileges.
+- Account/network changes, cancel, stale async photo/permission responses and duplicate frame reads retain the existing Request session/focus gates; a dApp route checks current account and focus before leaving the request page. No new dependency, Realm schema, SDK/Crypto, authorization or transaction pipeline change.
+- Follow-ups: A3 shared durable Recent, A4 featured data contract, A5 fixed action inventory and Swap selection. Device-level camera/QR, Android/iOS modal transitions, small-display/large-font and accessibility product acceptance remain separate; Stage 9 iOS System Auth cancellation/retry remains deferred.
 
 ## Evidence boundaries
 

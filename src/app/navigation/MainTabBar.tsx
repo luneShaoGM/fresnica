@@ -191,6 +191,21 @@ export function MainTabBar({
             );
           })}
         </View>
+        <Pressable
+          accessibilityLabel={t('actions.scan')}
+          accessibilityRole="button"
+          onPress={() => {
+            if (!selectedAccountId) return;
+            dismiss();
+            navigation.navigate('home', {
+              screen: 'request',
+              params: { accountId: selectedAccountId, initialScan: true },
+            });
+          }}
+          style={({ pressed }) => [styles.scanAction, pressed ? styles.pressed : undefined]}
+        >
+          <Text style={styles.scanActionLabel}>{t('actions.scan')}</Text>
+        </Pressable>
       </ScrollView>,
       {
         statusBarContent: 'light',
@@ -199,7 +214,7 @@ export function MainTabBar({
         dragDismissLabel: t('nav.actionsDragClose'),
       },
     );
-  }, [actionAvailability, actionState, dismiss, present, selectedAccountId, styles, t, selectAction]);
+  }, [actionAvailability, actionState, dismiss, navigation, present, selectedAccountId, styles, t, selectAction]);
 
   useEffect(() => {
     if (activeOverlayId === ACTIONS_OVERLAY_ID) openActions();

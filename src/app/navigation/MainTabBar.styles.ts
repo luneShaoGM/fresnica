@@ -121,6 +121,14 @@ export function createStyles(theme: AppTheme) {
       justifyContent: 'center',
       paddingHorizontal: theme.spacing.sm,
     },
+    scanAction: {
+      minHeight: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: theme.radii.md,
+      backgroundColor: theme.colors.actionPrimary,
+    },
+    scanActionLabel: { ...theme.typography.label, fontWeight: '700', color: theme.colors.onActionPrimary },
     sectionTitle: { ...theme.typography.label, color: theme.colors.textSecondary },
   });
 }

@@ -103,6 +103,18 @@ describe('Swap action uses the current account route', () => {
     mockActiveOverlayId = undefined;
   });
 
+  it('opens the general QR scanner even when the wallet cannot send or swap', () => {
+    const { navigate, overlay } = renderSwap(false, undefined, {}, 'inactive');
+    const scan = findPressable(overlay, 'actions.scan');
+    expect(scan?.props.disabled).toBeUndefined();
+    scan?.props.onPress?.();
+    expect(mockDismissOverlay).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith('home', {
+      screen: 'request',
+      params: { accountId: 'wallet-1', initialScan: true },
+    });
+  });
+
   it('routes eligible Swap to the current account Swap flow only', () => {
     const { navigate, overlay } = renderSwap(true);
     const button = findPressable(overlay, 'nav.swap');

@@ -43,8 +43,10 @@ export function DAppsStackNavigator({
   return (
     <Stack.Navigator initialRouteName="dapps" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="dapps">
-        {() => (
+        {({ route, navigation }) => (
           <DAppsRoute
+            scannedUrl={route?.params?.scannedUrl}
+            clearScannedUrl={() => navigation?.setParams?.({ scannedUrl: undefined })}
             catalog={catalog}
             openExternalUrl={openExternalUrl}
             foreground={reads.foreground}
@@ -75,6 +77,8 @@ export function DAppsStackNavigator({
 }
 
 function DAppsRoute({
+  scannedUrl,
+  clearScannedUrl,
   catalog,
   openExternalUrl,
   foreground,
@@ -82,6 +86,8 @@ function DAppsRoute({
   currentSelection,
   trustedLaunch,
 }: Readonly<{
+  scannedUrl?: string;
+  clearScannedUrl: () => void;
   catalog: DappCatalogPort;
   openExternalUrl: (url: string) => Promise<void>;
   foreground: boolean;
@@ -93,6 +99,8 @@ function DAppsRoute({
   const navigation = useNavigation<NavigationProp<DAppsStackParamList>>();
   return (
     <DAppsScreen
+      scannedUrl={scannedUrl}
+      clearScannedUrl={clearScannedUrl}
       catalog={catalog}
       openExternalUrl={openExternalUrl}
       openInApp={

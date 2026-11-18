@@ -17,7 +17,10 @@ const mockHooks = {
   effectIndex: 0,
 };
 
-function mockDependenciesChanged(previous: readonly unknown[] | undefined, next: readonly unknown[] | undefined): boolean {
+function mockDependenciesChanged(
+  previous: readonly unknown[] | undefined,
+  next: readonly unknown[] | undefined,
+): boolean {
   if (previous === undefined || next === undefined || previous.length !== next.length) return true;
   return previous.some((value, index) => !Object.is(value, next[index]));
 }
@@ -53,6 +56,7 @@ jest.mock('react', () => ({
     mockHooks.effects[index] = { deps, cleanup: typeof cleanup === 'function' ? cleanup : undefined };
   },
   useMemo: (compute: () => unknown) => compute(),
+  useCallback: (callback: unknown) => callback,
 }));
 
 jest.mock('../RequestFormScreen', () => ({ RequestFormScreen: () => null }));
@@ -264,5 +268,118 @@ describe('RequestFlowScreen photo retry', () => {
     expect(scan().result).toBeUndefined();
     expect(scan().platformError).toBeUndefined();
     expect(scan().photoBusy).toBe(false);
+  });
+});
+
+describe('Actions-origin general QR scan', () => {
+  beforeEach(() => {
+    mockHooks.states = [];
+    mockHooks.refs = [];
+    mockHooks.stateIndex = 0;
+    mockHooks.refIndex = 0;
+    mockHooks.effectIndex = 0;
+    mockHooks.effects = [];
+  });
+
+  function setup(activeAccountId = account.id) {
+    const checkCameraPermission = jest.fn().mockResolvedValue('granted');
+    const dependencies: RequestProductDependencies = {
+      gateway: {
+        isClassicAccountAddress: value => value.startsWith('G'),
+        loadAccountState: jest.fn().mockResolvedValue({ status: 'inactive', address: account.address }),
+      },
+      network: { id: 'stellar-testnet', networkPassphrase: 'Test SDF Network ; September 2015' },
+      output: {
+        copyRequestUri: jest.fn().mockResolvedValue(undefined),
+        shareRequestUri: jest.fn().mockResolvedValue('dismissed'),
+      },
+      ingress: {
+        readClipboardText: jest.fn().mockResolvedValue(''),
+        checkCameraPermission,
+        requestCameraPermission: jest.fn().mockResolvedValue('granted'),
+        openCameraSettings: jest.fn().mockResolvedValue(undefined),
+        pickPaymentQrFromPhotos: jest.fn().mockResolvedValue({ status: 'cancelled' }),
+      },
+    };
+    const onScannedWebsite = jest.fn();
+    const onDone = jest.fn();
+    const props: React.ComponentProps<typeof RequestFlowScreen> = {
+      account,
+      activeAccountId,
+      initialScan: true,
+      onScannedWebsite,
+      dependencies,
+      ScannerView: () => null,
+      onDone,
+      onContinueSend: jest.fn().mockResolvedValue(undefined),
+    };
+    const render = () => {
+      mockHooks.stateIndex = 0;
+      mockHooks.refIndex = 0;
+      mockHooks.effectIndex = 0;
+      return RequestFlowScreen(props);
+    };
+    const scan = () => render().props as React.ComponentProps<typeof RequestIngressScreen>;
+    return { scan, render, onScannedWebsite, onDone, checkCameraPermission, dependencies };
+  }
+
+  it('starts camera once, routes safe HTTPS through confirmation and closes on cancel', async () => {
+    const { scan, render, onScannedWebsite, onDone, checkCameraPermission } = setup();
+    render();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(scan().scannerActive).toBe(true);
+    expect(checkCameraPermission).toHaveBeenCalledTimes(1);
+    const oldCameraCode = scan().onCode;
+    oldCameraCode('https://wallet.example.org/path');
+    oldCameraCode('https://other.example.org');
+    expect(onScannedWebsite).toHaveBeenCalledTimes(1);
+    expect(onScannedWebsite).toHaveBeenCalledWith('https://wallet.example.org/path');
+    scan().onClose();
+    oldCameraCode('https://late.example.org');
+    expect(onScannedWebsite).toHaveBeenCalledTimes(1);
+    expect(onDone).toHaveBeenCalledTimes(1);
+    render();
+    expect(checkCameraPermission).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not grant a website route to unsafe URLs', async () => {
+    const { scan, render, onScannedWebsite } = setup();
+    render();
+    await Promise.resolve();
+    await Promise.resolve();
+    scan().onCode('http://wallet.example.org');
+    expect(onScannedWebsite).not.toHaveBeenCalled();
+    expect(scan().result?.result.status).toBe('rejected');
+  });
+
+  it('rejects credential-bearing/private HTTPS QR content and supports a photo HTTPS result', async () => {
+    const { scan, render, onScannedWebsite, dependencies } = setup();
+    render();
+    await Promise.resolve();
+    await Promise.resolve();
+    scan().onCode('https://user:password@wallet.example.org/private');
+    expect(onScannedWebsite).not.toHaveBeenCalled();
+    expect(scan().result?.result.status).toBe('rejected');
+    await scan().onRetry();
+    scan().onCode('https://127.0.0.1/');
+    expect(onScannedWebsite).not.toHaveBeenCalled();
+    await scan().onRetry();
+    (dependencies.ingress.pickPaymentQrFromPhotos as jest.Mock).mockResolvedValueOnce({
+      status: 'found',
+      value: 'https://photo.example.org/app',
+    });
+    await scan().onPickPhoto();
+    expect(onScannedWebsite).toHaveBeenCalledTimes(1);
+    expect(onScannedWebsite).toHaveBeenCalledWith('https://photo.example.org/app');
+  });
+
+  it('reuses payment parsing and refuses dApp handoff after the account changes', async () => {
+    const first = setup('another-account');
+    first.render();
+    await Promise.resolve();
+    first.scan().onCode('https://wallet.example.org');
+    expect(first.onScannedWebsite).not.toHaveBeenCalled();
+    expect(first.scan().result).toBeUndefined();
   });
 });
