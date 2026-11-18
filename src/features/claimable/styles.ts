@@ -9,7 +9,6 @@ export function createClaimableStyles(theme: AppTheme) {
       paddingBottom: theme.spacing.xxl,
       gap: theme.spacing.md,
     },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing.sm },
     title: { ...theme.typography.sectionTitle, color: theme.colors.textPrimary, flex: 1 },
     subtitle: { ...theme.typography.caption, color: theme.colors.textSecondary },
     button: {

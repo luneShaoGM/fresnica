@@ -43,9 +43,11 @@ export function AccountsScreen({ accounts, onOpenAccount, onAddAccount, onMoveAc
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
         <View style={styles.headerSide}>
-          <NativeButton label="Back" onPress={onBack} size="sm" variant="quiet" />
+          <NativeButton label={t('common.back')} onPress={onBack} size="sm" variant="quiet" />
         </View>
-        <Text style={styles.title}>Accounts</Text>
+        <Text accessibilityRole="header" style={styles.title}>
+          {t('settings.accounts')}
+        </Text>
         <View style={styles.headerSide} />
       </View>
 

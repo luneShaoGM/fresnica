@@ -92,11 +92,11 @@ export function DappDetailSheet({
   const detailAligned =
     !!entry && currentState?.kind === 'ready' && !currentState.value.stale && detail?.websiteUrl === entry.websiteUrl;
   return (
-    <BottomSheet closeLabel={t('dapps.details.close')} onClose={onClose} visible={!!entry}>
+    <BottomSheet closeLabel={t('common.close')} onClose={onClose} visible={!!entry}>
       <View style={styles.urlSheet}>
         <View style={styles.urlSheetHeader}>
           <Text style={styles.sectionTitle}>{entry?.title ?? t('dapps.details.title')}</Text>
-          <NativeButton label={t('dapps.details.close')} onPress={onClose} variant="quiet" />
+          <NativeButton label={t('common.close')} onPress={onClose} variant="quiet" />
         </View>
         <Text style={styles.websiteDetail}>{t('dapps.details.untrusted')}</Text>
         {inAppAvailable && implicitReadOnly && detailAligned ? (

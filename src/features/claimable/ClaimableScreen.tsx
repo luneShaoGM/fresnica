@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { AppModal, Screen } from '@ui/components';
+import { CenteredPageHeader } from '@ui/components/CenteredPageHeader/CenteredPageHeader';
 import { NativeButton } from '@ui/components/NativeButton';
 import { useAppTheme, useThemedStyles } from '@ui/theme';
 import { SlideToConfirm } from '../../ui/SlideToConfirm';
@@ -292,19 +293,11 @@ export function ClaimableScreen({
     </Modal>
   );
 
-  const header = (title: string, back: () => void) => (
-    <View style={styles.header}>
-      <Text style={styles.title}>{title}</Text>
-      <Pressable accessibilityRole="button" onPress={back} style={styles.button}>
-        <Text style={styles.buttonText}>{t('common.back')}</Text>
-      </Pressable>
-    </View>
-  );
   if (flow.kind === 'preparing')
     return wrapFlow(
-      <Screen scrollable={false}>
+      <Screen scrollable={false} contentInset="none">
+        <CenteredPageHeader title={t('claimable.review')} backLabel={t('common.back')} onBack={closeReview} />
         <View style={styles.content}>
-          {header(t('claimable.review'), closeReview)}
           <ActivityIndicator color={theme.colors.actionPrimary} />
           <Text style={styles.helper}>{t('claimable.preparing')}</Text>
         </View>
@@ -313,11 +306,9 @@ export function ClaimableScreen({
   const presentedReviewEpoch = operationGeneration.current;
   if (flow.kind === 'review')
     return wrapFlow(
-      <Screen scrollable={false}>
+      <Screen scrollable={false} contentInset="none">
+        <CenteredPageHeader title={t('claimable.review')} backLabel={t('common.back')} onBack={closeReview} />
         <ScrollView contentContainerStyle={styles.content} style={styles.reviewScroll}>
-          {header(t('claimable.review'), () => {
-            closeReview();
-          })}
           <Text style={styles.helper}>{t('claimable.reviewWarning')}</Text>
           <View style={styles.detailCard}>
             <ClaimablePair styles={styles} label={t('claimable.asset')} value={flow.review.asset.code} />
@@ -366,9 +357,9 @@ export function ClaimableScreen({
           ? flow.result.hash
           : undefined;
     return wrapFlow(
-      <Screen scrollable={false}>
+      <Screen scrollable={false} contentInset="none">
+        <CenteredPageHeader title={t('claimable.result')} backLabel={t('common.back')} onBack={leave} />
         <ScrollView contentContainerStyle={styles.content}>
-          {header(t('claimable.result'), leave)}
           <Text style={styles.title}>{t('claimable.result.' + flow.result.status)}</Text>
           {hash ? <ClaimablePair styles={styles} label={t('claimable.hash')} value={hash} /> : null}
           <Text style={styles.helper}>{t('claimable.resultAdvice')}</Text>

@@ -52,7 +52,13 @@ export function SendReviewScreen({
   return (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
-        <Pressable accessibilityLabel="Back" disabled={submitting} onPress={onBack} style={styles.backButton}>
+        <Pressable
+          accessibilityLabel={t('common.back')}
+          accessibilityRole="button"
+          disabled={submitting}
+          onPress={onBack}
+          style={styles.backButton}
+        >
           <Text style={styles.backGlyph}>‹</Text>
         </Pressable>
         <Text style={styles.headerTitle}>{t('send.step.summary')}</Text>

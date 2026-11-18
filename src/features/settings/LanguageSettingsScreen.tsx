@@ -2,7 +2,7 @@ import React from 'react';
 import {Pressable, ScrollView, Text, View} from 'react-native';
 
 import {Screen} from '@ui/components';
-import {NativeButton} from '@ui/components/NativeButton';
+import {CenteredPageHeader} from '@ui/components/CenteredPageHeader/CenteredPageHeader';
 
 import {useLocalization} from '../../locale';
 import {useThemedStyles} from '../../ui/theme';
@@ -21,10 +21,7 @@ export function LanguageSettingsScreen({onBack}: Props) {
 
   return (
     <Screen scrollable={false} contentInset="none">
-      <View style={styles.header}>
-        <NativeButton label={t('common.back')} onPress={onBack} size="sm" variant="quiet" />
-        <Text style={styles.title}>{t('language.title')}</Text>
-      </View>
+      <CenteredPageHeader title={t('language.title')} backLabel={t('common.back')} onBack={onBack} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.note}>{t('language.fallbackNote')}</Text>
