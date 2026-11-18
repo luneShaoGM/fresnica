@@ -4,14 +4,15 @@ import type { AppTheme } from '../../ui/theme';
 export function createSwapPreviewStyles(theme: AppTheme) {
   return StyleSheet.create({
     header: {
+      minHeight: 58,
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 18,
-      paddingVertical: 12,
+      paddingHorizontal: 12,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.colors.border,
     },
+    headerSide: { flex: 1, alignItems: 'flex-start' },
+    headerTitle: { fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary },
     heading: { fontSize: 20, lineHeight: 26, fontWeight: '700', color: theme.colors.textPrimary },
     content: { paddingHorizontal: 18, paddingVertical: 18, paddingBottom: 30, gap: 14 },
     label: { fontSize: 13, lineHeight: 18, fontWeight: '700', color: theme.colors.textSecondary },

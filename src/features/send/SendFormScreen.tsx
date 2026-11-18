@@ -33,9 +33,38 @@ type Props = Readonly<{
   onChooseRecipient?: () => void;
   onScanRecipient?: () => void;
   onContinue: () => void;
-  onBack: () => void;
-  onCancel: () => void;
 }>;
+
+export function SendEntryScreen({
+  children,
+  onBack,
+  onCancel,
+}: React.PropsWithChildren<Readonly<{ onBack?: () => void; onCancel: () => void }>>) {
+  const { t } = useLocalization();
+  const styles = useThemedStyles(createSendFormStyles);
+
+  return (
+    <Screen scrollable={false} contentInset="none">
+      <View style={styles.header}>
+        <View style={styles.headerSide}>
+          <NativeButton
+            label={t(onBack ? 'common.back' : 'common.cancel')}
+            onPress={onBack ?? onCancel}
+            size="sm"
+            variant="quiet"
+          />
+        </View>
+        <Text accessibilityRole="header" style={styles.headerTitle}>
+          {t(onBack ? 'send.step.recipient' : 'nav.send')}
+        </Text>
+        <View style={[styles.headerSide, styles.headerTrailing]}>
+          {onBack ? <NativeButton label={t('common.cancel')} onPress={onCancel} size="sm" variant="quiet" /> : null}
+        </View>
+      </View>
+      {children}
+    </Screen>
+  );
+}
 
 export function SendFormScreen({
   step,
@@ -58,8 +87,6 @@ export function SendFormScreen({
   onChooseRecipient,
   onScanRecipient,
   onContinue,
-  onBack,
-  onCancel,
 }: Props) {
   const theme = useAppTheme();
   const { t } = useLocalization();
@@ -67,24 +94,7 @@ export function SendFormScreen({
   const selectedBalance = balances.find(line => sendAssetKey(line.asset) === sendAssetKey(selectedAsset));
 
   return (
-    <Screen scrollable={false} contentInset="none">
-      <View style={styles.header}>
-        <View style={styles.headerSide}>
-          <NativeButton
-            label={t(step === 'details' ? 'send.navigation.cancel' : 'common.back')}
-            onPress={step === 'details' ? onCancel : onBack}
-            size="sm"
-            variant="quiet"
-          />
-        </View>
-        <Text style={styles.headerTitle}>{t(step === 'details' ? 'send.step.details' : 'send.step.recipient')}</Text>
-        <View style={styles.headerSide}>
-          {step === 'recipient' ? (
-            <NativeButton label={t('send.navigation.cancel')} onPress={onCancel} size="sm" variant="quiet" />
-          ) : null}
-        </View>
-      </View>
-
+    <>
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -247,6 +257,6 @@ export function SendFormScreen({
           </Text>
         </Pressable>
       </View>
-    </Screen>
+    </>
   );
 }

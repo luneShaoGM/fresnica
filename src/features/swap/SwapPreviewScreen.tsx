@@ -548,14 +548,7 @@ export function SwapPreviewScreen({
   const unresolved = history.some(record => record.state === 'uncertain' || record.state === 'submitting');
   const accountCurrent = selectedAccountId === account.id && active;
   if (!accountCurrent) {
-    return (
-      <Screen scrollable={false} contentInset="none">
-        <View style={styles.content}>
-          <Text style={styles.heading}>{t('swap.error.session')}</Text>
-          <NativeButton label={t('common.back')} onPress={onDone} size="md" variant="quiet" />
-        </View>
-      </Screen>
-    );
+    return renderSwapUnavailable(styles, t, onDone);
   }
 
   const close = () => {
@@ -643,11 +636,7 @@ export function SwapPreviewScreen({
 
   return (
     <Screen scrollable={false} contentInset="none">
-      <View style={styles.header}>
-        <NativeButton label={t('common.back')} disabled={submitting} onPress={close} size="sm" variant="quiet" />
-        <Text style={styles.heading}>{t('swap.preview.title')}</Text>
-        <View />
-      </View>
+      {renderSwapHeader(styles, t, close, submitting)}
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         <View style={styles.notice}>
           <Text style={styles.text}>{t('swap.preview.notice')}</Text>
@@ -1040,12 +1029,39 @@ function errorText(error: unknown, t: (key: string) => string): string {
 export function SwapUnavailableScreen({ onDone }: Readonly<{ onDone: () => void }>) {
   const styles = useThemedStyles(createSwapPreviewStyles);
   const { t } = useLocalization();
+  return renderSwapUnavailable(styles, t, onDone);
+}
+
+function renderSwapUnavailable(
+  styles: ReturnType<typeof createSwapPreviewStyles>,
+  t: ReturnType<typeof useLocalization>['t'],
+  onBack: () => void,
+) {
   return (
     <Screen scrollable={false} contentInset="none">
+      {renderSwapHeader(styles, t, onBack)}
       <View style={styles.content}>
         <Text style={styles.heading}>{t('swap.error.session')}</Text>
-        <NativeButton label={t('common.back')} onPress={onDone} size="lg" variant="quiet" />
       </View>
     </Screen>
+  );
+}
+
+function renderSwapHeader(
+  styles: ReturnType<typeof createSwapPreviewStyles>,
+  t: ReturnType<typeof useLocalization>['t'],
+  onBack: () => void,
+  disabled?: boolean,
+) {
+  return (
+    <View style={styles.header}>
+      <View style={styles.headerSide}>
+        <NativeButton label={t('common.back')} disabled={disabled} onPress={onBack} size="sm" variant="quiet" />
+      </View>
+      <Text accessibilityRole="header" style={styles.headerTitle}>
+        {t('swap.preview.title')}
+      </Text>
+      <View style={styles.headerSide} />
+    </View>
   );
 }

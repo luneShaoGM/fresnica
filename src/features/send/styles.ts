@@ -14,6 +14,7 @@ export function createSendFormStyles(theme: AppTheme) {
       borderBottomColor: theme.colors.border,
     },
     headerSide: {flex: 1, alignItems: 'flex-start'},
+    headerTrailing: {alignItems: 'flex-end'},
     headerTitle: {fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary},
     content: {paddingBottom: 28},
     stepIndicator: {paddingHorizontal: 18, paddingTop: 12, fontSize: 11, color: theme.colors.textSecondary},
@@ -254,24 +255,7 @@ export function createSendReviewStyles(theme: AppTheme) {
 
 export function createSendStatusStyles(theme: AppTheme) {
   return StyleSheet.create({
-    header: {
-      minHeight: 58,
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 12,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.border,
-    },
-    headerSide: {flex: 1, alignItems: 'flex-start'},
-    headerTitle: {fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary},
     messageBody: {flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 34, gap: 10},
-    messageTitle: {
-      fontSize: 18,
-      lineHeight: 23,
-      color: theme.colors.textPrimary,
-      fontWeight: '800',
-      textAlign: 'center',
-    },
     messageText: {fontSize: 12, lineHeight: 18, color: theme.colors.textSecondary, textAlign: 'center'},
   });
 }
