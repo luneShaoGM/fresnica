@@ -367,12 +367,12 @@ export function ManageAssetsScreen({
         </ScrollView>
         <View style={styles.bottomBar}>
           <Pressable
-            accessibilityLabel={t('trustlines.result.backToWallet')}
+            accessibilityLabel={t('trustlines.result.done')}
             accessibilityRole="button"
             onPress={onDone}
             style={({ pressed }) => [styles.primaryButton, pressed ? styles.pressed : undefined]}
           >
-            <Text style={styles.primaryButtonText}>{t('trustlines.result.backToWallet')}</Text>
+            <Text style={styles.primaryButtonText}>{t('trustlines.result.done')}</Text>
           </Pressable>
         </View>
       </Screen>

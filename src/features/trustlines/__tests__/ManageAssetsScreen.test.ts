@@ -369,11 +369,12 @@ describe('ManageAssetsScreen Stage 4 hardening', () => {
   ])('renders localized %s result state', (result, expectedTitle, expectedDescription) => {
     const { root } = renderWithState({ flow: { kind: 'result', result } });
     const text = renderedText(root);
-    const back = elementsWithLabel(root, 'Back to Wallet')[0];
+    const done = elementsWithLabel(root, 'Done')[0];
 
     expect(text).toContain(expectedTitle);
     expect(text).toContain(expectedDescription);
-    expect(back?.props.accessibilityRole).toBe('button');
+    expect(text).toContain('Done');
+    expect(done?.props.accessibilityRole).toBe('button');
   });
 
   it('uses minimum heights for localized action controls so dynamic type can expand them', () => {

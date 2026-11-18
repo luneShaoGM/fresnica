@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, ScrollView } from 'react-native';
 
 import { Screen } from '@ui/components';
+import { CenteredPageHeader } from '@ui/components/CenteredPageHeader/CenteredPageHeader';
 import { NativeButton } from '@ui/components/NativeButton';
 
 import { createLocalization } from '../../../locale/localization';
@@ -50,6 +51,12 @@ function findAll(
   const visit = (node: React.ReactNode) => {
     if (!React.isValidElement<NodeProps>(node)) return;
     if (predicate(node)) matches.push(node);
+    if (
+      node.type === CenteredPageHeader &&
+      React.isValidElement<React.ComponentProps<typeof CenteredPageHeader>>(node)
+    ) {
+      visit(CenteredPageHeader(node.props));
+    }
     React.Children.forEach(node.props.children, visit);
   };
   visit(root);

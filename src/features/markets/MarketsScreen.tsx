@@ -7,6 +7,7 @@ import type { Markets } from '@capabilities/markets/createMarkets';
 import type { Asset, MarketRequest, MarketReview, Offer } from '@capabilities/markets/types';
 import { assetKey } from '@capabilities/stellar/classicAmounts';
 import { Screen } from '@ui/components';
+import { CenteredPageHeader } from '@ui/components/CenteredPageHeader/CenteredPageHeader';
 import { NativeButton } from '@ui/components/NativeButton';
 import { PassphraseInput, type PassphraseInputHandle } from '@ui/components/PassphraseInput';
 import { SlideToConfirm } from '@ui/SlideToConfirm';
@@ -297,10 +298,7 @@ export function MarketsScreen({
   const presentedEpoch = epoch.current;
   const content = (
     <>
-      <View style={styles.row}>
-        <Text style={styles.heading}>{t('market.' + kind)}</Text>
-        {onBack ? <NativeButton label={t('common.back')} onPress={onBack} variant="secondary" /> : null}
-      </View>
+      {onBack ? null : <Text style={styles.heading}>{t('market.' + kind)}</Text>}
       {!canSign ? <Text style={styles.label}>{t('market.readOnly')}</Text> : null}
       {loading ? <ActivityIndicator color={theme.colors.actionPrimary} /> : null}
       {flow.kind === 'list' && error ? (
@@ -362,8 +360,11 @@ export function MarketsScreen({
   return (
     <>
       {onBack ? (
-        <Screen>
-          <View style={styles.content}>{content}</View>
+        <Screen scrollable={false} contentInset="none">
+          <CenteredPageHeader backLabel={t('common.back')} title={t('market.' + kind)} onBack={onBack} />
+          <ScrollView contentContainerStyle={styles.pageContent}>
+            <View style={styles.content}>{content}</View>
+          </ScrollView>
         </Screen>
       ) : (
         <View style={styles.content}>{content}</View>

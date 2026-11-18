@@ -110,7 +110,11 @@ export function AccountDetailsScreen({
   return (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
-        <Pressable accessibilityLabel="Back" accessibilityRole="button" onPress={onBack} style={styles.backButton}>
+        <Pressable
+          accessibilityLabel={t('common.back')}
+          accessibilityRole="button"
+          onPress={onBack}
+          style={styles.backButton}>
           <Text style={styles.backGlyph}>‹</Text>
         </Pressable>
         <Text style={styles.title}>Account</Text>

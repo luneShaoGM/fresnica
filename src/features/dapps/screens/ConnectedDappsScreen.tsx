@@ -10,6 +10,7 @@ import type {
 import { useLocalization } from '../../../locale';
 import { NativeButton } from '../../../ui/components/NativeButton';
 import { Screen } from '../../../ui/components';
+import { CenteredPageHeader } from '@ui/components/CenteredPageHeader/CenteredPageHeader';
 import { useThemedStyles } from '../../../ui/theme';
 
 import { createStyles } from './connectedDappsStyles';
@@ -46,10 +47,7 @@ export function ConnectedDappsScreen({ permissions, networkId, accounts, onBack 
 
   return (
     <Screen contentInset="none" scrollable={false}>
-      <View style={styles.header}>
-        <NativeButton label={t('common.back')} onPress={onBack} size="sm" variant="quiet" />
-        <Text style={styles.title}>{t('dapps.connected.title')}</Text>
-      </View>
+      <CenteredPageHeader title={t('dapps.connected.title')} backLabel={t('common.back')} onBack={onBack} />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.note}>{t('dapps.connected.hint')}</Text>
         {loadFailed ? (

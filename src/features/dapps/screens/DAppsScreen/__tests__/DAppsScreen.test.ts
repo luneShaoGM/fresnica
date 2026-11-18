@@ -364,7 +364,7 @@ describe('DAppsScreen native field and retry', () => {
     beginRender();
     const opened = DAppsScreen({ catalog, openExternalUrl });
     const nodes = elements(opened);
-    expect(nodes.some(node => node.props.closeLabel === 'dapps.details.close' && node.props.visible === true)).toBe(
+    expect(nodes.some(node => node.props.closeLabel === 'common.close' && node.props.visible === true)).toBe(
       true,
     );
     expect(openExternalUrl).not.toHaveBeenCalled();
@@ -522,7 +522,7 @@ describe('DAppsScreen native field and retry', () => {
     beginRender();
     const opened = elements(DAppsScreen({ catalog, openExternalUrl, openCatalogInApp }));
     const lateOpen = opened.find(node => node.props.label === 'dapps.website.openInApp')?.props.onPress;
-    opened.find(node => node.props.closeLabel === 'dapps.details.close')?.props.onClose?.();
+    opened.find(node => node.props.closeLabel === 'common.close')?.props.onClose?.();
     lateOpen?.();
     expect(openCatalogInApp).not.toHaveBeenCalled();
 

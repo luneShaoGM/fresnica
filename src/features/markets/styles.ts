@@ -3,6 +3,7 @@ import type { AppTheme } from '@ui/theme';
 
 export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
+    pageContent: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.xxl },
     content: { gap: 14, paddingVertical: 12 },
     heading: { fontSize: 20, fontWeight: '700', color: theme.colors.textPrimary },
     text: { fontSize: 14, lineHeight: 21, color: theme.colors.textPrimary },

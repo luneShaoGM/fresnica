@@ -24,9 +24,11 @@ export function AboutScreen({ onBack, appName, projectName, isMainnet }: Props) 
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
         <View style={styles.headerSide}>
-          <NativeButton label="Back" onPress={onBack} size="sm" variant="quiet" />
+          <NativeButton label={t('common.back')} onPress={onBack} size="sm" variant="quiet" />
         </View>
-        <Text style={styles.title}>About</Text>
+        <Text accessibilityRole="header" style={styles.title}>
+          {t('settings.about')}
+        </Text>
         <View style={styles.headerSide} />
       </View>
 

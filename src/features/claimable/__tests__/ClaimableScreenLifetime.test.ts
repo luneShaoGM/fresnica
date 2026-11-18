@@ -1,4 +1,5 @@
 import React from 'react';
+import { CenteredPageHeader } from '@ui/components/CenteredPageHeader/CenteredPageHeader';
 import type { AccountRecord } from '../../../capabilities/account/types';
 import type { ClaimableProduct } from '../../../capabilities/claimable/createClaimableProduct';
 import type { ClaimableRecord } from '../../../capabilities/claimable/records';
@@ -237,13 +238,14 @@ describe('S11 Claimable final review and captured route lifetime', () => {
 
   it('does not resurrect a cancelled review from a late slide-complete callback', () => {
     const elements = renderReview();
-    const back = elements.find(
-      element => (element.props as { accessibilityRole?: string }).accessibilityRole === 'button',
-    );
+    const header = elements.find(element => element.type === CenteredPageHeader);
     const slide = elements.find(element => (element.props as { label?: string }).label === 'claimable.slideToClaim');
-    expect(back).toBeDefined();
+    expect(header?.props).toMatchObject({ backLabel: 'common.back' });
     expect(slide).toBeDefined();
-    (back!.props as { onPress: () => void }).onPress();
+    if (!React.isValidElement<React.ComponentProps<typeof CenteredPageHeader>>(header)) {
+      throw new Error('Missing claim review header');
+    }
+    header.props.onBack();
     (slide!.props as { onComplete: () => void }).onComplete();
     expect(submitClaimableReview).not.toHaveBeenCalled();
   });

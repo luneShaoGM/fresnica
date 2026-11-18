@@ -2,6 +2,7 @@ import React from 'react';
 
 import type { DappReadGrant, DappPermissionStore } from '../../../../capabilities/dapp-interaction/dappPermissionStore';
 import type { AccountRecord } from '../../../../capabilities/account/types';
+import { CenteredPageHeader } from '@ui/components/CenteredPageHeader/CenteredPageHeader';
 import { NativeButton } from '../../../../ui/components/NativeButton';
 import { ConnectedDappsScreen } from '../ConnectedDappsScreen';
 
@@ -84,7 +85,10 @@ describe('S17 Connected dApps Settings UI', () => {
     expect(text).not.toContain('stellar-mainnet');
     disconnect[0].props.onPress?.();
     expect(revoke).toHaveBeenCalledWith(testnet);
-    find(view, node => node.type === NativeButton && node.props.label === 'common.back')[0].props.onPress?.();
+    const [header] = find(view, node => node.type === CenteredPageHeader);
+    expect(header?.props).toMatchObject({ title: 'dapps.connected.title', backLabel: 'common.back', onBack });
+    expect(onBack).not.toHaveBeenCalled();
+    if (React.isValidElement<React.ComponentProps<typeof CenteredPageHeader>>(header)) header.props.onBack();
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 

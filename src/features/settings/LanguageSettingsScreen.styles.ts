@@ -8,18 +8,6 @@ export function createStyles(theme: AppTheme) {
       flex: 1,
       backgroundColor: theme.colors.background,
     },
-    header: {
-      minHeight: 58,
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: theme.spacing.lg,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.border,
-    },
-    title: {
-      ...theme.typography.sectionTitle,
-      color: theme.colors.textPrimary,
-    },
     content: {
       paddingHorizontal: theme.spacing.lg,
       paddingTop: theme.spacing.md,

@@ -29,6 +29,8 @@ jest.mock('../../../locale', () => ({
   useLocalization: () => ({
     t: (key: string) =>
       ({
+        'common.back': '返回',
+        'settings.accounts': '账户',
         'accounts.sort.moveUp': 'Move up',
         'accounts.sort.moveDown': 'Move down',
         'accounts.sort.error': 'Unable to reorder accounts.',
@@ -123,7 +125,7 @@ describe('AccountsScreen sort controls', () => {
       const [left, title, right] = columns;
       expect(left?.type).toBe(View);
       expect(title?.type).toBe(Text);
-      expect(title?.props.children).toBe('Accounts');
+      expect(title?.props.children).toBe('账户');
       expect(right?.type).toBe(View);
       expect(left?.props.style).toEqual(styles.headerSide);
       expect(right?.props.style).toEqual(styles.headerSide);
@@ -136,8 +138,8 @@ describe('AccountsScreen sort controls', () => {
           React.isValidElement<TestElementProps>(child) && child.type === NativeButton,
       );
       expect(nativeBack).toHaveLength(1);
-      expect(nativeBack[0]?.props).toMatchObject({ label: 'Back', size: 'sm', variant: 'quiet', onPress: onBack });
-      expect(elementsWithLabel(root, 'Back')).toHaveLength(0);
+      expect(nativeBack[0]?.props).toMatchObject({ label: '返回', size: 'sm', variant: 'quiet', onPress: onBack });
+      expect(elementsWithLabel(root, '返回')).toHaveLength(0);
 
       const nativeButtons: string[] = [];
       let accountsScroller: React.ReactElement<TestElementProps> | undefined;
@@ -145,7 +147,7 @@ describe('AccountsScreen sort controls', () => {
         if (element.type === NativeButton && element.props.label) nativeButtons.push(element.props.label);
         if (element.type === ScrollView) accountsScroller = element;
       });
-      expect(nativeButtons).toEqual(['Back', 'Add account']);
+      expect(nativeButtons).toEqual(['返回', 'Add account']);
       expect(accountsScroller?.props.showsVerticalScrollIndicator).toBe(false);
       (nativeBack[0]?.props.onPress as () => void)();
     }

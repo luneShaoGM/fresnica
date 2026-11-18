@@ -38,7 +38,12 @@ export function AssetDetailsScreen({ account, asset, dependencies, active, inval
         <Header
           title="Asset details"
           leading={
-            <Pressable accessibilityLabel="Back" accessibilityRole="button" onPress={onBack} style={styles.backButton}>
+            <Pressable
+              accessibilityLabel={t('common.back')}
+              accessibilityRole="button"
+              onPress={onBack}
+              style={styles.backButton}
+            >
               <Text style={styles.backGlyph}>‹</Text>
             </Pressable>
           }
