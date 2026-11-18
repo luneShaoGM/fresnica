@@ -22,7 +22,7 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   'asset-details': {
     readiness: 'implemented',
-    note: 'Home opens a live asset detail route using only stable accountId + BalanceAsset identity; the destination reloads the current Balance capability snapshot and keeps metadata/TOML deferred.',
+    note: 'Home opens an iOS/Android native form sheet using only stable accountId + networkId + BalanceAsset identity; the destination reloads the current Balance capability snapshot and keeps metadata/TOML deferred.',
   },
   'send-form': {
     readiness: 'implemented',

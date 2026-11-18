@@ -919,3 +919,15 @@ or advance password notice. Feature UI + presentation primitive + existing commo
 submission guard only; SDK/Core, schema, native media/biometrics and cryptographic
 formats unchanged. See s04-authentication-policy.md for lifecycle/cancel/expiry.
 Automated evidence is not Android/iOS product acceptance; native acceptance pending.
+
+### S05/S06 native asset-details sheet — 2026-11-18 candidate
+
+Adapt, clean-room implementation informed by Stellar ActionPanel/ExplainBalance
+interaction roles at donor `bd0f4540b2496a57314e4e29bc6fcf8ff691b60f`.
+Home asset details use the already installed React Navigation native-stack
+formSheet on iOS and Android; platform drag/scroll coordination replaces the
+asset-only custom gesture layer. Feature owner remains Home, with navigation
+in app composition. Public account/network/asset identity and existing Balance,
+watch-only, stale-data and transaction boundaries remain authoritative.
+No donor code, new dependency or maturity promotion. Behavior and verification
+boundaries: [asset sheets](behavior-specs/s06-asset-sheets.md).

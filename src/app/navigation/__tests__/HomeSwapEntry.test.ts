@@ -6,6 +6,7 @@ import { HomeStackNavigator } from '../HomeStackNavigator';
 
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null, StateView: () => null }));
 jest.mock('@ui/components', () => ({ Screen: () => null, StateView: () => null }));
+jest.mock('@ui/theme', () => ({ useAppTheme: () => jest.requireActual('@ui/theme').defaultTheme }));
 jest.mock('@features/accounts/AddAccountScreen', () => ({ AddAccountScreen: () => null }));
 jest.mock('@features/trustlines/AddAssetSheet', () => ({ AddAssetSheet: () => null }));
 jest.mock('@features/home/AssetDetailsSheet', () => ({ AssetDetailsSheet: () => null }));
@@ -31,6 +32,9 @@ jest.mock('react', () => {
   const actual = jest.requireActual('react') as typeof import('react');
   return {
     ...actual,
+    useEffect: (effect: () => void) => {
+      mockEffects.push(effect);
+    },
     useState: (initial: unknown) => [initial, jest.fn()],
     useCallback: (fn: unknown) => fn,
     useRef: (initial: unknown) => ({ current: initial }),
@@ -38,11 +42,14 @@ jest.mock('react', () => {
   };
 });
 
-jest.mock('@react-navigation/native', () => ({ useFocusEffect: jest.fn(), useIsFocused: () => true }));
+jest.mock('@react-navigation/native', () => ({ useFocusEffect: jest.fn(), useIsFocused: () => mockFocused }));
 
 jest.mock('@react-navigation/native-stack', () => ({
   createNativeStackNavigator: () => ({ Navigator: 'TestNavigator', Screen: 'TestScreen' }),
 }));
+
+const mockEffects: Array<() => void> = [];
+let mockFocused = true;
 
 const account: AccountRecord = {
   id: 'testnet-account',
@@ -135,5 +142,76 @@ describe('Home Swap entry wiring', () => {
     const { navigate, onSwap } = renderHomeEntry(false, true);
     expect(onSwap).toBeUndefined();
     expect(navigate).not.toHaveBeenCalled();
+  });
+});
+
+describe('Home native asset details route', () => {
+  beforeEach(() => {
+    mockEffects.length = 0;
+    mockFocused = true;
+  });
+  function detailsRoute(watchOnly = false) {
+    const { root } = renderHomeEntry(false, watchOnly);
+    return React.Children.toArray(root.props.children).find(
+      child => React.isValidElement<{ name: string }>(child) && child.props.name === 'asset-details',
+    ) as React.ReactElement<{
+      options: unknown;
+      children: (context: {
+        route: { params: { accountId: string; networkId: string; asset: { kind: 'native'; code: 'XLM' } } };
+        navigation: { goBack: () => void; popToTop: () => void; replace: jest.Mock };
+      }) => React.ReactElement<{
+        children: React.ReactElement<{ onClose: () => void; onSend: (asset: typeof params.asset) => void }>;
+        foreground: boolean;
+      }>;
+    }>;
+  }
+  const params = {
+    accountId: account.id,
+    networkId: account.networkId,
+    asset: { kind: 'native' as const, code: 'XLM' as const },
+  };
+  it('uses the installed native form sheet and replaces it on Send instead of keeping it in Back history', () => {
+    const route = detailsRoute();
+    expect(route.props.options).toMatchObject({
+      presentation: 'formSheet',
+      sheetAllowedDetents: [0.88],
+      sheetGrabberVisible: true,
+    });
+    const navigation = { goBack: jest.fn(), popToTop: jest.fn(), replace: jest.fn() };
+    const gate = route.props.children({ route: { params }, navigation });
+    const content = gate.props.children;
+    content.props.onClose();
+    expect(navigation.goBack).toHaveBeenCalledTimes(1);
+    content.props.onSend(params.asset);
+    expect(navigation.replace).toHaveBeenCalledWith('send-form', { accountId: account.id, initialAsset: params.asset });
+  });
+  it('keeps the watch-only signing gate when opening native asset details', () => {
+    const route = detailsRoute(true);
+    const navigation = { goBack: jest.fn(), popToTop: jest.fn(), replace: jest.fn() };
+    const gate = route.props.children({ route: { params }, navigation });
+    gate.props.children.props.onSend(params.asset);
+    expect(navigation.replace).not.toHaveBeenCalled();
+  });
+  it.each([
+    { ...params, accountId: 'other-account' },
+    { ...params, networkId: 'stellar-mainnet' },
+  ])('discards a stale account/network route without rendering asset content', stale => {
+    const route = detailsRoute();
+    const navigation = { goBack: jest.fn(), popToTop: jest.fn(), replace: jest.fn() };
+    const gate = route.props.children({ route: { params: stale }, navigation });
+    const renderGate = gate.type as (props: unknown) => React.ReactNode;
+    expect(renderGate(gate.props)).toBeNull();
+    mockEffects.splice(0).forEach(effect => effect());
+    expect(navigation.popToTop).toHaveBeenCalledTimes(1);
+  });
+  it.each(['background', 'blur'])('discards rather than reviving the selection after %s', reason => {
+    const route = detailsRoute();
+    const navigation = { goBack: jest.fn(), popToTop: jest.fn(), replace: jest.fn() };
+    const gate = route.props.children({ route: { params }, navigation });
+    if (reason === 'blur') mockFocused = false;
+    const renderGate = gate.type as (props: unknown) => React.ReactNode;
+    expect(renderGate({ ...gate.props, foreground: reason !== 'background' })).toBeNull();
+    mockEffects.splice(0).forEach(effect => effect());
+    expect(navigation.popToTop).toHaveBeenCalledTimes(1);
   });
 });

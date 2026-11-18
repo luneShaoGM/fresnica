@@ -7,6 +7,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 
 import { Screen, StateView } from '@ui/components';
+import { useAppTheme } from '@ui/theme';
 import { useLocalization } from '../../locale';
 import type { AccountRecord } from '@capabilities/account/types';
 import { canContinueRequestToSend } from '../requestDeepLinkRouting';
@@ -15,7 +16,6 @@ import { captureSwapCurrentSession, type SwapCurrentSelection } from './swapCurr
 import { AddAccountScreen } from '@features/accounts/AddAccountScreen';
 import { AddAssetSheet } from '@features/trustlines/AddAssetSheet';
 import { AssetDetailsSheet } from '@features/home/AssetDetailsSheet';
-import { AssetDetailsScreen } from '@features/home/AssetDetailsScreen';
 import { HomeScreen } from '@features/home/HomeScreen';
 import { ClaimableScreen } from '@features/claimable/ClaimableScreen';
 import { AssetCategoryDialog, type HomeAssetCategory } from '@features/home/components/AssetCategoryDialog';
@@ -66,6 +66,7 @@ export function HomeStackNavigator({
   getCurrentSwapSelection,
   subscribeToSwapSelection,
 }: Props) {
+  const theme = useAppTheme();
   const [networkSwitchVisible, setNetworkSwitchVisible] = useState(false);
   const closeNetworkSwitch = useCallback(() => setNetworkSwitchVisible(false), []);
   const selectedAccount = resolveVisibleAccount(accounts, selectedAccountId);
@@ -128,7 +129,6 @@ export function HomeStackNavigator({
               }}
               onRecover={() => services.transactionRecovery.reconcile('manual-refresh')}
               developerMode={services.networkSettings?.getSnapshot().preferences.developerMode ?? false}
-              copyPublicText={services.copyPublicText}
               foreground={readRuntime.foreground}
               account={selectedAccount}
               accountCount={selectableAccounts.length}
@@ -171,18 +171,51 @@ export function HomeStackNavigator({
           </>
         )}
       </Stack.Screen>
-      <Stack.Screen name="asset-details">
+      <Stack.Screen
+        name="asset-details"
+        options={{
+          presentation: 'formSheet',
+          sheetAllowedDetents: [0.88],
+          sheetGrabberVisible: true,
+          sheetCornerRadius: theme.radii.lg,
+          contentStyle: { backgroundColor: theme.colors.surface },
+        }}
+      >
         {({ navigation, route }) => {
-          const account = resolveVisibleAccount(accounts, route.params.accountId);
+          const account = accounts.find(candidate => candidate.id === route.params.accountId && !candidate.hidden);
+          const current =
+            !!account && account.id === selectedAccount.id && account.networkId === route.params.networkId;
           return (
             <AssetDetailsRoute
               foreground={readRuntime.foreground}
-              account={account}
-              asset={route.params.asset}
-              dependencies={services.balance}
-              invalidationRevision={invalidationRevision}
-              onBack={() => navigation.goBack()}
-            />
+              current={current}
+              onDiscard={() => navigation.popToTop()}
+            >
+              {account && current ? (
+                <AssetDetailsSheet
+                  key={JSON.stringify([account.id, account.networkId, route.params.asset])}
+                  account={account}
+                  asset={route.params.asset}
+                  balanceDependencies={services.balance}
+                  active={readRuntime.foreground}
+                  invalidationRevision={invalidationRevision}
+                  canSign={canSign}
+                  copyPublicText={services.copyPublicText}
+                  onClose={() => navigation.goBack()}
+                  onSend={asset => {
+                    if (!readRuntime.foreground || !current || !canSign) return;
+                    navigation.replace('send-form', { accountId: account.id, initialAsset: asset });
+                  }}
+                  onRemove={asset => {
+                    if (!readRuntime.foreground || !current || !canSign) return;
+                    navigation.replace('manage-assets', {
+                      accountId: account.id,
+                      requestedAction: { action: 'remove', code: asset.code, issuer: asset.issuer },
+                    });
+                  }}
+                />
+              ) : null}
+            </AssetDetailsRoute>
           );
         }}
       </Stack.Screen>
@@ -475,7 +508,6 @@ function HomeWithAssetSheets({
   isSelectedAccount,
   onRecover,
   developerMode,
-  copyPublicText,
   ...props
 }: Omit<React.ComponentProps<typeof HomeScreen>, 'active' | 'onManageAssets' | 'onOpenAsset'> & {
   foreground: boolean;
@@ -489,7 +521,6 @@ function HomeWithAssetSheets({
   isSelectedAccount: () => boolean;
   onRecover: () => Promise<unknown>;
   developerMode: boolean;
-  copyPublicText: AppServices['copyPublicText'];
 }) {
   const focused = useIsFocused();
   const active = focused && foreground;
@@ -556,9 +587,7 @@ function HomeWithAssetSheets({
           return shown.risk === 'SAFE' && shown.availability === 'claimable';
         }).length
       : 0;
-  const [sheet, setSheet] = useState<
-    { kind: 'add' } | { kind: 'details'; asset: React.ComponentProps<typeof AssetDetailsSheet>['asset'] }
-  >();
+  const [sheet, setSheet] = useState<'add'>();
   useFocusEffect(useCallback(() => () => setSheet(undefined), []));
   const manage = (action: 'add' | 'remove', asset: { code: string; issuer: string }) => {
     if (!active || !props.canSign) return;
@@ -613,8 +642,15 @@ function HomeWithAssetSheets({
             />
           ) : undefined
         }
-        onManageAssets={() => setSheet({ kind: 'add' })}
-        onOpenAsset={asset => setSheet({ kind: 'details', asset })}
+        onManageAssets={() => setSheet('add')}
+        onOpenAsset={asset => {
+          if (active && isSelectedAccount())
+            navigation.navigate('asset-details', {
+              accountId: props.account.id,
+              networkId: props.account.networkId,
+              asset,
+            });
+        }}
       />
       <AssetCategoryDialog
         visible={active && categoryPickerVisible}
@@ -624,7 +660,7 @@ function HomeWithAssetSheets({
         onClose={() => setCategoryPickerVisible(false)}
         onSelect={chooseCategory}
       />
-      {active && sheet?.kind === 'add' ? (
+      {active && sheet === 'add' ? (
         <AddAssetSheet
           account={props.account}
           balanceDependencies={props.balanceDependencies}
@@ -634,26 +670,6 @@ function HomeWithAssetSheets({
           visible={active}
           onClose={() => setSheet(undefined)}
           onAddAndSign={asset => manage('add', asset)}
-        />
-      ) : null}
-      {active && sheet?.kind === 'details' ? (
-        <AssetDetailsSheet
-          key={JSON.stringify(sheet.asset)}
-          account={props.account}
-          asset={sheet.asset}
-          balanceDependencies={props.balanceDependencies}
-          active={active}
-          invalidationRevision={props.invalidationRevision}
-          visible={active}
-          canSign={props.canSign}
-          copyPublicText={copyPublicText}
-          onClose={() => setSheet(undefined)}
-          onRemove={asset => manage('remove', asset)}
-          onSend={asset => {
-            if (!active || !props.canSign) return;
-            setSheet(undefined);
-            navigation.navigate('send-form', { accountId: props.account.id, initialAsset: asset });
-          }}
         />
       ) : null}
     </>
@@ -670,10 +686,20 @@ function SendRoute({
 
 function AssetDetailsRoute({
   foreground,
-  ...props
-}: Omit<React.ComponentProps<typeof AssetDetailsScreen>, 'active'> & { foreground: boolean }) {
+  current,
+  onDiscard,
+  children,
+}: React.PropsWithChildren<{
+  foreground: boolean;
+  current: boolean;
+  onDiscard: () => void;
+}>) {
   const focused = useIsFocused();
-  return <AssetDetailsScreen {...props} active={focused && foreground} />;
+  const active = foreground && current && focused;
+  useEffect(() => {
+    if (!active) onDiscard();
+  }, [active, onDiscard]);
+  return active ? children : null;
 }
 
 function AssetAccountUnavailable({ onBack }: { onBack: () => void }) {
