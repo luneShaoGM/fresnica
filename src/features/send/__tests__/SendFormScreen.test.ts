@@ -5,7 +5,7 @@ import { Screen } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import { defaultTheme } from '@ui/theme';
 
-import { SendFormScreen } from '../SendFormScreen';
+import { SendEntryScreen, SendFormScreen } from '../SendFormScreen';
 import { createSendFormStyles } from '../styles';
 
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
@@ -23,7 +23,7 @@ jest.mock('../../../locale', () => ({
   useLocalization: () => ({
     t: (key: string) =>
       ({
-        'send.navigation.cancel': 'localized:cancel-send',
+        'common.cancel': 'localized:cancel',
         'send.memo.type.none': 'None',
         'send.memo.type.text': 'Text',
         'send.memo.type.id': 'ID',
@@ -60,10 +60,8 @@ function visit(node: React.ReactNode, callback: (element: React.ReactElement<Nod
 }
 
 function renderForm(onSelectMemoType = jest.fn(), building = false, step: 'details' | 'recipient' = 'recipient') {
-  const onCancel = jest.fn();
   return {
     onSelectMemoType,
-    onCancel,
     root: SendFormScreen({
       step,
       accountLabel: 'Primary',
@@ -80,64 +78,60 @@ function renderForm(onSelectMemoType = jest.fn(), building = false, step: 'detai
       onSelectMemoType,
       onChangeMemoValue: jest.fn(),
       onContinue: jest.fn(),
-      onBack: jest.fn(),
-      onCancel,
     }),
   };
 }
 describe('SendFormScreen memo families', () => {
-  it.each([false, true])(
-    'keeps Cancel send available when building=%s, without altering the form or scroll controls',
-    building => {
-      const { root, onCancel } = renderForm(jest.fn(), building, 'details');
-      const styles = createSendFormStyles(defaultTheme);
-      expect(styles.memoTypeRow.flexWrap).toBe('wrap');
-      expect(root.type).toBe(Screen);
-      expect(root.props).toMatchObject({ scrollable: false, contentInset: 'none' });
+  it.each([false, true])('keeps Cancel available when building=%s with the Send header', building => {
+    const { root: form } = renderForm(jest.fn(), building, 'details');
+    const onCancel = jest.fn();
+    const root = SendEntryScreen({ onCancel, children: form });
+    const styles = createSendFormStyles(defaultTheme);
+    expect(styles.memoTypeRow.flexWrap).toBe('wrap');
+    expect(root.type).toBe(Screen);
+    expect(root.props).toMatchObject({ scrollable: false, contentInset: 'none' });
 
-      const header = React.Children.toArray(root.props.children).find(
-        (child): child is React.ReactElement<NodeProps> =>
-          React.isValidElement<NodeProps>(child) && child.type === View,
-      );
-      expect(header?.props.style).toEqual(styles.header);
+    const header = React.Children.toArray(root.props.children).find(
+      (child): child is React.ReactElement<NodeProps> => React.isValidElement<NodeProps>(child) && child.type === View,
+    );
+    expect(header?.props.style).toEqual(styles.header);
 
-      const [left, title, right] = React.Children.toArray(header?.props.children).filter(
-        (child): child is React.ReactElement<NodeProps> => React.isValidElement<NodeProps>(child),
-      );
-      expect(left?.type).toBe(View);
-      expect(title?.type).toBe(Text);
-      expect(title?.props.children).toBe('send.step.details');
-      expect(right?.type).toBe(View);
-      expect(left?.props.style).toEqual(styles.headerSide);
-      expect(right?.props.style).toEqual(styles.headerSide);
-      expect(styles.headerSide).toMatchObject({ flex: 1, alignItems: 'flex-start' });
-      expect(styles.header).not.toHaveProperty('justifyContent', 'space-between');
+    const [left, title, right] = React.Children.toArray(header?.props.children).filter(
+      (child): child is React.ReactElement<NodeProps> => React.isValidElement<NodeProps>(child),
+    );
+    expect(left?.type).toBe(View);
+    expect(title?.type).toBe(Text);
+    expect(title?.props.children).toBe('nav.send');
+    expect(right?.type).toBe(View);
+    expect(left?.props.style).toEqual(styles.headerSide);
+    expect(right?.props.style).toEqual([styles.headerSide, styles.headerTrailing]);
+    expect(styles.headerSide).toMatchObject({ flex: 1, alignItems: 'flex-start' });
+    expect(styles.header).not.toHaveProperty('justifyContent', 'space-between');
 
-      const close = React.Children.toArray(left?.props.children).filter(
-        (child): child is React.ReactElement<NodeProps> =>
-          React.isValidElement<NodeProps>(child) && child.type === NativeButton,
-      );
-      expect(close).toHaveLength(1);
-      expect(close[0]?.props).toMatchObject({
-        label: 'localized:cancel-send',
-        size: 'sm',
-        variant: 'quiet',
-        onPress: onCancel,
-      });
-      expect(close[0]?.props.disabled).toBeUndefined();
-      close[0]?.props.onPress?.();
-      expect(onCancel).toHaveBeenCalledTimes(1);
+    const close = React.Children.toArray(left?.props.children).filter(
+      (child): child is React.ReactElement<NodeProps> =>
+        React.isValidElement<NodeProps>(child) && child.type === NativeButton,
+    );
+    expect(close).toHaveLength(1);
+    expect(close[0]?.props).toMatchObject({
+      label: 'localized:cancel',
+      size: 'sm',
+      variant: 'quiet',
+      onPress: onCancel,
+    });
+    expect(close[0]?.props.disabled).toBeUndefined();
+    close[0]?.props.onPress?.();
+    expect(onCancel).toHaveBeenCalledTimes(1);
 
-      const scrolls: React.ReactElement<NodeProps>[] = [];
-      visit(root, element => {
-        if (element.type === ScrollView) scrolls.push(element);
-      });
-      expect(scrolls[0]?.props).toMatchObject({
-        keyboardShouldPersistTaps: 'handled',
-        showsVerticalScrollIndicator: false,
-      });
-    },
-  );
+    const scrolls: React.ReactElement<NodeProps>[] = [];
+    visit(root, element => {
+      if (element.type === ScrollView) scrolls.push(element);
+    });
+    expect(scrolls[0]?.props).toMatchObject({
+      keyboardShouldPersistTaps: 'handled',
+      showsVerticalScrollIndicator: false,
+    });
+  });
 
   it('shows amount and asset only in Details, and destination/Memo only in Recipient', () => {
     const details = renderForm(jest.fn(), false, 'details').root;
@@ -157,7 +151,9 @@ describe('SendFormScreen memo families', () => {
     expect(strings(recipient)).not.toContain('AMOUNT');
     expect(strings(recipient)).toContain('RECIPIENT');
     expect(strings(recipient)).toContain('MEMO');
-    expect(strings(recipient)).toContain('send.step.recipient');
+    expect(strings(SendEntryScreen({ children: recipient, onBack: jest.fn(), onCancel: jest.fn() }))).toContain(
+      'send.step.recipient',
+    );
   });
 
   it('renders None/Text/ID/Hash/Return choices with ID selected and a numeric ID input', () => {
@@ -174,7 +170,13 @@ describe('SendFormScreen memo families', () => {
       }
     });
 
-    expect(memoChoices.map(element => element.props.accessibilityLabel)).toEqual(['None', 'Text', 'ID', 'Hash', 'Return']);
+    expect(memoChoices.map(element => element.props.accessibilityLabel)).toEqual([
+      'None',
+      'Text',
+      'ID',
+      'Hash',
+      'Return',
+    ]);
     expect(memoChoices.find(element => element.props.accessibilityLabel === 'ID')?.props.accessibilityState).toEqual({
       selected: true,
     });

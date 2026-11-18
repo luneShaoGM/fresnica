@@ -13,7 +13,7 @@ import { contactShareUri } from '../contactBook';
 import { SendFlowScreen } from '../../send/SendFlowScreen';
 import { SendResultScreen } from '../../send/SendResultScreen';
 import { SendReviewScreen } from '../../send/SendReviewScreen';
-import { SendFormScreen } from '../../send/SendFormScreen';
+import { SendEntryScreen, SendFormScreen } from '../../send/SendFormScreen';
 import type { SendProductDependencies } from '../../send/sendProductFlow';
 import type { AccountRecord } from '@capabilities/account/types';
 import type { Recipient } from '../contactBook';
@@ -742,7 +742,7 @@ it('Send amount and asset step precedes recipient selection and supports Back wi
   expect(form.props.amount).toBe('1.5');
   expect(form.props.memoType).toBe('id');
   expect(form.props.memoValue).toBe('007');
-  form.props.onBack!();
+  nodes(draw(), SendEntryScreen)[0].props.onBack!();
   expect(nodes(draw(), SendFormScreen)[0].props.step).toBe('details');
   expect([values[3], values[4], values[5], values[6]]).toEqual(['GVALID', '1.5', 'id', '007']);
 });
@@ -848,7 +848,7 @@ it('keeps Return and Hash contacts distinct through Send selection, Back, and ma
   let picker = nodes(draw(), DestinationPicker)[0];
   picker.props.onSelect!(selected[0]);
   expect([values[3], values[5], values[6]]).toEqual([row.address, 'return', value]);
-  nodes(draw(), SendFormScreen)[0].props.onBack!();
+  nodes(draw(), SendEntryScreen)[0].props.onBack!();
   expect(nodes(draw(), SendFormScreen)[0].props.step).toBe('details');
   nodes(draw(), SendFormScreen)[0].props.onContinue!();
   expect([values[3], values[5], values[6]]).toEqual([row.address, 'return', value]);

@@ -15,10 +15,10 @@ import type { PaymentReview } from '../../capabilities/payment/buildPaymentRevie
 import type { RequestPaymentIntent } from '../../capabilities/request/requestUri';
 import type { StellarPaymentMemo } from '../../capabilities/stellar/types';
 import { useLocalization } from '../../locale';
-import { SendFormScreen } from './SendFormScreen';
+import { SendEntryScreen, SendFormScreen } from './SendFormScreen';
 import { SendResultScreen, type SendTerminalResult } from './SendResultScreen';
 import { SendReviewScreen } from './SendReviewScreen';
-import { SendStatusScreen } from './SendStatusScreen';
+import { SendEntryStatus } from './SendEntryStatus';
 import { projectFeatureError } from '../featureError';
 import {
   buildSendReview,
@@ -328,15 +328,7 @@ export function SendFlowScreen({
     }
   }, [account, dependencies, flow, passphraseRequired, submitting, t]);
 
-  if (loadState.kind === 'loading') {
-    return <SendStatusScreen title="Send" message="Loading current Stellar balances…" loading onBack={onDone} />;
-  }
-
-  if (loadState.kind === 'blocked') {
-    return <SendStatusScreen title={loadState.title} message={loadState.description} onBack={onDone} />;
-  }
-
-  if (flow.kind === 'review') {
+  if (loadState.kind === 'ready' && flow.kind === 'review') {
     return (
       <SendReviewScreen
         key={flow.review.transactionXdrBase64}
@@ -379,7 +371,7 @@ export function SendFlowScreen({
     );
   }
 
-  if (flow.kind === 'result') {
+  if (loadState.kind === 'ready' && flow.kind === 'result') {
     return (
       <SendResultScreen
         result={flow.result}
@@ -399,8 +391,32 @@ export function SendFlowScreen({
     );
   }
 
+  const backToDetails = () => {
+    if (!building) {
+      closePicker();
+      closeScan();
+      setError(undefined);
+      setEntryStep('details');
+    }
+  };
+  const cancelEntry = () => {
+    closePicker();
+    closeScan();
+    loadVersion.current += 1;
+    buildGeneration.current += 1;
+    onDone();
+  };
+
+  if (loadState.kind !== 'ready') {
+    return (
+      <SendEntryScreen onCancel={cancelEntry}>
+        <SendEntryStatus state={loadState} />
+      </SendEntryScreen>
+    );
+  }
+
   return (
-    <>
+    <SendEntryScreen onBack={entryStep === 'recipient' ? backToDetails : undefined} onCancel={cancelEntry}>
       <SendFormScreen
         key={`${account.id}:${account.networkId}:${account.address}`}
         active={active}
@@ -466,21 +482,6 @@ export function SendFlowScreen({
               }
             : undefined
         }
-        onBack={() => {
-          if (!building) {
-            closePicker();
-            closeScan();
-            setError(undefined);
-            setEntryStep('details');
-          }
-        }}
-        onCancel={() => {
-          closePicker();
-          closeScan();
-          loadVersion.current += 1;
-          buildGeneration.current += 1;
-          onDone();
-        }}
       />
       {active && scanOpen && contacts && scanner ? (
         <RecipientScanSheet
@@ -533,7 +534,7 @@ export function SendFlowScreen({
           }}
         />
       ) : null}
-    </>
+    </SendEntryScreen>
   );
 }
 

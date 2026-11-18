@@ -6,7 +6,8 @@ import type { PaymentReview } from '@capabilities/payment/buildPaymentReview';
 import { buildRequestUri, parseRequestInput } from '@capabilities/request/requestUri';
 import type { NetworkContext } from '@capabilities/network/types';
 import { SendFlowScreen } from '../SendFlowScreen';
-import { SendFormScreen } from '../SendFormScreen';
+import { SendEntryScreen, SendFormScreen } from '../SendFormScreen';
+import { SendEntryStatus } from '../SendEntryStatus';
 import { SendReviewScreen } from '../SendReviewScreen';
 import { buildSendReview, submitSendReview, type SendProductDependencies } from '../sendProductFlow';
 
@@ -124,6 +125,30 @@ async function mount() {
 }
 
 describe('Merged #159 Memo Return with #162 staged Send', () => {
+  it('keeps the first-step screen and replaces its loading content with the form', async () => {
+    const loading = draw(undefined);
+    expect(loading.type).toBe(SendEntryScreen);
+    expect(screen(loading, SendEntryStatus).props.state.kind).toBe('loading');
+
+    jest.mocked(useEffect).mock.calls[0][0]();
+    for (let i = 0; i < 4; i++) await Promise.resolve();
+
+    const loaded = draw(undefined);
+    expect(loaded.type).toBe(loading.type);
+    expect(loaded.key).toBe(loading.key);
+    expect(screen(loaded, SendEntryScreen).props.onBack).toBeUndefined();
+    expect(screen(loaded, SendFormScreen).props.step).toBe('details');
+  });
+
+  it('cancels the entry while balances are loading and ignores the late result', async () => {
+    const loading = draw(undefined);
+    jest.mocked(useEffect).mock.calls[0][0]();
+    screen(loading, SendEntryScreen).props.onCancel();
+    for (let i = 0; i < 4; i++) await Promise.resolve();
+
+    expect(screen(draw(undefined), SendEntryStatus).props.state.kind).toBe('loading');
+  });
+
   it('preserves validated SEP-7 Return through Details → Recipient → Summary → Back and edit', async () => {
     const intent = await mount();
     let form = screen(draw(intent), SendFormScreen);
