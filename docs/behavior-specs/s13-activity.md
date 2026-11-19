@@ -15,6 +15,12 @@ The existing History, cache, cursor and exact-operation identity contracts remai
 authoritative; later operation-family and visibility slices are not implemented
 by this presentation amendment.
 
+Detail metadata simplification (2026-11-19): the transaction detail screen shows
+Operation type, transaction hash, date and operation-specific information, but
+omits the redundant visible Operation ID row. Exact operation ID remains the
+internal authority for navigation, History lookup, cache keys, validation,
+search and deduplication. This is presentation-only, not an identity change.
+
 Path-history amendment (2026-11-03):
 [`s13-path-payment-history.md`](s13-path-payment-history.md) adds successful strict-send
 and strict-receive actual-leg projection, Swap classification, list/detail/search

@@ -9,7 +9,8 @@ export function NativeFiatEstimate({
   amount,
   currency,
   active,
-}: Readonly<{ quotes?: XlmQuotePort; amount: string; currency: FiatCurrency; active: boolean }>) {
+  compact = false,
+}: Readonly<{ quotes?: XlmQuotePort; amount: string; currency: FiatCurrency; active: boolean; compact?: boolean }>) {
   const { t, formatNumber, formatDate } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const [quote, setQuote] = useState<XlmQuote>();
@@ -56,10 +57,14 @@ export function NativeFiatEstimate({
       ? estimateFiat(amount, quote.rate)
       : undefined;
   return (
-    <Text style={styles.hint}>
+    <Text style={compact ? styles.compactHint : styles.hint}>
       {estimate !== undefined && quote
-        ? `${t('preferences.estimate')}: ≈ ${formatNumber(estimate, 2)} ${currency} · CoinGecko · ${formatDate(quote.updatedAt)}`
-        : t('preferences.quoteUnavailable')}
+        ? compact
+          ? `≈ ${formatNumber(estimate, 2)} ${currency}`
+          : `${t('preferences.estimate')}: ≈ ${formatNumber(estimate, 2)} ${currency} · CoinGecko · ${formatDate(quote.updatedAt)}`
+        : compact
+          ? null
+          : t('preferences.quoteUnavailable')}
     </Text>
   );
 }

@@ -9,6 +9,7 @@ type Props = Readonly<{
   label: string;
   maskedAddress: string;
   accountKindLabel: string;
+  isReadOnly: boolean;
   accountCount: number;
   onOpenAccountPicker: () => void;
   onAddAccount: () => void;
@@ -18,6 +19,7 @@ export function AccountSummary({
   label,
   maskedAddress,
   accountKindLabel,
+  isReadOnly,
   accountCount,
   onOpenAccountPicker,
   onAddAccount,
@@ -27,7 +29,7 @@ export function AccountSummary({
     <>
       <Pressable
         accessibilityHint="Switch to another configured account"
-        accessibilityLabel={`Current account ${label}`}
+        accessibilityLabel={`Current account ${label}, ${accountKindLabel}`}
         accessibilityRole="button"
         onPress={onOpenAccountPicker}
         style={({ pressed }) => [styles.accountSwitchContainer, pressed ? styles.pressed : undefined]}
@@ -40,10 +42,14 @@ export function AccountSummary({
             {maskedAddress}
           </Text>
         </View>
+        {isReadOnly ? (
+          <Text accessibilityLabel={accountKindLabel} style={styles.accountKindBadge}>
+            {accountKindLabel === 'Contract account' ? 'Contract' : 'Read-only'}
+          </Text>
+        ) : null}
       </Pressable>
 
       <View style={styles.accountMetaRow}>
-        <Text style={styles.accountMeta}>{accountKindLabel}</Text>
         <Pressable
           accessibilityRole="button"
           onPress={onAddAccount}

@@ -16,6 +16,8 @@ import { BalanceFreshnessNotice } from '../components/BalanceFreshnessNotice';
 import { Pressable, ScrollView, View } from 'react-native';
 import { AppBrandMark } from '@ui/components/AppBrandMark';
 import { InactiveAccountPanel } from '../components/InactiveAccountPanel';
+import { AccountSummary } from '../components/AccountSummary';
+import { NativeFiatEstimate } from '@features/valuation/NativeFiatEstimate';
 import type { HomeBalanceState } from '../homeViewModel';
 
 jest.mock('@fresnica/ui-native', () => ({
@@ -69,6 +71,8 @@ type NodeProps = Readonly<{
   size?: string;
   onPress?: () => void;
   accessibilityLabel?: string;
+  isReadOnly?: boolean;
+  accountKindLabel?: string;
   hiddenLiquidityPoolShareCount?: number;
   refreshControl?: React.ReactElement<{ onRefresh: () => void }>;
 }>;
@@ -154,6 +158,37 @@ function renderHome(
 }
 
 describe('Home native balance-state presentation', () => {
+  it.each([
+    { accountKindLabel: 'Classic account', isReadOnly: false },
+    { accountKindLabel: 'Read-only classic account', isReadOnly: true },
+    { accountKindLabel: 'Contract account', isReadOnly: true },
+  ])('announces $accountKindLabel on the account switch button', status => {
+    const onOpenAccountPicker = jest.fn();
+    const root = AccountSummary({
+      label: 'Account A',
+      maskedAddress: 'GACC...NT-A',
+      accountCount: 1,
+      onOpenAccountPicker,
+      onAddAccount: jest.fn(),
+      ...status,
+    });
+    const button = findElement(root, node => node.type === Pressable);
+    expect(button?.props).toMatchObject({
+      accessibilityRole: 'button',
+      accessibilityLabel: `Current account Account A, ${status.accountKindLabel}`,
+    });
+    button?.props.onPress?.();
+    expect(onOpenAccountPicker).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps read-only status inside the account card and leaves bottom safe-area inset to the tab bar', () => {
+    const { root } = renderHome({ kind: 'loading' }, { ...account, identityKind: 'contract' });
+    expect(root.props.safeAreaEdges).toEqual(['top', 'right', 'left']);
+    const summary = findElement(root, node => node.type === AccountSummary);
+    expect(summary?.props).toMatchObject({ isReadOnly: true, accountKindLabel: 'Contract account' });
+    expect(findElement(root, node => node.type === NativeFiatEstimate)).toBeUndefined();
+  });
+
   it('connects the Home network button to the chooser callback', () => {
     const { root, onSwitchNetwork } = renderHome({ kind: 'loading' });
     findElement(root, node => node.type === NetworkStatus)?.props.onPress?.();

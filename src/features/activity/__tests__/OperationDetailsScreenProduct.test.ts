@@ -106,6 +106,8 @@ type NodeProps = Readonly<{
   accessibilityState?: Readonly<{ busy?: boolean; disabled?: boolean }>;
   actionLabel?: string;
   children?: React.ReactNode;
+  label?: string;
+  value?: string;
   disabled?: boolean;
   failed?: boolean;
   message?: string;
@@ -198,6 +200,27 @@ describe('OperationDetailsScreen product hardening', () => {
       opening: false,
       failed: false,
     });
+  });
+
+  it('shows the operation type and transaction hash without an operation ID detail row', () => {
+    const entry = unsupported();
+    const { root } = renderWithState({
+      kind: 'loaded',
+      result: { status: 'ready', entry },
+      source: 'online',
+      stale: false,
+      refreshing: false,
+      refreshFailed: false,
+    });
+    const { t } = createLocalization('en');
+
+    expect(findElement(root, node => node.props.label === t('activity.detail.operationId'))).toBeUndefined();
+    expect(findElement(root, node => node.props.label === t('activity.detail.operationType'))?.props.value).toBe(
+      entry.operationType,
+    );
+    expect(findElement(root, node => node.props.label === t('activity.detail.transactionHash'))?.props.value).toBe(
+      transactionHash,
+    );
   });
 
   it('hides the explorer action when Network Capability returns no trusted projection', () => {

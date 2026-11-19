@@ -16,7 +16,7 @@ export function createStyles(theme: AppTheme) {
     headerScroll: { maxHeight: '55%', flexGrow: 0, flexShrink: 1 },
     nativeFixedWrap: { paddingHorizontal: theme.spacing.lg },
     tokenScroll: { flex: 1 },
-    tokenContent: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.xl },
+    tokenContent: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.sm },
     pinnedNative: { paddingBottom: theme.spacing.sm },
     nativeBreakdownRow: {
       flexDirection: 'row',
@@ -96,9 +96,23 @@ export function createStyles(theme: AppTheme) {
       paddingHorizontal: theme.spacing.md,
       paddingVertical: theme.spacing.sm,
       justifyContent: 'center',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.sm,
     },
     accountTextBlock: {
       gap: theme.spacing.xs,
+      flex: 1,
+      minWidth: 0,
+    },
+    accountKindBadge: {
+      ...theme.typography.caption,
+      color: theme.colors.textSecondary,
+      backgroundColor: theme.colors.background,
+      borderRadius: theme.radii.sm,
+      paddingHorizontal: theme.spacing.xs,
+      paddingVertical: theme.spacing.xs,
+      overflow: 'hidden',
     },
     accountLabel: {
       ...theme.typography.label,
@@ -114,13 +128,9 @@ export function createStyles(theme: AppTheme) {
       minHeight: 36,
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      justifyContent: 'flex-end',
       gap: theme.spacing.sm,
       paddingHorizontal: theme.spacing.xs,
-    },
-    accountMeta: {
-      ...theme.typography.caption,
-      color: theme.colors.textTertiary,
     },
     addAccountButton: {
       paddingVertical: theme.spacing.xs,
@@ -254,23 +264,6 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.textSecondary,
       textAlign: 'center',
     },
-    readOnlyNotice: {
-      marginBottom: theme.spacing.md,
-      borderRadius: theme.radii.md,
-      backgroundColor: theme.colors.warningMuted,
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: theme.spacing.sm,
-      gap: theme.spacing.xs,
-    },
-    readOnlyTitle: {
-      ...theme.typography.label,
-      color: theme.colors.textPrimary,
-      fontWeight: '700',
-    },
-    readOnlyText: {
-      ...theme.typography.caption,
-      color: theme.colors.textSecondary,
-    },
     inactiveContainer: {
       borderRadius: theme.radii.md,
       backgroundColor: theme.colors.actionPrimarySoft,
@@ -346,7 +339,13 @@ export function createStyles(theme: AppTheme) {
     assetIdentityLargeText: { flexBasis: '70%' },
     assetBalanceLargeText: { width: '100%', maxWidth: '100%', flexShrink: 0 },
     assetAmountRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs, flexShrink: 1 },
-    assetSmallIcon: { borderRadius: 3, borderWidth: 1, borderColor: theme.colors.background, overflow: 'hidden', flexShrink: 0 },
+    assetSmallIcon: {
+      borderRadius: 3,
+      borderWidth: 1,
+      borderColor: theme.colors.background,
+      overflow: 'hidden',
+      flexShrink: 0,
+    },
     nativeAssetRow: { minHeight: 56 },
     assetBalance: {
       flexShrink: 1,
