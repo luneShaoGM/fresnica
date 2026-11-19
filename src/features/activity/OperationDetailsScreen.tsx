@@ -437,7 +437,6 @@ function renderEntry(
       ) : null}
 
       <View style={styles.rows}>
-        <DetailRow label={t('activity.detail.operationId')} value={entry.id} mono styles={styles} />
         <DetailRow label={t('activity.detail.operationType')} value={entry.operationType} styles={styles} />
         <DetailRow
           label={t('activity.detail.occurredAt')}

@@ -1,10 +1,10 @@
 import React from 'react';
-import {ScrollView, Text, View, type StyleProp, type ViewStyle} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { ScrollView, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
-import {useThemedStyles} from '@ui/theme';
+import { useThemedStyles } from '@ui/theme';
 
-import {createStyles} from './styles';
+import { createStyles } from './styles';
 
 export type ScreenProps = React.PropsWithChildren<
   Readonly<{
@@ -15,6 +15,7 @@ export type ScreenProps = React.PropsWithChildren<
     leading?: React.ReactNode;
     scrollable?: boolean;
     contentInset?: 'default' | 'none';
+    safeAreaEdges?: readonly Edge[];
     contentContainerStyle?: StyleProp<ViewStyle>;
   }>
 >;
@@ -28,6 +29,7 @@ export function Screen({
   leading,
   scrollable = true,
   contentInset = 'default',
+  safeAreaEdges = ['top', 'right', 'bottom', 'left'],
   contentContainerStyle,
 }: ScreenProps) {
   const styles = useThemedStyles(createStyles);
@@ -49,12 +51,13 @@ export function Screen({
   ];
 
   return (
-    <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.safeArea}>
+    <SafeAreaView edges={safeAreaEdges} style={styles.safeArea}>
       {scrollable ? (
         <ScrollView
           contentContainerStyle={containerStyle}
           keyboardShouldPersistTaps={keyboardShouldPersistTaps}
-          style={styles.scrollView}>
+          style={styles.scrollView}
+        >
           {content}
         </ScrollView>
       ) : (

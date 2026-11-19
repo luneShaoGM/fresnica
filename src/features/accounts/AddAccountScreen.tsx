@@ -292,6 +292,7 @@ export function AddAccountScreen({
     return (
       <FlowShell title={t('accounts.add.watchOnly.title')} onBack={backToChoices} backDisabled={busy}>
         <View style={styles.formContent}>
+          <Text style={styles.description}>{t('accounts.add.watchOnly.subtitle')}</Text>
           <Field
             label={t('accounts.add.label')}
             value={label}
