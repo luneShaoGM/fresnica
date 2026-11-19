@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { AssetList, PinnedNativeAssetRow } from '../components/AssetList';
 import { projectNativeBalanceBreakdown } from '../../../capabilities/balance/nativeBalanceBreakdown';
 
@@ -45,6 +45,48 @@ it('presents available XLM and reserve separately, falls back honestly, and open
   expect(texts(render())).toContain('12');
   expect(texts(render())).toContain('—');
 });
+it('aligns a mainnet estimate beside Reserved while keeping independent accessibility', () => {
+  const estimate = React.createElement(Text, null, '≈ 3.00 USD');
+  const root = PinnedNativeAssetRow({
+    line: native,
+    breakdown: { available: '10.0000000', reserved: '2.0000000' } as Parameters<
+      typeof PinnedNativeAssetRow
+    >[0]['breakdown'],
+    onOpenAsset: jest.fn(),
+    t: key => key,
+    fiatEstimate: estimate,
+  });
+  expect(root?.type).toBe(View);
+  const [assetRow, metadataRow] = React.Children.toArray(root?.props.children) as React.ReactElement<{
+    children: React.ReactNode;
+  }>[];
+  expect(assetRow.type).toBe(Pressable);
+  expect(metadataRow.type).toBe(View);
+  const [reserveGroup, inlineEstimate] = React.Children.toArray(metadataRow.props.children) as React.ReactElement<{
+    accessibilityLabel?: string;
+    children?: React.ReactNode;
+  }>[];
+  expect(reserveGroup.type).toBe(View);
+  expect(reserveGroup.props.accessibilityLabel).toBe('home.asset.reserved 2.0000000 XLM');
+  expect(inlineEstimate.type).toBe(Text);
+  expect(inlineEstimate.props.children).toBe('≈ 3.00 USD');
+});
+
+it('still shows an available estimate when Reserved is hidden, without a reserve row', () => {
+  const estimate = React.createElement(Text, null, '≈ 3.00 USD');
+  const root = PinnedNativeAssetRow({
+    line: native,
+    onOpenAsset: jest.fn(),
+    t: key => key,
+    showReserve: false,
+    fiatEstimate: estimate,
+  });
+  const children = React.Children.toArray(root?.props.children) as React.ReactElement[];
+  expect(children.map(child => child.type)).toEqual([Pressable, Text]);
+  expect(texts(root)).toContain('≈ 3.00 USD');
+  expect(texts(root)).not.toContain('home.asset.reserved');
+});
+
 jest.mock('../../assets/TokenAssetIcon', () => ({ TokenAssetIcon: () => null }));
 
 function elements(root: React.ReactNode, type: unknown): React.ReactElement<{ children?: React.ReactNode }>[] {

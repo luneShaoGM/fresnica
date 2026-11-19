@@ -65,6 +65,7 @@ type NodeProps = Readonly<{
   description?: string;
   action?: React.ReactNode;
   line?: unknown;
+  fiatEstimate?: React.ReactNode;
   tone?: string;
   label?: string;
   variant?: string;
@@ -329,6 +330,32 @@ describe('Home native balance-state presentation', () => {
     });
     expect(findElement(regions[2], element => element.type === AssetList)).toBeDefined();
     expect(findElement(regions[2], element => element.type === PinnedNativeAssetRow)).toBeUndefined();
+  });
+
+  it('embeds the mainnet XLM quote in the pinned reserve row instead of a separate fixed row', () => {
+    const mainnetAccount = { ...account, networkId: 'stellar-mainnet' };
+    const { root } = renderHome(
+      {
+        kind: 'ready',
+        stale: false,
+        refreshing: false,
+        refreshFailed: false,
+        snapshot: {
+          status: 'active',
+          address: account.address,
+          balances: [{ asset: { kind: 'native', code: 'XLM' }, balance: '10.0000000' }],
+          hiddenLiquidityPoolShareCount: 0,
+        },
+      },
+      mainnetAccount,
+    );
+    const pinned = findElement(root, node => node.type === PinnedNativeAssetRow);
+    const quote = pinned?.props.fiatEstimate;
+    expect(React.isValidElement(quote)).toBe(true);
+    if (!React.isValidElement(quote)) return;
+    expect(quote.type).toBe(NativeFiatEstimate);
+    expect(quote.props).toMatchObject({ amount: '10.0000000', compact: true, currency: 'USD' });
+    expect(findElement(root, node => node.type === NativeFiatEstimate)).toBeUndefined();
   });
 
   it('combines pinned XLM, the brand header and in-place Claimable without swapping the scroll regions', () => {

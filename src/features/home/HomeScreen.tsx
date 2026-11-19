@@ -281,16 +281,18 @@ export function HomeScreen({
               breakdown={safeNativeDetails}
               onOpenAsset={onOpenAsset}
               t={t}
+              fiatEstimate={
+                account.networkId === 'stellar-mainnet' ? (
+                  <NativeFiatEstimate
+                    quotes={xlmQuotes}
+                    amount={safeNativeDetails?.available ?? nativeLine.balance}
+                    currency={displayPreferences?.currency ?? 'USD'}
+                    active={active}
+                    compact
+                  />
+                ) : undefined
+              }
             />
-            {account.networkId === 'stellar-mainnet' ? (
-              <NativeFiatEstimate
-                quotes={xlmQuotes}
-                amount={safeNativeDetails?.available ?? nativeLine.balance}
-                currency={displayPreferences?.currency ?? 'USD'}
-                active={active}
-                compact
-              />
-            ) : null}
           </View>
         ) : null}
         <ScrollView

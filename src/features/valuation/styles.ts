@@ -6,7 +6,8 @@ export function createStyles(theme: AppTheme) {
       ...theme.typography.caption,
       color: theme.colors.textSecondary,
       textAlign: 'right',
-      paddingBottom: theme.spacing.xs,
+      marginLeft: 'auto',
+      flexShrink: 1,
     },
     hint: {
       ...theme.typography.caption,
