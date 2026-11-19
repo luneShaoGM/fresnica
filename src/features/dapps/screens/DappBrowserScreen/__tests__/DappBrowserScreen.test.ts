@@ -113,6 +113,7 @@ const goBack = jest.fn();
 const goForward = jest.fn();
 const reload = jest.fn();
 const navigateClose = jest.fn();
+const onVisit = jest.fn();
 let subscriber: (() => void) | undefined;
 
 function render(
@@ -126,6 +127,7 @@ function render(
     url: 'https://demo.example.org/start',
     active,
     onClose: navigateClose,
+    onVisit,
     currentSelection: () => selection,
     subscribeSelection: callback => {
       subscriber = callback;
@@ -179,6 +181,7 @@ beforeEach(() => {
   goForward.mockClear();
   reload.mockClear();
   navigateClose.mockClear();
+  onVisit.mockClear();
   subscriber = undefined;
   grantKeys.clear();
   permissionEvents.clear();
@@ -187,6 +190,42 @@ beforeEach(() => {
 });
 
 describe('S15 browser product bridge is real but explicitly consent-gated', () => {
+  it('records public document starts, strips private URL parts and ignores callbacks after close', () => {
+    const tree = render();
+    const browser = find(tree, node => node.type === BrowserSurface);
+    expect(onVisit).not.toHaveBeenCalled();
+    browser?.props.shouldLoad?.('https://demo.example.org/start');
+    expect(onVisit).not.toHaveBeenCalled();
+    browser?.props.onDocumentStart?.('about:blank');
+    expect(onVisit).not.toHaveBeenCalled();
+    browser?.props.onDocumentStart?.('https://demo.example.org/start?token=private#private');
+    expect(onVisit).toHaveBeenCalledWith('https://demo.example.org');
+    find(tree, node => node.props.label === 'dapps.browser.close')?.props.onPress?.();
+    browser?.props.onDocumentStart?.('https://late.example.org');
+    expect(onVisit).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes only canonical authority from a React Native pathless document start to Recent', () => {
+    const originalURL = global.URL;
+    global.URL = jest.requireActual<{ URL: typeof URL }>('react-native/Libraries/Blob/URL').URL;
+    try {
+      const browser = find(render(), node => node.type === BrowserSurface);
+      browser?.props.onDocumentStart?.('https://demo.example.org?session=private');
+      expect(onVisit).toHaveBeenCalledWith('https://demo.example.org');
+      expect(JSON.stringify(onVisit.mock.calls)).not.toContain('private');
+    } finally {
+      global.URL = originalURL;
+    }
+  });
+
+  it('ignores document events while backgrounded', () => {
+    const tree = render();
+    const browser = find(tree, node => node.type === BrowserSurface);
+    render(false);
+    browser?.props.onDocumentStart?.('https://demo.example.org/start');
+    expect(onVisit).not.toHaveBeenCalled();
+  });
+
   it('allows any public HTTPS navigation and keeps non-public targets out of the browser', () => {
     const tree = render();
     const webview = find(tree, node => node.type === BrowserSurface);
@@ -646,10 +685,13 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
   });
 
   it('unmounts the WebView and invalidates permission on any App account revision', () => {
-    render();
+    const tree = render();
+    const browser = find(tree, node => node.type === BrowserSurface);
     for (const effect of effects.splice(0)) effect();
     expect(subscriber).toBeDefined();
     subscriber?.();
+    browser?.props.onDocumentStart?.('https://late.example.org');
+    expect(onVisit).not.toHaveBeenCalled();
     const blocked = render();
     expect(find(blocked, node => node.type === BrowserSurface)).toBeUndefined();
     expect(find(blocked, node => node.props.label === 'common.back')).toBeDefined();

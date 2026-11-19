@@ -35,6 +35,7 @@ type Props = Readonly<{
   url: string;
   active: boolean;
   onClose: () => void;
+  onVisit?: (url: string) => void;
   currentSelection: () => DappPublicSelection | undefined;
   subscribeSelection: (listener: () => void) => () => void;
   createNonce: () => string;
@@ -57,6 +58,7 @@ export function DappBrowserScreen({
   url,
   active,
   onClose,
+  onVisit,
   currentSelection,
   subscribeSelection,
   createNonce,
@@ -349,6 +351,7 @@ export function DappBrowserScreen({
     documentEpoch.current += 1;
     documentOrigin.current = target.origin;
     current.session.activateDocument(target.origin);
+    if (currentSession()) onVisit?.(target.origin);
     signGeneration.current += 1;
     setPendingOrigin(undefined);
     setPendingSign(undefined);

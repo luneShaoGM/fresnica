@@ -11,6 +11,7 @@ import { createDappBridgeNonce } from '../../platform/dapp-browser/secureNonce';
 import type { DappPublicSelection } from '../../capabilities/dapp-interaction/freighterSession';
 import type { DappPermissionStore } from '../../capabilities/dapp-interaction/dappPermissionStore';
 import type { DappTransactionSigner } from '../../capabilities/dapp-interaction/dappTransactionSigner';
+import type { DappRecentHistory } from '../../capabilities/dapp-interaction/dappRecentHistory';
 import type { DappCatalogEntry, DappCatalogPort } from '@capabilities/dapp-catalog/catalog';
 import { createCuratedSessionLaunch } from '../../capabilities/dapp-interaction/curatedSessionLaunch';
 import { DAppsScreen } from '@features/dapps/screens/DAppsScreen';
@@ -21,6 +22,7 @@ const Stack = createNativeStackNavigator<DAppsStackParamList>();
 
 export function DAppsStackNavigator({
   catalog,
+  recentHistory,
   openExternalUrl,
   runtime,
   currentSelection,
@@ -29,6 +31,7 @@ export function DAppsStackNavigator({
   permissions,
 }: Readonly<{
   catalog: DappCatalogPort;
+  recentHistory?: DappRecentHistory;
   openExternalUrl: (url: string) => Promise<void>;
   runtime: LedgerReadRuntime;
   currentSelection: () => DappPublicSelection | undefined;
@@ -48,6 +51,7 @@ export function DAppsStackNavigator({
             scannedUrl={route?.params?.scannedUrl}
             clearScannedUrl={() => navigation?.setParams?.({ scannedUrl: undefined })}
             catalog={catalog}
+            recentHistory={recentHistory}
             openExternalUrl={openExternalUrl}
             foreground={reads.foreground}
             online={reads.connectivity !== 'offline'}
@@ -61,6 +65,7 @@ export function DAppsStackNavigator({
           {({ route, navigation }) => (
             <DappBrowserRoute
               url={route.params.url}
+              onVisit={recentHistory?.record}
               currentSelection={currentSelection}
               subscribeSelection={subscribeSelection}
               signTransaction={signTransaction}
@@ -80,6 +85,7 @@ function DAppsRoute({
   scannedUrl,
   clearScannedUrl,
   catalog,
+  recentHistory,
   openExternalUrl,
   foreground,
   online,
@@ -89,6 +95,7 @@ function DAppsRoute({
   scannedUrl?: string;
   clearScannedUrl: () => void;
   catalog: DappCatalogPort;
+  recentHistory?: DappRecentHistory;
   openExternalUrl: (url: string) => Promise<void>;
   foreground: boolean;
   online: boolean;
@@ -102,6 +109,7 @@ function DAppsRoute({
       scannedUrl={scannedUrl}
       clearScannedUrl={clearScannedUrl}
       catalog={catalog}
+      recentHistory={recentHistory}
       openExternalUrl={openExternalUrl}
       openInApp={
         canMountDappWebView()
@@ -138,6 +146,7 @@ function DAppsRoute({
 
 function DappBrowserRoute({
   url,
+  onVisit,
   currentSelection,
   subscribeSelection,
   signTransaction,
@@ -147,6 +156,7 @@ function DappBrowserRoute({
   trustedLaunch,
 }: Readonly<{
   url: string;
+  onVisit?: (url: string) => void;
   currentSelection: () => DappPublicSelection | undefined;
   subscribeSelection: (listener: () => void) => () => void;
   signTransaction: DappTransactionSigner;
@@ -173,6 +183,7 @@ function DappBrowserRoute({
       url={url}
       active={focused && foreground}
       onClose={onClose}
+      onVisit={onVisit}
       currentSelection={currentSelection}
       subscribeSelection={subscribeSelection}
       signTransaction={signTransaction}

@@ -137,6 +137,7 @@ function EmptyNetworkTabs({ accounts, services, onAccountsChanged }: Props) {
             })}
             permissions={services.dappPermissions}
             catalog={services.dappCatalog}
+            recentHistory={services.dappRecent}
             openExternalUrl={services.externalUrl.open}
             runtime={services.ledgerReadRuntime}
           />
@@ -306,6 +307,7 @@ function MainTabsWithSelection({
     () => (
       <DAppsStackNavigator
         catalog={services.dappCatalog}
+        recentHistory={services.dappRecent}
         openExternalUrl={services.externalUrl.open}
         runtime={services.ledgerReadRuntime}
         currentSelection={currentDappSelection}
@@ -316,6 +318,7 @@ function MainTabsWithSelection({
     ),
     [
       services.dappCatalog,
+      services.dappRecent,
       services.externalUrl,
       services.ledgerReadRuntime,
       currentDappSelection,
@@ -395,6 +398,7 @@ function MainTabsWithSelection({
           actionAvailability={actionAvailability}
           actionState={actionState}
           selectedAccountId={effectiveSelectedAccountId}
+          recentHistory={services.dappRecent}
         />
       )}
     >

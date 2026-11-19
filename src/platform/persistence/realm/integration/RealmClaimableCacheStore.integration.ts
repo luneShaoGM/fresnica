@@ -60,7 +60,7 @@ describe('S11 Realm v12 to v13 Claimable public cache migration', () => {
       });
       realm.close();
       realm = await openWalletRealm({ path });
-      expect(realm.schemaVersion).toBe(13);
+      expect(realm.schemaVersion).toBe(14);
       expect(realm.objectForPrimaryKey(ACCOUNT_ENTITY, 'old-account')?.label).toBe('Retained');
       expect(realm.objectForPrimaryKey(PENDING_SUBMISSION_ENTITY, 'pending-old')?.state).toBe('uncertain');
       const cache = new RealmClaimableCacheStore(realm);
