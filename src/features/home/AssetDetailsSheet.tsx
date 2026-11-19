@@ -52,6 +52,8 @@ export function AssetDetailsSheet({
   const { t } = useLocalization();
   const theme = useAppTheme();
   const styles = useThemedStyles(createAssetDetailsSheetStyles);
+  // Android starts nested scrolling only when content exceeds the viewport.
+  const [bodyHeight, setBodyHeight] = useState(0);
   const { state: balanceState, refresh } = useBalanceDisplay(
     account,
     balanceDependencies,
@@ -59,9 +61,7 @@ export function AssetDetailsSheet({
     invalidationRevision,
   );
   const state: ViewState =
-    balanceState.kind === 'ready'
-      ? resolveAssetDetailsSnapshot(balanceState.snapshot, asset)
-      : balanceState;
+    balanceState.kind === 'ready' ? resolveAssetDetailsSnapshot(balanceState.snapshot, asset) : balanceState;
   const [confirmCopy, setConfirmCopy] = useState(false);
   const [copied, setCopied] = useState(false);
   const line = state.kind === 'ready' ? state.line : undefined;
@@ -81,10 +81,14 @@ export function AssetDetailsSheet({
     <SafeAreaView edges={['bottom']} style={styles.sheet} accessibilityViewIsModal onAccessibilityEscape={onClose}>
       <ScrollView
         nestedScrollEnabled
+        onLayout={Platform.OS === 'android' ? event => setBodyHeight(event.nativeEvent.layout.height) : undefined}
         bounces={Platform.OS === 'ios'}
         overScrollMode="never"
         style={styles.body}
-        contentContainerStyle={styles.bodyContent}
+        contentContainerStyle={[
+          styles.bodyContent,
+          Platform.OS === 'android' ? { minHeight: bodyHeight + 1 } : undefined,
+        ]}
         stickyHeaderIndices={[0]}
       >
         <View style={styles.headerContainer}>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ScrollView } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { BalanceAsset } from '../../../capabilities/balance/types';
 import type { AccountRecord } from '../../../capabilities/account/types';
@@ -12,7 +12,7 @@ jest.mock('react', () => {
   const actual = jest.requireActual('react') as typeof import('react');
   return {
     ...actual,
-    useState: (initial: unknown) => [initial, jest.fn()],
+    useState: (initial: unknown) => [typeof initial === 'number' ? mockBodyHeight : initial, jest.fn()],
     useRef: (initial: unknown) => ({ current: initial }),
     useCallback: (callback: unknown) => callback,
     useMemo: (factory: () => unknown) => factory(),
@@ -29,23 +29,27 @@ jest.mock('@ui/theme', () => {
 jest.mock('../../../locale', () => ({
   useLocalization: () => ({ t: (key: string) => key }),
 }));
+let mockBodyHeight = 0;
 let mockBalanceKind = 'ready';
 let mockBalanceAsset: BalanceAsset = { kind: 'native', code: 'XLM' };
 
 jest.mock('../useBalanceDisplay', () => ({
   useBalanceDisplay: () => ({
-    state: mockBalanceKind === 'ready' ? {
-      kind: 'ready',
-      stale: false,
-      refreshing: false,
-      refreshFailed: false,
-      snapshot: {
-        status: 'active',
-        address: 'GACCOUNT',
-        balances: [{ asset: mockBalanceAsset, balance: '10.0000000' }],
-        hiddenLiquidityPoolShareCount: 0,
-      },
-    } : {kind: mockBalanceKind, message: 'fixture read error'},
+    state:
+      mockBalanceKind === 'ready'
+        ? {
+            kind: 'ready',
+            stale: false,
+            refreshing: false,
+            refreshFailed: false,
+            snapshot: {
+              status: 'active',
+              address: 'GACCOUNT',
+              balances: [{ asset: mockBalanceAsset, balance: '10.0000000' }],
+              hiddenLiquidityPoolShareCount: 0,
+            },
+          }
+        : { kind: mockBalanceKind, message: 'fixture read error' },
     refresh: jest.fn(),
   }),
 }));
@@ -79,13 +83,47 @@ function nodes(root: React.ReactNode): React.ReactElement<NodeProps>[] {
 }
 
 describe('native asset sheet content', () => {
-  beforeEach(() => { mockBalanceKind = 'ready'; });
+  beforeEach(() => {
+    mockBalanceKind = 'ready';
+  });
+  it.each(['android', 'ios'] as const)('keeps short content scroll handoff available on %s', os => {
+    const originalOS = Platform.OS;
+    try {
+      Object.defineProperty(Platform, 'OS', { configurable: true, value: os });
+      mockBodyHeight = 480;
+      const result = AssetDetailsSheet({
+        asset: { kind: 'credit', code: 'USDC', issuer: 'GISSUER' },
+        account,
+        balanceDependencies,
+        active: true,
+        invalidationRevision: 0,
+        canSign: false,
+        onClose: jest.fn(),
+        copyPublicText: jest.fn(async () => undefined),
+        onSend: jest.fn(),
+        onRemove: jest.fn(),
+      });
+      const scroll = result.props.children;
+      expect(StyleSheet.flatten(scroll.props.contentContainerStyle).minHeight).toBe(os === 'android' ? 481 : undefined);
+      expect(typeof scroll.props.onLayout).toBe(os === 'android' ? 'function' : 'undefined');
+    } finally {
+      mockBodyHeight = 0;
+      Object.defineProperty(Platform, 'OS', { configurable: true, value: originalOS });
+    }
+  });
   it.each(['loading', 'error'])('retains the first-descendant native scroll container during %s', kind => {
     mockBalanceKind = kind;
     const result = AssetDetailsSheet({
-      asset: {kind:'native',code:'XLM'}, account, balanceDependencies, active:true,
-      invalidationRevision:0, canSign:false, onClose:jest.fn(),
-      copyPublicText:jest.fn(async () => undefined),onSend:jest.fn(),onRemove:jest.fn(),
+      asset: { kind: 'native', code: 'XLM' },
+      account,
+      balanceDependencies,
+      active: true,
+      invalidationRevision: 0,
+      canSign: false,
+      onClose: jest.fn(),
+      copyPublicText: jest.fn(async () => undefined),
+      onSend: jest.fn(),
+      onRemove: jest.fn(),
     });
     expect(result.type).toBe(SafeAreaView);
     expect(result.props.children.type).toBe(ScrollView);
