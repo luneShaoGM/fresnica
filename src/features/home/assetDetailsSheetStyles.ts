@@ -4,7 +4,11 @@ import type { AppTheme } from '../../ui/theme';
 
 export function createAssetDetailsSheetStyles(theme: AppTheme) {
   return StyleSheet.create({
-    sheet: { flex: 1, paddingHorizontal: theme.spacing.lg, gap: theme.spacing.md },
+    sheet: { flex: 1, backgroundColor: theme.colors.surface },
+    headerContainer: { backgroundColor: theme.colors.surface },
+    dragTarget: { alignItems: 'center', justifyContent: 'center', height: 28 },
+    dragHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: theme.colors.border },
+    details: { gap: theme.spacing.md },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -25,7 +29,7 @@ export function createAssetDetailsSheetStyles(theme: AppTheme) {
     closeText: { ...theme.typography.caption, color: theme.colors.textPrimary, fontWeight: '700' },
     explanation: { ...theme.typography.caption, color: theme.colors.textSecondary, textAlign: 'center' },
     body: { flex: 1 },
-    bodyContent: { gap: theme.spacing.md, paddingBottom: theme.spacing.lg },
+    bodyContent: { gap: theme.spacing.md, paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.lg },
     balanceBlock: { alignItems: 'center', gap: theme.spacing.xs, paddingVertical: theme.spacing.md },
     amount: { ...theme.typography.title, color: theme.colors.textPrimary },
     code: { ...theme.typography.label, color: theme.colors.textSecondary },
