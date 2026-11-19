@@ -1,6 +1,7 @@
 import { MarketsScreen } from '@features/markets/MarketsScreen';
 import { NetworkSwitchModal } from '@features/settings/NetworkSwitchModal';
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { AppState } from 'react-native';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -11,6 +12,7 @@ import { useLocalization } from '../../locale';
 import type { AccountRecord } from '@capabilities/account/types';
 import { canContinueRequestToSend } from '../requestDeepLinkRouting';
 import { continueRequestToSendIfCurrent, createRequestRouteFocusLifetime } from './requestContinueRouting';
+import { createRequestScanLifetime } from './requestScanLifetime';
 import { captureSwapCurrentSession, type SwapCurrentSelection } from './swapCurrentSession';
 import { AddAccountScreen } from '@features/accounts/AddAccountScreen';
 import { AddAssetSheet } from '@features/trustlines/AddAssetSheet';
@@ -283,6 +285,7 @@ export function HomeStackNavigator({
             navigation={navigation}
             getCurrentSelection={() => selectionRef.current}
             initialScan={route.params.initialScan === true}
+            getCurrentScanSelection={getCurrentSwapSelection}
             onScannedWebsite={url => {
               if (!navigation.isFocused() || selectionRef.current.selectedAccountId !== route.params.accountId) return;
               const tabs = navigation.getParent() as BottomTabNavigationProp<MainTabParamList> | undefined;
@@ -407,6 +410,7 @@ type RequestRouteProps = Readonly<{
   getCurrentSelection: () => Readonly<{ selectedAccountId: string; accounts: readonly AccountRecord[] }>;
   initialScan?: boolean;
   onScannedWebsite?: (url: string) => void;
+  getCurrentScanSelection: () => SwapCurrentSelection | undefined;
 }>;
 
 function RequestRoute({
@@ -418,6 +422,7 @@ function RequestRoute({
   getCurrentSelection,
   initialScan,
   onScannedWebsite,
+  getCurrentScanSelection,
 }: RequestRouteProps) {
   const focusLifetimeRef = useRef<ReturnType<typeof createRequestRouteFocusLifetime> | undefined>(undefined);
   if (focusLifetimeRef.current === undefined) {
@@ -425,21 +430,60 @@ function RequestRoute({
   }
   const focusLifetime = focusLifetimeRef.current;
 
-  // A blur permanently invalidates attempts from the previous focus epoch,
-  // even when the user returns to this still-mounted Request screen.
+  const focused = useIsFocused();
+  const foreground = useSyncExternalStore(
+    services.ledgerReadRuntime.subscribe,
+    () => services.ledgerReadRuntime.getSnapshot().foreground,
+    () => false,
+  );
+  const scanLifetimeRef = useRef<ReturnType<typeof createRequestScanLifetime> | undefined>(undefined);
+  const [focusReady, setFocusReady] = useState(false);
+
   useFocusEffect(
     useCallback(() => {
       focusLifetime.focus();
-      return () => focusLifetime.blur();
-    }, [focusLifetime]),
+      const scanLifetime = createRequestScanLifetime(services.ledgerReadRuntime, retire => {
+        const subscription = AppState.addEventListener('change', state => {
+          // System permission dialogs may make iOS inactive without backgrounding the scanner.
+          if (state === 'background') retire();
+        });
+        return () => subscription.remove();
+      });
+      scanLifetimeRef.current = scanLifetime;
+      setFocusReady(true);
+      return () => {
+        focusLifetime.blur();
+        scanLifetime.close();
+      };
+    }, [focusLifetime, services.ledgerReadRuntime]),
   );
+  const captureScanSession = useCallback(
+    (source: 'camera' | 'photo') => {
+      const currentFocus = focusLifetime.capture();
+      const isCurrentRoute = captureSwapCurrentSession({
+        account,
+        network: services.request.network,
+        getCurrentSelection: getCurrentScanSelection,
+        isCurrentFocusEpoch: () => currentFocus() && navigation.isFocused(),
+      });
+      return scanLifetimeRef.current?.capture(source, isCurrentRoute) ?? (() => false);
+    },
+    [account, focusLifetime, getCurrentScanSelection, navigation, services.request.network],
+  );
+
+  // Establish the route epoch before the child's initial camera effect runs.
+  if (!focusReady) return null;
 
   return (
     <RequestFlowScreen
       account={account}
       activeAccountId={activeAccountId}
       initialScan={initialScan}
-      onScannedWebsite={onScannedWebsite}
+      foreground={foreground && focused}
+      captureScanSession={captureScanSession}
+      onScannedWebsite={(url, isCurrent) => {
+        scanLifetimeRef.current?.deliverWhenForeground(isCurrent, () => onScannedWebsite?.(url));
+      }}
       dependencies={services.request}
       onDone={() => navigation.popToTop()}
       onContinueSend={async (intent, isCurrent) => {

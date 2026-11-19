@@ -6,6 +6,9 @@ import type { RequestProductDependencies } from '../requestProductFlow';
 import { RequestFlowScreen } from '../RequestFlowScreen';
 import { RequestFormScreen } from '../RequestFormScreen';
 import { RequestIngressScreen } from '../RequestIngressScreen';
+import { createLedgerReadRuntime } from '../../../app/readModels/LedgerReadRuntime';
+import { createRequestScanLifetime } from '../../../app/navigation/requestScanLifetime';
+import { createRequestRouteFocusLifetime } from '../../../app/navigation/requestContinueRouting';
 
 // Keep hook values across explicit renders without adding a component renderer dependency.
 const mockHooks = {
@@ -303,11 +306,21 @@ describe('Actions-origin general QR scan', () => {
     };
     const onScannedWebsite = jest.fn();
     const onDone = jest.fn();
-    const props: React.ComponentProps<typeof RequestFlowScreen> = {
+    const runtime = createLedgerReadRuntime();
+    const focus = createRequestRouteFocusLifetime();
+    focus.focus();
+    let background!: () => void;
+    const lifetime = createRequestScanLifetime(runtime, retire => {
+      background = retire;
+      return () => undefined;
+    });
+    let props: React.ComponentProps<typeof RequestFlowScreen> = {
       account,
       activeAccountId,
       initialScan: true,
-      onScannedWebsite,
+      captureScanSession: source => lifetime.capture(source, focus.capture()),
+      onScannedWebsite: (url, isCurrent) =>
+        lifetime.deliverWhenForeground(isCurrent, () => onScannedWebsite(url, isCurrent)),
       dependencies,
       ScannerView: () => null,
       onDone,
@@ -319,8 +332,25 @@ describe('Actions-origin general QR scan', () => {
       mockHooks.effectIndex = 0;
       return RequestFlowScreen(props);
     };
-    const scan = () => render().props as React.ComponentProps<typeof RequestIngressScreen>;
-    return { scan, render, onScannedWebsite, onDone, checkCameraPermission, dependencies };
+    const scan = () => {
+      props = { ...props, foreground: runtime.getSnapshot().foreground };
+      render();
+      return render().props as React.ComponentProps<typeof RequestIngressScreen>;
+    };
+    return {
+      scan,
+      render,
+      onScannedWebsite,
+      onDone,
+      checkCameraPermission,
+      dependencies,
+      runtime,
+      focus,
+      background: () => {
+        runtime.update({ foreground: false, connectivity: 'unknown' });
+        background();
+      },
+    };
   }
 
   it('starts camera once, routes safe HTTPS through confirmation and closes on cancel', async () => {
@@ -334,7 +364,7 @@ describe('Actions-origin general QR scan', () => {
     oldCameraCode('https://wallet.example.org/path');
     oldCameraCode('https://other.example.org');
     expect(onScannedWebsite).toHaveBeenCalledTimes(1);
-    expect(onScannedWebsite).toHaveBeenCalledWith('https://wallet.example.org/path');
+    expect(onScannedWebsite).toHaveBeenCalledWith('https://wallet.example.org/path', expect.any(Function));
     scan().onClose();
     oldCameraCode('https://late.example.org');
     expect(onScannedWebsite).toHaveBeenCalledTimes(1);
@@ -371,7 +401,96 @@ describe('Actions-origin general QR scan', () => {
     });
     await scan().onPickPhoto();
     expect(onScannedWebsite).toHaveBeenCalledTimes(1);
-    expect(onScannedWebsite).toHaveBeenCalledWith('https://photo.example.org/app');
+    expect(onScannedWebsite).toHaveBeenCalledWith('https://photo.example.org/app', expect.any(Function));
+  });
+
+  it.each(['camera', 'photo'] as const)('blocks sensitive HTTPS from %s before website handoff', async source => {
+    const { scan, render, onScannedWebsite, dependencies } = setup();
+    render();
+    await Promise.resolve();
+    await Promise.resolve();
+    const secret = `S${'A'.repeat(55)}`;
+    for (const url of [
+      `https://wallet.example.org/${secret}`,
+      `https://wallet.example.org/?key=${secret}`,
+      `https://wallet.example.org/?key=%53${secret.slice(1)}`,
+    ]) {
+      if (source === 'camera') scan().onCode(url);
+      else {
+        (dependencies.ingress.pickPaymentQrFromPhotos as jest.Mock).mockResolvedValueOnce({
+          status: 'found',
+          value: url,
+        });
+        await scan().onPickPhoto();
+      }
+      expect(onScannedWebsite).not.toHaveBeenCalled();
+      expect(scan().result?.result).toMatchObject({ status: 'rejected', reason: 'sensitive-input' });
+      expect(JSON.stringify(scan().result)).not.toContain(secret);
+      await scan().onRetry();
+    }
+    scan().onCode('https://wallet.example.org/safe');
+    expect(onScannedWebsite).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects camera callbacks in background and after foreground return until explicit retry', async () => {
+    const f = setup();
+    f.render();
+    await Promise.resolve();
+    await Promise.resolve();
+    const oldCode = f.scan().onCode;
+    f.background();
+    oldCode('https://wallet.example.org/background');
+    f.runtime.update({ foreground: true, connectivity: 'unknown' });
+    oldCode('https://wallet.example.org/late');
+    expect(f.onScannedWebsite).not.toHaveBeenCalled();
+    expect(f.scan().platformError).toBe('camera');
+    expect(f.scan().scannerActive).toBe(false);
+    await f.scan().onRetry();
+    f.scan().onCode('https://wallet.example.org/retry');
+    expect(f.onScannedWebsite).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects old camera and photo callbacks after route blur and refocus', async () => {
+    const f = setup();
+    f.render();
+    await Promise.resolve();
+    await Promise.resolve();
+    let resolvePhoto!: (pick: RequestPhotoQrPick) => void;
+    (f.dependencies.ingress.pickPaymentQrFromPhotos as jest.Mock).mockReturnValueOnce(
+      new Promise<RequestPhotoQrPick>(resolve => {
+        resolvePhoto = resolve;
+      }),
+    );
+    const oldCode = f.scan().onCode;
+    const picking = f.scan().onPickPhoto();
+    f.focus.blur();
+    f.focus.focus();
+    resolvePhoto({ status: 'found', value: 'https://photo.example.org/late' });
+    await picking;
+    oldCode('https://wallet.example.org/late');
+    expect(f.onScannedWebsite).not.toHaveBeenCalled();
+    expect(f.scan().result).toBeUndefined();
+  });
+
+  it.each([false, true])('stages a photo website until foreground and respects cancel=%s', async cancel => {
+    const f = setup();
+    f.render();
+    await Promise.resolve();
+    await Promise.resolve();
+    let resolvePhoto!: (pick: RequestPhotoQrPick) => void;
+    (f.dependencies.ingress.pickPaymentQrFromPhotos as jest.Mock).mockReturnValueOnce(
+      new Promise<RequestPhotoQrPick>(resolve => {
+        resolvePhoto = resolve;
+      }),
+    );
+    const picking = f.scan().onPickPhoto();
+    f.background();
+    resolvePhoto({ status: 'found', value: 'https://photo.example.org/app' });
+    await picking;
+    expect(f.onScannedWebsite).not.toHaveBeenCalled();
+    if (cancel) f.scan().onClose();
+    f.runtime.update({ foreground: true, connectivity: 'unknown' });
+    expect(f.onScannedWebsite).toHaveBeenCalledTimes(cancel ? 0 : 1);
   });
 
   it('reuses payment parsing and refuses dApp handoff after the account changes', async () => {

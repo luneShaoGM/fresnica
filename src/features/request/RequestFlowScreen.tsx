@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { normalizeUntrustedDappUrl } from '@capabilities/dapp-interaction/externalDappUrl';
 
 import type { AccountRecord } from '../../capabilities/account/types';
 import type { StellarPaymentAsset, StellarPaymentMemo } from '../../capabilities/stellar/types';
@@ -14,6 +13,7 @@ import {
   type RequestProductDependencies,
 } from './requestProductFlow';
 import {
+  classifyGeneralRequestScan,
   createRequestScanFrameGate,
   parseRequestIngress,
   resolveRequestCameraAccess,
@@ -37,7 +37,9 @@ type Props = Readonly<{
   ScannerView: RequestScannerViewComponent;
   onDone: () => void;
   initialScan?: boolean;
-  onScannedWebsite?: (url: string) => void;
+  foreground?: boolean;
+  onScannedWebsite?: (url: string, isCurrent: () => boolean) => void;
+  captureScanSession?: (source: 'camera' | 'photo') => () => boolean;
   onContinueSend: (intent: RequestPaymentIntent, isCurrent: () => boolean) => Promise<void>;
 }>;
 
@@ -49,7 +51,9 @@ export function RequestFlowScreen({
   onDone,
   onContinueSend,
   initialScan = false,
+  foreground = true,
   onScannedWebsite,
+  captureScanSession,
 }: Props) {
   const { t } = useLocalization();
   const [assets, setAssets] = useState<readonly StellarPaymentAsset[]>([NATIVE_ASSET]);
@@ -78,6 +82,7 @@ export function RequestFlowScreen({
   const photoPickTicket = useRef(0);
   const ingressSession = useRef(0);
   const initialScanStarted = useRef(false);
+  const cameraSession = useRef<() => boolean>(() => false);
 
   useEffect(() => {
     return () => {
@@ -205,6 +210,7 @@ export function RequestFlowScreen({
   };
 
   const beginScanIngress = useCallback(async () => {
+    cameraSession.current = captureScanSession?.('camera') ?? (() => !initialScan);
     const session = ingressSession.current + 1;
     ingressSession.current = session;
     setIngressCarrier('scan');
@@ -224,12 +230,50 @@ export function RequestFlowScreen({
       if (ingressSession.current !== session) return;
       setIngressPermission('error');
     }
-  }, [dependencies.ingress]);
+  }, [captureScanSession, dependencies.ingress, initialScan]);
+
+  const cameraCurrent = cameraSession.current();
+  useEffect(() => {
+    if (
+      foreground &&
+      ingressCarrier === 'scan' &&
+      ingressPermission === 'granted' &&
+      !photoBusy &&
+      !cameraCurrent &&
+      ingressResult === undefined &&
+      ingressPlatformError === undefined
+    ) {
+      setIngressPlatformError('camera');
+      setTorchEnabled(false);
+    }
+  }, [foreground, cameraCurrent, ingressCarrier, ingressPermission, photoBusy, ingressResult, ingressPlatformError]);
+
+  const acceptScanInput = (rawInput: string, isCurrentRoute: () => boolean) => {
+    if (!isCurrentRoute() || account.id !== activeAccountId) return;
+    if (initialScan && onScannedWebsite) {
+      const classified = classifyGeneralRequestScan(
+        {
+          currentNetwork: dependencies.network,
+          isClassicAccountAddress: address => dependencies.gateway.isClassicAccountAddress(address),
+        },
+        rawInput,
+      );
+      if (classified.kind === 'website') {
+        const session = ++ingressSession.current;
+        onScannedWebsite(classified.url, () => ingressSession.current === session && isCurrentRoute());
+      } else {
+        setIngressResult(classified.ingress);
+      }
+      return;
+    }
+    setIngressResult(parseIngress('scan', rawInput));
+  };
 
   const scanSession = ingressSession.current;
   const handleScanCode = (rawInput: string) => {
     if (
       ingressSession.current !== scanSession ||
+      !cameraSession.current() ||
       ingressCarrier !== 'scan' ||
       ingressPermission !== 'granted' ||
       ingressResult !== undefined ||
@@ -239,26 +283,18 @@ export function RequestFlowScreen({
       !scanFrameGate.current.accept()
     )
       return;
-    if (initialScan && onScannedWebsite && account.id === activeAccountId && /^https:\/\//i.test(rawInput.trim())) {
-      try {
-        const url = normalizeUntrustedDappUrl(rawInput);
-        ingressSession.current += 1;
-        onScannedWebsite(url.url);
-        return;
-      } catch {
-        // Not a safe public website; continue through strict payment ingress.
-      }
-    }
-    setIngressResult(parseIngress('scan', rawInput));
+    acceptScanInput(rawInput, cameraSession.current);
   };
 
   const handleScannerError = () => {
-    if (!scanFrameGate.current.accept()) return;
+    if (ingressSession.current !== scanSession || !cameraSession.current() || !scanFrameGate.current.accept()) return;
     setIngressPlatformError('camera');
   };
 
   const pickPhoto = async () => {
     if (photoPickGate.current || ingressCarrier !== 'scan') return;
+    const isCurrentPhoto = captureScanSession?.('photo') ?? (() => !initialScan);
+    if (!isCurrentPhoto()) return;
     const session = ingressSession.current;
     const ticket = photoPickTicket.current + 1;
     photoPickTicket.current = ticket;
@@ -266,7 +302,7 @@ export function RequestFlowScreen({
     setPhotoBusy(true);
     try {
       const picked = await dependencies.ingress.pickPaymentQrFromPhotos();
-      if (photoPickTicket.current !== ticket || ingressSession.current !== session) return;
+      if (photoPickTicket.current !== ticket || ingressSession.current !== session || !isCurrentPhoto()) return;
       if (picked.status === 'cancelled') return;
       scanFrameGate.current.reset();
       scanFrameGate.current.accept();
@@ -275,24 +311,9 @@ export function RequestFlowScreen({
         return;
       }
       setIngressPlatformError(undefined);
-      if (
-        initialScan &&
-        onScannedWebsite &&
-        account.id === activeAccountId &&
-        /^https:\/\//i.test(picked.value.trim())
-      ) {
-        try {
-          const url = normalizeUntrustedDappUrl(picked.value);
-          ingressSession.current += 1;
-          onScannedWebsite(url.url);
-          return;
-        } catch {
-          // An unsafe website remains a rejected QR result.
-        }
-      }
-      setIngressResult(parseIngress('scan', picked.value));
+      acceptScanInput(picked.value, isCurrentPhoto);
     } catch {
-      if (photoPickTicket.current !== ticket || ingressSession.current !== session) return;
+      if (photoPickTicket.current !== ticket || ingressSession.current !== session || !isCurrentPhoto()) return;
       scanFrameGate.current.reset();
       scanFrameGate.current.accept();
       setIngressPlatformError('photo');
@@ -370,6 +391,8 @@ export function RequestFlowScreen({
         platformError={ingressPlatformError}
         result={ingressResult}
         scannerActive={
+          foreground &&
+          cameraCurrent &&
           ingressCarrier === 'scan' &&
           ingressPermission === 'granted' &&
           ingressResult === undefined &&
