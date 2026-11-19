@@ -158,6 +158,29 @@ function renderHome(
 }
 
 describe('Home native balance-state presentation', () => {
+  it.each([
+    { accountKindLabel: 'Classic account', isReadOnly: false },
+    { accountKindLabel: 'Read-only classic account', isReadOnly: true },
+    { accountKindLabel: 'Contract account', isReadOnly: true },
+  ])('announces $accountKindLabel on the account switch button', status => {
+    const onOpenAccountPicker = jest.fn();
+    const root = AccountSummary({
+      label: 'Account A',
+      maskedAddress: 'GACC...NT-A',
+      accountCount: 1,
+      onOpenAccountPicker,
+      onAddAccount: jest.fn(),
+      ...status,
+    });
+    const button = findElement(root, node => node.type === Pressable);
+    expect(button?.props).toMatchObject({
+      accessibilityRole: 'button',
+      accessibilityLabel: `Current account Account A, ${status.accountKindLabel}`,
+    });
+    button?.props.onPress?.();
+    expect(onOpenAccountPicker).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps read-only status inside the account card and leaves bottom safe-area inset to the tab bar', () => {
     const { root } = renderHome({ kind: 'loading' }, { ...account, identityKind: 'contract' });
     expect(root.props.safeAreaEdges).toEqual(['top', 'right', 'left']);

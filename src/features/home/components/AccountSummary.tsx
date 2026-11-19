@@ -29,7 +29,7 @@ export function AccountSummary({
     <>
       <Pressable
         accessibilityHint="Switch to another configured account"
-        accessibilityLabel={`Current account ${label}`}
+        accessibilityLabel={`Current account ${label}, ${accountKindLabel}`}
         accessibilityRole="button"
         onPress={onOpenAccountPicker}
         style={({ pressed }) => [styles.accountSwitchContainer, pressed ? styles.pressed : undefined]}
