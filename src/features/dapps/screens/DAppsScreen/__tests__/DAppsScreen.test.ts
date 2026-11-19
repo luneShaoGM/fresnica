@@ -828,7 +828,7 @@ describe('S15 untrusted URL risk confirmation and shared Recent', () => {
     expect(history.getSnapshot().unavailable).toBe(false);
   });
 
-  it('shows shared history offline on remount and reopens only after explicit confirmation', async () => {
+  it('shows shared history offline and reopens only after explicit confirmation', async () => {
     history.record('https://visited.example.org/path?token=private');
     const initial = elements(await renderCatalog(catalog, false, true, false));
     initial.filter(node => node.props.accessibilityState?.selected !== undefined)[1]?.props.onPress?.();

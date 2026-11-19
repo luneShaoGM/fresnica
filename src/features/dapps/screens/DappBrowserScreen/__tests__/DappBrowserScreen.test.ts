@@ -205,7 +205,7 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     expect(onVisit).toHaveBeenCalledTimes(1);
   });
 
-  it('ignores document events while backgrounded or after selection retirement', () => {
+  it('ignores document events while backgrounded', () => {
     const tree = render();
     const browser = find(tree, node => node.type === BrowserSurface);
     render(false);
@@ -672,10 +672,13 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
   });
 
   it('unmounts the WebView and invalidates permission on any App account revision', () => {
-    render();
+    const tree = render();
+    const browser = find(tree, node => node.type === BrowserSurface);
     for (const effect of effects.splice(0)) effect();
     expect(subscriber).toBeDefined();
     subscriber?.();
+    browser?.props.onDocumentStart?.('https://late.example.org');
+    expect(onVisit).not.toHaveBeenCalled();
     const blocked = render();
     expect(find(blocked, node => node.type === BrowserSurface)).toBeUndefined();
     expect(find(blocked, node => node.props.label === 'common.back')).toBeDefined();
