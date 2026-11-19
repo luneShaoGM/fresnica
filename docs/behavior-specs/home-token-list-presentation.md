@@ -91,3 +91,17 @@ independently written with no donor implementation or new architecture scope.
   Detail sheets keep their existing timestamp and Retry presentation.
 - Repository layout/behavior checks are distinct from Android/iOS native visual,
   large-text and screen-reader acceptance; native acceptance is not claimed.
+
+## Mainnet estimate alignment — 2026-11-19
+
+This S05 Home-only visual adjustment places the existing compact mainnet XLM
+fiat estimate on the right side of the pinned XLM Reserved metadata row, rather
+than reserving a second row below it. The reserve amount remains independently
+accessible and the estimate retains its own readable text. On narrow screens or
+large text, the two pieces may wrap instead of overlapping or truncating the
+estimate. If reserve display is disabled, an available estimate still appears
+on its own, right-aligned; an unavailable quote leaves no empty estimate line.
+
+This does not change quote fetching, balance/available/reserved semantics,
+network gating, currency selection, or signing authority. Native layout and
+screen-reader acceptance remain separate from automated tests.

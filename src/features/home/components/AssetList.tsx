@@ -111,6 +111,7 @@ export function PinnedNativeAssetRow({
   formatAmount = formatHomeAmount,
   onOpenAsset,
   t,
+  fiatEstimate,
 }: Readonly<{
   line: BalanceLine;
   breakdown?: NativeBalanceBreakdown;
@@ -118,6 +119,7 @@ export function PinnedNativeAssetRow({
   formatAmount?: (value: string) => string;
   onOpenAsset: (asset: BalanceLine['asset']) => void;
   t: (key: string) => string;
+  fiatEstimate?: React.ReactNode;
 }>) {
   const styles = useThemedStyles(createStyles);
   const theme = useAppTheme();
@@ -162,23 +164,28 @@ export function PinnedNativeAssetRow({
         </View>
       </Pressable>
       {showReserve ? (
-        <View
-          accessible
-          accessibilityLabel={`${t('home.asset.reserved')} ${breakdown?.reserved ?? '—'} XLM`}
-          style={styles.nativeBreakdownRow}
-        >
-          <View style={styles.nativeReserveLock}>
-            <SmallLock color={theme.colors.textSecondary} />
+        <View style={styles.nativeBreakdownRow}>
+          <View
+            accessible
+            accessibilityLabel={`${t('home.asset.reserved')} ${breakdown?.reserved ?? '—'} XLM`}
+            style={styles.nativeReserveGroup}
+          >
+            <View style={styles.nativeReserveLock}>
+              <SmallLock color={theme.colors.textSecondary} />
+            </View>
+            <Text style={styles.nativeBreakdownText}>{t('home.asset.reserved')}</Text>
+            <View style={styles.nativeReserveAmount}>
+              <Image accessible={false} source={xlmSymbol} resizeMode="contain" style={styles.nativeReserveSymbol} />
+              <Text numberOfLines={largeText ? undefined : 1} ellipsizeMode="tail" style={styles.nativeBreakdownValue}>
+                {breakdown ? formatAmount(breakdown.reserved) : '—'}
+              </Text>
+            </View>
           </View>
-          <Text style={styles.nativeBreakdownText}>{t('home.asset.reserved')}</Text>
-          <View style={styles.nativeReserveAmount}>
-            <Image accessible={false} source={xlmSymbol} resizeMode="contain" style={styles.nativeReserveSymbol} />
-            <Text numberOfLines={largeText ? undefined : 1} ellipsizeMode="tail" style={styles.nativeBreakdownValue}>
-              {breakdown ? formatAmount(breakdown.reserved) : '—'}
-            </Text>
-          </View>
+          {fiatEstimate}
         </View>
-      ) : null}
+      ) : (
+        fiatEstimate
+      )}
     </View>
   );
 }

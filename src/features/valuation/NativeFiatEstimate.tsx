@@ -56,6 +56,7 @@ export function NativeFiatEstimate({
     quote?.currency === currency && Date.now() - quote.updatedAt <= 300_000
       ? estimateFiat(amount, quote.rate)
       : undefined;
+  if (compact && estimate === undefined) return null;
   return (
     <Text style={compact ? styles.compactHint : styles.hint}>
       {estimate !== undefined && quote
