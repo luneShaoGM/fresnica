@@ -206,6 +206,30 @@ describe('DAppsScreen native field and retry', () => {
     resetHarness();
   });
 
+  it('scanned HTTPS opens only the untrusted URL confirmation, not the wallet browser', async () => {
+    openExternalUrl.mockClear();
+    const catalog: DappCatalogPort = { load: jest.fn().mockResolvedValue({ kind: 'unavailable' }) };
+    const clearScannedUrl = jest.fn();
+    const props = {
+      catalog,
+      showInterfaceSample: false,
+      openExternalUrl,
+      scannedUrl: 'https://wallet.example.org/page',
+      clearScannedUrl,
+    };
+    beginRender();
+    DAppsScreen(props);
+    await settle();
+    expect(clearScannedUrl).toHaveBeenCalledTimes(1);
+    beginRender();
+    const nodes = elements(DAppsScreen({ ...props, scannedUrl: undefined }));
+    expect(nodes.some(node => node.props.label === 'dapps.website.confirm')).toBe(true);
+    expect(nodes.some(node => node.props.children === 'https://wallet.example.org/page')).toBe(true);
+    expect(openExternalUrl).not.toHaveBeenCalled();
+    nodes.find(node => node.props.label === 'dapps.website.cancel')?.props.onPress?.();
+    expect(openExternalUrl).not.toHaveBeenCalled();
+  });
+
   it('shows the unconfigured catalog without a search field', async () => {
     const catalog: DappCatalogPort = { load: jest.fn().mockResolvedValue({ kind: 'unavailable' }) };
     const tree = await renderCatalog(catalog);
@@ -364,9 +388,7 @@ describe('DAppsScreen native field and retry', () => {
     beginRender();
     const opened = DAppsScreen({ catalog, openExternalUrl });
     const nodes = elements(opened);
-    expect(nodes.some(node => node.props.closeLabel === 'common.close' && node.props.visible === true)).toBe(
-      true,
-    );
+    expect(nodes.some(node => node.props.closeLabel === 'common.close' && node.props.visible === true)).toBe(true);
     expect(openExternalUrl).not.toHaveBeenCalled();
     expect(media.setIconsEnabled).not.toHaveBeenCalled();
     await settle();

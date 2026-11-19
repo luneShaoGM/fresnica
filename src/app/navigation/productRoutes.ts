@@ -55,7 +55,7 @@ export type ProductRouteParams = Readonly<{
   // transaction data must not be transported as navigation parameters.
   'send-review': undefined;
   'send-result': undefined;
-  request: Readonly<{ accountId: string }>;
+  request: Readonly<{ accountId: string; initialScan?: boolean }>;
   swap: Readonly<{ accountId: string }>;
   'manage-assets': Readonly<{
     accountId: string;

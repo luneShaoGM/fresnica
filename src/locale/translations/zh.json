@@ -12,6 +12,8 @@
   "nav.actionsClose": "关闭",
   "nav.actionsDragClose": "向下拖动关闭操作面板",
   "nav.quickActions": "快捷操作",
+  "actions.scan": "扫描二维码",
+  "actions.scanPurpose": "扫描 Stellar 地址、付款二维码或 HTTPS dApp 网站链接",
   "nav.send": "发送",
   "nav.swap": "兑换",
   "nav.request": "收款",

@@ -12,6 +12,8 @@
   "nav.actionsClose": "Close",
   "nav.actionsDragClose": "Drag down to close Actions",
   "nav.quickActions": "Quick actions",
+  "actions.scan": "Scan QR code",
+  "actions.scanPurpose": "Scan a Stellar address, payment QR or HTTPS dApp website",
   "nav.send": "Send",
   "nav.swap": "Swap",
   "nav.request": "Request",

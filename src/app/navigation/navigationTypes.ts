@@ -28,7 +28,7 @@ export type ActivityStackParamList = {
 };
 
 export type DAppsStackParamList = {
-  dapps: ProductRouteParams['dapps'];
+  dapps: { scannedUrl?: string } | undefined;
   'dapp-browser': { url: string };
 };
 

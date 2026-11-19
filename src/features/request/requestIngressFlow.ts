@@ -1,6 +1,7 @@
 import type { NetworkContext } from '../../capabilities/network/types';
 import type { RequestCameraPermissionState, RequestIngressPort } from '../../capabilities/request/RequestIngressPort';
 import { parseRequestInput, type RequestParseResult } from '../../capabilities/request/requestUri';
+import { normalizeUntrustedDappUrl } from '@capabilities/dapp-interaction/externalDappUrl';
 
 export type RequestIngressCarrier = 'paste' | 'scan';
 
@@ -41,6 +42,34 @@ export function parseRequestIngress(
       category: result.diagnostics.category,
     }),
   });
+}
+
+export function classifyGeneralRequestScan(dependencies: RequestIngressParseDependencies, rawInput: string) {
+  const ingress = parseRequestIngress(dependencies, 'scan', rawInput);
+  if (ingress.result.status === 'rejected' && ingress.result.reason === 'sensitive-input') {
+    return { kind: 'request', ingress } as const;
+  }
+  if (/^https:\/\//i.test(rawInput.trim())) {
+    try {
+      const decoded = parseRequestIngress(dependencies, 'scan', decodeURIComponent(rawInput));
+      if (decoded.result.status === 'rejected' && decoded.result.reason === 'sensitive-input') {
+        return { kind: 'request', ingress: decoded } as const;
+      }
+      const url = normalizeUntrustedDappUrl(rawInput).url;
+      // URL syntax masks word-only mnemonic detection; screen each decoded field separately.
+      for (const value of new URL(url).searchParams.values()) {
+        // RN 0.87 yields undefined for flags such as ?preview; keep screening later fields.
+        const field = parseRequestIngress(dependencies, 'scan', value ?? '');
+        if (field.result.status === 'rejected' && field.result.reason === 'sensitive-input') {
+          return { kind: 'request', ingress: field } as const;
+        }
+      }
+      return { kind: 'website', url } as const;
+    } catch {
+      // Unsafe URLs retain the strict Request rejection without retaining raw input.
+    }
+  }
+  return { kind: 'request', ingress } as const;
 }
 
 export async function resolveRequestCameraAccess(
