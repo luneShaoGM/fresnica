@@ -1,8 +1,7 @@
 import React from 'react';
-import { Pressable, ScrollView } from 'react-native';
-import { GestureDetector } from 'react-native-gesture-handler';
+import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { BalanceAsset } from '../../../capabilities/balance/types';
-import { AppModal } from '@ui/components';
 import type { AccountRecord } from '../../../capabilities/account/types';
 import type { BalanceProductDependencies } from '../../../capabilities/balance/BalanceCacheHydration';
 import { InMemoryBalanceCacheRepository } from '../../../platform/persistence/memory/InMemoryBalanceCacheRepository';
@@ -13,7 +12,7 @@ jest.mock('react', () => {
   const actual = jest.requireActual('react') as typeof import('react');
   return {
     ...actual,
-    useState: (initial: unknown) => [initial, jest.fn()],
+    useState: (initial: unknown) => [typeof initial === 'number' ? mockBodyHeight : initial, jest.fn()],
     useRef: (initial: unknown) => ({ current: initial }),
     useCallback: (callback: unknown) => callback,
     useMemo: (factory: () => unknown) => factory(),
@@ -30,22 +29,27 @@ jest.mock('@ui/theme', () => {
 jest.mock('../../../locale', () => ({
   useLocalization: () => ({ t: (key: string) => key }),
 }));
+let mockBodyHeight = 0;
+let mockBalanceKind = 'ready';
 let mockBalanceAsset: BalanceAsset = { kind: 'native', code: 'XLM' };
 
 jest.mock('../useBalanceDisplay', () => ({
   useBalanceDisplay: () => ({
-    state: {
-      kind: 'ready',
-      stale: false,
-      refreshing: false,
-      refreshFailed: false,
-      snapshot: {
-        status: 'active',
-        address: 'GACCOUNT',
-        balances: [{ asset: mockBalanceAsset, balance: '10.0000000' }],
-        hiddenLiquidityPoolShareCount: 0,
-      },
-    },
+    state:
+      mockBalanceKind === 'ready'
+        ? {
+            kind: 'ready',
+            stale: false,
+            refreshing: false,
+            refreshFailed: false,
+            snapshot: {
+              status: 'active',
+              address: 'GACCOUNT',
+              balances: [{ asset: mockBalanceAsset, balance: '10.0000000' }],
+              hiddenLiquidityPoolShareCount: 0,
+            },
+          }
+        : { kind: mockBalanceKind, message: 'fixture read error' },
     refresh: jest.fn(),
   }),
 }));
@@ -72,63 +76,66 @@ const balanceDependencies: BalanceProductDependencies = {
   now: () => new Date(0),
 };
 
-describe('XLM details shared swipeable modal', () => {
-  beforeEach(() => {
-    mockBalanceAsset = { kind: 'native', code: 'XLM' };
-  });
+type NodeProps = { children?: React.ReactNode; onPress?: () => void; nestedScrollEnabled?: boolean };
+function nodes(root: React.ReactNode): React.ReactElement<NodeProps>[] {
+  if (!React.isValidElement<NodeProps>(root)) return [];
+  return [root, ...React.Children.toArray(root.props.children).flatMap(nodes)];
+}
 
-  it('uses the network sheet AppModal with swipe/backdrop close and retains XLM body', () => {
-    const onClose = jest.fn();
+describe('native asset sheet content', () => {
+  beforeEach(() => {
+    mockBalanceKind = 'ready';
+  });
+  it.each(['android', 'ios'] as const)('keeps short content scroll handoff available on %s', os => {
+    const originalOS = Platform.OS;
+    try {
+      Object.defineProperty(Platform, 'OS', { configurable: true, value: os });
+      mockBodyHeight = 480;
+      const result = AssetDetailsSheet({
+        asset: { kind: 'credit', code: 'USDC', issuer: 'GISSUER' },
+        account,
+        balanceDependencies,
+        active: true,
+        invalidationRevision: 0,
+        canSign: false,
+        onClose: jest.fn(),
+        copyPublicText: jest.fn(async () => undefined),
+        onSend: jest.fn(),
+        onRemove: jest.fn(),
+      });
+      const scroll = result.props.children;
+      expect(StyleSheet.flatten(scroll.props.contentContainerStyle).minHeight).toBe(os === 'android' ? 481 : undefined);
+      expect(typeof scroll.props.onLayout).toBe(os === 'android' ? 'function' : 'undefined');
+    } finally {
+      mockBodyHeight = 0;
+      Object.defineProperty(Platform, 'OS', { configurable: true, value: originalOS });
+    }
+  });
+  it.each(['loading', 'error'])('retains the first-descendant native scroll container during %s', kind => {
+    mockBalanceKind = kind;
     const result = AssetDetailsSheet({
-      visible: true,
       asset: { kind: 'native', code: 'XLM' },
       account,
       balanceDependencies,
       active: true,
       invalidationRevision: 0,
       canSign: false,
-      onClose,
+      onClose: jest.fn(),
       copyPublicText: jest.fn(async () => undefined),
       onSend: jest.fn(),
       onRemove: jest.fn(),
     });
-    expect(result.type).toBe(AppModal);
-    expect(result.props).toMatchObject({
-      visible: true,
-      presentation: 'sheet',
-      swipeToDismiss: true,
-    });
-    result.props.onRequestClose();
-    expect(onClose).toHaveBeenCalledTimes(1);
-    expect(React.Children.count(result.props.children)).toBe(1);
-    const header = result.props.swipeHeader;
-    const headerChildren = React.isValidElement<{ children?: React.ReactNode }>(header)
-      ? React.Children.toArray(header.props.children)
-      : [];
-    expect(headerChildren.some(child => React.isValidElement(child) && child.type === Pressable)).toBe(true);
-    expect(result.props.scrollContentAtTop?.()).toBe(true);
-    expect(result.props.nativeScrollGesture).toBeDefined();
-
-    const sheetBody = result.props.children as React.ReactElement<{ children: React.ReactNode }>;
-    const content = React.Children.toArray(sheetBody.props.children);
-    const scrollContent = content.find(
-      node => React.isValidElement<{ onScroll?: unknown }>(node) && typeof node.props.onScroll === 'function',
-    );
-    if (!React.isValidElement<{ onScroll: (event: unknown) => void }>(scrollContent)) {
-      throw new Error('Expected native asset scroll body');
-    }
-    scrollContent.props.onScroll({ nativeEvent: { contentOffset: { y: 70 } } });
-    expect(result.props.scrollContentAtTop?.()).toBe(false);
-    scrollContent.props.onScroll({ nativeEvent: { contentOffset: { y: 0 } } });
-    expect(result.props.scrollContentAtTop?.()).toBe(true);
+    expect(result.type).toBe(SafeAreaView);
+    expect(result.props.children.type).toBe(ScrollView);
+    expect(result.props.children.props.nestedScrollEnabled).toBe(true);
   });
-
-  it('forwards issued-asset scrolling to the same top-only dismissal gate', () => {
-    const asset = { kind: 'credit' as const, code: 'USDC', issuer: 'GISSUER' };
+  it.each([
+    { kind: 'native' as const, code: 'XLM' as const },
+    { kind: 'credit' as const, code: 'USDC', issuer: 'GISSUER' },
+  ])('keeps one nested ScrollView mounted around the $code content and Close control', asset => {
     mockBalanceAsset = asset;
     const onClose = jest.fn();
     const result = AssetDetailsSheet({
-      visible: true,
       asset,
       account,
       balanceDependencies,
@@ -140,32 +147,19 @@ describe('XLM details shared swipeable modal', () => {
       onSend: jest.fn(),
       onRemove: jest.fn(),
     });
-    const sheet = result.props.children as React.ReactElement<{ children: React.ReactNode }>;
-    const issuedBody = React.Children.toArray(sheet.props.children).find(
-      child => React.isValidElement<{ onScroll?: unknown }>(child) && typeof child.props.onScroll === 'function',
-    );
-    if (
-      !React.isValidElement<{ onScroll: (event: unknown) => void }>(issuedBody) ||
-      typeof issuedBody.type !== 'function'
-    ) {
-      throw new Error('Expected issued-asset scroll body');
-    }
-    const renderIssuedBody = issuedBody.type as (props: { onScroll: (event: unknown) => void }) => React.ReactElement<{
-      gesture: unknown;
-      children: React.ReactElement<{ onScroll: unknown; scrollEventThrottle: number }>;
-    }>;
-    const scrollWrapper = renderIssuedBody(issuedBody.props);
-    expect(scrollWrapper.type).toBe(GestureDetector);
-    expect(scrollWrapper.props.gesture).toBe(result.props.nativeScrollGesture);
-    const scrollView = scrollWrapper.props.children;
-    expect(scrollView.type).toBe(ScrollView);
-    expect(scrollView.props.onScroll).toBe(issuedBody.props.onScroll);
-    expect(scrollView.props.scrollEventThrottle).toBe(16);
-
-    issuedBody.props.onScroll({ nativeEvent: { contentOffset: { y: 90 } } });
-    expect(result.props.scrollContentAtTop?.()).toBe(false);
-    issuedBody.props.onScroll({ nativeEvent: { contentOffset: { y: 0 } } });
-    expect(result.props.scrollContentAtTop?.()).toBe(true);
-    expect(onClose).not.toHaveBeenCalled();
+    expect(result.type).toBe(SafeAreaView);
+    const scroll = result.props.children;
+    expect(scroll.type).toBe(ScrollView);
+    expect(scroll.props.nestedScrollEnabled).toBe(true);
+    expect(scroll.props.stickyHeaderIndices).toEqual([0]);
+    const header = React.Children.toArray(scroll.props.children)[0];
+    nodes(header)
+      .find(node => node.type === Pressable)
+      ?.props.onPress?.();
+    expect(onClose).toHaveBeenCalledTimes(1);
+    const body = React.Children.toArray(scroll.props.children).at(-1) as React.ReactElement;
+    const renderBody = body.type as (props: unknown) => React.ReactElement;
+    expect(nodes(renderBody(body.props)).some(node => node.type === ScrollView)).toBe(false);
+    expect(result.props.onAccessibilityEscape).toBe(onClose);
   });
 });

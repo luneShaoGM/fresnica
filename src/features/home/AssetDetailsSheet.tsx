@@ -1,17 +1,7 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-
-import { AppModal } from '@ui/components';
 import { useAppTheme, useThemedStyles } from '@ui/theme';
 
 import type { AccountRecord } from '../../capabilities/account/types';
@@ -32,8 +22,7 @@ import {
 import { createAssetDetailsSheetStyles } from './assetDetailsSheetStyles';
 
 type Props = Readonly<{
-  visible: boolean;
-  asset?: BalanceAsset;
+  asset: BalanceAsset;
   account: AccountRecord;
   balanceDependencies: BalanceProductDependencies;
   active: boolean;
@@ -49,7 +38,6 @@ type ViewState =
   Readonly<{ kind: 'loading' }> | Readonly<{ kind: 'error'; message: string }> | AssetDetailsSnapshotState;
 
 export function AssetDetailsSheet({
-  visible,
   asset,
   account,
   balanceDependencies,
@@ -64,29 +52,21 @@ export function AssetDetailsSheet({
   const { t } = useLocalization();
   const theme = useAppTheme();
   const styles = useThemedStyles(createAssetDetailsSheetStyles);
+  // Android starts nested scrolling only when content exceeds the viewport.
+  const [bodyHeight, setBodyHeight] = useState(0);
   const { state: balanceState, refresh } = useBalanceDisplay(
     account,
     balanceDependencies,
-    visible && active,
+    active,
     invalidationRevision,
   );
   const state: ViewState =
-    balanceState.kind === 'ready'
-      ? asset
-        ? resolveAssetDetailsSnapshot(balanceState.snapshot, asset)
-        : { kind: 'missing' }
-      : balanceState;
+    balanceState.kind === 'ready' ? resolveAssetDetailsSnapshot(balanceState.snapshot, asset) : balanceState;
   const [confirmCopy, setConfirmCopy] = useState(false);
   const [copied, setCopied] = useState(false);
-  const scrollOffsetY = useRef(0);
-  const nativeScrollGesture = useMemo(() => Gesture.Native().shouldCancelWhenOutside(false), []);
-  const onBodyScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    scrollOffsetY.current = Math.max(0, event.nativeEvent.contentOffset.y);
-  }, []);
-  const scrollContentAtTop = useCallback(() => scrollOffsetY.current <= 1, []);
   const line = state.kind === 'ready' ? state.line : undefined;
   const actionable = active && balanceState.kind === 'ready' && !balanceState.stale && !balanceState.refreshing;
-  const nativeReady = actionable && visible && asset?.kind === 'native' && !!line;
+  const nativeReady = actionable && asset.kind === 'native' && !!line;
   const nativeDetails = useNativeBalanceBreakdown(
     account,
     balanceDependencies,
@@ -95,33 +75,42 @@ export function AssetDetailsSheet({
     balanceState.kind === 'ready' ? balanceState.lastSuccessfulUpdateAt?.getTime() : undefined,
   );
   const safeNativeDetails =
-    line && asset?.kind === 'native' ? matchingNativeBalance(nativeDetails, line.balance, !nativeReady) : undefined;
+    line && asset.kind === 'native' ? matchingNativeBalance(nativeDetails, line.balance, !nativeReady) : undefined;
 
   return (
-    <AppModal
-      presentation="sheet"
-      swipeToDismiss
-      scrollContentAtTop={scrollContentAtTop}
-      nativeScrollGesture={nativeScrollGesture}
-      onRequestClose={onClose}
-      visible={visible && asset !== undefined}
-      swipeHeader={
-        <View style={styles.header}>
-          <Text numberOfLines={1} style={styles.title}>
-            {asset?.kind === 'native' ? t('home.asset.balanceTitle') : (asset?.code ?? t('home.asset.balanceTitle'))}
-          </Text>
-          <Pressable accessibilityRole="button" onPress={onClose} style={styles.close}>
-            <Text style={styles.closeText}>{t('common.close')}</Text>
-          </Pressable>
+    <SafeAreaView edges={['bottom']} style={styles.sheet} accessibilityViewIsModal onAccessibilityEscape={onClose}>
+      <ScrollView
+        nestedScrollEnabled
+        onLayout={Platform.OS === 'android' ? event => setBodyHeight(event.nativeEvent.layout.height) : undefined}
+        bounces={Platform.OS === 'ios'}
+        overScrollMode="never"
+        style={styles.body}
+        contentContainerStyle={[
+          styles.bodyContent,
+          Platform.OS === 'android' ? { minHeight: bodyHeight + 1 } : undefined,
+        ]}
+        stickyHeaderIndices={[0]}
+      >
+        <View style={styles.headerContainer}>
+          {Platform.OS === 'android' ? (
+            <View style={styles.dragTarget}>
+              <View style={styles.dragHandle} />
+            </View>
+          ) : null}
+          <View style={styles.header}>
+            <Text numberOfLines={1} style={styles.title}>
+              {asset.kind === 'native' ? t('home.asset.balanceTitle') : asset.code}
+            </Text>
+            <Pressable accessibilityRole="button" onPress={onClose} style={styles.close}>
+              <Text style={styles.closeText}>{t('common.close')}</Text>
+            </Pressable>
+          </View>
         </View>
-      }
-    >
-      <View style={styles.sheet}>
         <BalanceFreshnessNotice state={balanceState} onRefresh={refresh} />
         <Pressable accessibilityRole="button" onPress={() => refresh()}>
           <Text style={styles.helper}>{t('trustlines.add.retry')}</Text>
         </Pressable>
-        {asset?.kind === 'native' ? <Text style={styles.explanation}>{t('home.asset.nativeExplanation')}</Text> : null}
+        {asset.kind === 'native' ? <Text style={styles.explanation}>{t('home.asset.nativeExplanation')}</Text> : null}
         {state.kind === 'loading' ? (
           <View style={styles.status}>
             <ActivityIndicator color={theme.colors.actionPrimary} />
@@ -135,20 +124,12 @@ export function AssetDetailsSheet({
           <View style={styles.status}>
             <Text style={styles.statusText}>{t('home.asset.inactive')}</Text>
           </View>
-        ) : state.kind === 'unsupported-account' || state.kind === 'missing' || !asset || !line ? (
+        ) : state.kind === 'unsupported-account' || state.kind === 'missing' || !line ? (
           <View style={styles.status}>
             <Text style={styles.statusText}>{t('home.asset.missing')}</Text>
           </View>
         ) : asset.kind === 'native' ? (
-          <NativeBalance
-            canSign={canSign}
-            line={line}
-            breakdown={safeNativeDetails}
-            onScroll={onBodyScroll}
-            nativeScrollGesture={nativeScrollGesture}
-            styles={styles}
-            t={t}
-          />
+          <NativeBalance canSign={canSign} line={line} breakdown={safeNativeDetails} styles={styles} t={t} />
         ) : (
           <IssuedAsset
             asset={asset}
@@ -168,14 +149,12 @@ export function AssetDetailsSheet({
             }}
             onRemove={() => onRemove(asset)}
             onSend={() => onSend(asset)}
-            onScroll={onBodyScroll}
-            nativeScrollGesture={nativeScrollGesture}
             styles={styles}
             t={t}
           />
         )}
-      </View>
-    </AppModal>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -183,103 +162,90 @@ function NativeBalance({
   line,
   breakdown,
   canSign,
-  onScroll,
-  nativeScrollGesture,
   styles,
   t,
 }: Readonly<{
   line: BalanceLine;
   breakdown?: NativeBalanceBreakdown;
   canSign: boolean;
-  onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
-  nativeScrollGesture: ReturnType<typeof Gesture.Native>;
   styles: ReturnType<typeof createAssetDetailsSheetStyles>;
   t: (key: string, params?: Record<string, string>) => string;
 }>): React.JSX.Element {
   return (
-    <GestureDetector gesture={nativeScrollGesture}>
-      <ScrollView
-        contentContainerStyle={styles.bodyContent}
-        style={styles.body}
-        scrollEventThrottle={16}
-        onScroll={onScroll}
-        bounces={false}
-        overScrollMode="never"
-      >
-        <View style={styles.balanceBlock}>
-          <TokenAssetIcon asset={{ kind: 'native', code: 'XLM' }} />
-        </View>
-        <BalanceCard label={t('home.asset.accountBalance')} styles={styles} value={line.balance} />
-        <BalanceCard
-          label={t('home.asset.available')}
-          styles={styles}
-          value={breakdown?.available ?? t('home.asset.availableUnavailable')}
-        />
-        {!canSign ? <Text style={styles.warning}>{t('home.asset.readOnlySpendable')}</Text> : null}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('home.asset.reserved')}</Text>
-          {breakdown ? (
-            <>
-              <BalanceDetailRow label={t('home.asset.reserved')} value={breakdown.reserved} styles={styles} />
-              <BalanceDetailRow label={t('home.asset.baseReserve')} value={breakdown.accountMinimum} styles={styles} />
-              <BalanceDetailRow
-                label={t('home.asset.grossEntryReserve')}
-                value={breakdown.grossEntryReserve}
-                styles={styles}
-              />
-              <BalanceDetailRow
-                label={t('home.asset.sponsorshipOffset')}
-                value={breakdown.sponsorshipOffset}
-                styles={styles}
-              />
-              <BalanceDetailRow
-                label={t('home.asset.sellingLiabilities')}
-                value={breakdown.sellingLiabilities}
-                styles={styles}
-              />
-              <BalanceDetailRow
-                label={t('home.asset.subentries')}
-                value={String(breakdown.subentryCount)}
-                styles={styles}
-              />
-              <BalanceDetailRow
-                label={t('home.asset.sponsoring')}
-                value={String(breakdown.numSponsoring)}
-                styles={styles}
-              />
-              <BalanceDetailRow
-                label={t('home.asset.sponsored')}
-                value={String(breakdown.numSponsored)}
-                styles={styles}
-              />
-            </>
-          ) : (
-            <Text style={styles.helper}>{t('home.asset.reservedUnavailable')}</Text>
-          )}
-        </View>
+    <View style={styles.details}>
+      <View style={styles.balanceBlock}>
+        <TokenAssetIcon asset={{ kind: 'native', code: 'XLM' }} />
+      </View>
+      <BalanceCard label={t('home.asset.accountBalance')} styles={styles} value={line.balance} />
+      <BalanceCard
+        label={t('home.asset.available')}
+        styles={styles}
+        value={breakdown?.available ?? t('home.asset.availableUnavailable')}
+      />
+      {!canSign ? <Text style={styles.warning}>{t('home.asset.readOnlySpendable')}</Text> : null}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>{t('home.asset.reserved')}</Text>
         {breakdown ? (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t('home.asset.trustlines')}</Text>
-            {breakdown.trustlines.length ? (
-              breakdown.trustlines.map(lineItem => (
-                <View key={lineItem.code + ':' + lineItem.issuer} style={styles.trustline}>
-                  <Text style={styles.cardLabel}>{lineItem.code}</Text>
-                  <Text selectable style={styles.trustlineIssuer}>
-                    {lineItem.issuer}
-                  </Text>
-                  <Text style={styles.helper}>
-                    {lineItem.authorized ? t('home.asset.trustlineAuthorized') : t('home.asset.trustlineRestricted')}
-                  </Text>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.helper}>{t('home.asset.noTrustlines')}</Text>
-            )}
-            <Text style={styles.helper}>{t('home.asset.trustlineReserveNote')}</Text>
-          </View>
-        ) : null}
-      </ScrollView>
-    </GestureDetector>
+          <>
+            <BalanceDetailRow label={t('home.asset.reserved')} value={breakdown.reserved} styles={styles} />
+            <BalanceDetailRow label={t('home.asset.baseReserve')} value={breakdown.accountMinimum} styles={styles} />
+            <BalanceDetailRow
+              label={t('home.asset.grossEntryReserve')}
+              value={breakdown.grossEntryReserve}
+              styles={styles}
+            />
+            <BalanceDetailRow
+              label={t('home.asset.sponsorshipOffset')}
+              value={breakdown.sponsorshipOffset}
+              styles={styles}
+            />
+            <BalanceDetailRow
+              label={t('home.asset.sellingLiabilities')}
+              value={breakdown.sellingLiabilities}
+              styles={styles}
+            />
+            <BalanceDetailRow
+              label={t('home.asset.subentries')}
+              value={String(breakdown.subentryCount)}
+              styles={styles}
+            />
+            <BalanceDetailRow
+              label={t('home.asset.sponsoring')}
+              value={String(breakdown.numSponsoring)}
+              styles={styles}
+            />
+            <BalanceDetailRow
+              label={t('home.asset.sponsored')}
+              value={String(breakdown.numSponsored)}
+              styles={styles}
+            />
+          </>
+        ) : (
+          <Text style={styles.helper}>{t('home.asset.reservedUnavailable')}</Text>
+        )}
+      </View>
+      {breakdown ? (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{t('home.asset.trustlines')}</Text>
+          {breakdown.trustlines.length ? (
+            breakdown.trustlines.map(lineItem => (
+              <View key={lineItem.code + ':' + lineItem.issuer} style={styles.trustline}>
+                <Text style={styles.cardLabel}>{lineItem.code}</Text>
+                <Text selectable style={styles.trustlineIssuer}>
+                  {lineItem.issuer}
+                </Text>
+                <Text style={styles.helper}>
+                  {lineItem.authorized ? t('home.asset.trustlineAuthorized') : t('home.asset.trustlineRestricted')}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.helper}>{t('home.asset.noTrustlines')}</Text>
+          )}
+          <Text style={styles.helper}>{t('home.asset.trustlineReserveNote')}</Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -312,8 +278,6 @@ function IssuedAsset({
   onSend,
   onRemove,
   onCopy,
-  onScroll,
-  nativeScrollGesture,
   styles,
   t,
 }: Readonly<{
@@ -326,67 +290,56 @@ function IssuedAsset({
   onSend: () => void;
   onRemove: () => void;
   onCopy: () => void;
-  onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
-  nativeScrollGesture: ReturnType<typeof Gesture.Native>;
   styles: ReturnType<typeof createAssetDetailsSheetStyles>;
   t: (key: string, params?: Record<string, string>) => string;
 }>): React.JSX.Element {
   return (
-    <GestureDetector gesture={nativeScrollGesture}>
-      <ScrollView
-        contentContainerStyle={styles.bodyContent}
-        style={styles.body}
-        scrollEventThrottle={16}
-        onScroll={onScroll}
-        bounces={false}
-        overScrollMode="never"
-      >
-        <View style={styles.balanceBlock}>
-          <TokenAssetIcon asset={asset} />
-          <Text style={styles.amount}>{line.balance}</Text>
-          <Text style={styles.code}>{asset.code}</Text>
-        </View>
-        <View style={styles.card}>
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>{t('home.asset.issuer')}</Text>
-            <Pressable accessibilityRole="button" onPress={onCopy} style={styles.issuerButton}>
-              <Text selectable style={styles.cardValue}>
-                {asset.issuer}
-              </Text>
-              <Text style={styles.helper}>{copied ? t('common.copied') : t('home.asset.copyIssuer')}</Text>
-            </Pressable>
-          </View>
-          {confirmCopy && !copied ? <Text style={styles.warning}>{t('home.asset.copyIssuerWarning')}</Text> : null}
-          {line.limit ? (
-            <View style={styles.cardRow}>
-              <Text style={styles.cardLabel}>{t('home.asset.limit')}</Text>
-              <Text style={styles.cardValue}>{line.limit}</Text>
-            </View>
-          ) : null}
-        </View>
-        <View style={styles.actions}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canSend }}
-            disabled={!canSend}
-            onPress={onSend}
-            style={[styles.action, canSend ? undefined : styles.disabled]}
-          >
-            <Text style={styles.actionText}>{t('home.asset.send')}</Text>
+    <View style={styles.details}>
+      <View style={styles.balanceBlock}>
+        <TokenAssetIcon asset={asset} />
+        <Text style={styles.amount}>{line.balance}</Text>
+        <Text style={styles.code}>{asset.code}</Text>
+      </View>
+      <View style={styles.card}>
+        <View style={styles.cardRow}>
+          <Text style={styles.cardLabel}>{t('home.asset.issuer')}</Text>
+          <Pressable accessibilityRole="button" onPress={onCopy} style={styles.issuerButton}>
+            <Text selectable style={styles.cardValue}>
+              {asset.issuer}
+            </Text>
+            <Text style={styles.helper}>{copied ? t('common.copied') : t('home.asset.copyIssuer')}</Text>
           </Pressable>
         </View>
+        {confirmCopy && !copied ? <Text style={styles.warning}>{t('home.asset.copyIssuerWarning')}</Text> : null}
+        {line.limit ? (
+          <View style={styles.cardRow}>
+            <Text style={styles.cardLabel}>{t('home.asset.limit')}</Text>
+            <Text style={styles.cardValue}>{line.limit}</Text>
+          </View>
+        ) : null}
+      </View>
+      <View style={styles.actions}>
         <Pressable
           accessibilityRole="button"
-          accessibilityState={{ disabled: !canRemove }}
-          disabled={!canRemove}
-          onPress={onRemove}
-          style={[styles.remove, canRemove ? undefined : styles.disabled]}
+          accessibilityState={{ disabled: !canSend }}
+          disabled={!canSend}
+          onPress={onSend}
+          style={[styles.action, canSend ? undefined : styles.disabled]}
         >
-          <Text style={styles.removeText}>{t('home.asset.remove')}</Text>
+          <Text style={styles.actionText}>{t('home.asset.send')}</Text>
         </Pressable>
-        {canRemove ? null : <Text style={styles.helper}>{t('home.asset.removeUnavailable')}</Text>}
-      </ScrollView>
-    </GestureDetector>
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !canRemove }}
+        disabled={!canRemove}
+        onPress={onRemove}
+        style={[styles.remove, canRemove ? undefined : styles.disabled]}
+      >
+        <Text style={styles.removeText}>{t('home.asset.remove')}</Text>
+      </Pressable>
+      {canRemove ? null : <Text style={styles.helper}>{t('home.asset.removeUnavailable')}</Text>}
+    </View>
   );
 }
 

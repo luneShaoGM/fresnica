@@ -49,7 +49,7 @@ export type ProductRouteParams = Readonly<{
   // reads account creation inputs from local feature state.
   'add-account': undefined;
   // Public domain identity only. Current balance is reloaded by the destination.
-  'asset-details': Readonly<{ accountId: string; asset: BalanceAsset }>;
+  'asset-details': Readonly<{ accountId: string; networkId: string; asset: BalanceAsset }>;
   'send-form': Readonly<{ accountId: string; requestIntent?: RequestPaymentIntent; initialAsset?: BalanceAsset }>;
   // Review/result state stays in the Send flow. Exact XDR and reviewed
   // transaction data must not be transported as navigation parameters.
