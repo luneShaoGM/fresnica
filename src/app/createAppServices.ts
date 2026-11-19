@@ -1,3 +1,5 @@
+import { createDappRecentHistory, type DappRecentHistory } from '../capabilities/dapp-interaction/dappRecentHistory';
+import { RealmDappRecentRepository } from '../platform/persistence/realm/RealmDappRecentRepository';
 import { createMarkets, type Markets } from '../capabilities/markets/createMarkets';
 import { StellarMarketGateway } from '../platform/stellar/StellarMarketGateway';
 import { horizonReadJson } from '../platform/stellar/horizonReadHttp';
@@ -151,6 +153,7 @@ export type AppServices = Readonly<{
   request: RequestProductDependencies;
   contacts: ContactBook;
   dappCatalog: DappCatalogPort;
+  dappRecent: DappRecentHistory;
   dappPermissions: DappPermissionStore;
   assetCatalog: AssetCatalogPort;
   tokenIcons: TokenIconPort;
@@ -523,12 +526,14 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       networkId: networkProfile.id,
       transport: createNativeSafePublicTransport(),
     });
+    const dappRecent = createDappRecentHistory(new RealmDappRecentRepository(realm), networkProfile.id);
     const dappCatalog: DappCatalogPort = {
       load: directory.load,
       readCached: directory.readCached,
       publicMedia,
     };
     closeDappCatalog = () => {
+      dappRecent.close();
       directory.close();
       publicMedia.close();
     };
@@ -734,6 +739,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         ingress: reactNativeRequestIngress,
       },
       dappCatalog,
+      dappRecent,
       dappPermissions,
       transactionRecovery,
       ledgerReadInvalidation,

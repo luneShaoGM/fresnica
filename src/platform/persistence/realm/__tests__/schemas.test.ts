@@ -32,12 +32,14 @@ import {
   SIGNER_SCHEMA,
   WALLET_REALM_SCHEMAS,
   WALLET_REALM_SCHEMA_VERSION,
+  DAPP_RECENT_SCHEMA,
 } from '../schemas';
 
-describe('Realm wallet schema v13', () => {
-  it('adds public Claimable partitions without changing wallet entity identities', () => {
-    expect(WALLET_REALM_SCHEMA_VERSION).toBe(13);
+describe('Realm wallet schema v14', () => {
+  it('adds public Recent origins without changing wallet entity identities', () => {
+    expect(WALLET_REALM_SCHEMA_VERSION).toBe(14);
     expect(WALLET_REALM_SCHEMAS).toEqual([
+      DAPP_RECENT_SCHEMA,
       CLAIMABLE_CACHE_SCHEMA,
       CLAIMABLE_RISK_OVERRIDE_SCHEMA,
       CONTACT_SCHEMA,

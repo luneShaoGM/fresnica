@@ -1,6 +1,8 @@
+import type { DappRecentHistory } from '@capabilities/dapp-interaction/dappRecentHistory';
+import { useDappRecent } from '@features/dapps/useDappRecent';
 import type { NodeReadFailure } from '@capabilities/network/NodeReadError';
 import { NativeButton } from '@ui/components/NativeButton';
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import type { AccountSyncMode } from '@capabilities/account-sync/AccountEffects';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -39,6 +41,7 @@ const ACTIONS_OVERLAY_ID = 'actions';
 export type MainTabBarProps = BottomTabBarProps &
   Readonly<{
     selectedAccountId?: string;
+    recentHistory?: DappRecentHistory;
     syncMode?: AccountSyncMode;
     nodePhase?: 'checking' | 'healthy' | 'cooldown' | 'wrong-network' | 'paused' | 'closed';
     nodeFailure?: NodeReadFailure;
@@ -52,6 +55,7 @@ export function MainTabBar({
   descriptors,
   navigation,
   selectedAccountId,
+  recentHistory,
   actionAvailability,
   actionState,
   nodePhase,
@@ -59,6 +63,15 @@ export function MainTabBar({
   onRetryNode,
 }: MainTabBarProps) {
   const { t } = useLocalization();
+  const recent = useDappRecent(recentHistory);
+  const recentSession = useRef<{ history?: DappRecentHistory; accountId?: string } | undefined>(undefined);
+  recentSession.current = { history: recentHistory, accountId: selectedAccountId };
+  useEffect(
+    () => () => {
+      recentSession.current = undefined;
+    },
+    [],
+  );
   const styles = useThemedStyles(createStyles);
   const { activeOverlayId, present, dismiss } = useOverlay();
 
@@ -152,6 +165,54 @@ export function MainTabBar({
             <Text style={styles.actionLabel}>{t('nav.actionsClose')}</Text>
           </Pressable>
         </View>
+        {recent.origins.length > 0 || recent.unavailable ? (
+          <View style={styles.recentSection}>
+            <Text accessibilityRole="header" style={styles.sectionTitle}>
+              {t('dapps.catalog.recent')}
+            </Text>
+            {recent.unavailable ? (
+              <>
+                <Text accessibilityLiveRegion="polite" style={styles.actionStatus}>
+                  {t('dapps.website.recentUnavailable')}
+                </Text>
+                <NativeButton label={t('dapps.catalog.retry')} onPress={recentHistory?.retry} variant="secondary" />
+              </>
+            ) : null}
+            {recent.origins.slice(0, 4).map(origin => {
+              const hostname = new URL(origin).hostname;
+              return (
+                <Pressable
+                  key={origin}
+                  accessibilityRole="button"
+                  accessibilityLabel={origin}
+                  onPress={() => {
+                    if (
+                      !selectedAccountId ||
+                      recentSession.current?.history !== recentHistory ||
+                      recentSession.current?.accountId !== selectedAccountId
+                    )
+                      return;
+                    dismiss();
+                    navigation.navigate('dapps', { screen: 'dapps', params: { scannedUrl: origin } });
+                  }}
+                  style={({ pressed }) => [styles.recentItem, pressed ? styles.pressed : undefined]}
+                >
+                  <View
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    style={styles.recentIcon}
+                  >
+                    <Text style={styles.actionLabel}>{hostname.slice(0, 2).toUpperCase()}</Text>
+                  </View>
+                  <View style={styles.recentIdentity}>
+                    <Text style={styles.recentName}>{hostname}</Text>
+                    <Text style={styles.actionStatus}>{origin}</Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
         <Text accessibilityRole="header" style={styles.sectionTitle}>
           {t('nav.quickActions')}
         </Text>
@@ -214,7 +275,19 @@ export function MainTabBar({
         dragDismissLabel: t('nav.actionsDragClose'),
       },
     );
-  }, [actionAvailability, actionState, dismiss, navigation, present, selectedAccountId, styles, t, selectAction]);
+  }, [
+    actionAvailability,
+    actionState,
+    dismiss,
+    navigation,
+    present,
+    selectedAccountId,
+    styles,
+    t,
+    selectAction,
+    recent,
+    recentHistory,
+  ]);
 
   useEffect(() => {
     if (activeOverlayId === ACTIONS_OVERLAY_ID) openActions();

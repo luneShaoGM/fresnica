@@ -1,15 +1,19 @@
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
 import React from 'react';
+import { createDappRecentHistory } from '@capabilities/dapp-interaction/dappRecentHistory';
 import { Pressable, ScrollView } from 'react-native';
 import type { MainTabBarProps } from '../MainTabBar';
 
 const mockEffects: Array<() => void> = [];
+let mockRecentSessionRef: { current: unknown } = { current: undefined };
 let mockActiveOverlayId: string | undefined;
 jest.mock('react', () => {
   const actual = jest.requireActual('react') as typeof import('react');
   return {
     ...actual,
     useCallback: (callback: unknown) => callback,
+    useRef: () => mockRecentSessionRef,
+    useSyncExternalStore: (_subscribe: unknown, getSnapshot: () => unknown) => getSnapshot(),
     useEffect: (effect: () => void) => {
       mockEffects.push(effect);
     },
@@ -59,7 +63,9 @@ function findPressable(node: React.ReactNode, label: string): React.ReactElement
 function renderSwap(
   enabled: boolean,
   syncMode?: MainTabBarProps['syncMode'],
-  node: Partial<Pick<MainTabBarProps, 'nodePhase' | 'nodeFailure' | 'onRetryNode' | 'selectedAccountId'>> = {},
+  node: Partial<
+    Pick<MainTabBarProps, 'nodePhase' | 'nodeFailure' | 'onRetryNode' | 'selectedAccountId' | 'recentHistory'>
+  > = {},
   actionState?: MainTabBarProps['actionState'],
   open = true,
 ) {
@@ -96,10 +102,44 @@ function renderSwap(
 }
 
 describe('Swap action uses the current account route', () => {
+  it('shows only the latest four shared origins and dismisses into untrusted website review', () => {
+    const history = createDappRecentHistory({ read: () => [], replace: () => {} }, 'testnet');
+    for (let i = 0; i < 6; i++) history.record(`https://app${i}.example.org/path?token=private`);
+    const { navigate, overlay } = renderSwap(true, undefined, { recentHistory: history });
+    expect(findPressable(overlay, 'https://app5.example.org')).toBeDefined();
+    expect(findPressable(overlay, 'https://app2.example.org')).toBeDefined();
+    expect(findPressable(overlay, 'https://app1.example.org')).toBeUndefined();
+    findPressable(overlay, 'https://app5.example.org')?.props.onPress?.();
+    expect(mockDismissOverlay.mock.invocationCallOrder[0]).toBeLessThan(navigate.mock.invocationCallOrder[0]);
+    expect(navigate).toHaveBeenCalledWith('dapps', {
+      screen: 'dapps',
+      params: { scannedUrl: 'https://app5.example.org' },
+    });
+    expect(JSON.stringify(overlay)).not.toContain('private');
+  });
+
+  it('refreshes an open Actions panel after a visit and retires old network callbacks', () => {
+    const repository = { read: () => [], replace: () => {} };
+    const first = createDappRecentHistory(repository, 'testnet');
+    first.record('https://test.example.org');
+    const old = renderSwap(true, undefined, { recentHistory: first });
+    const late = findPressable(old.overlay, 'https://test.example.org')?.props.onPress;
+    first.record('https://latest.example.org');
+    mockActiveOverlayId = 'actions';
+    renderSwap(true, undefined, { recentHistory: first }, undefined, false);
+    mockEffects.at(-1)?.();
+    expect(findPressable(mockPresentOverlay.mock.lastCall?.[1], 'https://latest.example.org')).toBeDefined();
+    const second = createDappRecentHistory(repository, 'mainnet');
+    renderSwap(true, undefined, { recentHistory: second }, undefined, false);
+    late?.();
+    expect(old.navigate).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     mockPresentOverlay.mockClear();
     mockDismissOverlay.mockClear();
     mockEffects.length = 0;
+    mockRecentSessionRef = { current: undefined };
     mockActiveOverlayId = undefined;
   });
 

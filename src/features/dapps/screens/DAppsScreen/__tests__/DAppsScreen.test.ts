@@ -1,4 +1,5 @@
 import React from 'react';
+import { createDappRecentHistory } from '@capabilities/dapp-interaction/dappRecentHistory';
 
 import type { DappCatalogEntry, DappCatalogPort } from '@capabilities/dapp-catalog/catalog';
 
@@ -97,7 +98,12 @@ jest
   .mockImplementation(((_subscribe: unknown, getSnapshot: () => unknown) =>
     getSnapshot()) as typeof react.useSyncExternalStore);
 
-const { DAppsScreen } = require('../DAppsScreen') as typeof import('../DAppsScreen');
+const { DAppsScreen: ScreenImplementation } = require('../DAppsScreen') as typeof import('../DAppsScreen');
+const historyRepository = { read: jest.fn(() => [] as readonly string[]), replace: jest.fn() };
+let history = createDappRecentHistory(historyRepository, 'stellar-testnet');
+function DAppsScreen(props: Parameters<typeof ScreenImplementation>[0]) {
+  return ScreenImplementation({ ...props, recentHistory: props.recentHistory ?? history });
+}
 const openExternalUrl = jest.fn(async (_url: string) => {});
 
 const entry: DappCatalogEntry = {
@@ -109,6 +115,10 @@ const entry: DappCatalogEntry = {
 };
 
 function resetHarness() {
+  history.close();
+  historyRepository.read.mockReset().mockReturnValue([]);
+  historyRepository.replace.mockReset();
+  history = createDappRecentHistory(historyRepository, 'stellar-testnet');
   stateSlots.length = 0;
   refSlots.length = 0;
   effectSlots.length = 0;
@@ -197,11 +207,9 @@ function openUrlSheetFrom(nodes: ReturnType<typeof elements>) {
   launcher?.props.onPress?.();
 }
 
-describe('DAppsScreen native field and retry', () => {
-  afterAll(() => {
-    jest.restoreAllMocks();
-  });
+afterAll(() => jest.restoreAllMocks());
 
+describe('DAppsScreen native field and retry', () => {
   beforeEach(() => {
     resetHarness();
   });
@@ -595,7 +603,7 @@ describe('DAppsScreen native field and retry', () => {
   });
 });
 
-describe('S15 untrusted URL risk confirmation and in-session Recent', () => {
+describe('S15 untrusted URL risk confirmation and shared Recent', () => {
   beforeEach(() => {
     resetHarness();
     openExternalUrl.mockReset().mockResolvedValue(undefined);
@@ -790,7 +798,48 @@ describe('S15 untrusted URL risk confirmation and in-session Recent', () => {
     expect(websiteNodes().some(node => node.props.label === 'https://example.org')).toBe(true);
   });
 
-  it('opens only after explicit approval and records the origin in session-only Recent', async () => {
+  it('keeps a successful browser open successful when Recent cannot save, with retry feedback', async () => {
+    const initial = elements(await renderCatalog(catalog));
+    openUrlSheetFrom(initial);
+    websiteNodes()
+      .find(node => node.props.accessibilityLabel === 'dapps.website.input')
+      ?.props.onChangeText?.('https://example.org/path?private=x');
+    websiteNodes()
+      .find(node => node.props.label === 'dapps.website.preview')
+      ?.props.onPress?.();
+    historyRepository.replace.mockImplementationOnce(() => {
+      throw new Error('disk-full');
+    });
+    websiteNodes()
+      .find(node => node.props.label === 'dapps.website.confirm')
+      ?.props.onPress?.();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(openExternalUrl).toHaveBeenCalledTimes(1);
+    expect(history.getSnapshot().origins).toEqual([]);
+    expect(websiteNodes().some(node => node.props.children === 'dapps.website.failed')).toBe(false);
+    expect(websiteNodes().some(node => node.props.children === 'dapps.website.recentUnavailable')).toBe(true);
+    websiteNodes()
+      .filter(node => node.props.accessibilityState?.selected !== undefined)[1]
+      ?.props.onPress?.();
+    websiteNodes()
+      .find(node => node.props.label === 'dapps.catalog.retry')
+      ?.props.onPress?.();
+    expect(history.getSnapshot().unavailable).toBe(false);
+  });
+
+  it('shows shared history offline on remount and reopens only after explicit confirmation', async () => {
+    history.record('https://visited.example.org/path?token=private');
+    const initial = elements(await renderCatalog(catalog, false, true, false));
+    initial.filter(node => node.props.accessibilityState?.selected !== undefined)[1]?.props.onPress?.();
+    const recent = websiteNodes();
+    recent.find(node => node.props.label === 'https://visited.example.org')?.props.onPress?.();
+    expect(openExternalUrl).not.toHaveBeenCalled();
+    expect(websiteNodes().some(node => node.props.children === 'dapps.website.unreviewed')).toBe(true);
+    expect(history.getSnapshot().origins).toEqual(['https://visited.example.org']);
+  });
+
+  it('opens only after explicit approval and records only the origin in shared Recent', async () => {
     const initial = elements(await renderCatalog(catalog));
     openUrlSheetFrom(initial);
     websiteNodes()

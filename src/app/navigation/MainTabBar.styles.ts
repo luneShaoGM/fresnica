@@ -129,6 +129,18 @@ export function createStyles(theme: AppTheme) {
       backgroundColor: theme.colors.actionPrimary,
     },
     scanActionLabel: { ...theme.typography.label, fontWeight: '700', color: theme.colors.onActionPrimary },
+    recentSection: { gap: theme.spacing.sm },
+    recentItem: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, minHeight: 56 },
+    recentIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: theme.radii.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.surfaceMuted,
+    },
+    recentIdentity: { flex: 1, alignItems: 'flex-start' },
+    recentName: { ...theme.typography.label, color: theme.colors.textPrimary },
     sectionTitle: { ...theme.typography.label, color: theme.colors.textSecondary },
   });
 }

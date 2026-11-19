@@ -1,4 +1,8 @@
 import React from 'react';
+import {
+  createDappRecentHistory,
+  type DappRecentHistory,
+} from '../../../capabilities/dapp-interaction/dappRecentHistory';
 import { NativeModules, Platform } from 'react-native';
 
 import type { DappCatalogEntry, DappCatalogPort } from '../../../capabilities/dapp-catalog/catalog';
@@ -43,13 +47,18 @@ const selectedWallet: DappPublicSelection = {
   revision: 4,
 };
 
-function catalogRoute(verified: boolean, getSelection: () => DappPublicSelection | undefined = () => selectedWallet) {
+function catalogRoute(
+  verified: boolean,
+  getSelection: () => DappPublicSelection | undefined = () => selectedWallet,
+  recentHistory?: DappRecentHistory,
+) {
   const catalog: DappCatalogPort = {
     load: async () => ({ kind: 'ready', entries: [liveEntry] }),
     isTrustedLiveEntry: () => verified,
   };
   const stack = DAppsStackNavigator({
     catalog,
+    recentHistory,
     openExternalUrl: async () => undefined,
     runtime: {
       subscribe: () => () => undefined,
@@ -79,6 +88,7 @@ function catalogRoute(verified: boolean, getSelection: () => DappPublicSelection
     listingRoute.type as (props: Record<string, unknown>) => React.ReactElement<{
       openCatalogInApp?: (entry: DappCatalogEntry, fresh: boolean) => void;
       openInApp?: (url: string) => void;
+      recentHistory?: DappRecentHistory;
     }>
   )(listingRoute.props as Record<string, unknown>);
   const browserRoute = browser.props.children({
@@ -89,6 +99,7 @@ function catalogRoute(verified: boolean, getSelection: () => DappPublicSelection
     (
       browserRoute.type as (props: Record<string, unknown>) => React.ReactElement<{
         trustedCatalogOrigin?: string;
+        onVisit?: (url: string) => void;
         url: string;
       }>
     )(browserRoute.props as Record<string, unknown>);
@@ -184,4 +195,17 @@ describe('dApps navigation availability by platform', () => {
     Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
     expect(screens()).toEqual(['dapps', 'dapp-browser']);
   });
+});
+
+it('wires one shared history to directory and real browser visits without conferring curated trust', () => {
+  Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
+  const history = createDappRecentHistory({ read: () => [], replace: () => {} }, 'stellar-testnet');
+  const { listingSurface, browserSurface } = catalogRoute(false, () => selectedWallet, history);
+  expect(listingSurface.props.recentHistory).toBe(history);
+  listingSurface.props.openInApp?.(liveEntry.websiteUrl);
+  expect(history.getSnapshot().origins).toEqual([]);
+  const browser = browserSurface();
+  expect(browser.props.trustedCatalogOrigin).toBeUndefined();
+  browser.props.onVisit?.(liveEntry.websiteUrl);
+  expect(history.getSnapshot().origins).toEqual(['https://dex.example.org']);
 });

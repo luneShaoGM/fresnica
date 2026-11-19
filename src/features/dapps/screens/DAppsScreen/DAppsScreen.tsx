@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
+import type { DappRecentHistory } from '@capabilities/dapp-interaction/dappRecentHistory';
+import { useDappRecent } from '../../useDappRecent';
 import type { DappCatalogEntry, DappCatalogLoadResult, DappCatalogPort } from '@capabilities/dapp-catalog/catalog';
 import { catalogCategories, filterCatalogEntries } from '@capabilities/dapp-catalog/catalog';
 import { normalizeUntrustedDappUrl, type UntrustedDappUrl } from '@capabilities/dapp-interaction/externalDappUrl';
@@ -29,6 +31,7 @@ export function DAppsScreen({
   scannedUrl,
   clearScannedUrl,
   catalog,
+  recentHistory,
   showInterfaceSample = __DEV__,
   openExternalUrl,
   openInApp,
@@ -41,6 +44,7 @@ export function DAppsScreen({
   scannedUrl?: string;
   clearScannedUrl?: () => void;
   catalog: DappCatalogPort;
+  recentHistory?: DappRecentHistory;
   active?: boolean;
   online?: boolean;
   focused?: boolean;
@@ -62,7 +66,8 @@ export function DAppsScreen({
   const [websiteInput, setWebsiteInput] = useState('');
   const [urlSheetOpen, setUrlSheetOpen] = useState(false);
   const [preparedWebsite, setPreparedWebsite] = useState<UntrustedDappUrl>();
-  const [recentOrigins, setRecentOrigins] = useState<readonly string[]>([]);
+  const recent = useDappRecent(recentHistory);
+  const recentOrigins = recent.origins;
   const [websiteError, setWebsiteError] = useState<'invalid' | 'openFailed'>();
   const [opening, setOpening] = useState(false);
   const [selectedDetail, setSelectedDetail] = useState<DappCatalogEntry>();
@@ -282,9 +287,7 @@ export function DAppsScreen({
     try {
       await openExternalUrl(proposal.url);
       if (!mountedRef.current || !focusedRef.current || handoffEpoch.current !== visitEpoch) return;
-      setRecentOrigins(previous =>
-        [proposal.origin, ...previous.filter(origin => origin !== proposal.origin)].slice(0, 10),
-      );
+      recentHistory?.record(proposal.url);
       if (activeRef.current && websiteEpoch.current === epoch) {
         setPreparedWebsite(undefined);
         setWebsiteInput('');
@@ -368,6 +371,11 @@ export function DAppsScreen({
             </Pressable>
           </View>
 
+          {recent.unavailable && recentHistory && section !== 'recent' ? (
+            <Text accessibilityLiveRegion="polite" style={styles.websiteDetail}>
+              {t('dapps.website.recentUnavailable')}
+            </Text>
+          ) : null}
           <View style={styles.segment}>
             <SegmentButton
               label={t('dapps.catalog.home')}
@@ -386,6 +394,14 @@ export function DAppsScreen({
           {section === 'recent' ? (
             <View style={styles.websiteSection}>
               <Text style={styles.websiteDetail}>{t('dapps.website.recentNotice')}</Text>
+              {recent.unavailable ? (
+                <>
+                  <Text accessibilityLiveRegion="polite" style={styles.websiteDetail}>
+                    {t('dapps.website.recentUnavailable')}
+                  </Text>
+                  <NativeButton label={t('dapps.catalog.retry')} onPress={recentHistory?.retry} variant="secondary" />
+                </>
+              ) : null}
               {recentOrigins.length === 0 ? (
                 <EmptyCatalog message={t('dapps.website.recentEmpty')} styles={styles} />
               ) : (

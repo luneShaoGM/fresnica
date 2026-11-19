@@ -113,6 +113,7 @@ const goBack = jest.fn();
 const goForward = jest.fn();
 const reload = jest.fn();
 const navigateClose = jest.fn();
+const onVisit = jest.fn();
 let subscriber: (() => void) | undefined;
 
 function render(
@@ -126,6 +127,7 @@ function render(
     url: 'https://demo.example.org/start',
     active,
     onClose: navigateClose,
+    onVisit,
     currentSelection: () => selection,
     subscribeSelection: callback => {
       subscriber = callback;
@@ -179,6 +181,7 @@ beforeEach(() => {
   goForward.mockClear();
   reload.mockClear();
   navigateClose.mockClear();
+  onVisit.mockClear();
   subscriber = undefined;
   grantKeys.clear();
   permissionEvents.clear();
@@ -187,6 +190,29 @@ beforeEach(() => {
 });
 
 describe('S15 browser product bridge is real but explicitly consent-gated', () => {
+  it('records public document starts, strips private URL parts and ignores callbacks after close', () => {
+    const tree = render();
+    const browser = find(tree, node => node.type === BrowserSurface);
+    expect(onVisit).not.toHaveBeenCalled();
+    browser?.props.shouldLoad?.('https://demo.example.org/start');
+    expect(onVisit).not.toHaveBeenCalled();
+    browser?.props.onDocumentStart?.('about:blank');
+    expect(onVisit).not.toHaveBeenCalled();
+    browser?.props.onDocumentStart?.('https://demo.example.org/start?token=private#private');
+    expect(onVisit).toHaveBeenCalledWith('https://demo.example.org');
+    find(tree, node => node.props.label === 'dapps.browser.close')?.props.onPress?.();
+    browser?.props.onDocumentStart?.('https://late.example.org');
+    expect(onVisit).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores document events while backgrounded or after selection retirement', () => {
+    const tree = render();
+    const browser = find(tree, node => node.type === BrowserSurface);
+    render(false);
+    browser?.props.onDocumentStart?.('https://demo.example.org/start');
+    expect(onVisit).not.toHaveBeenCalled();
+  });
+
   it('allows any public HTTPS navigation and keeps non-public targets out of the browser', () => {
     const tree = render();
     const webview = find(tree, node => node.type === BrowserSurface);
