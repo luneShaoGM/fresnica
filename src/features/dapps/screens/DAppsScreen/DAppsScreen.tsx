@@ -287,7 +287,7 @@ export function DAppsScreen({
     try {
       await openExternalUrl(proposal.url);
       if (!mountedRef.current || !focusedRef.current || handoffEpoch.current !== visitEpoch) return;
-      recentHistory?.record(proposal.url);
+      recentHistory?.record(proposal.origin);
       if (activeRef.current && websiteEpoch.current === epoch) {
         setPreparedWebsite(undefined);
         setWebsiteInput('');

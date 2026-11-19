@@ -20,7 +20,12 @@ export function isDappRecentOrigins(value: unknown): value is readonly string[] 
     Array.isArray(value) &&
     value.length <= DAPP_RECENT_LIMIT &&
     new Set(value).size === value.length &&
-    value.every(origin => typeof origin === 'string' && readPublicDappNavigation(origin)?.origin === origin)
+    value.every(
+      origin =>
+        typeof origin === 'string' &&
+        /^https:\/\/[^/?#@]+$/.test(origin) &&
+        readPublicDappNavigation(origin)?.origin === origin,
+    )
   );
 }
 

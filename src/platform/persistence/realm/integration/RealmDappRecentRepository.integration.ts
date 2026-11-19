@@ -10,6 +10,59 @@ import { ACCOUNT_ENTITY, DAPP_RECENT_ENTITY, WALLET_REALM_SCHEMAS } from '../sch
 
 describe('Recent origins on disk', () => {
   afterAll(() => Realm.shutdown());
+  it('persists no pathless query on React Native and rejects polluted records across disk reopen', async () => {
+    const originalURL = global.URL;
+    global.URL = jest.requireActual<{ URL: typeof URL }>('react-native/Libraries/Blob/URL').URL;
+    const directory = mkdtempSync(join(tmpdir(), 'fresnica-recent-rn-'));
+    const path = join(directory, 'wallet.realm');
+    let realm: Realm | undefined;
+    try {
+      realm = await openWalletRealm({ path });
+      const repository = new RealmDappRecentRepository(realm);
+      const history = createDappRecentHistory(repository, 'stellar-testnet');
+      history.record('https://dex.example.org?session=private');
+      history.record('https://dex.example.org:8443?session=private');
+      repository.replace('stellar-mainnet', ['https://main.example.org']);
+      const expected = ['https://dex.example.org:8443', 'https://dex.example.org'];
+      expect(repository.read('stellar-testnet')).toEqual(expected);
+      expect(realm.objectForPrimaryKey(DAPP_RECENT_ENTITY, 'stellar-testnet')?.originsJson).toBe(
+        JSON.stringify(expected),
+      );
+      for (const origin of [
+        'https://dex.example.org?session=private',
+        'https://dex.example.org?',
+        'https://dex.example.org/path',
+        'https://dex.example.org#private',
+        'https://u:p@dex.example.org',
+      ]) {
+        expect(() => repository.replace('stellar-testnet', [origin])).toThrow('dapp-recent-invalid');
+        expect(repository.read('stellar-testnet')).toEqual(expected);
+      }
+      history.close();
+      realm.close();
+      realm = await openWalletRealm({ path });
+      const reopened = new RealmDappRecentRepository(realm);
+      expect(createDappRecentHistory(reopened, 'stellar-testnet').getSnapshot().origins).toEqual(expected);
+      expect(reopened.read('stellar-mainnet')).toEqual(['https://main.example.org']);
+      // Simulate a row saved by the old RN origin getter, bypassing the adapter.
+      realm.write(() => {
+        realm!.objectForPrimaryKey(DAPP_RECENT_ENTITY, 'stellar-testnet')!.originsJson = JSON.stringify([
+          'https://dex.example.org?session=private',
+        ]);
+      });
+      realm.close();
+      realm = await openWalletRealm({ path });
+      const polluted = new RealmDappRecentRepository(realm);
+      expect(polluted.read('stellar-testnet')).toEqual([]);
+      expect(createDappRecentHistory(polluted, 'stellar-testnet').getSnapshot().origins).toEqual([]);
+      expect(polluted.read('stellar-mainnet')).toEqual(['https://main.example.org']);
+    } finally {
+      if (realm && !realm.isClosed) realm.close();
+      rmSync(directory, { recursive: true, force: true });
+      global.URL = originalURL;
+    }
+  });
+
   it('migrates v13, preserves accounts, reopens isolated histories and rolls back failed writes', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'fresnica-recent-'));
     const path = join(directory, 'wallet.realm');

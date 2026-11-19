@@ -205,6 +205,19 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     expect(onVisit).toHaveBeenCalledTimes(1);
   });
 
+  it('passes only canonical authority from a React Native pathless document start to Recent', () => {
+    const originalURL = global.URL;
+    global.URL = jest.requireActual<{ URL: typeof URL }>('react-native/Libraries/Blob/URL').URL;
+    try {
+      const browser = find(render(), node => node.type === BrowserSurface);
+      browser?.props.onDocumentStart?.('https://demo.example.org?session=private');
+      expect(onVisit).toHaveBeenCalledWith('https://demo.example.org');
+      expect(JSON.stringify(onVisit.mock.calls)).not.toContain('private');
+    } finally {
+      global.URL = originalURL;
+    }
+  });
+
   it('ignores document events while backgrounded', () => {
     const tree = render();
     const browser = find(tree, node => node.type === BrowserSurface);

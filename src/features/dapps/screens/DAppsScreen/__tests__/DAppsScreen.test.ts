@@ -839,6 +839,47 @@ describe('S15 untrusted URL risk confirmation and shared Recent', () => {
     expect(history.getSnapshot().origins).toEqual(['https://visited.example.org']);
   });
 
+  it('hands only canonical origin to Recent after a pathless query opens on React Native', async () => {
+    const originalURL = global.URL;
+    global.URL = jest.requireActual<{ URL: typeof URL }>('react-native/Libraries/Blob/URL').URL;
+    const record = jest.spyOn(history, 'record');
+    try {
+      const url = 'https://example.org?session=private';
+      const initial = elements(await renderCatalog(catalog));
+      openUrlSheetFrom(initial);
+      websiteNodes()
+        .find(node => node.props.accessibilityLabel === 'dapps.website.input')
+        ?.props.onChangeText?.(url);
+      websiteNodes()
+        .find(node => node.props.label === 'dapps.website.preview')
+        ?.props.onPress?.();
+      expect(record).not.toHaveBeenCalled();
+      websiteNodes()
+        .find(node => node.props.label === 'dapps.website.confirm')
+        ?.props.onPress?.();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(openExternalUrl).toHaveBeenCalledWith(url);
+      expect(record).toHaveBeenCalledWith('https://example.org');
+      expect(history.getSnapshot().origins).toEqual(['https://example.org']);
+      websiteNodes()
+        .filter(node => node.props.accessibilityState?.selected !== undefined)[1]
+        ?.props.onPress?.();
+      const recent = websiteNodes();
+      expect(JSON.stringify(recent)).not.toContain('private');
+      recent.find(node => node.props.label === 'https://example.org')?.props.onPress?.();
+      websiteNodes()
+        .find(node => node.props.label === 'dapps.website.confirm')
+        ?.props.onPress?.();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(openExternalUrl.mock.lastCall?.[0]).toBe('https://example.org/');
+    } finally {
+      record.mockRestore();
+      global.URL = originalURL;
+    }
+  });
+
   it('opens only after explicit approval and records only the origin in shared Recent', async () => {
     const initial = elements(await renderCatalog(catalog));
     openUrlSheetFrom(initial);

@@ -58,7 +58,13 @@ function parseUntrustedDappUrl(
   ) {
     return undefined;
   }
-  return Object.freeze({ url: parsed.toString(), origin: parsed.origin, hostname: host });
+  // RN 0.87's origin can include a pathless query, and port can match query data.
+  // Restrict port extraction to the authority, then use the validated HTTPS host.
+  const authority = /^https:\/\/[^/:?#@]+(?::(\d*))?(?=[/?#]|$)/i.exec(value);
+  const port = Number(authority?.[1] || '443');
+  if (!authority || !Number.isInteger(port) || port > 65535) return undefined;
+  const origin = `${parsed.protocol}//${host}${port === 443 ? '' : `:${port}`}`;
+  return Object.freeze({ url: parsed.toString(), origin, hostname: host });
 }
 
 export function normalizeUntrustedDappUrl(input: string): UntrustedDappUrl {

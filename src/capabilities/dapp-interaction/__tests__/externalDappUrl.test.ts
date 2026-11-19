@@ -75,3 +75,27 @@ describe('S15 custom dApp URL canonical origin and fail-closed external handoff'
     expect(readPublicDappNavigation('https://localhost/')).toBeUndefined();
   });
 });
+
+describe.each(['node', 'react-native'] as const)('Public origin projection with %s URL', parser => {
+  const originalURL = global.URL;
+  beforeEach(() => {
+    if (parser === 'react-native')
+      global.URL = jest.requireActual<{ URL: typeof URL }>('react-native/Libraries/Blob/URL').URL;
+  });
+  afterEach(() => {
+    global.URL = originalURL;
+  });
+
+  it.each([
+    ['https://example.org?session=private', 'https://example.org'],
+    ['https://example.org:443?session=private', 'https://example.org'],
+    ['https://example.org:8443?session=private', 'https://example.org:8443'],
+    ['https://Example.org:0443?session=private', 'https://example.org'],
+    ['https://example.org?next=https%3A%2F%2Fother.example.org:9443', 'https://example.org'],
+  ])('projects %s without changing the browser URL', (url, origin) => {
+    const target = normalizeUntrustedDappUrl(url);
+    expect(target.origin).toBe(origin);
+    expect(target.url).toBe(new URL(url).toString());
+    expect(readPublicDappNavigation(url)?.origin).toBe(origin);
+  });
+});

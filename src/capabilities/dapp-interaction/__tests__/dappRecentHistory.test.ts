@@ -95,3 +95,63 @@ describe('shared Recent public history', () => {
     expect(isDappRecentOrigins(['https://example.org:8443'])).toBe(true);
   });
 });
+
+describe.each(['node', 'react-native'] as const)('Recent origin privacy with %s URL', parser => {
+  const originalURL = global.URL;
+  const originalSearchParams = global.URLSearchParams;
+  beforeEach(() => {
+    if (parser === 'react-native') {
+      global.URL = jest.requireActual<{ URL: typeof URL }>('react-native/Libraries/Blob/URL').URL;
+      global.URLSearchParams = jest.requireActual<{ URLSearchParams: typeof URLSearchParams }>(
+        'react-native/Libraries/Blob/URLSearchParams',
+      ).URLSearchParams;
+    }
+  });
+  afterEach(() => {
+    global.URL = originalURL;
+    global.URLSearchParams = originalSearchParams;
+  });
+
+  it('saves only authority for pathless queries and keeps ports separate from query data', () => {
+    if (parser === 'react-native') expect(new URL('https://example.org?token=private').origin).toContain('?');
+    const repo = repository();
+    const history = createDappRecentHistory(repo, 'testnet');
+    for (const [url, expected] of [
+      ['https://example.org?token=private', 'https://example.org'],
+      ['https://example.org?preview', 'https://example.org'],
+      ['https://example.org:443?token=private', 'https://example.org'],
+      ['https://example.org:8443?token=private', 'https://example.org:8443'],
+      ['https://example.org?next=https%3A%2F%2Fother.example.org:9443', 'https://example.org'],
+      ['https://example.org/app?token=private#private', 'https://example.org'],
+    ]) {
+      history.record(url);
+      expect(history.getSnapshot().origins[0]).toBe(expected);
+      expect(JSON.stringify([...repo.rows])).not.toMatch(/private|token|preview|next|9443/);
+    }
+    history.close();
+    expect(createDappRecentHistory(repo, 'testnet').getSnapshot().origins).toEqual([
+      'https://example.org',
+      'https://example.org:8443',
+    ]);
+  });
+
+  it('independently rejects query/path/fragment/credential records on read and write validation', () => {
+    for (const origin of [
+      'https://example.org?token=private',
+      'https://example.org?',
+      'https://example.org/?token=private',
+      'https://example.org#private',
+      'https://example.org/path',
+      'https://u:p@example.org',
+      'https://example.org:443',
+      'https://example.org:65536',
+      'https://example.org:bad',
+    ]) {
+      expect(isDappRecentOrigins([origin])).toBe(false);
+      const repo = repository();
+      repo.rows.set('testnet', [origin]);
+      const history = createDappRecentHistory(repo, 'testnet');
+      expect(history.getSnapshot()).toEqual({ origins: [], unavailable: true });
+    }
+  });
+});

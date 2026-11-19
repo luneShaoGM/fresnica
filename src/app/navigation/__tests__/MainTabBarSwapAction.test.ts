@@ -118,6 +118,33 @@ describe('Swap action uses the current account route', () => {
     expect(JSON.stringify(overlay)).not.toContain('private');
   });
 
+  it('reopens a hydrated React Native pathless-query visit without restoring query data', () => {
+    const originalURL = global.URL;
+    global.URL = jest.requireActual<{ URL: typeof URL }>('react-native/Libraries/Blob/URL').URL;
+    try {
+      let saved: readonly string[] = [];
+      const repository = {
+        read: () => saved,
+        replace: (_network: string, origins: readonly string[]) => {
+          saved = origins;
+        },
+      };
+      const first = createDappRecentHistory(repository, 'testnet');
+      first.record('https://example.org?session=private');
+      first.close();
+      const restored = createDappRecentHistory(repository, 'testnet');
+      const { navigate, overlay } = renderSwap(true, undefined, { recentHistory: restored });
+      expect(JSON.stringify(overlay)).not.toContain('private');
+      findPressable(overlay, 'https://example.org')?.props.onPress?.();
+      expect(navigate).toHaveBeenCalledWith('dapps', {
+        screen: 'dapps',
+        params: { scannedUrl: 'https://example.org' },
+      });
+    } finally {
+      global.URL = originalURL;
+    }
+  });
+
   it('refreshes an open Actions panel after a visit and retires old network callbacks', () => {
     const repository = { read: () => [], replace: () => {} };
     const first = createDappRecentHistory(repository, 'testnet');
