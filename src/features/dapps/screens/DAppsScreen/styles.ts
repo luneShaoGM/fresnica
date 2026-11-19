@@ -144,7 +144,7 @@ export function createStyles(theme: AppTheme) {
       fontWeight: '700',
     },
     chipTextSelected: {
-      color: theme.colors.onActionPrimary,
+      color: theme.colors.onSurfaceStrong,
     },
     sectionTitle: {
       fontSize: 17,
