@@ -189,7 +189,7 @@ export function HomeScreen({
     : undefined;
 
   return (
-    <Screen scrollable={false} contentInset="none">
+    <Screen scrollable={false} contentInset="none" safeAreaEdges={['top', 'right', 'left']}>
       <View style={styles.homeLayout}>
         <ScrollView
           style={styles.headerScroll}
@@ -209,6 +209,7 @@ export function HomeScreen({
           <AccountSummary
             accountCount={accountCount}
             accountKindLabel={viewModel.accountKindLabel}
+            isReadOnly={viewModel.isReadOnly}
             label={viewModel.accountLabel}
             maskedAddress={viewModel.maskedAddress}
             onAddAccount={onAddAccount}
@@ -220,16 +221,6 @@ export function HomeScreen({
             <HomeAction enabled={viewModel.canSwap} label="Swap" onPress={onSwap} />
             <HomeAction enabled={viewModel.canRequest} label="Request" onPress={onRequest} />
           </View>
-
-          {viewModel.isReadOnly ? (
-            <View style={styles.readOnlyNotice}>
-              <Text style={styles.readOnlyTitle}>Read-only account</Text>
-              <Text style={styles.readOnlyText}>
-                Balances can be viewed, but signing actions stay unavailable because this account has no supported
-                Fresnica signer.
-              </Text>
-            </View>
-          ) : null}
 
           <View style={styles.sectionHeader}>
             <View style={styles.categoryTitleRow}>
@@ -283,8 +274,23 @@ export function HomeScreen({
         </ScrollView>
         {assetCategory === 'tokens' && nativeLine ? (
           <View style={styles.nativeFixedWrap}>
-            <PinnedNativeAssetRow showReserve={displayPreferences?.reserveDisplay} formatAmount={formatNumber ? value => formatNumber(value, 7) : undefined} line={nativeLine} breakdown={safeNativeDetails} onOpenAsset={onOpenAsset} t={t} />
-            {account.networkId === 'stellar-mainnet' ? <NativeFiatEstimate quotes={xlmQuotes} amount={safeNativeDetails?.available ?? nativeLine.balance} currency={displayPreferences?.currency ?? 'USD'} active={active} /> : null}
+            <PinnedNativeAssetRow
+              showReserve={displayPreferences?.reserveDisplay}
+              formatAmount={formatNumber ? value => formatNumber(value, 7) : undefined}
+              line={nativeLine}
+              breakdown={safeNativeDetails}
+              onOpenAsset={onOpenAsset}
+              t={t}
+            />
+            {account.networkId === 'stellar-mainnet' ? (
+              <NativeFiatEstimate
+                quotes={xlmQuotes}
+                amount={safeNativeDetails?.available ?? nativeLine.balance}
+                currency={displayPreferences?.currency ?? 'USD'}
+                active={active}
+                compact
+              />
+            ) : null}
           </View>
         ) : null}
         <ScrollView
