@@ -438,6 +438,75 @@ describe('Actions-origin general QR scan', () => {
     expect(onScannedWebsite).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    ['camera', 'node'],
+    ['photo', 'node'],
+    ['camera', 'react-native'],
+    ['photo', 'react-native'],
+  ] as const)(
+    'preserves flag URLs and screens following values from %s using %s URL parsing',
+    async (source, parser) => {
+      const originalURL = global.URL;
+      const originalSearchParams = global.URLSearchParams;
+      if (parser === 'react-native') {
+        global.URL = jest.requireActual<{ URL: typeof URL }>('react-native/Libraries/Blob/URL').URL;
+        global.URLSearchParams = jest.requireActual<{ URLSearchParams: typeof URLSearchParams }>(
+          'react-native/Libraries/Blob/URLSearchParams',
+        ).URLSearchParams;
+      }
+      try {
+        const { scan, render, onScannedWebsite, dependencies } = setup();
+        render();
+        await Promise.resolve();
+        await Promise.resolve();
+        if (parser === 'react-native')
+          expect([...new URL('https://example.org/?preview').searchParams.values()][0]).toBeUndefined();
+        const accept = async (url: string) => {
+          if (source === 'camera') scan().onCode(url);
+          else {
+            (dependencies.ingress.pickPaymentQrFromPhotos as jest.Mock).mockResolvedValueOnce({
+              status: 'found',
+              value: url,
+            });
+            await scan().onPickPhoto();
+          }
+        };
+        for (const query of [
+          'preview',
+          'preview&asset=XLM',
+          'preview=&asset=XLM',
+          'preview&preview&label=hello+world',
+        ]) {
+          const url = `https://wallet.example.org/app?${query}`;
+          const before = onScannedWebsite.mock.calls.length;
+          await accept(url);
+          expect(onScannedWebsite).toHaveBeenCalledTimes(before + 1);
+          expect(onScannedWebsite).toHaveBeenLastCalledWith(url, expect.any(Function));
+          await scan().onRetry();
+        }
+        const mnemonic = Array.from({ length: 12 }, () => 'abandon').join(' ');
+        const secret = `S${'A'.repeat(55)}`;
+        for (const query of [
+          `preview&data=${encodeURIComponent(mnemonic)}`,
+          `preview&data=${mnemonic.replace(/ /g, '+')}`,
+          `preview&key=${secret}`,
+        ]) {
+          const url = `https://wallet.example.org/app?${query}`;
+          const before = onScannedWebsite.mock.calls.length;
+          await accept(url);
+          expect(onScannedWebsite).toHaveBeenCalledTimes(before);
+          expect(scan().result?.result).toMatchObject({ status: 'rejected', reason: 'sensitive-input' });
+          expect(JSON.stringify(scan().result)).not.toContain('abandon');
+          expect(JSON.stringify(scan().result)).not.toContain(url);
+          await scan().onRetry();
+        }
+      } finally {
+        global.URL = originalURL;
+        global.URLSearchParams = originalSearchParams;
+      }
+    },
+  );
+
   it('rejects camera callbacks in background and after foreground return until explicit retry', async () => {
     const f = setup();
     f.render();

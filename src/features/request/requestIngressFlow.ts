@@ -58,7 +58,8 @@ export function classifyGeneralRequestScan(dependencies: RequestIngressParseDepe
       const url = normalizeUntrustedDappUrl(rawInput).url;
       // URL syntax masks word-only mnemonic detection; screen each decoded field separately.
       for (const value of new URL(url).searchParams.values()) {
-        const field = parseRequestIngress(dependencies, 'scan', value);
+        // RN 0.87 yields undefined for flags such as ?preview; keep screening later fields.
+        const field = parseRequestIngress(dependencies, 'scan', value ?? '');
         if (field.result.status === 'rejected' && field.result.reason === 'sensitive-input') {
           return { kind: 'request', ingress: field } as const;
         }
