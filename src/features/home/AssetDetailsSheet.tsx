@@ -301,13 +301,15 @@ function IssuedAsset({
         <Text style={styles.code}>{asset.code}</Text>
       </View>
       <View style={styles.card}>
-        <View style={styles.cardRow}>
+        <View style={styles.issuerRow}>
           <Text style={styles.cardLabel}>{t('home.asset.issuer')}</Text>
           <Pressable accessibilityRole="button" onPress={onCopy} style={styles.issuerButton}>
-            <Text selectable style={styles.cardValue}>
+            <Text selectable style={styles.issuerAddress}>
               {asset.issuer}
             </Text>
-            <Text style={styles.helper}>{copied ? t('common.copied') : t('home.asset.copyIssuer')}</Text>
+            <Text style={[styles.helper, styles.issuerCopy]}>
+              {copied ? t('common.copied') : t('home.asset.copyIssuer')}
+            </Text>
           </Pressable>
         </View>
         {confirmCopy && !copied ? <Text style={styles.warning}>{t('home.asset.copyIssuerWarning')}</Text> : null}
