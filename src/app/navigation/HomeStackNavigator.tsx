@@ -14,7 +14,11 @@ import type { AccountRecord } from '@capabilities/account/types';
 import { canContinueRequestToSend } from '../requestDeepLinkRouting';
 import { continueRequestToSendIfCurrent, createRequestRouteFocusLifetime } from './requestContinueRouting';
 import { createRequestScanLifetime } from './requestScanLifetime';
-import { captureSwapCurrentSession, type SwapCurrentSelection } from './swapCurrentSession';
+import {
+  captureAccountSelectionSession,
+  captureSwapCurrentSession,
+  type SwapCurrentSelection,
+} from './swapCurrentSession';
 import { AddAccountScreen } from '@features/accounts/AddAccountScreen';
 import { AddAssetSheet } from '@features/trustlines/AddAssetSheet';
 import { AssetDetailsSheet } from '@features/home/AssetDetailsSheet';
@@ -493,7 +497,7 @@ function RequestRoute({
   const captureScanSession = useCallback(
     (source: 'camera' | 'photo') => {
       const currentFocus = focusLifetime.capture();
-      const isCurrentRoute = captureSwapCurrentSession({
+      const isCurrentRoute = captureAccountSelectionSession({
         account,
         network: services.request.network,
         getCurrentSelection: getCurrentScanSelection,
@@ -520,6 +524,7 @@ function RequestRoute({
       dependencies={services.request}
       onDone={() => navigation.popToTop()}
       onContinueSend={async (intent, isCurrent) => {
+        if (account.identityKind !== 'classic') throw new Error('request-send-ineligible');
         const isSameFocusLifetime = focusLifetime.capture();
         const isCurrentRoute = () => {
           const latest = getCurrentSelection();

@@ -1,5 +1,5 @@
 import type { AccountRecord } from '../../../capabilities/account/types';
-import { captureSwapCurrentSession } from '../swapCurrentSession';
+import { captureAccountSelectionSession, captureSwapCurrentSession } from '../swapCurrentSession';
 import { createRequestRouteFocusLifetime } from '../requestContinueRouting';
 
 const network = Object.freeze({ id: 'stellar-testnet', networkPassphrase: 'Test SDF Network ; September 2015' });
@@ -15,6 +15,20 @@ const account: AccountRecord = {
   updatedAt: new Date(0),
 };
 const other: AccountRecord = { ...account, id: 'wallet-b', address: 'GOTHER' };
+
+it('allows public contract scans while keeping Swap Classic-only and retaining identity/revision guards', () => {
+  const contract = { ...account, identityKind: 'contract' as const, address: 'CCONTRACT' };
+  let selection = { selectedAccountId: contract.id, selectionRevision: 1, accounts: [contract], network };
+  const input = { account: contract, network, getCurrentSelection: () => selection, isCurrentFocusEpoch: () => true };
+  const scanned = captureAccountSelectionSession(input);
+  expect(scanned()).toBe(true);
+  expect(captureSwapCurrentSession(input)()).toBe(false);
+  selection = { ...selection, selectionRevision: 3 };
+  expect(scanned()).toBe(false);
+  const current = captureAccountSelectionSession(input);
+  selection = { ...selection, accounts: [{ ...contract, hidden: true }] };
+  expect(current()).toBe(false);
+});
 function fixture() {
   const focus = createRequestRouteFocusLifetime();
   focus.focus();

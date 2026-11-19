@@ -55,7 +55,15 @@ export function classifyGeneralRequestScan(dependencies: RequestIngressParseDepe
       if (decoded.result.status === 'rejected' && decoded.result.reason === 'sensitive-input') {
         return { kind: 'request', ingress: decoded } as const;
       }
-      return { kind: 'website', url: normalizeUntrustedDappUrl(rawInput).url } as const;
+      const url = normalizeUntrustedDappUrl(rawInput).url;
+      // URL syntax masks word-only mnemonic detection; screen each decoded field separately.
+      for (const value of new URL(url).searchParams.values()) {
+        const field = parseRequestIngress(dependencies, 'scan', value);
+        if (field.result.status === 'rejected' && field.result.reason === 'sensitive-input') {
+          return { kind: 'request', ingress: field } as const;
+        }
+      }
+      return { kind: 'website', url } as const;
     } catch {
       // Unsafe URLs retain the strict Request rejection without retaining raw input.
     }

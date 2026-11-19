@@ -410,10 +410,14 @@ describe('Actions-origin general QR scan', () => {
     await Promise.resolve();
     await Promise.resolve();
     const secret = `S${'A'.repeat(55)}`;
+    const mnemonic = Array.from({ length: 12 }, () => 'abandon').join(' ');
     for (const url of [
       `https://wallet.example.org/${secret}`,
       `https://wallet.example.org/?key=${secret}`,
       `https://wallet.example.org/?key=%53${secret.slice(1)}`,
+      `https://wallet.example.org/?data=${encodeURIComponent(mnemonic)}`,
+      `https://wallet.example.org/?safe=ok&data=${mnemonic.replace(/ /g, '+')}`,
+      `https://wallet.example.org/?%64ata=${encodeURIComponent(mnemonic)}`,
     ]) {
       if (source === 'camera') scan().onCode(url);
       else {
@@ -426,6 +430,8 @@ describe('Actions-origin general QR scan', () => {
       expect(onScannedWebsite).not.toHaveBeenCalled();
       expect(scan().result?.result).toMatchObject({ status: 'rejected', reason: 'sensitive-input' });
       expect(JSON.stringify(scan().result)).not.toContain(secret);
+      expect(JSON.stringify(scan().result)).not.toContain('abandon');
+      expect(JSON.stringify(scan().result)).not.toContain(url);
       await scan().onRetry();
     }
     scan().onCode('https://wallet.example.org/safe');

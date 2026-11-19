@@ -13,7 +13,7 @@ export type SwapCurrentSelection = Readonly<{
   network: NetworkContext;
 }>;
 
-export function captureSwapCurrentSession(
+export function captureAccountSelectionSession(
   input: Readonly<{
     account: SwapSourceIdentity;
     network: NetworkContext;
@@ -81,7 +81,6 @@ function matchesSelection(
     current.network?.id !== network.id ||
     current.network.networkPassphrase !== network.networkPassphrase ||
     account.networkId !== network.id ||
-    account.identityKind !== 'classic' ||
     !Array.isArray(current.accounts)
   ) {
     return false;
@@ -101,4 +100,10 @@ function matchesSelection(
     }
   }
   return matches === 1;
+}
+
+// Swap eligibility is narrower than a public read-only scan session.
+export function captureSwapCurrentSession(input: Parameters<typeof captureAccountSelectionSession>[0]): () => boolean {
+  if (input.account.identityKind !== 'classic') return () => false;
+  return captureAccountSelectionSession(input);
 }

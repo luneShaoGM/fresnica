@@ -1,4 +1,6 @@
 import React from 'react';
+import { AppState } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 
 import type { AccountRecord } from '../../../capabilities/account/types';
 import type { AppServices } from '../../createAppServices';
@@ -35,7 +37,7 @@ jest.mock('react', () => {
     useEffect: (effect: () => void) => {
       mockEffects.push(effect);
     },
-    useState: (initial: unknown) => [initial, jest.fn()],
+    useState: (initial: unknown) => [mockRequestReady ? true : initial, jest.fn()],
     useCallback: (fn: unknown) => fn,
     useRef: (initial: unknown) => ({ current: initial }),
     useSyncExternalStore: (_subscribe: unknown, snapshot: () => unknown) => snapshot(),
@@ -50,6 +52,7 @@ jest.mock('@react-navigation/native-stack', () => ({
 
 const mockEffects: Array<() => void> = [];
 let mockFocused = true;
+let mockRequestReady = false;
 
 const account: AccountRecord = {
   id: 'testnet-account',
@@ -70,6 +73,8 @@ function renderHomeEntry(swapEnabled: boolean, watchOnly = false, selectedAccoun
     onboarding: { repository: { isWatchOnly: () => watchOnly } },
     ledgerReadRuntime: { subscribe: jest.fn(), getSnapshot: () => ({ foreground: true }) },
     ledgerReadInvalidation: { subscribe: jest.fn(), getRevision: () => 0 },
+    request: { network: { id: selectedAccount.networkId, networkPassphrase: 'test' } },
+    send: { network: { id: selectedAccount.networkId, networkPassphrase: 'test' } },
   } as unknown as AppServices;
   const root = HomeStackNavigator({
     accounts: selectedAccount === account ? [account] : [account, selectedAccount],
@@ -80,7 +85,12 @@ function renderHomeEntry(swapEnabled: boolean, watchOnly = false, selectedAccoun
     onAccountsChanged: jest.fn(),
     onCreatedAccountReady: jest.fn(),
     onSelectAccount: jest.fn(),
-    getCurrentSwapSelection: jest.fn(),
+    getCurrentSwapSelection: () => ({
+      selectedAccountId: selectedAccount.id,
+      selectionRevision: 1,
+      accounts: [selectedAccount],
+      network: { id: selectedAccount.networkId, networkPassphrase: 'test' },
+    }),
     subscribeToSwapSelection: jest.fn(),
   });
   type HomeEntry = Readonly<{
@@ -101,6 +111,49 @@ function renderHomeEntry(swapEnabled: boolean, watchOnly = false, selectedAccoun
 }
 
 describe('Home Swap entry wiring', () => {
+  it('keeps camera/photo website sessions available on the actual Actions request route for a contract, but blocks Send', async () => {
+    const contract = { ...account, id: 'contract-account', identityKind: 'contract' as const, address: 'CCONTRACT' };
+    const { root } = renderHomeEntry(false, true, contract);
+    const page = React.Children.toArray(root.props.children).find(
+      child => React.isValidElement<{ name: string }>(child) && child.props.name === 'request',
+    ) as React.ReactElement<{
+      children: (input: unknown) => React.ReactElement;
+    }>;
+    const navigate = jest.fn();
+    const tabs = { navigate: jest.fn() };
+    const navigation = { isFocused: () => true, popToTop: jest.fn(), navigate, getParent: () => tabs };
+    const route = page.props.children({ route: { params: { accountId: contract.id, initialScan: true } }, navigation });
+    const focusSpy = jest.mocked(useFocusEffect).mockImplementation(callback => {
+      callback();
+    });
+    mockRequestReady = true;
+    const appStateSpy = jest.spyOn(AppState, 'addEventListener').mockReturnValue({ remove: jest.fn() });
+    const renderRoute = route.type as (props: unknown) => React.ReactElement<{
+      captureScanSession: (source: 'camera' | 'photo') => () => boolean;
+      onScannedWebsite: (url: string, current: () => boolean) => void;
+      onContinueSend: (intent: unknown, current: () => boolean) => Promise<void>;
+    }>;
+    try {
+      const screen = renderRoute(route.props);
+      for (const source of ['camera', 'photo'] as const) {
+        const current = screen.props.captureScanSession(source);
+        expect(current()).toBe(true);
+        screen.props.onScannedWebsite('https://example.org/' + source, current);
+      }
+      expect(tabs.navigate).toHaveBeenCalledTimes(2);
+      await expect(
+        screen.props.onContinueSend(
+          { networkId: contract.networkId, networkPassphrase: 'test', asset: { kind: 'native' } },
+          () => true,
+        ),
+      ).rejects.toThrow();
+      expect(navigate).not.toHaveBeenCalled();
+    } finally {
+      focusSpy.mockReset();
+      mockRequestReady = false;
+      appStateSpy.mockRestore();
+    }
+  });
   it('opens independent SDEX orders for a read-only Classic account without using the Swap route', () => {
     const { navigate, onOrders, onSwap } = renderHomeEntry(false, true, account, true);
     expect(onSwap).toBeUndefined();

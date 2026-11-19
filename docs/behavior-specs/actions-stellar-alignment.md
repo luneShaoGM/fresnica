@@ -39,7 +39,13 @@ Each slice starts from then-current merged main. A1 deliberately retains Send/Sw
 
 ## A2 review-fix validation — 2026-11-19
 
-PR #212 follow-up: local `npm run check -- -- --watchman=false` PASS, 297 suites / 2750 tests, lint 0 errors / 59 existing warnings; touched TypeScript formatting and `git diff --check` PASS. Regression coverage includes camera/photo sensitive path/query and percent-encoded keys without website handoff, background and blur/refocus retirement, account/network revision changes, queued photo cancellation and valid system-picker foreground return. These are automated/helper checks; no Android/iOS camera, photo-picker or native product-flow acceptance was executed. New exact-HEAD independent Work review remains required; Stage 9 iOS System Auth cancellation/retry stays deferred.
+Follow-up to Work NEEDS_FIX at `c0dd02470a3e52e3578fb520fff8b03ad690d301`: HTTPS classification now applies the existing sensitive-input policy to each URLSearchParams-decoded query value, covering mnemonic words separated by percent-encoded spaces or `+`, including multiple/encoded parameter names. Both camera and photo regressions assert no website handoff and no raw sensitive value in the rejected result. Normal public HTTPS queries keep their existing meaning.
+
+Public scan sessions now use account-selection identity/focus/revision binding without requiring Classic identity. Contract accounts retain camera/photo website preview; payment Continue explicitly rejects non-Classic identities with the existing ineligible feedback. Swap keeps its Classic-only wrapper around the same identity guard. Route-level contract tests exercise the actual Home Actions request-route composition and verify both scan sources can hand off public websites while Send remains blocked. Existing photo foreground-return and stale-session behavior is unchanged.
+
+Current main `809f926d78a9c6b68b66c1816bf7d995f73b7ca9` (#211) is integrated into the same #212 branch. The two current P2 findings are developer-fixed, awaiting independent review of the resulting exact remote HEAD; the prior NEEDS_FIX remains historical evidence and no approval is inferred. Native camera/photo/gesture/accessibility acceptance remains unexecuted.
+
+Current integrated developer validation: `npm run check -- -- --watchman=false` PASS, 297 suites / 2755 tests, lint 0 errors / 59 existing warnings; touched TypeScript formatting and `git diff --check` PASS. These are automated/helper checks, not native acceptance. The earlier 297-suite / 2750-test result belonged to `c0dd02470a3e52e3578fb520fff8b03ad690d301`. Existing background/blur/account-revision, queued-photo cancellation and foreground-return regressions continue to pass. No Android/iOS camera, photo-picker or native product-flow acceptance was executed. New exact-HEAD independent Work review remains required; Stage 9 iOS System Auth cancellation/retry stays deferred.
 
 ## Evidence boundaries
 
