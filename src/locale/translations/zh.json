@@ -1357,5 +1357,6 @@
   "passphrase.policy.shortRisk": "此密码少于建议的 15 个字符。获得加密钱包副本的人可能离线猜测密码，应用锁无法阻止这些尝试。",
   "passphrase.policy.acceptRisk": "我理解并接受使用较短密码的风险。",
   "passphrase.prompt.title": "输入 App Passphrase",
-  "passphrase.prompt.sign": "确认并签名"
+  "passphrase.prompt.sign": "确认并签名",
+  "accounts.copy.action": "复制地址"
 }

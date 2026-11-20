@@ -1357,5 +1357,6 @@
   "passphrase.policy.shortRisk": "This passphrase is shorter than the recommended 15 characters. Someone with a copy of the encrypted wallet may guess it offline; an App lock cannot stop those attempts.",
   "passphrase.policy.acceptRisk": "I understand and accept the risk of using a shorter passphrase.",
   "passphrase.prompt.title": "Enter App Passphrase",
-  "passphrase.prompt.sign": "Confirm and sign"
+  "passphrase.prompt.sign": "Confirm and sign",
+  "accounts.copy.action": "Copy address"
 }

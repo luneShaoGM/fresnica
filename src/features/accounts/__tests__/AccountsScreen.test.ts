@@ -261,7 +261,7 @@ describe('AccountsScreen sort controls', () => {
     expect(errorElement?.props.accessibilityLiveRegion).toBeUndefined();
   });
 
-  it('wires each copy button outside the details card with its exact address', () => {
+  it('keeps inline copy widgets inside the card but outside its navigation control', () => {
     const copyPublicText = jest.fn(async () => undefined);
     const root = AccountsScreen({
       accounts: [account('first'), { ...account('hidden'), hidden: true }],
