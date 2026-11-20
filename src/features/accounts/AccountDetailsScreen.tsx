@@ -126,8 +126,7 @@ export function AccountDetailsScreen({
           <AccountAvatar address={account.address} active={active} size={68} />
           <Text style={styles.accountLabel}>{account.label || 'Stellar account'}</Text>
           <Button label={t('accounts.rename.open')} onPress={openRename} variant="ghost" />
-          <Text selectable style={styles.address}>{account.address}</Text>
-          <CopyAddressButton key={account.address} address={account.address} copyPublicText={copyPublicText} />
+          <CopyAddressButton key={account.address} address={account.address} copyPublicText={copyPublicText} numberOfLines={0} addressStyle={styles.address} />
         </View>
 
         <View style={styles.section}>

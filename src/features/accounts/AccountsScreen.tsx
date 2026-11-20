@@ -20,7 +20,14 @@ type Props = Readonly<{
   onBack: () => void;
 }>;
 
-export function AccountsScreen({ accounts, onOpenAccount, onAddAccount, onMoveAccount, copyPublicText, onBack }: Props) {
+export function AccountsScreen({
+  accounts,
+  onOpenAccount,
+  onAddAccount,
+  onMoveAccount,
+  copyPublicText,
+  onBack,
+}: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const [movingAccountId, setMovingAccountId] = useState<string | undefined>();
@@ -56,39 +63,34 @@ export function AccountsScreen({ accounts, onOpenAccount, onAddAccount, onMoveAc
         {moveError ? <Text style={styles.sortError}>{t('accounts.sort.error')}</Text> : null}
         {accounts.map((account, index) => (
           <View key={account.id} style={styles.accountGroup}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => onOpenAccount(account.id)}
-              style={({ pressed }) => [
-                styles.accountCard,
-                account.hidden ? styles.accountCardHidden : undefined,
-                pressed ? styles.pressed : undefined,
-              ]}
-            >
-              <View style={styles.accountTopRow}>
-                <View style={styles.accountIdentity}>
-                  <Text numberOfLines={1} style={styles.accountLabel}>
-                    {account.label || 'Stellar account'}
-                  </Text>
-                  <View style={styles.badges}>
-                    <View style={styles.accessBadge}>
-                      <Text style={styles.accessBadgeText}>{account.identityKind}</Text>
-                    </View>
-                    {account.hidden ? (
-                      <View style={styles.hiddenBadge}>
-                        <Text style={styles.hiddenBadgeText}>Hidden</Text>
+            <View style={[styles.accountCard, account.hidden ? styles.accountCardHidden : undefined]}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => onOpenAccount(account.id)}
+                style={({ pressed }) => [styles.accountOpen, pressed ? styles.pressed : undefined]}
+              >
+                <View style={styles.accountTopRow}>
+                  <View style={styles.accountIdentity}>
+                    <Text numberOfLines={1} style={styles.accountLabel}>
+                      {account.label || 'Stellar account'}
+                    </Text>
+                    <View style={styles.badges}>
+                      <View style={styles.accessBadge}>
+                        <Text style={styles.accessBadgeText}>{account.identityKind}</Text>
                       </View>
-                    ) : null}
+                      {account.hidden ? (
+                        <View style={styles.hiddenBadge}>
+                          <Text style={styles.hiddenBadgeText}>Hidden</Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </View>
+                  <Text style={styles.chevron}>›</Text>
                 </View>
-                <Text style={styles.chevron}>›</Text>
-              </View>
-              <Text numberOfLines={1} selectable style={styles.address}>
-                {account.address}
-              </Text>
-              <Text style={styles.network}>{account.networkId}</Text>
-            </Pressable>
-            <CopyAddressButton key={account.address} address={account.address} copyPublicText={copyPublicText} />
+                <Text style={styles.network}>{account.networkId}</Text>
+              </Pressable>
+              <CopyAddressButton key={account.address} address={account.address} copyPublicText={copyPublicText} />
+            </View>
             <View style={styles.sortControls}>
               <Pressable
                 accessibilityLabel={t('accounts.sort.moveUp')}

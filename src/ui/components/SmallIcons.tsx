@@ -37,3 +37,17 @@ export function SmallLock({ color }: Readonly<{ color: string }>): React.JSX.Ele
     </Svg>
   );
 }
+
+export function SmallCopy({ color }: Readonly<{ color: string }>): React.JSX.Element {
+  return (
+    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" accessible={false}>
+      <Path
+        d="M8 8h12v13H8zM4 16H2V2h13v2"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}

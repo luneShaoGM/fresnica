@@ -1364,5 +1364,6 @@
   "passphrase.policy.shortRisk": "此密碼少於建議的 15 個字元。取得加密錢包副本的人可能離線猜測密碼，應用鎖無法阻止這些嘗試。",
   "passphrase.policy.acceptRisk": "我理解並接受使用較短密碼的風險。",
   "passphrase.prompt.title": "輸入 App Passphrase",
-  "passphrase.prompt.sign": "確認並簽名"
+  "passphrase.prompt.sign": "確認並簽名",
+  "accounts.copy.action": "複製地址"
 }
