@@ -10,6 +10,7 @@ import { createStyles } from './styles';
 
 type Result = DappCatalogLoadResult | Readonly<{ kind: 'loading' }>;
 const EMPTY: readonly DappCatalogEntry[] = [];
+const ICON_VIEWABILITY = { itemVisiblePercentThreshold: 1 };
 function cached(catalog: DappCatalogPort): DappCatalogLoadResult | undefined {
   try {
     const value = catalog.readCached?.();
@@ -40,6 +41,16 @@ export function ActionsFeatured({
   const [retry, setRetry] = useState(0);
   const shown = state.owner === catalog ? state.value : (initial ?? { kind: 'loading' as const });
   const entries = shown.kind === 'ready' ? (shown.featured ?? EMPTY) : EMPTY;
+  const itemKeys = JSON.stringify(entries.map(entry => entry.id));
+  const listSession = useRef({ owner: catalog, itemKeys, key: 0 });
+  if (listSession.current.owner !== catalog || listSession.current.itemKeys !== itemKeys) {
+    listSession.current = { owner: catalog, itemKeys, key: listSession.current.key + 1 };
+  }
+  const session = listSession.current;
+  const [visibility, setVisibility] = useState<{ session: typeof session; keys: ReadonlySet<string> }>(() => ({
+    session,
+    keys: new Set(),
+  }));
   const live = useRef<{ owner: DappCatalogPort; active: boolean; entries: readonly DappCatalogEntry[] } | undefined>(
     undefined,
   );
@@ -98,13 +109,30 @@ export function ActionsFeatured({
       {entries.length > 0 ? (
         <FlatList
           horizontal
+          key={session.key}
           data={entries}
+          extraData={visibility}
+          viewabilityConfig={ICON_VIEWABILITY}
+          onViewableItemsChanged={({ viewableItems }) => {
+            if (!live.current?.active || listSession.current !== session) return;
+            setVisibility({
+              session,
+              keys: new Set(viewableItems.filter(token => token.isViewable).map(token => token.key)),
+            });
+          }}
           keyExtractor={entry => entry.id}
           initialNumToRender={4}
           windowSize={3}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
-            <FeaturedApp entry={item} catalog={catalog} active={active} online={online} onPress={() => open(item)} />
+            <FeaturedApp
+              entry={item}
+              catalog={catalog}
+              active={active}
+              online={online}
+              visible={visibility.session === session && visibility.keys.has(item.id)}
+              onPress={() => open(item)}
+            />
           )}
         />
       ) : (
@@ -143,23 +171,25 @@ function FeaturedApp({
   catalog,
   active,
   online,
+  visible,
   onPress,
 }: Readonly<{
   entry: DappCatalogEntry;
   catalog: DappCatalogPort;
   active: boolean;
   online: boolean;
+  visible: boolean;
   onPress: () => void;
 }>) {
   const styles = useThemedStyles(createStyles);
   const media = catalog.publicMedia;
   const icons = useDappIconState(media);
   useEffect(() => {
-    if (!active || !online || !icons.enabled || !media?.available) return;
+    if (!visible || !active || !online || !icons.enabled || !media?.available) return;
     const controller = new AbortController();
     media.loadIcon(entry, controller.signal).catch(() => undefined);
     return () => controller.abort();
-  }, [entry, media, active, online, icons.enabled]);
+  }, [entry, media, active, online, visible, icons.enabled]);
   const target = normalizeUntrustedDappUrl(entry.websiteUrl);
   return (
     <Pressable

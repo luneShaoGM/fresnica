@@ -1,5 +1,5 @@
 import React from 'react';
-import { FlatList, Pressable } from 'react-native';
+import { FlatList, Pressable, type FlatListProps } from 'react-native';
 import type { DappCatalogEntry, DappCatalogLoadResult, DappCatalogPort } from '@capabilities/dapp-catalog/catalog';
 import type { DappPublicMediaPort } from '@capabilities/dapp-catalog/dappPublicMedia';
 
@@ -106,6 +106,19 @@ function rowElement(tree: React.ReactNode) {
   const list = find(tree, node => node.type === FlatList)!;
   return (list.props.renderItem as (input: { item: DappCatalogEntry }) => React.ReactElement<Record<string, unknown>>)({
     item: items(tree)[0],
+  });
+}
+function reportVisible(tree: React.ReactNode, indices: readonly number[]) {
+  const list = find(tree, node => node.type === FlatList)!;
+  const onChange = list.props.onViewableItemsChanged as FlatListProps<DappCatalogEntry>['onViewableItemsChanged'];
+  onChange?.({
+    viewableItems: indices.map(index => ({
+      item: items(tree)[index],
+      index,
+      key: items(tree)[index].id,
+      isViewable: true,
+    })),
+    changed: [],
   });
 }
 function pressRow(tree: React.ReactNode) {
@@ -242,6 +255,119 @@ describe('Actions featured lifecycle', () => {
     expect(offline.load).not.toHaveBeenCalled();
   });
 
+  it('does not request icons for retained offscreen rows and aborts when a mounted row scrolls out', async () => {
+    const loadIcon = jest.fn((_entry: DappCatalogEntry, _signal: AbortSignal) => new Promise<undefined>(() => {}));
+    const media = {
+      available: true,
+      getIconState: () => ({ enabled: true, revision: 0 }),
+      subscribeIcons: () => () => {},
+      readIcon: () => undefined,
+      loadIcon,
+    } as unknown as DappPublicMediaPort;
+    const other = { ...entry, id: 'other' };
+    const catalog: DappCatalogPort = {
+      readCached: () => ready([entry, other]),
+      load: async () => ready([entry, other]),
+      publicMedia: media,
+    };
+    const { render } = setup(catalog);
+    const ViewabilityHelper = jest.requireActual<{
+      default: new (config: unknown) => { onUpdate: (...args: unknown[]) => void; dispose: () => void };
+    }>('@react-native/virtualized-lists/Lists/ViewabilityHelper').default;
+    const nativeViewability = new ViewabilityHelper(
+      find(render(), node => node.type === FlatList)!.props.viewabilityConfig,
+    );
+    const reportScroll = (offset: number) => {
+      const tree = render();
+      const data = items(tree);
+      nativeViewability.onUpdate(
+        { data, getItemCount: (rows: readonly DappCatalogEntry[]) => rows.length },
+        offset,
+        140,
+        { getCellMetrics: (index: number) => ({ offset: index * 148, length: 140 }) },
+        (index: number, isViewable: boolean) => ({ item: data[index], index, key: data[index].id, isViewable }),
+        find(tree, node => node.type === FlatList)!.props.onViewableItemsChanged,
+      );
+    };
+    const renderRetainedRow = () => {
+      const row = rowElement(render());
+      return renderWith('retained-row', () =>
+        (row.type as (props: Record<string, unknown>) => React.ReactElement)(row.props),
+      );
+    };
+    renderRetainedRow();
+    await flush();
+    expect(loadIcon).not.toHaveBeenCalled(); // Mounted before the first native visibility report.
+    reportScroll(148);
+    renderRetainedRow();
+    await flush();
+    expect(loadIcon).not.toHaveBeenCalled(); // First row stays mounted, but only the second is visible.
+    reportScroll(0);
+    renderRetainedRow();
+    await flush();
+    expect(loadIcon).toHaveBeenCalledTimes(1);
+    const signal = loadIcon.mock.calls[0][1];
+    expect(signal.aborted).toBe(false);
+    reportScroll(148);
+    renderRetainedRow();
+    await flush();
+    expect(signal.aborted).toBe(true);
+    expect(loadIcon).toHaveBeenCalledTimes(1);
+    reportScroll(0);
+    renderRetainedRow();
+    await flush();
+    expect(loadIcon).toHaveBeenCalledTimes(2); // A fresh request is allowed when it becomes visible again.
+    nativeViewability.dispose();
+  });
+
+  it('requires a fresh visibility report when the recommendation order changes', async () => {
+    let resolve!: (value: DappCatalogLoadResult) => void;
+    const other = { ...entry, id: 'other' };
+    const catalog: DappCatalogPort = {
+      readCached: () => ready([entry, other]),
+      load: () =>
+        new Promise(done => {
+          resolve = done;
+        }),
+    };
+    const { render } = setup(catalog);
+    const initial = render();
+    await flush();
+    reportVisible(initial, [0]);
+    const old = render();
+    expect(rowElement(old).props.visible).toBe(true);
+    await flush();
+    resolve(ready([other, entry]));
+    await flush();
+    const reordered = render();
+    expect(find(reordered, node => node.type === FlatList)?.key).not.toBe(
+      find(old, node => node.type === FlatList)?.key,
+    );
+    expect(rowElement(reordered).props.visible).toBe(false);
+    reportVisible(old, [0]);
+    expect(rowElement(render()).props.visible).toBe(false);
+    reportVisible(reordered, [0]);
+    expect(rowElement(render()).props.visible).toBe(true);
+  });
+
+  it("does not reuse another provider's visibility or accept its retired list callback", () => {
+    const catalog: DappCatalogPort = { readCached: () => ready([entry]), load: async () => ready([entry]) };
+    const next: DappCatalogPort = { ...catalog };
+    const { render } = setup(catalog);
+    const first = render();
+    reportVisible(first, [0]);
+    expect(rowElement(render()).props.visible).toBe(true);
+    const switched = render(true, true, next);
+    expect(find(switched, node => node.type === FlatList)?.key).not.toBe(
+      find(first, node => node.type === FlatList)?.key,
+    );
+    expect(rowElement(switched).props.visible).toBe(false);
+    reportVisible(first, [0]);
+    expect(rowElement(render(true, true, next)).props.visible).toBe(false);
+    reportVisible(switched, [0]);
+    expect(rowElement(render(true, true, next)).props.visible).toBe(true);
+  });
+
   it('loads visible row icons only after opt-in and aborts when hidden', async () => {
     let enabled = false;
     const loadIcon = jest.fn(async () => undefined);
@@ -258,10 +384,11 @@ describe('Actions featured lifecycle', () => {
       publicMedia: media,
     };
     const { render } = setup(catalog);
+    reportVisible(render(), [0]);
     const row = rowElement(render());
-    const renderRow = (active: boolean) =>
+    const renderRow = (active: boolean, online = true) =>
       renderWith('row', () =>
-        (row.type as (props: Record<string, unknown>) => React.ReactElement)({ ...row.props, active }),
+        (row.type as (props: Record<string, unknown>) => React.ReactElement)({ ...row.props, active, online }),
       );
     renderRow(true);
     await flush();
@@ -271,9 +398,25 @@ describe('Actions featured lifecycle', () => {
     await flush();
     expect(loadIcon).toHaveBeenCalledTimes(1);
     const signal = (loadIcon.mock.calls[0] as unknown as [DappCatalogEntry, AbortSignal])[1];
-    renderRow(false);
+    renderRow(true, false);
     await flush();
     expect(signal.aborted).toBe(true);
+    renderRow(true);
+    await flush();
+    expect(loadIcon).toHaveBeenCalledTimes(2);
+    const second = (loadIcon.mock.calls[1] as unknown as [DappCatalogEntry, AbortSignal])[1];
+    enabled = false;
+    renderRow(true);
+    await flush();
+    expect(second.aborted).toBe(true);
+    expect(loadIcon).toHaveBeenCalledTimes(2);
+    enabled = true;
+    renderRow(true);
+    await flush();
+    const third = (loadIcon.mock.calls[2] as unknown as [DappCatalogEntry, AbortSignal])[1];
+    renderRow(false);
+    await flush();
+    expect(third.aborted).toBe(true);
     expect(find(renderRow(false), node => node.type === Pressable)?.props.disabled).toBe(true);
   });
 });
