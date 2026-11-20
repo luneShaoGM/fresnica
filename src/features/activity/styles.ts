@@ -119,16 +119,10 @@ export function createStyles(theme: AppTheme) {
       justifyContent: 'center',
       backgroundColor: theme.colors.surfaceMuted,
     },
-    filterChipSelected: {
-      backgroundColor: theme.colors.surfaceStrong,
-    },
     filterText: {
       ...theme.typography.caption,
       fontWeight: '700',
       color: theme.colors.textSecondary,
-    },
-    filterTextSelected: {
-      color: theme.colors.onActionPrimary,
     },
     listContent: {
       paddingHorizontal: theme.spacing.md,

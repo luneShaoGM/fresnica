@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Switch } from 'react-native';
 import { BottomSheet } from '@ui/components';
+import { SelectableChip } from '@ui/components/SelectableChip';
 import { NativeButton } from '@ui/components/NativeButton';
 import { ActivityFiltersSheet, type ActivityDisplayFilters } from '../ActivityFiltersSheet';
 jest.mock('react', () => ({ ...jest.requireActual('react'), useState: jest.fn() }));
@@ -17,6 +18,8 @@ type Props = {
   label?: string;
   accessibilityLabel?: string;
   accessibilityState?: { selected?: boolean; checked?: boolean };
+  selected?: boolean;
+  accessibilityRole?: string;
   onPress?: () => void;
   onClose?: () => void;
   onValueChange?: (value: boolean) => void;
@@ -110,14 +113,38 @@ it('applies independent inclusive quantity controls and permits deselection with
   const root = ActivityFiltersSheet(props);
   const amount = find(
     root,
-    node =>
-      node.props.accessibilityState?.selected === true &&
-      Boolean(node.props.children) &&
-      React.Children.toArray(node.props.children).some(
-        child => React.isValidElement<Props>(child) && child.props.children === '25',
-      ),
+    node => node.type === SelectableChip && node.props.selected === true && node.props.label === '25',
   );
+  expect(amount?.props.accessibilityRole).toBe('radio');
   expect(amount).toBeDefined();
   amount?.props.onPress?.();
   expect(draft.quantity).toEqual({ comparison: 'at-most', amount: undefined });
+});
+
+it('keeps type and direction decisions in the Activity sheet, not the shared chip', () => {
+  let draft: ActivityDisplayFilters = {
+    type: 'payments',
+    showHidden: false,
+    hideDust: true,
+    showFailed: false,
+    hiddenAssets: new Set(),
+    quantity: { direction: 'incoming' },
+  };
+  (useState as jest.Mock).mockImplementation(() => [
+    draft,
+    (update: (previous: ActivityDisplayFilters) => ActivityDisplayFilters) => {
+      draft = update(draft);
+    },
+  ]);
+  const props = { initial: draft, assets: [], onClose: jest.fn(), onApply: jest.fn(), onRefresh: jest.fn() };
+  const root = ActivityFiltersSheet(props);
+  const payments = find(root, node => node.type === SelectableChip && node.props.label === 'Payments');
+  const incoming = find(root, node => node.type === SelectableChip && node.props.label === 'Received');
+
+  expect(payments?.props.selected).toBe(true);
+  expect(incoming?.props.selected).toBe(true);
+  payments?.props.onPress?.();
+  incoming?.props.onPress?.();
+  expect(draft.type).toBe('all');
+  expect(draft.quantity.direction).toBeUndefined();
 });
