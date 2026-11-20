@@ -82,3 +82,19 @@ describe('S14 public dApp catalog snapshot', () => {
     expect(normalizeDappCatalogCache(null, 'stellar-testnet')).toBeUndefined();
   });
 });
+
+it('keeps optional featured metadata through cache normalization without inventing legacy suggestions', () => {
+  expect(normalizeDappCatalogCache(snapshot, snapshot.networkId)).not.toHaveProperty('featured');
+  const featured = {
+    ...snapshot.entries[0],
+    id: 'featured-only',
+    title: 'Featured',
+    iconUrl: 'http://localhost/icon.png',
+    grant: true,
+  };
+  const stored = normalizeDappCatalogCache({ ...snapshot, featured: [featured] }, snapshot.networkId);
+  expect(stored?.featured).toEqual([{ ...snapshot.entries[0], id: 'featured-only', title: 'Featured' }]);
+  expect(normalizeDappCatalogCache({ ...snapshot, featured: [] }, snapshot.networkId)?.featured).toEqual([]);
+  for (const value of [null, {}, [featured, featured], [{ ...featured, websiteUrl: 'http://localhost' }]])
+    expect(normalizeDappCatalogCache({ ...snapshot, featured: value }, snapshot.networkId)).toBeUndefined();
+});

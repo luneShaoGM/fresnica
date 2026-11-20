@@ -1,3 +1,5 @@
+import type { DappCatalogPort } from '@capabilities/dapp-catalog/catalog';
+import { ActionsFeatured } from '@features/dapps/ActionsFeatured/ActionsFeatured';
 import type { DappRecentHistory } from '@capabilities/dapp-interaction/dappRecentHistory';
 import { useDappRecent } from '@features/dapps/useDappRecent';
 import type { NodeReadFailure } from '@capabilities/network/NodeReadError';
@@ -42,6 +44,9 @@ export type MainTabBarProps = BottomTabBarProps &
   Readonly<{
     selectedAccountId?: string;
     recentHistory?: DappRecentHistory;
+    catalog?: DappCatalogPort;
+    foreground?: boolean;
+    online?: boolean;
     syncMode?: AccountSyncMode;
     nodePhase?: 'checking' | 'healthy' | 'cooldown' | 'wrong-network' | 'paused' | 'closed';
     nodeFailure?: NodeReadFailure;
@@ -56,6 +61,9 @@ export function MainTabBar({
   navigation,
   selectedAccountId,
   recentHistory,
+  catalog,
+  foreground = true,
+  online = true,
   actionAvailability,
   actionState,
   nodePhase,
@@ -64,8 +72,10 @@ export function MainTabBar({
 }: MainTabBarProps) {
   const { t } = useLocalization();
   const recent = useDappRecent(recentHistory);
-  const recentSession = useRef<{ history?: DappRecentHistory; accountId?: string } | undefined>(undefined);
-  recentSession.current = { history: recentHistory, accountId: selectedAccountId };
+  const recentSession = useRef<
+    { history?: DappRecentHistory; accountId?: string; catalog?: DappCatalogPort } | undefined
+  >(undefined);
+  recentSession.current = { history: recentHistory, accountId: selectedAccountId, catalog };
   useEffect(
     () => () => {
       recentSession.current = undefined;
@@ -213,6 +223,24 @@ export function MainTabBar({
             })}
           </View>
         ) : null}
+        {catalog ? (
+          <ActionsFeaturedOverlay
+            catalog={catalog}
+            foreground={foreground}
+            online={online}
+            onOpen={entry => {
+              if (
+                !selectedAccountId ||
+                recentSession.current?.accountId !== selectedAccountId ||
+                recentSession.current?.catalog !== catalog
+              )
+                return false;
+              dismiss();
+              navigation.navigate('dapps', { screen: 'dapps', params: { scannedUrl: entry.websiteUrl } });
+              return true;
+            }}
+          />
+        ) : null}
         <Text accessibilityRole="header" style={styles.sectionTitle}>
           {t('nav.quickActions')}
         </Text>
@@ -287,6 +315,9 @@ export function MainTabBar({
     selectAction,
     recent,
     recentHistory,
+    catalog,
+    foreground,
+    online,
   ]);
 
   useEffect(() => {
@@ -340,4 +371,13 @@ export function MainTabBar({
       </SafeAreaView>
     </View>
   );
+}
+
+// The host keeps closing content mounted; subscribe here so hidden content retires its work.
+function ActionsFeaturedOverlay({
+  foreground,
+  ...props
+}: Omit<React.ComponentProps<typeof ActionsFeatured>, 'active'> & { foreground: boolean }) {
+  const { activeOverlayId } = useOverlay();
+  return <ActionsFeatured {...props} active={foreground && activeOverlayId === ACTIONS_OVERLAY_ID} />;
 }

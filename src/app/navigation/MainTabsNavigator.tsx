@@ -399,6 +399,9 @@ function MainTabsWithSelection({
           actionState={actionState}
           selectedAccountId={effectiveSelectedAccountId}
           recentHistory={services.dappRecent}
+          catalog={services.dappCatalog}
+          foreground={readRuntime.foreground}
+          online={readRuntime.connectivity !== 'offline'}
         />
       )}
     >
