@@ -45,7 +45,7 @@ const base = { endpoint: 'https://node.example/horizon', generation: 3 };
 describe('current-node health product projection', () => {
   it.each([
     ['checking', 'Checking connection…', false],
-    ['healthy', 'Connected', false],
+    ['healthy', 'Basic connection verified', false],
     ['cooldown', 'Retrying connection', true],
     ['wrong-network', 'Wrong network — reads blocked', true],
     ['paused', 'Connection paused while offline or inactive', false],
@@ -53,7 +53,9 @@ describe('current-node health product projection', () => {
   ] as const)('renders %s honestly and exposes Retry only when useful', (phase, label, retryable) => {
     const shown = content({ ...base, phase });
     expect(shown.text).toContain(label);
-    expect(shown.text).toContain('Connection status for live balances and activity.');
+    expect(shown.text).toContain(
+      'Connection check covers only node reachability and network identity. Balance and activity requests may still fail.',
+    );
     expect(shown.buttons).toHaveLength(retryable ? 1 : 0);
     expect(shown.nodes.some(node => node.props.selectable && node.props.children === base.endpoint)).toBe(true);
     expect(

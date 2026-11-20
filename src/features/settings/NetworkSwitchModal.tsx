@@ -365,6 +365,7 @@ function CurrentNodeStatus({ monitor }: Readonly<{ monitor: NodeHealthMonitor }>
       <Text accessibilityLiveRegion="polite" style={[styles.status, tone]}>
         {`${t('networkHealth.currentNode')} · ${t(`networkHealth.phase.${snapshot.phase}`)}`}
       </Text>
+      {snapshot.phase === 'healthy' ? <Text style={styles.status}>{t('networkHealth.readScope')}</Text> : null}
       {failed ? (
         <NativeButton label={t('networkHealth.retry')} onPress={monitor.retry} size="sm" variant="quiet" />
       ) : null}

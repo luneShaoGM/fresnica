@@ -296,6 +296,31 @@ describe('ActivityScreen filter/search closure', () => {
     expect(onAction).toHaveBeenCalledTimes(1);
   });
 
+  it('identifies an uncached history read failure without claiming the device is offline', () => {
+    const localization = createLocalization('en');
+    const onRetry = jest.fn();
+    const root = ActivityContent({
+      state: { kind: 'offline-empty' },
+      entries: [],
+      onRetry,
+      onLoadMore: jest.fn(),
+      onOpenOperation: jest.fn(),
+      t: localization.t,
+      formatNumber: localization.formatNumber,
+      dateFormatter: new Intl.DateTimeFormat('en-US'),
+      timeFormatter: new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }),
+      indicatorColor: defaultTheme.colors.actionPrimaryPressed,
+      styles: createStyles(defaultTheme),
+    });
+    const panel = root as React.ReactElement<React.ComponentProps<typeof StatePanel>>;
+    expect(panel.props.title).toBe('Unable to load activity');
+    expect(panel.props.message).toBe(
+      'Could not load activity from the selected Horizon node, and no cached history is available. Check your connection, retry, or choose another Horizon node in Networks.',
+    );
+    expect(panel.props.action).toBe('Try again');
+    panel.props.onAction?.();
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
   it('keeps a retry action while stale cached history remains visible', () => {
     const localization = createLocalization('en');
     const onRetry = jest.fn();
