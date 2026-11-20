@@ -95,7 +95,7 @@ it('does not mark an existing account inactive when only its operations endpoint
   const http = jest.fn().mockResolvedValueOnce({ status: 404 }).mockResolvedValueOnce(response(rawAccount));
   const reads = createHorizonPublicReadGateway(http);
   await expect(reads.loadAccountOperations(endpoint, { address: 'Ga', limit: 15 }, signal)).rejects.toMatchObject({
-    kind: 'unavailable',
+    kind: 'request',
   });
   expect(http.mock.calls.map(([url]) => url)).toEqual([
     'https://node.test/accounts/Ga/operations?include_failed=true&join=transactions&order=desc&limit=15',

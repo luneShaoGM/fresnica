@@ -66,7 +66,8 @@ export function createHorizonPublicReadGateway(http: typeof fetch = fetch) {
         const account = await get(endpoint, `/accounts/${encodeURIComponent(input.address)}`, signal);
         if (account === undefined) return { status: 'inactive' as const, address: input.address };
         if (object(account).account_id !== input.address) throw new NodeReadError('protocol');
-        throw new NodeReadError('unavailable');
+        // This resource-level 404 must not mark the shared node unavailable for Home reads.
+        throw new NodeReadError('request');
       }
       const records = object(object(value)._embedded).records;
       if (!Array.isArray(records) || records.length > input.limit) throw new NodeReadError('protocol');
