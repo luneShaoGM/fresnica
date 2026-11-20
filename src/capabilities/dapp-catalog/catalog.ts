@@ -12,7 +12,12 @@ export type DappCatalogEntry = Readonly<{
 
 export type DappCatalogLoadResult =
   | Readonly<{ kind: 'unavailable' }>
-  | Readonly<{ kind: 'ready'; entries: readonly DappCatalogEntry[]; stale?: boolean }>;
+  | Readonly<{
+      kind: 'ready';
+      entries: readonly DappCatalogEntry[];
+      featured?: readonly DappCatalogEntry[];
+      stale?: boolean;
+    }>;
 
 export type DappCatalogPort = Readonly<{
   load: () => Promise<DappCatalogLoadResult>;

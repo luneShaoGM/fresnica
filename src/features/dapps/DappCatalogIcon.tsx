@@ -1,14 +1,12 @@
 import React, { useState, useSyncExternalStore } from 'react';
-import { Image, Text, View } from 'react-native';
+import { Image, Text, View, type ImageStyle, type ViewStyle, type TextStyle } from 'react-native';
 
 import type { DappCatalogEntry } from '@capabilities/dapp-catalog/catalog';
 import type { DappPublicMediaPort, PublicDappIconState } from '@capabilities/dapp-catalog/dappPublicMedia';
 import { NativeButton } from '@ui/components/NativeButton';
 
 import { useLocalization } from '../../locale';
-import type { createStyles } from './screens/DAppsScreen/styles';
-
-type Styles = ReturnType<typeof createStyles>;
+type IconStyles = Readonly<{ appIcon: ImageStyle & ViewStyle; appInitials: TextStyle }>;
 const DISABLED: PublicDappIconState = Object.freeze({ enabled: false, revision: 0 });
 const idleSubscribe = () => () => {};
 const idleSnapshot = () => DISABLED;
@@ -34,7 +32,7 @@ export function DappCatalogIcon({
   entry,
   media,
   styles,
-}: Readonly<{ entry: DappCatalogEntry; media?: DappPublicMediaPort; styles: Styles }>) {
+}: Readonly<{ entry: DappCatalogEntry; media?: DappPublicMediaPort; styles: IconStyles }>) {
   const state = useDappIconState(media);
   const [failed, setFailed] = useState<{ appId: string; uri: string }>();
   const candidate = state.enabled ? media?.readIcon(entry) : undefined;

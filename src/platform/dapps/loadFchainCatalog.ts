@@ -54,7 +54,12 @@ export function createFchainCatalog(dependencies: {
       try {
         const cached = cache.read(networkId);
         return cached?.networkId === networkId
-          ? { kind: 'ready', entries: cached.entries, stale: true }
+          ? {
+              kind: 'ready',
+              entries: cached.entries,
+              ...(cached.featured ? { featured: cached.featured } : {}),
+              stale: true,
+            }
           : { kind: 'unavailable' };
       } catch {
         return { kind: 'unavailable' };
@@ -113,8 +118,11 @@ async function refresh(
   const candidate = cache.read(networkId);
   const previous = candidate?.networkId === networkId ? candidate : undefined;
   const headers: Record<string, string> = { Accept: 'application/json' };
-  if (previous?.etag) headers['If-None-Match'] = previous.etag;
-  if (previous?.lastModified) headers['If-Modified-Since'] = previous.lastModified;
+  // Legacy snapshots discarded featured data, so a 304 cannot fill that missing field.
+  if (previous?.featured !== undefined) {
+    if (previous.etag) headers['If-None-Match'] = previous.etag;
+    if (previous.lastModified) headers['If-Modified-Since'] = previous.lastModified;
+  }
 
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -126,9 +134,13 @@ async function refresh(
     });
     assertOpen();
     if (response.url && response.url !== CATALOG_URL) throw new Error('dapp-catalog-redirect');
-    if (response.status === 304 && previous && (previous.etag || previous.lastModified)) {
+    if (response.status === 304 && previous && (headers['If-None-Match'] || headers['If-Modified-Since'])) {
       onVerified(previous.entries);
-      return { kind: 'ready', entries: previous.entries };
+      return {
+        kind: 'ready',
+        entries: previous.entries,
+        ...(previous.featured ? { featured: previous.featured } : {}),
+      };
     }
     if (response.status !== 200) throw new Error('dapp-catalog-http');
     const contentLength = response.headers.get('content-length');
@@ -138,22 +150,29 @@ async function refresh(
     assertOpen();
     if (body.length === 0 || body.length > MAX_BODY_LENGTH) throw new Error('dapp-catalog-size');
 
-    const entries = catalogEntriesFromFchain(JSON.parse(body), networkId);
+    const catalog = catalogFromFchain(JSON.parse(body), networkId);
+    const { entries } = catalog;
     const snapshot: DappCatalogCacheSnapshot = {
       schemaVersion: DAPP_CATALOG_CACHE_VERSION,
       networkId,
       savedAtUnixMs: now(),
-      entries,
+      ...catalog,
       ...(header(response, 'etag') ? { etag: header(response, 'etag') } : {}),
       ...(header(response, 'last-modified') ? { lastModified: header(response, 'last-modified') } : {}),
     };
     assertOpen();
     cache.replace(snapshot);
     onVerified(entries);
-    return { kind: 'ready', entries };
+    return { kind: 'ready', ...catalog };
   } catch {
     assertOpen();
-    if (previous) return { kind: 'ready', entries: previous.entries, stale: true };
+    if (previous)
+      return {
+        kind: 'ready',
+        entries: previous.entries,
+        ...(previous.featured ? { featured: previous.featured } : {}),
+        stale: true,
+      };
     throw new Error('dapp-catalog-unavailable');
   } finally {
     clearTimeout(timeout);
@@ -161,13 +180,30 @@ async function refresh(
 }
 
 export function catalogEntriesFromFchain(value: unknown, networkId: string): readonly DappCatalogEntry[] {
+  return catalogFromFchain(value, networkId).entries;
+}
+
+export function catalogFromFchain(
+  value: unknown,
+  networkId: string,
+): Readonly<{
+  entries: readonly DappCatalogEntry[];
+  featured?: readonly DappCatalogEntry[];
+}> {
   if (!isObject(value) || value.schemaVersion !== 1 || !Array.isArray(value.all))
     throw new Error('dapp-catalog-schema');
-  if (networkId !== 'stellar-mainnet' && networkId !== 'stellar-testnet') return [];
+  if (value.featured !== undefined && !Array.isArray(value.featured)) throw new Error('dapp-catalog-schema');
+  return {
+    entries: readEntries(value.all, networkId),
+    ...(Array.isArray(value.featured) ? { featured: readEntries(value.featured, networkId) } : {}),
+  };
+}
 
+function readEntries(values: readonly unknown[], networkId: string): readonly DappCatalogEntry[] {
+  if (networkId !== 'stellar-mainnet' && networkId !== 'stellar-testnet') return [];
   const seen = new Set<string>();
   const entries: DappCatalogEntry[] = [];
-  for (const raw of value.all) {
+  for (const raw of values) {
     const entry = readEntry(raw, networkId);
     if (!entry || seen.has(entry.id)) continue;
     seen.add(entry.id);

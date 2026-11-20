@@ -3,11 +3,12 @@ import {
   type DappCatalogCacheRepository,
   type DappCatalogCacheSnapshot,
 } from '../../../capabilities/dapp-catalog/catalogCache';
-import { catalogEntriesFromFchain, createFchainCatalog } from '../loadFchainCatalog';
+import { catalogEntriesFromFchain, catalogFromFchain, createFchainCatalog } from '../loadFchainCatalog';
 
 const payload = {
   schemaVersion: 1,
   revision: 'rev-1',
+  featured: [],
   all: [
     {
       identifier: 'demo',
@@ -574,4 +575,78 @@ describe('S14 FChain public catalog', () => {
     await expect(pending).rejects.toThrow('network-session-retired');
     expect(cache.snapshot('stellar-testnet')).toBeUndefined();
   });
+});
+
+describe('A4 explicit featured catalog data', () => {
+  it('uses featured order and per-network launch URLs, never an all/popular fallback', () => {
+    const source = {
+      ...payload,
+      featured: [payload.all[1], payload.all[0], payload.all[0]],
+      popular: [payload.all[0]],
+    };
+    expect(catalogFromFchain(source, 'stellar-mainnet').featured?.map(entry => [entry.id, entry.websiteUrl])).toEqual([
+      ['main-only', 'https://main.example.org/'],
+      ['demo', 'https://demo.example.org/main'],
+    ]);
+    expect(catalogFromFchain(source, 'stellar-testnet').featured?.map(entry => entry.id)).toEqual(['demo']);
+    expect(catalogFromFchain({ ...payload, featured: undefined }, 'stellar-testnet')).not.toHaveProperty('featured');
+    expect(catalogFromFchain({ ...source, featured: [] }, 'stellar-testnet').featured).toEqual([]);
+  });
+
+  it('persists featured independently and retains it on conditional 304, bad refresh and offline read', async () => {
+    const cache = memoryCache();
+    const featured = { ...payload.all[0], identifier: 'featured-only', name: 'Featured' };
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...payload, featured: [featured] }), {
+          status: 200,
+          headers: { etag: '"featured"' },
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 304 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ...payload, featured: 'invalid' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ...payload, featured: [] }), { status: 200 }));
+    const catalog = createFchainCatalog({
+      cache,
+      networkId: 'stellar-testnet',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      now: () => 10,
+    });
+    await expect(catalog.load()).resolves.toMatchObject({ featured: [{ id: 'featured-only' }] });
+    expect(catalog.isTrustedLiveEntry?.(cache.snapshot('stellar-testnet')!.featured![0])).toBe(false);
+    await expect(catalog.load()).resolves.toMatchObject({ featured: [{ id: 'featured-only' }] });
+    expect(fetchImpl.mock.calls[1][1].headers['If-None-Match']).toBe('"featured"');
+    await expect(catalog.load()).resolves.toMatchObject({ stale: true, featured: [{ id: 'featured-only' }] });
+    expect(catalog.readCached()).toMatchObject({ stale: true, featured: [{ id: 'featured-only' }] });
+    expect(createFchainCatalog({ cache, networkId: 'stellar-mainnet' }).readCached()).toEqual({ kind: 'unavailable' });
+    await expect(catalog.load()).resolves.toMatchObject({ featured: [] });
+    expect(cache.snapshot('stellar-testnet')?.featured).toEqual([]);
+  });
+});
+
+it('forces full refresh of a legacy ETag snapshot to recover previously discarded featured metadata', async () => {
+  const cache = memoryCache();
+  const entries = catalogEntriesFromFchain(payload, 'stellar-testnet');
+  cache.replace({
+    schemaVersion: 1,
+    networkId: 'stellar-testnet',
+    savedAtUnixMs: 1,
+    entries,
+    etag: '"old"',
+    lastModified: 'yesterday',
+  });
+  const fetchImpl = jest
+    .fn()
+    .mockResolvedValueOnce(new Response(null, { status: 304 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ ...payload, featured: [payload.all[0]] }), { status: 200 }));
+  const catalog = createFchainCatalog({
+    cache,
+    networkId: 'stellar-testnet',
+    fetchImpl: fetchImpl as unknown as typeof fetch,
+  });
+  await expect(catalog.load()).resolves.toMatchObject({ stale: true, entries });
+  expect(catalog.readCached()).not.toHaveProperty('featured');
+  expect(fetchImpl.mock.calls[0][1].headers).toEqual({ Accept: 'application/json' });
+  await expect(catalog.load()).resolves.toMatchObject({ featured: [{ id: 'demo' }] });
 });
