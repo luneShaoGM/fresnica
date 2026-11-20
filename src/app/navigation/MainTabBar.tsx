@@ -280,22 +280,22 @@ export function MainTabBar({
               </Pressable>
             );
           })}
+          <Pressable
+            accessibilityLabel={t('actions.scan')}
+            accessibilityRole="button"
+            onPress={() => {
+              if (!selectedAccountId) return;
+              dismiss();
+              navigation.navigate('home', {
+                screen: 'request',
+                params: { accountId: selectedAccountId, initialScan: true },
+              });
+            }}
+            style={({ pressed }) => [styles.scanAction, pressed ? styles.pressed : undefined]}
+          >
+            <Text style={styles.actionLabel}>{t('actions.scan')}</Text>
+          </Pressable>
         </View>
-        <Pressable
-          accessibilityLabel={t('actions.scan')}
-          accessibilityRole="button"
-          onPress={() => {
-            if (!selectedAccountId) return;
-            dismiss();
-            navigation.navigate('home', {
-              screen: 'request',
-              params: { accountId: selectedAccountId, initialScan: true },
-            });
-          }}
-          style={({ pressed }) => [styles.scanAction, pressed ? styles.pressed : undefined]}
-        >
-          <Text style={styles.scanActionLabel}>{t('actions.scan')}</Text>
-        </Pressable>
       </ActionsScrollView>,
       {
         statusBarContent: 'light',

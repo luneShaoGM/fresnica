@@ -1,7 +1,7 @@
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
 import React from 'react';
 import { createDappRecentHistory } from '@capabilities/dapp-interaction/dappRecentHistory';
-import { Pressable, ScrollView } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import type { DappCatalogPort, DappCatalogEntry } from '@capabilities/dapp-catalog/catalog';
 import { ActionsScrollView } from '../ActionsScrollView';
 import type { MainTabBarProps } from '../MainTabBar';
@@ -238,6 +238,31 @@ describe('Swap action uses the current account route', () => {
     mockEffects.length = 0;
     mockRecentSessionRef = { current: undefined };
     mockActiveOverlayId = undefined;
+  });
+
+  it('places the two flat shortcuts side by side in one row', () => {
+    const { overlay } = renderSwap(true);
+    function findRow(node: React.ReactNode): React.ReactElement<{ children?: React.ReactNode }> | undefined {
+      if (!React.isValidElement<{ children?: React.ReactNode }>(node)) return;
+      if (node.type === View) {
+        const children = React.Children.toArray(node.props.children);
+        if (
+          children.some(child => findPressable(child, 'nav.swap')) &&
+          children.some(child => findPressable(child, 'actions.scan'))
+        )
+          return node;
+      }
+      for (const child of React.Children.toArray(node.props.children)) {
+        const result = findRow(child);
+        if (result) return result;
+      }
+    }
+    expect(findRow(overlay)).toBeDefined();
+    const styles = require('../MainTabBar.styles').createStyles(require('../../../ui/theme').defaultTheme);
+    expect(styles.actionRow.flexDirection).toBe('row');
+    expect(styles.actionItem.flex).toBe(1);
+    expect(styles.scanAction.flex).toBe(1);
+    expect(styles.actionItem.backgroundColor).toBe(styles.scanAction.backgroundColor);
   });
 
   it('opens the general QR scanner even when the wallet cannot send or swap', () => {
