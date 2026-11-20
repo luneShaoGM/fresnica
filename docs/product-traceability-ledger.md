@@ -6,6 +6,8 @@ Owner requested all identified Stellar Actions differences, delivered in success
 
 > Stage 0 stable product ledger. Source behavior comes from `origin/Stellar@stellar-migration`; security/business semantics come from `origin/fresnica`. Donor implementation is clean-room by default under `docs/provenance/README.md`.
 
+PR #219 follow-up addresses the three P2 findings on reviewed HEAD `02590e88e3402c8de63fefd304b54454a3c92f7e`: synchronous retirement of each presented Actions callback lifetime; an explicit history-only recovery path independent of new-trade asset preflight; and exact asset-pair existence checked against the same current account snapshot as Pay projection. Existing S10 reconciliation, selection/focus/network boundaries and no-rebroadcast behavior are reused. New HEAD requires independent Work review; native acceptance and maturity remain unchanged.
+
 > **2026-11-06 实时交付覆盖：** 本文顶部成熟度及下方候选表均保留各阶段的原始范围/证据，不能单凭缓存 PR 升级整个 S06/S14/LC5。当前已合并事实以文末 2026-11-06 状态补充为准。
 
 | ID | Product behavior | Target owner | Decision | Provenance path | External/upstream dependency | Current maturity |

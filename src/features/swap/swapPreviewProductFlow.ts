@@ -1,4 +1,4 @@
-import { stroops } from '../../capabilities/stellar/classicAmounts';
+import { lineFor, stroops } from '../../capabilities/stellar/classicAmounts';
 import type { AccountRecord } from '../../capabilities/account/types';
 import type { BalanceDependencies } from '../../capabilities/balance/loadBalanceSnapshot';
 import { loadBalanceSnapshot } from '../../capabilities/balance/loadBalanceSnapshot';
@@ -89,10 +89,12 @@ export async function loadActionsSwapSources(
   assertCurrent(deps, account, isCurrent);
   if (state.status !== 'active' || state.account.address !== account.address)
     throw new Error('swap-assets-unavailable');
+  const currentAssets = assets.filter(asset => lineFor(state.account, asset));
+  if (currentAssets.length < 2) throw new Error('swap-assets-unavailable');
   const ledger = await gateway.loadLedgerParameters();
   assertCurrent(deps, account, isCurrent);
   const choices: ActionsSwapSource[] = [];
-  for (const candidate of assets) {
+  for (const candidate of currentAssets) {
     const asset: StellarPaymentAsset =
       candidate.kind === 'native'
         ? { kind: 'native' }

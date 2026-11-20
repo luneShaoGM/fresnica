@@ -2,7 +2,8 @@ import { PassphrasePrompt } from '../../../ui/components/PassphrasePrompt/Passph
 import React from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { SlideToConfirm } from '../../../ui/SlideToConfirm';
-import { submitSwapReview } from '../swapSubmissionProductFlow';
+import { listSwapHistory, reconcileSwapPending, submitSwapReview } from '../swapSubmissionProductFlow';
+import type { PendingSubmissionRecord } from '@capabilities/transaction/pendingSubmission';
 import type { AccountRecord } from '@capabilities/account/types';
 import type { PathPaymentQuote, PreparedPathPaymentReview } from '@capabilities/path-payment/types';
 import type { StellarPaymentAsset } from '@capabilities/stellar/types';
@@ -153,11 +154,12 @@ function input(root: React.ReactNode, side: 'pay' | 'receive') {
   if (!found) throw new Error('missing-input:' + side);
   return found;
 }
-function setup(initialSourceAsset?: StellarPaymentAsset) {
+function setup(initialSourceAsset?: StellarPaymentAsset, historyOnly = false) {
   let session = 0;
   const props: React.ComponentProps<typeof SwapPreviewScreen> = {
     account,
     initialSourceAsset,
+    historyOnly,
     active: true,
     foreground: true,
     selectedAccountId: account.id,
@@ -206,6 +208,8 @@ beforeEach(() => {
   request.mockReset().mockResolvedValue(result());
   prepare.mockReset();
   jest.mocked(submitSwapReview).mockReset();
+  jest.mocked(listSwapHistory).mockReset().mockReturnValue([]);
+  jest.mocked(reconcileSwapPending).mockReset().mockResolvedValue({ pending: [], checked: [] });
 });
 afterEach(() => {
   mockSlots.forEach(slot => slot.cleanup?.());
@@ -1098,4 +1102,39 @@ it('refuses a selected Pay asset that disappeared instead of silently selecting 
   expect(find(root, node => node.props.children === 'actions.swap.sourceUnavailable')).toBeDefined();
   expect(request).not.toHaveBeenCalled();
   expect(prepare).not.toHaveBeenCalled();
+});
+
+it('checks an uncertain transaction in the Actions recovery view without reading Pay assets or creating a trade', async () => {
+  const pending: PendingSubmissionRecord = {
+    id: 'pending',
+    networkId: account.networkId,
+    accountId: account.id,
+    sourceAddress: account.address,
+    transactionHash: 'exact-original-hash',
+    intentKind: 'path-payment',
+    intentKey: 'original-intent',
+    state: 'uncertain',
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+  };
+  jest
+    .mocked(listSwapHistory)
+    .mockReturnValueOnce([pending])
+    .mockReturnValueOnce([{ ...pending, state: 'confirmed' }]);
+  load.mockRejectedValue(new Error('swap-assets-unavailable'));
+  const h = setup(undefined, true);
+  let root = await h.mount();
+  expect(find(root, node => node.props.children === 'swap.history.state.uncertain')).toBeDefined();
+  expect(find(root, node => node.props.children === pending.transactionHash)).toBeDefined();
+  button(root, 'swap.history.check').props.onPress?.();
+  await settle();
+  root = h.draw();
+  expect(reconcileSwapPending).toHaveBeenCalledWith(h.props.execution, account, expect.any(Function));
+  expect(find(root, node => node.props.children === 'swap.history.state.confirmed')).toBeDefined();
+  expect(find(root, node => node.type === SwapAmountInput)).toBeUndefined();
+  expect(load).not.toHaveBeenCalled();
+  expect(spendable).not.toHaveBeenCalled();
+  expect(request).not.toHaveBeenCalled();
+  expect(prepare).not.toHaveBeenCalled();
+  expect(submitSwapReview).not.toHaveBeenCalled();
 });

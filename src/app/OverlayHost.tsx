@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -10,6 +10,7 @@ type OverlayOptions = Readonly<{
   presentation?: 'sheet';
   closeLabel?: string;
   dragDismissLabel?: string;
+  onRetire?: () => void;
 }>;
 
 type OverlayEntry = OverlayOptions &
@@ -29,23 +30,36 @@ const OverlayContext = createContext<OverlayContextValue | undefined>(undefined)
 export function OverlayHost({ children }: React.PropsWithChildren) {
   const [overlay, setOverlay] = useState<OverlayEntry | undefined>(undefined);
   const [visible, setVisible] = useState(false);
-
-  const present = useCallback((id: string, content: React.ReactNode, options?: OverlayOptions) => {
-    setOverlay({
-      id,
-      content,
-      presentation: options?.presentation,
-      closeLabel: options?.closeLabel,
-      dragDismissLabel: options?.dragDismissLabel,
-      ...(options?.statusBarContent === undefined ? {} : { statusBarContent: options.statusBarContent }),
-    });
-    setVisible(true);
+  const retireContent = useRef<(() => void) | undefined>(undefined);
+  const retire = useCallback(() => {
+    const callback = retireContent.current;
+    retireContent.current = undefined;
+    callback?.();
   }, []);
+  useEffect(() => retire, [retire]);
+
+  const present = useCallback(
+    (id: string, content: React.ReactNode, options?: OverlayOptions) => {
+      retire();
+      retireContent.current = options?.onRetire;
+      setOverlay({
+        id,
+        content,
+        presentation: options?.presentation,
+        closeLabel: options?.closeLabel,
+        dragDismissLabel: options?.dragDismissLabel,
+        ...(options?.statusBarContent === undefined ? {} : { statusBarContent: options.statusBarContent }),
+      });
+      setVisible(true);
+    },
+    [retire],
+  );
 
   const dismiss = useCallback(() => {
+    retire();
     // Keep the native modal mounted so its closing transition can finish.
     setVisible(false);
-  }, []);
+  }, [retire]);
 
   const value = useMemo<OverlayContextValue>(
     () => ({ activeOverlayId: visible ? overlay?.id : undefined, present, dismiss }),

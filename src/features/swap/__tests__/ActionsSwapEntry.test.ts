@@ -65,6 +65,7 @@ const account = {
 function setup() {
   let revision = 0;
   const children = jest.fn(() => React.createElement('Preview'));
+  const renderRecovery = jest.fn(() => React.createElement('History'));
   const captureSession = () => {
     const captured = revision;
     return () => captured === revision;
@@ -76,6 +77,7 @@ function setup() {
     foreground: true,
     onBack: jest.fn(),
     children,
+    renderRecovery,
   };
   const draw = (foreground = true) => {
     mockCursor = 0;
@@ -88,6 +90,7 @@ function setup() {
   return {
     draw,
     children,
+    renderRecovery,
     onBack: props.onBack,
     expire: () => {
       revision++;
@@ -199,4 +202,47 @@ it('retires old choices across background return and selection revision changes'
   find(fresh, 'usd:GISSUER · 5.0000000')?.props.onPress?.();
   h.draw();
   expect(h.children).not.toHaveBeenCalled();
+});
+
+it.each(['empty', 'assets', 'offline'])('offers independent recovery when Pay preflight returns %s', async reason => {
+  if (reason === 'empty') load.mockResolvedValueOnce([]);
+  else load.mockRejectedValueOnce(new Error(reason === 'assets' ? 'swap-assets-unavailable' : 'offline'));
+  const h = setup();
+  h.draw();
+  await settle();
+  find(h.draw(), 'swap.history.title')?.props.onPress?.();
+  h.draw();
+  expect(h.renderRecovery).toHaveBeenCalledTimes(1);
+  expect(h.children).not.toHaveBeenCalled();
+});
+
+it('does not let a late preflight replace explicit recovery', async () => {
+  let resolve!: (value: readonly ActionsSwapSource[]) => void;
+  load.mockImplementationOnce(
+    () =>
+      new Promise(done => {
+        resolve = done;
+      }),
+  );
+  const h = setup();
+  const root = h.draw();
+  await settle();
+  find(root, 'swap.history.title')?.props.onPress?.();
+  resolve([sources[0]]);
+  await settle();
+  h.draw();
+  expect(h.renderRecovery).toHaveBeenCalledTimes(1);
+  expect(h.children).not.toHaveBeenCalled();
+});
+
+it('rejects a queued recovery press after Back or selection expiry', () => {
+  const h = setup();
+  const root = h.draw();
+  const late = find(root, 'swap.history.title')?.props.onPress;
+  h.expire();
+  late?.();
+  find(root, 'common.back')?.props.onPress?.();
+  late?.();
+  h.draw();
+  expect(h.renderRecovery).not.toHaveBeenCalled();
 });

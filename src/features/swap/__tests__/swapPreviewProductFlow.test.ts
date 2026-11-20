@@ -286,9 +286,35 @@ describe('A5 live Actions source choices', () => {
       ...display,
       balances: display.balances.map(line => (line.kind === 'credit' ? { ...line, issuer: account.address } : line)),
     });
+    loadAccountState.mockResolvedValueOnce({
+      ...original,
+      account: {
+        ...original.account,
+        balances: original.account.balances.map(line =>
+          line.kind === 'credit' ? { ...line, issuer: account.address } : line,
+        ),
+      },
+    });
     await expect(loadActionsSwapSources(deps as never, account, () => true)).resolves.toEqual([
       { asset: XLM, spendable: '16.9999900' },
     ]);
+  });
+
+  it('rejects a vanished Receive asset or changed issuer in the current account snapshot', async () => {
+    const { deps, loadAccountState, loadLedgerParameters } = fixture();
+    const original = await loadAccountState();
+    for (const balances of [
+      original.account.balances.filter(line => line.kind === 'native'),
+      original.account.balances.map(line => (line.kind === 'credit' ? { ...line, issuer: 'GOTHER' } : line)),
+    ]) {
+      loadAccountState.mockResolvedValueOnce({ ...original, account: { ...original.account, balances } });
+      await expect(loadActionsSwapSources(deps as never, account, () => true)).rejects.toThrow(
+        'swap-assets-unavailable',
+      );
+    }
+    expect(loadLedgerParameters).not.toHaveBeenCalled();
+    expect(loadPathPaymentQuotes).not.toHaveBeenCalled();
+    expect(preparePathPayment).not.toHaveBeenCalled();
   });
 
   it('drops late results after a selection change and does not turn malformed ledger data into zero', async () => {

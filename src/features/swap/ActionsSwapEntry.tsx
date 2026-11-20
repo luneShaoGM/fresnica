@@ -18,6 +18,7 @@ type State =
   | { kind: 'loading' }
   | { kind: 'ready'; sources: readonly ActionsSwapSource[]; isCurrent: () => boolean }
   | { kind: 'failed'; reason: 'empty' | 'assets' | 'session' | 'unavailable' }
+  | { kind: 'recovery' }
   | { kind: 'chosen'; asset: StellarPaymentAsset };
 export function ActionsSwapEntry({
   account,
@@ -25,6 +26,7 @@ export function ActionsSwapEntry({
   captureSession,
   foreground,
   onBack,
+  renderRecovery,
   children,
 }: Readonly<{
   account: AccountRecord;
@@ -32,6 +34,7 @@ export function ActionsSwapEntry({
   captureSession: () => () => boolean;
   foreground: boolean;
   onBack: () => void;
+  renderRecovery: () => React.ReactNode;
   children: (asset: StellarPaymentAsset) => React.ReactNode;
 }>) {
   const { t } = useLocalization();
@@ -49,10 +52,16 @@ export function ActionsSwapEntry({
   }, []);
   useEffect(() => {
     // Once entry is complete, the existing Swap screen owns its full lifecycle.
-    if (phase.current.kind === 'chosen' || retired.current) return;
+    if (phase.current.kind === 'chosen' || phase.current.kind === 'recovery' || retired.current) return;
     let current = true;
     const session = captureSession();
-    const valid = () => current && !retired.current && foregroundRef.current && session();
+    const valid = () =>
+      current &&
+      !retired.current &&
+      phase.current.kind !== 'chosen' &&
+      phase.current.kind !== 'recovery' &&
+      foregroundRef.current &&
+      session();
     publish({ kind: 'loading' });
     if (!valid()) {
       publish({ kind: 'failed', reason: 'session' });
@@ -80,6 +89,8 @@ export function ActionsSwapEntry({
     };
   }, [account, dependencies, captureSession, foreground, retry, publish]);
   if (state.kind === 'chosen') return <>{children(state.asset)}</>;
+  if (state.kind === 'recovery') return <>{renderRecovery()}</>;
+  const recoverySession = captureSession();
   const close = () => {
     if (retired.current) return;
     retired.current = true;
@@ -89,6 +100,22 @@ export function ActionsSwapEntry({
     <Screen>
       <View style={styles.content}>
         <NativeButton label={t('common.back')} onPress={close} variant="quiet" />
+        <NativeButton
+          label={t('swap.history.title')}
+          disabled={!foreground}
+          onPress={() => {
+            if (
+              retired.current ||
+              !foregroundRef.current ||
+              phase.current.kind === 'chosen' ||
+              phase.current.kind === 'recovery' ||
+              !recoverySession()
+            )
+              return;
+            publish({ kind: 'recovery' });
+          }}
+          variant="secondary"
+        />
         <Text accessibilityRole="header" style={styles.heading}>
           {t('actions.swap.choose')}
         </Text>

@@ -43,8 +43,16 @@ jest.mock('../../../ui/theme', () => {
   };
 });
 
-const mockPresentOverlay = jest.fn();
-const mockDismissOverlay = jest.fn();
+let mockRetireOverlay: (() => void) | undefined;
+const mockPresentOverlay = jest.fn((_id: string, _content: React.ReactNode, options?: { onRetire?: () => void }) => {
+  mockRetireOverlay?.();
+  mockRetireOverlay = options?.onRetire;
+});
+const mockDismissOverlay = jest.fn(() => {
+  const retire = mockRetireOverlay;
+  mockRetireOverlay = undefined;
+  retire?.();
+});
 const { MainTabBar } = require('../MainTabBar') as typeof import('../MainTabBar');
 type Props = Readonly<{
   children?: React.ReactNode;
@@ -156,6 +164,7 @@ describe('Swap action uses the current account route', () => {
     expect(navigate).toHaveBeenCalledWith('dapps', { screen: 'dapps', params: { scannedUrl: entry.websiteUrl } });
     expect(mockDismissOverlay.mock.invocationCallOrder[0]).toBeLessThan(navigate.mock.invocationCallOrder[0]);
     mockActiveOverlayId = undefined;
+    mockRetireOverlay = undefined;
     expect(renderVisibility().props.active).toBe(false);
     navigate.mockClear();
     renderSwap(true, undefined, { catalog, selectedAccountId: 'different-account' }, undefined, false);
@@ -267,6 +276,25 @@ describe('Swap action uses the current account route', () => {
     expect(first.navigate).not.toHaveBeenCalled();
   });
 
+  it('retires a queued Swap press synchronously on Close before any render', () => {
+    const { overlay, navigate } = renderSwap(true);
+    const late = findPressable(overlay, 'nav.swap')?.props.onPress;
+    findPressable(overlay, 'nav.actionsClose')?.props.onPress?.();
+    late?.();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('does not revive an old Swap callback when the same account reopens Actions', () => {
+    const first = renderSwap(true);
+    const late = findPressable(first.overlay, 'nav.swap')?.props.onPress;
+    mockDismissOverlay(); // All native close paths use the host dismiss authority.
+    const next = renderSwap(true);
+    late?.();
+    expect(first.navigate).not.toHaveBeenCalled();
+    findPressable(next.overlay, 'nav.swap')?.props.onPress?.();
+    expect(next.navigate).toHaveBeenCalledTimes(1);
+  });
+
   it('routes eligible Swap to the current account Swap flow only', () => {
     const { navigate, overlay } = renderSwap(true);
     const button = findPressable(overlay, 'nav.swap');
@@ -313,6 +341,7 @@ describe('Swap action uses the current account route', () => {
       statusBarContent: 'light',
       closeLabel: 'nav.actionsClose',
       dragDismissLabel: 'nav.actionsDragClose',
+      onRetire: expect.any(Function),
     });
     expect(textValues(overlay)).toContain('nav.quickActions');
     findPressable(overlay, 'nav.actionsClose')?.props.onPress?.();

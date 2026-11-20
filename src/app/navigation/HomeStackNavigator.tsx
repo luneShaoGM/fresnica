@@ -426,11 +426,12 @@ function SwapPreviewRoute({
   // request captures a valid focus epoch.
   if (!active || !focusReady) return null;
   if (!account) return <SwapUnavailableScreen onDone={() => navigation.goBack()} />;
-  const preview = (initialSourceAsset?: StellarPaymentAsset) => (
+  const preview = (initialSourceAsset?: StellarPaymentAsset, historyOnly = false) => (
     <SwapPreviewScreen
       key={String(selectionRevision)}
       account={account}
       initialSourceAsset={initialSourceAsset}
+      historyOnly={historyOnly}
       active={active}
       foreground={foreground}
       selectedAccountId={actualSelectedAccountId}
@@ -459,6 +460,7 @@ function SwapPreviewRoute({
       captureSession={captureSession}
       foreground={foreground}
       onBack={() => navigation.popToTop()}
+      renderRecovery={() => preview(undefined, true)}
     >
       {preview}
     </ActionsSwapEntry>

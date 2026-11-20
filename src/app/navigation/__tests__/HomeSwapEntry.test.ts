@@ -205,6 +205,9 @@ describe('Home Swap entry wiring', () => {
         gated.props.children as (value: typeof asset) => React.ReactElement<{ initialSourceAsset: typeof asset }>
       )(asset);
       expect(preview.props.initialSourceAsset).toBe(asset);
+      const recovery = (gated.props.renderRecovery as () => React.ReactElement<{ historyOnly: boolean }>)();
+      expect(recovery.type).toBe(preview.type);
+      expect(recovery.props.historyOnly).toBe(true);
       const regular = renderEntry(false);
       expect(typeof regular.type === 'function' && regular.type.name).toBe('SwapPreviewScreen');
       const denied = renderEntry(true, true);

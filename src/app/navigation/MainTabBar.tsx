@@ -137,28 +137,29 @@ export function MainTabBar({
     );
   };
 
-  const selectSwap = useCallback(() => {
-    const current = recentSession.current;
-    if (
-      !selectedAccountId ||
-      !actionAvailability.swap ||
-      current?.accountId !== selectedAccountId ||
-      current.catalog !== catalog ||
-      !current.swapAvailable ||
-      !current.foreground ||
-      !current.actionsOpen
-    )
-      return;
-    recentSession.current = { ...current, actionsOpen: false };
-    dismiss();
-    navigation.navigate('home', { screen: 'swap', params: { accountId: selectedAccountId, selectSource: true } });
-  }, [actionAvailability.swap, catalog, dismiss, navigation, selectedAccountId]);
-
   const openActions = useCallback(() => {
     if (!selectedAccountId) {
       dismiss();
       return;
     }
+    let currentPresentation = true;
+    const selectSwap = () => {
+      const current = recentSession.current;
+      if (
+        !currentPresentation ||
+        !selectedAccountId ||
+        !actionAvailability.swap ||
+        current?.accountId !== selectedAccountId ||
+        current.catalog !== catalog ||
+        !current.swapAvailable ||
+        !current.foreground ||
+        !current.actionsOpen
+      )
+        return;
+      recentSession.current = { ...current, actionsOpen: false };
+      dismiss();
+      navigation.navigate('home', { screen: 'swap', params: { accountId: selectedAccountId, selectSource: true } });
+    };
     present(
       ACTIONS_OVERLAY_ID,
       <ActionsScrollView bounces={false} style={styles.actionsScroll} contentContainerStyle={styles.actionsContent}>
@@ -301,6 +302,9 @@ export function MainTabBar({
         presentation: 'sheet',
         closeLabel: t('nav.actionsClose'),
         dragDismissLabel: t('nav.actionsDragClose'),
+        onRetire: () => {
+          currentPresentation = false;
+        },
       },
     );
   }, [
@@ -312,7 +316,6 @@ export function MainTabBar({
     selectedAccountId,
     styles,
     t,
-    selectSwap,
     recent,
     recentHistory,
     catalog,
