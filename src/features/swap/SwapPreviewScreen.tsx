@@ -449,10 +449,9 @@ export function SwapPreviewScreen({
     } catch (caught) {
       if (valid()) setReconcileError(errorText(caught, t));
     } finally {
-      if (generation === attempt.current) {
-        reconcileLocked.current = false;
-        if (valid()) setReconciling(false);
-      }
+      // This request keeps sole ownership of the lock until it settles, even after its view session expires.
+      reconcileLocked.current = false;
+      setReconciling(false);
     }
   }, [account, busy, captureSession, execution, submitting, t]);
 

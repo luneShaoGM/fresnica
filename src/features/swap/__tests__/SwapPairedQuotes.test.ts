@@ -88,6 +88,18 @@ const account = {
   hidden: false,
   label: 'A',
 } as AccountRecord;
+const pendingSwap: PendingSubmissionRecord = {
+  id: 'pending',
+  networkId: account.networkId,
+  accountId: account.id,
+  sourceAddress: account.address,
+  transactionHash: 'exact-original-hash',
+  intentKind: 'path-payment',
+  intentKey: 'original-intent',
+  state: 'uncertain',
+  createdAt: new Date(0),
+  updatedAt: new Date(0),
+};
 const assets: Awaited<ReturnType<typeof loadSwapPreviewAssets>> = [
   { kind: 'native', balance: '10' },
   { kind: 'credit', code: 'usd', issuer: 'GISSUER', balance: '20' },
@@ -1105,18 +1117,7 @@ it('refuses a selected Pay asset that disappeared instead of silently selecting 
 });
 
 it('checks an uncertain transaction in the Actions recovery view without reading Pay assets or creating a trade', async () => {
-  const pending: PendingSubmissionRecord = {
-    id: 'pending',
-    networkId: account.networkId,
-    accountId: account.id,
-    sourceAddress: account.address,
-    transactionHash: 'exact-original-hash',
-    intentKind: 'path-payment',
-    intentKey: 'original-intent',
-    state: 'uncertain',
-    createdAt: new Date(0),
-    updatedAt: new Date(0),
-  };
+  const pending = pendingSwap;
   jest
     .mocked(listSwapHistory)
     .mockReturnValueOnce([pending])
@@ -1134,6 +1135,58 @@ it('checks an uncertain transaction in the Actions recovery view without reading
   expect(find(root, node => node.type === SwapAmountInput)).toBeUndefined();
   expect(load).not.toHaveBeenCalled();
   expect(spendable).not.toHaveBeenCalled();
+  expect(request).not.toHaveBeenCalled();
+  expect(prepare).not.toHaveBeenCalled();
+  expect(submitSwapReview).not.toHaveBeenCalled();
+});
+
+it.each([
+  ['resolve', 'after foreground return'],
+  ['reject', 'after foreground return'],
+  ['resolve', 'while backgrounded'],
+  ['reject', 'while backgrounded'],
+] as const)('releases the history check after an obsolete query %ss %s', async (outcome, completion) => {
+  const first = deferred<Awaited<ReturnType<typeof reconcileSwapPending>>>();
+  const retry = deferred<Awaited<ReturnType<typeof reconcileSwapPending>>>();
+  jest.mocked(listSwapHistory).mockReturnValue([pendingSwap]);
+  jest.mocked(reconcileSwapPending).mockReturnValueOnce(first.promise).mockReturnValueOnce(retry.promise);
+  const h = setup(undefined, true);
+  let root = await h.mount();
+  const check = button(root, 'swap.history.check').props.onPress;
+  check?.();
+  check?.();
+  expect(reconcileSwapPending).toHaveBeenCalledTimes(1);
+  root = h.draw();
+  expect(button(root, 'swap.history.checking').props.disabled).toBe(true);
+  expect(button(root, 'common.back').props.disabled).toBe(true);
+
+  h.draw({ foreground: false });
+  if (completion === 'after foreground return') h.draw({ foreground: true });
+  expect(jest.mocked(reconcileSwapPending).mock.calls[0][2]()).toBe(false);
+  if (outcome === 'resolve') first.resolve({ pending: [], checked: [{ ...pendingSwap, state: 'confirmed' }] });
+  else first.reject(new Error('offline'));
+  await settle();
+  root = h.draw({ foreground: true });
+  expect(listSwapHistory).toHaveBeenCalledTimes(1);
+  expect(find(root, node => node.props.children === 'swap.history.state.uncertain')).toBeDefined();
+  expect(button(root, 'swap.history.check').props.disabled).toBe(false);
+  expect(button(root, 'common.back').props.disabled).toBe(false);
+
+  button(root, 'swap.history.check').props.onPress?.();
+  expect(reconcileSwapPending).toHaveBeenCalledTimes(2);
+  root = h.draw();
+  expect(button(root, 'swap.history.checking').props.disabled).toBe(true);
+  expect(button(root, 'common.back').props.disabled).toBe(true);
+  jest.mocked(listSwapHistory).mockReturnValue([{ ...pendingSwap, state: 'confirmed' }]);
+  retry.resolve({ pending: [], checked: [{ ...pendingSwap, state: 'confirmed' }] });
+  await settle();
+  root = h.draw();
+  expect(listSwapHistory).toHaveBeenCalledTimes(2);
+  expect(find(root, node => node.props.children === 'swap.history.state.confirmed')).toBeDefined();
+  expect(button(root, 'common.back').props.disabled).toBe(false);
+  button(root, 'common.back').props.onPress?.();
+  expect(h.props.onDone).toHaveBeenCalledTimes(1);
+  expect(load).not.toHaveBeenCalled();
   expect(request).not.toHaveBeenCalled();
   expect(prepare).not.toHaveBeenCalled();
   expect(submitSwapReview).not.toHaveBeenCalled();
