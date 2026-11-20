@@ -309,6 +309,7 @@
   "common.cancel": "取消",
   "common.back": "返回",
   "common.close": "關閉",
+  "common.dragDownToClose": "向下拖動關閉彈窗",
   "activity.detail.nativeAsset": "原生資產",
   "activity.detail.asset": "資產",
   "activity.detail.issuer": "發行方",

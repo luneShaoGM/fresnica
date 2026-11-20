@@ -12,7 +12,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppModal } from '../AppModal';
+import { createAppearanceTheme } from '../../../theme/appearanceTheme';
 
+let mockActiveTheme: ReturnType<typeof createAppearanceTheme> | undefined;
 let mockOffset: Animated.Value;
 const mockEffects: Array<() => void> = [];
 
@@ -26,7 +28,10 @@ jest.mock('react', () => ({
 }));
 jest.mock('@ui/theme', () => {
   const actual = jest.requireActual('@ui/theme');
-  return { ...actual, useThemedStyles: (factory: (theme: unknown) => unknown) => factory(actual.defaultTheme) };
+  return {
+    ...actual,
+    useThemedStyles: (factory: (theme: unknown) => unknown) => factory(mockActiveTheme ?? actual.defaultTheme),
+  };
 });
 
 type ElementProps = {
@@ -53,6 +58,7 @@ function surfaceStyle(presentation: 'sheet' | 'dialog', swipeToDismiss: boolean)
 }
 
 beforeEach(() => {
+  mockActiveTheme = undefined;
   jest.clearAllMocks();
   mockEffects.length = 0;
   mockOffset = new Animated.Value(0);
@@ -96,6 +102,30 @@ describe('content-sized Actions sheet', () => {
     expect(root.props.animationType).toBe('fade');
     const surface = elements(root).find(node => node.type === Animated.View)!;
     expect(StyleSheet.flatten(surface.props.style)?.height).toBe('88%');
+  });
+
+  it('uses the same background across the sheet shell, handle and bottom safe area in light and dark themes', () => {
+    for (const dark of [false, true]) {
+      const theme = createAppearanceTheme(dark);
+      mockActiveTheme = theme;
+      const sheet = AppModal({
+        visible: true,
+        presentation: 'sheet',
+        swipeToDismiss: true,
+        sheetBackground: 'background',
+        onRequestClose: jest.fn(),
+      });
+      const nodes = elements(sheet);
+      const surface = nodes.find(node => node.type === Animated.View)!;
+      expect(StyleSheet.flatten(surface.props.style)?.backgroundColor).toBe(theme.colors.background);
+      const safeArea = nodes.find(node => node.type === SafeAreaView)!;
+      expect(safeArea.props.edges).toEqual(['bottom']);
+      // The transparent handle and safe-area inset inherit the same parent background.
+      expect(StyleSheet.flatten(safeArea.props.style)?.backgroundColor).toBeUndefined();
+      expect(nodes.some(node => node.props.accessibilityLabel === 'Drag down to close')).toBe(true);
+      expect(surfaceStyle('sheet', true).backgroundColor).toBe(theme.colors.surface);
+      expect(surfaceStyle('dialog', false).backgroundColor).toBe(theme.colors.surface);
+    }
   });
 
   it('keeps short, upward and horizontal handle movement from dismissing; resets before reopen', () => {
