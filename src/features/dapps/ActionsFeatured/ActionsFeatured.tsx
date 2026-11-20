@@ -107,10 +107,12 @@ export function ActionsFeatured({
     };
   }, [catalog, active, online, retry]);
 
+  const hideEmpty = shown.kind === 'ready' && entries.length === 0 && !shown.stale;
   const open = (entry: DappCatalogEntry) => {
     if (!live.current?.active || live.current.owner !== catalog || !live.current.entries.includes(entry)) return;
     if (onOpen(entry)) live.current = undefined;
   };
+  if (hideEmpty) return null;
   return (
     <View style={styles.section} onLayout={onLayout}>
       <Text accessibilityRole="header" style={styles.heading}>

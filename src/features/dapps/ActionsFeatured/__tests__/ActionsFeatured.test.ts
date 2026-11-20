@@ -194,7 +194,7 @@ describe('Actions featured lifecycle', () => {
     await flush();
     tree = render();
     expect(items(tree)).toEqual([]);
-    expect(text(tree, 'actions.suggestionsEmpty')).toBe(true);
+    expect(text(tree, 'actions.suggestions')).toBe(false);
   });
 
   it('ignores close-time results and callbacks, then refreshes on reopening', async () => {
@@ -243,12 +243,27 @@ describe('Actions featured lifecycle', () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
+  it('hides only confirmed empty suggestions, preserving loading and retry failures', async () => {
+    const load = jest.fn().mockResolvedValueOnce(ready([])).mockRejectedValueOnce(new Error('offline'));
+    const { render } = setup({ load });
+    expect(text(render(), 'actions.suggestions')).toBe(true);
+    await flush();
+    expect(text(render(), 'actions.suggestions')).toBe(false);
+    render(false);
+    render(true);
+    await flush();
+    const failed = render();
+    expect(text(failed, 'actions.suggestions')).toBe(true);
+    expect(text(failed, 'dapps.catalog.stale')).toBe(true);
+    expect(find(failed, node => node.props.label === 'dapps.catalog.retry')).toBeDefined();
+  });
+
   it('shows legacy/all-only data as empty and cached suggestions offline without fetching', async () => {
     const load = jest.fn(async () => ({ kind: 'ready' as const, entries: [entry] }));
     const { render } = setup({ readCached: () => ({ kind: 'ready', entries: [entry] }), load });
     expect(items(render())).toEqual([]);
     await flush();
-    expect(text(render(), 'actions.suggestionsEmpty')).toBe(true);
+    expect(text(render(), 'actions.suggestions')).toBe(false);
     const offline: DappCatalogPort = { readCached: () => ready([entry], true), load: jest.fn() };
     expect(items(render(true, false, offline))).toEqual([entry]);
     await flush();

@@ -49,6 +49,12 @@ Current main `809f926d78a9c6b68b66c1816bf7d995f73b7ca9` (#211) is integrated int
 
 Current integrated developer validation: `npm run check -- -- --watchman=false` PASS, 297 suites / 2755 tests, lint 0 errors / 59 existing warnings; touched TypeScript formatting and `git diff --check` PASS. These are automated/helper checks, not native acceptance. The earlier 297-suite / 2750-test result belonged to `c0dd02470a3e52e3578fb520fff8b03ad690d301`. Existing background/blur/account-revision, queued-photo cancellation and foreground-return regressions continue to pass. No Android/iOS camera, photo-picker or native product-flow acceptance was executed. New exact-HEAD independent Work review remains required; Stage 9 iOS System Auth cancellation/retry stays deferred.
 
+## Actions presentation follow-up — 2026-11-20
+
+- Quick actions stays limited to the approved Swap and shared Scan QR entries, now presented as two equally sized flat rectangular controls on one row. Retain the current Swap disabled reason, accessibility labels and scanner route; no new action or permission is introduced.
+- As in Stellar HomeActions, omit the entire Our Suggestions section when the current network has a confirmed, fresh empty featured list. While loading or refresh is unavailable/stale, retain actionable status and retry; cached featured cards remain visible. This is presentation-only and does not change catalog partitioning, metadata trust, icon fetch, or browser consent.
+- Requires Android/iOS short-width, large-text, layout, accessibility and interaction acceptance; component tests alone are not native UI acceptance.
+
 ## Evidence boundaries
 
 ### Integration refresh — 2026-11-17
