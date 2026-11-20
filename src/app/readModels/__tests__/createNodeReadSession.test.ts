@@ -1,4 +1,5 @@
 import { NodeReadError } from '@capabilities/network/NodeReadError';
+import { createHorizonPublicReadGateway } from '@platform/stellar/HorizonPublicReadGateway';
 import { createNodeReadSession, NODE_READ_TIMING as timing } from '../createNodeReadSession';
 import { createLedgerReadRuntime } from '../LedgerReadRuntime';
 function deferred<T>() {
@@ -69,6 +70,44 @@ describe('shared node read session', () => {
     s.node.close();
     await settle();
     expect(jest.getTimerCount()).toBe(0);
+  });
+  it('keeps Home balances readable and Activity retryable after an isolated operations 404', async () => {
+    const s = setup();
+    await settle();
+    expect(s.node.getSnapshot().phase).toBe('healthy');
+    const rawAccount = {
+      account_id: 'Ga',
+      balances: [{ asset_type: 'native', balance: '9.0000000' }],
+      last_modified_ledger: 42,
+    };
+    const ok = (body: unknown) => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      json: async () => body,
+    });
+    const http = jest
+      .fn()
+      .mockResolvedValueOnce({ status: 404 })
+      .mockResolvedValueOnce(ok(rawAccount))
+      .mockResolvedValueOnce(ok(rawAccount))
+      .mockResolvedValueOnce(ok({ _embedded: { records: [] } }));
+    const reads = createHorizonPublicReadGateway(http);
+    const history = () =>
+      s.node.run((signal, endpoint) => reads.loadAccountOperations(endpoint, { address: 'Ga', limit: 15 }, signal));
+    const balance = () => s.node.run((signal, endpoint) => reads.loadAccountBalances(endpoint, 'Ga', signal));
+    const inFlightBalance = deferred<string>();
+    const oldBalance = s.node.run(() => inFlightBalance.promise);
+    await settle();
+
+    await expect(history()).rejects.toMatchObject({ kind: 'request' });
+    expect(s.node.getSnapshot().phase).toBe('healthy');
+    inFlightBalance.resolve('still-readable');
+    await expect(oldBalance).resolves.toBe('still-readable');
+    await expect(balance()).resolves.toMatchObject({ status: 'active', address: 'Ga' });
+    await expect(history()).resolves.toMatchObject({ status: 'active', address: 'Ga', records: [] });
+    expect(http).toHaveBeenCalledTimes(4);
+    s.node.close();
   });
   it('rejects a wrong-network endpoint until another endpoint is validated', async () => {
     const s = setup();

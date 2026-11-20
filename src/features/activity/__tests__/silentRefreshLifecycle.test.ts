@@ -113,10 +113,10 @@ function effects() {
   mockEffects = [];
   pending.forEach(effect => effect());
 }
-function activity(revision = 0) {
+function activity(revision = 0, selectedAccount: AccountRecord = account) {
   mockCursor = 0;
   return ActivityScreen({
-    account,
+    account: selectedAccount,
     dependencies,
     active: true,
     invalidationRevision: revision,
@@ -138,9 +138,7 @@ function detail(revision = 0, operationId = '1') {
     projectExplorerUrl: () => undefined,
   });
 }
-function children(
-  node: React.ReactNode,
-): React.ReactElement<{
+function children(node: React.ReactNode): React.ReactElement<{
   children?: React.ReactNode;
   onLoadMore?: () => void;
   ListHeaderComponent?: React.ReactNode;
@@ -219,6 +217,41 @@ it('silently revalidates a paged activity list, blocks concurrent pagination, th
     stale: true,
     refreshFailed: true,
   });
+});
+it('resets an inactive account result before loading a different account partition', async () => {
+  pageLoad.mockResolvedValueOnce({ status: 'inactive' });
+  activity();
+  effects();
+  await settle();
+  expect(mockSlots[0].value).toEqual({ kind: 'inactive' });
+
+  const selectedAccount = { ...account, id: 'b', address: 'GB', label: 'B' };
+  const pending = deferred<HistoryPage>();
+  pageLoad.mockReturnValueOnce(pending.promise);
+  activity(0, selectedAccount);
+  effects();
+  await settle();
+
+  expect(mockSlots[0].value).toEqual({ kind: 'loading' });
+  expect(pageLoad).toHaveBeenLastCalledWith(dependencies, selectedAccount);
+  pending.resolve({ status: 'active', entries: [entry('3')] });
+  await settle();
+  expect(mockSlots[0].value).toMatchObject({ kind: 'ready', entries: [entry('3')] });
+});
+it('never merges old account rows into a new account with an overlapping operation ID', async () => {
+  pageLoad.mockResolvedValueOnce({ status: 'active', entries: [entry('shared'), entry('old-only')] });
+  activity();
+  effects();
+  await settle();
+  expect(mockSlots[0].value).toMatchObject({ kind: 'ready', entries: [entry('shared'), entry('old-only')] });
+
+  const selectedAccount = { ...account, id: 'b', address: 'GB', label: 'B' };
+  pageLoad.mockResolvedValueOnce({ status: 'active', entries: [entry('shared')] });
+  activity(0, selectedAccount);
+  effects();
+  await settle();
+
+  expect(mockSlots[0].value).toMatchObject({ kind: 'ready', entries: [entry('shared')] });
 });
 it('keeps inactive activity mounted during polling and updates it on activation', async () => {
   pageLoad.mockResolvedValueOnce({ status: 'inactive' });
