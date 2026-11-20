@@ -17,7 +17,7 @@ import { useLocalization } from '../../locale';
 import { useOverlay } from '../OverlayHost';
 import { createStyles } from './MainTabBar.styles';
 import { ActionsScrollView, useActionsCardsViewport } from './ActionsScrollView';
-import type { MainTab, ProductAction } from './productRoutes';
+import { PRODUCT_ACTIONS, type MainTab, type ProductAction } from './productRoutes';
 
 const TAB_LABEL_KEYS: Readonly<Record<MainTab, string>> = {
   home: 'nav.home',
@@ -31,12 +31,6 @@ const ROOT_ROUTE_BY_TAB: Readonly<Record<MainTab, string>> = {
   activity: 'activity',
   dapps: 'dapps',
   settings: 'settings-home',
-};
-
-const ACTION_LABEL_KEYS: Readonly<Record<ProductAction, string>> = {
-  send: 'nav.send',
-  swap: 'nav.swap',
-  request: 'nav.request',
 };
 
 const ACTIONS_OVERLAY_ID = 'actions';
@@ -53,7 +47,7 @@ export type MainTabBarProps = BottomTabBarProps &
     nodeFailure?: NodeReadFailure;
     onRetryNode?: () => void;
     actionAvailability: Readonly<Record<ProductAction, boolean>>;
-    actionState?: 'inactive' | 'checking' | 'unavailable';
+    actionState?: 'inactive' | 'checking' | 'unavailable' | 'read-only';
   }>;
 
 export function MainTabBar({
@@ -74,9 +68,17 @@ export function MainTabBar({
   const { t } = useLocalization();
   const recent = useDappRecent(recentHistory);
   const recentSession = useRef<
-    { history?: DappRecentHistory; accountId?: string; catalog?: DappCatalogPort } | undefined
+    | {
+        history?: DappRecentHistory;
+        accountId?: string;
+        catalog?: DappCatalogPort;
+        swapAvailable: boolean;
+        foreground: boolean;
+        actionsOpen: boolean;
+      }
+    | undefined
   >(undefined);
-  recentSession.current = { history: recentHistory, accountId: selectedAccountId, catalog };
+
   useEffect(
     () => () => {
       recentSession.current = undefined;
@@ -85,6 +87,14 @@ export function MainTabBar({
   );
   const styles = useThemedStyles(createStyles);
   const { activeOverlayId, present, dismiss } = useOverlay();
+  recentSession.current = {
+    history: recentHistory,
+    accountId: selectedAccountId,
+    catalog,
+    swapAvailable: actionAvailability.swap,
+    foreground,
+    actionsOpen: activeOverlayId === ACTIONS_OVERLAY_ID,
+  };
 
   const activeRoute = state.routes[state.index];
   const activeTab = activeRoute.name as MainTab;
@@ -127,33 +137,22 @@ export function MainTabBar({
     );
   };
 
-  const selectAction = useCallback(
-    (action: ProductAction) => {
-      if (!selectedAccountId || !actionAvailability[action]) {
-        return;
-      }
-      dismiss();
-      if (action === 'send') {
-        navigation.navigate('home', {
-          screen: 'send-form',
-          params: { accountId: selectedAccountId },
-        });
-      }
-      if (action === 'swap') {
-        navigation.navigate('home', {
-          screen: 'swap',
-          params: { accountId: selectedAccountId },
-        });
-      }
-      if (action === 'request') {
-        navigation.navigate('home', {
-          screen: 'request',
-          params: { accountId: selectedAccountId },
-        });
-      }
-    },
-    [actionAvailability, dismiss, navigation, selectedAccountId],
-  );
+  const selectSwap = useCallback(() => {
+    const current = recentSession.current;
+    if (
+      !selectedAccountId ||
+      !actionAvailability.swap ||
+      current?.accountId !== selectedAccountId ||
+      current.catalog !== catalog ||
+      !current.swapAvailable ||
+      !current.foreground ||
+      !current.actionsOpen
+    )
+      return;
+    recentSession.current = { ...current, actionsOpen: false };
+    dismiss();
+    navigation.navigate('home', { screen: 'swap', params: { accountId: selectedAccountId, selectSource: true } });
+  }, [actionAvailability.swap, catalog, dismiss, navigation, selectedAccountId]);
 
   const openActions = useCallback(() => {
     if (!selectedAccountId) {
@@ -246,9 +245,9 @@ export function MainTabBar({
           {t('nav.quickActions')}
         </Text>
         <View style={styles.actionRow}>
-          {(['send', 'swap', 'request'] as const).map(action => {
+          {PRODUCT_ACTIONS.map(action => {
             const enabled = !!selectedAccountId && actionAvailability[action];
-            const label = t(ACTION_LABEL_KEYS[action]);
+            const label = t('nav.swap');
             return (
               <Pressable
                 accessibilityLabel={label}
@@ -256,7 +255,7 @@ export function MainTabBar({
                 accessibilityState={{ disabled: !enabled }}
                 disabled={!enabled}
                 key={action}
-                onPress={() => selectAction(action)}
+                onPress={selectSwap}
                 style={({ pressed }) => [
                   styles.actionItem,
                   !enabled ? styles.actionItemDisabled : undefined,
@@ -267,8 +266,8 @@ export function MainTabBar({
                 {!enabled ? (
                   <Text style={styles.actionStatus}>
                     {t(
-                      action === 'request' || !actionState
-                        ? 'nav.comingSoon'
+                      actionState === 'read-only'
+                        ? 'nav.accountReadOnly'
                         : actionState === 'inactive'
                           ? 'nav.accountInactive'
                           : actionState === 'checking'
@@ -313,7 +312,7 @@ export function MainTabBar({
     selectedAccountId,
     styles,
     t,
-    selectAction,
+    selectSwap,
     recent,
     recentHistory,
     catalog,

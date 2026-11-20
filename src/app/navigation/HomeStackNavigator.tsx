@@ -35,6 +35,8 @@ import type { ClaimableState } from '@capabilities/claimable/createClaimableProd
 import { SendFlowScreen } from '@features/send/SendFlowScreen';
 import { RequestFlowScreen } from '@features/request/RequestFlowScreen';
 import { ManageAssetsScreen } from '@features/trustlines/ManageAssetsScreen';
+import type { StellarPaymentAsset } from '../../capabilities/stellar/types';
+import { ActionsSwapEntry } from '@features/swap/ActionsSwapEntry';
 import { SwapPreviewScreen, SwapUnavailableScreen } from '@features/swap/SwapPreviewScreen';
 import { ReactNativeRequestQrScannerView } from '@platform/system/RequestQrScannerView';
 import { reactNativeRequestIngress } from '@platform/system/requestIngress';
@@ -299,6 +301,7 @@ export function HomeStackNavigator({
         {({ navigation, route }) => (
           <SwapPreviewRoute
             foreground={readRuntime.foreground}
+            selectSource={route.params.selectSource === true}
             account={accounts.find(
               candidate =>
                 candidate.id === route.params.accountId &&
@@ -368,6 +371,7 @@ export function HomeStackNavigator({
 
 type SwapPreviewRouteProps = Readonly<{
   foreground: boolean;
+  selectSource?: boolean;
   account: AccountRecord | undefined;
   services: AppServices;
   getCurrentSelection: () => SwapCurrentSelection | undefined;
@@ -377,6 +381,7 @@ type SwapPreviewRouteProps = Readonly<{
 
 function SwapPreviewRoute({
   foreground,
+  selectSource,
   account,
   services,
   getCurrentSelection,
@@ -421,10 +426,11 @@ function SwapPreviewRoute({
   // request captures a valid focus epoch.
   if (!active || !focusReady) return null;
   if (!account) return <SwapUnavailableScreen onDone={() => navigation.goBack()} />;
-  return (
+  const preview = (initialSourceAsset?: StellarPaymentAsset) => (
     <SwapPreviewScreen
       key={String(selectionRevision)}
       account={account}
+      initialSourceAsset={initialSourceAsset}
       active={active}
       foreground={foreground}
       selectedAccountId={actualSelectedAccountId}
@@ -435,6 +441,27 @@ function SwapPreviewRoute({
       captureSession={captureSession}
       onDone={() => navigation.popToTop()}
     />
+  );
+  if (!selectSource) return preview();
+  if (services.onboarding.repository.isWatchOnly(account.id))
+    return <SwapUnavailableScreen onDone={() => navigation.popToTop()} />;
+  return (
+    <ActionsSwapEntry
+      key={JSON.stringify([
+        selectionRevision,
+        account.id,
+        account.address,
+        account.networkId,
+        services.swapPreview.network.networkPassphrase,
+      ])}
+      account={account}
+      dependencies={services.swapPreview}
+      captureSession={captureSession}
+      foreground={foreground}
+      onBack={() => navigation.popToTop()}
+    >
+      {preview}
+    </ActionsSwapEntry>
   );
 }
 

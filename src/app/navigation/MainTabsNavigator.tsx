@@ -396,7 +396,7 @@ function MainTabsWithSelection({
           nodeFailure={node.failure}
           onRetryNode={services.nodeReadSession.retry}
           actionAvailability={actionAvailability}
-          actionState={actionState}
+          actionState={signerActionAvailable ? actionState : 'read-only'}
           selectedAccountId={effectiveSelectedAccountId}
           recentHistory={services.dappRecent}
           catalog={services.dappCatalog}

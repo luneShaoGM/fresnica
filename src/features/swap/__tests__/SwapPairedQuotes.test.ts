@@ -153,10 +153,11 @@ function input(root: React.ReactNode, side: 'pay' | 'receive') {
   if (!found) throw new Error('missing-input:' + side);
   return found;
 }
-function setup() {
+function setup(initialSourceAsset?: StellarPaymentAsset) {
   let session = 0;
   const props: React.ComponentProps<typeof SwapPreviewScreen> = {
     account,
+    initialSourceAsset,
     active: true,
     foreground: true,
     selectedAccountId: account.id,
@@ -1077,4 +1078,24 @@ it('releases an expired Review submission only when its owner settles, then perm
   const resultView = find(h.draw(), node => typeof node.type === 'function' && node.type.name === 'SwapResultScreen');
   expect(resultView).toBeDefined();
   h.dispose();
+});
+
+it('revalidates the selected Actions Pay identity and keeps the initial destination distinct', async () => {
+  const h = setup(assets[1]);
+  let root = await h.mount();
+  input(root, 'pay').props.onChangeAmount?.('2');
+  h.draw();
+  jest.advanceTimersByTime(500);
+  await settle();
+  root = h.draw();
+  expect(request.mock.calls[0][2]).toMatchObject({ sourceAsset: assets[1], destinationAsset: assets[0] });
+  expect(input(root, 'pay').props.value).toBe('2');
+});
+
+it('refuses a selected Pay asset that disappeared instead of silently selecting XLM', async () => {
+  const h = setup({ kind: 'credit', code: 'usd', issuer: 'GREMOVED' });
+  const root = await h.mount();
+  expect(find(root, node => node.props.children === 'actions.swap.sourceUnavailable')).toBeDefined();
+  expect(request).not.toHaveBeenCalled();
+  expect(prepare).not.toHaveBeenCalled();
 });

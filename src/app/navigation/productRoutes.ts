@@ -56,7 +56,7 @@ export type ProductRouteParams = Readonly<{
   'send-review': undefined;
   'send-result': undefined;
   request: Readonly<{ accountId: string; initialScan?: boolean }>;
-  swap: Readonly<{ accountId: string }>;
+  swap: Readonly<{ accountId: string; selectSource?: boolean }>;
   'manage-assets': Readonly<{
     accountId: string;
     requestedAction?: Readonly<{ action: 'add' | 'remove'; code: string; issuer: string }>;
@@ -77,7 +77,7 @@ export type ProductRouteParams = Readonly<{
 
 export const MAIN_TABS: readonly MainTab[] = ['home', 'activity', 'dapps', 'settings'];
 
-export const PRODUCT_ACTIONS: readonly ProductAction[] = ['send', 'swap', 'request'];
+export const PRODUCT_ACTIONS = ['swap'] as const;
 
 export const PRODUCT_ROUTES: Readonly<Record<MainTab, readonly ProductRoute[]>> = {
   home: [

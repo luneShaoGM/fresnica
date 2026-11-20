@@ -1,3 +1,4 @@
+import { assetKey } from '../../capabilities/stellar/classicAmounts';
 import { PassphrasePrompt } from '../../ui/components/PassphrasePrompt/PassphrasePrompt';
 import { AssetPicker } from '../assets/AssetPicker';
 import { AccountAvatar } from '../contacts/AccountAvatar';
@@ -44,6 +45,7 @@ type ViewState =
 
 type Props = Readonly<{
   account: AccountRecord;
+  initialSourceAsset?: StellarPaymentAsset;
   active: boolean;
   foreground: boolean;
   selectedAccountId: string;
@@ -65,6 +67,7 @@ function fullPath(assets: readonly StellarPaymentAsset[]): string {
 
 export function SwapPreviewScreen({
   account,
+  initialSourceAsset,
   active,
   foreground,
   selectedAccountId,
@@ -197,6 +200,12 @@ export function SwapPreviewScreen({
     loadSwapPreviewAssets(dependencies, account, valid)
       .then(available => {
         if (!valid()) return;
+        const index = initialSourceAsset
+          ? available.findIndex(asset => assetKey(asset) === assetKey(initialSourceAsset))
+          : 0;
+        if (index < 0) throw new Error('swap-initial-asset-unavailable');
+        setSourceIndex(index);
+        setDestinationIndex(index === 0 ? 1 : 0);
         setAssets(available);
       })
       .catch(caught => {
@@ -210,7 +219,17 @@ export function SwapPreviewScreen({
       draftRevision.current += 1;
       attempt.current += 1;
     };
-  }, [account, active, assetLoadRevision, captureSession, clearPassphrase, dependencies, execution, t]);
+  }, [
+    account,
+    initialSourceAsset,
+    active,
+    assetLoadRevision,
+    captureSession,
+    clearPassphrase,
+    dependencies,
+    execution,
+    t,
+  ]);
 
   const startQuote = useCallback(async () => {
     if (
@@ -1009,6 +1028,7 @@ function errorText(error: unknown, t: (key: string) => string): string {
     messages: {
       'swap-session-stale': t('swap.error.session'),
       'swap-assets-unavailable': t('swap.error.assets'),
+      'swap-initial-asset-unavailable': t('actions.swap.sourceUnavailable'),
       invalid_request: t('swap.error.invalid'),
       route_unavailable: t('swap.error.routes'),
       quote_unavailable: t('swap.error.routes'),

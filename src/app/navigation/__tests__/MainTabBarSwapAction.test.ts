@@ -103,7 +103,13 @@ function renderSwap(
   const root = MainTabBar(props);
   const actionButton = findPressable(root, 'nav.actions');
   expect(actionButton?.props.onPress).toBeDefined();
-  if (open) actionButton?.props.onPress?.();
+  if (open) {
+    actionButton?.props.onPress?.();
+    if (props.selectedAccountId) {
+      mockActiveOverlayId = 'actions';
+      MainTabBar(props);
+    }
+  }
   const overlay = mockPresentOverlay.mock.calls.at(-1)?.[1] as React.ReactNode;
   return { navigate, overlay, root };
 }
@@ -134,9 +140,7 @@ describe('Swap action uses the current account route', () => {
     const section = findSection(overlay)!;
     const renderVisibility = () =>
       (
-        section.type as (
-          props: typeof section.props,
-        ) => React.ReactElement<{
+        section.type as (props: typeof section.props) => React.ReactElement<{
           active: boolean;
           inVerticalViewport: boolean;
           onLayout: unknown;
@@ -239,15 +243,41 @@ describe('Swap action uses the current account route', () => {
     });
   });
 
+  it('exposes Swap as the only fixed shortcut and gives explicit read-only feedback', () => {
+    const { overlay } = renderSwap(false, undefined, {}, 'read-only');
+    expect(findPressable(overlay, 'nav.send')).toBeUndefined();
+    expect(findPressable(overlay, 'nav.request')).toBeUndefined();
+    expect(findPressable(overlay, 'nav.swap')?.props.disabled).toBe(true);
+    expect(textValues(overlay)).toContain('nav.accountReadOnly');
+  });
+
+  it('ignores queued Swap callbacks after close, selection replacement or availability loss', () => {
+    const first = renderSwap(true);
+    const late = findPressable(first.overlay, 'nav.swap')?.props.onPress;
+    mockActiveOverlayId = undefined;
+    renderSwap(true, undefined, {}, undefined, false);
+    late?.();
+    expect(first.navigate).not.toHaveBeenCalled();
+    mockActiveOverlayId = 'actions';
+    renderSwap(true, undefined, { selectedAccountId: 'wallet-2' }, undefined, false);
+    late?.();
+    expect(first.navigate).not.toHaveBeenCalled();
+    renderSwap(false, undefined, {}, 'checking', false);
+    late?.();
+    expect(first.navigate).not.toHaveBeenCalled();
+  });
+
   it('routes eligible Swap to the current account Swap flow only', () => {
     const { navigate, overlay } = renderSwap(true);
     const button = findPressable(overlay, 'nav.swap');
     expect(button?.props.disabled).toBe(false);
     button?.props.onPress?.();
+    button?.props.onPress?.();
+    expect(navigate).toHaveBeenCalledTimes(1);
     expect(mockDismissOverlay).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith('home', {
       screen: 'swap',
-      params: { accountId: 'wallet-1' },
+      params: { accountId: 'wallet-1', selectSource: true },
     });
   });
 
@@ -266,7 +296,8 @@ describe('Swap action uses the current account route', () => {
     renderSwap(false, undefined, {}, 'inactive', false);
     mockEffects.at(-1)?.();
     const overlay = mockPresentOverlay.mock.calls.at(-1)?.[1] as React.ReactNode;
-    expect(findPressable(overlay, 'nav.send')?.props.disabled).toBe(true);
+    expect(findPressable(overlay, 'nav.send')).toBeUndefined();
+    expect(findPressable(overlay, 'nav.request')).toBeUndefined();
     expect(findPressable(overlay, 'nav.swap')?.props.disabled).toBe(true);
     expect(textValues(overlay)).toContain('nav.accountInactive');
   });
@@ -295,8 +326,11 @@ describe('Swap action uses the current account route', () => {
     const { navigate } = renderSwap(true, undefined, { selectedAccountId: 'wallet-2' }, undefined, false);
     mockEffects.at(-1)?.();
     const overlay = mockPresentOverlay.mock.lastCall?.[1] as React.ReactNode;
-    findPressable(overlay, 'nav.send')?.props.onPress?.();
-    expect(navigate).toHaveBeenCalledWith('home', { screen: 'send-form', params: { accountId: 'wallet-2' } });
+    findPressable(overlay, 'nav.swap')?.props.onPress?.();
+    expect(navigate).toHaveBeenCalledWith('home', {
+      screen: 'swap',
+      params: { accountId: 'wallet-2', selectSource: true },
+    });
   });
 
   it('closes an open sheet when the selected account disappears', () => {

@@ -1,3 +1,4 @@
+import { stroops } from '../../capabilities/stellar/classicAmounts';
 import type { AccountRecord } from '../../capabilities/account/types';
 import type { BalanceDependencies } from '../../capabilities/balance/loadBalanceSnapshot';
 import { loadBalanceSnapshot } from '../../capabilities/balance/loadBalanceSnapshot';
@@ -71,6 +72,40 @@ export async function loadSwapPreviewAssets(
   );
   if (assets.length < 2) throw new Error('swap-assets-unavailable');
   return Object.freeze(assets.map(asset => Object.freeze(asset)));
+}
+
+export type ActionsSwapSource = Readonly<{ asset: StellarPaymentAsset; spendable: string }>;
+
+// Read-only entry choices; never a quote, authorization or reusable preflight approval.
+export async function loadActionsSwapSources(
+  deps: SwapPreviewProductDependencies,
+  account: AccountRecord,
+  isCurrent: () => boolean,
+): Promise<readonly ActionsSwapSource[]> {
+  const assets = await loadSwapPreviewAssets(deps, account, isCurrent);
+  assertCurrent(deps, account, isCurrent);
+  const gateway = deps.prepare.preflight.gateway;
+  const state = await gateway.loadAccountState(account.address);
+  assertCurrent(deps, account, isCurrent);
+  if (state.status !== 'active' || state.account.address !== account.address)
+    throw new Error('swap-assets-unavailable');
+  const ledger = await gateway.loadLedgerParameters();
+  assertCurrent(deps, account, isCurrent);
+  const choices: ActionsSwapSource[] = [];
+  for (const candidate of assets) {
+    const asset: StellarPaymentAsset =
+      candidate.kind === 'native'
+        ? { kind: 'native' }
+        : { kind: 'credit', code: candidate.code, issuer: candidate.issuer };
+    try {
+      const spendable = projectPathPaymentSpendable(state.account, asset, ledger, ledger.baseFeeStroops);
+      if (spendable !== undefined && stroops(spendable) > 0n)
+        choices.push(Object.freeze({ asset: Object.freeze(asset), spendable }));
+    } catch (error) {
+      if (!(error instanceof Error) || !['not_authorized', 'insufficient_source'].includes(error.message)) throw error;
+    }
+  }
+  return Object.freeze(choices);
 }
 
 // Spendable is read from current account state and current ledger parameters;
