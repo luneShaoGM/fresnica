@@ -126,3 +126,13 @@ only: native detail authorization, spending authority and foreground read gates
 remain unchanged. Tests for UI toggling and focus continuity are repository tests;
 Android/iOS native touch, font-scaling and screen-reader acceptance is outstanding.
 No donor implementation or assets are copied.
+
+### PR #218 exact-HEAD review correction (2026-11-20)
+
+Home route blur pauses quote polling but must not discard a still-valid current
+quote while the App remains foregrounded. Quote expiry at five minutes triggers a
+display update even when no other Home state changes; the amount press handler
+must also reject expired values if a timer is delayed. App background, quote
+provider or currency replacement, and quote expiry invalidate display. Main
+fiat presentation carries an explicit approximate marker and localized
+accessibility labels/hints. No estimate becomes transaction authority.

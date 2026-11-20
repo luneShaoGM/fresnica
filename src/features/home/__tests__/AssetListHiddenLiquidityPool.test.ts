@@ -1,7 +1,7 @@
 import React from 'react';
 let mockFiatVisible = false;
-const mockSetFiatVisible = jest.fn((update: (previous: boolean) => boolean) => {
-  mockFiatVisible = update(mockFiatVisible);
+const mockSetFiatVisible = jest.fn((update: boolean | ((previous: boolean) => boolean)) => {
+  mockFiatVisible = typeof update === 'function' ? update(mockFiatVisible) : update;
 });
 jest.mock('react', () => ({
   ...jest.requireActual('react'),
@@ -53,7 +53,7 @@ it('presents available XLM and reserve separately, falls back honestly, and open
   const ready = render(breakdown);
   expect(texts(ready)).toEqual(['XLM', 'home.asset.available', '11', 'home.asset.reserved', '1']);
   const row = elements(ready, Pressable)[0].props as { onPress: () => void; accessibilityLabel: string };
-  expect(row.accessibilityLabel).toBe('Open XLM asset details');
+  expect(row.accessibilityLabel).toBe('home.asset.openNativeDetails');
   row.onPress();
   expect(onOpenAsset).toHaveBeenCalledWith(native.asset);
   expect(texts(render())).toContain('home.asset.accountBalance');
@@ -92,7 +92,13 @@ it('aligns a mainnet estimate beside Reserved while keeping independent accessib
   expect(amount.accessibilityLabel).toBe('10.0000000 XLM');
   amount.onPress();
   expect(onOpenAsset).not.toHaveBeenCalled();
-  expect(texts(render())).toContain('5.00 USD');
+  expect(texts(render())).toContain('≈ 5.00 USD');
+  const visibleAmount = elements(render(), Pressable)[1].props as {
+    accessibilityLabel: string;
+    accessibilityHint: string;
+  };
+  expect(visibleAmount.accessibilityLabel).toBe('preferences.estimate: ≈ 5.00 USD');
+  expect(visibleAmount.accessibilityHint).toBe('home.asset.toggleFiat');
   amount.onPress();
   expect(texts(render())).toContain('10');
   identity.onPress();
@@ -126,6 +132,33 @@ it('never navigates or invents a fiat number when the current quote is missing',
   (buttons[0].props as { onPress: () => void }).onPress();
   expect(onOpenAsset).toHaveBeenCalledWith(native.asset);
   mockFiatVisible = false;
+});
+
+it('rejects an old amount press if the quote deadline passes before a re-render', () => {
+  const expiry = Date.now() + 1_000;
+  const onOpenAsset = jest.fn();
+  mockFiatVisible = false;
+  const root = PinnedNativeAssetRow({
+    line: native,
+    onOpenAsset,
+    t: key => key,
+    currency: 'USD',
+    availableFiat: '6.00',
+    reserveFiat: '1.00',
+    quoteExpiresAt: expiry,
+  });
+  const amount = elements(root, Pressable)[1].props as { onPress: () => void };
+  const reserve = elements(root, Pressable)[2].props as { onPress: () => void };
+  const date = jest.spyOn(Date, 'now').mockReturnValue(expiry + 1);
+  try {
+    amount.onPress();
+    reserve.onPress();
+    expect(mockSetFiatVisible).toHaveBeenCalled();
+    expect(mockFiatVisible).toBe(false);
+    expect(onOpenAsset).not.toHaveBeenCalled();
+  } finally {
+    date.mockRestore();
+  }
 });
 
 jest.mock('../../assets/TokenAssetIcon', () => ({ TokenAssetIcon: () => null }));

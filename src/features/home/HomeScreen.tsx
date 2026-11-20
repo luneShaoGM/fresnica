@@ -285,6 +285,7 @@ export function HomeScreen({
               onOpenAsset={onOpenAsset}
               t={t}
               currency={account.networkId === 'stellar-mainnet' ? currency : undefined}
+              quoteExpiresAt={quote ? quote.updatedAt + 300_000 : undefined}
               availableFiat={
                 quote ? estimateFiat(safeNativeDetails?.available ?? nativeLine.balance, quote.rate) : undefined
               }

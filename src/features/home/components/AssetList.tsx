@@ -114,6 +114,7 @@ export function PinnedNativeAssetRow({
   currency,
   availableFiat,
   reserveFiat,
+  quoteExpiresAt,
   formatFiat = value => value,
 }: Readonly<{
   line: BalanceLine;
@@ -125,6 +126,7 @@ export function PinnedNativeAssetRow({
   currency?: string;
   availableFiat?: string;
   reserveFiat?: string;
+  quoteExpiresAt?: number;
   formatFiat?: (value: string) => string;
 }>) {
   const styles = useThemedStyles(createStyles);
@@ -132,14 +134,24 @@ export function PinnedNativeAssetRow({
   const largeText = useWindowDimensions().fontScale > 1.5;
   const [showFiat, setShowFiat] = useState(false);
   const fiatVisible = showFiat && availableFiat !== undefined && currency !== undefined;
-  const canToggle = availableFiat !== undefined && currency !== undefined;
+  const canToggle =
+    availableFiat !== undefined &&
+    currency !== undefined &&
+    (quoteExpiresAt === undefined || Date.now() < quoteExpiresAt);
+  const toggleBalance = () => {
+    if (quoteExpiresAt !== undefined && Date.now() >= quoteExpiresAt) {
+      setShowFiat(false);
+      return;
+    }
+    if (canToggle) setShowFiat(value => !value);
+  };
   if (line.asset.kind !== 'native') return null;
   return (
     <View testID="home-xlm-fixed" style={styles.pinnedNative}>
       <View style={[styles.assetRow, styles.nativeAssetRow, largeText ? styles.assetRowLargeText : undefined]}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Open XLM asset details"
+          accessibilityLabel={t('home.asset.openNativeDetails')}
           onPress={() => onOpenAsset(line.asset)}
           style={styles.nativeIdentityButton}
         >
@@ -159,12 +171,14 @@ export function PinnedNativeAssetRow({
           testID="home-xlm-amount-toggle"
           accessibilityRole="button"
           accessibilityLabel={
-            fiatVisible ? `${formatFiat(availableFiat!)} ${currency}` : `${breakdown?.available ?? line.balance} XLM`
+            fiatVisible
+              ? `${t('preferences.estimate')}: ≈ ${formatFiat(availableFiat!)} ${currency}`
+              : `${breakdown?.available ?? line.balance} XLM`
           }
-          accessibilityHint={canToggle ? 'Toggle between XLM and fiat estimate' : 'Fiat estimate unavailable'}
+          accessibilityHint={t(canToggle ? 'home.asset.toggleFiat' : 'home.asset.fiatUnavailable')}
           accessibilityState={{ disabled: !canToggle }}
           disabled={!canToggle}
-          onPress={() => setShowFiat(value => !value)}
+          onPress={toggleBalance}
           style={[
             styles.assetBalanceBlock,
             styles.nativeAmountButton,
@@ -177,7 +191,7 @@ export function PinnedNativeAssetRow({
             )}
             <Text numberOfLines={largeText ? undefined : 1} ellipsizeMode="tail" style={styles.nativeAssetBalance}>
               {fiatVisible
-                ? `${formatFiat(availableFiat!)} ${currency}`
+                ? `≈ ${formatFiat(availableFiat!)} ${currency}`
                 : formatAmount(breakdown?.available ?? line.balance)}
             </Text>
           </View>
@@ -204,8 +218,8 @@ export function PinnedNativeAssetRow({
           {reserveFiat !== undefined && currency ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Reserved estimate ${formatFiat(reserveFiat)} ${currency}`}
-              onPress={() => canToggle && setShowFiat(value => !value)}
+              accessibilityLabel={`${t('home.asset.reserved')}, ${t('preferences.estimate')}: ≈ ${formatFiat(reserveFiat)} ${currency}`}
+              onPress={toggleBalance}
               disabled={!canToggle}
             >
               <Text style={styles.nativeReserveFiat}>

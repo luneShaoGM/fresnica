@@ -2,14 +2,31 @@ import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import type { FiatCurrency, XlmQuote, XlmQuotePort } from '@capabilities/valuation/xlmQuote';
 
+const QUOTE_TTL_MS = 300_000;
+type CachedQuote = Readonly<{ source: XlmQuotePort; currency: FiatCurrency; value: XlmQuote }>;
+
 export function useXlmQuote(
   quotes: XlmQuotePort | undefined,
   currency: FiatCurrency,
   active: boolean,
 ): XlmQuote | undefined {
-  const [quote, setQuote] = useState<XlmQuote>();
+  const [cached, setCached] = useState<CachedQuote>();
+  const selected = cached && cached.source === quotes && cached.currency === currency ? cached : undefined;
+
+  // A route overlay pauses polling without invalidating a still-fresh quote.
+  // Changing the provider/currency must not resurrect the previous quote.
   useEffect(() => {
-    setQuote(undefined);
+    setCached(undefined);
+  }, [quotes, currency]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => {
+      if (state !== 'active') setCached(undefined);
+    });
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
     if (!active || !quotes) return;
     let live = true;
     let current: AbortController | undefined;
@@ -18,26 +35,24 @@ export function useXlmQuote(
       current = new AbortController();
       const owner = current;
       if (AppState.currentState !== 'active') {
-        setQuote(undefined);
+        setCached(undefined);
         return;
       }
       quotes
         .load(currency, owner.signal)
         .then(value => {
-          if (live && !owner.signal.aborted) setQuote(value);
+          if (live && !owner.signal.aborted) setCached({ source: quotes, currency, value });
         })
         .catch(() => {
-          if (live && !owner.signal.aborted) setQuote(undefined);
+          // Keep the previous verified estimate only until its own deadline.
+          // The quote is display-only and never authorizes a transaction.
         });
     };
     load();
     const timer = setInterval(load, 60_000);
     const subscription = AppState.addEventListener('change', state => {
       if (state === 'active') load();
-      else {
-        current?.abort();
-        setQuote(undefined);
-      }
+      else current?.abort();
     });
     return () => {
       live = false;
@@ -46,5 +61,17 @@ export function useXlmQuote(
       subscription.remove();
     };
   }, [quotes, currency, active]);
-  return quote?.currency === currency && Date.now() - quote.updatedAt <= 300_000 ? quote : undefined;
+
+  useEffect(() => {
+    if (!selected) return;
+    const remaining = Math.max(0, selected.value.updatedAt + QUOTE_TTL_MS - Date.now());
+    const timer = setTimeout(() => {
+      setCached(current => (current === selected ? undefined : current));
+    }, remaining);
+    return () => clearTimeout(timer);
+  }, [selected]);
+
+  return selected && AppState.currentState === 'active' && Date.now() < selected.value.updatedAt + QUOTE_TTL_MS
+    ? selected.value
+    : undefined;
 }
