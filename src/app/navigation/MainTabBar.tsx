@@ -6,7 +6,7 @@ import type { NodeReadFailure } from '@capabilities/network/NodeReadError';
 import { NativeButton } from '@ui/components/NativeButton';
 import React, { useCallback, useEffect, useRef } from 'react';
 import type { AccountSyncMode } from '@capabilities/account-sync/AccountEffects';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +16,7 @@ import { useThemedStyles } from '@ui/theme';
 import { useLocalization } from '../../locale';
 import { useOverlay } from '../OverlayHost';
 import { createStyles } from './MainTabBar.styles';
+import { ActionsScrollView, useActionsCardsViewport } from './ActionsScrollView';
 import type { MainTab, ProductAction } from './productRoutes';
 
 const TAB_LABEL_KEYS: Readonly<Record<MainTab, string>> = {
@@ -161,7 +162,7 @@ export function MainTabBar({
     }
     present(
       ACTIONS_OVERLAY_ID,
-      <ScrollView bounces={false} style={styles.actionsScroll} contentContainerStyle={styles.actionsContent}>
+      <ActionsScrollView bounces={false} style={styles.actionsScroll} contentContainerStyle={styles.actionsContent}>
         <View style={styles.actionsHeader}>
           <Text accessibilityRole="header" style={styles.actionsTitle}>
             {t('nav.actions')}
@@ -295,7 +296,7 @@ export function MainTabBar({
         >
           <Text style={styles.scanActionLabel}>{t('actions.scan')}</Text>
         </Pressable>
-      </ScrollView>,
+      </ActionsScrollView>,
       {
         statusBarContent: 'light',
         presentation: 'sheet',
@@ -377,7 +378,13 @@ export function MainTabBar({
 function ActionsFeaturedOverlay({
   foreground,
   ...props
-}: Omit<React.ComponentProps<typeof ActionsFeatured>, 'active'> & { foreground: boolean }) {
+}: Omit<
+  React.ComponentProps<typeof ActionsFeatured>,
+  'active' | 'inVerticalViewport' | 'onLayout' | 'onCardsLayout'
+> & { foreground: boolean }) {
   const { activeOverlayId } = useOverlay();
-  return <ActionsFeatured {...props} active={foreground && activeOverlayId === ACTIONS_OVERLAY_ID} />;
+  const cardsViewport = useActionsCardsViewport();
+  return (
+    <ActionsFeatured {...props} {...cardsViewport} active={foreground && activeOverlayId === ACTIONS_OVERLAY_ID} />
+  );
 }

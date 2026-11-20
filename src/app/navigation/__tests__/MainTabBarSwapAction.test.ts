@@ -3,6 +3,7 @@ import React from 'react';
 import { createDappRecentHistory } from '@capabilities/dapp-interaction/dappRecentHistory';
 import { Pressable, ScrollView } from 'react-native';
 import type { DappCatalogPort, DappCatalogEntry } from '@capabilities/dapp-catalog/catalog';
+import { ActionsScrollView } from '../ActionsScrollView';
 import type { MainTabBarProps } from '../MainTabBar';
 
 const mockEffects: Array<() => void> = [];
@@ -13,6 +14,8 @@ jest.mock('react', () => {
   return {
     ...actual,
     useCallback: (callback: unknown) => callback,
+    useState: (initial: unknown) => [typeof initial === 'function' ? (initial as () => unknown)() : initial, jest.fn()],
+    useContext: () => undefined,
     useRef: () => mockRecentSessionRef,
     useSyncExternalStore: (_subscribe: unknown, getSnapshot: () => unknown) => getSnapshot(),
     useEffect: (effect: () => void) => {
@@ -130,9 +133,21 @@ describe('Swap action uses the current account route', () => {
     }
     const section = findSection(overlay)!;
     const renderVisibility = () =>
-      (section.type as (props: typeof section.props) => React.ReactElement<{ active: boolean }>)(section.props);
+      (
+        section.type as (
+          props: typeof section.props,
+        ) => React.ReactElement<{
+          active: boolean;
+          inVerticalViewport: boolean;
+          onLayout: unknown;
+          onCardsLayout: unknown;
+        }>
+      )(section.props);
     mockActiveOverlayId = 'actions';
     expect(renderVisibility().props.active).toBe(true);
+    expect(renderVisibility().props.inVerticalViewport).toBe(false);
+    expect(typeof renderVisibility().props.onLayout).toBe('function');
+    expect(typeof renderVisibility().props.onCardsLayout).toBe('function');
     section.props.onOpen(entry);
     expect(navigate).toHaveBeenCalledWith('dapps', { screen: 'dapps', params: { scannedUrl: entry.websiteUrl } });
     expect(mockDismissOverlay.mock.invocationCallOrder[0]).toBeLessThan(navigate.mock.invocationCallOrder[0]);
@@ -258,7 +273,10 @@ describe('Swap action uses the current account route', () => {
 
   it('uses the scrollable sheet and closes explicitly without dispatching an action', () => {
     const { overlay, navigate } = renderSwap(true);
-    expect(React.isValidElement(overlay) && overlay.type).toBe(ScrollView);
+    expect(React.isValidElement(overlay) && overlay.type).toBe(ActionsScrollView);
+    const measuredScroll = ActionsScrollView({ children: null });
+    expect(measuredScroll.type).toBe(ScrollView);
+    expect(measuredScroll.props.scrollEventThrottle).toBe(16);
     expect(mockPresentOverlay.mock.lastCall?.[2]).toEqual({
       presentation: 'sheet',
       statusBarContent: 'light',

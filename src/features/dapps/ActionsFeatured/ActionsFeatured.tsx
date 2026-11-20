@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { FlatList, Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
 import type { DappCatalogEntry, DappCatalogLoadResult, DappCatalogPort } from '@capabilities/dapp-catalog/catalog';
 import { normalizeUntrustedDappUrl } from '@capabilities/dapp-interaction/externalDappUrl';
 import { NativeButton } from '@ui/components/NativeButton';
@@ -24,11 +24,17 @@ export function ActionsFeatured({
   catalog,
   active,
   online,
+  inVerticalViewport,
+  onLayout,
+  onCardsLayout,
   onOpen,
 }: Readonly<{
   catalog: DappCatalogPort;
   active: boolean;
   online: boolean;
+  inVerticalViewport: boolean;
+  onLayout?: (event: LayoutChangeEvent) => void;
+  onCardsLayout?: (event: LayoutChangeEvent) => void;
   onOpen: (entry: DappCatalogEntry) => boolean;
 }>) {
   const { t } = useLocalization();
@@ -51,6 +57,10 @@ export function ActionsFeatured({
     session,
     keys: new Set(),
   }));
+  const iconVisibility = useMemo(
+    () => ({ horizontal: visibility, vertical: inVerticalViewport }),
+    [visibility, inVerticalViewport],
+  );
   const live = useRef<{ owner: DappCatalogPort; active: boolean; entries: readonly DappCatalogEntry[] } | undefined>(
     undefined,
   );
@@ -102,7 +112,7 @@ export function ActionsFeatured({
     if (onOpen(entry)) live.current = undefined;
   };
   return (
-    <View style={styles.section}>
+    <View style={styles.section} onLayout={onLayout}>
       <Text accessibilityRole="header" style={styles.heading}>
         {t('actions.suggestions')}
       </Text>
@@ -111,7 +121,8 @@ export function ActionsFeatured({
           horizontal
           key={session.key}
           data={entries}
-          extraData={visibility}
+          extraData={iconVisibility}
+          onLayout={onCardsLayout}
           viewabilityConfig={ICON_VIEWABILITY}
           onViewableItemsChanged={({ viewableItems }) => {
             if (!live.current?.active || listSession.current !== session) return;
@@ -130,7 +141,7 @@ export function ActionsFeatured({
               catalog={catalog}
               active={active}
               online={online}
-              visible={visibility.session === session && visibility.keys.has(item.id)}
+              visible={inVerticalViewport && visibility.session === session && visibility.keys.has(item.id)}
               onPress={() => open(item)}
             />
           )}

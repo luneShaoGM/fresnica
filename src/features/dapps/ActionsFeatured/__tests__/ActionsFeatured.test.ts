@@ -95,8 +95,8 @@ const ready = (entries: readonly DappCatalogEntry[], stale = false): DappCatalog
 });
 function setup(catalog: DappCatalogPort) {
   const onOpen = jest.fn(() => true);
-  const render = (active = true, online = true, owner = catalog) =>
-    renderWith('section', () => ActionsFeatured({ catalog: owner, active, online, onOpen }));
+  const render = (active = true, online = true, owner = catalog, inVerticalViewport = true) =>
+    renderWith('section', () => ActionsFeatured({ catalog: owner, active, online, inVerticalViewport, onOpen }));
   return { render, onOpen };
 }
 function items(tree: React.ReactNode): readonly DappCatalogEntry[] {
@@ -253,6 +253,48 @@ describe('Actions featured lifecycle', () => {
     expect(items(render(true, false, offline))).toEqual([entry]);
     await flush();
     expect(offline.load).not.toHaveBeenCalled();
+  });
+
+  it('cancels retained horizontal cards when their row leaves the outer vertical viewport', async () => {
+    const loadIcon = jest.fn((_entry: DappCatalogEntry, _signal: AbortSignal) => new Promise<undefined>(() => {}));
+    const media = {
+      available: true,
+      getIconState: () => ({ enabled: true, revision: 0 }),
+      subscribeIcons: () => () => {},
+      readIcon: () => undefined,
+      loadIcon,
+    } as unknown as DappPublicMediaPort;
+    const catalog: DappCatalogPort = {
+      readCached: () => ready([entry]),
+      load: async () => ready([entry]),
+      publicMedia: media,
+    };
+    const { render } = setup(catalog);
+    reportVisible(render(true, true, catalog, false), [0]);
+    const renderRow = (inVerticalViewport: boolean) => {
+      const row = rowElement(render(true, true, catalog, inVerticalViewport));
+      return renderWith('retained-row', () =>
+        (row.type as (props: Record<string, unknown>) => React.ReactElement)(row.props),
+      );
+    };
+    renderRow(false);
+    await flush();
+    expect(loadIcon).not.toHaveBeenCalled(); // Short viewport: row below Recent has never appeared.
+    renderRow(true);
+    await flush();
+    expect(loadIcon).toHaveBeenCalledTimes(1);
+    const first = loadIcon.mock.calls[0][1];
+    renderRow(false);
+    await flush();
+    expect(first.aborted).toBe(true);
+    expect(loadIcon).toHaveBeenCalledTimes(1);
+    renderRow(true);
+    await flush();
+    expect(loadIcon).toHaveBeenCalledTimes(2);
+    reportVisible(render(true, true, catalog, true), []);
+    renderRow(true);
+    await flush();
+    expect(loadIcon.mock.calls[1][1].aborted).toBe(true); // Vertical visibility cannot bypass horizontal gating.
   });
 
   it('does not request icons for retained offscreen rows and aborts when a mounted row scrolls out', async () => {
