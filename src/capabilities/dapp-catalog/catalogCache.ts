@@ -11,6 +11,7 @@ export type DappCatalogCacheSnapshot = Readonly<{
   networkId: string;
   savedAtUnixMs: number;
   entries: readonly DappCatalogEntry[];
+  featured?: readonly DappCatalogEntry[];
   etag?: string;
   lastModified?: string;
 }>;
@@ -33,9 +34,26 @@ export function normalizeDappCatalogCache(value: unknown, networkId: string): Da
     return undefined;
   }
 
+  const entries = normalizeEntries(value.entries);
+  const featured = value.featured === undefined ? undefined : normalizeEntries(value.featured);
+  if (!entries || (value.featured !== undefined && !featured)) return undefined;
+
+  return Object.freeze({
+    schemaVersion: DAPP_CATALOG_CACHE_VERSION,
+    networkId,
+    savedAtUnixMs: value.savedAtUnixMs,
+    entries,
+    ...(featured ? { featured } : {}),
+    ...(isText(value.etag, 256) ? { etag: value.etag } : {}),
+    ...(isText(value.lastModified, 128) ? { lastModified: value.lastModified } : {}),
+  });
+}
+
+function normalizeEntries(value: unknown): readonly DappCatalogEntry[] | undefined {
+  if (!Array.isArray(value) || value.length > MAX_ENTRIES) return undefined;
   const entries: DappCatalogEntry[] = [];
   const ids = new Set<string>();
-  for (const candidate of value.entries) {
+  for (const candidate of value) {
     if (!isObject(candidate)) return undefined;
     const { id, title, description, category, websiteUrl, iconUrl } = candidate;
     if (
@@ -71,14 +89,7 @@ export function normalizeDappCatalogCache(value: unknown, networkId: string): Da
     );
   }
 
-  return Object.freeze({
-    schemaVersion: DAPP_CATALOG_CACHE_VERSION,
-    networkId,
-    savedAtUnixMs: value.savedAtUnixMs,
-    entries: Object.freeze(entries),
-    ...(isText(value.etag, 256) ? { etag: value.etag } : {}),
-    ...(isText(value.lastModified, 128) ? { lastModified: value.lastModified } : {}),
-  });
+  return Object.freeze(entries);
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

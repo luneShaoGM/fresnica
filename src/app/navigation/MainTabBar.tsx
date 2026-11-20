@@ -1,10 +1,12 @@
+import type { DappCatalogPort } from '@capabilities/dapp-catalog/catalog';
+import { ActionsFeatured } from '@features/dapps/ActionsFeatured/ActionsFeatured';
 import type { DappRecentHistory } from '@capabilities/dapp-interaction/dappRecentHistory';
 import { useDappRecent } from '@features/dapps/useDappRecent';
 import type { NodeReadFailure } from '@capabilities/network/NodeReadError';
 import { NativeButton } from '@ui/components/NativeButton';
 import React, { useCallback, useEffect, useRef } from 'react';
 import type { AccountSyncMode } from '@capabilities/account-sync/AccountEffects';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +16,7 @@ import { useThemedStyles } from '@ui/theme';
 import { useLocalization } from '../../locale';
 import { useOverlay } from '../OverlayHost';
 import { createStyles } from './MainTabBar.styles';
+import { ActionsScrollView, useActionsCardsViewport } from './ActionsScrollView';
 import type { MainTab, ProductAction } from './productRoutes';
 
 const TAB_LABEL_KEYS: Readonly<Record<MainTab, string>> = {
@@ -42,6 +45,9 @@ export type MainTabBarProps = BottomTabBarProps &
   Readonly<{
     selectedAccountId?: string;
     recentHistory?: DappRecentHistory;
+    catalog?: DappCatalogPort;
+    foreground?: boolean;
+    online?: boolean;
     syncMode?: AccountSyncMode;
     nodePhase?: 'checking' | 'healthy' | 'cooldown' | 'wrong-network' | 'paused' | 'closed';
     nodeFailure?: NodeReadFailure;
@@ -56,6 +62,9 @@ export function MainTabBar({
   navigation,
   selectedAccountId,
   recentHistory,
+  catalog,
+  foreground = true,
+  online = true,
   actionAvailability,
   actionState,
   nodePhase,
@@ -64,8 +73,10 @@ export function MainTabBar({
 }: MainTabBarProps) {
   const { t } = useLocalization();
   const recent = useDappRecent(recentHistory);
-  const recentSession = useRef<{ history?: DappRecentHistory; accountId?: string } | undefined>(undefined);
-  recentSession.current = { history: recentHistory, accountId: selectedAccountId };
+  const recentSession = useRef<
+    { history?: DappRecentHistory; accountId?: string; catalog?: DappCatalogPort } | undefined
+  >(undefined);
+  recentSession.current = { history: recentHistory, accountId: selectedAccountId, catalog };
   useEffect(
     () => () => {
       recentSession.current = undefined;
@@ -151,7 +162,7 @@ export function MainTabBar({
     }
     present(
       ACTIONS_OVERLAY_ID,
-      <ScrollView bounces={false} style={styles.actionsScroll} contentContainerStyle={styles.actionsContent}>
+      <ActionsScrollView bounces={false} style={styles.actionsScroll} contentContainerStyle={styles.actionsContent}>
         <View style={styles.actionsHeader}>
           <Text accessibilityRole="header" style={styles.actionsTitle}>
             {t('nav.actions')}
@@ -213,6 +224,24 @@ export function MainTabBar({
             })}
           </View>
         ) : null}
+        {catalog ? (
+          <ActionsFeaturedOverlay
+            catalog={catalog}
+            foreground={foreground}
+            online={online}
+            onOpen={entry => {
+              if (
+                !selectedAccountId ||
+                recentSession.current?.accountId !== selectedAccountId ||
+                recentSession.current?.catalog !== catalog
+              )
+                return false;
+              dismiss();
+              navigation.navigate('dapps', { screen: 'dapps', params: { scannedUrl: entry.websiteUrl } });
+              return true;
+            }}
+          />
+        ) : null}
         <Text accessibilityRole="header" style={styles.sectionTitle}>
           {t('nav.quickActions')}
         </Text>
@@ -267,7 +296,7 @@ export function MainTabBar({
         >
           <Text style={styles.scanActionLabel}>{t('actions.scan')}</Text>
         </Pressable>
-      </ScrollView>,
+      </ActionsScrollView>,
       {
         statusBarContent: 'light',
         presentation: 'sheet',
@@ -287,6 +316,9 @@ export function MainTabBar({
     selectAction,
     recent,
     recentHistory,
+    catalog,
+    foreground,
+    online,
   ]);
 
   useEffect(() => {
@@ -339,5 +371,20 @@ export function MainTabBar({
         {renderTab(3)}
       </SafeAreaView>
     </View>
+  );
+}
+
+// The host keeps closing content mounted; subscribe here so hidden content retires its work.
+function ActionsFeaturedOverlay({
+  foreground,
+  ...props
+}: Omit<
+  React.ComponentProps<typeof ActionsFeatured>,
+  'active' | 'inVerticalViewport' | 'onLayout' | 'onCardsLayout'
+> & { foreground: boolean }) {
+  const { activeOverlayId } = useOverlay();
+  const cardsViewport = useActionsCardsViewport();
+  return (
+    <ActionsFeatured {...props} {...cardsViewport} active={foreground && activeOverlayId === ACTIONS_OVERLAY_ID} />
   );
 }

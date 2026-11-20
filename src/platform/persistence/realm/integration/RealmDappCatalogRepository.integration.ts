@@ -29,6 +29,36 @@ const testnetCatalog = {
 describe('Realm S14 public catalog integration', () => {
   afterAll(() => Realm.shutdown());
 
+  it('reopens featured metadata offline in its own network, while legacy cache has no suggestions', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'fresnica-featured-'));
+    const path = join(directory, 'wallet.realm');
+    let realm: Realm | undefined;
+    try {
+      realm = await openWalletRealm({ path });
+      const repository = new RealmDappCatalogRepository(realm);
+      repository.replace(testnetCatalog);
+      repository.replace({
+        ...testnetCatalog,
+        networkId: 'stellar-mainnet',
+        featured: [{ ...testnetCatalog.entries[0], id: 'featured', websiteUrl: 'https://main.example.org/' }],
+      });
+      realm.close();
+      realm = await openWalletRealm({ path });
+      const reopened = new RealmDappCatalogRepository(realm);
+      expect(reopened.read('stellar-testnet')).not.toHaveProperty('featured');
+      const fetchImpl = jest.fn();
+      const catalog = createFchainCatalog({ cache: reopened, networkId: 'stellar-mainnet', fetchImpl });
+      expect(catalog.readCached()).toMatchObject({
+        stale: true,
+        featured: [{ id: 'featured', websiteUrl: 'https://main.example.org/' }],
+      });
+      expect(fetchImpl).not.toHaveBeenCalled();
+    } finally {
+      if (realm && !realm.isClosed) realm.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it('keeps the prior on-disk snapshot after malformed HTTP catalog and hydrates it offline on reopen', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'fresnica-dapp-catalog-malformed-'));
     const path = join(directory, 'wallet.realm');

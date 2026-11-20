@@ -2,6 +2,8 @@ jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
 import React from 'react';
 import { createDappRecentHistory } from '@capabilities/dapp-interaction/dappRecentHistory';
 import { Pressable, ScrollView } from 'react-native';
+import type { DappCatalogPort, DappCatalogEntry } from '@capabilities/dapp-catalog/catalog';
+import { ActionsScrollView } from '../ActionsScrollView';
 import type { MainTabBarProps } from '../MainTabBar';
 
 const mockEffects: Array<() => void> = [];
@@ -12,6 +14,8 @@ jest.mock('react', () => {
   return {
     ...actual,
     useCallback: (callback: unknown) => callback,
+    useState: (initial: unknown) => [typeof initial === 'function' ? (initial as () => unknown)() : initial, jest.fn()],
+    useContext: () => undefined,
     useRef: () => mockRecentSessionRef,
     useSyncExternalStore: (_subscribe: unknown, getSnapshot: () => unknown) => getSnapshot(),
     useEffect: (effect: () => void) => {
@@ -64,7 +68,10 @@ function renderSwap(
   enabled: boolean,
   syncMode?: MainTabBarProps['syncMode'],
   node: Partial<
-    Pick<MainTabBarProps, 'nodePhase' | 'nodeFailure' | 'onRetryNode' | 'selectedAccountId' | 'recentHistory'>
+    Pick<
+      MainTabBarProps,
+      'nodePhase' | 'nodeFailure' | 'onRetryNode' | 'selectedAccountId' | 'recentHistory' | 'catalog'
+    >
   > = {},
   actionState?: MainTabBarProps['actionState'],
   open = true,
@@ -102,6 +109,56 @@ function renderSwap(
 }
 
 describe('Swap action uses the current account route', () => {
+  it('closes before an untrusted featured handoff and retires section work when the retained overlay hides', () => {
+    const catalog: DappCatalogPort = { load: async () => ({ kind: 'ready', entries: [] }) };
+    const entry: DappCatalogEntry = {
+      id: 'demo',
+      title: 'Demo',
+      category: 'Tools',
+      description: 'Public',
+      websiteUrl: 'https://demo.example.org/testnet',
+    };
+    const { overlay, navigate } = renderSwap(true, undefined, { catalog });
+    function findSection(
+      node: React.ReactNode,
+    ):
+      | React.ReactElement<{ catalog: DappCatalogPort; onOpen: (value: DappCatalogEntry) => void; foreground: boolean }>
+      | undefined {
+      if (!React.isValidElement<{ children?: React.ReactNode; catalog?: DappCatalogPort }>(node)) return;
+      if (node.props.catalog === catalog) return node as ReturnType<typeof findSection>;
+      for (const child of React.Children.toArray(node.props.children)) {
+        const found = findSection(child);
+        if (found) return found;
+      }
+    }
+    const section = findSection(overlay)!;
+    const renderVisibility = () =>
+      (
+        section.type as (
+          props: typeof section.props,
+        ) => React.ReactElement<{
+          active: boolean;
+          inVerticalViewport: boolean;
+          onLayout: unknown;
+          onCardsLayout: unknown;
+        }>
+      )(section.props);
+    mockActiveOverlayId = 'actions';
+    expect(renderVisibility().props.active).toBe(true);
+    expect(renderVisibility().props.inVerticalViewport).toBe(false);
+    expect(typeof renderVisibility().props.onLayout).toBe('function');
+    expect(typeof renderVisibility().props.onCardsLayout).toBe('function');
+    section.props.onOpen(entry);
+    expect(navigate).toHaveBeenCalledWith('dapps', { screen: 'dapps', params: { scannedUrl: entry.websiteUrl } });
+    expect(mockDismissOverlay.mock.invocationCallOrder[0]).toBeLessThan(navigate.mock.invocationCallOrder[0]);
+    mockActiveOverlayId = undefined;
+    expect(renderVisibility().props.active).toBe(false);
+    navigate.mockClear();
+    renderSwap(true, undefined, { catalog, selectedAccountId: 'different-account' }, undefined, false);
+    section.props.onOpen(entry);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it('shows only the latest four shared origins and dismisses into untrusted website review', () => {
     const history = createDappRecentHistory({ read: () => [], replace: () => {} }, 'testnet');
     for (let i = 0; i < 6; i++) history.record(`https://app${i}.example.org/path?token=private`);
@@ -216,7 +273,10 @@ describe('Swap action uses the current account route', () => {
 
   it('uses the scrollable sheet and closes explicitly without dispatching an action', () => {
     const { overlay, navigate } = renderSwap(true);
-    expect(React.isValidElement(overlay) && overlay.type).toBe(ScrollView);
+    expect(React.isValidElement(overlay) && overlay.type).toBe(ActionsScrollView);
+    const measuredScroll = ActionsScrollView({ children: null });
+    expect(measuredScroll.type).toBe(ScrollView);
+    expect(measuredScroll.props.scrollEventThrottle).toBe(16);
     expect(mockPresentOverlay.mock.lastCall?.[2]).toEqual({
       presentation: 'sheet',
       statusBarContent: 'light',

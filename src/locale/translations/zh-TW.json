@@ -12,6 +12,8 @@
   "nav.actionsClose": "關閉",
   "nav.actionsDragClose": "向下拖動關閉操作面板",
   "nav.quickActions": "快捷操作",
+  "actions.suggestions": "為你推薦",
+  "actions.suggestionsEmpty": "目前網路暫無推薦 dApps。",
   "actions.scan": "掃描 QR Code",
   "actions.scanPurpose": "掃描 Stellar 地址、付款 QR Code 或 HTTPS dApp 網站連結",
   "nav.send": "傳送",
