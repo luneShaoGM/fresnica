@@ -133,11 +133,9 @@ export function PinnedNativeAssetRow({
   const theme = useAppTheme();
   const largeText = useWindowDimensions().fontScale > 1.5;
   const [showFiat, setShowFiat] = useState(false);
-  const fiatVisible = showFiat && availableFiat !== undefined && currency !== undefined;
-  const canToggle =
-    availableFiat !== undefined &&
-    currency !== undefined &&
-    (quoteExpiresAt === undefined || Date.now() < quoteExpiresAt);
+  const quoteFresh = quoteExpiresAt === undefined || Date.now() < quoteExpiresAt;
+  const canToggle = availableFiat !== undefined && currency !== undefined && quoteFresh;
+  const fiatVisible = showFiat && canToggle;
   const toggleBalance = () => {
     if (quoteExpiresAt !== undefined && Date.now() >= quoteExpiresAt) {
       setShowFiat(false);
@@ -215,7 +213,7 @@ export function PinnedNativeAssetRow({
               </Text>
             </View>
           </View>
-          {reserveFiat !== undefined && currency ? (
+          {quoteFresh && reserveFiat !== undefined && currency ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`${t('home.asset.reserved')}, ${t('preferences.estimate')}: ≈ ${formatFiat(reserveFiat)} ${currency}`}
@@ -228,7 +226,7 @@ export function PinnedNativeAssetRow({
             </Pressable>
           ) : null}
         </View>
-      ) : availableFiat !== undefined && currency ? (
+      ) : quoteFresh && availableFiat !== undefined && currency ? (
         <Text style={styles.nativeReserveFiat}>
           ≈ {formatFiat(availableFiat)} {currency}
         </Text>

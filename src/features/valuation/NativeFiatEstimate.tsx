@@ -14,7 +14,7 @@ export function NativeFiatEstimate({
 }: Readonly<{ quotes?: XlmQuotePort; amount: string; currency: FiatCurrency; active: boolean; compact?: boolean }>) {
   const { t, formatNumber, formatDate } = useLocalization();
   const styles = useThemedStyles(createStyles);
-  const quote = useXlmQuote(quotes, currency, active);
+  const quote = useXlmQuote(quotes, currency, active, true);
   const estimate =
     quote?.currency === currency && Date.now() - quote.updatedAt <= 300_000
       ? estimateFiat(amount, quote.rate)

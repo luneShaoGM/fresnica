@@ -161,6 +161,45 @@ it('rejects an old amount press if the quote deadline passes before a re-render'
   }
 });
 
+it.each([true, false])(
+  'hides all expired main and reserve fiat output using old row props (showReserve=%s)',
+  showReserve => {
+    const expiresAt = Date.now() + 1_000;
+    const now = jest.spyOn(Date, 'now').mockReturnValue(expiresAt + 1);
+    const onOpenAsset = jest.fn();
+    mockFiatVisible = true;
+    try {
+      const root = PinnedNativeAssetRow({
+        line: native,
+        breakdown: { available: '10.0000000', reserved: '2.0000000' } as Parameters<
+          typeof PinnedNativeAssetRow
+        >[0]['breakdown'],
+        showReserve,
+        onOpenAsset,
+        t: key => key,
+        currency: 'USD',
+        availableFiat: '5.00',
+        reserveFiat: '1.00',
+        quoteExpiresAt: expiresAt,
+      });
+      const labels = texts(root);
+      expect(labels).toContain('10');
+      expect(labels.some(value => value.includes('USD'))).toBe(false);
+      const buttons = elements(root, Pressable);
+      expect(buttons).toHaveLength(2);
+      expect(buttons[1].props).toMatchObject({
+        disabled: true,
+        accessibilityLabel: '10.0000000 XLM',
+        accessibilityHint: 'home.asset.fiatUnavailable',
+      });
+      expect(onOpenAsset).not.toHaveBeenCalled();
+    } finally {
+      mockFiatVisible = false;
+      now.mockRestore();
+    }
+  },
+);
+
 jest.mock('../../assets/TokenAssetIcon', () => ({ TokenAssetIcon: () => null }));
 
 function elements(root: React.ReactNode, type: unknown): React.ReactElement<{ children?: React.ReactNode }>[] {

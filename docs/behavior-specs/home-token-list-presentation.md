@@ -135,4 +135,8 @@ display update even when no other Home state changes; the amount press handler
 must also reject expired values if a timer is delayed. App background, quote
 provider or currency replacement, and quote expiry invalidate display. Main
 fiat presentation carries an explicit approximate marker and localized
-accessibility labels/hints. No estimate becomes transaction authority.
+accessibility labels/hints. No estimate becomes transaction authority. A failed Settings quote refresh
+clears the Settings estimate so the existing unavailable message remains visible;
+Home may retain a still-fresh quote. The same deadline gates Home balance
+interaction, main fiat rendering and Reserved-row fiat rendering even when the
+child updates before its parent.

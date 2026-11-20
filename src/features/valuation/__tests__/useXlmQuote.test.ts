@@ -1,5 +1,6 @@
 import { AppState } from 'react-native';
 import { useXlmQuote } from '../useXlmQuote';
+import { NativeFiatEstimate } from '../NativeFiatEstimate';
 import type { FiatCurrency, XlmQuote, XlmQuotePort } from '@capabilities/valuation/xlmQuote';
 
 type Slot = { value?: unknown; deps?: readonly unknown[]; cleanup?: () => void };
@@ -35,7 +36,18 @@ jest.mock('react', () => ({
   },
 }));
 
+jest.mock('@ui/theme', () => ({
+  useThemedStyles: () => ({ hint: {}, compactHint: {} }),
+}));
+jest.mock('../../../locale', () => ({
+  useLocalization: () => ({
+    t: (key: string) => key,
+    formatNumber: (value: string) => value,
+    formatDate: () => 'today',
+  }),
+}));
 jest.mock('react-native', () => ({
+  Text: 'Text',
   AppState: {
     currentState: 'active',
     addEventListener: (_event: string, listener: (state: string) => void) => {
@@ -56,9 +68,14 @@ function source(): XlmQuotePort & { load: jest.Mock } {
   return { load: jest.fn() };
 }
 
-function QuoteHarness(quoteSource: XlmQuotePort | undefined, currency: FiatCurrency = 'USD', active = true) {
+function QuoteHarness(
+  quoteSource: XlmQuotePort | undefined,
+  currency: FiatCurrency = 'USD',
+  active = true,
+  clearOnError = false,
+) {
   mockCursor = 0;
-  return useXlmQuote(quoteSource, currency, active);
+  return useXlmQuote(quoteSource, currency, active, clearOnError);
 }
 
 function effects() {
@@ -91,6 +108,71 @@ afterEach(() => {
   mockSlots.forEach(slot => slot.cleanup?.());
   mockListeners.clear();
   jest.useRealTimers();
+});
+
+it.each(['offline', '429'])(
+  'Settings invalidates a previously shown quote on a %s refresh failure and can retry',
+  async failure => {
+    const quotes = source();
+    const first = makeQuote();
+    const recovered: XlmQuote = { ...first, rate: '0.60000000' };
+    quotes.load.mockResolvedValueOnce(first).mockRejectedValueOnce(new Error(failure)).mockResolvedValueOnce(recovered);
+
+    QuoteHarness(quotes, 'USD', true, true);
+    effects();
+    await settle();
+    expect(QuoteHarness(quotes, 'USD', true, true)).toEqual(first);
+    effects();
+
+    jest.advanceTimersByTime(60_000);
+    await settle();
+    expect(QuoteHarness(quotes, 'USD', true, true)).toBeUndefined();
+    effects();
+
+    jest.advanceTimersByTime(60_000);
+    await settle();
+    expect(QuoteHarness(quotes, 'USD', true, true)).toEqual(recovered);
+    effects();
+  },
+);
+
+it('Settings estimate presents quoteUnavailable after a successful quote and a failed refresh', async () => {
+  const quotes = source();
+  quotes.load.mockResolvedValueOnce(makeQuote()).mockRejectedValueOnce(new Error('offline'));
+  const settingsQuoteTree = () => {
+    mockCursor = 0;
+    const result = NativeFiatEstimate({ quotes, amount: '1', currency: 'USD', active: true });
+    if (!result) throw new Error('Settings estimate must show quote status');
+    return result;
+  };
+
+  settingsQuoteTree();
+  effects();
+  await settle();
+  expect(settingsQuoteTree().props.children).toContain('≈ 0.50 USD');
+  effects();
+
+  jest.advanceTimersByTime(60_000);
+  await settle();
+  expect(settingsQuoteTree().props.children).toBe('preferences.quoteUnavailable');
+  effects();
+});
+
+it('Home keeps an unexpired quote on refresh failure while still in the foreground', async () => {
+  const quotes = source();
+  const first = makeQuote();
+  quotes.load.mockResolvedValueOnce(first).mockRejectedValueOnce(new Error('429'));
+
+  QuoteHarness(quotes);
+  effects();
+  await settle();
+  expect(QuoteHarness(quotes)).toEqual(first);
+  effects();
+
+  jest.advanceTimersByTime(60_000);
+  await settle();
+  expect(QuoteHarness(quotes)).toEqual(first);
+  effects();
 });
 
 it('keeps the same live quote when the Home route blurs, stops polling, then clears on app background', async () => {

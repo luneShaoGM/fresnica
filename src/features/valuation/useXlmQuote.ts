@@ -9,6 +9,7 @@ export function useXlmQuote(
   quotes: XlmQuotePort | undefined,
   currency: FiatCurrency,
   active: boolean,
+  clearOnError = false,
 ): XlmQuote | undefined {
   const [cached, setCached] = useState<CachedQuote>();
   const selected = cached && cached.source === quotes && cached.currency === currency ? cached : undefined;
@@ -44,8 +45,9 @@ export function useXlmQuote(
           if (live && !owner.signal.aborted) setCached({ source: quotes, currency, value });
         })
         .catch(() => {
-          // Keep the previous verified estimate only until its own deadline.
-          // The quote is display-only and never authorizes a transaction.
+          // Settings must report a failed refresh; Home retains a fresh quote
+          // during transient network trouble or while its detail sheet is open.
+          if (clearOnError && live && !owner.signal.aborted) setCached(undefined);
         });
     };
     load();
@@ -60,7 +62,7 @@ export function useXlmQuote(
       clearInterval(timer);
       subscription.remove();
     };
-  }, [quotes, currency, active]);
+  }, [quotes, currency, active, clearOnError]);
 
   useEffect(() => {
     if (!selected) return;
