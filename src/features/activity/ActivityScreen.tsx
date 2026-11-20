@@ -103,6 +103,8 @@ export function ActivityScreen({
   currentState.current = state;
 
   useEffect(() => {
+    hasHydrated.current = false;
+    setState({ kind: 'loading' });
     didScroll.current = false;
     endReachedCursor.current = undefined;
     continuation.current = undefined;
@@ -146,7 +148,12 @@ export function ActivityScreen({
       setHeadReadPending(mode !== 'revalidate');
 
       const snapshot = mode === 'hydrate' ? readHistoryCacheSnapshotBestEffort(dependencies, account) : undefined;
-      const cached = snapshot?.entries ?? (currentState.current.kind === 'ready' ? currentState.current.entries : []);
+      const cached =
+        mode === 'hydrate'
+          ? (snapshot?.entries ?? [])
+          : currentState.current.kind === 'ready'
+            ? currentState.current.entries
+            : [];
       if (mode === 'hydrate') {
         setState(snapshot ? { kind: 'ready', ...createCachedActivityReadyState(snapshot) } : { kind: 'loading' });
       } else if (mode === 'revalidate') {
@@ -186,6 +193,7 @@ export function ActivityScreen({
               cacheHistoryOnlineEntriesBestEffort(dependencies, account, page.entries, updatedAt);
               const previous = currentState.current;
               const connectedOnlineTail =
+                mode !== 'hydrate' &&
                 previous.kind === 'ready' &&
                 previous.source === 'online' &&
                 page.entries.some(entry => entry.id === previous.entries[0]?.id);

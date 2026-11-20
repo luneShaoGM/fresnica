@@ -61,7 +61,13 @@ export function createHorizonPublicReadGateway(http: typeof fetch = fetch) {
       if (!Number.isInteger(input.limit) || input.limit < 1 || input.limit > 200) throw new NodeReadError('request');
       const query = `include_failed=true&join=transactions&order=desc&limit=${input.limit}${input.cursor === undefined ? '' : `&cursor=${encodeURIComponent(input.cursor)}`}`;
       const value = await get(endpoint, `/accounts/${encodeURIComponent(input.address)}/operations?${query}`, signal);
-      if (value === undefined) return { status: 'inactive' as const, address: input.address };
+      if (value === undefined) {
+        // An operations 404 alone is not evidence that a previously funded account is inactive.
+        const account = await get(endpoint, `/accounts/${encodeURIComponent(input.address)}`, signal);
+        if (account === undefined) return { status: 'inactive' as const, address: input.address };
+        if (object(account).account_id !== input.address) throw new NodeReadError('protocol');
+        throw new NodeReadError('unavailable');
+      }
       const records = object(object(value)._embedded).records;
       if (!Array.isArray(records) || records.length > input.limit) throw new NodeReadError('protocol');
       const mapped = records.map(operation);

@@ -91,6 +91,26 @@ it('keeps account, operation and transaction 404 semantics distinct from node fa
   });
   await expect(reads.probe(endpoint, signal)).rejects.toMatchObject({ kind: 'protocol' });
 });
+it('does not mark an existing account inactive when only its operations endpoint returns 404', async () => {
+  const http = jest.fn().mockResolvedValueOnce({ status: 404 }).mockResolvedValueOnce(response(rawAccount));
+  const reads = createHorizonPublicReadGateway(http);
+  await expect(reads.loadAccountOperations(endpoint, { address: 'Ga', limit: 15 }, signal)).rejects.toMatchObject({
+    kind: 'unavailable',
+  });
+  expect(http.mock.calls.map(([url]) => url)).toEqual([
+    'https://node.test/accounts/Ga/operations?include_failed=true&join=transactions&order=desc&limit=15',
+    'https://node.test/accounts/Ga',
+  ]);
+  const mismatched = createHorizonPublicReadGateway(
+    jest
+      .fn()
+      .mockResolvedValueOnce({ status: 404 })
+      .mockResolvedValueOnce(response({ ...rawAccount, account_id: 'Gb' })),
+  );
+  await expect(mismatched.loadAccountOperations(endpoint, { address: 'Ga', limit: 15 }, signal)).rejects.toMatchObject({
+    kind: 'protocol',
+  });
+});
 it('validates root identity and hash-bound transaction outcomes without exposing broadcast methods', async () => {
   const http = jest
     .fn()
