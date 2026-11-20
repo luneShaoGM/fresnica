@@ -1,5 +1,15 @@
 import React from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { BalanceAsset } from '../../../capabilities/balance/types';
 import type { AccountRecord } from '../../../capabilities/account/types';
@@ -76,7 +86,13 @@ const balanceDependencies: BalanceProductDependencies = {
   now: () => new Date(0),
 };
 
-type NodeProps = { children?: React.ReactNode; onPress?: () => void; nestedScrollEnabled?: boolean };
+type NodeProps = {
+  children?: React.ReactNode;
+  onPress?: () => void;
+  nestedScrollEnabled?: boolean;
+  style?: StyleProp<TextStyle | ViewStyle>;
+  accessibilityRole?: string;
+};
 function nodes(root: React.ReactNode): React.ReactElement<NodeProps>[] {
   if (!React.isValidElement<NodeProps>(root)) return [];
   return [root, ...React.Children.toArray(root.props.children).flatMap(nodes)];
@@ -111,6 +127,46 @@ describe('native asset sheet content', () => {
       Object.defineProperty(Platform, 'OS', { configurable: true, value: originalOS });
     }
   });
+  it('keeps full issuer and Copy inside a bounded, wrapped field rather than expanding the sheet', () => {
+    const issuer = 'G' + 'A'.repeat(55);
+    const asset: BalanceAsset = { kind: 'credit', code: 'USDC', issuer };
+    mockBalanceAsset = asset;
+    const result = AssetDetailsSheet({
+      asset,
+      account,
+      balanceDependencies,
+      active: true,
+      invalidationRevision: 0,
+      canSign: false,
+      onClose: jest.fn(),
+      copyPublicText: jest.fn(async () => undefined),
+      onSend: jest.fn(),
+      onRemove: jest.fn(),
+    });
+    const body = React.Children.toArray(result.props.children.props.children).at(-1) as React.ReactElement;
+    const renderBody = body.type as (props: unknown) => React.ReactElement;
+    const content = renderBody(body.props);
+    const issuerRow = nodes(content).find(
+      node =>
+        node.type === View &&
+        React.Children.toArray(node.props.children).some(
+          child =>
+            React.isValidElement<{ children?: React.ReactNode }>(child) &&
+            child.type === Text &&
+            child.props.children === 'home.asset.issuer',
+        ),
+    );
+    expect(StyleSheet.flatten(issuerRow?.props.style)).toMatchObject({ flexDirection: 'column', minWidth: 0 });
+    const copyButton = nodes(issuerRow).find(node => node.type === Pressable);
+    expect(copyButton?.props.accessibilityRole).toBe('button');
+    expect(StyleSheet.flatten(copyButton?.props.style)).toMatchObject({ width: '100%', minWidth: 0 });
+    const textNodes = nodes(copyButton).filter(node => node.type === Text);
+    const fullAddress = textNodes.find(node => node.props.children === issuer);
+    expect(fullAddress).toBeDefined();
+    expect(StyleSheet.flatten(fullAddress?.props.style)).toMatchObject({ width: '100%', flexShrink: 1 });
+    expect(textNodes.some(node => node.props.children === 'home.asset.copyIssuer')).toBe(true);
+  });
+
   it.each(['loading', 'error'])('retains the first-descendant native scroll container during %s', kind => {
     mockBalanceKind = kind;
     const result = AssetDetailsSheet({

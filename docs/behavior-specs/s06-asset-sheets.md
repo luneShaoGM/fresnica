@@ -20,3 +20,15 @@ Provenance: reuse is limited to Fresnica commits `7e708b4623388fdbcaef409d70eef2
 - Navigation contains public accountId/networkId and exact asset identity only. The native route refuses a hidden, missing, different-network or no-longer-selected account. Backgrounding or leaving the route discards it; returning must not reopen old selection. Send/Remove replace the sheet route with the existing transaction destination, preserving watch-only/stale gates and preventing Back from reviving the sheet.
 - Acceptance covers Home -> XLM/Token -> normal scrolling -> scroll-to-top pull -> close -> reopen, title drag, short/cancelled pull, horizontal/upward movement, Close/backdrop/Android Back, Send/Remove back history and account/network/background invalidation. Automated navigation/content tests do not constitute native touch acceptance.
 - Reference audit only: Stellar `bd0f4540b2496a57314e4e29bc6fcf8ff691b60f`, ActionPanel and ExplainBalance overlay behavior. Implementation is based on Fresnica and the installed navigation library's documented public API. S05/S06 maturity is unchanged; iOS/real-device/accessibility acceptance and Stage 9 System Auth cancellation/retry remain deferred until actual evidence is recorded.
+
+## Issued-asset issuer layout containment — 2026-11-19
+
+The issued-asset detail sheet keeps the complete issuer address visible and
+selectable in a width-bounded, multiline field underneath its Issuer label.
+Its existing confirmation-based Copy issuer action remains in the same bounded
+field and copies the original exact address, not a shortened display value.
+Long numeric limits, balances, trustline issuers and scaled text must also stay
+within the sheet's horizontal content bounds. No account, asset, network,
+cache, send, remove or copy-authority semantics change. This is a clean-room
+S06 presentation repair; repository/UI-tree tests do not prove Android/iOS
+native pixel, selection, accessibility or dynamic-font acceptance.
