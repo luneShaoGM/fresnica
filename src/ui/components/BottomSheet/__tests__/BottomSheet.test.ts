@@ -4,6 +4,13 @@ import { StyleSheet, View } from 'react-native';
 import { AppModal } from '../../AppModal';
 import { BottomSheet } from '../BottomSheet';
 import { defaultTheme } from '../../../theme';
+import { createAppearanceTheme } from '../../../theme/appearanceTheme';
+import { createStyles } from '../styles';
+
+let mockLocale = 'en';
+jest.mock('../../../../locale', () => ({
+  useLocalization: () => jest.requireActual('../../../../locale/localization').createLocalization(mockLocale),
+}));
 
 jest.mock('@ui/theme', () => {
   const actual = jest.requireActual('@ui/theme');
@@ -43,12 +50,32 @@ describe('shared BottomSheet dismissal', () => {
       swipeToDismiss: true,
       onRequestClose: onClose,
       closeLabel: 'Cancel',
+      sheetBackground: 'background',
     });
     expect(modal?.props.dragDismissLabel).toBe('Drag down to close');
     expect(find(modal, View)?.props.children).toBe(child);
 
     modal?.props.onRequestClose?.();
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['en', 'Drag down to close'],
+    ['zh', '向下拖动关闭弹窗'],
+    ['zh-TW', '向下拖動關閉彈窗'],
+  ])('localizes the generic drag-dismiss label in %s', (locale, expected) => {
+    mockLocale = locale;
+    const modal = find(BottomSheet({ visible: true, onClose: jest.fn() }), AppModal);
+    expect(modal?.props.dragDismissLabel).toBe(expected);
+    mockLocale = 'en';
+  });
+
+  it('matches the legacy panel background on both appearance themes', () => {
+    for (const dark of [false, true]) {
+      const theme = createAppearanceTheme(dark);
+      expect(StyleSheet.flatten(createStyles(theme).panel)?.backgroundColor).toBe(theme.colors.background);
+    }
+    expect(createAppearanceTheme(true).colors.surface).not.toBe(createAppearanceTheme(true).colors.background);
   });
 
   it('does not present hidden sheets and preserves a bounded scrolling body', () => {
