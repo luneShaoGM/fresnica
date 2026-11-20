@@ -9,10 +9,11 @@ export function useNativeBalanceBreakdown(
   active: boolean,
   invalidationRevision: number,
   snapshotRevision?: number,
+  retainWhenInactive = false,
 ): NativeBalanceBreakdown | undefined {
-  const { address, networkId, identityKind } = account;
+  const { id, address, networkId, identityKind } = account;
   const nativeReader = dependencies.nativeReader;
-  const partition = JSON.stringify([dependencies.networkId, networkId, address, identityKind]);
+  const partition = JSON.stringify([dependencies.networkId, id, networkId, address, identityKind]);
   const revision = JSON.stringify([invalidationRevision, snapshotRevision ?? null]);
   const [state, setState] = useState<{
     partition: string;
@@ -49,7 +50,7 @@ export function useNativeBalanceBreakdown(
     partition,
     revision,
   ]);
-  return active && state?.partition === partition && state.reader === nativeReader
+  return (active || retainWhenInactive) && state?.partition === partition && state.reader === nativeReader
     ? state.value
     : undefined;
 }

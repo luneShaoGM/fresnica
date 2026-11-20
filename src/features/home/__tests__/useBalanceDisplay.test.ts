@@ -60,6 +60,7 @@ jest.mock('react', () => ({
 }));
 
 jest.mock('@fresnica/ui-native', () => ({ StateView: () => null, Button: () => null }));
+jest.mock('@features/valuation/useXlmQuote', () => ({ useXlmQuote: () => undefined }));
 
 jest.mock('@ui/theme', () => {
   const actual = jest.requireActual('@ui/theme') as typeof import('@ui/theme');
@@ -540,9 +541,21 @@ function nativeSetup() {
     loadLedgerParameters: jest.fn(async () => ({ baseReserveStroops: 5000000, baseFeeStroops: 100 })),
   };
   const deps: BalanceProductDependencies = { ...current.deps, nativeReader: reader };
-  const useRender = (revision = 0, snapshot = 0, account = accountA, activeScreen = true, nativeReader: NativeBalanceReader = reader) => {
+  const useRender = (
+    revision = 0,
+    snapshot = 0,
+    account = accountA,
+    activeScreen = true,
+    nativeReader: NativeBalanceReader = reader,
+  ) => {
     mockCursor = 0;
-    return useNativeBalanceBreakdown(account, nativeReader === reader ? deps : { ...deps, nativeReader }, activeScreen, revision, snapshot);
+    return useNativeBalanceBreakdown(
+      account,
+      nativeReader === reader ? deps : { ...deps, nativeReader },
+      activeScreen,
+      revision,
+      snapshot,
+    );
   };
   return { ...current, render: useRender, reader, response };
 }
@@ -569,6 +582,42 @@ it('silently retains XLM details through revision, snapshot and focus refreshes 
   current.effects();
   expect(current.render(1, 1)).toBe(updated);
   current.effects();
+});
+
+it('retains a matching verified Home XLM balance under a detail sheet without retaining it for another account', async () => {
+  const current = nativeSetup();
+  current.render();
+  current.effects();
+  await settle();
+  const accepted = current.render();
+  mockCursor = 0;
+  expect(
+    useNativeBalanceBreakdown(accountA, { ...current.deps, nativeReader: current.reader }, false, 0, 0, true),
+  ).toBe(accepted);
+  mockCursor = 0;
+  expect(
+    useNativeBalanceBreakdown(
+      { ...accountA, id: 'other', address: 'GB' },
+      { ...current.deps, nativeReader: current.reader },
+      false,
+      0,
+      0,
+      true,
+    ),
+  ).toBeUndefined();
+  mockCursor = 0;
+  expect(
+    useNativeBalanceBreakdown(
+      { ...accountA, id: 'same-address-other-account' },
+      { ...current.deps, nativeReader: current.reader },
+      false,
+      0,
+      0,
+      true,
+    ),
+  ).toBeUndefined();
+  expect(matchingNativeBalance(accepted, '10.0000000', false)).toBe(accepted);
+  expect(matchingNativeBalance(accepted, '10.0000000', true)).toBeUndefined();
 });
 
 it('clears XLM detail after a real refresh failure, and recovers on retry', async () => {

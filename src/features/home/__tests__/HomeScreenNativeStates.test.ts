@@ -17,7 +17,8 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { AppBrandMark } from '@ui/components/AppBrandMark';
 import { InactiveAccountPanel } from '../components/InactiveAccountPanel';
 import { AccountSummary } from '../components/AccountSummary';
-import { NativeFiatEstimate } from '@features/valuation/NativeFiatEstimate';
+let mockHomeQuote: { currency: 'USD'; rate: string; updatedAt: number; source: 'CoinGecko' } | undefined;
+jest.mock('@features/valuation/useXlmQuote', () => ({ useXlmQuote: () => mockHomeQuote }));
 import type { HomeBalanceState } from '../homeViewModel';
 
 jest.mock('@fresnica/ui-native', () => ({
@@ -66,6 +67,7 @@ type NodeProps = Readonly<{
   action?: React.ReactNode;
   line?: unknown;
   fiatEstimate?: React.ReactNode;
+  reserveFiat?: string;
   tone?: string;
   label?: string;
   variant?: string;
@@ -187,7 +189,7 @@ describe('Home native balance-state presentation', () => {
     expect(root.props.safeAreaEdges).toEqual(['top', 'right', 'left']);
     const summary = findElement(root, node => node.type === AccountSummary);
     expect(summary?.props).toMatchObject({ isReadOnly: true, accountKindLabel: 'Contract account' });
-    expect(findElement(root, node => node.type === NativeFiatEstimate)).toBeUndefined();
+    expect(findElement(root, node => node.type === PinnedNativeAssetRow)).toBeUndefined();
   });
 
   it('connects the Home network button to the chooser callback', () => {
@@ -196,6 +198,7 @@ describe('Home native balance-state presentation', () => {
     expect(onSwitchNetwork).toHaveBeenCalledTimes(1);
   });
   beforeEach(() => {
+    mockHomeQuote = undefined;
     jest.clearAllMocks();
     mockedUseState.mockReset();
     mockedUseEffect.mockReset();
@@ -334,6 +337,7 @@ describe('Home native balance-state presentation', () => {
 
   it('embeds the mainnet XLM quote in the pinned reserve row instead of a separate fixed row', () => {
     const mainnetAccount = { ...account, networkId: 'stellar-mainnet' };
+    mockHomeQuote = { currency: 'USD', rate: '0.50000000', updatedAt: Date.now(), source: 'CoinGecko' };
     const { root } = renderHome(
       {
         kind: 'ready',
@@ -350,12 +354,8 @@ describe('Home native balance-state presentation', () => {
       mainnetAccount,
     );
     const pinned = findElement(root, node => node.type === PinnedNativeAssetRow);
-    const quote = pinned?.props.fiatEstimate;
-    expect(React.isValidElement(quote)).toBe(true);
-    if (!React.isValidElement(quote)) return;
-    expect(quote.type).toBe(NativeFiatEstimate);
-    expect(quote.props).toMatchObject({ amount: '10.0000000', compact: true, currency: 'USD' });
-    expect(findElement(root, node => node.type === NativeFiatEstimate)).toBeUndefined();
+    expect(pinned?.props).toMatchObject({ currency: 'USD', availableFiat: '5.00' });
+    expect(pinned?.props.reserveFiat).toBeUndefined();
   });
 
   it('combines pinned XLM, the brand header and in-place Claimable without swapping the scroll regions', () => {

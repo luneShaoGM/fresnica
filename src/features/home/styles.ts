@@ -355,6 +355,14 @@ export function createStyles(theme: AppTheme) {
       flexShrink: 0,
     },
     nativeAssetRow: { minHeight: 56 },
+    nativeIdentityButton: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
+    nativeAmountButton: { minHeight: 44, justifyContent: 'center' },
+    nativeReserveFiat: {
+      ...theme.typography.caption,
+      color: theme.colors.textSecondary,
+      textAlign: 'right',
+      flexShrink: 1,
+    },
     assetBalance: {
       flexShrink: 1,
       ...theme.typography.label,

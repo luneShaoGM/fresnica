@@ -1,5 +1,6 @@
 import type { XlmQuotePort } from '@capabilities/valuation/xlmQuote';
-import { NativeFiatEstimate } from '@features/valuation/NativeFiatEstimate';
+import { useXlmQuote } from '@features/valuation/useXlmQuote';
+import { estimateFiat } from '@capabilities/valuation/xlmQuote';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
@@ -92,6 +93,8 @@ export function HomeScreen({
   const theme = useAppTheme();
   const { t, formatNumber, displayPreferences } = useLocalization();
   const styles = useThemedStyles(createStyles);
+  const currency = displayPreferences?.currency ?? 'USD';
+  const quote = useXlmQuote(xlmQuotes, currency, active && account.networkId === 'stellar-mainnet');
   const {
     state: balanceState,
     refresh: refreshBalances,
@@ -175,17 +178,17 @@ export function HomeScreen({
     balanceState.kind === 'ready' && balanceState.snapshot.status === 'active'
       ? balanceState.snapshot.balances.find(line => line.asset.kind === 'native')
       : undefined;
-  const nativeReady =
-    active && !!nativeLine && balanceState.kind === 'ready' && !balanceState.stale && !balanceState.refreshing;
+  const nativeReady = active && !!nativeLine && balanceState.kind === 'ready' && !balanceState.stale;
   const nativeDetails = useNativeBalanceBreakdown(
     account,
     balanceDependencies,
     nativeReady,
     invalidationRevision,
     balanceState.kind === 'ready' ? balanceState.lastSuccessfulUpdateAt?.getTime() : undefined,
+    true,
   );
   const safeNativeDetails = nativeLine
-    ? matchingNativeBalance(nativeDetails, nativeLine.balance, !nativeReady)
+    ? matchingNativeBalance(nativeDetails, nativeLine.balance, balanceState.kind !== 'ready' || balanceState.stale)
     : undefined;
 
   return (
@@ -281,17 +284,15 @@ export function HomeScreen({
               breakdown={safeNativeDetails}
               onOpenAsset={onOpenAsset}
               t={t}
-              fiatEstimate={
-                account.networkId === 'stellar-mainnet' ? (
-                  <NativeFiatEstimate
-                    quotes={xlmQuotes}
-                    amount={safeNativeDetails?.available ?? nativeLine.balance}
-                    currency={displayPreferences?.currency ?? 'USD'}
-                    active={active}
-                    compact
-                  />
-                ) : undefined
+              currency={account.networkId === 'stellar-mainnet' ? currency : undefined}
+              quoteExpiresAt={quote ? quote.updatedAt + 300_000 : undefined}
+              availableFiat={
+                quote ? estimateFiat(safeNativeDetails?.available ?? nativeLine.balance, quote.rate) : undefined
               }
+              reserveFiat={
+                safeNativeDetails && quote ? estimateFiat(safeNativeDetails.reserved, quote.rate) : undefined
+              }
+              formatFiat={value => (formatNumber ? formatNumber(value, 2) : value)}
             />
           </View>
         ) : null}
