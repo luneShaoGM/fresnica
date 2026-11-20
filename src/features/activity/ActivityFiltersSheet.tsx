@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { BottomSheet } from '@ui/components';
+import { SelectableChip } from '@ui/components/SelectableChip';
 import { NativeButton } from '@ui/components/NativeButton';
 import { useThemedStyles } from '@ui/theme';
 import { useLocalization } from '../../locale';
@@ -60,10 +61,11 @@ export function ActivityFiltersSheet({
         <Text style={styles.sheetSection}>{t('activity.filters.direction')}</Text>
         <View style={styles.filterOptions}>
           {(['incoming', 'outgoing'] as const).map(direction => (
-            <Pressable
+            <SelectableChip
               key={direction}
+              label={t(`activity.filters.${direction}`)}
               accessibilityRole="radio"
-              accessibilityState={{ selected: draft.quantity.direction === direction }}
+              selected={draft.quantity.direction === direction}
               onPress={() =>
                 setDraft(value => ({
                   ...value,
@@ -73,36 +75,19 @@ export function ActivityFiltersSheet({
                   },
                 }))
               }
-              style={[
-                styles.filterChip,
-                draft.quantity.direction === direction ? styles.filterChipSelected : undefined,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  draft.quantity.direction === direction ? styles.filterTextSelected : undefined,
-                ]}
-              >
-                {t(`activity.filters.${direction}`)}
-              </Text>
-            </Pressable>
+            />
           ))}
         </View>
         <Text style={styles.sheetSection}>{t('activity.filters.type')}</Text>
         <View style={styles.filterOptions}>
           {TYPES.map(type => (
-            <Pressable
+            <SelectableChip
               key={type}
+              label={t(`activity.filter.${type}`)}
               accessibilityRole="radio"
-              accessibilityState={{ selected: draft.type === type }}
+              selected={draft.type === type}
               onPress={() => setDraft(value => ({ ...value, type: value.type === type ? 'all' : type }))}
-              style={[styles.filterChip, draft.type === type ? styles.filterChipSelected : undefined]}
-            >
-              <Text style={[styles.filterText, draft.type === type ? styles.filterTextSelected : undefined]}>
-                {t(`activity.filter.${type}`)}
-              </Text>
-            </Pressable>
+            />
           ))}
         </View>
         <Text style={styles.sheetSection}>{t('activity.filters.asset')}</Text>
@@ -137,10 +122,11 @@ export function ActivityFiltersSheet({
         <Text style={styles.sheetSection}>{t('activity.filters.amount')}</Text>
         <View style={styles.filterOptions}>
           {(['at-most', 'at-least'] as const).map(comparison => (
-            <Pressable
+            <SelectableChip
               key={comparison}
+              label={t(`activity.filters.${comparison}`)}
               accessibilityRole="radio"
-              accessibilityState={{ selected: draft.quantity.comparison === comparison }}
+              selected={draft.quantity.comparison === comparison}
               onPress={() =>
                 setDraft(value => ({
                   ...value,
@@ -150,40 +136,21 @@ export function ActivityFiltersSheet({
                   },
                 }))
               }
-              style={[
-                styles.filterChip,
-                draft.quantity.comparison === comparison ? styles.filterChipSelected : undefined,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  draft.quantity.comparison === comparison ? styles.filterTextSelected : undefined,
-                ]}
-              >
-                {t(`activity.filters.${comparison}`)}
-              </Text>
-            </Pressable>
+            />
           ))}
           {['10', '25', '50', '100', '250', '500', '1000'].map(amount => (
-            <Pressable
+            <SelectableChip
               key={amount}
+              label={amount}
               accessibilityRole="radio"
-              accessibilityState={{ selected: draft.quantity.amount === amount }}
+              selected={draft.quantity.amount === amount}
               onPress={() =>
                 setDraft(value => ({
                   ...value,
                   quantity: { ...value.quantity, amount: value.quantity.amount === amount ? undefined : amount },
                 }))
               }
-              style={[styles.filterChip, draft.quantity.amount === amount ? styles.filterChipSelected : undefined]}
-            >
-              <Text
-                style={[styles.filterText, draft.quantity.amount === amount ? styles.filterTextSelected : undefined]}
-              >
-                {amount}
-              </Text>
-            </Pressable>
+            />
           ))}
         </View>
         <Text style={styles.settingHint}>{t('activity.filters.amountHint')}</Text>

@@ -11,3 +11,4 @@ export * from './BottomSheet';
 export * from './AccountIdentityCard';
 export * from './SectionedList';
 export * from './TransactionResult';
+export * from './SelectableChip';

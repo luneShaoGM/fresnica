@@ -1,4 +1,5 @@
 import React from 'react';
+import { SelectableChip } from '@ui/components/SelectableChip';
 import { createDappRecentHistory } from '@capabilities/dapp-interaction/dappRecentHistory';
 
 import type { DappCatalogEntry, DappCatalogPort } from '@capabilities/dapp-catalog/catalog';
@@ -165,6 +166,8 @@ type NodeProps = Readonly<{
   accessibilityLabel?: string;
   accessibilityRole?: string;
   accessibilityState?: { selected?: boolean };
+  selected?: boolean;
+  size?: string;
   autoCapitalize?: string;
   autoCorrect?: boolean;
   secureTextEntry?: boolean;
@@ -262,6 +265,7 @@ describe('DAppsScreen native field and retry', () => {
     expect(nodes.some(node => node.props.children === 'dapps.catalog.sample.directory.title')).toBe(true);
     expect(field?.props.secureTextEntry).toBeUndefined();
     expect(button?.props.label).toBe('dapps.catalog.previewClear');
+    expect(nodes.some(node => node.type === SelectableChip && node.props.size === 'compact')).toBe(true);
 
     field?.props.onChangeText?.('missing-sample');
     beginRender();
@@ -277,6 +281,27 @@ describe('DAppsScreen native field and retry', () => {
         .value,
     ).toBe('');
     expect(cleared.some(node => node.props.children === 'dapps.catalog.sample.tools.title')).toBe(true);
+  });
+
+  it('keeps category filtering in dApps while rendering shared compact chips', async () => {
+    const utility = { ...entry, id: 'utility', title: 'Utility dApp', category: 'Utility' };
+    const catalog: DappCatalogPort = {
+      load: jest.fn().mockResolvedValue({ kind: 'ready', entries: [entry, utility] }),
+    };
+    const initial = elements(await renderCatalog(catalog));
+    const exchange = initial.find(node => node.type === SelectableChip && node.props.label === 'Exchange');
+
+    expect(exchange?.props.selected).toBe(false);
+    expect(exchange?.props.size).toBe('compact');
+    exchange?.props.onPress?.();
+    beginRender();
+    const filtered = elements(DAppsScreen({ catalog, openExternalUrl }));
+
+    expect(filtered.find(node => node.type === SelectableChip && node.props.label === 'Exchange')?.props.selected).toBe(
+      true,
+    );
+    expect(filtered.some(node => node.props.accessibilityLabel === 'dapps.details.open: Demo Exchange')).toBe(true);
+    expect(filtered.some(node => node.props.accessibilityLabel === 'dapps.details.open: Utility dApp')).toBe(false);
   });
 
   it('keeps search as a public text field and reports no match', async () => {

@@ -7,6 +7,7 @@ import type { DappCatalogEntry, DappCatalogLoadResult, DappCatalogPort } from '@
 import { catalogCategories, filterCatalogEntries } from '@capabilities/dapp-catalog/catalog';
 import { normalizeUntrustedDappUrl, type UntrustedDappUrl } from '@capabilities/dapp-interaction/externalDappUrl';
 import { BottomSheet, Screen } from '@ui/components';
+import { SelectableChip } from '@ui/components/SelectableChip';
 import { NativeButton } from '@ui/components/NativeButton';
 import { NativeField } from '@ui/components/NativeField';
 import { NativeScreen } from '@ui/components/NativeScreen';
@@ -451,19 +452,13 @@ export function DAppsScreen({
                       showsHorizontalScrollIndicator={false}
                     >
                       {[undefined, ...categories].map(item => (
-                        <Pressable
+                        <SelectableChip
                           key={item ?? 'all'}
-                          accessibilityRole="button"
-                          accessibilityState={{ selected: selectedCategory === item }}
+                          label={item ?? t('dapps.catalog.all')}
+                          selected={selectedCategory === item}
+                          size="compact"
                           onPress={() => setCategory(item)}
-                          style={[styles.chip, selectedCategory === item ? styles.chipSelected : undefined]}
-                        >
-                          <Text
-                            style={[styles.chipText, selectedCategory === item ? styles.chipTextSelected : undefined]}
-                          >
-                            {item ?? t('dapps.catalog.all')}
-                          </Text>
-                        </Pressable>
+                        />
                       ))}
                     </ScrollView>
                   ) : null}
@@ -769,17 +764,13 @@ function InterfaceSample({
         showsHorizontalScrollIndicator={false}
       >
         {[undefined, ...categories].map(item => (
-          <Pressable
+          <SelectableChip
             key={item ?? 'all'}
-            accessibilityRole="button"
-            accessibilityState={{ selected: selectedCategory === item }}
+            label={item ?? t('dapps.catalog.all')}
+            selected={selectedCategory === item}
+            size="compact"
             onPress={() => onCategory(item)}
-            style={[styles.chip, selectedCategory === item ? styles.chipSelected : undefined]}
-          >
-            <Text style={[styles.chipText, selectedCategory === item ? styles.chipTextSelected : undefined]}>
-              {item ?? t('dapps.catalog.all')}
-            </Text>
-          </Pressable>
+          />
         ))}
       </ScrollView>
       <Text style={styles.sectionTitle}>{t('dapps.catalog.readOnly')}</Text>

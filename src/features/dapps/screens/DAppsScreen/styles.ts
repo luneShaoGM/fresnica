@@ -127,25 +127,6 @@ export function createStyles(theme: AppTheme) {
       gap: 8,
       paddingBottom: 8,
     },
-    chip: {
-      height: 32,
-      borderRadius: 16,
-      paddingHorizontal: 14,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.colors.surfaceMuted,
-    },
-    chipSelected: {
-      backgroundColor: theme.colors.surfaceStrong,
-    },
-    chipText: {
-      fontSize: 11,
-      color: theme.colors.textSecondary,
-      fontWeight: '700',
-    },
-    chipTextSelected: {
-      color: theme.colors.onSurfaceStrong,
-    },
     sectionTitle: {
       fontSize: 17,
       lineHeight: 21,
