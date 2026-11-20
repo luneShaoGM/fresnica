@@ -4,6 +4,7 @@ import { preparePathPayment } from '../../../capabilities/path-payment/preparePa
 import type { PathPaymentQuote, PreparedPathPaymentReview } from '../../../capabilities/path-payment/types';
 import {
   loadSwapPreviewAssets,
+  loadActionsSwapSources,
   loadSwapSourceSpendable,
   requestSwapPreviewQuotes,
   prepareSwapPreviewReview,
@@ -241,5 +242,91 @@ describe('Swap product read-only quote → prepare → exact-XDR review', () => 
       prepareSwapPreviewReview(deps as never, { ...account, identityKind: 'contract' }, quote, 100, () => true),
     ).rejects.toThrow('swap-session-stale');
     expect(preparePathPayment).not.toHaveBeenCalled();
+  });
+});
+
+describe('A5 live Actions source choices', () => {
+  it('uses current reserve/liabilities/fees, not display balances, and never quotes/prepares', async () => {
+    const { deps, loadAccountState, loadLedgerParameters } = fixture();
+    await expect(loadActionsSwapSources(deps as never, account, () => true)).resolves.toEqual([
+      { asset: XLM, spendable: '16.9999900' },
+      { asset: USD, spendable: '4.8750000' },
+    ]);
+    expect(loadAccountState).toHaveBeenCalledTimes(1);
+    expect(loadLedgerParameters).toHaveBeenCalledTimes(1);
+    expect(loadPathPaymentQuotes).not.toHaveBeenCalled();
+    expect(preparePathPayment).not.toHaveBeenCalled();
+  });
+
+  it('distinguishes one funded source, no funded source, unauthorized and issuer-source balances', async () => {
+    const { deps, loadAccountState, loadAccountBalances } = fixture();
+    const original = await loadAccountState();
+    loadAccountState.mockClear();
+    const state = (native: string, authorized = true) => ({
+      ...original,
+      account: {
+        ...original.account,
+        balances: original.account.balances.map(line =>
+          line.kind === 'native' ? { ...line, balance: native } : { ...line, isAuthorized: authorized },
+        ),
+      },
+    });
+    loadAccountState.mockResolvedValueOnce(state('3.0000100'));
+    await expect(loadActionsSwapSources(deps as never, account, () => true)).resolves.toEqual([
+      { asset: USD, spendable: '4.8750000' },
+    ]);
+    loadAccountState.mockResolvedValueOnce(state('3'));
+    await expect(loadActionsSwapSources(deps as never, account, () => true)).resolves.toEqual([]);
+    loadAccountState.mockResolvedValueOnce(state('20', false));
+    await expect(loadActionsSwapSources(deps as never, account, () => true)).resolves.toEqual([
+      { asset: XLM, spendable: '16.9999900' },
+    ]);
+    const display = await loadAccountBalances();
+    loadAccountBalances.mockResolvedValueOnce({
+      ...display,
+      balances: display.balances.map(line => (line.kind === 'credit' ? { ...line, issuer: account.address } : line)),
+    });
+    loadAccountState.mockResolvedValueOnce({
+      ...original,
+      account: {
+        ...original.account,
+        balances: original.account.balances.map(line =>
+          line.kind === 'credit' ? { ...line, issuer: account.address } : line,
+        ),
+      },
+    });
+    await expect(loadActionsSwapSources(deps as never, account, () => true)).resolves.toEqual([
+      { asset: XLM, spendable: '16.9999900' },
+    ]);
+  });
+
+  it('rejects a vanished Receive asset or changed issuer in the current account snapshot', async () => {
+    const { deps, loadAccountState, loadLedgerParameters } = fixture();
+    const original = await loadAccountState();
+    for (const balances of [
+      original.account.balances.filter(line => line.kind === 'native'),
+      original.account.balances.map(line => (line.kind === 'credit' ? { ...line, issuer: 'GOTHER' } : line)),
+    ]) {
+      loadAccountState.mockResolvedValueOnce({ ...original, account: { ...original.account, balances } });
+      await expect(loadActionsSwapSources(deps as never, account, () => true)).rejects.toThrow(
+        'swap-assets-unavailable',
+      );
+    }
+    expect(loadLedgerParameters).not.toHaveBeenCalled();
+    expect(loadPathPaymentQuotes).not.toHaveBeenCalled();
+    expect(preparePathPayment).not.toHaveBeenCalled();
+  });
+
+  it('drops late results after a selection change and does not turn malformed ledger data into zero', async () => {
+    const { deps, loadLedgerParameters } = fixture();
+    let current = true;
+    loadLedgerParameters.mockImplementationOnce(async () => {
+      current = false;
+      return { baseFeeStroops: 100, baseReserveStroops: 5000000 };
+    });
+    await expect(loadActionsSwapSources(deps as never, account, () => current)).rejects.toThrow('swap-session-stale');
+    current = true;
+    loadLedgerParameters.mockResolvedValueOnce({ baseFeeStroops: NaN, baseReserveStroops: 5000000 });
+    await expect(loadActionsSwapSources(deps as never, account, () => current)).rejects.toThrow();
   });
 });

@@ -1,3 +1,4 @@
+import { assetKey } from '../../capabilities/stellar/classicAmounts';
 import { PassphrasePrompt } from '../../ui/components/PassphrasePrompt/PassphrasePrompt';
 import { AssetPicker } from '../assets/AssetPicker';
 import { AccountAvatar } from '../contacts/AccountAvatar';
@@ -44,6 +45,8 @@ type ViewState =
 
 type Props = Readonly<{
   account: AccountRecord;
+  initialSourceAsset?: StellarPaymentAsset;
+  historyOnly?: boolean;
   active: boolean;
   foreground: boolean;
   selectedAccountId: string;
@@ -65,6 +68,8 @@ function fullPath(assets: readonly StellarPaymentAsset[]): string {
 
 export function SwapPreviewScreen({
   account,
+  initialSourceAsset,
+  historyOnly = false,
   active,
   foreground,
   selectedAccountId,
@@ -194,23 +199,42 @@ export function SwapPreviewScreen({
     } catch (caught) {
       if (valid()) setReconcileError(errorText(caught, t));
     }
-    loadSwapPreviewAssets(dependencies, account, valid)
-      .then(available => {
-        if (!valid()) return;
-        setAssets(available);
-      })
-      .catch(caught => {
-        if (!valid()) return;
-        setError(errorText(caught, t));
-      })
-      .finally(() => {
-        if (valid()) setLoading(false);
-      });
+    if (historyOnly) setLoading(false);
+    else
+      loadSwapPreviewAssets(dependencies, account, valid)
+        .then(available => {
+          if (!valid()) return;
+          const index = initialSourceAsset
+            ? available.findIndex(asset => assetKey(asset) === assetKey(initialSourceAsset))
+            : 0;
+          if (index < 0) throw new Error('swap-initial-asset-unavailable');
+          setSourceIndex(index);
+          setDestinationIndex(index === 0 ? 1 : 0);
+          setAssets(available);
+        })
+        .catch(caught => {
+          if (!valid()) return;
+          setError(errorText(caught, t));
+        })
+        .finally(() => {
+          if (valid()) setLoading(false);
+        });
     return () => {
       draftRevision.current += 1;
       attempt.current += 1;
     };
-  }, [account, active, assetLoadRevision, captureSession, clearPassphrase, dependencies, execution, t]);
+  }, [
+    account,
+    initialSourceAsset,
+    historyOnly,
+    active,
+    assetLoadRevision,
+    captureSession,
+    clearPassphrase,
+    dependencies,
+    execution,
+    t,
+  ]);
 
   const startQuote = useCallback(async () => {
     if (
@@ -425,10 +449,9 @@ export function SwapPreviewScreen({
     } catch (caught) {
       if (valid()) setReconcileError(errorText(caught, t));
     } finally {
-      if (generation === attempt.current) {
-        reconcileLocked.current = false;
-        if (valid()) setReconciling(false);
-      }
+      // This request keeps sole ownership of the lock until it settles, even after its view session expires.
+      reconcileLocked.current = false;
+      setReconciling(false);
     }
   }, [account, busy, captureSession, execution, submitting, t]);
 
@@ -615,6 +638,31 @@ export function SwapPreviewScreen({
       ) : null}
     </>
   );
+
+  if (historyOnly) {
+    return (
+      <Screen scrollable={false} contentInset="none">
+        {renderSwapHeader(styles, t, close, reconciling)}
+        <ScrollView contentContainerStyle={styles.content}>
+          <AccountIdentityCard
+            avatar={<AccountAvatar address={account.address} active={active} />}
+            address={account.address}
+            name={account.label}
+            label={t('swap.preview.account')}
+          />
+          <Text accessibilityRole="header" style={styles.heading}>
+            {t('swap.history.title')}
+          </Text>
+          {error ? (
+            <Text accessibilityLiveRegion="assertive" style={styles.error}>
+              {error}
+            </Text>
+          ) : null}
+          {historyPanel}
+        </ScrollView>
+      </Screen>
+    );
+  }
 
   if (view.kind === 'result') {
     return (
@@ -1009,6 +1057,7 @@ function errorText(error: unknown, t: (key: string) => string): string {
     messages: {
       'swap-session-stale': t('swap.error.session'),
       'swap-assets-unavailable': t('swap.error.assets'),
+      'swap-initial-asset-unavailable': t('actions.swap.sourceUnavailable'),
       invalid_request: t('swap.error.invalid'),
       route_unavailable: t('swap.error.routes'),
       quote_unavailable: t('swap.error.routes'),

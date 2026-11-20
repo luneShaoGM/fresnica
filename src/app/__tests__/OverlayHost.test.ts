@@ -5,6 +5,8 @@ import { OverlayHost } from '../OverlayHost';
 
 const mockState: unknown[] = [];
 let mockStateIndex = 0;
+let mockRetireRef: { current: unknown } = { current: undefined };
+const mockCleanups: Array<() => void> = [];
 jest.mock('react', () => ({
   ...jest.requireActual('react'),
   useState: (initial: unknown) => {
@@ -19,6 +21,8 @@ jest.mock('react', () => ({
   },
   useCallback: (callback: unknown) => callback,
   useMemo: (factory: () => unknown) => factory(),
+  useRef: () => mockRetireRef,
+  useEffect: (effect: () => () => void) => mockCleanups.push(effect()),
 }));
 
 function renderHost() {
@@ -28,16 +32,20 @@ function renderHost() {
 
 beforeEach(() => {
   mockState.length = 0;
+  mockRetireRef = { current: undefined };
+  mockCleanups.length = 0;
 });
 
 it('closes the sheet without unmounting its native transition and reopens with fresh content', () => {
   const initial = renderHost();
   const firstContent = React.createElement(Text, null, 'First account');
+  const retire = jest.fn();
   initial.props.value.present('actions', firstContent, {
     presentation: 'sheet',
     statusBarContent: 'light',
     closeLabel: 'Close',
     dragDismissLabel: 'Drag',
+    onRetire: retire,
   });
   const open = renderHost();
   expect(open.props.value.activeOverlayId).toBe('actions');
@@ -55,6 +63,9 @@ it('closes the sheet without unmounting its native transition and reopens with f
     dragDismissLabel: 'Drag',
   });
   sheet.props.onRequestClose();
+  expect(retire).toHaveBeenCalledTimes(1);
+  sheet.props.onRequestClose();
+  expect(retire).toHaveBeenCalledTimes(1);
   const closed = renderHost();
   expect(closed.props.value.activeOverlayId).toBeUndefined();
   const hidden = React.Children.toArray(closed.props.children).find(
@@ -78,7 +89,8 @@ it('closes the sheet without unmounting its native transition and reopens with f
 });
 
 it('preserves the default non-sheet overlay presentation and system-back dismissal', () => {
-  renderHost().props.value.present('other', null);
+  const retire = jest.fn();
+  renderHost().props.value.present('other', null, { onRetire: retire });
   const open = renderHost();
   const modal = React.Children.toArray(open.props.children).find(
     (node): node is React.ReactElement<React.ComponentProps<typeof Modal>> =>
@@ -86,5 +98,18 @@ it('preserves the default non-sheet overlay presentation and system-back dismiss
   )!;
   expect(modal.props).toMatchObject({ visible: true, animationType: 'fade', transparent: true });
   modal.props.onRequestClose?.({} as never);
+  expect(retire).toHaveBeenCalledTimes(1);
   expect(renderHost().props.value.activeOverlayId).toBeUndefined();
+});
+
+it('retires replaced content and the final content at host unmount', () => {
+  const host = renderHost();
+  const first = jest.fn();
+  const second = jest.fn();
+  host.props.value.present('actions', null, { onRetire: first });
+  host.props.value.present('actions', null, { onRetire: second });
+  expect(first).toHaveBeenCalledTimes(1);
+  expect(second).not.toHaveBeenCalled();
+  mockCleanups[0]();
+  expect(second).toHaveBeenCalledTimes(1);
 });

@@ -1,4 +1,4 @@
-import {MAIN_TABS, PRODUCT_ACTIONS, PRODUCT_ROUTES} from '../productRoutes';
+import { MAIN_TABS, PRODUCT_ACTIONS, PRODUCT_ROUTES } from '../productRoutes';
 import { PRODUCT_ROUTE_STATUS } from '../productRouteStatus';
 
 describe('navigation contract', () => {
@@ -10,7 +10,7 @@ describe('navigation contract', () => {
   });
 
   it('keeps Actions separate from tabs', () => {
-    expect(PRODUCT_ACTIONS).toEqual(['send', 'swap', 'request']);
+    expect(PRODUCT_ACTIONS).toEqual(['swap']);
   });
 
   it('keeps Activity and dApps in their target route inventories', () => {

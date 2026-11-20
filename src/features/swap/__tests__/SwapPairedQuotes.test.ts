@@ -2,7 +2,8 @@ import { PassphrasePrompt } from '../../../ui/components/PassphrasePrompt/Passph
 import React from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { SlideToConfirm } from '../../../ui/SlideToConfirm';
-import { submitSwapReview } from '../swapSubmissionProductFlow';
+import { listSwapHistory, reconcileSwapPending, submitSwapReview } from '../swapSubmissionProductFlow';
+import type { PendingSubmissionRecord } from '@capabilities/transaction/pendingSubmission';
 import type { AccountRecord } from '@capabilities/account/types';
 import type { PathPaymentQuote, PreparedPathPaymentReview } from '@capabilities/path-payment/types';
 import type { StellarPaymentAsset } from '@capabilities/stellar/types';
@@ -87,6 +88,18 @@ const account = {
   hidden: false,
   label: 'A',
 } as AccountRecord;
+const pendingSwap: PendingSubmissionRecord = {
+  id: 'pending',
+  networkId: account.networkId,
+  accountId: account.id,
+  sourceAddress: account.address,
+  transactionHash: 'exact-original-hash',
+  intentKind: 'path-payment',
+  intentKey: 'original-intent',
+  state: 'uncertain',
+  createdAt: new Date(0),
+  updatedAt: new Date(0),
+};
 const assets: Awaited<ReturnType<typeof loadSwapPreviewAssets>> = [
   { kind: 'native', balance: '10' },
   { kind: 'credit', code: 'usd', issuer: 'GISSUER', balance: '20' },
@@ -153,10 +166,12 @@ function input(root: React.ReactNode, side: 'pay' | 'receive') {
   if (!found) throw new Error('missing-input:' + side);
   return found;
 }
-function setup() {
+function setup(initialSourceAsset?: StellarPaymentAsset, historyOnly = false) {
   let session = 0;
   const props: React.ComponentProps<typeof SwapPreviewScreen> = {
     account,
+    initialSourceAsset,
+    historyOnly,
     active: true,
     foreground: true,
     selectedAccountId: account.id,
@@ -205,6 +220,8 @@ beforeEach(() => {
   request.mockReset().mockResolvedValue(result());
   prepare.mockReset();
   jest.mocked(submitSwapReview).mockReset();
+  jest.mocked(listSwapHistory).mockReset().mockReturnValue([]);
+  jest.mocked(reconcileSwapPending).mockReset().mockResolvedValue({ pending: [], checked: [] });
 });
 afterEach(() => {
   mockSlots.forEach(slot => slot.cleanup?.());
@@ -1077,4 +1094,100 @@ it('releases an expired Review submission only when its owner settles, then perm
   const resultView = find(h.draw(), node => typeof node.type === 'function' && node.type.name === 'SwapResultScreen');
   expect(resultView).toBeDefined();
   h.dispose();
+});
+
+it('revalidates the selected Actions Pay identity and keeps the initial destination distinct', async () => {
+  const h = setup(assets[1]);
+  let root = await h.mount();
+  input(root, 'pay').props.onChangeAmount?.('2');
+  h.draw();
+  jest.advanceTimersByTime(500);
+  await settle();
+  root = h.draw();
+  expect(request.mock.calls[0][2]).toMatchObject({ sourceAsset: assets[1], destinationAsset: assets[0] });
+  expect(input(root, 'pay').props.value).toBe('2');
+});
+
+it('refuses a selected Pay asset that disappeared instead of silently selecting XLM', async () => {
+  const h = setup({ kind: 'credit', code: 'usd', issuer: 'GREMOVED' });
+  const root = await h.mount();
+  expect(find(root, node => node.props.children === 'actions.swap.sourceUnavailable')).toBeDefined();
+  expect(request).not.toHaveBeenCalled();
+  expect(prepare).not.toHaveBeenCalled();
+});
+
+it('checks an uncertain transaction in the Actions recovery view without reading Pay assets or creating a trade', async () => {
+  const pending = pendingSwap;
+  jest
+    .mocked(listSwapHistory)
+    .mockReturnValueOnce([pending])
+    .mockReturnValueOnce([{ ...pending, state: 'confirmed' }]);
+  load.mockRejectedValue(new Error('swap-assets-unavailable'));
+  const h = setup(undefined, true);
+  let root = await h.mount();
+  expect(find(root, node => node.props.children === 'swap.history.state.uncertain')).toBeDefined();
+  expect(find(root, node => node.props.children === pending.transactionHash)).toBeDefined();
+  button(root, 'swap.history.check').props.onPress?.();
+  await settle();
+  root = h.draw();
+  expect(reconcileSwapPending).toHaveBeenCalledWith(h.props.execution, account, expect.any(Function));
+  expect(find(root, node => node.props.children === 'swap.history.state.confirmed')).toBeDefined();
+  expect(find(root, node => node.type === SwapAmountInput)).toBeUndefined();
+  expect(load).not.toHaveBeenCalled();
+  expect(spendable).not.toHaveBeenCalled();
+  expect(request).not.toHaveBeenCalled();
+  expect(prepare).not.toHaveBeenCalled();
+  expect(submitSwapReview).not.toHaveBeenCalled();
+});
+
+it.each([
+  ['resolve', 'after foreground return'],
+  ['reject', 'after foreground return'],
+  ['resolve', 'while backgrounded'],
+  ['reject', 'while backgrounded'],
+] as const)('releases the history check after an obsolete query %ss %s', async (outcome, completion) => {
+  const first = deferred<Awaited<ReturnType<typeof reconcileSwapPending>>>();
+  const retry = deferred<Awaited<ReturnType<typeof reconcileSwapPending>>>();
+  jest.mocked(listSwapHistory).mockReturnValue([pendingSwap]);
+  jest.mocked(reconcileSwapPending).mockReturnValueOnce(first.promise).mockReturnValueOnce(retry.promise);
+  const h = setup(undefined, true);
+  let root = await h.mount();
+  const check = button(root, 'swap.history.check').props.onPress;
+  check?.();
+  check?.();
+  expect(reconcileSwapPending).toHaveBeenCalledTimes(1);
+  root = h.draw();
+  expect(button(root, 'swap.history.checking').props.disabled).toBe(true);
+  expect(button(root, 'common.back').props.disabled).toBe(true);
+
+  h.draw({ foreground: false });
+  if (completion === 'after foreground return') h.draw({ foreground: true });
+  expect(jest.mocked(reconcileSwapPending).mock.calls[0][2]()).toBe(false);
+  if (outcome === 'resolve') first.resolve({ pending: [], checked: [{ ...pendingSwap, state: 'confirmed' }] });
+  else first.reject(new Error('offline'));
+  await settle();
+  root = h.draw({ foreground: true });
+  expect(listSwapHistory).toHaveBeenCalledTimes(1);
+  expect(find(root, node => node.props.children === 'swap.history.state.uncertain')).toBeDefined();
+  expect(button(root, 'swap.history.check').props.disabled).toBe(false);
+  expect(button(root, 'common.back').props.disabled).toBe(false);
+
+  button(root, 'swap.history.check').props.onPress?.();
+  expect(reconcileSwapPending).toHaveBeenCalledTimes(2);
+  root = h.draw();
+  expect(button(root, 'swap.history.checking').props.disabled).toBe(true);
+  expect(button(root, 'common.back').props.disabled).toBe(true);
+  jest.mocked(listSwapHistory).mockReturnValue([{ ...pendingSwap, state: 'confirmed' }]);
+  retry.resolve({ pending: [], checked: [{ ...pendingSwap, state: 'confirmed' }] });
+  await settle();
+  root = h.draw();
+  expect(listSwapHistory).toHaveBeenCalledTimes(2);
+  expect(find(root, node => node.props.children === 'swap.history.state.confirmed')).toBeDefined();
+  expect(button(root, 'common.back').props.disabled).toBe(false);
+  button(root, 'common.back').props.onPress?.();
+  expect(h.props.onDone).toHaveBeenCalledTimes(1);
+  expect(load).not.toHaveBeenCalled();
+  expect(request).not.toHaveBeenCalled();
+  expect(prepare).not.toHaveBeenCalled();
+  expect(submitSwapReview).not.toHaveBeenCalled();
 });

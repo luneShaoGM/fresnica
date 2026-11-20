@@ -75,6 +75,10 @@ function renderHomeEntry(swapEnabled: boolean, watchOnly = false, selectedAccoun
     ledgerReadInvalidation: { subscribe: jest.fn(), getRevision: () => 0 },
     request: { network: { id: selectedAccount.networkId, networkPassphrase: 'test' } },
     send: { network: { id: selectedAccount.networkId, networkPassphrase: 'test' } },
+    swapPreview: { network: { id: selectedAccount.networkId, networkPassphrase: 'test' } },
+    swapExecution: {},
+    copyPublicText: jest.fn(),
+    externalUrl: { open: jest.fn() },
   } as unknown as AppServices;
   const root = HomeStackNavigator({
     accounts: selectedAccount === account ? [account] : [account, selectedAccount],
@@ -177,6 +181,43 @@ describe('Home Swap entry wiring', () => {
     });
     expect(typeof denied.type === 'function' && denied.type.name).toBe('AssetAccountUnavailable');
   });
+  it('adds the read-only Actions source gate only for the explicit shortcut route', () => {
+    const renderEntry = (selectSource: boolean, watchOnly = false) => {
+      const { root } = renderHomeEntry(true, watchOnly);
+      const screen = React.Children.toArray(root.props.children).find(
+        child => React.isValidElement<{ name: string }>(child) && child.props.name === 'swap',
+      ) as React.ReactElement<{ children: (input: unknown) => React.ReactElement }>;
+      const route = screen.props.children({
+        route: { params: { accountId: account.id, selectSource } },
+        navigation: { isFocused: () => true, popToTop: jest.fn() },
+      });
+      return (route.type as (props: unknown) => React.ReactElement<Record<string, unknown>>)(route.props);
+    };
+    const focusSpy = jest.mocked(useFocusEffect).mockImplementation(callback => {
+      callback();
+    });
+    mockRequestReady = true;
+    try {
+      const gated = renderEntry(true);
+      expect(typeof gated.type === 'function' && gated.type.name).toBe('ActionsSwapEntry');
+      const asset = { kind: 'credit' as const, code: 'usd', issuer: 'GEXACT' };
+      const preview = (
+        gated.props.children as (value: typeof asset) => React.ReactElement<{ initialSourceAsset: typeof asset }>
+      )(asset);
+      expect(preview.props.initialSourceAsset).toBe(asset);
+      const recovery = (gated.props.renderRecovery as () => React.ReactElement<{ historyOnly: boolean }>)();
+      expect(recovery.type).toBe(preview.type);
+      expect(recovery.props.historyOnly).toBe(true);
+      const regular = renderEntry(false);
+      expect(typeof regular.type === 'function' && regular.type.name).toBe('SwapPreviewScreen');
+      const denied = renderEntry(true, true);
+      expect(typeof denied.type === 'function' && denied.type.name).toBe('SwapUnavailableScreen');
+    } finally {
+      focusSpy.mockReset();
+      mockRequestReady = false;
+    }
+  });
+
   it('routes an eligible account to the same swap screen as Actions, using public account identity only', () => {
     const { navigate, onSwap } = renderHomeEntry(true);
     expect(onSwap).toBeDefined();

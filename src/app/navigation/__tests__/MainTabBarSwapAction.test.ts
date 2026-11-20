@@ -43,8 +43,16 @@ jest.mock('../../../ui/theme', () => {
   };
 });
 
-const mockPresentOverlay = jest.fn();
-const mockDismissOverlay = jest.fn();
+let mockRetireOverlay: (() => void) | undefined;
+const mockPresentOverlay = jest.fn((_id: string, _content: React.ReactNode, options?: { onRetire?: () => void }) => {
+  mockRetireOverlay?.();
+  mockRetireOverlay = options?.onRetire;
+});
+const mockDismissOverlay = jest.fn(() => {
+  const retire = mockRetireOverlay;
+  mockRetireOverlay = undefined;
+  retire?.();
+});
 const { MainTabBar } = require('../MainTabBar') as typeof import('../MainTabBar');
 type Props = Readonly<{
   children?: React.ReactNode;
@@ -103,7 +111,13 @@ function renderSwap(
   const root = MainTabBar(props);
   const actionButton = findPressable(root, 'nav.actions');
   expect(actionButton?.props.onPress).toBeDefined();
-  if (open) actionButton?.props.onPress?.();
+  if (open) {
+    actionButton?.props.onPress?.();
+    if (props.selectedAccountId) {
+      mockActiveOverlayId = 'actions';
+      MainTabBar(props);
+    }
+  }
   const overlay = mockPresentOverlay.mock.calls.at(-1)?.[1] as React.ReactNode;
   return { navigate, overlay, root };
 }
@@ -134,9 +148,7 @@ describe('Swap action uses the current account route', () => {
     const section = findSection(overlay)!;
     const renderVisibility = () =>
       (
-        section.type as (
-          props: typeof section.props,
-        ) => React.ReactElement<{
+        section.type as (props: typeof section.props) => React.ReactElement<{
           active: boolean;
           inVerticalViewport: boolean;
           onLayout: unknown;
@@ -152,6 +164,7 @@ describe('Swap action uses the current account route', () => {
     expect(navigate).toHaveBeenCalledWith('dapps', { screen: 'dapps', params: { scannedUrl: entry.websiteUrl } });
     expect(mockDismissOverlay.mock.invocationCallOrder[0]).toBeLessThan(navigate.mock.invocationCallOrder[0]);
     mockActiveOverlayId = undefined;
+    mockRetireOverlay = undefined;
     expect(renderVisibility().props.active).toBe(false);
     navigate.mockClear();
     renderSwap(true, undefined, { catalog, selectedAccountId: 'different-account' }, undefined, false);
@@ -239,15 +252,60 @@ describe('Swap action uses the current account route', () => {
     });
   });
 
+  it('exposes Swap as the only fixed shortcut and gives explicit read-only feedback', () => {
+    const { overlay } = renderSwap(false, undefined, {}, 'read-only');
+    expect(findPressable(overlay, 'nav.send')).toBeUndefined();
+    expect(findPressable(overlay, 'nav.request')).toBeUndefined();
+    expect(findPressable(overlay, 'nav.swap')?.props.disabled).toBe(true);
+    expect(textValues(overlay)).toContain('nav.accountReadOnly');
+  });
+
+  it('ignores queued Swap callbacks after close, selection replacement or availability loss', () => {
+    const first = renderSwap(true);
+    const late = findPressable(first.overlay, 'nav.swap')?.props.onPress;
+    mockActiveOverlayId = undefined;
+    renderSwap(true, undefined, {}, undefined, false);
+    late?.();
+    expect(first.navigate).not.toHaveBeenCalled();
+    mockActiveOverlayId = 'actions';
+    renderSwap(true, undefined, { selectedAccountId: 'wallet-2' }, undefined, false);
+    late?.();
+    expect(first.navigate).not.toHaveBeenCalled();
+    renderSwap(false, undefined, {}, 'checking', false);
+    late?.();
+    expect(first.navigate).not.toHaveBeenCalled();
+  });
+
+  it('retires a queued Swap press synchronously on Close before any render', () => {
+    const { overlay, navigate } = renderSwap(true);
+    const late = findPressable(overlay, 'nav.swap')?.props.onPress;
+    findPressable(overlay, 'nav.actionsClose')?.props.onPress?.();
+    late?.();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('does not revive an old Swap callback when the same account reopens Actions', () => {
+    const first = renderSwap(true);
+    const late = findPressable(first.overlay, 'nav.swap')?.props.onPress;
+    mockDismissOverlay(); // All native close paths use the host dismiss authority.
+    const next = renderSwap(true);
+    late?.();
+    expect(first.navigate).not.toHaveBeenCalled();
+    findPressable(next.overlay, 'nav.swap')?.props.onPress?.();
+    expect(next.navigate).toHaveBeenCalledTimes(1);
+  });
+
   it('routes eligible Swap to the current account Swap flow only', () => {
     const { navigate, overlay } = renderSwap(true);
     const button = findPressable(overlay, 'nav.swap');
     expect(button?.props.disabled).toBe(false);
     button?.props.onPress?.();
+    button?.props.onPress?.();
+    expect(navigate).toHaveBeenCalledTimes(1);
     expect(mockDismissOverlay).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith('home', {
       screen: 'swap',
-      params: { accountId: 'wallet-1' },
+      params: { accountId: 'wallet-1', selectSource: true },
     });
   });
 
@@ -266,7 +324,8 @@ describe('Swap action uses the current account route', () => {
     renderSwap(false, undefined, {}, 'inactive', false);
     mockEffects.at(-1)?.();
     const overlay = mockPresentOverlay.mock.calls.at(-1)?.[1] as React.ReactNode;
-    expect(findPressable(overlay, 'nav.send')?.props.disabled).toBe(true);
+    expect(findPressable(overlay, 'nav.send')).toBeUndefined();
+    expect(findPressable(overlay, 'nav.request')).toBeUndefined();
     expect(findPressable(overlay, 'nav.swap')?.props.disabled).toBe(true);
     expect(textValues(overlay)).toContain('nav.accountInactive');
   });
@@ -282,6 +341,7 @@ describe('Swap action uses the current account route', () => {
       statusBarContent: 'light',
       closeLabel: 'nav.actionsClose',
       dragDismissLabel: 'nav.actionsDragClose',
+      onRetire: expect.any(Function),
     });
     expect(textValues(overlay)).toContain('nav.quickActions');
     findPressable(overlay, 'nav.actionsClose')?.props.onPress?.();
@@ -295,8 +355,11 @@ describe('Swap action uses the current account route', () => {
     const { navigate } = renderSwap(true, undefined, { selectedAccountId: 'wallet-2' }, undefined, false);
     mockEffects.at(-1)?.();
     const overlay = mockPresentOverlay.mock.lastCall?.[1] as React.ReactNode;
-    findPressable(overlay, 'nav.send')?.props.onPress?.();
-    expect(navigate).toHaveBeenCalledWith('home', { screen: 'send-form', params: { accountId: 'wallet-2' } });
+    findPressable(overlay, 'nav.swap')?.props.onPress?.();
+    expect(navigate).toHaveBeenCalledWith('home', {
+      screen: 'swap',
+      params: { accountId: 'wallet-2', selectSource: true },
+    });
   });
 
   it('closes an open sheet when the selected account disappears', () => {
