@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TokenAssetIcon } from '../../assets/TokenAssetIcon';
 import { useTokenIconContext } from '../../assets/tokenIconContext';
 import { Image, Pressable, Text, useWindowDimensions, View } from 'react-native';
@@ -111,7 +111,10 @@ export function PinnedNativeAssetRow({
   formatAmount = formatHomeAmount,
   onOpenAsset,
   t,
-  fiatEstimate,
+  currency,
+  availableFiat,
+  reserveFiat,
+  formatFiat = value => value,
 }: Readonly<{
   line: BalanceLine;
   breakdown?: NativeBalanceBreakdown;
@@ -119,50 +122,67 @@ export function PinnedNativeAssetRow({
   formatAmount?: (value: string) => string;
   onOpenAsset: (asset: BalanceLine['asset']) => void;
   t: (key: string) => string;
-  fiatEstimate?: React.ReactNode;
+  currency?: string;
+  availableFiat?: string;
+  reserveFiat?: string;
+  formatFiat?: (value: string) => string;
 }>) {
   const styles = useThemedStyles(createStyles);
   const theme = useAppTheme();
   const largeText = useWindowDimensions().fontScale > 1.5;
+  const [showFiat, setShowFiat] = useState(false);
+  const fiatVisible = showFiat && availableFiat !== undefined && currency !== undefined;
+  const canToggle = availableFiat !== undefined && currency !== undefined;
   if (line.asset.kind !== 'native') return null;
   return (
     <View testID="home-xlm-fixed" style={styles.pinnedNative}>
-      <Pressable
-        accessibilityLabel={
-          'XLM ' +
-          t(breakdown ? 'home.asset.available' : 'home.asset.accountBalance') +
-          ' ' +
-          (breakdown?.available ?? line.balance)
-        }
-        accessibilityRole="button"
-        onPress={() => onOpenAsset(line.asset)}
-        style={[styles.assetRow, styles.nativeAssetRow, largeText ? styles.assetRowLargeText : undefined]}
-      >
-        <View style={styles.assetBadge}>
-          <TokenAssetIcon asset={line.asset} size={35} resizeMode="cover" />
-        </View>
-        <View style={[styles.assetIdentity, largeText ? styles.assetIdentityLargeText : undefined]}>
-          <Text numberOfLines={1} style={styles.nativeAssetCode}>
-            XLM
-          </Text>
-          <Text numberOfLines={largeText ? undefined : 1} style={styles.assetIssuer}>
-            {t(breakdown ? 'home.asset.available' : 'home.asset.accountBalance')}
-          </Text>
-        </View>
-        <View style={[styles.assetBalanceBlock, largeText ? styles.assetBalanceLargeText : undefined]}>
-          <View style={styles.assetAmountRow}>
-            <Image accessible={false} source={xlmSymbol} resizeMode="contain" style={styles.nativeAmountSymbol} />
-            <Text
-              numberOfLines={largeText ? undefined : 1}
-              ellipsizeMode="tail"
-              selectable
-              style={styles.nativeAssetBalance}
-            >
-              {formatAmount(breakdown?.available ?? line.balance)}
+      <View style={[styles.assetRow, styles.nativeAssetRow, largeText ? styles.assetRowLargeText : undefined]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open XLM asset details"
+          onPress={() => onOpenAsset(line.asset)}
+          style={styles.nativeIdentityButton}
+        >
+          <View style={styles.assetBadge}>
+            <TokenAssetIcon asset={line.asset} size={35} resizeMode="cover" />
+          </View>
+          <View style={styles.assetIdentity}>
+            <Text numberOfLines={1} style={styles.nativeAssetCode}>
+              XLM
+            </Text>
+            <Text numberOfLines={largeText ? undefined : 1} style={styles.assetIssuer}>
+              {t(breakdown ? 'home.asset.available' : 'home.asset.accountBalance')}
             </Text>
           </View>
-        </View>
-      </Pressable>
+        </Pressable>
+        <Pressable
+          testID="home-xlm-amount-toggle"
+          accessibilityRole="button"
+          accessibilityLabel={
+            fiatVisible ? `${formatFiat(availableFiat!)} ${currency}` : `${breakdown?.available ?? line.balance} XLM`
+          }
+          accessibilityHint={canToggle ? 'Toggle between XLM and fiat estimate' : 'Fiat estimate unavailable'}
+          accessibilityState={{ disabled: !canToggle }}
+          disabled={!canToggle}
+          onPress={() => setShowFiat(value => !value)}
+          style={[
+            styles.assetBalanceBlock,
+            styles.nativeAmountButton,
+            largeText ? styles.assetBalanceLargeText : undefined,
+          ]}
+        >
+          <View style={styles.assetAmountRow}>
+            {fiatVisible ? null : (
+              <Image accessible={false} source={xlmSymbol} resizeMode="contain" style={styles.nativeAmountSymbol} />
+            )}
+            <Text numberOfLines={largeText ? undefined : 1} ellipsizeMode="tail" style={styles.nativeAssetBalance}>
+              {fiatVisible
+                ? `${formatFiat(availableFiat!)} ${currency}`
+                : formatAmount(breakdown?.available ?? line.balance)}
+            </Text>
+          </View>
+        </Pressable>
+      </View>
       {showReserve ? (
         <View style={styles.nativeBreakdownRow}>
           <View
@@ -181,11 +201,24 @@ export function PinnedNativeAssetRow({
               </Text>
             </View>
           </View>
-          {fiatEstimate}
+          {reserveFiat !== undefined && currency ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Reserved estimate ${formatFiat(reserveFiat)} ${currency}`}
+              onPress={() => canToggle && setShowFiat(value => !value)}
+              disabled={!canToggle}
+            >
+              <Text style={styles.nativeReserveFiat}>
+                ≈ {formatFiat(reserveFiat)} {currency}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
-      ) : (
-        fiatEstimate
-      )}
+      ) : availableFiat !== undefined && currency ? (
+        <Text style={styles.nativeReserveFiat}>
+          ≈ {formatFiat(availableFiat)} {currency}
+        </Text>
+      ) : null}
     </View>
   );
 }
