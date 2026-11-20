@@ -1,4 +1,12 @@
 import React from 'react';
+let mockFiatVisible = false;
+const mockSetFiatVisible = jest.fn((update: boolean | ((previous: boolean) => boolean)) => {
+  mockFiatVisible = typeof update === 'function' ? update(mockFiatVisible) : update;
+});
+jest.mock('react', () => ({
+  ...jest.requireActual('react'),
+  useState: () => [mockFiatVisible, mockSetFiatVisible],
+}));
 import { Pressable, Text, View } from 'react-native';
 import { AssetList, PinnedNativeAssetRow } from '../components/AssetList';
 import { projectNativeBalanceBreakdown } from '../../../capabilities/balance/nativeBalanceBreakdown';
@@ -28,17 +36,24 @@ jest.mock('../../assets/tokenIconContext', () => ({
 }));
 
 it('presents available XLM and reserve separately, falls back honestly, and opens the exact native asset', () => {
-  const breakdown = projectNativeBalanceBreakdown({
-    address: 'GACCOUNT', subentryCount: 0, numSponsoring: 0, numSponsored: 0,
-    flags: { authRequired: false, authClawbackEnabled: false },
-    balances: [{ kind: 'native', balance: native.balance, sellingLiabilities: '0' }],
-  }, { baseReserveStroops: 5000000, baseFeeStroops: 100 });
+  const breakdown = projectNativeBalanceBreakdown(
+    {
+      address: 'GACCOUNT',
+      subentryCount: 0,
+      numSponsoring: 0,
+      numSponsored: 0,
+      flags: { authRequired: false, authClawbackEnabled: false },
+      balances: [{ kind: 'native', balance: native.balance, sellingLiabilities: '0' }],
+    },
+    { baseReserveStroops: 5000000, baseFeeStroops: 100 },
+  );
   const onOpenAsset = jest.fn();
-  const render = (value?: typeof breakdown) => PinnedNativeAssetRow({ line: native, breakdown: value, onOpenAsset, t: key => key });
+  const render = (value?: typeof breakdown) =>
+    PinnedNativeAssetRow({ line: native, breakdown: value, onOpenAsset, t: key => key });
   const ready = render(breakdown);
   expect(texts(ready)).toEqual(['XLM', 'home.asset.available', '11', 'home.asset.reserved', '1']);
   const row = elements(ready, Pressable)[0].props as { onPress: () => void; accessibilityLabel: string };
-  expect(row.accessibilityLabel).toBe('XLM home.asset.available 11.0000000');
+  expect(row.accessibilityLabel).toBe('home.asset.openNativeDetails');
   row.onPress();
   expect(onOpenAsset).toHaveBeenCalledWith(native.asset);
   expect(texts(render())).toContain('home.asset.accountBalance');
@@ -46,46 +61,144 @@ it('presents available XLM and reserve separately, falls back honestly, and open
   expect(texts(render())).toContain('—');
 });
 it('aligns a mainnet estimate beside Reserved while keeping independent accessibility', () => {
-  const estimate = React.createElement(Text, null, '≈ 3.00 USD');
-  const root = PinnedNativeAssetRow({
-    line: native,
-    breakdown: { available: '10.0000000', reserved: '2.0000000' } as Parameters<
-      typeof PinnedNativeAssetRow
-    >[0]['breakdown'],
-    onOpenAsset: jest.fn(),
-    t: key => key,
-    fiatEstimate: estimate,
-  });
+  const onOpenAsset = jest.fn();
+  const render = () =>
+    PinnedNativeAssetRow({
+      line: native,
+      breakdown: { available: '10.0000000', reserved: '2.0000000' } as Parameters<
+        typeof PinnedNativeAssetRow
+      >[0]['breakdown'],
+      onOpenAsset,
+      t: key => key,
+      currency: 'USD',
+      availableFiat: '5.00',
+      reserveFiat: '1.00',
+    });
+  mockFiatVisible = false;
+  const root = render();
   expect(root?.type).toBe(View);
   const [assetRow, metadataRow] = React.Children.toArray(root?.props.children) as React.ReactElement<{
     children: React.ReactNode;
   }>[];
-  expect(assetRow.type).toBe(Pressable);
+  expect(assetRow.type).toBe(View);
   expect(metadataRow.type).toBe(View);
-  const [reserveGroup, inlineEstimate] = React.Children.toArray(metadataRow.props.children) as React.ReactElement<{
-    accessibilityLabel?: string;
-    children?: React.ReactNode;
-  }>[];
-  expect(reserveGroup.type).toBe(View);
-  expect(reserveGroup.props.accessibilityLabel).toBe('home.asset.reserved 2.0000000 XLM');
-  expect(inlineEstimate.type).toBe(Text);
-  expect(inlineEstimate.props.children).toBe('≈ 3.00 USD');
+  const reserve = elements(metadataRow, View).find(node =>
+    (node.props as { accessibilityLabel?: string }).accessibilityLabel?.startsWith('home.asset.reserved'),
+  );
+  expect(reserve?.props).toMatchObject({ accessibilityLabel: 'home.asset.reserved 2.0000000 XLM' });
+  expect(texts(metadataRow)).toContain('≈ 1.00 USD');
+  const identity = elements(assetRow, Pressable)[0].props as { onPress: () => void };
+  const amount = elements(assetRow, Pressable)[1].props as { onPress: () => void; accessibilityLabel: string };
+  expect(amount.accessibilityLabel).toBe('10.0000000 XLM');
+  amount.onPress();
+  expect(onOpenAsset).not.toHaveBeenCalled();
+  expect(texts(render())).toContain('≈ 5.00 USD');
+  const visibleAmount = elements(render(), Pressable)[1].props as {
+    accessibilityLabel: string;
+    accessibilityHint: string;
+  };
+  expect(visibleAmount.accessibilityLabel).toBe('preferences.estimate: ≈ 5.00 USD');
+  expect(visibleAmount.accessibilityHint).toBe('home.asset.toggleFiat');
+  amount.onPress();
+  expect(texts(render())).toContain('10');
+  identity.onPress();
+  expect(onOpenAsset).toHaveBeenCalledWith(native.asset);
+  mockFiatVisible = false;
 });
 
 it('still shows an available estimate when Reserved is hidden, without a reserve row', () => {
-  const estimate = React.createElement(Text, null, '≈ 3.00 USD');
   const root = PinnedNativeAssetRow({
     line: native,
     onOpenAsset: jest.fn(),
     t: key => key,
     showReserve: false,
-    fiatEstimate: estimate,
+    currency: 'USD',
+    availableFiat: '3.00',
   });
   const children = React.Children.toArray(root?.props.children) as React.ReactElement[];
-  expect(children.map(child => child.type)).toEqual([Pressable, Text]);
+  expect(children.map(child => child.type)).toEqual([View, Text]);
   expect(texts(root)).toContain('≈ 3.00 USD');
   expect(texts(root)).not.toContain('home.asset.reserved');
 });
+
+it('never navigates or invents a fiat number when the current quote is missing', () => {
+  const onOpenAsset = jest.fn();
+  mockFiatVisible = true;
+  const root = PinnedNativeAssetRow({ line: native, onOpenAsset, t: key => key, currency: 'USD' });
+  const buttons = elements(root, Pressable);
+  expect((buttons[1].props as { disabled?: boolean }).disabled).toBe(true);
+  expect(texts(root)).toContain('12');
+  expect(texts(root).some(value => value.includes('USD'))).toBe(false);
+  (buttons[0].props as { onPress: () => void }).onPress();
+  expect(onOpenAsset).toHaveBeenCalledWith(native.asset);
+  mockFiatVisible = false;
+});
+
+it('rejects an old amount press if the quote deadline passes before a re-render', () => {
+  const expiry = Date.now() + 1_000;
+  const onOpenAsset = jest.fn();
+  mockFiatVisible = false;
+  const root = PinnedNativeAssetRow({
+    line: native,
+    onOpenAsset,
+    t: key => key,
+    currency: 'USD',
+    availableFiat: '6.00',
+    reserveFiat: '1.00',
+    quoteExpiresAt: expiry,
+  });
+  const amount = elements(root, Pressable)[1].props as { onPress: () => void };
+  const reserve = elements(root, Pressable)[2].props as { onPress: () => void };
+  const date = jest.spyOn(Date, 'now').mockReturnValue(expiry + 1);
+  try {
+    amount.onPress();
+    reserve.onPress();
+    expect(mockSetFiatVisible).toHaveBeenCalled();
+    expect(mockFiatVisible).toBe(false);
+    expect(onOpenAsset).not.toHaveBeenCalled();
+  } finally {
+    date.mockRestore();
+  }
+});
+
+it.each([true, false])(
+  'hides all expired main and reserve fiat output using old row props (showReserve=%s)',
+  showReserve => {
+    const expiresAt = Date.now() + 1_000;
+    const now = jest.spyOn(Date, 'now').mockReturnValue(expiresAt + 1);
+    const onOpenAsset = jest.fn();
+    mockFiatVisible = true;
+    try {
+      const root = PinnedNativeAssetRow({
+        line: native,
+        breakdown: { available: '10.0000000', reserved: '2.0000000' } as Parameters<
+          typeof PinnedNativeAssetRow
+        >[0]['breakdown'],
+        showReserve,
+        onOpenAsset,
+        t: key => key,
+        currency: 'USD',
+        availableFiat: '5.00',
+        reserveFiat: '1.00',
+        quoteExpiresAt: expiresAt,
+      });
+      const labels = texts(root);
+      expect(labels).toContain('10');
+      expect(labels.some(value => value.includes('USD'))).toBe(false);
+      const buttons = elements(root, Pressable);
+      expect(buttons).toHaveLength(2);
+      expect(buttons[1].props).toMatchObject({
+        disabled: true,
+        accessibilityLabel: '10.0000000 XLM',
+        accessibilityHint: 'home.asset.fiatUnavailable',
+      });
+      expect(onOpenAsset).not.toHaveBeenCalled();
+    } finally {
+      mockFiatVisible = false;
+      now.mockRestore();
+    }
+  },
+);
 
 jest.mock('../../assets/TokenAssetIcon', () => ({ TokenAssetIcon: () => null }));
 
@@ -204,20 +317,23 @@ describe('Home asset identity and exact amount presentation', () => {
     expect(amount?.props).toMatchObject({ numberOfLines: undefined, selectable: true });
     const nativeRoot = PinnedNativeAssetRow({ line: native, onOpenAsset: jest.fn(), t: key => key });
     const nativeAmount = elements(nativeRoot, Text).find(node => node.props.children === '12');
-    expect(nativeAmount?.props).toMatchObject({ numberOfLines: undefined, selectable: true });
+    expect(nativeAmount?.props).toMatchObject({ numberOfLines: undefined });
   });
 });
 
 it('hides only the reserve panel while preserving the available amount and exact asset action', () => {
   const onOpenAsset = jest.fn();
-  const breakdown = { available: '10.0000000', reserved: '2.0000000' } as Parameters<typeof PinnedNativeAssetRow>[0]['breakdown'];
+  const breakdown = { available: '10.0000000', reserved: '2.0000000' } as Parameters<
+    typeof PinnedNativeAssetRow
+  >[0]['breakdown'];
   const visible = PinnedNativeAssetRow({ line: native, breakdown, onOpenAsset, t: key => key, showReserve: true });
   const hidden = PinnedNativeAssetRow({ line: native, breakdown, onOpenAsset, t: key => key, showReserve: false });
   expect(texts(visible)).toContain('home.asset.reserved');
   expect(texts(hidden)).not.toContain('home.asset.reserved');
   expect(texts(hidden)).toContain('10');
   const button = elements(hidden, Pressable)[0] as React.ReactElement<{ onPress(): void }>;
-  button.props.onPress(); expect(onOpenAsset).toHaveBeenCalledWith(native.asset);
+  button.props.onPress();
+  expect(onOpenAsset).toHaveBeenCalledWith(native.asset);
 });
 
 it('applies the selected display formatter to pinned XLM without changing the value passed to it', () => {

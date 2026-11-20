@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TokenAssetIcon } from '../../assets/TokenAssetIcon';
 import { useTokenIconContext } from '../../assets/tokenIconContext';
 import { Image, Pressable, Text, useWindowDimensions, View } from 'react-native';
@@ -111,7 +111,11 @@ export function PinnedNativeAssetRow({
   formatAmount = formatHomeAmount,
   onOpenAsset,
   t,
-  fiatEstimate,
+  currency,
+  availableFiat,
+  reserveFiat,
+  quoteExpiresAt,
+  formatFiat = value => value,
 }: Readonly<{
   line: BalanceLine;
   breakdown?: NativeBalanceBreakdown;
@@ -119,50 +123,78 @@ export function PinnedNativeAssetRow({
   formatAmount?: (value: string) => string;
   onOpenAsset: (asset: BalanceLine['asset']) => void;
   t: (key: string) => string;
-  fiatEstimate?: React.ReactNode;
+  currency?: string;
+  availableFiat?: string;
+  reserveFiat?: string;
+  quoteExpiresAt?: number;
+  formatFiat?: (value: string) => string;
 }>) {
   const styles = useThemedStyles(createStyles);
   const theme = useAppTheme();
   const largeText = useWindowDimensions().fontScale > 1.5;
+  const [showFiat, setShowFiat] = useState(false);
+  const quoteFresh = quoteExpiresAt === undefined || Date.now() < quoteExpiresAt;
+  const canToggle = availableFiat !== undefined && currency !== undefined && quoteFresh;
+  const fiatVisible = showFiat && canToggle;
+  const toggleBalance = () => {
+    if (quoteExpiresAt !== undefined && Date.now() >= quoteExpiresAt) {
+      setShowFiat(false);
+      return;
+    }
+    if (canToggle) setShowFiat(value => !value);
+  };
   if (line.asset.kind !== 'native') return null;
   return (
     <View testID="home-xlm-fixed" style={styles.pinnedNative}>
-      <Pressable
-        accessibilityLabel={
-          'XLM ' +
-          t(breakdown ? 'home.asset.available' : 'home.asset.accountBalance') +
-          ' ' +
-          (breakdown?.available ?? line.balance)
-        }
-        accessibilityRole="button"
-        onPress={() => onOpenAsset(line.asset)}
-        style={[styles.assetRow, styles.nativeAssetRow, largeText ? styles.assetRowLargeText : undefined]}
-      >
-        <View style={styles.assetBadge}>
-          <TokenAssetIcon asset={line.asset} size={35} resizeMode="cover" />
-        </View>
-        <View style={[styles.assetIdentity, largeText ? styles.assetIdentityLargeText : undefined]}>
-          <Text numberOfLines={1} style={styles.nativeAssetCode}>
-            XLM
-          </Text>
-          <Text numberOfLines={largeText ? undefined : 1} style={styles.assetIssuer}>
-            {t(breakdown ? 'home.asset.available' : 'home.asset.accountBalance')}
-          </Text>
-        </View>
-        <View style={[styles.assetBalanceBlock, largeText ? styles.assetBalanceLargeText : undefined]}>
-          <View style={styles.assetAmountRow}>
-            <Image accessible={false} source={xlmSymbol} resizeMode="contain" style={styles.nativeAmountSymbol} />
-            <Text
-              numberOfLines={largeText ? undefined : 1}
-              ellipsizeMode="tail"
-              selectable
-              style={styles.nativeAssetBalance}
-            >
-              {formatAmount(breakdown?.available ?? line.balance)}
+      <View style={[styles.assetRow, styles.nativeAssetRow, largeText ? styles.assetRowLargeText : undefined]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('home.asset.openNativeDetails')}
+          onPress={() => onOpenAsset(line.asset)}
+          style={styles.nativeIdentityButton}
+        >
+          <View style={styles.assetBadge}>
+            <TokenAssetIcon asset={line.asset} size={35} resizeMode="cover" />
+          </View>
+          <View style={styles.assetIdentity}>
+            <Text numberOfLines={1} style={styles.nativeAssetCode}>
+              XLM
+            </Text>
+            <Text numberOfLines={largeText ? undefined : 1} style={styles.assetIssuer}>
+              {t(breakdown ? 'home.asset.available' : 'home.asset.accountBalance')}
             </Text>
           </View>
-        </View>
-      </Pressable>
+        </Pressable>
+        <Pressable
+          testID="home-xlm-amount-toggle"
+          accessibilityRole="button"
+          accessibilityLabel={
+            fiatVisible
+              ? `${t('preferences.estimate')}: ≈ ${formatFiat(availableFiat!)} ${currency}`
+              : `${breakdown?.available ?? line.balance} XLM`
+          }
+          accessibilityHint={t(canToggle ? 'home.asset.toggleFiat' : 'home.asset.fiatUnavailable')}
+          accessibilityState={{ disabled: !canToggle }}
+          disabled={!canToggle}
+          onPress={toggleBalance}
+          style={[
+            styles.assetBalanceBlock,
+            styles.nativeAmountButton,
+            largeText ? styles.assetBalanceLargeText : undefined,
+          ]}
+        >
+          <View style={styles.assetAmountRow}>
+            {fiatVisible ? null : (
+              <Image accessible={false} source={xlmSymbol} resizeMode="contain" style={styles.nativeAmountSymbol} />
+            )}
+            <Text numberOfLines={largeText ? undefined : 1} ellipsizeMode="tail" style={styles.nativeAssetBalance}>
+              {fiatVisible
+                ? `≈ ${formatFiat(availableFiat!)} ${currency}`
+                : formatAmount(breakdown?.available ?? line.balance)}
+            </Text>
+          </View>
+        </Pressable>
+      </View>
       {showReserve ? (
         <View style={styles.nativeBreakdownRow}>
           <View
@@ -181,11 +213,24 @@ export function PinnedNativeAssetRow({
               </Text>
             </View>
           </View>
-          {fiatEstimate}
+          {quoteFresh && reserveFiat !== undefined && currency ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${t('home.asset.reserved')}, ${t('preferences.estimate')}: ≈ ${formatFiat(reserveFiat)} ${currency}`}
+              onPress={toggleBalance}
+              disabled={!canToggle}
+            >
+              <Text style={styles.nativeReserveFiat}>
+                ≈ {formatFiat(reserveFiat)} {currency}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
-      ) : (
-        fiatEstimate
-      )}
+      ) : quoteFresh && availableFiat !== undefined && currency ? (
+        <Text style={styles.nativeReserveFiat}>
+          ≈ {formatFiat(availableFiat)} {currency}
+        </Text>
+      ) : null}
     </View>
   );
 }

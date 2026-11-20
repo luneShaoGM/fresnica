@@ -105,3 +105,38 @@ on its own, right-aligned; an unavailable quote leaves no empty estimate line.
 This does not change quote fetching, balance/available/reserved semantics,
 network gating, currency selection, or signing authority. Native layout and
 screen-reader acceptance remain separate from automated tests.
+
+
+## Native amount toggle and stable sheet background — 2026-11-20
+
+S05/S06 Home presentation: adapt pinned Stellar NativeItem interaction roles through
+Fresnica-owned UI and existing public XLM quote/Balance Capability. The XLM
+icon/identity opens asset details; the right-side amount toggles between verified
+available XLM (or explicitly labeled ledger total until verified) and an approximate
+selected-currency value. No quote means no synthetic fiat amount or navigation.
+The Reserved row remains a separate exact-XLM amount; its right-side estimate is
+of **reserved**, not available, when reserve data is verified and a fresh mainnet
+quote exists. Do not estimate reserved value from the ledger total.
+
+Retain the last verified Home-only native breakdown across route focus loss while
+an asset-details sheet overlays Home, and across non-stale balance revalidation.
+Never retain it across account/network/reader identity changes, changed totals,
+explicitly stale snapshots or refresh failures. This is presentation continuity
+only: native detail authorization, spending authority and foreground read gates
+remain unchanged. Tests for UI toggling and focus continuity are repository tests;
+Android/iOS native touch, font-scaling and screen-reader acceptance is outstanding.
+No donor implementation or assets are copied.
+
+### PR #218 exact-HEAD review correction (2026-11-20)
+
+Home route blur pauses quote polling but must not discard a still-valid current
+quote while the App remains foregrounded. Quote expiry at five minutes triggers a
+display update even when no other Home state changes; the amount press handler
+must also reject expired values if a timer is delayed. App background, quote
+provider or currency replacement, and quote expiry invalidate display. Main
+fiat presentation carries an explicit approximate marker and localized
+accessibility labels/hints. No estimate becomes transaction authority. A failed Settings quote refresh
+clears the Settings estimate so the existing unavailable message remains visible;
+Home may retain a still-fresh quote. The same deadline gates Home balance
+interaction, main fiat rendering and Reserved-row fiat rendering even when the
+child updates before its parent.
