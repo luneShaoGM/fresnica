@@ -128,7 +128,7 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.textSecondary,
     },
     filterTextSelected: {
-      color: theme.colors.onActionPrimary,
+      color: theme.colors.onSurfaceStrong,
     },
     listContent: {
       paddingHorizontal: theme.spacing.md,
