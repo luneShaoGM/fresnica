@@ -10,7 +10,12 @@ import { readVerifiedDappMessage } from '../../capabilities/dapp-interaction/ver
 
 import { canMountDappWebView } from './browserAvailability';
 import { prepareDappNetworkGuard } from './androidNetworkGuard';
-import { buildFreighterInjectionScript, buildFreighterReply, readSep53ReplyId } from './freighterInjection';
+import {
+  buildFreighterInjectionScript,
+  buildFreighterReply,
+  readSep53ReplyId,
+  readSep53ReplyExpiresAt,
+} from './freighterInjection';
 
 const styles = StyleSheet.create({ root: { flex: 1 } });
 
@@ -89,6 +94,7 @@ export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowse
             sourceOrigin?: unknown;
             isMainFrame?: unknown;
             sep53ReplyId?: unknown;
+            sep53ReplyExpiresAt?: unknown;
           };
           const verified = readVerifiedDappMessage({
             data: nativeEvent.data,
@@ -96,7 +102,11 @@ export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowse
             isMainFrame: nativeEvent.isMainFrame,
           });
           if (!verified) return;
-          onMessage(verified.data, verified.origin, readSep53ReplyId(nativeEvent.sep53ReplyId));
+          const replyId = readSep53ReplyId(nativeEvent.sep53ReplyId);
+          const expiresAt = readSep53ReplyExpiresAt(nativeEvent.sep53ReplyExpiresAt);
+          // iOS must bind review lifetime to the native callback, never a page field.
+          const usableReplyId = Platform.OS === 'ios' && expiresAt === undefined ? undefined : replyId;
+          onMessage(verified.data, verified.origin, usableReplyId, expiresAt);
         }}
         injectedJavaScriptBeforeContentLoaded={injected}
         injectedJavaScriptBeforeContentLoadedForMainFrameOnly

@@ -697,6 +697,7 @@
   "dapps.permission.manageHint": "始终允许会按账户和网络保存，直到你在设置中断开连接。",
   "dapps.signMessage.title": "审阅消息签名",
   "dapps.signMessage.notice": "请核对完整消息。签名可能授权此网站执行操作。",
+  "dapps.signMessage.expired": "此签名请求已过期。请在网站重新发起请求。",
   "dapps.signMessage.payload": "消息（带引号的文本）",
   "dapps.sign.title": "签名这笔交易？",
   "dapps.sign.message": "请核对网站和交易内容。Fresnica 只返回签名，不代为提交。",

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Android WebView/network mechanism tests; this is not wallet product acceptance.
+# Android WebView/network and synthetic SEP-53 transport tests; not wallet product acceptance.
 set -euo pipefail
 FRESNICA_BROWSER_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 FRESNICA_BROWSER_DEVICE="${FRESNICA_ANDROID_DEVICE:-emulator-5554}"
@@ -20,3 +20,12 @@ fi
 # Android's instrumentation command can exit zero even when a test failed.
 grep -q 'INSTRUMENTATION_RESULT: success=true' test-results/dapp-browser-native.log
 grep -q 'failed=0 forbiddenConnections=0' test-results/dapp-browser-native.log
+# Require the Fabric regression cases so an older installed test APK cannot count as a pass.
+for FRESNICA_BROWSER_CASE in \
+  fabric-sep53-cancel-original-document \
+  fabric-sep53-success-original-document \
+  fabric-sep53-handle-fail-closed \
+  fabric-sep53-new-document-expires-old-reply \
+  fabric-sep53-history-retains-current-document; do
+  grep -Fq "PASS $FRESNICA_BROWSER_CASE" test-results/dapp-browser-native.log
+done

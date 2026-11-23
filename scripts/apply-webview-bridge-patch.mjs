@@ -401,6 +401,14 @@ static NSString *FresnicaVerifiedHttpsOrigin(NSURL *url) {
           if (webView.handleFresnicaSep53Reply(args.getString(0))) return`,
   },
   {
+    file: 'node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java',
+    applied: 'view.getWebView().handleFresnicaSep53Reply(data)',
+    from: `  public void postMessage(RNCWebViewWrapper view, String data) {`,
+    to: `  public void postMessage(RNCWebViewWrapper view, String data) {
+      // Fabric dispatches here without the legacy manager command handler.
+      if (view.getWebView().handleFresnicaSep53Reply(data)) return;`,
+  },
+  {
     file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
     applied: 'FresnicaSep53ReplyHandler : NSObject',
     from: '@interface RNCWebViewImpl () <WKUIDelegate',
@@ -458,6 +466,19 @@ static NSString *const FresnicaSep53Prefix = @"fresnica-sep53:";
 }
 
 - (void)postMessage:(NSString *)message`,
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
+    applied: 'NSTimeInterval replyExpiresAt',
+    from: '  self.fresnicaSep53Replies[replyId] = [reply copy];',
+    to: `  self.fresnicaSep53Replies[replyId] = [reply copy];
+  NSTimeInterval replyExpiresAt = (NSDate.date.timeIntervalSince1970 + 120.0) * 1000.0;`,
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
+    applied: '@"sep53ReplyExpiresAt": @(replyExpiresAt)',
+    from: '@"sourceOrigin": origin, @"isMainFrame": @YES, @"sep53ReplyId": replyId}',
+    to: '@"sourceOrigin": origin, @"isMainFrame": @YES, @"sep53ReplyId": replyId, @"sep53ReplyExpiresAt": @(replyExpiresAt)}',
   },
   {
     file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
@@ -530,6 +551,20 @@ export type WebViewOpenWindowEvent`,
                     .sep53ReplyId = nullSafeString([dictionary valueForKey:@"sep53ReplyId"])
                 };
                 webViewEventEmitter->onMessage(data);`,
+  },
+  {
+    file: 'node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts',
+    applied: 'sep53ReplyExpiresAt: Double;',
+    from: '  sep53ReplyId: string;',
+    to: `  sep53ReplyId: string;
+  sep53ReplyExpiresAt: Double;`,
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebView.mm',
+    applied: '.sep53ReplyExpiresAt = ',
+    from: '.sep53ReplyId = nullSafeString([dictionary valueForKey:@"sep53ReplyId"])',
+    to: `.sep53ReplyId = nullSafeString([dictionary valueForKey:@"sep53ReplyId"]),
+                    .sep53ReplyExpiresAt = [[dictionary valueForKey:@"sep53ReplyExpiresAt"] doubleValue]`,
   },
 ];
 

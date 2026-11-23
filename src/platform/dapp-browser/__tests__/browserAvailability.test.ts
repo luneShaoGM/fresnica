@@ -128,3 +128,24 @@ describe('Android native network readiness boundary', () => {
     ).toEqual({ uri: props.url });
   });
 });
+
+it('uses only native iOS deadline metadata and withholds an incomplete reply handle', () => {
+  Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
+  const onMessage = jest.fn();
+  const tree = transport.render({ ...props, onMessage }, null) as React.ReactElement<{
+    onMessage: (event: { nativeEvent: Record<string, unknown> }) => void;
+  }>;
+  const replyId = '74f3db5b-10b8-4abd-8198-cfc869980742';
+  const data = JSON.stringify({
+    source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
+    type: 'SUBMIT_BLOB',
+    messageId: 31,
+    blob: 'abc',
+    sep53ReplyExpiresAt: 1_800_000_000_000,
+  });
+  const nativeEvent = { data, sourceOrigin: 'https://example.org', isMainFrame: true, sep53ReplyId: replyId };
+  tree.props.onMessage({ nativeEvent });
+  expect(onMessage).toHaveBeenLastCalledWith(data, 'https://example.org', undefined, undefined);
+  tree.props.onMessage({ nativeEvent: { ...nativeEvent, sep53ReplyExpiresAt: 1_800_000_000_000 } });
+  expect(onMessage).toHaveBeenLastCalledWith(data, 'https://example.org', replyId, 1_800_000_000_000);
+});

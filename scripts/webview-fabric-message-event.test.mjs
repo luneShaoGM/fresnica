@@ -19,7 +19,7 @@ test('iOS Fabric emits verified WebView origin, main-frame flag and SEP-53 reply
   const mapping = implementation.match(/::OnMessage data = \{([\s\S]*?)\};/)?.[1];
   assert.ok(mapping, 'The WebView Fabric component must construct the message event');
 
-  for (const name of ['sourceOrigin', 'isMainFrame', 'sep53ReplyId']) {
+  for (const name of ['sourceOrigin', 'isMainFrame', 'sep53ReplyId', 'sep53ReplyExpiresAt']) {
     assert.ok(event.includes(`payload.setProperty(runtime, "${name}", event.${name})`), `Event drops ${name}`);
     assert.match(
       mapping,

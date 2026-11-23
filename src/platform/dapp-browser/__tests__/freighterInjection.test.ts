@@ -1,6 +1,11 @@
 import vm from 'node:vm';
 
-import { buildFreighterInjectionScript, buildFreighterReply, readSep53ReplyId } from '../freighterInjection';
+import {
+  buildFreighterInjectionScript,
+  buildFreighterReply,
+  readSep53ReplyId,
+  readSep53ReplyExpiresAt,
+} from '../freighterInjection';
 
 function install(windowMock: Record<string, unknown>) {
   vm.runInNewContext(buildFreighterInjectionScript(), {
@@ -123,4 +128,56 @@ it.each(['android', 'ios'] as const)('returns SEP-53 only through the native %s 
   expect(buildFreighterReply(response, { replyId })).toEqual({
     nativeCommand: 'fresnica-sep53:' + replyId + ':' + wire,
   });
+});
+
+it('returns native iOS rejection to the original document with the captured request id', async () => {
+  const origin = 'https://demo.example.org';
+  let rejectReply: ((error: Error) => void) | undefined;
+  const listeners = jest.fn();
+  const postMessage = jest.fn();
+  const replacementPost = jest.fn();
+  const window = {
+    location: { protocol: 'https:', origin },
+    ReactNativeWebView: { postMessage: jest.fn() },
+    webkit: {
+      messageHandlers: {
+        FresnicaSep53: {
+          postMessage: () =>
+            new Promise((_resolve, reject) => {
+              rejectReply = reject;
+            }),
+        },
+      },
+    },
+    addEventListener: listeners,
+    postMessage,
+  };
+  Object.assign(window, { top: window, self: window });
+  install(window);
+  const replacement = { ...window, postMessage: replacementPost, addEventListener: jest.fn() };
+  Object.assign(replacement, { top: replacement, self: replacement, __fresnicaBridge: false });
+  install(replacement);
+  const request = { source: 'FREIGHTER_EXTERNAL_MSG_REQUEST', type: 'SUBMIT_BLOB', messageId: 31, blob: 'abc' };
+  listeners.mock.calls[0][1]({ source: window, origin, data: request });
+  request.messageId = 99;
+  rejectReply?.(new Error('Wallet request expired; native diagnostic must not be exposed'));
+  await Promise.resolve();
+  expect(postMessage).toHaveBeenCalledWith(
+    {
+      source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
+      messagedId: 31,
+      error: 'request-unavailable',
+      apiError: { code: -1, apiCode: -1, message: 'Wallet request unavailable' },
+    },
+    origin,
+  );
+  expect(replacementPost).not.toHaveBeenCalled();
+});
+
+it.each([undefined, null, 0, -1, NaN, Infinity, '1800000000000', Number.MAX_SAFE_INTEGER + 1])(
+  'rejects invalid native reply deadlines (%s)',
+  value => expect(readSep53ReplyExpiresAt(value)).toBeUndefined(),
+);
+it('keeps a native reply deadline without rounding it', () => {
+  expect(readSep53ReplyExpiresAt(1_800_000_000_000.5)).toBe(1_800_000_000_000.5);
 });
