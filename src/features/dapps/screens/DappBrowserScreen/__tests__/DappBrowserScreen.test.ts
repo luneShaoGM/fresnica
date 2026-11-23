@@ -702,7 +702,7 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
   });
 });
 
-it.each(['approve', 'base64', 'cancel', 'reload', 'document', 'late-result'] as const)(
+it.each(['approve', 'base64', 'cancel', 'reload', 'document', 'late-result', 'missing-native-reply'] as const)(
   'holds the exact SEP-53 message for passphrase review and handles %s',
   async action => {
     const signature = 'A'.repeat(86) + '==';
@@ -715,8 +715,8 @@ it.each(['approve', 'base64', 'cancel', 'reload', 'document', 'late-result'] as 
     );
     const draw = () => render(true, undefined, undefined, signer);
     const origin = 'https://demo.example.org';
-    const documentId = 'a'.repeat(32);
-    const target = { origin, documentId };
+    const replyId = '74f3db5b-10b8-4abd-8198-cfc869980742';
+    const target = { replyId };
     const browser = find(draw(), node => node.type === BrowserSurface);
     refs[1].current = { reply: replies, reload };
     browser?.props.onMessage?.(request('REQUEST_ACCESS', 30), origin);
@@ -732,9 +732,14 @@ it.each(['approve', 'base64', 'cancel', 'reload', 'document', 'late-result'] as 
         ...(action === 'base64' ? { blobEncoding: 'base64' } : {}),
       }),
       origin,
-      documentId,
+      action === 'missing-native-reply' ? undefined : replyId,
     );
     const sheet = find(draw(), node => node.type === DappSignSheet);
+    if (action === 'missing-native-reply') {
+      expect(sheet).toBeUndefined();
+      expect(signer).not.toHaveBeenCalled();
+      return;
+    }
     expect(sheet?.props).toMatchObject({ message: blob, origin, passphraseRequired: true });
     sheet?.props.onConfirm?.('');
     expect(signer).not.toHaveBeenCalled();

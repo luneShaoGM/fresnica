@@ -10,7 +10,7 @@ import { readVerifiedDappMessage } from '../../capabilities/dapp-interaction/ver
 
 import { canMountDappWebView } from './browserAvailability';
 import { prepareDappNetworkGuard } from './androidNetworkGuard';
-import { buildFreighterInjectionScript, buildFreighterReplyScript, unwrapFreighterMessage } from './freighterInjection';
+import { buildFreighterInjectionScript, buildFreighterReply, readSep53ReplyId } from './freighterInjection';
 
 const styles = StyleSheet.create({ root: { flex: 1 } });
 
@@ -44,7 +44,10 @@ export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowse
       ref,
       () => ({
         reply(response, target) {
-          webview.current?.injectJavaScript(buildFreighterReplyScript(response, target));
+          const reply = buildFreighterReply(response, target);
+          if (!reply) return;
+          if ('nativeCommand' in reply) webview.current?.postMessage(reply.nativeCommand);
+          else webview.current?.injectJavaScript(reply.script);
         },
         goBack() {
           webview.current?.goBack();
@@ -85,6 +88,7 @@ export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowse
           const nativeEvent = event.nativeEvent as typeof event.nativeEvent & {
             sourceOrigin?: unknown;
             isMainFrame?: unknown;
+            sep53ReplyId?: unknown;
           };
           const verified = readVerifiedDappMessage({
             data: nativeEvent.data,
@@ -92,8 +96,7 @@ export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowse
             isMainFrame: nativeEvent.isMainFrame,
           });
           if (!verified) return;
-          const message = unwrapFreighterMessage(verified.data);
-          if (message) onMessage(message.data, verified.origin, message.documentId);
+          onMessage(verified.data, verified.origin, readSep53ReplyId(nativeEvent.sep53ReplyId));
         }}
         injectedJavaScriptBeforeContentLoaded={injected}
         injectedJavaScriptBeforeContentLoadedForMainFrameOnly

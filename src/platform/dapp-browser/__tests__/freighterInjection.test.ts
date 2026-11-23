@@ -1,10 +1,6 @@
 import vm from 'node:vm';
 
-import {
-  buildFreighterInjectionScript,
-  buildFreighterReplyScript,
-  unwrapFreighterMessage,
-} from '../freighterInjection';
+import { buildFreighterInjectionScript, buildFreighterReply, readSep53ReplyId } from '../freighterInjection';
 
 function install(windowMock: Record<string, unknown>) {
   vm.runInNewContext(buildFreighterInjectionScript(), {
@@ -78,39 +74,53 @@ describe('injected in-app Freighter bridge', () => {
   });
 });
 
-it('delivers a queued signature only in its original document, including after same-origin replacement', () => {
+it.each(['android', 'ios'] as const)('returns SEP-53 only through the native %s request channel', async platform => {
   const origin = 'https://demo.example.org';
   const request = { source: 'FREIGHTER_EXTERNAL_MSG_REQUEST', type: 'SUBMIT_BLOB', messageId: 31, blob: 'abc' };
   const response = { source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE', messagedId: 31, signedBlob: 'signature' } as const;
-  const createDocument = (seed: number, address = origin) => {
+  const makeDocument = () => {
     const outbound = jest.fn();
+    const toNative = jest.fn();
+    const listeners = jest.fn();
+    const nativeListeners = jest.fn();
     const postMessage = jest.fn();
-    const addEventListener = jest.fn();
     const window = {
-      location: { protocol: 'https:', origin: address },
-      crypto: { getRandomValues: (array: Uint8Array) => array.fill(seed) },
-      ReactNativeWebView: { postMessage: outbound },
-      addEventListener,
+      location: { protocol: 'https:', origin },
+      ReactNativeWebView: { postMessage: outbound, addEventListener: nativeListeners },
+      webkit: platform === 'ios' ? { messageHandlers: { FresnicaSep53: { postMessage: toNative } } } : undefined,
+      addEventListener: listeners,
       postMessage,
     };
     Object.assign(window, { top: window, self: window });
-    const context = vm.createContext({ window, document: {} });
-    vm.runInContext(buildFreighterInjectionScript(), context);
-    return { context, window, outbound, postMessage, receive: addEventListener.mock.calls[0][1] };
+    install(window);
+    return { outbound, toNative, listeners, nativeListeners, window, postMessage };
   };
-  const original = createDocument(1);
-  original.receive({ source: original.window, origin, data: request });
-  const message = unwrapFreighterMessage(original.outbound.mock.calls[0][0]);
-  expect(message).toMatchObject({ data: JSON.stringify(request), documentId: '01'.repeat(16) });
-  expect(unwrapFreighterMessage(JSON.stringify(request))).toBeUndefined();
-  const queued = buildFreighterReplyScript(response, { origin, documentId: message?.documentId ?? '' });
-  const replacement = createDocument(2);
-  replacement.receive({ source: replacement.window, origin, data: request });
-  vm.runInContext(queued, replacement.context);
-  expect(replacement.postMessage).not.toHaveBeenCalled();
-  const otherOrigin = createDocument(1, 'https://other.example.org');
-  vm.runInContext(queued, otherOrigin.context);
-  expect(otherOrigin.postMessage).not.toHaveBeenCalled();
-  vm.runInContext(queued, original.context);
+  const original = makeDocument();
+  const replacement = makeDocument();
+  let resolveReply: ((payload: string) => void) | undefined;
+  original.toNative.mockReturnValue(
+    new Promise<string>(resolve => {
+      resolveReply = resolve;
+    }),
+  );
+  original.listeners.mock.calls[0][1]({ source: original.window, origin, data: request });
+  const wire = JSON.stringify(response);
+  if (platform === 'android') {
+    expect(original.outbound).toHaveBeenCalledWith('fresnica-sep53:' + JSON.stringify(request));
+    original.nativeListeners.mock.calls[0][1]({ data: wire });
+  } else {
+    expect(original.toNative).toHaveBeenCalledWith(JSON.stringify(request));
+    expect(original.outbound).not.toHaveBeenCalled();
+    resolveReply?.(wire);
+    await Promise.resolve();
+  }
   expect(original.postMessage).toHaveBeenCalledWith(response, origin);
+  expect(replacement.postMessage).not.toHaveBeenCalled();
+  const replyId = '74f3db5b-10b8-4abd-8198-cfc869980742';
+  expect(readSep53ReplyId(replyId)).toBe(replyId);
+  expect(readSep53ReplyId('page-selected-id')).toBeUndefined();
+  expect(buildFreighterReply(response)).toBeUndefined();
+  expect(buildFreighterReply(response, { replyId })).toEqual({
+    nativeCommand: 'fresnica-sep53:' + replyId + ':' + wire,
+  });
 });

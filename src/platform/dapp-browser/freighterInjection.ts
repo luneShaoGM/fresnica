@@ -3,44 +3,21 @@ import { MAX_BRIDGE_MESSAGE_LENGTH } from '../../capabilities/dapp-interaction/f
 import type { DappMessageReplyTarget } from '../../capabilities/dapp-interaction/browserTransport';
 import type { BridgeResponse } from '../../capabilities/dapp-interaction/freighterSession';
 
-const DOCUMENT_MARKER = '__fresnicaSep53Document';
-const validDocumentId = /^[0-9a-f]{32}$/;
+const SEP53_PREFIX = 'fresnica-sep53:';
+const validReplyId = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
-export function unwrapFreighterMessage(data: string): { data: string; documentId?: string } | undefined {
-  try {
-    const message = JSON.parse(data);
-    if (message?.type === 'SUBMIT_BLOB') return undefined;
-    if (message?.fresnicaDocument === undefined) return { data };
-    if (
-      typeof message.fresnicaDocument !== 'string' ||
-      !validDocumentId.test(message.fresnicaDocument) ||
-      typeof message.payload !== 'string' ||
-      JSON.parse(message.payload)?.type !== 'SUBMIT_BLOB'
-    )
-      return undefined;
-    return { data: message.payload, documentId: message.fresnicaDocument };
-  } catch {
-    return undefined;
-  }
+export function readSep53ReplyId(value: unknown): string | undefined {
+  return typeof value === 'string' && validReplyId.test(value) ? value : undefined;
 }
 
-export function buildFreighterReplyScript(response: BridgeResponse, target?: DappMessageReplyTarget): string {
+export function buildFreighterReply(
+  response: BridgeResponse,
+  target?: DappMessageReplyTarget,
+): { nativeCommand: string } | { script: string } | undefined {
   const payload = JSON.stringify(response);
-  if (!target) return 'window.postMessage(' + payload + ', window.location.origin);true;';
-  const origin = JSON.stringify(target.origin);
-  return (
-    'if(window.location.origin===' +
-    origin +
-    ' && document[' +
-    JSON.stringify(DOCUMENT_MARKER) +
-    ']===' +
-    JSON.stringify(target.documentId) +
-    '){window.postMessage(' +
-    payload +
-    ', ' +
-    origin +
-    ');}true;'
-  );
+  if (target) return { nativeCommand: SEP53_PREFIX + target.replyId + ':' + payload };
+  if (response.signedBlob !== undefined) return undefined;
+  return { script: 'window.postMessage(' + payload + ', window.location.origin);true;' };
 }
 
 // Forwards the page's own Freighter postMessage envelope. The native WebView
@@ -53,13 +30,16 @@ export function buildFreighterInjectionScript(): string {
     '  var nativeBridge = window.ReactNativeWebView;',
     '  if (!nativeBridge || typeof nativeBridge.postMessage !== "function") return true;',
     '  window.__fresnicaBridge = true;',
-    '  var documentId;',
-    '  try {',
-    '    var random = window.crypto.getRandomValues(new Uint8Array(16));',
-    '    documentId = "";',
-    '    for (var i = 0; i < random.length; i++) documentId += ("0" + random[i].toString(16)).slice(-2);',
-    '    Object.defineProperty(document, ' + JSON.stringify(DOCUMENT_MARKER) + ', { value: documentId });',
-    '  } catch (_error) { documentId = undefined; }',
+    '  var iosSep53 = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.FresnicaSep53;',
+    '  var forwardReply = function(data) {',
+    '    try {',
+    '      var reply = JSON.parse(data);',
+    '      if (reply && reply.source === "FREIGHTER_EXTERNAL_MSG_RESPONSE") window.postMessage(reply, window.location.origin);',
+    '    } catch (_error) {}',
+    '  };',
+    '  if (!iosSep53 && typeof nativeBridge.addEventListener === "function") {',
+    '    nativeBridge.addEventListener("message", function(event) { forwardReply(event.data); });',
+    '  }',
     '  window.freighter = true;',
     '  var stellar = window.stellar && typeof window.stellar === "object" ? window.stellar : {};',
     '  stellar.provider = "freighter";',
@@ -75,8 +55,10 @@ export function buildFreighterInjectionScript(): string {
     '      var serialized = JSON.stringify(payload);',
     '      if (!serialized || serialized.length > ' + String(MAX_BRIDGE_MESSAGE_LENGTH) + ') return;',
     '      if (payload.type === "SUBMIT_BLOB") {',
-    '        if (!documentId) return;',
-    '        nativeBridge.postMessage(JSON.stringify({ fresnicaDocument: documentId, payload: serialized }));',
+    '        if (iosSep53) iosSep53.postMessage(serialized).then(forwardReply, function() {});',
+    '        else if (typeof nativeBridge.addEventListener === "function") nativeBridge.postMessage(' +
+      JSON.stringify(SEP53_PREFIX) +
+      ' + serialized);',
     '      } else nativeBridge.postMessage(serialized);',
     '    } catch (_error) {}',
     '  });',

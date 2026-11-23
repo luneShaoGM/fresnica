@@ -195,10 +195,10 @@ export function DappBrowserScreen({
     }
   };
 
-  const handleMessage = (raw: string, messageUrl: string, documentId?: string) => {
+  const handleMessage = (raw: string, messageUrl: string, replyId?: string) => {
     if (!current || !active || stale) return;
     const decision = current.session.receive(raw, messageUrl);
-    const target = documentId ? { origin: messageUrl, documentId } : undefined;
+    const target = replyId ? { replyId } : undefined;
     if (decision.kind === 'respond') reply(decision.response, target);
     if (decision.kind === 'permission') setPendingOrigin(decision.origin);
     if (decision.kind === 'sign-message') {
