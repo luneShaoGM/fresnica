@@ -17,3 +17,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - name: Check pinned Demo notification client with the wallet
+        env:
+          FRESNICA_DEMO_NOTIFICATION_MODULE: ${{ runner.temp }}/fresnica-notification-client/demo-dapp/src/wallet/notification.ts
+        run: |
+          git init "$RUNNER_TEMP/fresnica-notification-client"
+          git -C "$RUNNER_TEMP/fresnica-notification-client" fetch --depth=1 https://github.com/luneShaoGM/Stellar.git 5a6ffb08040d0c9c2f5a99839323da1120c792fa
+          git -C "$RUNNER_TEMP/fresnica-notification-client" checkout --detach FETCH_HEAD
+          npm test -- --watchman=false --runTestsByPath src/features/dapps/screens/DappBrowserScreen/__tests__/DappBrowserScreen.test.ts

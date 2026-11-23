@@ -868,3 +868,74 @@ it.each(['shared expiry', 'backward wall clock'] as const)(
     }
   },
 );
+
+// Load the separately pinned Demo checkout; never vendor reference implementation into Mobile.
+const demoNotificationModule = process.env.FRESNICA_DEMO_NOTIFICATION_MODULE;
+(demoNotificationModule ? describe : describe.skip)('actual Demo client through the injected browser bridge', () => {
+  it.each([
+    ['approved', 5_000, 100, 100, true],
+    ['expired in transit', 5_000, 5_001, 0, false],
+    ['remaining budget expired', 5_000, 4_000, 1_000, false],
+    ['short client budget', 1_000, 800, 200, false],
+    ['cancelled', 5_000, 100, 100, false],
+    ['navigated', 5_000, 100, 100, false],
+  ] as const)('%s', async (action, budget, transit, approvalDelay, shown) => {
+    jest.useFakeTimers({ now: 10_000 });
+    try {
+      const { sendSystemNotificationRequest } = require(demoNotificationModule!) as {
+        sendSystemNotificationRequest: (target: unknown, messageId: string, timeout: number) => Promise<boolean>;
+      };
+      const { buildFreighterInjectionScript } =
+        require('../../../../../platform/dapp-browser/freighterInjection') as typeof import('../../../../../platform/dapp-browser/freighterInjection');
+      const vm = require('node:vm') as typeof import('node:vm');
+      const origin = 'https://demo.example.org';
+      const notify = jest.fn(() => true);
+      const draw = () => render(true, undefined, undefined, notify);
+      const browser = find(draw(), node => node.type === BrowserSurface);
+      browser?.props.onMessage?.(request('REQUEST_ACCESS', 1), origin);
+      find(draw(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
+      const listeners = new Set<(event: { source: unknown; origin: string; data: unknown }) => void>();
+      const page: Record<string, unknown> = {
+        location: { protocol: 'https:', origin },
+        addEventListener: (
+          _name: string,
+          listener: (event: { source: unknown; origin: string; data: unknown }) => void,
+        ) => listeners.add(listener),
+        removeEventListener: (
+          _name: string,
+          listener: (event: { source: unknown; origin: string; data: unknown }) => void,
+        ) => listeners.delete(listener),
+        postMessage: (data: unknown) => {
+          for (const listener of listeners) listener({ source: page, origin, data });
+        },
+        ReactNativeWebView: {
+          postMessage: (raw: string) => setTimeout(() => browser?.props.onMessage?.(raw, origin), transit),
+        },
+      };
+      page.top = page;
+      page.self = page;
+      vm.runInNewContext(buildFreighterInjectionScript(), { window: page, JSON });
+      refs[1].current = {
+        reply: (data: unknown) => {
+          for (const listener of listeners) listener({ source: page, origin, data });
+        },
+      };
+      const clientResult = sendSystemNotificationRequest(page, 'notification-integration', budget);
+      jest.advanceTimersByTime(transit);
+      const approve = find(draw(), node => node.props.label === 'dapps.notification.allow')?.props.onPress;
+      if (transit < budget) expect(approve).toBeDefined();
+      else expect(approve).toBeUndefined();
+      if (action === 'cancelled') find(draw(), node => node.props.label === 'common.cancel')?.props.onPress?.();
+      if (action === 'navigated') browser?.props.onDocumentStart?.(origin + '/next');
+      jest.advanceTimersByTime(approvalDelay);
+      approve?.();
+      jest.advanceTimersByTime(budget);
+      await expect(clientResult).resolves.toBe(shown);
+      expect(notify).toHaveBeenCalledTimes(shown ? 1 : 0);
+      // Only the injection listener remains after the real client's completion/timeout.
+      expect(listeners.size).toBe(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+});
