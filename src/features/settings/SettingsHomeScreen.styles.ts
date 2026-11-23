@@ -7,7 +7,7 @@ export function createStyles(theme: AppTheme) {
     content: {
       paddingHorizontal: theme.spacing.lg,
       paddingTop: theme.spacing.sm,
-      paddingBottom: theme.spacing.xl,
+      paddingBottom: theme.spacing.sm,
     },
     title: {
       ...theme.typography.title,

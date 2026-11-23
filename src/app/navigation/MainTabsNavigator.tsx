@@ -108,6 +108,7 @@ function EmptyNetworkTabs({ accounts, services, onAccountsChanged }: Props) {
         <Tab.Screen key={name} name={name}>
           {({ navigation }) => (
             <Screen
+              safeAreaEdges={['top', 'right', 'left']}
               title={t(`nav.${name}`)}
               description={t(
                 services.networkProfile.isMainnet

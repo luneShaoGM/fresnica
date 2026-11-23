@@ -55,6 +55,7 @@ type RenderedScreenProps = {
   accounts?: readonly AccountRecord[];
   onAccountsChanged?: () => void;
   description?: string;
+  safeAreaEdges?: readonly string[];
 };
 type TabTreeProps = {
   children: React.ReactNode;
@@ -98,6 +99,7 @@ describe('MainTabsNavigator empty-network recovery', () => {
       for (const tab of ['home', 'activity']) {
         const screen = shell.screen(tab);
         expect(screen.props.description).toBe('Stellar Testnet');
+        expect(screen.props.safeAreaEdges).toEqual(['top', 'right', 'left']);
         const state = React.Children.only(screen.props.children) as React.ReactElement<{
           onAction: () => void;
           kind: string;

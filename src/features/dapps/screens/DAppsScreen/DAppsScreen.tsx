@@ -346,7 +346,7 @@ export function DAppsScreen({
   );
 
   return (
-    <Screen scrollable={false} contentInset="none">
+    <Screen scrollable={false} contentInset="none" safeAreaEdges={['top', 'right', 'left']}>
       <NativeScreen padded={false} scroll>
         <View style={styles.content}>
           <View style={styles.header}>
