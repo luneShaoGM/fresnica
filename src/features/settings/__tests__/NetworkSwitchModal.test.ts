@@ -261,6 +261,22 @@ describe('Home network panel', () => {
     expect(setPrompt).not.toHaveBeenCalled();
     expect(deps.save).not.toHaveBeenCalled();
   });
+  it('marks a healthy node check as basic and does not promise working activity APIs', () => {
+    const deps = setup();
+    const endpoint = NETWORKS['stellar-mainnet'].horizonUrl;
+    const monitor: NodeHealthMonitor = {
+      getSnapshot: () => ({ endpoint, generation: 2, phase: 'healthy' }),
+      subscribe: () => () => undefined,
+      retry: jest.fn(),
+    };
+    const { all } = render(deps, undefined, 'stellar-mainnet', '', monitor);
+    const visible = text(all);
+    expect(visible).toContain('Current node · Basic connection verified');
+    expect(visible).toContain(
+      'Connection check covers only node reachability and network identity. Balance and activity requests may still fail.',
+    );
+    expect(visible).not.toContain('Retry connection');
+  });
   it('shows the live connection failure and retry after an older successful manual test', async () => {
     const deps = setup();
     const endpoint = NETWORKS['stellar-mainnet'].horizonUrl;
