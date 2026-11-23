@@ -29,6 +29,7 @@ type NodeProps = Readonly<{
   children?: React.ReactNode;
   contentInset?: string;
   scrollable?: boolean;
+  safeAreaEdges?: readonly string[];
   scroll?: boolean;
   padded?: boolean;
   title?: string;
@@ -96,13 +97,17 @@ describe('Settings Home native scroll integration', () => {
     const [appScreen] = collect(root, element => element.type === Screen);
     const [nativeScreen] = collect(root, element => element.type === NativeScreen);
 
-    expect(appScreen?.props).toMatchObject({ scrollable: false, contentInset: 'none' });
+    expect(appScreen?.props).toMatchObject({
+      scrollable: false,
+      contentInset: 'none',
+      safeAreaEdges: ['top', 'right', 'left'],
+    });
     expect(nativeScreen?.props).toMatchObject({ scroll: true, padded: false });
     expect(collect(root, element => element.type === ListRow)).toHaveLength(10);
 
     const styles = createStyles(defaultTheme);
     expect(styles.content.paddingHorizontal).toBe(defaultTheme.spacing.lg);
-    expect(styles.content.paddingBottom).toBe(defaultTheme.spacing.xl);
+    expect(styles.content.paddingBottom).toBe(defaultTheme.spacing.sm);
   });
 
   it('wires all settings rows to their navigation actions', () => {

@@ -1,5 +1,7 @@
 import React from 'react';
 import { SelectableChip } from '@ui/components/SelectableChip';
+import { defaultTheme } from '@ui/theme';
+import { createStyles } from '../styles';
 import { createDappRecentHistory } from '@capabilities/dapp-interaction/dappRecentHistory';
 
 import type { DappCatalogEntry, DappCatalogPort } from '@capabilities/dapp-catalog/catalog';
@@ -213,6 +215,13 @@ function openUrlSheetFrom(nodes: ReturnType<typeof elements>) {
 afterAll(() => jest.restoreAllMocks());
 
 describe('DAppsScreen native field and retry', () => {
+  it('uses the Tab Bar bottom inset and a compact catalog scroll ending', async () => {
+    const catalog: DappCatalogPort = { load: jest.fn().mockResolvedValue({ kind: 'unavailable' }) };
+    const tree = await renderCatalog(catalog);
+    expect(tree.props.safeAreaEdges).toEqual(['top', 'right', 'left']);
+    expect(createStyles(defaultTheme).content.paddingBottom).toBe(defaultTheme.spacing.sm);
+  });
+
   beforeEach(() => {
     resetHarness();
   });

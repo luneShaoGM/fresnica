@@ -11,7 +11,7 @@ export function createStyles(theme: AppTheme) {
     content: {
       paddingHorizontal: 18,
       paddingTop: 8,
-      paddingBottom: 34,
+      paddingBottom: theme.spacing.sm,
     },
     header: {
       minHeight: 54,

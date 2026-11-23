@@ -41,7 +41,7 @@ export function SettingsHomeScreen({
   const styles = useThemedStyles(createStyles);
 
   return (
-    <Screen scrollable={false} contentInset="none">
+    <Screen scrollable={false} contentInset="none" safeAreaEdges={['top', 'right', 'left']}>
       <NativeScreen padded={false} scroll>
         <View style={styles.content}>
           <Text style={styles.title}>{t('settings.title')}</Text>

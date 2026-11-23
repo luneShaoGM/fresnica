@@ -455,7 +455,7 @@ export function ActivityScreen({
     indicatorColor: theme.colors.actionPrimaryPressed,
   };
   return (
-    <Screen scrollable={false} contentInset="none">
+    <Screen scrollable={false} contentInset="none" safeAreaEdges={['top', 'right', 'left']}>
       <View style={styles.header}>
         <View style={styles.headerIdentity}>
           <Text style={styles.title}>{t('activity.title')}</Text>
