@@ -14,6 +14,10 @@ import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.ThemedReactContext;
 import com.facebook.react.uimanager.events.Event;
+import com.facebook.react.uimanager.events.EventDispatcher;
+import com.facebook.react.uimanager.events.EventDispatcherProvider;
+import com.facebook.react.uimanager.events.EventDispatcherListener;
+import com.facebook.react.uimanager.events.BatchEventDispatchedListener;
 import com.facebook.react.uimanager.events.RCTEventEmitter;
 import com.reactnativecommunity.webview.RNCWebView;
 import com.reactnativecommunity.webview.RNCWebViewClient;
@@ -51,19 +55,9 @@ final class DappSep53TransportFixture implements AutoCloseable {
     this.origin = origin;
     instrumentation.runOnMainSync(() -> {
       // No React application or Metro is needed: only the native event consumer is replaced.
-      BridgeReactContext applicationContext = new BridgeReactContext(activity.getApplicationContext()) {
-        private final JavaScriptContextHolder emptyContext = new JavaScriptContextHolder(0);
-        @Override public <T extends JavaScriptModule> T getJSModule(Class<T> module) { return null; }
-        @Override public JavaScriptContextHolder getJavaScriptContextHolder() { return emptyContext; }
-      };
+      TransportReactContext applicationContext = new TransportReactContext(activity.getApplicationContext());
       ThemedReactContext context = new ThemedReactContext(applicationContext, activity, "Sep53TransportFixture", 1);
-      webview = new RNCWebView(context) {
-        @Override protected void dispatchEvent(WebView view, Event event) {
-          if ("topMessage".equals(event.getEventName()) || "topLoadingStart".equals(event.getEventName())) {
-            event.dispatch(eventRecorder);
-          }
-        }
-      };
+      webview = new RNCWebView(context);
       webview.setLayoutParams(new FrameLayout.LayoutParams(
           FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
       webview.getSettings().setJavaScriptEnabled(true);
@@ -278,6 +272,27 @@ final class DappSep53TransportFixture implements AutoCloseable {
 
   private static void check(boolean condition, String failure) {
     if (!condition) throw new AssertionError(failure);
+  }
+
+  private final class TransportReactContext extends BridgeReactContext implements EventDispatcherProvider {
+    private final JavaScriptContextHolder emptyContext = new JavaScriptContextHolder(0);
+    private final EventDispatcher dispatcher = new EventDispatcher() {
+      @Override public void dispatchEvent(Event event) {
+        if ("topMessage".equals(event.getEventName()) || "topLoadingStart".equals(event.getEventName())) {
+          event.dispatch(eventRecorder);
+        }
+      }
+      @Override public void dispatchAllEvents() {}
+      @Override public void addListener(EventDispatcherListener listener) {}
+      @Override public void removeListener(EventDispatcherListener listener) {}
+      @Override public void addBatchEventDispatchedListener(BatchEventDispatchedListener listener) {}
+      @Override public void removeBatchEventDispatchedListener(BatchEventDispatchedListener listener) {}
+      @Override public void onCatalystInstanceDestroyed() {}
+    };
+    TransportReactContext(android.content.Context context) { super(context); }
+    @Override public <T extends JavaScriptModule> T getJSModule(Class<T> module) { return null; }
+    @Override public JavaScriptContextHolder getJavaScriptContextHolder() { return emptyContext; }
+    @Override public EventDispatcher getEventDispatcher() { return dispatcher; }
   }
 
   private static final class NativeRequest {
