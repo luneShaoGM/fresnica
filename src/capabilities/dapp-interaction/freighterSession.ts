@@ -1,7 +1,6 @@
 // Clean-room Freighter request policy. Read calls stay permission-gated.
 // SUBMIT_TRANSACTION opens an exact-XDR review and returns the signature to
-// the page. Fresnica does not submit that transaction. Blob, auth-entry and
-// token requests stay unsupported.
+// the page. Auth-entry and token requests stay unsupported.
 export type DappPublicSelection = Readonly<{
   accountId: string;
   address: string;
@@ -21,6 +20,8 @@ type BridgeRequest = Readonly<{
   networkPassphrase?: string;
   network?: string;
   transactionXdr?: string;
+  blob?: string;
+  apiVersion?: string;
 }>;
 
 export type FreighterNetworkDetails = Readonly<{
@@ -41,8 +42,10 @@ export type BridgeResponse = Readonly<{
   networkDetails?: FreighterNetworkDetails;
   userInfo?: Readonly<{ publicKey: string }>;
   signedTransaction?: string;
+  signedBlob?: string;
   signerAddress?: string;
   error?: string;
+  apiError?: Readonly<{ code: number; apiCode: number; message: string }>;
 }>;
 
 export type BridgeDecision =
@@ -56,11 +59,13 @@ export type BridgeDecision =
       networkPassphrase: string;
       accountAddress: string;
     }>
+  | Readonly<{ kind: 'sign-message'; origin: string; message: string; encoding: 'base64' | 'hex' }>
   | Readonly<{ kind: 'respond'; response: BridgeResponse }>;
 
 export type DappSignCompletion =
   | Readonly<{ status: 'declined' }>
-  | Readonly<{ status: 'failed'; error: 'invalid-transaction' | 'unsupported-signer' }>
+  | Readonly<{ status: 'failed'; error: 'invalid-transaction' | 'invalid-message' | 'unsupported-signer' }>
+  | Readonly<{ status: 'message-signed'; signedBlob: string; signerAddress: string }>
   | Readonly<{ status: 'signed'; signedTransaction: string; signerAddress: string }>;
 
 const DROP: BridgeDecision = Object.freeze({ kind: 'drop' });
@@ -159,7 +164,7 @@ function fieldLimit(type: string, key: string): number | undefined {
     }
   }
   if (type === 'SUBMIT_BLOB') {
-    if (key === 'blob') return 131_072;
+    if (key === 'blob') return 4096;
     if (key === 'apiVersion') return 32;
   }
   if (type === 'SUBMIT_AUTH_ENTRY') {
@@ -236,7 +241,9 @@ export function createFreighterSession(
   let allowed = false;
   let pending: BridgeRequest | undefined;
   let pendingSign:
-    Readonly<{ messageId: string | number; transactionXdrBase64: string; accountAddress: string }> | undefined;
+    | Readonly<{ messageId: string | number; transactionXdrBase64: string; accountAddress: string }>
+    | Readonly<{ messageId: string | number; encoding: 'base64' | 'hex'; accountAddress: string }>
+    | undefined;
   let closed = false;
 
   function remembered(): boolean {
@@ -273,6 +280,7 @@ export function createFreighterSession(
       source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
       messagedId: request.messageId,
       ...fields,
+      ...(request.type === 'SUBMIT_BLOB' && fields.error ? messageError(fields.error) : {}),
     };
     return { kind: 'respond', response: reply };
   }
@@ -329,9 +337,39 @@ export function createFreighterSession(
       }
       case 'SUBMIT_TRANSACTION':
         return reviewTransaction(json);
+      case 'SUBMIT_BLOB':
+        return reviewMessage(json);
       default:
         return response(json, { error: 'unsupported' });
     }
+  }
+
+  function messageError(error: string): Pick<BridgeResponse, 'error' | 'apiError'> {
+    const declined = error === 'user-declined';
+    const code = declined ? -2 : -1;
+    return { error, apiError: { code, apiCode: code, message: declined ? 'User declined the request' : error } };
+  }
+
+  function reviewMessage(request: BridgeRequest): BridgeDecision {
+    if (!connected()) return response(request, { error: 'not-authorized' });
+    if (pendingSign) return response(request, { error: 'sign-pending' });
+    if (request.networkPassphrase !== undefined && request.networkPassphrase !== initial.networkPassphrase) {
+      return response(request, { error: 'wrong-network' });
+    }
+    if (
+      [request.accountToSign, request.address].some(address => address !== undefined && address !== initial.address)
+    ) {
+      return response(request, { error: 'wrong-account' });
+    }
+    const message = request.blob;
+    const version = /^(0|[1-9][0-9]{0,5})\.\d{1,6}\.\d{1,6}$/.exec(request.apiVersion ?? '');
+    // Reject hidden format/control characters and invalid UTF-16 rather than signing text the UI cannot show reliably.
+    if (!version || !message?.trim() || /[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/u.test(message.replace(/[\r\n\t]/g, ''))) {
+      return response(request, { error: 'invalid-message' });
+    }
+    const encoding = Number(version[1]) >= 4 ? 'base64' : 'hex';
+    pendingSign = { messageId: request.messageId, accountAddress: initial.address, encoding };
+    return { kind: 'sign-message', origin: documentOrigin, message, encoding };
   }
 
   function reviewTransaction(request: BridgeRequest): BridgeDecision {
@@ -378,11 +416,41 @@ export function createFreighterSession(
     pendingSign = undefined;
     if (closed || request === undefined || !live()) return null;
     if (result.status === 'declined') {
-      return { source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE', messagedId: request.messageId, error: 'user-declined' };
+      return {
+        source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
+        messagedId: request.messageId,
+        ...('encoding' in request ? messageError('user-declined') : { error: 'user-declined' }),
+      };
     }
     if (result.status === 'failed') {
-      return { source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE', messagedId: request.messageId, error: result.error };
+      return {
+        source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
+        messagedId: request.messageId,
+        ...('encoding' in request ? messageError(result.error) : { error: result.error }),
+      };
     }
+    if ('encoding' in request) {
+      const valid =
+        connected() &&
+        result.status === 'message-signed' &&
+        result.signerAddress === request.accountAddress &&
+        (request.encoding === 'hex'
+          ? /^[0-9a-f]{128}$/.test(result.signedBlob)
+          : /^[A-Za-z0-9+/]{85}[AQgw]==$/.test(result.signedBlob));
+      return valid
+        ? {
+            source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
+            messagedId: request.messageId,
+            signedBlob: result.signedBlob,
+            signerAddress: result.signerAddress,
+          }
+        : {
+            source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
+            messagedId: request.messageId,
+            ...messageError('invalid-message'),
+          };
+    }
+    if (result.status !== 'signed') return null;
     if (
       result.signerAddress !== request.accountAddress ||
       result.signedTransaction.length === 0 ||
@@ -442,5 +510,7 @@ export function createFreighterSession(
     activateDocument,
     revoke,
     isLive: () => !closed && live(),
+    hasPendingMessage: () => pendingSign !== undefined && 'encoding' in pendingSign,
+    canSignMessage: () => !closed && live() && connected() && pendingSign !== undefined && 'encoding' in pendingSign,
   });
 }

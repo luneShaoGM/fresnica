@@ -18,7 +18,7 @@ export type DappBrowserSurfaceProps = Readonly<{
 }>;
 
 export type DappBrowserSurfaceHandle = Readonly<{
-  reply: (response: BridgeResponse) => void;
+  reply: (response: BridgeResponse, expectedOrigin?: string) => void;
   goBack: () => void;
   goForward: () => void;
   reload: () => void;

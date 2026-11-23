@@ -21,6 +21,7 @@ import {
 import { ActivityStackNavigator } from './ActivityStackNavigator';
 import { TokenIconContext } from '../../features/assets/tokenIconContext';
 import { DAppsStackNavigator } from './DAppsStackNavigator';
+import { createDappMessageSigner } from '../../capabilities/dapp-interaction/dappMessageSigner';
 import { createDappTransactionSigner } from './createDappTransactionSigner';
 import type { DappPublicSelection } from '../../capabilities/dapp-interaction/freighterSession';
 import { HomeStackNavigator } from './HomeStackNavigator';
@@ -287,6 +288,10 @@ function MainTabsWithSelection({
     () => createDappTransactionSigner({ sdk: services.send.sdk, repository: services.onboarding.repository }),
     [services.send.sdk, services.onboarding.repository],
   );
+  const dappMessageSigner = useMemo(
+    () => createDappMessageSigner(services.send.sdk, services.onboarding.repository),
+    [services.send.sdk, services.onboarding.repository],
+  );
   const currentDappSelection = useCallback((): DappPublicSelection | undefined => {
     const current = swapSelectionStore.getCurrentSelection();
     if (!current) return undefined;
@@ -314,6 +319,7 @@ function MainTabsWithSelection({
         currentSelection={currentDappSelection}
         subscribeSelection={swapSelectionStore.subscribe}
         signTransaction={dappSigner}
+        signMessage={dappMessageSigner}
         permissions={services.dappPermissions}
       />
     ),
@@ -325,6 +331,7 @@ function MainTabsWithSelection({
       currentDappSelection,
       swapSelectionStore,
       dappSigner,
+      dappMessageSigner,
       services.dappPermissions,
     ],
   );

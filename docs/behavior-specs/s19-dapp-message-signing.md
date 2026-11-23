@@ -1,0 +1,9 @@
+# S19 SEP-53 message signing
+
+Phase 2b navigation and the existing SDK 0.3.1 message-signing mechanism carry this clean-room Adapt slice. The dApps feature owns the review, the dApp session validates the request and its lifetime, and SDK/Core owns SEP-53 signing. Reference behavior is Stellar at bd0f4540b2496a57314e4e29bc6fcf8ff691b60f. Existing dApps and navigation strict scopes apply.
+
+A live verified HTTPS main-frame connection can request SUBMIT_BLOB. An explicit account or network must match the active selection. The one active signing slot is shared with transaction signing. Requests are deduplicated per document. Messages are limited to 4,096 UTF-16 code units. Blank messages, malformed UTF-16, invisible format characters and controls other than CR, LF and tab are refused. The review displays origin, address, network and the complete message as quoted text, so whitespace and escape sequences can be checked. SDK receives the original string without normalization or pre-hashing in JavaScript.
+
+Approval consumes a fresh App Passphrase from the existing secure input. Only the protected software signer matching the selected Classic address is eligible. Cancel sends user-declined. SDK rejection allows another passphrase entry. Document replacement, browser navigation, account/network change, permission revocation, focus loss and close invalidate approval or suppress a late completion. Successful responses carry signedBlob and signerAddress, correlated with the original Freighter message ID. Stable Freighter API versions below 4 return hex and versions 4 or newer return Base64.
+
+Native acceptance on Android and iOS: connect a test dApp, review a UTF-8 challenge and verify its returned SEP-53 signature against the selected public key; exercise cancellation, wrong passphrase and retry, watch-only selection, navigation and account/network change. Record device evidence separately.

@@ -43,10 +43,16 @@ export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowse
     useImperativeHandle(
       ref,
       () => ({
-        reply(response) {
+        reply(response, expectedOrigin) {
           // Deliver an object so the page reads event.data.publicKey and event.data.messagedId.
           const payload = JSON.stringify(response);
-          webview.current?.injectJavaScript('window.postMessage(' + payload + ', window.location.origin);true;');
+          webview.current?.injectJavaScript(
+            'window.postMessage(' +
+              payload +
+              ', ' +
+              (expectedOrigin ? JSON.stringify(expectedOrigin) : 'window.location.origin') +
+              ');true;',
+          );
         },
         goBack() {
           webview.current?.goBack();
