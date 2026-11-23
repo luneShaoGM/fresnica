@@ -327,12 +327,14 @@ export function createFreighterSession(
         typeof json.body !== 'string' ||
         !json.body.trim() ||
         json.body.length > 256 ||
+        !('clock' in json) ||
+        json.clock !== 'android-elapsed-realtime' ||
         !('expiresAt' in json) ||
         typeof json.expiresAt !== 'number' ||
         !Number.isSafeInteger(json.expiresAt) ||
         json.expiresAt <= now ||
         json.expiresAt > now + 5_000 ||
-        Object.keys(json).length !== 6 ||
+        Object.keys(json).length !== 7 ||
         !notificationAllowed()
       )
         return DROP;

@@ -355,6 +355,7 @@ it('accepts a bounded notification only after explicit connection and rejects re
     JSON.stringify({
       source: 'FRESNICA_DAPP_MSG_REQUEST',
       type: 'SHOW_SYSTEM_NOTIFICATION',
+      clock: 'android-elapsed-realtime',
       messageId,
       title,
       body: 'Ready',
@@ -390,6 +391,7 @@ it.each([undefined, null, '5000', NaN, Infinity, 10_000.5, 10_000, 9_999, 15_001
           JSON.stringify({
             source: 'FRESNICA_DAPP_MSG_REQUEST',
             type: 'SHOW_SYSTEM_NOTIFICATION',
+            clock: 'android-elapsed-realtime',
             messageId: 2,
             title: 'Ready',
             body: 'Ready',
@@ -427,6 +429,7 @@ it.each([
         source: 'FRESNICA_DAPP_MSG_REQUEST',
         messageId: 2,
         type: 'SHOW_SYSTEM_NOTIFICATION',
+        clock: 'android-elapsed-realtime',
         title: 'Ready',
         body: 'Ready',
         expiresAt: 5_000,
@@ -435,3 +438,31 @@ it.each([
     ),
   ).toEqual({ kind: 'drop' });
 });
+
+it.each([undefined, 'unix-ms', 'performance-now'])(
+  'rejects legacy or wrong clock domains even when the numeric deadline fits: %s',
+  clock => {
+    const session = createFreighterSession({
+      origin,
+      token,
+      initial: selection,
+      current: () => selection,
+      persistedNotificationAllowed: () => true,
+      notificationNow: () => 10_000,
+    });
+    expect(
+      session.receive(
+        JSON.stringify({
+          source: 'FRESNICA_DAPP_MSG_REQUEST',
+          messageId: 2,
+          type: 'SHOW_SYSTEM_NOTIFICATION',
+          title: 'Ready',
+          body: 'Ready',
+          expiresAt: 15_000,
+          clock,
+        }),
+        origin,
+      ),
+    ).toEqual({ kind: 'drop' });
+  },
+);
