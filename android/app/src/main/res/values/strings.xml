@@ -1,3 +1,4 @@
 <resources>
+  <string name="dapp_notifications">dApp notifications</string>
     <string name="app_name">Fresnica</string>
 </resources>

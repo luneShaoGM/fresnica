@@ -21,7 +21,7 @@ export function buildFreighterInjectionScript(): string {
     '    try {',
     '      if (event.source !== window || event.origin !== window.location.origin) return;',
     '      var payload = event.data;',
-    '      if (!payload || payload.source !== "FREIGHTER_EXTERNAL_MSG_REQUEST") return;',
+    '      if (!payload || (payload.source !== "FREIGHTER_EXTERNAL_MSG_REQUEST" && payload.source !== "FRESNICA_DAPP_MSG_REQUEST")) return;',
     '      var serialized = JSON.stringify(payload);',
     '      if (!serialized || serialized.length > ' + String(MAX_BRIDGE_MESSAGE_LENGTH) + ') return;',
     '      nativeBridge.postMessage(serialized);',

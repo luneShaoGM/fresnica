@@ -346,3 +346,29 @@ describe('S15/S18 Freighter in-WebView read-only wallet bridge', () => {
     expect(JSON.stringify(session.receive(request('SUBMIT_BLOB', 7), origin))).not.toContain('signedTransaction');
   });
 });
+
+it('accepts a bounded notification only after explicit connection and rejects replay or stale origins', () => {
+  const { session, loseFocus } = harness();
+  const notification = (messageId: number, title = 'Completed') =>
+    JSON.stringify({
+      source: 'FRESNICA_DAPP_MSG_REQUEST',
+      type: 'SHOW_SYSTEM_NOTIFICATION',
+      messageId,
+      title,
+      body: 'Ready',
+    });
+  expect(session.receive(notification(2), origin)).toEqual({ kind: 'drop' });
+  session.receive(request('REQUEST_ACCESS'), origin);
+  session.resolvePermission(true);
+  expect(session.receive(notification(2), 'https://other.example.org')).toEqual({ kind: 'drop' });
+  expect(session.receive(notification(2, 'x'.repeat(65)), origin)).toEqual({ kind: 'drop' });
+  expect(session.receive(notification(2), origin)).toEqual({
+    kind: 'notification',
+    messageId: 2,
+    title: 'Completed',
+    body: 'Ready',
+  });
+  expect(session.receive(notification(2), origin)).toEqual({ kind: 'drop' });
+  loseFocus();
+  expect(session.receive(notification(3), origin)).toEqual({ kind: 'drop' });
+});

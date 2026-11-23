@@ -1,4 +1,4 @@
-import type { BridgeResponse } from './freighterSession';
+import type { BridgeResponse, DappNotificationResponse } from './freighterSession';
 
 // Platform owns WebView machinery; the Feature owns browsing/permission policy.
 export type DappBrowserNavigation = Readonly<{
@@ -18,7 +18,7 @@ export type DappBrowserSurfaceProps = Readonly<{
 }>;
 
 export type DappBrowserSurfaceHandle = Readonly<{
-  reply: (response: BridgeResponse) => void;
+  reply: (response: BridgeResponse | DappNotificationResponse) => void;
   goBack: () => void;
   goForward: () => void;
   reload: () => void;

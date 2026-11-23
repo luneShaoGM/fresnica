@@ -16,6 +16,7 @@ import {
   createFreighterSession,
   type BridgeDecision,
   type BridgeResponse,
+  type DappNotificationResponse,
   type DappPublicSelection,
 } from '../../../../capabilities/dapp-interaction/freighterSession';
 import type {
@@ -36,6 +37,7 @@ type Props = Readonly<{
   active: boolean;
   onClose: () => void;
   onVisit?: (url: string) => void;
+  showNotification?: (origin: string, title: string, body: string) => Promise<boolean>;
   currentSelection: () => DappPublicSelection | undefined;
   subscribeSelection: (listener: () => void) => () => void;
   createNonce: () => string;
@@ -59,6 +61,7 @@ export function DappBrowserScreen({
   active,
   onClose,
   onVisit,
+  showNotification,
   currentSelection,
   subscribeSelection,
   createNonce,
@@ -104,6 +107,17 @@ export function DappBrowserScreen({
         const token = createNonce();
         const trustedInitialOrigin = trustedCatalogOrigin === target.origin;
         documentOrigin.current = target.origin;
+        const hasSavedGrant = () => {
+          const origin = documentOrigin.current;
+          return (
+            origin !== undefined &&
+            permissions.has({
+              origin,
+              accountId: selection.accountId,
+              networkId: selection.networkId,
+            })
+          );
+        };
         initial.current = Object.freeze({
           url: target.url,
           origin: target.origin,
@@ -114,18 +128,10 @@ export function DappBrowserScreen({
             token,
             initial: selection,
             current: () => (live.current ? currentSelection() : undefined),
-            persistedAllowed: () => {
-              const origin = documentOrigin.current;
-              if (origin === undefined) return false;
-              return (
-                (trustedInitialOrigin && curatedDocumentActive.current && origin === target.origin) ||
-                permissions.has({
-                  origin,
-                  accountId: selection.accountId,
-                  networkId: selection.networkId,
-                })
-              );
-            },
+            persistedAllowed: () =>
+              (trustedInitialOrigin && curatedDocumentActive.current && documentOrigin.current === target.origin) ||
+              hasSavedGrant(),
+            persistedNotificationAllowed: hasSavedGrant,
           }),
         });
       }
@@ -175,13 +181,27 @@ export function DappBrowserScreen({
     }
   }, [active, current]);
 
-  const reply = (message: BridgeResponse) => {
+  const reply = (message: BridgeResponse | DappNotificationResponse) => {
     if (active && !stale) surface.current?.reply(message);
   };
 
   const handleMessage = (raw: string, messageUrl: string) => {
     if (!current || !active || stale) return;
     const decision = current.session.receive(raw, messageUrl);
+    if (decision.kind === 'notification') {
+      const epoch = documentEpoch.current;
+      const origin = documentOrigin.current;
+      const respond = (shown: boolean) => {
+        if (currentSession() && documentEpoch.current === epoch) {
+          reply({ source: 'FRESNICA_DAPP_MSG_RESPONSE', messagedId: decision.messageId, shown });
+        }
+      };
+      if (origin && showNotification) {
+        showNotification(origin, decision.title, decision.body).then(respond, () => respond(false));
+      } else {
+        respond(false);
+      }
+    }
     if (decision.kind === 'respond') reply(decision.response);
     if (decision.kind === 'permission') setPendingOrigin(decision.origin);
     if (decision.kind === 'sign-transaction') {

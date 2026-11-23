@@ -45,8 +45,15 @@ export type BridgeResponse = Readonly<{
   error?: string;
 }>;
 
+export type DappNotificationResponse = Readonly<{
+  source: 'FRESNICA_DAPP_MSG_RESPONSE';
+  messagedId: string | number;
+  shown: boolean;
+}>;
+
 export type BridgeDecision =
   | Readonly<{ kind: 'drop' }>
+  | Readonly<{ kind: 'notification'; messageId: string | number; title: string; body: string }>
   | Readonly<{ kind: 'permission'; messageId: string | number; origin: string }>
   | Readonly<{
       kind: 'sign-transaction';
@@ -228,6 +235,7 @@ export function createFreighterSession(
     initial: DappPublicSelection;
     current: () => DappPublicSelection | undefined;
     persistedAllowed?: () => boolean;
+    persistedNotificationAllowed?: () => boolean;
   }>,
 ) {
   const initial = Object.freeze({ ...input.initial });
@@ -239,9 +247,9 @@ export function createFreighterSession(
     Readonly<{ messageId: string | number; transactionXdrBase64: string; accountAddress: string }> | undefined;
   let closed = false;
 
-  function remembered(): boolean {
+  function remembered(check = input.persistedAllowed): boolean {
     try {
-      return input.persistedAllowed?.() === true;
+      return check?.() === true;
     } catch {
       return false;
     }
@@ -290,6 +298,30 @@ export function createFreighterSession(
       json = JSON.parse(raw);
     } catch {
       return DROP;
+    }
+    if (json && typeof json === 'object' && 'source' in json && json.source === 'FRESNICA_DAPP_MSG_REQUEST') {
+      if (
+        !('type' in json) ||
+        json.type !== 'SHOW_SYSTEM_NOTIFICATION' ||
+        !('messageId' in json) ||
+        !isMessageId(json.messageId) ||
+        !('title' in json) ||
+        typeof json.title !== 'string' ||
+        !json.title.trim() ||
+        json.title.length > 64 ||
+        !('body' in json) ||
+        typeof json.body !== 'string' ||
+        !json.body.trim() ||
+        json.body.length > 256 ||
+        Object.keys(json).length !== 5 ||
+        !live() ||
+        !(allowed || remembered(input.persistedNotificationAllowed ?? (() => false)))
+      )
+        return DROP;
+      const id = typeof json.messageId + ':' + String(json.messageId);
+      if (used.has(id) || used.size >= MAX_IDS_PER_DOCUMENT) return DROP;
+      used.add(id);
+      return { kind: 'notification', messageId: json.messageId, title: json.title, body: json.body };
     }
     if (!isRequest(json) || (json.token !== undefined && json.token !== input.token)) return DROP;
     const id = typeof json.messageId + ':' + String(json.messageId);
