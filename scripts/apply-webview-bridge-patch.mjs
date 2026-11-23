@@ -505,6 +505,32 @@ static NSString *const FresnicaSep53Prefix = @"fresnica-sep53:";
     [self.fresnicaSep53Replies removeAllObjects];
     [_webView.configuration.userContentController removeScriptMessageHandlerForName:HistoryShimName];`,
   },
+  {
+    file: 'node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts',
+    applied: 'sep53ReplyId: string;',
+    from: `  data: string;
+}>;
+export type WebViewOpenWindowEvent`,
+    to: `  data: string;
+  sourceOrigin: string;
+  isMainFrame: boolean;
+  sep53ReplyId: string;
+}>;
+export type WebViewOpenWindowEvent`,
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebView.mm',
+    applied: '.sep53ReplyId = nullSafeString',
+    from: `                    .data = nullSafeString([dictionary valueForKey:@"data"])
+                };
+                webViewEventEmitter->onMessage(data);`,
+    to: `                    .data = nullSafeString([dictionary valueForKey:@"data"]),
+                    .sourceOrigin = nullSafeString([dictionary valueForKey:@"sourceOrigin"]),
+                    .isMainFrame = static_cast<bool>([[dictionary valueForKey:@"isMainFrame"] boolValue]),
+                    .sep53ReplyId = nullSafeString([dictionary valueForKey:@"sep53ReplyId"])
+                };
+                webViewEventEmitter->onMessage(data);`,
+  },
 ];
 
 let pending = false;
