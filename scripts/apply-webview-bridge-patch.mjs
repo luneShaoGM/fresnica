@@ -325,6 +325,212 @@ static NSString *FresnicaVerifiedHttpsOrigin(NSURL *url) {
     from: 'MAX_BRIDGE_MESSAGE_LENGTH = 16384',
     to: 'MAX_BRIDGE_MESSAGE_LENGTH = 262144',
   },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java',
+    applied: 'Fresnica native SEP-53 reply registry',
+    from: '    private static final int MAX_BRIDGE_MESSAGE_LENGTH = 262144;',
+    to: `    private static final int MAX_BRIDGE_MESSAGE_LENGTH = 262144;
+    // Fresnica native SEP-53 reply registry. Accessed only on the WebView UI thread.
+    private static final String SEP53_PREFIX = "fresnica-sep53:";
+    private final java.util.LinkedHashMap<String, JavaScriptReplyProxy> sep53Replies = new java.util.LinkedHashMap<>();
+
+    public void clearFresnicaSep53Replies() {
+        sep53Replies.clear();
+    }
+
+    public boolean handleFresnicaSep53Reply(@Nullable String command) {
+        if (command == null || !command.startsWith(SEP53_PREFIX)) return false;
+        int separator = command.indexOf(':', SEP53_PREFIX.length());
+        if (separator == SEP53_PREFIX.length() + 36 && command.length() <= 2048) {
+            JavaScriptReplyProxy channel = sep53Replies.remove(command.substring(SEP53_PREFIX.length(), separator));
+            if (channel != null) channel.postMessage(command.substring(separator + 1));
+        }
+        return true; // A missing/expired reply never falls back to global JavaScript.
+    }`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java',
+    applied: 'sep53Replies.put(replyId, replyProxy)',
+    from: '                RNCWebView.this.onVerifiedMessage(payload, origin);',
+    to: `                if (payload.startsWith(SEP53_PREFIX)) {
+                  if (sep53Replies.size() >= 128) sep53Replies.remove(sep53Replies.keySet().iterator().next());
+                  String replyId = java.util.UUID.randomUUID().toString();
+                  sep53Replies.put(replyId, replyProxy);
+                  deliverMessage(payload.substring(SEP53_PREFIX.length()), origin, origin, true, replyId);
+                } else {
+                  RNCWebView.this.onVerifiedMessage(payload, origin);
+                }`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java',
+    applied: '@Nullable String sep53ReplyId',
+    from: '    private void deliverMessage(String message, String sourceUrl, @Nullable String sourceOrigin, boolean mainFrame) {',
+    to: `    private void deliverMessage(String message, String sourceUrl, @Nullable String sourceOrigin, boolean mainFrame) {
+        deliverMessage(message, sourceUrl, sourceOrigin, mainFrame, null);
+    }
+
+    private void deliverMessage(String message, String sourceUrl, @Nullable String sourceOrigin, boolean mainFrame,
+        @Nullable String sep53ReplyId) {`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java',
+    applied: 'data.putString("sep53ReplyId", sep53ReplyId)',
+    from: '                    if (sourceOrigin != null) {',
+    to: `                    if (sep53ReplyId != null) data.putString("sep53ReplyId", sep53ReplyId);
+                    if (sourceOrigin != null) {`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java',
+    applied: 'reactWebView.clearFresnicaSep53Replies();',
+    from: '      event.putBoolean("isDocumentStart", true);',
+    to: `      reactWebView.clearFresnicaSep53Replies();
+      event.putBoolean("isDocumentStart", true);`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java',
+    applied: '        clearFresnicaSep53Replies();',
+    from: '    public void destroy() {',
+    to: `    public void destroy() {
+        clearFresnicaSep53Replies();`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt',
+    applied: 'webView.handleFresnicaSep53Reply(args.getString(0))',
+    from: '        "postMessage" -> try {',
+    to: `        "postMessage" -> try {
+          if (webView.handleFresnicaSep53Reply(args.getString(0))) return`,
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
+    applied: 'FresnicaSep53ReplyHandler : NSObject',
+    from: '@interface RNCWebViewImpl () <WKUIDelegate',
+    to: `typedef void (^FresnicaSep53Reply)(id _Nullable, NSString * _Nullable);
+static NSString *const FresnicaSep53HandlerName = @"FresnicaSep53";
+static NSString *const FresnicaSep53Prefix = @"fresnica-sep53:";
+
+@interface FresnicaSep53ReplyHandler : NSObject <WKScriptMessageHandlerWithReply>
+@property (nonatomic, copy) void (^receive)(WKScriptMessage *, FresnicaSep53Reply);
+@end
+
+@implementation FresnicaSep53ReplyHandler
+- (void)userContentController:(WKUserContentController *)controller didReceiveScriptMessage:(WKScriptMessage *)message replyHandler:(FresnicaSep53Reply)reply {
+  if (self.receive) self.receive(message, reply);
+  else reply(nil, @"Wallet unavailable");
+}
+@end
+
+@interface RNCWebViewImpl () <WKUIDelegate`,
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
+    applied: '*fresnicaSep53Replies;',
+    from: '@property (nonatomic, strong) WKUserScript *postMessageScript;',
+    to: `@property (nonatomic, strong) WKUserScript *postMessageScript;
+@property (nonatomic, strong) NSMutableDictionary<NSString *, FresnicaSep53Reply> *fresnicaSep53Replies;`,
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
+    applied: 'fresnicaReceiveSep53:(WKScriptMessage *)message',
+    from: '- (void)postMessage:(NSString *)message',
+    to: `- (void)fresnicaReceiveSep53:(WKScriptMessage *)message reply:(FresnicaSep53Reply)reply
+{
+  NSString *origin = FresnicaVerifiedHttpsOrigin(message.frameInfo.request.URL);
+  if (!_onMessage || !message.frameInfo.isMainFrame || !origin ||
+      ![message.body isKindOfClass:[NSString class]] || [message.body length] == 0 ||
+      [message.body length] > 262144 || self.fresnicaSep53Replies.count >= 128) {
+    reply(nil, @"Wallet request unavailable");
+    return;
+  }
+  if (!self.fresnicaSep53Replies) self.fresnicaSep53Replies = [NSMutableDictionary new];
+  NSString *replyId = NSUUID.UUID.UUIDString;
+  self.fresnicaSep53Replies[replyId] = [reply copy];
+  __weak typeof(self) weakSelf = self;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 120 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+    typeof(self) view = weakSelf;
+    FresnicaSep53Reply expired = view.fresnicaSep53Replies[replyId];
+    [view.fresnicaSep53Replies removeObjectForKey:replyId];
+    if (expired) expired(nil, @"Wallet request expired");
+  });
+  NSMutableDictionary<NSString *, id> *event = [self baseEvent];
+  [event addEntriesFromDictionary:@{@"data": message.body, @"url": message.frameInfo.request.URL.absoluteString,
+      @"sourceOrigin": origin, @"isMainFrame": @YES, @"sep53ReplyId": replyId}];
+  _onMessage(event);
+}
+
+- (void)postMessage:(NSString *)message`,
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
+    applied: 'if ([message hasPrefix:FresnicaSep53Prefix])',
+    from: '  NSDictionary *eventInitDict = @{@"data": message};',
+    to: `  if ([message hasPrefix:FresnicaSep53Prefix]) {
+    NSUInteger start = FresnicaSep53Prefix.length;
+    if (message.length <= 2048) {
+      NSRange separator = [message rangeOfString:@":" options:0 range:NSMakeRange(start, message.length - start)];
+      if (separator.location == start + 36) {
+        NSString *replyId = [message substringWithRange:NSMakeRange(start, 36)];
+        FresnicaSep53Reply reply = self.fresnicaSep53Replies[replyId];
+        [self.fresnicaSep53Replies removeObjectForKey:replyId];
+        if (reply) reply([message substringFromIndex:separator.location + 1], nil);
+      }
+    }
+    return;
+  }
+  NSDictionary *eventInitDict = @{@"data": message};`,
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
+    applied: 'addScriptMessageHandlerWithReply:handler',
+    from: '- (void)resetupScripts:(WKWebViewConfiguration *)wkWebViewConfig {',
+    to: `- (void)resetupScripts:(WKWebViewConfiguration *)wkWebViewConfig {
+  [wkWebViewConfig.userContentController removeScriptMessageHandlerForName:FresnicaSep53HandlerName contentWorld:WKContentWorld.pageWorld];
+  if (_messagingEnabled) {
+    FresnicaSep53ReplyHandler *handler = [FresnicaSep53ReplyHandler new];
+    __weak typeof(self) weakSelf = self;
+    handler.receive = ^(WKScriptMessage *message, FresnicaSep53Reply reply) {
+      typeof(self) view = weakSelf;
+      if (view) [view fresnicaReceiveSep53:message reply:reply];
+      else reply(nil, @"Wallet unavailable");
+    };
+    [wkWebViewConfig.userContentController addScriptMessageHandlerWithReply:handler
+          contentWorld:WKContentWorld.pageWorld name:FresnicaSep53HandlerName];
+  }`,
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
+    applied: 'for (FresnicaSep53Reply reply in self.fresnicaSep53Replies.allValues)',
+    from: '    [_webView.configuration.userContentController removeScriptMessageHandlerForName:HistoryShimName];',
+    to: `    [_webView.configuration.userContentController removeScriptMessageHandlerForName:FresnicaSep53HandlerName contentWorld:WKContentWorld.pageWorld];
+    for (FresnicaSep53Reply reply in self.fresnicaSep53Replies.allValues) reply(nil, @"Wallet unavailable");
+    [self.fresnicaSep53Replies removeAllObjects];
+    [_webView.configuration.userContentController removeScriptMessageHandlerForName:HistoryShimName];`,
+  },
+  {
+    file: 'node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts',
+    applied: 'sep53ReplyId: string;',
+    from: `  data: string;
+}>;
+export type WebViewOpenWindowEvent`,
+    to: `  data: string;
+  sourceOrigin: string;
+  isMainFrame: boolean;
+  sep53ReplyId: string;
+}>;
+export type WebViewOpenWindowEvent`,
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebView.mm',
+    applied: '.sep53ReplyId = nullSafeString',
+    from: `                    .data = nullSafeString([dictionary valueForKey:@"data"])
+                };
+                webViewEventEmitter->onMessage(data);`,
+    to: `                    .data = nullSafeString([dictionary valueForKey:@"data"]),
+                    .sourceOrigin = nullSafeString([dictionary valueForKey:@"sourceOrigin"]),
+                    .isMainFrame = static_cast<bool>([[dictionary valueForKey:@"isMainFrame"] boolValue]),
+                    .sep53ReplyId = nullSafeString([dictionary valueForKey:@"sep53ReplyId"])
+                };
+                webViewEventEmitter->onMessage(data);`,
+  },
 ];
 
 let pending = false;

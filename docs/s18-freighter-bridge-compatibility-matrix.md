@@ -27,7 +27,7 @@
 | REQUEST_NETWORK_DETAILS | Return `networkDetails` with network URL and passphrase | Requires consent; returns network details | **Different permission timing**; do not expose configured endpoints before explicit approval without review |
 | SUBMIT_TRANSACTION | Show full review, sign requested XDR; dApp broadcasts | Supported for allowlisted fully reviewable classic payments, exact-XDR binding, no broadcast | Safe subset; Soroban/other operations deferred until reliable intent rendering |
 | SUBMIT_TOKEN | Asset/contract confirmation; response contains `contractId` | Previously dropped recognized envelopes containing type fields | **This slice:** structurally valid request receives explicit `error: unsupported`; no trustline/token change |
-| SUBMIT_BLOB | Reviewed blob signing | Previously dropped requests with `blob`/`apiVersion` | **This slice:** valid fields receive `error: unsupported`; no blob signing |
+| SUBMIT_BLOB | Reviewed blob signing | Previously dropped requests with `blob`/`apiVersion` | S19 adds [reviewed SEP-53 signing](behavior-specs/s19-dapp-message-signing.md) with fresh App Passphrase. Raw text is the Freighter default; Stellar-style UTF-8 Base64 requires an explicit encoding field. Native acceptance pending |
 | SUBMIT_AUTH_ENTRY | Reviewed Soroban authorization-entry signing | Previously dropped requests with `entryXdr`/`apiVersion` | **This slice:** valid fields receive `error: unsupported`; no auth-entry signing |
 
 ### Schemas covered by this slice

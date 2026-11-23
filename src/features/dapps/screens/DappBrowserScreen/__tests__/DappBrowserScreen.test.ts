@@ -4,6 +4,7 @@ import type {
   DappBrowserSurfaceProps,
   DappBrowserSurfaceHandle,
 } from '../../../../../capabilities/dapp-interaction/browserTransport';
+import type { DappMessageSigner } from '../../../../../capabilities/dapp-interaction/dappMessageSigner';
 import type { DappTransactionSigner } from '../../../../../capabilities/dapp-interaction/dappTransactionSigner';
 import type { DappPublicSelection } from '../../../../../capabilities/dapp-interaction/freighterSession';
 import type {
@@ -54,6 +55,7 @@ jest.spyOn(react, 'useEffect').mockImplementation(((effect: () => void | (() => 
 }) as typeof react.useEffect);
 
 const { DappBrowserScreen } = require('../DappBrowserScreen') as typeof import('../DappBrowserScreen');
+const { DappSignSheet } = require('../DappSignSheet') as typeof import('../DappSignSheet');
 const { DappConnectSheet } = require('../DappConnectSheet') as typeof import('../DappConnectSheet');
 
 const selection: DappPublicSelection = {
@@ -120,6 +122,7 @@ function render(
   active = true,
   signTransaction: DappTransactionSigner = async () => ({ status: 'invalid' }),
   trustedCatalogOrigin?: string,
+  signMessage?: DappMessageSigner,
 ) {
   si = 0;
   ri = 0;
@@ -137,6 +140,7 @@ function render(
     },
     createNonce: () => token,
     signTransaction,
+    signMessage,
     permissions,
     trustedCatalogOrigin,
     BrowserSurface,
@@ -149,6 +153,7 @@ type NodeProps = Readonly<{
   onAllowOnce?: () => void;
   onAllowAlways?: () => void;
   onConfirm?: (passphrase: string) => void;
+  onReject?: () => void;
   source?: string;
   fee?: string;
   operationCount?: number;
@@ -259,7 +264,6 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
 
   it.each([
     ['SUBMIT_TOKEN', { contractId: 'C123', assetType: 'soroban', decimals: 7 }],
-    ['SUBMIT_BLOB', { blob: 'payload', apiVersion: '1' }],
     ['SUBMIT_AUTH_ENTRY', { entryXdr: 'AAAA', apiVersion: '1' }],
   ] as const)('replies with unsupported for a valid %s page request without prompting or signing', (type, fields) => {
     const signer = jest.fn(async () => ({ status: 'invalid' as const }));
@@ -697,3 +701,71 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     expect(find(blocked, node => node.props.label === 'common.back')).toBeDefined();
   });
 });
+
+it.each(['approve', 'base64', 'cancel', 'reload', 'document', 'late-result', 'missing-native-reply'] as const)(
+  'holds the exact SEP-53 message for passphrase review and handles %s',
+  async action => {
+    const signature = 'A'.repeat(86) + '==';
+    let complete: ((value: string) => void) | undefined;
+    const signer = jest.fn<ReturnType<DappMessageSigner>, Parameters<DappMessageSigner>>(
+      () =>
+        new Promise(resolve => {
+          complete = resolve;
+        }),
+    );
+    const draw = () => render(true, undefined, undefined, signer);
+    const origin = 'https://demo.example.org';
+    const replyId = '74f3db5b-10b8-4abd-8198-cfc869980742';
+    const target = { replyId };
+    const browser = find(draw(), node => node.type === BrowserSurface);
+    refs[1].current = { reply: replies, reload };
+    browser?.props.onMessage?.(request('REQUEST_ACCESS', 30), origin);
+    find(draw(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
+    const blob = '  café\nAuthorize demo  ';
+    browser?.props.onMessage?.(
+      JSON.stringify({
+        source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
+        type: 'SUBMIT_BLOB',
+        messageId: 31,
+        apiVersion: '6.0.1',
+        blob: action === 'base64' ? Buffer.from(blob, 'utf8').toString('base64') : blob,
+        ...(action === 'base64' ? { blobEncoding: 'base64' } : {}),
+      }),
+      origin,
+      action === 'missing-native-reply' ? undefined : replyId,
+    );
+    const sheet = find(draw(), node => node.type === DappSignSheet);
+    if (action === 'missing-native-reply') {
+      expect(sheet).toBeUndefined();
+      expect(signer).not.toHaveBeenCalled();
+      return;
+    }
+    expect(sheet?.props).toMatchObject({ message: blob, origin, passphraseRequired: true });
+    sheet?.props.onConfirm?.('');
+    expect(signer).not.toHaveBeenCalled();
+    if (action === 'cancel') find(draw(), node => node.type === DappSignSheet)?.props.onReject?.();
+    if (action === 'reload') find(draw(), node => node.props.label === 'dapps.browser.reload')?.props.onPress?.();
+    if (action === 'document') browser?.props.onDocumentStart?.(origin + '/new');
+    sheet?.props.onConfirm?.('fresh passphrase');
+    if (action === 'late-result') browser?.props.onDocumentStart?.(origin + '/new');
+    complete?.(signature);
+    await Promise.resolve();
+    if (action === 'approve' || action === 'base64') {
+      expect(signer).toHaveBeenCalledWith(
+        expect.objectContaining({ message: blob, appPassphrase: 'fresh passphrase', encoding: 'base64' }),
+      );
+      expect(replies).toHaveBeenCalledWith(
+        expect.objectContaining({ messagedId: 31, signedBlob: signature, signerAddress: selection.address }),
+        target,
+      );
+    } else {
+      expect(replies.mock.calls.some(([result]) => result.signedBlob)).toBe(false);
+      if (action !== 'late-result') expect(signer).not.toHaveBeenCalled();
+      if (action === 'cancel')
+        expect(replies).toHaveBeenCalledWith(
+          expect.objectContaining({ messagedId: 31, error: 'user-declined' }),
+          target,
+        );
+    }
+  },
+);
