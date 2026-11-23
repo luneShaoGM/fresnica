@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from 'react-native';
 
 import { BottomSheet } from '@ui/components';
 import { TokenAssetIcon } from '../assets/TokenAssetIcon';
@@ -169,248 +169,253 @@ export function AddAssetSheet({
     if (selected) onAddAndSign({ code: selected.code, issuer: selected.issuer });
   };
 
+  const displayedAssets = manual
+    ? urlAssets.map(asset => ({ ...asset, added: held.has(assetKey(asset)) }))
+    : networkSources.length > 0 && sources.length > 0
+      ? visibleAssets
+      : [];
+
   return (
-    <BottomSheet closeLabel={t('trustlines.add.cancel')} onClose={onClose} visible={visible}>
+    <BottomSheet avoidAndroidKeyboard closeLabel={t('trustlines.add.cancel')} onClose={onClose} visible={visible}>
       <View style={styles.sheet}>
-        <View style={styles.header}>
-          <Text numberOfLines={1} style={styles.title}>
-            {t('trustlines.add.title')}
-          </Text>
-          <View style={styles.headerActions}>
-            <Pressable accessibilityRole="button" onPress={() => setManual(current => !current)} style={styles.chip}>
-              <Text style={styles.chipText}>{manual ? t('trustlines.add.list') : t('trustlines.add.manual')}</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" onPress={onClose} style={styles.chip}>
-              <Text style={styles.chipText}>{t('trustlines.add.cancel')}</Text>
-            </Pressable>
-          </View>
-        </View>
-        <Text style={styles.description}>
-          {manual ? t('trustlines.add.manualDescription') : t('trustlines.add.listDescription')}
-        </Text>
-        <BalanceFreshnessNotice state={balanceState} onRefresh={refresh} />
-        {!balanceReady ? (
-          <Pressable accessibilityRole="button" onPress={() => refresh()}>
-            <Text style={styles.statusText}>{t('trustlines.add.retry')}</Text>
-          </Pressable>
-        ) : null}
-        {manual ? (
-          <ScrollView
-            contentContainerStyle={styles.listContent}
-            keyboardShouldPersistTaps="handled"
-            style={styles.list}
-          >
-            <Text style={styles.fieldLabel}>{t('trustlines.add.domain')}</Text>
-            <View style={styles.urlRow}>
-              <TextInput
-                autoCapitalize="none"
-                autoCorrect={false}
-                accessibilityLabel={t('trustlines.add.domain')}
-                keyboardType="url"
-                onChangeText={value => {
-                  urlRequest.current?.abort();
-                  setUrlLoading(false);
-                  setUrlAssets([]);
-                  setManualUrl(value);
-                  setUrlError(undefined);
-                }}
-                placeholder="https://example.com"
-                placeholderTextColor={theme.colors.textTertiary}
-                style={[styles.search, styles.urlInput]}
-                value={manualUrl}
-              />
-              <Pressable
-                accessibilityRole="button"
-                disabled={!manualUrl.trim() || urlLoading}
-                onPress={() => {
-                  if (!visible || !active) return;
-                  urlRequest.current?.abort();
-                  const controller = new AbortController();
-                  urlRequest.current = controller;
-                  setUrlAssets([]);
-                  setUrlLoading(true);
-                  setUrlError(undefined);
-                  void loadManualUrl(manualUrl, catalog, controller.signal)
-                    .then(found => {
-                      if (controller.signal.aborted) return;
-                      setUrlAssets(found);
-                      const first = found.find(asset => !asset.added);
-                      if (first) {
-                        setManualCode(first.code);
-                        setManualIssuer(first.issuer);
-                      }
-                    })
-                    .catch(() => {
-                      if (!controller.signal.aborted) setUrlError(t('trustlines.add.manualUrlError'));
-                    })
-                    .finally(() => {
-                      if (!controller.signal.aborted) setUrlLoading(false);
-                    });
-                }}
-                style={[styles.chip, !manualUrl.trim() || urlLoading ? styles.disabled : undefined]}
-              >
-                <Text style={styles.chipText}>
-                  {urlLoading ? t('trustlines.add.loading') : t('trustlines.add.load')}
-                </Text>
-              </Pressable>
-            </View>
-            {urlError ? <Text style={styles.errorText}>{urlError}</Text> : null}
-            {urlAssets.map(item => {
-              const asset = { ...item, added: held.has(assetKey(item)) };
-              return (
-                <AssetRow
-                  addedLabel={t('trustlines.add.added')}
-                  asset={asset}
-                  key={`${asset.code}:${asset.issuer}`}
-                  onPress={() => {
-                    setManualCode(asset.code);
-                    setManualIssuer(asset.issuer);
-                    setSelectedKey(assetKey(asset));
-                  }}
-                  selected={manualCode === asset.code && manualIssuer === asset.issuer}
-                  styles={styles}
-                />
-              );
-            })}
-            <Text style={styles.fieldLabel}>{t('trustlines.add.assetCode')}</Text>
-            <TextInput
-              autoCapitalize="none"
-              autoCorrect={false}
-              accessibilityLabel={t('trustlines.add.assetCode')}
-              editable={!urlLoading}
-              onChangeText={setManualCode}
-              placeholder={t('trustlines.add.assetCodePlaceholder')}
-              placeholderTextColor={theme.colors.textTertiary}
-              style={styles.search}
-              value={manualCode}
-            />
-            <Text style={styles.fieldLabel}>{t('trustlines.add.issuer')}</Text>
-            <TextInput
-              autoCapitalize="none"
-              autoCorrect={false}
-              accessibilityLabel={t('trustlines.add.issuer')}
-              editable={!urlLoading}
-              onChangeText={setManualIssuer}
-              placeholder={t('trustlines.add.issuerPlaceholder')}
-              placeholderTextColor={theme.colors.textTertiary}
-              style={styles.search}
-              value={manualIssuer}
-            />
-          </ScrollView>
-        ) : (
-          <>
-            {networkSources.length > 0 ? (
-              <View style={styles.filters}>
-                {networkSources.map(source => {
-                  const selectedSource = sources.includes(source.id);
-                  return (
+        <FlatList
+          key={manual ? 'manual' : 'catalog'}
+          contentContainerStyle={styles.listContent}
+          data={displayedAssets}
+          keyboardShouldPersistTaps="handled"
+          keyExtractor={assetKey}
+          ListHeaderComponent={
+            <View style={styles.listHeader}>
+              <View style={styles.header}>
+                <Text style={styles.title}>{t('trustlines.add.title')}</Text>
+                <View style={styles.headerActions}>
+                  <Pressable accessibilityRole="button" onPress={() => setManual(current => !current)} style={styles.chip}>
+                    <Text style={styles.chipText}>{manual ? t('trustlines.add.list') : t('trustlines.add.manual')}</Text>
+                  </Pressable>
+                  <Pressable accessibilityRole="button" onPress={onClose} style={styles.chip}>
+                    <Text style={styles.chipText}>{t('trustlines.add.cancel')}</Text>
+                  </Pressable>
+                </View>
+              </View>
+              <Text style={styles.description}>
+                {manual ? t('trustlines.add.manualDescription') : t('trustlines.add.listDescription')}
+              </Text>
+              <BalanceFreshnessNotice state={balanceState} onRefresh={refresh} />
+              {!balanceReady ? (
+                <Pressable accessibilityRole="button" onPress={() => refresh()}>
+                  <Text style={styles.statusText}>{t('trustlines.add.retry')}</Text>
+                </Pressable>
+              ) : null}
+              {manual ? (
+                <>
+                  <Text style={styles.fieldLabel}>{t('trustlines.add.domain')}</Text>
+                  <View style={styles.urlRow}>
+                    <TextInput
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      accessibilityLabel={t('trustlines.add.domain')}
+                      keyboardType="url"
+                      onChangeText={value => {
+                        urlRequest.current?.abort();
+                        setUrlLoading(false);
+                        setUrlAssets([]);
+                        setManualUrl(value);
+                        setUrlError(undefined);
+                      }}
+                      placeholder="https://example.com"
+                      placeholderTextColor={theme.colors.textTertiary}
+                      style={[styles.search, styles.urlInput]}
+                      value={manualUrl}
+                    />
                     <Pressable
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: selectedSource }}
-                      key={source.id}
-                      onPress={() =>
-                        setSources(current =>
-                          current.includes(source.id)
-                            ? current.filter(id => id !== source.id)
-                            : [...current, source.id],
-                        )
-                      }
-                      style={[styles.filter, selectedSource ? styles.filterSelected : undefined]}
+                      accessibilityRole="button"
+                      disabled={!manualUrl.trim() || urlLoading}
+                      onPress={() => {
+                        if (!visible || !active) return;
+                        urlRequest.current?.abort();
+                        const controller = new AbortController();
+                        urlRequest.current = controller;
+                        setUrlAssets([]);
+                        setUrlLoading(true);
+                        setUrlError(undefined);
+                        void loadManualUrl(manualUrl, catalog, controller.signal)
+                          .then(found => {
+                            if (controller.signal.aborted) return;
+                            setUrlAssets(found);
+                            const first = found.find(asset => !asset.added);
+                            if (first) {
+                              setManualCode(first.code);
+                              setManualIssuer(first.issuer);
+                            }
+                          })
+                          .catch(() => {
+                            if (!controller.signal.aborted) setUrlError(t('trustlines.add.manualUrlError'));
+                          })
+                          .finally(() => {
+                            if (!controller.signal.aborted) setUrlLoading(false);
+                          });
+                      }}
+                      style={[styles.chip, !manualUrl.trim() || urlLoading ? styles.disabled : undefined]}
                     >
-                      <Text style={[styles.filterText, selectedSource ? styles.filterTextSelected : undefined]}>
-                        {selectedSource ? '✓ ' : ''}
-                        {source.shortName}
+                      <Text style={styles.chipText}>
+                        {urlLoading ? t('trustlines.add.loading') : t('trustlines.add.load')}
                       </Text>
                     </Pressable>
-                  );
-                })}
-              </View>
-            ) : null}
-            {networkSources.length > 0 ? (
-              <TextInput
-                autoCapitalize="none"
-                autoCorrect={false}
-                onChangeText={setQuery}
-                accessibilityLabel={t('trustlines.add.search')}
-                placeholder={t('trustlines.add.search')}
-                placeholderTextColor={theme.colors.textTertiary}
-                style={styles.search}
-                value={query}
-              />
-            ) : null}
-            {(usingCache || refreshFailed) && assets.length > 0 ? (
-              <View style={styles.status}>
-                <Text style={styles.statusText}>
-                  {refreshFailed
-                    ? t(usingCache ? 'trustlines.add.cacheRefreshFailed' : 'trustlines.add.partialSourcesFailed')
-                    : loading
-                      ? t('trustlines.add.cacheRefreshing')
-                      : t('trustlines.add.cachedList')}
-                </Text>
-                {refreshFailed ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => setReloadKey(current => current + 1)}
-                    style={styles.chip}
-                  >
-                    <Text style={styles.chipText}>{t('trustlines.add.retry')}</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            ) : null}
-            {networkSources.length === 0 ? (
-              <View style={styles.status}>
-                <Text style={styles.statusText}>{t('trustlines.add.networkListUnavailable')}</Text>
-                <Pressable accessibilityRole="button" onPress={() => setManual(true)} style={styles.chip}>
-                  <Text style={styles.chipText}>{t('trustlines.add.manual')}</Text>
-                </Pressable>
-              </View>
-            ) : sources.length === 0 ? (
-              <View style={styles.status}>
-                <Text style={styles.statusText}>{t('trustlines.add.emptySources')}</Text>
-              </View>
-            ) : loading && assets.length === 0 ? (
-              <View style={styles.status}>
-                <ActivityIndicator color={theme.colors.actionPrimary} />
-                <Text style={styles.statusText}>{t('trustlines.add.loading')}</Text>
-              </View>
-            ) : failed && assets.length === 0 ? (
-              <View style={styles.status}>
-                <Text style={styles.statusText}>{t('trustlines.add.loadError')}</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setReloadKey(current => current + 1)}
-                  style={styles.chip}
-                >
-                  <Text style={styles.chipText}>{t('trustlines.add.retry')}</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <ScrollView
-                contentContainerStyle={styles.listContent}
-                keyboardShouldPersistTaps="handled"
-                style={styles.list}
-              >
-                {visibleAssets.length === 0 ? (
+                  </View>
+                  {urlError ? <Text style={styles.errorText}>{urlError}</Text> : null}
+                </>
+              ) : (
+                <>
+                  {networkSources.length > 0 ? (
+                    <View style={styles.filters}>
+                      {networkSources.map(source => {
+                        const selectedSource = sources.includes(source.id);
+                        return (
+                          <Pressable
+                            accessibilityRole="checkbox"
+                            accessibilityState={{ checked: selectedSource }}
+                            key={source.id}
+                            onPress={() =>
+                              setSources(current =>
+                                current.includes(source.id)
+                                  ? current.filter(id => id !== source.id)
+                                  : [...current, source.id],
+                              )
+                            }
+                            style={[styles.filter, selectedSource ? styles.filterSelected : undefined]}
+                          >
+                            <Text style={[styles.filterText, selectedSource ? styles.filterTextSelected : undefined]}>
+                              {selectedSource ? '✓ ' : ''}
+                              {source.shortName}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+                  {networkSources.length > 0 ? (
+                    <TextInput
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      onChangeText={setQuery}
+                      accessibilityLabel={t('trustlines.add.search')}
+                      placeholder={t('trustlines.add.search')}
+                      placeholderTextColor={theme.colors.textTertiary}
+                      style={styles.search}
+                      value={query}
+                    />
+                  ) : null}
+                  {(usingCache || refreshFailed) && assets.length > 0 ? (
+                    <View style={styles.inlineStatus}>
+                      <Text style={styles.statusText}>
+                        {refreshFailed
+                          ? t(usingCache ? 'trustlines.add.cacheRefreshFailed' : 'trustlines.add.partialSourcesFailed')
+                          : loading
+                            ? t('trustlines.add.cacheRefreshing')
+                            : t('trustlines.add.cachedList')}
+                      </Text>
+                      {refreshFailed ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => setReloadKey(current => current + 1)}
+                          style={styles.chip}
+                        >
+                          <Text style={styles.chipText}>{t('trustlines.add.retry')}</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  ) : null}
+                </>
+              )}
+            </View>
+          }
+          ListEmptyComponent={
+            manual ? undefined : (
+              <>
+                {networkSources.length === 0 ? (
+                  <View style={styles.status}>
+                    <Text style={styles.statusText}>{t('trustlines.add.networkListUnavailable')}</Text>
+                    <Pressable accessibilityRole="button" onPress={() => setManual(true)} style={styles.chip}>
+                      <Text style={styles.chipText}>{t('trustlines.add.manual')}</Text>
+                    </Pressable>
+                  </View>
+                ) : sources.length === 0 ? (
+                  <View style={styles.status}>
+                    <Text style={styles.statusText}>{t('trustlines.add.emptySources')}</Text>
+                  </View>
+                ) : loading && assets.length === 0 ? (
+                  <View style={styles.status}>
+                    <ActivityIndicator color={theme.colors.actionPrimary} />
+                    <Text style={styles.statusText}>{t('trustlines.add.loading')}</Text>
+                  </View>
+                ) : failed && assets.length === 0 ? (
+                  <View style={styles.status}>
+                    <Text style={styles.statusText}>{t('trustlines.add.loadError')}</Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => setReloadKey(current => current + 1)}
+                      style={styles.chip}
+                    >
+                      <Text style={styles.chipText}>{t('trustlines.add.retry')}</Text>
+                    </Pressable>
+                  </View>
+                ) : (
                   <Text style={styles.statusText}>
                     {query ? t('trustlines.add.noMatch') : t('trustlines.add.empty')}
                   </Text>
-                ) : (
-                  visibleAssets.map(asset => (
-                    <AssetRow
-                      addedLabel={t('trustlines.add.added')}
-                      asset={asset}
-                      key={assetKey(asset)}
-                      onPress={() => setSelectedKey(assetKey(asset))}
-                      selected={assetKey(asset) === selectedKey}
-                      styles={styles}
-                    />
-                  ))
                 )}
-              </ScrollView>
-            )}
-          </>
-        )}
+              </>
+            )
+          }
+          ListFooterComponent={
+            manual ? (
+              <View style={styles.manualFields}>
+                <Text style={styles.fieldLabel}>{t('trustlines.add.assetCode')}</Text>
+                <TextInput
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  accessibilityLabel={t('trustlines.add.assetCode')}
+                  editable={!urlLoading}
+                  onChangeText={setManualCode}
+                  placeholder={t('trustlines.add.assetCodePlaceholder')}
+                  placeholderTextColor={theme.colors.textTertiary}
+                  style={styles.search}
+                  value={manualCode}
+                />
+                <Text style={styles.fieldLabel}>{t('trustlines.add.issuer')}</Text>
+                <TextInput
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  accessibilityLabel={t('trustlines.add.issuer')}
+                  editable={!urlLoading}
+                  onChangeText={setManualIssuer}
+                  placeholder={t('trustlines.add.issuerPlaceholder')}
+                  placeholderTextColor={theme.colors.textTertiary}
+                  style={styles.search}
+                  value={manualIssuer}
+                />
+              </View>
+            ) : undefined
+          }
+          renderItem={({ item: asset }) => (
+            <AssetRow
+              addedLabel={t('trustlines.add.added')}
+              asset={asset}
+              onPress={() => {
+                if (manual) {
+                  setManualCode(asset.code);
+                  setManualIssuer(asset.issuer);
+                }
+                setSelectedKey(assetKey(asset));
+              }}
+              selected={
+                manual ? manualCode === asset.code && manualIssuer === asset.issuer : assetKey(asset) === selectedKey
+              }
+              styles={styles}
+            />
+          )}
+          style={styles.list}
+        />
         <View style={styles.footer}>
           <Pressable
             accessibilityRole="button"

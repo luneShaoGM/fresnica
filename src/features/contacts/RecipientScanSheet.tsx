@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import type { RequestCameraPermissionState } from '@capabilities/request/RequestIngressPort';
 import { BottomSheet } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
@@ -91,7 +91,7 @@ export function RecipientScanSheet({
   const ScannerView = scanner.ScannerView;
   return (
     <BottomSheet visible onClose={close} closeLabel={t('common.cancel')}>
-      <View style={styles.scanContent}>
+      <ScrollView contentContainerStyle={styles.scanContent}>
         <Text accessibilityRole="header" style={styles.title}>{t('contacts.scan.title')}</Text>
         <Text style={styles.hint}>{t('send.scan.purpose')}</Text>
         {permission === 'granted' ? (
@@ -132,7 +132,7 @@ export function RecipientScanSheet({
           />
         ) : null}
         <NativeButton label={t('common.cancel')} variant="quiet" onPress={close} />
-      </View>
+      </ScrollView>
     </BottomSheet>
   );
 }

@@ -8,12 +8,15 @@ export function createStyles(theme: AppTheme) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 12,
+      paddingVertical: theme.spacing.xs,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.colors.border,
     },
-    side: { flex: 1, alignItems: 'flex-start' },
+    // Reserve the localized Back control's natural width before laying out the title.
+    side: { flexShrink: 0, alignItems: 'flex-start' },
     title: {
-      maxWidth: '58%',
+      flex: 1,
+      minWidth: 0,
       textAlign: 'center',
       fontSize: 18,
       lineHeight: 22,

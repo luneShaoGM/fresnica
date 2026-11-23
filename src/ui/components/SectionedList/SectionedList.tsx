@@ -10,17 +10,20 @@ export function SectionedList<T>({
   keyExtractor,
   renderItem,
   empty,
+  header,
 }: Readonly<{
   sections: readonly SectionedListSection<T>[];
   keyExtractor(item: T): string;
   renderItem(item: T): React.ReactElement;
   empty?: React.ReactElement;
+  header?: React.ReactElement;
 }>) {
   const styles = useThemedStyles(createStyles);
   return (
     <SectionList
       sections={sections}
       ListEmptyComponent={empty}
+      ListHeaderComponent={header}
       keyExtractor={keyExtractor}
       renderItem={({ item }) => renderItem(item)}
       renderSectionHeader={({ section }) => (

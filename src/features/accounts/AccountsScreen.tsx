@@ -55,7 +55,6 @@ export function AccountsScreen({
         <Text accessibilityRole="header" style={styles.title}>
           {t('settings.accounts')}
         </Text>
-        <View style={styles.headerSide} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -144,7 +143,11 @@ export function AccountsScreen({
 
         <View style={styles.addButtonContainer}>
           <NativeButton
-            icon={<Text style={styles.addIcon}>＋</Text>}
+            icon={
+              <Text allowFontScaling={false} style={styles.addIcon}>
+                ＋
+              </Text>
+            }
             label="Add account"
             onPress={onAddAccount}
             size="lg"

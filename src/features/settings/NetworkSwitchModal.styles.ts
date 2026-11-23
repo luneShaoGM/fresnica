@@ -10,8 +10,9 @@ export function createStyles(theme: AppTheme) {
       justifyContent: 'space-between',
       paddingHorizontal: theme.spacing.lg,
       paddingVertical: theme.spacing.sm,
+      gap: theme.spacing.sm,
     },
-    title: { ...theme.typography.sectionTitle, color: theme.colors.textPrimary },
+    title: { ...theme.typography.sectionTitle, color: theme.colors.textPrimary, flex: 1, minWidth: 0 },
     content: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.lg, gap: theme.spacing.sm },
     group: {
       ...theme.typography.caption,

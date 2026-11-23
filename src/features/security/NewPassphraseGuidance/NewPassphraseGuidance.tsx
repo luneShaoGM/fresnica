@@ -19,7 +19,7 @@ export function NewPassphraseGuidance({
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   return (
-    <View>
+    <View style={styles.content}>
       <Text style={styles.body}>{t('passphrase.policy.recommendation')}</Text>
       {assessment.rejection && assessment.rejection !== 'empty' ? (
         <Text accessibilityRole="alert" style={styles.error}>

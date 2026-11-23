@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { AppState, KeyboardAvoidingView, Platform, Text } from 'react-native';
+import { AppState, Text, View } from 'react-native';
 import { AppModal } from '../AppModal';
 import { Button } from '../Button';
 import { PassphraseInput, type PassphraseInputHandle } from '../PassphraseInput';
@@ -80,13 +80,14 @@ export function PassphrasePrompt({
   return (
     <AppModal
       visible
+      scrollable
       title={title}
       closeLabel={cancelLabel}
       onRequestClose={() => {
         if (!busy) onCancel();
       }}
     >
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.content}>
+      <View style={styles.content}>
         <PassphraseInput
           ref={inputRef}
           autoFocus
@@ -103,7 +104,7 @@ export function PassphrasePrompt({
         ) : null}
         <Button label={confirmLabel} disabled={busy || !hasValue} onPress={onConfirm} />
         <Button label={cancelLabel} disabled={busy} variant="secondary" onPress={onCancel} />
-      </KeyboardAvoidingView>
+      </View>
     </AppModal>
   );
 }

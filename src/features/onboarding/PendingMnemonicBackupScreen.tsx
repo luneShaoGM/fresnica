@@ -91,11 +91,14 @@ export function PendingMnemonicBackupScreen({ dependencies, signerId, securityDe
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.hero}>
           <View style={styles.securityMark}>
-            <Text style={styles.securityGlyph}>⌁</Text>
+            <Text allowFontScaling={false} accessible={false} style={styles.securityGlyph}>
+              ⌁
+            </Text>
           </View>
           <Text style={styles.title}>Finish recovery phrase backup</Text>
           <Text style={styles.body}>
@@ -121,7 +124,9 @@ export function PendingMnemonicBackupScreen({ dependencies, signerId, securityDe
               style={styles.input}
             />
             <View style={styles.infoRow}>
-              <Text style={styles.infoGlyph}>i</Text>
+              <Text allowFontScaling={false} accessible={false} style={styles.infoGlyph}>
+                i
+              </Text>
               <Text style={styles.infoText}>
                 The passphrase is used only to recover the pending backup through Fresnica Core.
               </Text>
@@ -140,28 +145,27 @@ export function PendingMnemonicBackupScreen({ dependencies, signerId, securityDe
             <Text style={styles.error}>{error}</Text>
           </View>
         ) : null}
+        {backup ? null : (
+          <View style={styles.footer}>
+            <Pressable
+              accessibilityRole="button"
+              disabled={busy || appPassphrase.length === 0}
+              onPress={recover}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                busy || appPassphrase.length === 0 ? styles.disabled : undefined,
+                pressed ? styles.primaryButtonPressed : undefined,
+              ]}
+            >
+              {busy ? (
+                <ActivityIndicator color={theme.colors.onActionPrimary} />
+              ) : (
+                <Text style={styles.primaryButtonText}>Reveal recovery phrase</Text>
+              )}
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
-
-      {backup ? null : (
-        <View style={styles.footer}>
-          <Pressable
-            accessibilityRole="button"
-            disabled={busy || appPassphrase.length === 0}
-            onPress={recover}
-            style={({ pressed }) => [
-              styles.primaryButton,
-              busy || appPassphrase.length === 0 ? styles.disabled : undefined,
-              pressed ? styles.primaryButtonPressed : undefined,
-            ]}
-          >
-            {busy ? (
-              <ActivityIndicator color={theme.colors.onActionPrimary} />
-            ) : (
-              <Text style={styles.primaryButtonText}>Reveal recovery phrase</Text>
-            )}
-          </Pressable>
-        </View>
-      )}
     </Screen>
   );
 }
@@ -173,7 +177,7 @@ function readableError(error: unknown): string {
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: theme.colors.background },
-    header: { height: 60, justifyContent: 'center', paddingHorizontal: 20 },
+    header: { minHeight: 60, justifyContent: 'center', paddingHorizontal: 20, paddingVertical: theme.spacing.sm },
     brandLockup: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
     brand: { color: theme.colors.textPrimary, fontSize: 24, lineHeight: 30, fontWeight: '800', letterSpacing: -0.6 },
     scroll: { flexGrow: 1, paddingBottom: 24 },
@@ -250,6 +254,7 @@ function createStyles(theme: AppTheme) {
     },
     error: { color: theme.colors.negativeStrong, fontSize: 12, lineHeight: 18, fontWeight: '600' },
     footer: {
+      marginTop: 'auto',
       paddingHorizontal: 20,
       paddingTop: 12,
       paddingBottom: 8,
@@ -263,9 +268,16 @@ function createStyles(theme: AppTheme) {
       justifyContent: 'center',
       backgroundColor: theme.colors.actionPrimary,
       paddingHorizontal: 18,
+      paddingVertical: theme.spacing.sm,
     },
     primaryButtonPressed: { backgroundColor: theme.colors.actionPrimaryPressed },
-    primaryButtonText: { color: theme.colors.onActionPrimary, fontSize: 15, lineHeight: 20, fontWeight: '800' },
+    primaryButtonText: {
+      textAlign: 'center',
+      color: theme.colors.onActionPrimary,
+      fontSize: 15,
+      lineHeight: 20,
+      fontWeight: '800',
+    },
     disabled: { opacity: 0.45 },
   });
 }

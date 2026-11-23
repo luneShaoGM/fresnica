@@ -20,10 +20,12 @@ export function createStyles(theme: AppTheme) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.colors.border,
       flexDirection: 'row',
+      flexWrap: 'wrap',
       alignItems: 'center',
       gap: theme.spacing.sm,
     },
-    details: { flex: 1, gap: theme.spacing.xs },
+    details: { flexGrow: 1, flexShrink: 1, flexBasis: '55%', minWidth: 0, gap: theme.spacing.xs },
+    disconnect: { maxWidth: '100%' },
     origin: { ...theme.typography.label, color: theme.colors.textPrimary },
     account: { ...theme.typography.caption, color: theme.colors.textSecondary },
     error: {

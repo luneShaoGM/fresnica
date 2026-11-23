@@ -64,18 +64,22 @@ export function createStyles(theme: AppTheme) {
     header: {
       minHeight: 48,
       flexDirection: 'row',
+      flexWrap: 'wrap',
       alignItems: 'center',
       justifyContent: 'space-between',
       marginBottom: theme.spacing.md,
       gap: theme.spacing.md,
     },
-    brandLockup: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, gap: theme.spacing.xs },
+    brandLockup: { maxWidth: '100%', flexDirection: 'row', alignItems: 'center', flexShrink: 1, gap: theme.spacing.xs },
     brand: {
       ...theme.typography.title,
       color: theme.colors.textPrimary,
+      flexShrink: 1,
     },
     networkButton: {
       minHeight: 44,
+      maxWidth: '100%',
+      flexShrink: 1,
       justifyContent: 'center',
       borderRadius: theme.radii.md,
       backgroundColor: theme.colors.actionPrimarySoft,
@@ -114,6 +118,8 @@ export function createStyles(theme: AppTheme) {
       minWidth: 0,
     },
     accountKindBadge: {
+      maxWidth: '45%',
+      flexShrink: 1,
       ...theme.typography.caption,
       color: theme.colors.textSecondary,
       backgroundColor: theme.colors.background,
@@ -146,7 +152,7 @@ export function createStyles(theme: AppTheme) {
     },
     addAccountText: {
       ...theme.typography.caption,
-      color: theme.colors.actionPrimaryPressed,
+      color: theme.colors.textPrimary,
       fontWeight: '700',
     },
     actionsRow: {
@@ -157,7 +163,9 @@ export function createStyles(theme: AppTheme) {
     },
     action: {
       flex: 1,
+      minWidth: 0,
       minHeight: 44,
+      paddingVertical: theme.spacing.sm,
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: theme.radii.md,
@@ -170,27 +178,34 @@ export function createStyles(theme: AppTheme) {
       opacity: 0.45,
     },
     actionText: {
+      textAlign: 'center',
       ...theme.typography.button,
       color: theme.colors.textPrimary,
     },
     sectionHeader: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: theme.spacing.sm,
       marginBottom: 0,
     },
     sectionTitle: {
+      flexShrink: 1,
       ...theme.typography.sectionTitle,
       color: theme.colors.textPrimary,
     },
     categoryTitleRow: {
+      maxWidth: '100%',
+      minWidth: 0,
       flexDirection: 'row',
       alignItems: 'center',
       gap: theme.spacing.xs,
       flexShrink: 1,
     },
     categoryTitleButton: {
+      minWidth: 0,
+      flexShrink: 1,
       minHeight: 44,
       flexDirection: 'row',
       alignItems: 'center',
@@ -214,7 +229,7 @@ export function createStyles(theme: AppTheme) {
     claimableHintText: {
       ...theme.typography.label,
       fontWeight: '700',
-      color: theme.colors.actionPrimaryPressed,
+      color: theme.colors.textPrimary,
     },
     categoryDialogHeading: {
       minHeight: 44,
@@ -253,7 +268,7 @@ export function createStyles(theme: AppTheme) {
     },
     sectionLink: {
       ...theme.typography.label,
-      color: theme.colors.actionPrimaryPressed,
+      color: theme.colors.textPrimary,
     },
     sectionLinkDisabled: {
       color: theme.colors.textTertiary,

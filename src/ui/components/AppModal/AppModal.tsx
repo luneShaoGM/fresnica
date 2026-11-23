@@ -1,5 +1,16 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Animated, Modal, PanResponder, Pressable, Text, View, type ModalProps } from 'react-native';
+import {
+  Animated,
+  KeyboardAvoidingView,
+  Modal,
+  PanResponder,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  type ModalProps,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useThemedStyles } from '@ui/theme';
@@ -21,6 +32,8 @@ export type AppModalProps = React.PropsWithChildren<
   Readonly<{
     visible: boolean;
     presentation?: 'dialog' | 'sheet';
+    scrollable?: boolean;
+    avoidAndroidKeyboard?: boolean;
     onRequestClose: () => void;
     title?: string;
     description?: string;
@@ -43,6 +56,8 @@ export function AppModal({
   swipeHeader,
   children,
   presentation = 'dialog',
+  scrollable = false,
+  avoidAndroidKeyboard = false,
   animationType = 'fade',
   contentSized = false,
   sheetBackground = 'surface',
@@ -76,11 +91,25 @@ export function AppModal({
       }),
     [draggable, offsetY, onRequestClose],
   );
+  const scrollableDialog = presentation === 'dialog' && scrollable;
+  const avoidKeyboard = scrollableDialog || (Platform.OS === 'android' && avoidAndroidKeyboard);
+  const Overlay = avoidKeyboard ? KeyboardAvoidingView : View;
+  // Android modal frames can stay full-height while the keyboard is visible.
+  const overlayProps = avoidKeyboard
+    ? { behavior: Platform.OS === 'ios' ? ('padding' as const) : ('height' as const) }
+    : {};
   const Container = presentation === 'sheet' ? SafeAreaView : View;
   const containerProps =
     presentation === 'sheet'
       ? { edges: contentSized ? (['right', 'bottom', 'left'] as const) : (['bottom'] as const) }
       : {};
+  const content = (
+    <>
+      {title ? <Text style={styles.title}>{title}</Text> : null}
+      {description ? <Text style={styles.description}>{description}</Text> : null}
+      {children}
+    </>
+  );
   return (
     <Modal
       animationType={animationType}
@@ -89,7 +118,7 @@ export function AppModal({
       transparent
       visible={visible}
     >
-      <View style={[styles.overlay, presentation === 'sheet' ? styles.sheetOverlay : undefined]}>
+      <Overlay {...overlayProps} style={[styles.overlay, presentation === 'sheet' ? styles.sheetOverlay : undefined]}>
         <Pressable
           accessibilityLabel={closeLabel}
           accessibilityRole="button"
@@ -110,7 +139,11 @@ export function AppModal({
             accessibilityViewIsModal
             onAccessibilityEscape={onRequestClose}
             style={[
-              presentation === 'sheet' ? styles.sheetContent : styles.dialogContent,
+              presentation === 'sheet'
+                ? styles.sheetContent
+                : scrollableDialog
+                  ? styles.dialogScroll
+                  : styles.dialogContent,
               presentation === 'sheet' && contentSized ? styles.contentSizedSheetContent : undefined,
             ]}
           >
@@ -124,12 +157,20 @@ export function AppModal({
             ) : presentation === 'sheet' ? (
               swipeHeader
             ) : null}
-            {title ? <Text style={styles.title}>{title}</Text> : null}
-            {description ? <Text style={styles.description}>{description}</Text> : null}
-            {children}
+            {scrollableDialog ? (
+              <ScrollView
+                style={styles.dialogScroll}
+                contentContainerStyle={styles.dialogScrollContent}
+                keyboardShouldPersistTaps="handled"
+              >
+                {content}
+              </ScrollView>
+            ) : (
+              content
+            )}
           </Container>
         </Animated.View>
-      </View>
+      </Overlay>
     </Modal>
   );
 }

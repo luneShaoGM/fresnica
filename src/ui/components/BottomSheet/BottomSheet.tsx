@@ -12,16 +12,24 @@ export type BottomSheetProps = React.PropsWithChildren<
     visible: boolean;
     onClose: () => void;
     closeLabel?: string;
+    avoidAndroidKeyboard?: boolean;
   }>
 >;
 
-export function BottomSheet({ visible, onClose, closeLabel = 'Close', children }: BottomSheetProps): React.JSX.Element {
+export function BottomSheet({
+  visible,
+  onClose,
+  closeLabel = 'Close',
+  avoidAndroidKeyboard = false,
+  children,
+}: BottomSheetProps): React.JSX.Element {
   const styles = useThemedStyles(createStyles);
   const { t } = useLocalization();
 
   return (
     <AppModal
       animationType="slide"
+      avoidAndroidKeyboard={avoidAndroidKeyboard}
       closeLabel={closeLabel}
       dragDismissLabel={t('common.dragDownToClose')}
       onRequestClose={onClose}

@@ -278,7 +278,7 @@ export function ManageAssetsScreen({
             </View>
             <Text style={styles.reviewAction}>{reviewActionLabel(review.operation, t)}</Text>
             <Text style={styles.reviewAsset}>{review.asset.code}</Text>
-            <Text numberOfLines={2} selectable style={styles.reviewIssuer}>
+            <Text selectable style={styles.reviewIssuer}>
               {review.asset.issuer}
             </Text>
           </View>
@@ -358,7 +358,7 @@ export function ManageAssetsScreen({
               positive ? styles.resultPositive : uncertain ? styles.resultUncertain : styles.resultNegative,
             ]}
           >
-            <Text style={styles.resultGlyph}>{positive ? '✓' : uncertain ? '?' : '!'}</Text>
+            <Text style={[styles.resultGlyph, positive ? styles.resultGlyphPositive : uncertain ? styles.resultGlyphUncertain : styles.resultGlyphNegative]}>{positive ? '✓' : uncertain ? '?' : '!'}</Text>
           </View>
           <Text accessibilityRole="header" style={styles.resultTitle}>
             {resultTitle(flow.result, t)}
@@ -445,14 +445,16 @@ export function ManageAssetsScreen({
         <Text accessibilityRole="header" style={styles.sectionLabel}>
           {t('trustlines.add.section')}
         </Text>
-        <Pressable
-          accessibilityLabel={t('trustlines.add.title')}
-          accessibilityRole="button"
-          onPress={() => setAddSheetOpen(true)}
-          style={({ pressed }) => [styles.primaryButton, pressed ? styles.pressed : undefined]}
-        >
-          <Text style={styles.primaryButtonText}>{t('trustlines.add.title')}</Text>
-        </Pressable>
+        <View style={styles.addBlock}>
+          <Pressable
+            accessibilityLabel={t('trustlines.add.title')}
+            accessibilityRole="button"
+            onPress={() => setAddSheetOpen(true)}
+            style={({ pressed }) => [styles.primaryButton, pressed ? styles.pressed : undefined]}
+          >
+            <Text style={styles.primaryButtonText}>{t('trustlines.add.title')}</Text>
+          </Pressable>
+        </View>
         {addSheetOpen && active ? (
           <AddAssetSheet
             account={account}
@@ -673,7 +675,7 @@ function MessageScreen({
   return (
     <Screen scrollable={false} contentInset="none">
       <Header backLabel={backLabel} title={headerTitle} onBack={onBack} />
-      <View style={styles.messageBody}>
+      <ScrollView contentContainerStyle={styles.messageBody}>
         {loading ? (
           <ActivityIndicator
             accessibilityLabel={message}
@@ -699,7 +701,7 @@ function MessageScreen({
             <Text style={styles.messageActionText}>{actionLabel}</Text>
           </Pressable>
         ) : null}
-      </View>
+      </ScrollView>
     </Screen>
   );
 }
@@ -710,7 +712,7 @@ function ReviewRow({ label, value, mono = false }: Readonly<{ label: string; val
   return (
     <View style={styles.reviewRow}>
       <Text style={styles.reviewLabel}>{label}</Text>
-      <Text numberOfLines={mono ? 2 : 3} selectable style={[styles.reviewValue, mono ? styles.mono : undefined]}>
+      <Text selectable style={[styles.reviewValue, mono ? styles.mono : undefined]}>
         {value}
       </Text>
     </View>

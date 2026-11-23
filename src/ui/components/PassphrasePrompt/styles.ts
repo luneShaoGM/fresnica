@@ -11,5 +11,5 @@ export const createStyles = (theme: AppTheme) =>
       padding: theme.spacing.md,
       minHeight: 52,
     },
-    error: { color: theme.colors.negative, fontSize: 14, lineHeight: 20 },
+    error: { color: theme.colors.negativeStrong, fontSize: 14, lineHeight: 20 },
   });

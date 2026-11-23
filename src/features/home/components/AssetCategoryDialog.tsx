@@ -26,7 +26,7 @@ export function AssetCategoryDialog({ visible, current, showClaimable, showPools
     ...(showClaimable ? ['claimable' as const] : []),
   ];
   return (
-    <AppModal visible={visible} onRequestClose={onClose}>
+    <AppModal visible={visible} onRequestClose={onClose} scrollable>
       <View style={styles.categoryDialogHeading}>
         <Text style={styles.sectionTitle}>{t('claimable.category.choose')}</Text>
         <Pressable

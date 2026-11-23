@@ -21,6 +21,7 @@ type NodeProps = {
   children?: React.ReactNode;
   style?: React.ComponentProps<typeof View>['style'];
   visible?: boolean;
+  avoidAndroidKeyboard?: boolean;
   dragDismissLabel?: string;
   onRequestClose?: () => void;
 };
@@ -46,6 +47,7 @@ describe('shared BottomSheet dismissal', () => {
     expect(modal?.props).toMatchObject({
       visible: true,
       presentation: 'sheet',
+      avoidAndroidKeyboard: false,
       animationType: 'slide',
       swipeToDismiss: true,
       onRequestClose: onClose,
@@ -57,6 +59,16 @@ describe('shared BottomSheet dismissal', () => {
 
     modal?.props.onRequestClose?.();
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes Android keyboard avoidance to AppModal without wrapping or replacing caller content', () => {
+    const onClose = jest.fn();
+    const child = React.createElement(View, { testID: 'input-sheet-content' });
+    const root = BottomSheet({ visible: true, avoidAndroidKeyboard: true, onClose, children: child });
+    const modal = find(root, AppModal);
+    expect(modal?.props.avoidAndroidKeyboard).toBe(true);
+    expect(modal?.props.onRequestClose).toBe(onClose);
+    expect(find(modal, View)?.props.children).toBe(child);
   });
 
   it.each([

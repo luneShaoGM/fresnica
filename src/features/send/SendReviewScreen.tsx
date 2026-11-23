@@ -59,7 +59,9 @@ export function SendReviewScreen({
           onPress={onBack}
           style={styles.backButton}
         >
-          <Text style={styles.backGlyph}>‹</Text>
+          <Text allowFontScaling={false} accessible={false} style={styles.backGlyph}>
+            ‹
+          </Text>
         </Pressable>
         <Text style={styles.headerTitle}>{t('send.step.summary')}</Text>
         <View style={styles.headerSpacer} />
@@ -91,13 +93,12 @@ export function SendReviewScreen({
             <ReviewRow label="Expires" value={new Date(review.expiresAtUnixSeconds * 1000).toLocaleString()} />
           )}
         </View>
+        {error && !authorizing ? (
+          <Text accessibilityLiveRegion="assertive" style={styles.error}>
+            {error}
+          </Text>
+        ) : null}
       </ScrollView>
-
-      {error && !authorizing ? (
-        <Text accessibilityLiveRegion="assertive" style={styles.error}>
-          {error}
-        </Text>
-      ) : null}
 
       <PassphrasePrompt
         visible={authorizing}
@@ -147,7 +148,7 @@ function ReviewRow({ label, value, mono = false }: Readonly<{ label: string; val
   return (
     <View style={styles.reviewRow}>
       <Text style={styles.label}>{label}</Text>
-      <Text numberOfLines={mono ? 2 : 3} selectable style={[styles.value, mono ? styles.mono : undefined]}>
+      <Text selectable style={[styles.value, mono ? styles.mono : undefined]}>
         {value}
       </Text>
     </View>
