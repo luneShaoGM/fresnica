@@ -1,5 +1,4 @@
-import { createHash } from 'node:crypto';
-import { Keypair } from '@stellar/stellar-sdk';
+import { createHash, generateKeyPairSync, sign as signBytes, verify } from 'node:crypto';
 
 import { createFreighterSession } from '../freighterSession';
 import { createDappMessageSigner } from '../dappMessageSigner';
@@ -60,8 +59,8 @@ it('calls only the passphrase SDK with the exact message and drops a retired SDK
 });
 
 it('verifies signatures for official raw text and explicitly encoded Stellar UTF-8 bytes', async () => {
-  const keypair = Keypair.fromRawEd25519Seed(Buffer.alloc(32, 9));
-  const address = keypair.publicKey();
+  const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+  const address = account.address;
   const selection = {
     accountId: account.id,
     address,
@@ -93,7 +92,7 @@ it('verifies signatures for official raw text and explicitly encoded Stellar UTF
   const hash = (bytes: Buffer) => createHash('sha256').update('Stellar Signed Message:\n').update(bytes).digest();
   const sdk = {
     signMessageWithPassphrase: jest.fn(async ({ message }: { message: string }) =>
-      Buffer.from(keypair.sign(hash(Buffer.from(message, 'utf8')))).toString('base64'),
+      signBytes(null, hash(Buffer.from(message, 'utf8')), privateKey).toString('base64'),
     ),
   };
   const sign = createDappMessageSigner(sdk, {
@@ -124,8 +123,8 @@ it('verifies signatures for official raw text and explicitly encoded Stellar UTF
       signerAddress: address,
     });
     const returned = Buffer.from(response?.signedBlob ?? '', 'base64');
-    expect(keypair.verify(hash(Buffer.from(expected)), returned)).toBe(true);
-    expect(keypair.verify(hash(Buffer.from(id === 1 ? raw : base64)), returned)).toBe(false);
+    expect(verify(null, hash(Buffer.from(expected)), publicKey, returned)).toBe(true);
+    expect(verify(null, hash(Buffer.from(id === 1 ? raw : base64)), publicKey, returned)).toBe(false);
   }
   expect(send(3, '/w==', 'base64')).toMatchObject({ response: { error: 'invalid-message' } });
   expect(send(4, 'YQ', 'base64')).toMatchObject({ response: { error: 'invalid-message' } });
