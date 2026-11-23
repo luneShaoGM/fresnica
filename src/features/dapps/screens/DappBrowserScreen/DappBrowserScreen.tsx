@@ -48,6 +48,8 @@ type Props = Readonly<{
   BrowserSurface: ComponentType<DappBrowserSurfaceProps & RefAttributes<DappBrowserSurfaceHandle>>;
 }>;
 
+const NOTIFICATION_APPROVAL_TIMEOUT_MS = 5_000;
+
 type PendingSignature = Readonly<{
   transactionXdrBase64: string;
   origin: string;
@@ -91,10 +93,14 @@ export function DappBrowserScreen({
   type NotificationRequest = Extract<BridgeDecision, { kind: 'notification' }> & {
     origin: string;
     epoch: number;
+    deadline: number;
   };
   const notificationRequest = useRef<NotificationRequest | undefined>(undefined);
+  const notificationTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [pendingNotification, setPendingNotification] = useState<NotificationRequest>();
   const clearNotification = () => {
+    clearTimeout(notificationTimer.current);
+    notificationTimer.current = undefined;
     notificationRequest.current = undefined;
     setPendingNotification(undefined);
   };
@@ -161,6 +167,8 @@ export function DappBrowserScreen({
     });
     return () => {
       unsubscribe();
+      clearTimeout(notificationTimer.current);
+      notificationRequest.current = undefined;
       current.session.revoke();
     };
   }, [current, subscribeSelection]);
@@ -203,9 +211,18 @@ export function DappBrowserScreen({
       if (!showNotification || !origin || notificationRequest.current) {
         reply({ source: 'FRESNICA_DAPP_MSG_RESPONSE', messagedId: decision.messageId, shown: false });
       } else {
-        const request = { ...decision, origin, epoch: documentEpoch.current };
+        const request = {
+          ...decision,
+          origin,
+          epoch: documentEpoch.current,
+          deadline: performance.now() + NOTIFICATION_APPROVAL_TIMEOUT_MS,
+        };
         notificationRequest.current = request;
         setPendingNotification(request);
+        notificationTimer.current = setTimeout(
+          () => answerNotification(request, false),
+          NOTIFICATION_APPROVAL_TIMEOUT_MS,
+        );
       }
     }
     if (decision.kind === 'respond') reply(decision.response);
@@ -224,7 +241,7 @@ export function DappBrowserScreen({
       currentSession() && documentEpoch.current === request.epoch && documentOrigin.current === request.origin;
     if (!stillCurrent()) return;
     let shown = false;
-    if (approved && current?.session.notificationAllowed()) {
+    if (approved && performance.now() < request.deadline && current?.session.notificationAllowed()) {
       try {
         shown = showNotification?.(request.origin, request.title, request.body) === true;
       } catch {
@@ -445,20 +462,29 @@ export function DappBrowserScreen({
               disabled={!page.canGoBack}
               glyph="‹"
               label={t('dapps.browser.back')}
-              onPress={() => surface.current?.goBack()}
+              onPress={() => {
+                clearNotification();
+                surface.current?.goBack();
+              }}
               styles={styles}
             />
             <ToolButton
               disabled={!page.canGoForward}
               glyph="›"
               label={t('dapps.browser.forward')}
-              onPress={() => surface.current?.goForward()}
+              onPress={() => {
+                clearNotification();
+                surface.current?.goForward();
+              }}
               styles={styles}
             />
             <ToolButton
               glyph="↻"
               label={t('dapps.browser.reload')}
-              onPress={() => surface.current?.reload()}
+              onPress={() => {
+                clearNotification();
+                surface.current?.reload();
+              }}
               styles={styles}
             />
           </View>

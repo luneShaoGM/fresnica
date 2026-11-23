@@ -700,55 +700,84 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
   });
 });
 
-it.each(['approve', 'cancel', 'navigate', 'selection', 'revoke', 'background'] as const)(
-  'requires separate one-time notification consent and handles %s before delivery',
-  action => {
-    const origin = 'https://demo.example.org';
-    const notify = jest.fn(() => true);
-    const draw = (active = true) => render(active, undefined, undefined, notify);
-    const browser = find(draw(), node => node.type === BrowserSurface);
-    refs[1].current = { reply: replies };
-    browser?.props.onMessage?.(request('REQUEST_ACCESS', 1), origin);
-    find(draw(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
-    const send = (messageId: number) =>
-      browser?.props.onMessage?.(
-        JSON.stringify({
-          source: 'FRESNICA_DAPP_MSG_REQUEST',
-          messageId,
-          type: 'SHOW_SYSTEM_NOTIFICATION',
-          title: 'Ready',
-          body: 'A result is ready',
-        }),
-        origin,
-      );
-    send(2);
-    const approval = find(draw(), node => node.props.label === 'dapps.notification.allow')?.props.onPress;
-    expect(approval).toBeDefined();
-    expect(notify).not.toHaveBeenCalled();
-    if (action === 'cancel') {
-      find(draw(), node => node.props.label === 'common.cancel')?.props.onPress?.();
-    }
-    if (action === 'navigate') browser?.props.onDocumentStart?.(origin + '/another-document');
-    if (action === 'selection' || action === 'revoke') {
-      for (const effect of effects.splice(0)) effect();
-      if (action === 'selection') {
-        expect(subscriber).toBeDefined();
-        subscriber?.();
-      } else {
-        permissions.revoke({ origin, accountId: 'wallet1', networkId: 'stellar-testnet' });
-      }
-    }
-    if (action === 'background') draw(false);
-    approval?.();
-    approval?.();
-    if (action === 'approve') {
-      expect(notify).toHaveBeenCalledTimes(1);
-      expect(notify).toHaveBeenCalledWith(origin, 'Ready', 'A result is ready');
-      send(3);
-      expect(find(draw(), node => node.props.label === 'dapps.notification.allow')).toBeDefined();
-      expect(notify).toHaveBeenCalledTimes(1);
+it.each([
+  'approve',
+  'cancel',
+  'navigate',
+  'selection',
+  'revoke',
+  'background',
+  'back',
+  'forward',
+  'reload',
+  'timeout',
+  'delayed-timer',
+] as const)('requires separate one-time notification consent and handles %s before delivery', action => {
+  const origin = 'https://demo.example.org';
+  const notify = jest.fn(() => true);
+  const draw = (active = true) => render(active, undefined, undefined, notify);
+  const browser = find(draw(), node => node.type === BrowserSurface);
+  refs[1].current = { reply: replies, goBack, goForward, reload };
+  browser?.props.onMessage?.(request('REQUEST_ACCESS', 1), origin);
+  find(draw(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
+  const send = (messageId: number) =>
+    browser?.props.onMessage?.(
+      JSON.stringify({
+        source: 'FRESNICA_DAPP_MSG_REQUEST',
+        messageId,
+        type: 'SHOW_SYSTEM_NOTIFICATION',
+        title: 'Ready',
+        body: 'A result is ready',
+      }),
+      origin,
+    );
+  if (action === 'back' || action === 'forward') {
+    browser?.props.onNavigation?.({ url: origin, canGoBack: true, canGoForward: true });
+  }
+  if (action === 'timeout') jest.useFakeTimers();
+  const clock = action === 'delayed-timer' ? jest.spyOn(performance, 'now').mockReturnValue(0) : undefined;
+  send(2);
+  const approval = find(draw(), node => node.props.label === 'dapps.notification.allow')?.props.onPress;
+  expect(approval).toBeDefined();
+  expect(notify).not.toHaveBeenCalled();
+  if (action === 'cancel') {
+    find(draw(), node => node.props.label === 'common.cancel')?.props.onPress?.();
+  }
+  if (action === 'navigate') browser?.props.onDocumentStart?.(origin + '/another-document');
+  if (action === 'selection' || action === 'revoke') {
+    for (const effect of effects.splice(0)) effect();
+    if (action === 'selection') {
+      expect(subscriber).toBeDefined();
+      subscriber?.();
     } else {
-      expect(notify).not.toHaveBeenCalled();
+      permissions.revoke({ origin, accountId: 'wallet1', networkId: 'stellar-testnet' });
     }
-  },
-);
+  }
+  if (action === 'background') draw(false);
+  if (action === 'back' || action === 'forward' || action === 'reload') {
+    const navigate = find(draw(), node => node.props.label === 'dapps.browser.' + action)?.props.onPress;
+    expect(navigate).toBeDefined();
+    navigate?.();
+    expect({ back: goBack, forward: goForward, reload }[action]).toHaveBeenCalledTimes(1);
+    expect(find(draw(), node => node.props.label === 'dapps.notification.allow')).toBeUndefined();
+  }
+  if (action === 'timeout') {
+    jest.advanceTimersByTime(5_000);
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 2, shown: false }));
+    jest.useRealTimers();
+  }
+  clock?.mockReturnValue(5_000);
+  approval?.();
+  clock?.mockRestore();
+  approval?.();
+  if (action === 'approve') {
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith(origin, 'Ready', 'A result is ready');
+    send(3);
+    expect(find(draw(), node => node.props.label === 'dapps.notification.allow')).toBeDefined();
+    expect(notify).toHaveBeenCalledTimes(1);
+    find(draw(), node => node.props.label === 'common.cancel')?.props.onPress?.();
+  } else {
+    expect(notify).not.toHaveBeenCalled();
+  }
+});
