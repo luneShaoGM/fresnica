@@ -126,7 +126,7 @@ export function createStyles(theme: AppTheme) {
     },
     listContent: {
       paddingHorizontal: theme.spacing.md,
-      paddingBottom: theme.spacing.xl,
+      paddingBottom: theme.spacing.sm,
     },
     dateHeader: {
       ...theme.typography.caption,

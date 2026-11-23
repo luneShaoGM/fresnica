@@ -235,7 +235,6 @@ describe('S15/S18 Freighter in-WebView read-only wallet bridge', () => {
         name: 'USD Coin',
       },
     ],
-    ['SUBMIT_BLOB', { apiVersion: '1', blob: 'test-payload', accountToSign: selection.address }],
     ['SUBMIT_AUTH_ENTRY', { apiVersion: '1', entryXdr: 'AAAA', networkPassphrase: selection.networkPassphrase }],
   ] as const)('responds explicitly to a valid %s envelope instead of leaving a dApp pending', (type, fields) => {
     const { session } = harness();
@@ -262,7 +261,7 @@ describe('S15/S18 Freighter in-WebView read-only wallet bridge', () => {
       ['SUBMIT_TOKEN', { contractId: 'C123', iconUrl: 'x'.repeat(2049) }],
       ['SUBMIT_BLOB', { blob: 'hi' }],
       ['SUBMIT_BLOB', { apiVersion: '1', blob: '' }],
-      ['SUBMIT_BLOB', { apiVersion: '1', blob: 'x'.repeat(131_073) }],
+      ['SUBMIT_BLOB', { apiVersion: '1', blob: 'x'.repeat(16_385) }],
       ['SUBMIT_AUTH_ENTRY', { entryXdr: 'AAAA' }],
       ['SUBMIT_AUTH_ENTRY', { apiVersion: '', entryXdr: 'AAAA' }],
       ['SUBMIT_AUTH_ENTRY', { apiVersion: '1', entryXdr: 'A'.repeat(200_001) }],
@@ -283,7 +282,7 @@ describe('S15/S18 Freighter in-WebView read-only wallet bridge', () => {
 
   it('does not expand account permissions or sign when unsupported commands are received', () => {
     const { session } = harness();
-    const unsupported = request('SUBMIT_BLOB', 32, { blob: 'test-data', apiVersion: '1' });
+    const unsupported = request('SUBMIT_AUTH_ENTRY', 32, { entryXdr: 'AAAA', apiVersion: '1' });
     expect(session.receive(unsupported, origin)).toMatchObject({ kind: 'respond', response: { error: 'unsupported' } });
     expect(session.receive(request('REQUEST_ALLOWED_STATUS', 33), origin)).toMatchObject({
       kind: 'respond',
@@ -466,3 +465,37 @@ it.each([undefined, 'unix-ms', 'performance-now'])(
     ).toEqual({ kind: 'drop' });
   },
 );
+
+it('binds SEP-53 to approved origin, selected signer, network and request version', () => {
+  const { session } = harness();
+  const message = (id: number, fields: Record<string, unknown> = {}) =>
+    request('SUBMIT_BLOB', id, { blob: '  exact café  ', apiVersion: '3.0.0', ...fields });
+  expect(session.receive(message(1), origin)).toMatchObject({ response: { error: 'not-authorized' } });
+  session.receive(request('REQUEST_ACCESS', 2), origin);
+  session.resolvePermission(true);
+  expect(session.receive(message(3), 'https://other.example.org').kind).toBe('drop');
+  expect(session.receive(message(4, { accountToSign: 'GOTHER' }), origin)).toMatchObject({
+    response: { error: 'wrong-account' },
+  });
+  expect(session.receive(message(5, { networkPassphrase: 'other' }), origin)).toMatchObject({
+    response: { error: 'wrong-network' },
+  });
+  expect(session.receive(message(6, { blob: 'safe\u202Edanger' }), origin)).toMatchObject({
+    response: { error: 'invalid-message' },
+  });
+  expect(session.receive(message(7), origin)).toEqual({
+    kind: 'sign-message',
+    origin,
+    message: '  exact café  ',
+    encoding: 'hex',
+  });
+  expect(session.receive(message(7), origin).kind).toBe('drop');
+  expect(session.receive(message(8), origin)).toMatchObject({ response: { error: 'sign-pending' } });
+  expect(
+    session.finishSign({ status: 'message-signed', signedBlob: 'ab'.repeat(64), signerAddress: selection.address }),
+  ).toMatchObject({
+    messagedId: 7,
+    signedBlob: 'ab'.repeat(64),
+    signerAddress: selection.address,
+  });
+});

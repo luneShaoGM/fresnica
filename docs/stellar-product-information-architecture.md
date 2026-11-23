@@ -865,6 +865,7 @@ F3 只锁这些：
 - 壳（`app/`）统一设置 `StatusBar`（以及 Android 系统导航条颜色）。feature 屏幕默认不写 `barStyle`。暗色 scrim overlay、相机扫码等可以覆盖；关闭后恢复主题值。dApp WebView 不得自行管理状态栏。
 - 主题替换时只重绑壳，不要模仿 Xaman 对每个屏幕 `mergeOptions`，也不要引入 `StyleService`。
 - 安全区用已接入的 `react-native-safe-area-context`（根上 `SafeAreaProvider`，壳用 `useSafeAreaInsets`）。Screen / Header / TabBar / Overlay 消费 inset。不要再搬 Xaman 的 native inset 模块，不要为灵动岛写死 47/59，不要把 RN 自带 `SafeAreaView` 当成完成态（Android 挖孔和自定义 TabBar 底栏都不可靠）。
+- **主 Tab 底栏安全区所有权（2026-11-23）：** `MainTabBar` 的 `SafeAreaView` 唯一消费底部 inset；Home、Activity、dApps、Settings 根页面及无账户占位页的 `Screen` 只消费 `top/right/left`。滚动内容末尾保留 8 dp 的视觉缓冲，不叠加额外底部安全区。次级路由（交易详情、账户管理、设置子页）、登录/恢复表单及弹窗继续使用各自默认/专用的底部安全区，不能全局删除 `Screen` 默认 `bottom`。本变动仅是布局所有权调整，不改变数据、导航或授权语义。
 - 允许内容画到状态栏后面（edge-to-edge），由壳 inset 让开刘海 / 灵动岛 / Home Indicator / 手势条。
 - F3 壳原语已落地 App-level `StatusBar`、`SafeAreaProvider` 与 shared `Screen` inset；F4 表面只消费壳。dark/system/image-generated theme 等未完成项仍不得冒充完整 F3。
 

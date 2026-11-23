@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Text, FlatList } from 'react-native';
-import { AccountIdentityCard } from '@ui/components';
+import { AccountIdentityCard, Screen } from '@ui/components';
 import { ActivityFiltersSheet, type ActivityDisplayFilters } from '../ActivityFiltersSheet';
 import { TokenAssetIcon } from '../../assets/TokenAssetIcon';
 
@@ -214,6 +214,13 @@ function renderScreen(
 }
 
 describe('ActivityScreen filter/search closure', () => {
+  it('uses the Tab Bar bottom inset and only a small list-end scroll cushion', () => {
+    const { root } = renderScreen([trustline('trustline-1')]);
+    expect(root.type).toBe(Screen);
+    expect(root.props.safeAreaEdges).toEqual(['top', 'right', 'left']);
+    expect(createStyles(defaultTheme).listContent.paddingBottom).toBe(defaultTheme.spacing.sm);
+  });
+
   beforeEach(() => {
     mockedUseState.mockReset();
     mockedUseEffect.mockReset();

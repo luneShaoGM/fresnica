@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import type {
   DappBrowserNavigation,
+  DappMessageReplyTarget,
   DappBrowserSurfaceProps,
   DappBrowserSurfaceHandle,
 } from '../../../../capabilities/dapp-interaction/browserTransport';
@@ -11,6 +12,7 @@ import {
   readPublicDappNavigation,
 } from '../../../../capabilities/dapp-interaction/externalDappUrl';
 import type { DappTransactionIntent } from '../../../../capabilities/dapp-interaction/dappTransactionIntent';
+import type { DappMessageSigner } from '../../../../capabilities/dapp-interaction/dappMessageSigner';
 import type { DappTransactionSigner } from '../../../../capabilities/dapp-interaction/dappTransactionSigner';
 import {
   createFreighterSession,
@@ -43,6 +45,7 @@ type Props = Readonly<{
   subscribeSelection: (listener: () => void) => () => void;
   createNonce: () => string;
   signTransaction: DappTransactionSigner;
+  signMessage?: DappMessageSigner;
   permissions: DappPermissionStore;
   // One-use proof consumed by App composition; not a route param or grant.
   trustedCatalogOrigin?: string;
@@ -68,6 +71,7 @@ export function DappBrowserScreen({
   subscribeSelection,
   createNonce,
   signTransaction,
+  signMessage,
   permissions,
   trustedCatalogOrigin,
   BrowserSurface,
@@ -104,6 +108,14 @@ export function DappBrowserScreen({
     setPendingNotification(undefined);
   };
   const [pendingSign, setPendingSign] = useState<PendingSignature>();
+  const [pendingMessage, setPendingMessage] = useState<
+    Extract<BridgeDecision, { kind: 'sign-message' }> & {
+      generation: number;
+      epoch: number;
+      target: DappMessageReplyTarget;
+    }
+  >();
+  const messageReplyTarget = useRef<DappMessageReplyTarget | undefined>(undefined);
   const documentEpoch = useRef(0);
   const documentOrigin = useRef<string | undefined>(undefined);
   const signGeneration = useRef(0);
@@ -187,6 +199,7 @@ export function DappBrowserScreen({
         signGeneration.current += 1;
         setPendingOrigin(undefined);
         setPendingSign(undefined);
+        setPendingMessage(undefined);
         setStale(true);
       }
     });
@@ -199,13 +212,17 @@ export function DappBrowserScreen({
     }
   }, [active, current]);
 
-  const reply = (message: BridgeResponse | DappNotificationResponse) => {
-    if (active && !stale) surface.current?.reply(message);
+  const reply = (message: BridgeResponse | DappNotificationResponse, target?: DappMessageReplyTarget) => {
+    if (active && !stale) {
+      if (target) surface.current?.reply(message, target);
+      else surface.current?.reply(message);
+    }
   };
 
-  const handleMessage = (raw: string, messageUrl: string) => {
+  const handleMessage = (raw: string, messageUrl: string, replyId?: string) => {
     if (!current || !active || stale) return;
     const decision = current.session.receive(raw, messageUrl);
+    const target = replyId ? { replyId } : undefined;
     if (decision.kind === 'notification') {
       const origin = documentOrigin.current;
       const remainingMs = decision.expiresAt - (notificationNow?.() ?? Number.NaN);
@@ -222,8 +239,19 @@ export function DappBrowserScreen({
         notificationTimer.current = setTimeout(() => answerNotification(request, false), remainingMs);
       }
     }
-    if (decision.kind === 'respond') reply(decision.response);
+    if (decision.kind === 'respond') reply(decision.response, target);
     if (decision.kind === 'permission') setPendingOrigin(decision.origin);
+    if (decision.kind === 'sign-message') {
+      if (!target || !signMessage) {
+        const failed = current.session.finishSign({ status: 'failed', error: 'unsupported-signer' });
+        if (failed && target) reply(failed, target);
+        return;
+      }
+      signGeneration.current += 1;
+      setSignError(false);
+      messageReplyTarget.current = target;
+      setPendingMessage({ ...decision, generation: signGeneration.current, epoch: documentEpoch.current, target });
+    }
     if (decision.kind === 'sign-transaction') {
       const generation = signGeneration.current + 1;
       signGeneration.current = generation;
@@ -287,10 +315,13 @@ export function DappBrowserScreen({
   const rejectSignature = () => {
     signGeneration.current += 1;
     setPendingSign(undefined);
+    setPendingMessage(undefined);
     setSignError(false);
     if (!current || !active || stale) return;
+    const target = current.session.hasPendingMessage() ? messageReplyTarget.current : undefined;
+    messageReplyTarget.current = undefined;
     const declined = current.session.finishSign({ status: 'declined' });
-    if (declined) reply(declined);
+    if (declined) reply(declined, target);
   };
 
   const confirmSignature = async (appPassphrase: string) => {
@@ -344,6 +375,53 @@ export function DappBrowserScreen({
     }
   };
 
+  const confirmMessage = async (request: NonNullable<typeof pendingMessage>, appPassphrase: string) => {
+    if (!current || !signMessage || !appPassphrase || signing.current) return;
+    const isCurrent = () =>
+      currentSession() &&
+      request.generation === signGeneration.current &&
+      request.epoch === documentEpoch.current &&
+      current.session.canSignMessage();
+    if (!isCurrent()) return;
+    signing.current = true;
+    setSignError(false);
+    try {
+      const signature = await signMessage({
+        accountId: current.selection.accountId,
+        accountAddress: current.selection.address,
+        networkId: current.selection.networkId,
+        message: request.message,
+        encoding: request.encoding,
+        appPassphrase,
+        isCurrent,
+      });
+      if (!isCurrent()) return;
+      const completed = current.session.finishSign(
+        signature
+          ? { status: 'message-signed', signedBlob: signature, signerAddress: current.selection.address }
+          : { status: 'failed', error: 'unsupported-signer' },
+      );
+      setPendingMessage(undefined);
+      messageReplyTarget.current = undefined;
+      if (completed) reply(completed, request.target);
+    } catch (error) {
+      if (!isCurrent()) return;
+      if (error !== null && typeof error === 'object' && 'code' in error && error.code === 'user-cancel') {
+        rejectSignature();
+      } else {
+        setSignError(true);
+      }
+    } finally {
+      signing.current = false;
+    }
+  };
+
+  const navigateBrowser = (action: 'goBack' | 'goForward' | 'reload') => {
+    clearNotification();
+    if (current?.session.hasPendingMessage()) rejectSignature();
+    surface.current?.[action]();
+  };
+
   const choosePermission = (decision: 'once' | 'always' | 'reject') => {
     const grantedOrigin = pendingOrigin;
     setPendingOrigin(undefined);
@@ -385,16 +463,22 @@ export function DappBrowserScreen({
     // the bridge. Do not keep showing the previous, trusted address.
     current?.session.revoke();
     clearNotification();
+    messageReplyTarget.current = undefined;
     documentEpoch.current += 1;
     signGeneration.current += 1;
     setPendingOrigin(undefined);
     setPendingSign(undefined);
+    setPendingMessage(undefined);
     setSignError(false);
     setStale(true);
   };
 
   const onDocumentStart = (nextUrl: string) => {
-    if (!current || !currentSession() || nextUrl === 'about:blank') return;
+    if (!current || !currentSession()) return;
+    if (nextUrl === 'about:blank') {
+      if (current.session.hasPendingMessage()) rejectSignature();
+      return;
+    }
     const target = readPublicDappNavigation(nextUrl);
     if (!target) {
       retireInvalidNavigation();
@@ -407,6 +491,7 @@ export function DappBrowserScreen({
     if (documentStarts.current > 0 || target.url !== current.url) curatedDocumentActive.current = false;
     documentStarts.current += 1;
     clearNotification();
+    messageReplyTarget.current = undefined;
     documentEpoch.current += 1;
     documentOrigin.current = target.origin;
     current.session.activateDocument(target.origin);
@@ -414,6 +499,7 @@ export function DappBrowserScreen({
     signGeneration.current += 1;
     setPendingOrigin(undefined);
     setPendingSign(undefined);
+    setPendingMessage(undefined);
     setSignError(false);
   };
 
@@ -427,6 +513,7 @@ export function DappBrowserScreen({
     // Some WebView platforms can report a completed cross-origin navigation
     // before document-start. Even that path must retire curated read access.
     if (target.origin !== documentOrigin.current) clearNotification();
+    if (target.origin !== documentOrigin.current && current.session.hasPendingMessage()) rejectSignature();
     if (target.origin !== current.origin) curatedDocumentActive.current = false;
     setPage({ origin: target.origin, canGoBack: next.canGoBack, canGoForward: next.canGoForward });
   };
@@ -459,29 +546,20 @@ export function DappBrowserScreen({
               disabled={!page.canGoBack}
               glyph="‹"
               label={t('dapps.browser.back')}
-              onPress={() => {
-                clearNotification();
-                surface.current?.goBack();
-              }}
+              onPress={() => navigateBrowser('goBack')}
               styles={styles}
             />
             <ToolButton
               disabled={!page.canGoForward}
               glyph="›"
               label={t('dapps.browser.forward')}
-              onPress={() => {
-                clearNotification();
-                surface.current?.goForward();
-              }}
+              onPress={() => navigateBrowser('goForward')}
               styles={styles}
             />
             <ToolButton
               glyph="↻"
               label={t('dapps.browser.reload')}
-              onPress={() => {
-                clearNotification();
-                surface.current?.reload();
-              }}
+              onPress={() => navigateBrowser('reload')}
               styles={styles}
             />
           </View>
@@ -528,6 +606,24 @@ export function DappBrowserScreen({
             onAllowOnce={() => choosePermission('once')}
             onReject={() => choosePermission('reject')}
             origin={pendingOrigin}
+            visible
+          />
+        ) : null}
+        {pendingMessage ? (
+          <DappSignSheet
+            key={pendingMessage.generation}
+            message={pendingMessage.message}
+            address={current.selection.address}
+            network={networkLabel(current.selection.networkId)}
+            origin={pendingMessage.origin}
+            onConfirm={passphrase => {
+              confirmMessage(pendingMessage, passphrase);
+            }}
+            failed={signError}
+            onReject={() => {
+              if (pendingMessage.generation === signGeneration.current) rejectSignature();
+            }}
+            passphraseRequired
             visible
           />
         ) : null}

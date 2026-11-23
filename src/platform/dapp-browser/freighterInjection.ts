@@ -1,5 +1,25 @@
 import { MAX_BRIDGE_MESSAGE_LENGTH } from '../../capabilities/dapp-interaction/freighterSession';
 
+import type { DappMessageReplyTarget } from '../../capabilities/dapp-interaction/browserTransport';
+import type { BridgeResponse, DappNotificationResponse } from '../../capabilities/dapp-interaction/freighterSession';
+
+const SEP53_PREFIX = 'fresnica-sep53:';
+const validReplyId = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+
+export function readSep53ReplyId(value: unknown): string | undefined {
+  return typeof value === 'string' && validReplyId.test(value) ? value : undefined;
+}
+
+export function buildFreighterReply(
+  response: BridgeResponse | DappNotificationResponse,
+  target?: DappMessageReplyTarget,
+): { nativeCommand: string } | { script: string } | undefined {
+  const payload = JSON.stringify(response);
+  if (target) return { nativeCommand: SEP53_PREFIX + target.replyId + ':' + payload };
+  if ('signedBlob' in response && response.signedBlob !== undefined) return undefined;
+  return { script: 'window.postMessage(' + payload + ', window.location.origin);true;' };
+}
+
 // Forwards the page's own Freighter postMessage envelope. The native WebView
 // origin check is the authenticator; this script does not add a secret.
 export function buildFreighterInjectionScript(): string {
@@ -10,6 +30,16 @@ export function buildFreighterInjectionScript(): string {
     '  var nativeBridge = window.ReactNativeWebView;',
     '  if (!nativeBridge || typeof nativeBridge.postMessage !== "function") return true;',
     '  window.__fresnicaBridge = true;',
+    '  var iosSep53 = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.FresnicaSep53;',
+    '  var forwardReply = function(data) {',
+    '    try {',
+    '      var reply = JSON.parse(data);',
+    '      if (reply && reply.source === "FREIGHTER_EXTERNAL_MSG_RESPONSE") window.postMessage(reply, window.location.origin);',
+    '    } catch (_error) {}',
+    '  };',
+    '  if (!iosSep53 && typeof nativeBridge.addEventListener === "function") {',
+    '    nativeBridge.addEventListener("message", function(event) { forwardReply(event.data); });',
+    '  }',
     '  window.freighter = true;',
     '  var stellar = window.stellar && typeof window.stellar === "object" ? window.stellar : {};',
     '  stellar.provider = "freighter";',
@@ -26,7 +56,12 @@ export function buildFreighterInjectionScript(): string {
     '      if (!payload || (payload.source !== "FREIGHTER_EXTERNAL_MSG_REQUEST" && payload.source !== "FRESNICA_DAPP_MSG_REQUEST")) return;',
     '      var serialized = JSON.stringify(payload);',
     '      if (!serialized || serialized.length > ' + String(MAX_BRIDGE_MESSAGE_LENGTH) + ') return;',
-    '      nativeBridge.postMessage(serialized);',
+    '      if (payload.type === "SUBMIT_BLOB") {',
+    '        if (iosSep53) iosSep53.postMessage(serialized).then(forwardReply, function() {});',
+    '        else if (typeof nativeBridge.addEventListener === "function") nativeBridge.postMessage(' +
+      JSON.stringify(SEP53_PREFIX) +
+      ' + serialized);',
+    '      } else nativeBridge.postMessage(serialized);',
     '    } catch (_error) {}',
     '  });',
     '  return true;',
