@@ -1,11 +1,12 @@
 import { NativeModules, Platform } from 'react-native';
 
 type NotificationModule = {
-  show(origin: string, title: string, body: string): Promise<boolean>;
+  show(origin: string, title: string, body: string): boolean;
 };
 
-export async function showDappNotification(origin: string, title: string, body: string): Promise<boolean> {
-  if (Platform.OS !== 'android') return false;
+function showAndroidDappNotification(origin: string, title: string, body: string): boolean {
   const module = NativeModules.DappNotification as NotificationModule | undefined;
-  return (await module?.show(origin, title, body)) === true;
+  return module?.show(origin, title, body) === true;
 }
+
+export const showDappNotification = Platform.OS === 'android' ? showAndroidDappNotification : undefined;

@@ -37,7 +37,7 @@ type Props = Readonly<{
   active: boolean;
   onClose: () => void;
   onVisit?: (url: string) => void;
-  showNotification?: (origin: string, title: string, body: string) => Promise<boolean>;
+  showNotification?: (origin: string, title: string, body: string) => boolean;
   currentSelection: () => DappPublicSelection | undefined;
   subscribeSelection: (listener: () => void) => () => void;
   createNonce: () => string;
@@ -88,6 +88,16 @@ export function DappBrowserScreen({
   const [stale, setStale] = useState(false);
   const [pendingOrigin, setPendingOrigin] = useState<string>();
   const [page, setPage] = useState({ origin: '', canGoBack: false, canGoForward: false });
+  type NotificationRequest = Extract<BridgeDecision, { kind: 'notification' }> & {
+    origin: string;
+    epoch: number;
+  };
+  const notificationRequest = useRef<NotificationRequest | undefined>(undefined);
+  const [pendingNotification, setPendingNotification] = useState<NotificationRequest>();
+  const clearNotification = () => {
+    notificationRequest.current = undefined;
+    setPendingNotification(undefined);
+  };
   const [pendingSign, setPendingSign] = useState<PendingSignature>();
   const documentEpoch = useRef(0);
   const documentOrigin = useRef<string | undefined>(undefined);
@@ -189,17 +199,13 @@ export function DappBrowserScreen({
     if (!current || !active || stale) return;
     const decision = current.session.receive(raw, messageUrl);
     if (decision.kind === 'notification') {
-      const epoch = documentEpoch.current;
       const origin = documentOrigin.current;
-      const respond = (shown: boolean) => {
-        if (currentSession() && documentEpoch.current === epoch) {
-          reply({ source: 'FRESNICA_DAPP_MSG_RESPONSE', messagedId: decision.messageId, shown });
-        }
-      };
-      if (origin && showNotification) {
-        showNotification(origin, decision.title, decision.body).then(respond, () => respond(false));
+      if (!showNotification || !origin || notificationRequest.current) {
+        reply({ source: 'FRESNICA_DAPP_MSG_RESPONSE', messagedId: decision.messageId, shown: false });
       } else {
-        respond(false);
+        const request = { ...decision, origin, epoch: documentEpoch.current };
+        notificationRequest.current = request;
+        setPendingNotification(request);
       }
     }
     if (decision.kind === 'respond') reply(decision.response);
@@ -209,6 +215,23 @@ export function DappBrowserScreen({
       signGeneration.current = generation;
       inspectSignature(decision, generation).catch(() => undefined);
     }
+  };
+
+  const answerNotification = (request: NotificationRequest, approved: boolean) => {
+    if (notificationRequest.current !== request) return;
+    clearNotification();
+    const stillCurrent = () =>
+      currentSession() && documentEpoch.current === request.epoch && documentOrigin.current === request.origin;
+    if (!stillCurrent()) return;
+    let shown = false;
+    if (approved && current?.session.notificationAllowed()) {
+      try {
+        shown = showNotification?.(request.origin, request.title, request.body) === true;
+      } catch {
+        // An unavailable native transport reports failure to the requesting document.
+      }
+    }
+    if (stillCurrent()) reply({ source: 'FRESNICA_DAPP_MSG_RESPONSE', messagedId: request.messageId, shown });
   };
 
   const inspectSignature = async (
@@ -347,6 +370,7 @@ export function DappBrowserScreen({
     // A navigation bypassing the normal URL gate must synchronously revoke
     // the bridge. Do not keep showing the previous, trusted address.
     current?.session.revoke();
+    clearNotification();
     documentEpoch.current += 1;
     signGeneration.current += 1;
     setPendingOrigin(undefined);
@@ -368,6 +392,7 @@ export function DappBrowserScreen({
     // document and does not retire the first-document proof.
     if (documentStarts.current > 0 || target.url !== current.url) curatedDocumentActive.current = false;
     documentStarts.current += 1;
+    clearNotification();
     documentEpoch.current += 1;
     documentOrigin.current = target.origin;
     current.session.activateDocument(target.origin);
@@ -387,12 +412,14 @@ export function DappBrowserScreen({
     }
     // Some WebView platforms can report a completed cross-origin navigation
     // before document-start. Even that path must retire curated read access.
+    if (target.origin !== documentOrigin.current) clearNotification();
     if (target.origin !== current.origin) curatedDocumentActive.current = false;
     setPage({ origin: target.origin, canGoBack: next.canGoBack, canGoForward: next.canGoForward });
   };
 
   const close = () => {
     current?.session.revoke();
+    clearNotification();
     onClose();
   };
 
@@ -441,6 +468,23 @@ export function DappBrowserScreen({
           <ToolButton glyph="×" label={t('dapps.browser.close')} onPress={close} styles={styles} />
         </View>
         <Text style={styles.notice}>{t('dapps.browser.noSigning')}</Text>
+        {pendingNotification ? (
+          <View style={styles.permission}>
+            <Text style={styles.heading}>{t('dapps.notification.title')}</Text>
+            <Text selectable style={styles.notice}>
+              {pendingNotification.origin}
+            </Text>
+            <NativeButton
+              label={t('dapps.notification.allow')}
+              onPress={() => answerNotification(pendingNotification, true)}
+            />
+            <NativeButton
+              label={t('common.cancel')}
+              onPress={() => answerNotification(pendingNotification, false)}
+              variant="quiet"
+            />
+          </View>
+        ) : null}
         <View style={styles.browser}>
           <BrowserSurface
             ref={surface}

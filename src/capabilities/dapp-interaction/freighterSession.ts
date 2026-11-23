@@ -247,7 +247,7 @@ export function createFreighterSession(
     Readonly<{ messageId: string | number; transactionXdrBase64: string; accountAddress: string }> | undefined;
   let closed = false;
 
-  function remembered(check = input.persistedAllowed): boolean {
+  function remembered(check: (() => boolean) | undefined): boolean {
     try {
       return check?.() === true;
     } catch {
@@ -256,7 +256,11 @@ export function createFreighterSession(
   }
 
   function connected(): boolean {
-    return allowed || remembered();
+    return allowed || remembered(input.persistedAllowed);
+  }
+
+  function notificationAllowed(): boolean {
+    return !closed && live() && (allowed || remembered(input.persistedNotificationAllowed));
   }
 
   function live(): boolean {
@@ -314,8 +318,7 @@ export function createFreighterSession(
         !json.body.trim() ||
         json.body.length > 256 ||
         Object.keys(json).length !== 5 ||
-        !live() ||
-        !(allowed || remembered(input.persistedNotificationAllowed ?? (() => false)))
+        !notificationAllowed()
       )
         return DROP;
       const id = typeof json.messageId + ':' + String(json.messageId);
@@ -468,6 +471,7 @@ export function createFreighterSession(
 
   return Object.freeze({
     receive,
+    notificationAllowed,
     resolvePermission,
     finishSign,
     reset,

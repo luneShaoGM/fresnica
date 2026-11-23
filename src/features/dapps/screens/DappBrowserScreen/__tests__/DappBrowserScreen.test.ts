@@ -120,6 +120,7 @@ function render(
   active = true,
   signTransaction: DappTransactionSigner = async () => ({ status: 'invalid' }),
   trustedCatalogOrigin?: string,
+  showNotification?: (origin: string, title: string, body: string) => boolean,
 ) {
   si = 0;
   ri = 0;
@@ -139,6 +140,7 @@ function render(
     signTransaction,
     permissions,
     trustedCatalogOrigin,
+    showNotification,
     BrowserSurface,
   });
 }
@@ -697,3 +699,56 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     expect(find(blocked, node => node.props.label === 'common.back')).toBeDefined();
   });
 });
+
+it.each(['approve', 'cancel', 'navigate', 'selection', 'revoke', 'background'] as const)(
+  'requires separate one-time notification consent and handles %s before delivery',
+  action => {
+    const origin = 'https://demo.example.org';
+    const notify = jest.fn(() => true);
+    const draw = (active = true) => render(active, undefined, undefined, notify);
+    const browser = find(draw(), node => node.type === BrowserSurface);
+    refs[1].current = { reply: replies };
+    browser?.props.onMessage?.(request('REQUEST_ACCESS', 1), origin);
+    find(draw(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
+    const send = (messageId: number) =>
+      browser?.props.onMessage?.(
+        JSON.stringify({
+          source: 'FRESNICA_DAPP_MSG_REQUEST',
+          messageId,
+          type: 'SHOW_SYSTEM_NOTIFICATION',
+          title: 'Ready',
+          body: 'A result is ready',
+        }),
+        origin,
+      );
+    send(2);
+    const approval = find(draw(), node => node.props.label === 'dapps.notification.allow')?.props.onPress;
+    expect(approval).toBeDefined();
+    expect(notify).not.toHaveBeenCalled();
+    if (action === 'cancel') {
+      find(draw(), node => node.props.label === 'common.cancel')?.props.onPress?.();
+    }
+    if (action === 'navigate') browser?.props.onDocumentStart?.(origin + '/another-document');
+    if (action === 'selection' || action === 'revoke') {
+      for (const effect of effects.splice(0)) effect();
+      if (action === 'selection') {
+        expect(subscriber).toBeDefined();
+        subscriber?.();
+      } else {
+        permissions.revoke({ origin, accountId: 'wallet1', networkId: 'stellar-testnet' });
+      }
+    }
+    if (action === 'background') draw(false);
+    approval?.();
+    approval?.();
+    if (action === 'approve') {
+      expect(notify).toHaveBeenCalledTimes(1);
+      expect(notify).toHaveBeenCalledWith(origin, 'Ready', 'A result is ready');
+      send(3);
+      expect(find(draw(), node => node.props.label === 'dapps.notification.allow')).toBeDefined();
+      expect(notify).toHaveBeenCalledTimes(1);
+    } else {
+      expect(notify).not.toHaveBeenCalled();
+    }
+  },
+);
