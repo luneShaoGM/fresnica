@@ -236,6 +236,7 @@ export function createFreighterSession(
     current: () => DappPublicSelection | undefined;
     persistedAllowed?: () => boolean;
     persistedNotificationAllowed?: () => boolean;
+    notificationNow?: () => number;
   }>,
 ) {
   const initial = Object.freeze({ ...input.initial });
@@ -304,7 +305,16 @@ export function createFreighterSession(
       return DROP;
     }
     if (json && typeof json === 'object' && 'source' in json && json.source === 'FRESNICA_DAPP_MSG_REQUEST') {
+      let now: number | undefined;
+      try {
+        now = input.notificationNow?.();
+      } catch {
+        return DROP;
+      }
       if (
+        typeof now !== 'number' ||
+        !Number.isSafeInteger(now) ||
+        now < 0 ||
         !('type' in json) ||
         json.type !== 'SHOW_SYSTEM_NOTIFICATION' ||
         !('messageId' in json) ||
@@ -320,8 +330,8 @@ export function createFreighterSession(
         !('expiresAt' in json) ||
         typeof json.expiresAt !== 'number' ||
         !Number.isSafeInteger(json.expiresAt) ||
-        json.expiresAt <= Date.now() ||
-        json.expiresAt > Date.now() + 5_000 ||
+        json.expiresAt <= now ||
+        json.expiresAt > now + 5_000 ||
         Object.keys(json).length !== 6 ||
         !notificationAllowed()
       )

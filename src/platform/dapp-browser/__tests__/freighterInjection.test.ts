@@ -15,6 +15,7 @@ describe('injected in-app Freighter bridge', () => {
     const listeners: Array<(event: { source: unknown; origin: string; data: unknown }) => void> = [];
     const windowMock: Record<string, unknown> = {
       location: { protocol: 'https:', origin: 'https://demo.example.org' },
+      FresnicaNotificationClock: { now: () => 123_456 },
       ReactNativeWebView: { postMessage: (data: string) => posts.push(data) },
       addEventListener: (
         _name: string,
@@ -32,6 +33,7 @@ describe('injected in-app Freighter bridge', () => {
       platform: 'desktop',
       wallet: 'fresnica',
     });
+    expect((windowMock.stellar as { notificationNow: () => number }).notificationNow()).toBe(123_456);
     const request = {
       source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
       messageId: 4,

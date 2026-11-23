@@ -37,6 +37,7 @@ type Props = Readonly<{
   active: boolean;
   onClose: () => void;
   onVisit?: (url: string) => void;
+  notificationNow?: () => number;
   showNotification?: (origin: string, title: string, body: string, expiresAt: number) => boolean;
   currentSelection: () => DappPublicSelection | undefined;
   subscribeSelection: (listener: () => void) => () => void;
@@ -62,6 +63,7 @@ export function DappBrowserScreen({
   onClose,
   onVisit,
   showNotification,
+  notificationNow,
   currentSelection,
   subscribeSelection,
   createNonce,
@@ -91,7 +93,6 @@ export function DappBrowserScreen({
   type NotificationRequest = Extract<BridgeDecision, { kind: 'notification' }> & {
     origin: string;
     epoch: number;
-    deadline: number;
   };
   const notificationRequest = useRef<NotificationRequest | undefined>(undefined);
   const notificationTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -146,6 +147,7 @@ export function DappBrowserScreen({
               (trustedInitialOrigin && curatedDocumentActive.current && documentOrigin.current === target.origin) ||
               hasSavedGrant(),
             persistedNotificationAllowed: hasSavedGrant,
+            notificationNow,
           }),
         });
       }
@@ -206,15 +208,14 @@ export function DappBrowserScreen({
     const decision = current.session.receive(raw, messageUrl);
     if (decision.kind === 'notification') {
       const origin = documentOrigin.current;
-      const remainingMs = decision.expiresAt - Date.now();
-      if (!showNotification || !origin || notificationRequest.current || remainingMs <= 0) {
+      const remainingMs = decision.expiresAt - (notificationNow?.() ?? Number.NaN);
+      if (!showNotification || !origin || notificationRequest.current || !(remainingMs > 0)) {
         reply({ source: 'FRESNICA_DAPP_MSG_RESPONSE', messagedId: decision.messageId, shown: false });
       } else {
         const request = {
           ...decision,
           origin,
           epoch: documentEpoch.current,
-          deadline: performance.now() + remainingMs,
         };
         notificationRequest.current = request;
         setPendingNotification(request);
@@ -237,12 +238,7 @@ export function DappBrowserScreen({
       currentSession() && documentEpoch.current === request.epoch && documentOrigin.current === request.origin;
     if (!stillCurrent()) return;
     let shown = false;
-    if (
-      approved &&
-      current?.session.notificationAllowed() &&
-      performance.now() < request.deadline &&
-      Date.now() < request.expiresAt
-    ) {
+    if (approved && current?.session.notificationAllowed() && (notificationNow?.() ?? Number.NaN) < request.expiresAt) {
       try {
         shown = showNotification?.(request.origin, request.title, request.body, request.expiresAt) === true;
       } catch {

@@ -16,6 +16,8 @@ export function buildFreighterInjectionScript(): string {
     '  stellar.platform = "desktop";',
     '  stellar.wallet = "fresnica";',
     '  stellar.bridgeVersion = "1";',
+    '  var clock = window.FresnicaNotificationClock;',
+    '  if (clock && typeof clock.now === "function") stellar.notificationNow = function() { return clock.now(); };',
     '  window.stellar = stellar;',
     '  window.addEventListener("message", function(event) {',
     '    try {',

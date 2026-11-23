@@ -141,6 +141,7 @@ function render(
     permissions,
     trustedCatalogOrigin,
     showNotification,
+    notificationNow: () => Math.floor(performance.now()),
     BrowserSurface,
   });
 }
@@ -720,7 +721,9 @@ it.each([
   refs[1].current = { reply: replies, goBack, goForward, reload };
   browser?.props.onMessage?.(request('REQUEST_ACCESS', 1), origin);
   find(draw(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
-  const expiresAt = Date.now() + 5_000;
+  if (action === 'timeout') jest.useFakeTimers();
+  const clock = action === 'delayed-timer' ? jest.spyOn(performance, 'now').mockReturnValue(0) : undefined;
+  const expiresAt = Math.floor(performance.now()) + 5_000;
   const send = (messageId: number) =>
     browser?.props.onMessage?.(
       JSON.stringify({
@@ -736,8 +739,6 @@ it.each([
   if (action === 'back' || action === 'forward') {
     browser?.props.onNavigation?.({ url: origin, canGoBack: true, canGoForward: true });
   }
-  if (action === 'timeout') jest.useFakeTimers();
-  const clock = action === 'delayed-timer' ? jest.spyOn(performance, 'now').mockReturnValue(0) : undefined;
   send(2);
   const approval = find(draw(), node => node.props.label === 'dapps.notification.allow')?.props.onPress;
   expect(approval).toBeDefined();
@@ -799,7 +800,7 @@ it.each([
     refs[1].current = { reply: replies };
     browser?.props.onMessage?.(request('REQUEST_ACCESS', 1), origin);
     find(draw(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
-    const expiresAt = Date.now() + budget;
+    const expiresAt = Math.floor(performance.now()) + budget;
     const envelope = JSON.stringify({
       source: 'FRESNICA_DAPP_MSG_REQUEST',
       messageId: 2,
@@ -809,9 +810,12 @@ it.each([
       expiresAt,
     });
     let clientPending = true;
-    setTimeout(() => {
-      clientPending = false;
-    }, expiresAt - Date.now());
+    setTimeout(
+      () => {
+        clientPending = false;
+      },
+      expiresAt - Math.floor(performance.now()),
+    );
     jest.advanceTimersByTime(transit);
     browser?.props.onMessage?.(envelope, origin);
     const approval = find(draw(), node => node.props.label === 'dapps.notification.allow')?.props.onPress;
@@ -851,14 +855,14 @@ it.each(['shared expiry', 'backward wall clock'] as const)(
           type: 'SHOW_SYSTEM_NOTIFICATION',
           title: 'Ready',
           body: 'Ready',
-          expiresAt: 11_000,
+          expiresAt: 1_000,
         }),
         origin,
       );
       const approval = find(draw(), node => node.props.label === 'dapps.notification.allow')?.props.onPress;
       expect(approval).toBeDefined();
       wall.mockReturnValue(mode === 'shared expiry' ? 11_000 : 9_000);
-      monotonic.mockReturnValue(mode === 'shared expiry' ? 999 : 1_000);
+      monotonic.mockReturnValue(1_000);
       approval?.();
       expect(notify).not.toHaveBeenCalled();
       expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 2, shown: false }));
@@ -879,6 +883,10 @@ const demoNotificationModule = process.env.FRESNICA_DEMO_NOTIFICATION_MODULE;
     ['short client budget', 1_000, 800, 200, false],
     ['cancelled', 5_000, 100, 100, false],
     ['navigated', 5_000, 100, 100, false],
+    ['rollback in transit', 5_000, 4_000, 1_000, false],
+    ['rollback before expired receipt', 5_000, 5_001, 0, false],
+    ['rollback before timely approval', 5_000, 4_000, 999, true],
+    ['forward then rollback in transit', 5_000, 4_000, 1_000, false],
   ] as const)('%s', async (action, budget, transit, approvalDelay, shown) => {
     jest.useFakeTimers({ now: 10_000 });
     try {
@@ -896,6 +904,7 @@ const demoNotificationModule = process.env.FRESNICA_DEMO_NOTIFICATION_MODULE;
       find(draw(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
       const listeners = new Set<(event: { source: unknown; origin: string; data: unknown }) => void>();
       const page: Record<string, unknown> = {
+        FresnicaNotificationClock: { now: () => Math.floor(performance.now()) },
         location: { protocol: 'https:', origin },
         addEventListener: (
           _name: string,
@@ -921,7 +930,15 @@ const demoNotificationModule = process.env.FRESNICA_DEMO_NOTIFICATION_MODULE;
         },
       };
       const clientResult = sendSystemNotificationRequest(page, 'notification-integration', budget);
-      jest.advanceTimersByTime(transit);
+      if (action.includes('rollback')) {
+        jest.advanceTimersByTime(1_000);
+        jest.setSystemTime(action.startsWith('forward') ? 20_000 : 9_000);
+        jest.advanceTimersByTime(1_000);
+        jest.setSystemTime(9_000);
+        jest.advanceTimersByTime(transit - 2_000);
+      } else {
+        jest.advanceTimersByTime(transit);
+      }
       const approve = find(draw(), node => node.props.label === 'dapps.notification.allow')?.props.onPress;
       if (transit < budget) expect(approve).toBeDefined();
       else expect(approve).toBeUndefined();
