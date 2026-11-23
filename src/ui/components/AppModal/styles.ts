@@ -21,6 +21,7 @@ export function createStyles(theme: AppTheme) {
       padding: 0,
       gap: 0,
     },
+    sheetBackground: { backgroundColor: theme.colors.background },
     sheetContent: { flex: 1 },
     contentSizedSheet: { height: 'auto', flexShrink: 1 },
     contentSizedSheetContent: { flex: 0, flexShrink: 1 },

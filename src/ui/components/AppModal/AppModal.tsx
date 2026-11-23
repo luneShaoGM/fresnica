@@ -27,6 +27,7 @@ export type AppModalProps = React.PropsWithChildren<
     swipeToDismiss?: boolean;
     animationType?: ModalProps['animationType'];
     contentSized?: boolean;
+    sheetBackground?: 'surface' | 'background';
     closeLabel?: string;
     dragDismissLabel?: string;
     swipeHeader?: React.ReactNode;
@@ -44,6 +45,7 @@ export function AppModal({
   presentation = 'dialog',
   animationType = 'fade',
   contentSized = false,
+  sheetBackground = 'surface',
   closeLabel = 'Close dialog',
   dragDismissLabel = 'Drag down to close',
 }: AppModalProps) {
@@ -98,6 +100,7 @@ export function AppModal({
           style={[
             styles.dialog,
             presentation === 'sheet' ? styles.sheet : undefined,
+            presentation === 'sheet' && sheetBackground === 'background' ? styles.sheetBackground : undefined,
             presentation === 'sheet' && contentSized ? styles.contentSizedSheet : undefined,
             draggable ? { transform: [{ translateY: offsetY }] } : undefined,
           ]}

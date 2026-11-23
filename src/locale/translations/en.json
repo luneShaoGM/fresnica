@@ -309,6 +309,7 @@
   "common.cancel": "Cancel",
   "common.back": "Back",
   "common.close": "Close",
+  "common.dragDownToClose": "Drag down to close",
   "activity.detail.nativeAsset": "Native asset",
   "activity.detail.asset": "Asset",
   "activity.detail.issuer": "Issuer",
