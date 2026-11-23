@@ -260,7 +260,7 @@ describe('S15/S18 Freighter in-WebView read-only wallet bridge', () => {
       ['SUBMIT_TOKEN', { contractId: 'C123', iconUrl: 'x'.repeat(2049) }],
       ['SUBMIT_BLOB', { blob: 'hi' }],
       ['SUBMIT_BLOB', { apiVersion: '1', blob: '' }],
-      ['SUBMIT_BLOB', { apiVersion: '1', blob: 'x'.repeat(4097) }],
+      ['SUBMIT_BLOB', { apiVersion: '1', blob: 'x'.repeat(16_385) }],
       ['SUBMIT_AUTH_ENTRY', { entryXdr: 'AAAA' }],
       ['SUBMIT_AUTH_ENTRY', { apiVersion: '', entryXdr: 'AAAA' }],
       ['SUBMIT_AUTH_ENTRY', { apiVersion: '1', entryXdr: 'A'.repeat(200_001) }],

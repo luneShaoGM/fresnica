@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import type {
   DappBrowserNavigation,
+  DappMessageReplyTarget,
   DappBrowserSurfaceProps,
   DappBrowserSurfaceHandle,
 } from '../../../../capabilities/dapp-interaction/browserTransport';
@@ -90,8 +91,13 @@ export function DappBrowserScreen({
   const [page, setPage] = useState({ origin: '', canGoBack: false, canGoForward: false });
   const [pendingSign, setPendingSign] = useState<PendingSignature>();
   const [pendingMessage, setPendingMessage] = useState<
-    Extract<BridgeDecision, { kind: 'sign-message' }> & { generation: number; epoch: number }
+    Extract<BridgeDecision, { kind: 'sign-message' }> & {
+      generation: number;
+      epoch: number;
+      target: DappMessageReplyTarget;
+    }
   >();
+  const messageReplyTarget = useRef<DappMessageReplyTarget | undefined>(undefined);
   const documentEpoch = useRef(0);
   const documentOrigin = useRef<string | undefined>(undefined);
   const signGeneration = useRef(0);
@@ -182,27 +188,29 @@ export function DappBrowserScreen({
     }
   }, [active, current]);
 
-  const reply = (message: BridgeResponse, expectedOrigin?: string) => {
+  const reply = (message: BridgeResponse, target?: DappMessageReplyTarget) => {
     if (active && !stale) {
-      if (expectedOrigin) surface.current?.reply(message, expectedOrigin);
+      if (target) surface.current?.reply(message, target);
       else surface.current?.reply(message);
     }
   };
 
-  const handleMessage = (raw: string, messageUrl: string) => {
+  const handleMessage = (raw: string, messageUrl: string, documentId?: string) => {
     if (!current || !active || stale) return;
     const decision = current.session.receive(raw, messageUrl);
-    if (decision.kind === 'respond') reply(decision.response);
+    const target = documentId ? { origin: messageUrl, documentId } : undefined;
+    if (decision.kind === 'respond') reply(decision.response, target);
     if (decision.kind === 'permission') setPendingOrigin(decision.origin);
     if (decision.kind === 'sign-message') {
-      if (!signMessage) {
+      if (!target || !signMessage) {
         const failed = current.session.finishSign({ status: 'failed', error: 'unsupported-signer' });
-        if (failed) reply(failed);
+        if (failed && target) reply(failed, target);
         return;
       }
       signGeneration.current += 1;
       setSignError(false);
-      setPendingMessage({ ...decision, generation: signGeneration.current, epoch: documentEpoch.current });
+      messageReplyTarget.current = target;
+      setPendingMessage({ ...decision, generation: signGeneration.current, epoch: documentEpoch.current, target });
     }
     if (decision.kind === 'sign-transaction') {
       const generation = signGeneration.current + 1;
@@ -253,9 +261,10 @@ export function DappBrowserScreen({
     setPendingMessage(undefined);
     setSignError(false);
     if (!current || !active || stale) return;
-    const messageOrigin = current.session.hasPendingMessage() ? documentOrigin.current : undefined;
+    const target = current.session.hasPendingMessage() ? messageReplyTarget.current : undefined;
+    messageReplyTarget.current = undefined;
     const declined = current.session.finishSign({ status: 'declined' });
-    if (declined) reply(declined, messageOrigin);
+    if (declined) reply(declined, target);
   };
 
   const confirmSignature = async (appPassphrase: string) => {
@@ -336,7 +345,8 @@ export function DappBrowserScreen({
           : { status: 'failed', error: 'unsupported-signer' },
       );
       setPendingMessage(undefined);
-      if (completed) reply(completed, request.origin);
+      messageReplyTarget.current = undefined;
+      if (completed) reply(completed, request.target);
     } catch (error) {
       if (!isCurrent()) return;
       if (error !== null && typeof error === 'object' && 'code' in error && error.code === 'user-cancel') {
@@ -394,6 +404,7 @@ export function DappBrowserScreen({
     // A navigation bypassing the normal URL gate must synchronously revoke
     // the bridge. Do not keep showing the previous, trusted address.
     current?.session.revoke();
+    messageReplyTarget.current = undefined;
     documentEpoch.current += 1;
     signGeneration.current += 1;
     setPendingOrigin(undefined);
@@ -420,6 +431,7 @@ export function DappBrowserScreen({
     // document and does not retire the first-document proof.
     if (documentStarts.current > 0 || target.url !== current.url) curatedDocumentActive.current = false;
     documentStarts.current += 1;
+    messageReplyTarget.current = undefined;
     documentEpoch.current += 1;
     documentOrigin.current = target.origin;
     current.session.activateDocument(target.origin);

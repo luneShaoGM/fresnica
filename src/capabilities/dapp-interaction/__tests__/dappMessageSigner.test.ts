@@ -1,3 +1,7 @@
+import { createHash } from 'node:crypto';
+import { Keypair } from '@stellar/stellar-sdk';
+
+import { createFreighterSession } from '../freighterSession';
 import { createDappMessageSigner } from '../dappMessageSigner';
 import type { AccountRecord } from '../../account/types';
 import type { SignerRecord } from '../../signer/types';
@@ -53,4 +57,79 @@ it('calls only the passphrase SDK with the exact message and drops a retired SDK
   const pending = sign(input);
   active = false;
   await expect(pending).resolves.toBeUndefined();
+});
+
+it('verifies signatures for official raw text and explicitly encoded Stellar UTF-8 bytes', async () => {
+  const keypair = Keypair.fromRawEd25519Seed(Buffer.alloc(32, 9));
+  const address = keypair.publicKey();
+  const selection = {
+    accountId: account.id,
+    address,
+    networkId: account.networkId,
+    revision: 1,
+    networkPassphrase: 'Test SDF Network ; September 2015',
+    networkUrl: 'https://example.org',
+  };
+  const origin = 'https://example.org';
+  const session = createFreighterSession({
+    origin,
+    token: 'test',
+    initial: selection,
+    current: () => selection,
+    persistedAllowed: () => true,
+  });
+  const send = (messageId: number, blob: string, blobEncoding?: string) =>
+    session.receive(
+      JSON.stringify({
+        source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
+        type: 'SUBMIT_BLOB',
+        apiVersion: '6.0.1',
+        messageId,
+        blob,
+        blobEncoding,
+      }),
+      origin,
+    );
+  const hash = (bytes: Buffer) => createHash('sha256').update('Stellar Signed Message:\n').update(bytes).digest();
+  const sdk = {
+    signMessageWithPassphrase: jest.fn(async ({ message }: { message: string }) =>
+      Buffer.from(keypair.sign(hash(Buffer.from(message, 'utf8')))).toString('base64'),
+    ),
+  };
+  const sign = createDappMessageSigner(sdk, {
+    getAccount: () => ({ ...account, address }),
+    listSignersForAccount: () => [{ ...signer, publicKey: address }],
+  });
+  const raw = '  café\n✓ ';
+  const base64 = Buffer.from(raw, 'utf8').toString('base64');
+  for (const [id, blobEncoding, expected] of [
+    [1, undefined, base64],
+    [2, 'base64', raw],
+  ] as const) {
+    const request = send(id, base64, blobEncoding);
+    expect(request).toMatchObject({ kind: 'sign-message', message: expected });
+    if (request.kind !== 'sign-message') throw new Error('expected review');
+    const signature = await sign({
+      accountId: account.id,
+      accountAddress: address,
+      networkId: account.networkId,
+      message: request.message,
+      encoding: request.encoding,
+      appPassphrase: 'fresh',
+      isCurrent: session.canSignMessage,
+    });
+    const response = session.finishSign({
+      status: 'message-signed',
+      signedBlob: signature ?? '',
+      signerAddress: address,
+    });
+    const returned = Buffer.from(response?.signedBlob ?? '', 'base64');
+    expect(keypair.verify(hash(Buffer.from(expected)), returned)).toBe(true);
+    expect(keypair.verify(hash(Buffer.from(id === 1 ? raw : base64)), returned)).toBe(false);
+  }
+  expect(send(3, '/w==', 'base64')).toMatchObject({ response: { error: 'invalid-message' } });
+  expect(send(4, 'YQ', 'base64')).toMatchObject({ response: { error: 'invalid-message' } });
+  expect(send(5, Buffer.from('x'.repeat(4097)).toString('base64'), 'base64')).toMatchObject({
+    response: { error: 'invalid-message' },
+  });
 });

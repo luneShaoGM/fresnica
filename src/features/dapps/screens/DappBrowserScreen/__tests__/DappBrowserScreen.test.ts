@@ -702,7 +702,7 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
   });
 });
 
-it.each(['approve', 'cancel', 'reload', 'document', 'late-result'] as const)(
+it.each(['approve', 'base64', 'cancel', 'reload', 'document', 'late-result'] as const)(
   'holds the exact SEP-53 message for passphrase review and handles %s',
   async action => {
     const signature = 'A'.repeat(86) + '==';
@@ -715,6 +715,8 @@ it.each(['approve', 'cancel', 'reload', 'document', 'late-result'] as const)(
     );
     const draw = () => render(true, undefined, undefined, signer);
     const origin = 'https://demo.example.org';
+    const documentId = 'a'.repeat(32);
+    const target = { origin, documentId };
     const browser = find(draw(), node => node.type === BrowserSurface);
     refs[1].current = { reply: replies, reload };
     browser?.props.onMessage?.(request('REQUEST_ACCESS', 30), origin);
@@ -726,9 +728,11 @@ it.each(['approve', 'cancel', 'reload', 'document', 'late-result'] as const)(
         type: 'SUBMIT_BLOB',
         messageId: 31,
         apiVersion: '6.0.1',
-        blob,
+        blob: action === 'base64' ? Buffer.from(blob, 'utf8').toString('base64') : blob,
+        ...(action === 'base64' ? { blobEncoding: 'base64' } : {}),
       }),
       origin,
+      documentId,
     );
     const sheet = find(draw(), node => node.type === DappSignSheet);
     expect(sheet?.props).toMatchObject({ message: blob, origin, passphraseRequired: true });
@@ -741,13 +745,13 @@ it.each(['approve', 'cancel', 'reload', 'document', 'late-result'] as const)(
     if (action === 'late-result') browser?.props.onDocumentStart?.(origin + '/new');
     complete?.(signature);
     await Promise.resolve();
-    if (action === 'approve') {
+    if (action === 'approve' || action === 'base64') {
       expect(signer).toHaveBeenCalledWith(
         expect.objectContaining({ message: blob, appPassphrase: 'fresh passphrase', encoding: 'base64' }),
       );
       expect(replies).toHaveBeenCalledWith(
         expect.objectContaining({ messagedId: 31, signedBlob: signature, signerAddress: selection.address }),
-        origin,
+        target,
       );
     } else {
       expect(replies.mock.calls.some(([result]) => result.signedBlob)).toBe(false);
@@ -755,7 +759,7 @@ it.each(['approve', 'cancel', 'reload', 'document', 'late-result'] as const)(
       if (action === 'cancel')
         expect(replies).toHaveBeenCalledWith(
           expect.objectContaining({ messagedId: 31, error: 'user-declined' }),
-          origin,
+          target,
         );
     }
   },

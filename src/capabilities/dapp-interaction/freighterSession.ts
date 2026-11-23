@@ -1,3 +1,6 @@
+import { fromBase64, toBase64 } from '@exodus/bytes/base64.js';
+import { utf8fromString, utf8toString } from '@exodus/bytes/utf8.js';
+
 // Clean-room Freighter request policy. Read calls stay permission-gated.
 // SUBMIT_TRANSACTION opens an exact-XDR review and returns the signature to
 // the page. Auth-entry and token requests stay unsupported.
@@ -21,6 +24,7 @@ type BridgeRequest = Readonly<{
   network?: string;
   transactionXdr?: string;
   blob?: string;
+  blobEncoding?: 'utf8' | 'base64';
   apiVersion?: string;
 }>;
 
@@ -104,6 +108,10 @@ function isRequest(value: unknown): value is BridgeRequest {
   for (const key of Object.keys(record)) {
     if (key === 'source' || key === 'messageId' || key === 'type') continue;
     const field = record[key];
+    if (record.type === 'SUBMIT_BLOB' && key === 'blobEncoding') {
+      if (field !== 'utf8' && field !== 'base64') return false;
+      continue;
+    }
     if (record.type === 'SUBMIT_TOKEN' && key === 'decimals') {
       if (typeof field !== 'number' || !Number.isInteger(field) || field < 0 || field > 18) return false;
       continue;
@@ -164,7 +172,7 @@ function fieldLimit(type: string, key: string): number | undefined {
     }
   }
   if (type === 'SUBMIT_BLOB') {
-    if (key === 'blob') return 4096;
+    if (key === 'blob') return 16_384;
     if (key === 'apiVersion') return 32;
   }
   if (type === 'SUBMIT_AUTH_ENTRY') {
@@ -361,10 +369,26 @@ export function createFreighterSession(
     ) {
       return response(request, { error: 'wrong-account' });
     }
-    const message = request.blob;
+    let message = request.blob;
+    if (message && request.blobEncoding === 'base64') {
+      try {
+        const bytes = fromBase64(message, { padding: true });
+        if (toBase64(bytes) !== message) return response(request, { error: 'invalid-message' });
+        const text = utf8toString(bytes);
+        if (toBase64(utf8fromString(text)) !== message) return response(request, { error: 'invalid-message' });
+        message = text;
+      } catch {
+        return response(request, { error: 'invalid-message' });
+      }
+    }
     const version = /^(0|[1-9][0-9]{0,5})\.\d{1,6}\.\d{1,6}$/.exec(request.apiVersion ?? '');
     // Reject hidden format/control characters and invalid UTF-16 rather than signing text the UI cannot show reliably.
-    if (!version || !message?.trim() || /[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/u.test(message.replace(/[\r\n\t]/g, ''))) {
+    if (
+      !version ||
+      !message?.trim() ||
+      message.length > 4096 ||
+      /[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/u.test(message.replace(/[\r\n\t]/g, ''))
+    ) {
       return response(request, { error: 'invalid-message' });
     }
     const encoding = Number(version[1]) >= 4 ? 'base64' : 'hex';

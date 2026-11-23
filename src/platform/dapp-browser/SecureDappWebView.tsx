@@ -10,7 +10,7 @@ import { readVerifiedDappMessage } from '../../capabilities/dapp-interaction/ver
 
 import { canMountDappWebView } from './browserAvailability';
 import { prepareDappNetworkGuard } from './androidNetworkGuard';
-import { buildFreighterInjectionScript } from './freighterInjection';
+import { buildFreighterInjectionScript, buildFreighterReplyScript, unwrapFreighterMessage } from './freighterInjection';
 
 const styles = StyleSheet.create({ root: { flex: 1 } });
 
@@ -43,16 +43,8 @@ export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowse
     useImperativeHandle(
       ref,
       () => ({
-        reply(response, expectedOrigin) {
-          // Deliver an object so the page reads event.data.publicKey and event.data.messagedId.
-          const payload = JSON.stringify(response);
-          webview.current?.injectJavaScript(
-            'window.postMessage(' +
-              payload +
-              ', ' +
-              (expectedOrigin ? JSON.stringify(expectedOrigin) : 'window.location.origin') +
-              ');true;',
-          );
+        reply(response, target) {
+          webview.current?.injectJavaScript(buildFreighterReplyScript(response, target));
         },
         goBack() {
           webview.current?.goBack();
@@ -100,7 +92,8 @@ export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowse
             isMainFrame: nativeEvent.isMainFrame,
           });
           if (!verified) return;
-          onMessage(verified.data, verified.origin);
+          const message = unwrapFreighterMessage(verified.data);
+          if (message) onMessage(message.data, verified.origin, message.documentId);
         }}
         injectedJavaScriptBeforeContentLoaded={injected}
         injectedJavaScriptBeforeContentLoadedForMainFrameOnly
