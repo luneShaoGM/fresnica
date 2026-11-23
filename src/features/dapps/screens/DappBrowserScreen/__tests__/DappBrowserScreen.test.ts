@@ -120,7 +120,7 @@ function render(
   active = true,
   signTransaction: DappTransactionSigner = async () => ({ status: 'invalid' }),
   trustedCatalogOrigin?: string,
-  showNotification?: (origin: string, title: string, body: string) => boolean,
+  showNotification?: (origin: string, title: string, body: string, expiresAt: number) => boolean,
 ) {
   si = 0;
   ri = 0;
@@ -720,6 +720,7 @@ it.each([
   refs[1].current = { reply: replies, goBack, goForward, reload };
   browser?.props.onMessage?.(request('REQUEST_ACCESS', 1), origin);
   find(draw(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
+  const expiresAt = Date.now() + 5_000;
   const send = (messageId: number) =>
     browser?.props.onMessage?.(
       JSON.stringify({
@@ -728,6 +729,7 @@ it.each([
         type: 'SHOW_SYSTEM_NOTIFICATION',
         title: 'Ready',
         body: 'A result is ready',
+        expiresAt,
       }),
       origin,
     );
@@ -772,7 +774,7 @@ it.each([
   approval?.();
   if (action === 'approve') {
     expect(notify).toHaveBeenCalledTimes(1);
-    expect(notify).toHaveBeenCalledWith(origin, 'Ready', 'A result is ready');
+    expect(notify).toHaveBeenCalledWith(origin, 'Ready', 'A result is ready', expiresAt);
     send(3);
     expect(find(draw(), node => node.props.label === 'dapps.notification.allow')).toBeDefined();
     expect(notify).toHaveBeenCalledTimes(1);
@@ -781,3 +783,88 @@ it.each([
     expect(notify).not.toHaveBeenCalled();
   }
 });
+
+it.each([
+  ['expired in transit', 5_000, 5_001, 0, false],
+  ['remaining budget', 5_000, 4_000, 1_000, true],
+  ['short client budget', 1_000, 800, 200, true],
+  ['before shared expiry', 5_000, 4_000, 999, false],
+] as const)('honors client expiry across bridge delay: %s', (_label, budget, transit, wait, timedOut) => {
+  jest.useFakeTimers({ now: 10_000 });
+  try {
+    const origin = 'https://demo.example.org';
+    const notify = jest.fn(() => true);
+    const draw = () => render(true, undefined, undefined, notify);
+    const browser = find(draw(), node => node.type === BrowserSurface);
+    refs[1].current = { reply: replies };
+    browser?.props.onMessage?.(request('REQUEST_ACCESS', 1), origin);
+    find(draw(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
+    const expiresAt = Date.now() + budget;
+    const envelope = JSON.stringify({
+      source: 'FRESNICA_DAPP_MSG_REQUEST',
+      messageId: 2,
+      type: 'SHOW_SYSTEM_NOTIFICATION',
+      title: 'Ready',
+      body: 'Ready',
+      expiresAt,
+    });
+    let clientPending = true;
+    setTimeout(() => {
+      clientPending = false;
+    }, expiresAt - Date.now());
+    jest.advanceTimersByTime(transit);
+    browser?.props.onMessage?.(envelope, origin);
+    const approval = find(draw(), node => node.props.label === 'dapps.notification.allow')?.props.onPress;
+    if (transit >= budget) {
+      expect(clientPending).toBe(false);
+      expect(approval).toBeUndefined();
+    } else {
+      expect(approval).toBeDefined();
+      jest.advanceTimersByTime(wait);
+      expect(clientPending).toBe(!timedOut);
+      approval?.();
+      expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 2, shown: !timedOut }));
+    }
+    expect(notify).toHaveBeenCalledTimes(transit < budget && !timedOut ? 1 : 0);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it.each(['shared expiry', 'backward wall clock'] as const)(
+  'blocks a late approval before the timer callback: %s',
+  mode => {
+    const wall = jest.spyOn(Date, 'now').mockReturnValue(10_000);
+    const monotonic = jest.spyOn(performance, 'now').mockReturnValue(0);
+    try {
+      const origin = 'https://demo.example.org';
+      const notify = jest.fn(() => true);
+      const draw = () => render(true, undefined, undefined, notify);
+      const browser = find(draw(), node => node.type === BrowserSurface);
+      refs[1].current = { reply: replies };
+      browser?.props.onMessage?.(request('REQUEST_ACCESS', 1), origin);
+      find(draw(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
+      browser?.props.onMessage?.(
+        JSON.stringify({
+          source: 'FRESNICA_DAPP_MSG_REQUEST',
+          messageId: 2,
+          type: 'SHOW_SYSTEM_NOTIFICATION',
+          title: 'Ready',
+          body: 'Ready',
+          expiresAt: 11_000,
+        }),
+        origin,
+      );
+      const approval = find(draw(), node => node.props.label === 'dapps.notification.allow')?.props.onPress;
+      expect(approval).toBeDefined();
+      wall.mockReturnValue(mode === 'shared expiry' ? 11_000 : 9_000);
+      monotonic.mockReturnValue(mode === 'shared expiry' ? 999 : 1_000);
+      approval?.();
+      expect(notify).not.toHaveBeenCalled();
+      expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 2, shown: false }));
+    } finally {
+      wall.mockRestore();
+      monotonic.mockRestore();
+    }
+  },
+);

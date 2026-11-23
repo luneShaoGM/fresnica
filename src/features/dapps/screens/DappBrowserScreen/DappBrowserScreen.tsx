@@ -37,7 +37,7 @@ type Props = Readonly<{
   active: boolean;
   onClose: () => void;
   onVisit?: (url: string) => void;
-  showNotification?: (origin: string, title: string, body: string) => boolean;
+  showNotification?: (origin: string, title: string, body: string, expiresAt: number) => boolean;
   currentSelection: () => DappPublicSelection | undefined;
   subscribeSelection: (listener: () => void) => () => void;
   createNonce: () => string;
@@ -47,8 +47,6 @@ type Props = Readonly<{
   trustedCatalogOrigin?: string;
   BrowserSurface: ComponentType<DappBrowserSurfaceProps & RefAttributes<DappBrowserSurfaceHandle>>;
 }>;
-
-const NOTIFICATION_APPROVAL_TIMEOUT_MS = 5_000;
 
 type PendingSignature = Readonly<{
   transactionXdrBase64: string;
@@ -208,21 +206,19 @@ export function DappBrowserScreen({
     const decision = current.session.receive(raw, messageUrl);
     if (decision.kind === 'notification') {
       const origin = documentOrigin.current;
-      if (!showNotification || !origin || notificationRequest.current) {
+      const remainingMs = decision.expiresAt - Date.now();
+      if (!showNotification || !origin || notificationRequest.current || remainingMs <= 0) {
         reply({ source: 'FRESNICA_DAPP_MSG_RESPONSE', messagedId: decision.messageId, shown: false });
       } else {
         const request = {
           ...decision,
           origin,
           epoch: documentEpoch.current,
-          deadline: performance.now() + NOTIFICATION_APPROVAL_TIMEOUT_MS,
+          deadline: performance.now() + remainingMs,
         };
         notificationRequest.current = request;
         setPendingNotification(request);
-        notificationTimer.current = setTimeout(
-          () => answerNotification(request, false),
-          NOTIFICATION_APPROVAL_TIMEOUT_MS,
-        );
+        notificationTimer.current = setTimeout(() => answerNotification(request, false), remainingMs);
       }
     }
     if (decision.kind === 'respond') reply(decision.response);
@@ -241,9 +237,14 @@ export function DappBrowserScreen({
       currentSession() && documentEpoch.current === request.epoch && documentOrigin.current === request.origin;
     if (!stillCurrent()) return;
     let shown = false;
-    if (approved && performance.now() < request.deadline && current?.session.notificationAllowed()) {
+    if (
+      approved &&
+      current?.session.notificationAllowed() &&
+      performance.now() < request.deadline &&
+      Date.now() < request.expiresAt
+    ) {
       try {
-        shown = showNotification?.(request.origin, request.title, request.body) === true;
+        shown = showNotification?.(request.origin, request.title, request.body, request.expiresAt) === true;
       } catch {
         // An unavailable native transport reports failure to the requesting document.
       }

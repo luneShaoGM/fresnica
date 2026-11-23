@@ -349,6 +349,7 @@ describe('S15/S18 Freighter in-WebView read-only wallet bridge', () => {
 
 it('accepts a bounded notification only after explicit connection and rejects replay or stale origins', () => {
   const { session, loseFocus } = harness();
+  const expiresAt = Date.now() + 5_000;
   const notification = (messageId: number, title = 'Completed') =>
     JSON.stringify({
       source: 'FRESNICA_DAPP_MSG_REQUEST',
@@ -356,6 +357,7 @@ it('accepts a bounded notification only after explicit connection and rejects re
       messageId,
       title,
       body: 'Ready',
+      expiresAt,
     });
   expect(session.receive(notification(2), origin)).toEqual({ kind: 'drop' });
   session.receive(request('REQUEST_ACCESS'), origin);
@@ -367,8 +369,36 @@ it('accepts a bounded notification only after explicit connection and rejects re
     messageId: 2,
     title: 'Completed',
     body: 'Ready',
+    expiresAt,
   });
   expect(session.receive(notification(2), origin)).toEqual({ kind: 'drop' });
   loseFocus();
   expect(session.receive(notification(3), origin)).toEqual({ kind: 'drop' });
 });
+
+it.each([undefined, null, '5000', NaN, Infinity, 10_000.5, 10_000, 9_999, 15_001])(
+  'rejects missing, invalid or out-of-window notification expiry %s',
+  expiresAt => {
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(10_000);
+    try {
+      const { session } = harness();
+      session.receive(request('REQUEST_ACCESS'), origin);
+      session.resolvePermission(true);
+      expect(
+        session.receive(
+          JSON.stringify({
+            source: 'FRESNICA_DAPP_MSG_REQUEST',
+            type: 'SHOW_SYSTEM_NOTIFICATION',
+            messageId: 2,
+            title: 'Ready',
+            body: 'Ready',
+            expiresAt,
+          }),
+          origin,
+        ),
+      ).toEqual({ kind: 'drop' });
+    } finally {
+      clock.mockRestore();
+    }
+  },
+);

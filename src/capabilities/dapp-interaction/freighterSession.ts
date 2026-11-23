@@ -53,7 +53,7 @@ export type DappNotificationResponse = Readonly<{
 
 export type BridgeDecision =
   | Readonly<{ kind: 'drop' }>
-  | Readonly<{ kind: 'notification'; messageId: string | number; title: string; body: string }>
+  | Readonly<{ kind: 'notification'; messageId: string | number; title: string; body: string; expiresAt: number }>
   | Readonly<{ kind: 'permission'; messageId: string | number; origin: string }>
   | Readonly<{
       kind: 'sign-transaction';
@@ -317,14 +317,25 @@ export function createFreighterSession(
         typeof json.body !== 'string' ||
         !json.body.trim() ||
         json.body.length > 256 ||
-        Object.keys(json).length !== 5 ||
+        !('expiresAt' in json) ||
+        typeof json.expiresAt !== 'number' ||
+        !Number.isSafeInteger(json.expiresAt) ||
+        json.expiresAt <= Date.now() ||
+        json.expiresAt > Date.now() + 5_000 ||
+        Object.keys(json).length !== 6 ||
         !notificationAllowed()
       )
         return DROP;
       const id = typeof json.messageId + ':' + String(json.messageId);
       if (used.has(id) || used.size >= MAX_IDS_PER_DOCUMENT) return DROP;
       used.add(id);
-      return { kind: 'notification', messageId: json.messageId, title: json.title, body: json.body };
+      return {
+        kind: 'notification',
+        messageId: json.messageId,
+        title: json.title,
+        body: json.body,
+        expiresAt: json.expiresAt,
+      };
     }
     if (!isRequest(json) || (json.token !== undefined && json.token !== input.token)) return DROP;
     const id = typeof json.messageId + ':' + String(json.messageId);
