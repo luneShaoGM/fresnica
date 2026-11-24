@@ -1,5 +1,6 @@
 import type { AccountSignerRepository } from '../account/AccountSignerRepository';
 import type { AccountRecord } from '../account/types';
+import type { BalanceAsset } from '../balance/types';
 import { NETWORKS, type NetworkId } from '../network/networkPreferences';
 import type { NetworkContext } from '../network/types';
 import { walletAssetKey } from './walletAssetIdentity';
@@ -24,6 +25,7 @@ export interface ContractTokenReadPort {
   readonly network: NetworkContext;
   isContractId(value: string): boolean;
   isClassicAddress(value: string): boolean;
+  classicContractId?(asset: BalanceAsset): string;
   readToken(contractId: string, accountAddress: string, signal: AbortSignal): Promise<ContractTokenRead>;
 }
 export interface ContractAssetStore {
@@ -203,7 +205,19 @@ export function createContractAssets(
   }
   return {
     network: deps.reader.network,
+    isContractId: deps.reader.isContractId,
     list,
+    classicMirrors(account: AccountRecord, assets: readonly BalanceAsset[]) {
+      current(account);
+      return assets.flatMap(asset => {
+        try {
+          const contractId = deps.reader.classicContractId?.(asset);
+          return contractId && deps.reader.isContractId(contractId) ? [{ asset, contractId }] : [];
+        } catch {
+          return [];
+        }
+      });
+    },
     track: (account: AccountRecord, id: string, signal: AbortSignal, isCurrent: () => boolean) =>
       load(account, id, signal, isCurrent, true),
     refresh: (account: AccountRecord, id: string, signal: AbortSignal, isCurrent: () => boolean) =>

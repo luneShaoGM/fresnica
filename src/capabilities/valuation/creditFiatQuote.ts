@@ -42,6 +42,7 @@ export function createCreditFiatQuotes(
     now: () => number;
   }>,
 ): CreditFiatQuotePort {
+  const cache = new Map<string, CreditFiatQuote>();
   const assertCurrent = (signal: AbortSignal) => {
     if (
       signal.aborted ||
@@ -58,6 +59,9 @@ export function createCreditFiatQuotes(
       const sourceAsset = { kind: 'credit' as const, code: asset.code, issuer: asset.issuer };
       validatePaymentAsset(sourceAsset, deps.isClassicAccountAddress);
       const key = walletAssetKey(MAINNET.id, sourceAsset);
+      const cacheKey = JSON.stringify([key, currency]);
+      const hit = cache.get(cacheKey);
+      if (hit && creditQuoteCurrent(hit, sourceAsset, currency, deps.now())) return hit;
       const xlm = await deps.xlmQuotes.load(currency, signal);
       assertCurrent(signal);
       const started = deps.now();
@@ -105,7 +109,7 @@ export function createCreditFiatQuotes(
       const received = deps.now();
       if (!Number.isSafeInteger(received) || received < started || received >= expiresAt)
         throw new Error('credit-quote-unavailable');
-      return Object.freeze({
+      const quote = Object.freeze({
         networkId: MAINNET.id,
         assetKey: key,
         currency,
@@ -114,6 +118,16 @@ export function createCreditFiatQuotes(
         quotedAt: started,
         expiresAt,
       });
+      const existing = cache.get(cacheKey);
+      if (!existing || existing.quotedAt <= quote.quotedAt) {
+        cache.delete(cacheKey);
+        cache.set(cacheKey, quote);
+        if (cache.size > 64) {
+          const oldest = cache.keys().next().value;
+          if (oldest !== undefined) cache.delete(oldest);
+        }
+      }
+      return quote;
     },
   };
 }

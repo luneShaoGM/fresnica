@@ -201,6 +201,8 @@ function fixture(seedEmpty = true) {
   let selectionRevision = 1;
   const services = {
     contractAssets: undefined as ContractAssets | undefined,
+    assetCatalog: { loadSource: jest.fn() },
+    balance: { networkId: network.id },
     onboarding: { repository: { isWatchOnly: () => false } },
     ledgerReadRuntime: { subscribe: jest.fn(), getSnapshot: () => ({ foreground: true }) },
     ledgerReadInvalidation: invalidation,
@@ -341,7 +343,7 @@ describe('Home first Claimable discovery from ledger invalidation', () => {
 
 it('wires the selected contract category and permanently retires old category/selection guards', () => {
   const f = fixture();
-  const product: ContractAssets = { network, list: jest.fn(() => []), track: jest.fn(), refresh: jest.fn(), remove: jest.fn() };
+  const product: ContractAssets = { network, isContractId: jest.fn(() => true), classicMirrors: jest.fn(() => []), list: jest.fn(() => []), track: jest.fn(), refresh: jest.fn(), remove: jest.fn() };
   f.setContractProduct(product);
   const initial = f.renderHome();
   expect(initial.categories.showContracts).toBe(true);
@@ -352,6 +354,8 @@ it('wires the selected contract category and permanently retires old category/se
   expect(panel.type).toBe(ContractAssetsPanel);
   expect(panel.props.account).toEqual(account);
   expect(panel.props.product).toBe(product);
+  expect(panel.props.catalog).toBeDefined();
+  expect(panel.props.balanceDependencies).toBeDefined();
   expect(panel.props.isCurrent()).toBe(true);
   open.categories.onSelect('tokens');
   open.categories.onSelect('contracts');

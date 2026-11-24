@@ -52,6 +52,28 @@ it('does not simulate on a wrong RPC network or invalid contract', async () => {
   expect(f.simulateTransaction).not.toHaveBeenCalled();
 });
 
+it('derives network-bound SAC mirrors from exact Classic identity without a read', () => {
+  const f = fixture();
+  const issued = new Asset('USD', account);
+  expect(f.reader.classicContractId?.({ kind: 'native', code: 'XLM' })).toBe(
+    Asset.native().contractId(Networks.TESTNET),
+  );
+  expect(f.reader.classicContractId?.({ kind: 'credit', code: 'USD', issuer: account })).toBe(
+    issued.contractId(Networks.TESTNET),
+  );
+  expect(
+    createStellarContractTokenReader(NETWORKS['stellar-mainnet']).classicContractId?.({
+      kind: 'credit',
+      code: 'USD',
+      issuer: account,
+    }),
+  ).not.toBe(issued.contractId(Networks.TESTNET));
+  expect(() => f.reader.classicContractId?.({ kind: 'credit', code: 'USD', issuer: 'Gbad' })).toThrow(
+    'contract-asset-invalid',
+  );
+  expect(f.simulateTransaction).not.toHaveBeenCalled();
+});
+
 it('rejects malformed metadata and does not conflate failed balance simulation with zero', async () => {
   const f = fixture();
   f.simulateTransaction.mockReset().mockResolvedValueOnce(success(nativeToScVal(1, { type: 'u32' })));

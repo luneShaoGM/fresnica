@@ -59,6 +59,7 @@ function fixture() {
       readToken,
       isContractId: value => value.startsWith('C'),
       isClassicAddress: value => value.startsWith('G'),
+      classicContractId: asset => asset.kind === 'native' ? second : asset.issuer === address ? contractId : second,
     },
     now,
     assertOpen,
@@ -75,6 +76,20 @@ it('distinguishes network, issuer, native and contract identities', () => {
     walletAssetKey('stellar-testnet', { kind: 'contract', contractId: second }),
   ];
   expect(new Set(identities).size).toBe(identities.length);
+});
+
+it('projects exact Classic SAC relationships without adding a second tracked holding', async () => {
+  const f = fixture();
+  const otherIssuer = 'G' + 'B'.repeat(55);
+  const mirrors = f.product.classicMirrors(account, [
+    { kind: 'credit', code: 'TOK', issuer: address },
+    { kind: 'credit', code: 'TOK', issuer: otherIssuer },
+  ]);
+  expect(mirrors.map(row => row.contractId)).toEqual([contractId, second]);
+  expect(f.product.list(account)).toHaveLength(0);
+  await f.product.track(account, contractId, signal(), live);
+  expect(f.product.list(account)).toHaveLength(1);
+  expect(f.readToken).toHaveBeenCalledTimes(1);
 });
 
 it('tracks the precise contract and keeps arbitrary-size balances as exact integers', async () => {

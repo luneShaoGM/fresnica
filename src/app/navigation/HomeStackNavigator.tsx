@@ -127,6 +127,7 @@ export function HomeStackNavigator({
           <>
             <HomeWithAssetSheets
               xlmQuotes={services.xlmQuotes}
+              creditFiatQuotes={services.creditFiatQuotes}
               key={JSON.stringify([selectedAccount.id, selectedAccount.networkId])}
               navigation={navigation}
               catalog={services.assetCatalog}
@@ -738,6 +739,9 @@ function HomeWithAssetSheets({
             <ContractAssetsPanel
               account={props.account}
               product={contractAssets}
+              catalog={catalog}
+              balanceDependencies={props.balanceDependencies}
+              invalidationRevision={props.invalidationRevision}
               active={active}
               isCurrent={captureContractSession(() =>
                 active &&

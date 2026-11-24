@@ -573,12 +573,14 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     closeXlmQuotes = xlmQuotes.close;
     const creditFiatQuotes =
       network.id === 'stellar-mainnet'
-        ? createCreditFiatQuotes({
-            gateway: pathPaymentGateway,
-            xlmQuotes,
-            isClassicAccountAddress: address => stellarGateway.isClassicAccountAddress(address),
-            now: Date.now,
-          })
+        ? session.bind(
+            createCreditFiatQuotes({
+              gateway: pathPaymentGateway,
+              xlmQuotes,
+              isClassicAccountAddress: address => stellarGateway.isClassicAccountAddress(address),
+              now: Date.now,
+            }),
+          )
         : undefined;
     const publicAssetTransport = createNativeSafePublicTransport();
     const tokenMetadata = createTokenMetadataPort({

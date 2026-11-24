@@ -13,7 +13,7 @@ export type ProductRouteStatus = Readonly<{
 export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteStatus>> = {
   home: {
     readiness: 'implemented',
-    note: 'Home provides partitioned Balance/cache refresh, asset details, native reserve breakdown, Claimable and liquidity-pool categories, orders, and eligible Swap entry. Fiat estimates cover XLM and on-demand mainnet credit-asset details. A separate contract category tracks read-only public metadata and last-observed balances; complete portfolio, contract transactions and native acceptance remain open.',
+    note: 'Home provides partitioned Balance/cache refresh, asset details, native reserve breakdown, Claimable and liquidity-pool categories, orders, and eligible Swap entry. Fiat estimates cover XLM, mainnet credit details and bounded on-demand Classic portfolio references with explicit partial coverage. The contract category supports curated suggestions, Classic SAC mirror labels and read-only metadata/balances; non-Classic valuation, account-wide discovery, contract transactions and native acceptance remain open.',
   },
   'account-details': {
     readiness: 'implemented',

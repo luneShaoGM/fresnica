@@ -70,6 +70,20 @@ it('does not turn missing routes into a zero quote', async () => {
   await expect(f.quotes.load(asset, 'USD', signal())).rejects.toThrow('credit-quote-unavailable');
 });
 
+it('reuses only fresh per-issuer and per-currency public quotes', async () => {
+  const f = fixture();
+  await f.quotes.load(asset, 'USD', signal());
+  await f.quotes.load(asset, 'USD', signal());
+  expect(f.gateway.loadStrictSendPaths).toHaveBeenCalledTimes(1);
+  f.gateway.loadStrictSendPaths.mockResolvedValueOnce([{ ...route, sourceAsset: other }]);
+  await f.quotes.load(other, 'USD', signal());
+  expect(f.gateway.loadStrictSendPaths).toHaveBeenCalledTimes(2);
+  f.clock.mockReturnValue(now + 30_000);
+  f.loadXlm.mockResolvedValue({ ...xlm, updatedAt: now + 30_000 });
+  await f.quotes.load(asset, 'USD', signal());
+  expect(f.gateway.loadStrictSendPaths).toHaveBeenCalledTimes(3);
+});
+
 it('rejects stale reference prices before a market request and bounds quote expiry by both inputs', async () => {
   const f = fixture();
   f.loadXlm.mockResolvedValueOnce({ ...xlm, updatedAt: now - 300_000 });

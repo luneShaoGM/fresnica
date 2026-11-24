@@ -11,6 +11,7 @@ import { loadBalanceSnapshot } from '../../../capabilities/balance/loadBalanceSn
 import type { BalanceProductDependencies } from '../../../capabilities/balance/BalanceCacheHydration';
 import type { FriendbotDependencies } from '../../../capabilities/network/fundTestnetAccountWithFriendbot';
 import { HomeScreen } from '../HomeScreen';
+import { PortfolioReferenceEstimate } from '@features/valuation/PortfolioReferenceEstimate';
 import { AssetList, PinnedNativeAssetRow } from '../components/AssetList';
 import { BalanceFreshnessNotice } from '../components/BalanceFreshnessNotice';
 import { Pressable, ScrollView, View } from 'react-native';
@@ -127,7 +128,7 @@ function renderHome(
   currentAccount: AccountRecord = account,
   categoryOptions: Pick<
     React.ComponentProps<typeof HomeScreen>,
-    'assetCategory' | 'claimableContent' | 'onClaimablePullRefresh' | 'onOpenAssetCategory'
+    'assetCategory' | 'claimableContent' | 'onClaimablePullRefresh' | 'onOpenAssetCategory' | 'xlmQuotes' | 'creditFiatQuotes'
   > = {},
 ) {
   const setBalanceState = jest.fn();
@@ -167,6 +168,18 @@ function renderHome(
 }
 
 describe('Home native balance-state presentation', () => {
+  it('exposes on-demand Classic valuation only for a fresh Mainnet balance', () => {
+    const mainnet = { ...account, networkId: 'stellar-mainnet' };
+    const state: HomeBalanceState = { kind: 'ready', snapshot: { status: 'active', address: mainnet.address,
+      balances: [{ asset: { kind: 'native', code: 'XLM' }, balance: '1.0000000' }], hiddenLiquidityPoolShareCount: 0 },
+      stale: false, refreshing: false, refreshFailed: false, lastSuccessfulUpdateAt: now };
+    const quotes = { xlmQuotes: { load: jest.fn() }, creditFiatQuotes: { load: jest.fn() } };
+    expect(findElement(renderHome(state, mainnet, quotes).root, element => element.type === PortfolioReferenceEstimate)).toBeDefined();
+    expect(findElement(renderHome({ ...state, stale: true }, mainnet, quotes).root,
+      element => element.type === PortfolioReferenceEstimate)).toBeUndefined();
+    expect(findElement(renderHome(state, account, quotes).root,
+      element => element.type === PortfolioReferenceEstimate)).toBeUndefined();
+  });
   it.each([
     { accountKindLabel: 'Classic account', isReadOnly: false },
     { accountKindLabel: 'Read-only classic account', isReadOnly: true },

@@ -1,6 +1,7 @@
 import {
   Account,
   Address,
+  Asset,
   BASE_FEE,
   Contract,
   rpc,
@@ -36,6 +37,12 @@ export function createStellarContractTokenReader(
     network,
     isContractId: value => StrKey.isValidContract(value),
     isClassicAddress: value => StrKey.isValidEd25519PublicKey(value),
+    classicContractId(asset) {
+      if (asset.kind === 'native') return Asset.native().contractId(network.networkPassphrase);
+      if (!/^[A-Za-z0-9]{1,12}$/.test(asset.code) || !StrKey.isValidEd25519PublicKey(asset.issuer))
+        throw new Error('contract-asset-invalid');
+      return new Asset(asset.code, asset.issuer).contractId(network.networkPassphrase);
+    },
     async readToken(contractId, accountAddress, signal): Promise<ContractTokenRead> {
       const check = () => {
         if (signal.aborted) throw new Error('contract-read-retired');

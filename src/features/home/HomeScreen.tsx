@@ -1,5 +1,7 @@
 import type { XlmQuotePort } from '@capabilities/valuation/xlmQuote';
+import type { CreditFiatQuotePort } from '@capabilities/valuation/creditFiatQuote';
 import { useXlmQuote } from '@features/valuation/useXlmQuote';
+import { PortfolioReferenceEstimate } from '@features/valuation/PortfolioReferenceEstimate';
 import { estimateFiat } from '@capabilities/valuation/xlmQuote';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
@@ -42,6 +44,7 @@ import { createStyles } from './styles';
 
 type Props = Readonly<{
   xlmQuotes?: XlmQuotePort;
+  creditFiatQuotes?: CreditFiatQuotePort;
   account: AccountRecord;
   accountCount: number;
   selectableAccounts: readonly AccountRecord[];
@@ -74,6 +77,7 @@ type Props = Readonly<{
 
 export function HomeScreen({
   xlmQuotes,
+  creditFiatQuotes,
   account,
   accountCount,
   selectableAccounts,
@@ -337,6 +341,19 @@ export function HomeScreen({
         >
           {largeText ? freshnessNotice : null}
           {largeText ? nativeRow : null}
+          {assetCategory === 'tokens' &&
+          account.networkId === 'stellar-mainnet' &&
+          xlmQuotes && creditFiatQuotes &&
+          balanceState.kind === 'ready' && !balanceState.stale &&
+          balanceState.snapshot.status === 'active' ? (
+            <PortfolioReferenceEstimate
+              key={JSON.stringify([account.id, account.networkId, currency, balanceState.snapshot.balances])}
+              lines={balanceState.snapshot.balances}
+              xlm={xlmQuotes}
+              credit={creditFiatQuotes}
+              active={active}
+            />
+          ) : null}
           {assetCategory === 'pools'
             ? poolsContent
             : assetCategory === 'claimable'
