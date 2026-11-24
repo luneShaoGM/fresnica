@@ -10,6 +10,21 @@ const marker = 'Fresnica verified main-frame HTTPS bridge';
 
 const edits = [
   {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java',
+    applied: 'public static final class FresnicaNotificationClock',
+    from: `    protected void createRNCWebViewBridge(RNCWebView webView) {`,
+    to: `    // Read-only time metadata; never a fallback channel for wallet messages.
+    public static final class FresnicaNotificationClock {
+        @JavascriptInterface
+        public double now() {
+            return android.os.SystemClock.elapsedRealtime();
+        }
+    }
+
+    protected void createRNCWebViewBridge(RNCWebView webView) {
+        addJavascriptInterface(new FresnicaNotificationClock(), "FresnicaNotificationClock");`,
+  },
+  {
     file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java',
     applied: 'Fresnica denies browser device permissions',
     from: `    @Override

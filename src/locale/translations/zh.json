@@ -691,6 +691,8 @@
   "dapps.permission.connectTitle": "连接此网站？",
   "dapps.permission.connectMessage": "此网站想查看你的地址。",
   "dapps.permission.network": "网络",
+  "dapps.notification.title": "允许此网站发送一条系统通知？",
+  "dapps.notification.allow": "允许本次通知",
   "dapps.permission.allowOnce": "仅此一次",
   "dapps.permission.allowAlways": "始终允许",
   "dapps.permission.reject": "取消",

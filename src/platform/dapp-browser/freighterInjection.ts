@@ -1,7 +1,7 @@
 import { MAX_BRIDGE_MESSAGE_LENGTH } from '../../capabilities/dapp-interaction/freighterSession';
 
 import type { DappMessageReplyTarget } from '../../capabilities/dapp-interaction/browserTransport';
-import type { BridgeResponse } from '../../capabilities/dapp-interaction/freighterSession';
+import type { BridgeResponse, DappNotificationResponse } from '../../capabilities/dapp-interaction/freighterSession';
 
 const SEP53_PREFIX = 'fresnica-sep53:';
 const validReplyId = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
@@ -17,12 +17,12 @@ export function readSep53ReplyExpiresAt(value: unknown): number | undefined {
 }
 
 export function buildFreighterReply(
-  response: BridgeResponse,
+  response: BridgeResponse | DappNotificationResponse,
   target?: DappMessageReplyTarget,
 ): { nativeCommand: string } | { script: string } | undefined {
   const payload = JSON.stringify(response);
   if (target) return { nativeCommand: SEP53_PREFIX + target.replyId + ':' + payload };
-  if (response.signedBlob !== undefined) return undefined;
+  if ('signedBlob' in response && response.signedBlob !== undefined) return undefined;
   return { script: 'window.postMessage(' + payload + ', window.location.origin);true;' };
 }
 
@@ -52,12 +52,14 @@ export function buildFreighterInjectionScript(): string {
     '  stellar.platform = "desktop";',
     '  stellar.wallet = "fresnica";',
     '  stellar.bridgeVersion = "1";',
+    '  var clock = window.FresnicaNotificationClock;',
+    '  if (clock && typeof clock.now === "function") stellar.notificationNow = function() { return clock.now(); };',
     '  window.stellar = stellar;',
     '  window.addEventListener("message", function(event) {',
     '    try {',
     '      if (event.source !== window || event.origin !== window.location.origin) return;',
     '      var payload = event.data;',
-    '      if (!payload || payload.source !== "FREIGHTER_EXTERNAL_MSG_REQUEST") return;',
+    '      if (!payload || (payload.source !== "FREIGHTER_EXTERNAL_MSG_REQUEST" && payload.source !== "FRESNICA_DAPP_MSG_REQUEST")) return;',
     '      var serialized = JSON.stringify(payload);',
     '      if (!serialized || serialized.length > ' + String(MAX_BRIDGE_MESSAGE_LENGTH) + ') return;',
     '      if (payload.type === "SUBMIT_BLOB") {',

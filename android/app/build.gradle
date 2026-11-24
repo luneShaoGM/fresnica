@@ -62,7 +62,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
-        testInstrumentationRunner "com.fresnica.wallet.DappBrowserNetworkTest"
+        testInstrumentationRunner project.findProperty("fresnicaTestInstrumentationRunner") ?: "com.fresnica.wallet.DappBrowserNetworkTest"
     }
     signingConfigs {
         debug {

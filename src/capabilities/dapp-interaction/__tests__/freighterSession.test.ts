@@ -20,6 +20,7 @@ function harness() {
     origin,
     token,
     initial: selection,
+    notificationNow: () => Math.floor(performance.now()),
     current: () => (focused ? current : undefined),
   });
   return {
@@ -345,6 +346,125 @@ describe('S15/S18 Freighter in-WebView read-only wallet bridge', () => {
     expect(JSON.stringify(session.receive(request('SUBMIT_BLOB', 7), origin))).not.toContain('signedTransaction');
   });
 });
+
+it('accepts a bounded notification only after explicit connection and rejects replay or stale origins', () => {
+  const { session, loseFocus } = harness();
+  const expiresAt = Math.floor(performance.now()) + 5_000;
+  const notification = (messageId: number, title = 'Completed') =>
+    JSON.stringify({
+      source: 'FRESNICA_DAPP_MSG_REQUEST',
+      type: 'SHOW_SYSTEM_NOTIFICATION',
+      clock: 'android-elapsed-realtime',
+      messageId,
+      title,
+      body: 'Ready',
+      expiresAt,
+    });
+  expect(session.receive(notification(2), origin)).toEqual({ kind: 'drop' });
+  session.receive(request('REQUEST_ACCESS'), origin);
+  session.resolvePermission(true);
+  expect(session.receive(notification(2), 'https://other.example.org')).toEqual({ kind: 'drop' });
+  expect(session.receive(notification(2, 'x'.repeat(65)), origin)).toEqual({ kind: 'drop' });
+  expect(session.receive(notification(2), origin)).toEqual({
+    kind: 'notification',
+    messageId: 2,
+    title: 'Completed',
+    body: 'Ready',
+    expiresAt,
+  });
+  expect(session.receive(notification(2), origin)).toEqual({ kind: 'drop' });
+  loseFocus();
+  expect(session.receive(notification(3), origin)).toEqual({ kind: 'drop' });
+});
+
+it.each([undefined, null, '5000', NaN, Infinity, 10_000.5, 10_000, 9_999, 15_001])(
+  'rejects missing, invalid or out-of-window notification expiry %s',
+  expiresAt => {
+    const clock = jest.spyOn(performance, 'now').mockReturnValue(10_000);
+    try {
+      const { session } = harness();
+      session.receive(request('REQUEST_ACCESS'), origin);
+      session.resolvePermission(true);
+      expect(
+        session.receive(
+          JSON.stringify({
+            source: 'FRESNICA_DAPP_MSG_REQUEST',
+            type: 'SHOW_SYSTEM_NOTIFICATION',
+            clock: 'android-elapsed-realtime',
+            messageId: 2,
+            title: 'Ready',
+            body: 'Ready',
+            expiresAt,
+          }),
+          origin,
+        ),
+      ).toEqual({ kind: 'drop' });
+    } finally {
+      clock.mockRestore();
+    }
+  },
+);
+
+it.each([
+  undefined,
+  () => NaN,
+  () => -1,
+  () => 1.5,
+  () => {
+    throw new Error('unavailable');
+  },
+])('fails closed without a valid native notification clock', notificationNow => {
+  const session = createFreighterSession({
+    origin,
+    token,
+    initial: selection,
+    current: () => selection,
+    persistedNotificationAllowed: () => true,
+    notificationNow,
+  });
+  expect(
+    session.receive(
+      JSON.stringify({
+        source: 'FRESNICA_DAPP_MSG_REQUEST',
+        messageId: 2,
+        type: 'SHOW_SYSTEM_NOTIFICATION',
+        clock: 'android-elapsed-realtime',
+        title: 'Ready',
+        body: 'Ready',
+        expiresAt: 5_000,
+      }),
+      origin,
+    ),
+  ).toEqual({ kind: 'drop' });
+});
+
+it.each([undefined, 'unix-ms', 'performance-now'])(
+  'rejects legacy or wrong clock domains even when the numeric deadline fits: %s',
+  clock => {
+    const session = createFreighterSession({
+      origin,
+      token,
+      initial: selection,
+      current: () => selection,
+      persistedNotificationAllowed: () => true,
+      notificationNow: () => 10_000,
+    });
+    expect(
+      session.receive(
+        JSON.stringify({
+          source: 'FRESNICA_DAPP_MSG_REQUEST',
+          messageId: 2,
+          type: 'SHOW_SYSTEM_NOTIFICATION',
+          title: 'Ready',
+          body: 'Ready',
+          expiresAt: 15_000,
+          clock,
+        }),
+        origin,
+      ),
+    ).toEqual({ kind: 'drop' });
+  },
+);
 
 it('binds SEP-53 to approved origin, selected signer, network and request version', () => {
   const { session } = harness();
