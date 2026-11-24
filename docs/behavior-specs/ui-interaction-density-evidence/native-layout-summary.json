@@ -1,0 +1,381 @@
+{
+  "kind": "Developer Android component helper observation",
+  "nativeProductFlowAcceptance": false,
+  "environment": {
+    "avd": "Fresnica_UiDensity_20261124",
+    "serial": "emulator-5560",
+    "metroPort": 8096,
+    "fixturePort": 8097,
+    "apk": "/Users/lune/Documents/work/2012/fresnica/android/app/build/outputs/apk/debug/app-debug.apk",
+    "nativeEvidence": "existing debug APK; exact current JS source to be attached later",
+    "apkSha256": "37e80a3ea0852a2a1b1746f360c3f10908a07702fc6aa29f63cae1a4aba9ece3",
+    "installExit": 0,
+    "installOutput": "Performing Streamed Install\nSuccess\n",
+    "productJsSha": "b664941860bae1601194f416c214fcfa56275779",
+    "worktree": "/Users/lune/Documents/work/2012/fresnica-ui-density-helper-2026-11-24"
+  },
+  "runtimeSource": {
+    "baseCommit": "b664941860bae1601194f416c214fcfa56275779",
+    "requestKeyboardPatchFileSha256": {
+      "src/features/request/RequestFormScreen.tsx": "7ca09905525e0852d44a78b2e7e2ac139c6dbc7cc2db8a8ed0612873b84a5ecb",
+      "src/features/request/styles.ts": "4218a4a3605a9445a586b1ee13c773091b1d25bea8dca86e95d3f9397201f931"
+    },
+    "otherProductRuntimeFiles": "unchanged from base commit"
+  },
+  "matrix": {
+    "sendAndRequest": "320 dp width, light/en, fontScale 1.0",
+    "activityAndSettings": "320 dp width, dark/zh, fontScale 2.0"
+  },
+  "scope": "Actual imported presentation components; public fixed data; in-memory callbacks; no account, network, signing, credential or product navigation flow",
+  "cases": [
+    {
+      "case": "Send Memo",
+      "result": "PASS",
+      "observed": "Collapsed default; expands; selecting Text again collapses and preserves KEEP_PUBLIC_MEMO without onSelectMemoType callback; selecting ID invokes one callback and collapses"
+    },
+    {
+      "case": "Request keyboard regression before patch",
+      "result": "FOUND_AND_FIXED",
+      "observed": "New asset search focused input y895..1027 and issuer option y1037..1231 were covered by IME starting near y753. Manual scroll could reach the option. Original PNG/XML retained."
+    },
+    {
+      "case": "Request keyboard patch",
+      "result": "PASS",
+      "focusedInputBounds": [
+        47,
+        558,
+        793,
+        690
+      ],
+      "visibleIssuerBOptionBounds": [
+        47,
+        333,
+        793,
+        527
+      ],
+      "observed": "First focus automatically exposes input; ScrollView shrinks to y215..690. One scroll in the visible region exposes issuerB above IME; one tap selects exact issuerB and collapses. No dismiss-keyboard step was required."
+    },
+    {
+      "case": "Request Memo",
+      "result": "PASS",
+      "observed": "Selecting current Text again collapses and retains KEEP_PUBLIC_MEMO; zero memo change callbacks"
+    },
+    {
+      "case": "Activity filters",
+      "result": "PASS_XML_AND_CALLBACK",
+      "searchBoundsWithIme": [
+        42,
+        328,
+        798,
+        468
+      ],
+      "applyBoundsWithIme": [
+        42,
+        549,
+        798,
+        701
+      ],
+      "observed": "Type All to Payments collapses; issuer search and one subsequent scroll reach exact issuerB; manual hidden controls default collapsed, issuerA checkbox toggled, recollapsed; fixed Apply invokes exact draft and closes sheet.",
+      "appliedFilters": {
+        "type": "payments",
+        "showHidden": false,
+        "hideDust": false,
+        "showFailed": false,
+        "hiddenAssets": [
+          "[\"USDC\",\"GABAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEJXA\"]"
+        ],
+        "quantity": {
+          "asset": "[\"USDC\",\"GABQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQHGPC\"]"
+        }
+      }
+    },
+    {
+      "case": "General Currency",
+      "result": "PASS",
+      "observed": "Default USD collapsed, three options visible when expanded at 2.0; EUR selected and collapses, one in-memory save callback"
+    },
+    {
+      "case": "Security timeout",
+      "result": "PASS",
+      "observed": "Default 30 seconds collapsed, expands, 1 minute selected and collapses; save remains disabled without passphrase; no passphrase entered or settings update attempted"
+    }
+  ],
+  "evidenceBoundaries": [
+    "Reused existing Android debug APK; not a native recompilation of source SHA.",
+    "Activity native Modal PNGs are black because screen capture protection remains active for that window; Activity evidence is XML geometry, IME visibility logs and public callback telemetry only.",
+    "No iOS, real-device, wallet initialization, dApp/signing/network or complete native product-flow acceptance was performed.",
+    "Only the listed combinations were exercised; this is not the full theme/locale/font matrix."
+  ],
+  "selectedCallbacks": [
+    {
+      "at": 1795516607080,
+      "case": "request",
+      "revision": 1795516498090007000,
+      "theme": "light",
+      "locale": "en",
+      "type": "request-asset-change",
+      "next": {
+        "kind": "credit",
+        "code": "USDC",
+        "issuer": "GABQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQHGPC"
+      }
+    },
+    {
+      "at": 1795516459912,
+      "case": "activity",
+      "revision": 1795516290705815000,
+      "theme": "dark",
+      "locale": "zh",
+      "type": "activity-apply",
+      "filters": {
+        "type": "payments",
+        "showHidden": false,
+        "hideDust": false,
+        "showFailed": false,
+        "hiddenAssets": [
+          "[\"USDC\",\"GABAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEJXA\"]"
+        ],
+        "quantity": {
+          "asset": "[\"USDC\",\"GABQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQHGPC\"]"
+        }
+      }
+    },
+    {
+      "at": 1795516640112,
+      "case": "general",
+      "revision": 1795516622042025000,
+      "theme": "dark",
+      "locale": "zh",
+      "type": "general-saved",
+      "value": {
+        "theme": "system",
+        "currency": "EUR",
+        "haptics": true,
+        "systemSeparators": true,
+        "reserveDisplay": true
+      }
+    }
+  ],
+  "representativeRawPngs": [
+    "/tmp/fresnica-ui-density-20261124/shots/send-light-en-1-same-value.png",
+    "/tmp/fresnica-ui-density-20261124/shots/request-fixed-light-en-1-keyboard-focus.png",
+    "/tmp/fresnica-ui-density-20261124/shots/request-fixed-light-en-1-keyboard-option.png",
+    "/tmp/fresnica-ui-density-20261124/shots/general-dark-zh-2-expanded.png",
+    "/tmp/fresnica-ui-density-20261124/shots/security-dark-zh-2-selected.png"
+  ],
+  "artifacts": {
+    "/tmp/fresnica-ui-density-20261124/shots/send-light-en-1-same-value.png": {
+      "sha256": "195ba85f36beeab56802c583f7794346a98fd6b036b645db842d0431d944efc9",
+      "bytes": 67026
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/send-light-en-1-same-value.xml": {
+      "sha256": "badbd247301095ca9ef2f3bca6afd88759e30119a656e333ef016f87941b99c3",
+      "bytes": 13214
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/send-light-en-1-same-value.json": {
+      "sha256": "787fe468a26718f71e55560da2de18248e47506689a9a1d9800055845537e1cb",
+      "bytes": 5725
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/request-fixed-light-en-1-keyboard-focus.png": {
+      "sha256": "1fd839ce0c94e08852a7a378b0651671e65b5dae53ddf7748194ba75353a3780",
+      "bytes": 115465
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/request-fixed-light-en-1-keyboard-focus.xml": {
+      "sha256": "8d2de3cecc28ddd45a365cd0602a7f335f61804c9f8dffaa3433197c9ac7b666",
+      "bytes": 16413
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/request-fixed-light-en-1-keyboard-focus.json": {
+      "sha256": "1855227d2c821476348ffbd5cbc5e2215a46012a99a9c4fd589cf0b1fb949553",
+      "bytes": 8399
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/request-fixed-light-en-1-keyboard-option.png": {
+      "sha256": "fef961a78a5d6e7042b5ec684d13cd1768c77287f739e7143eb8954d92168285",
+      "bytes": 117377
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/request-fixed-light-en-1-keyboard-option.xml": {
+      "sha256": "72985989c56e43cc07ef533b0a43da13b49412ce1be88830a7c5bbe631165bda",
+      "bytes": 16032
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/request-fixed-light-en-1-keyboard-option.json": {
+      "sha256": "6c2ba7721b84feac6850d6772f70fb59bebbf28cc028a7fc33933e2d7370ca33",
+      "bytes": 8109
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/general-dark-zh-2-expanded.png": {
+      "sha256": "132fabeb52a277502e6fce3add28744769791e16ce2b0b5b3422110a3631060f",
+      "bytes": 79738
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/general-dark-zh-2-expanded.xml": {
+      "sha256": "bd5e4729dffba3477958beedb1b42cbb0125a2bdbbc8a28195a697322a1052a5",
+      "bytes": 13582
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/general-dark-zh-2-expanded.json": {
+      "sha256": "51aa1921f212c67209f37af4e43bdd270c6099755cb1b4f9cc478cc3cd07152e",
+      "bytes": 6981
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/security-dark-zh-2-selected.png": {
+      "sha256": "a07ec643d1b959761d771e4ece1ce0184dc2c21cb2321f44e826f6189b08e128",
+      "bytes": 129408
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/security-dark-zh-2-selected.xml": {
+      "sha256": "982f0e6c612cacb2d9670a0c8860906df23be3dc0bdc07c2fd00d407f923bc3d",
+      "bytes": 12492
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/security-dark-zh-2-selected.json": {
+      "sha256": "b112099cf39e87d9b170f8aab9c68b06842e1b0f69ed3986478a7f5ebd0534b3",
+      "bytes": 6123
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/request-light-en-1-issuer-search-keyboard.png": {
+      "sha256": "810adcd2507cf73b0d28a9d57bcccdd1d9e99f4c1edfa88e596bce185deba55c",
+      "bytes": 119165
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/request-light-en-1-issuer-search-keyboard.xml": {
+      "sha256": "7976b6f28ab3a83887a74091c134533b34248dd558102363b798fc515dd2e314",
+      "bytes": 14620
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/request-light-en-1-issuer-search-keyboard.json": {
+      "sha256": "98123da649a830fdcae036b9f093f153f6aa21c68f906a9459b243d8c94c30e3",
+      "bytes": 7509
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/request-fixed-light-en-1-issuer-b-selected.png": {
+      "sha256": "a35565c78b504ce136b00afae70e1e0e98abd53b1a31cdf729ecefb8adf7f0d8",
+      "bytes": 71246
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/request-fixed-light-en-1-issuer-b-selected.xml": {
+      "sha256": "a2f18648bf0beb62da7172575c5be98c6fadcb3ef8386c9cefb1fc464e3deaf3",
+      "bytes": 16634
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/request-fixed-light-en-1-issuer-b-selected.json": {
+      "sha256": "73ca744209209e1f49b60a153bcd8b6998a78744c09afc8b996846954463858f",
+      "bytes": 8611
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/request-fixed-light-en-1-memo-same.png": {
+      "sha256": "d19b3f29b5842de9bbc2c235b25f50b7325a64b6ec0e4f0e8efb5731ec2c7191",
+      "bytes": 71557
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/request-fixed-light-en-1-memo-same.xml": {
+      "sha256": "a2f18648bf0beb62da7172575c5be98c6fadcb3ef8386c9cefb1fc464e3deaf3",
+      "bytes": 16634
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/request-fixed-light-en-1-memo-same.json": {
+      "sha256": "73ca744209209e1f49b60a153bcd8b6998a78744c09afc8b996846954463858f",
+      "bytes": 8611
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/activity-dark-zh-2-type-expanded.png": {
+      "sha256": "08df83123da67b323e122ba92c82cecc7a0efe47e0f0f72c63049c3801194f3b",
+      "bytes": 18213
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/activity-dark-zh-2-type-expanded.xml": {
+      "sha256": "196abbf4a5fdc1bd648b68da445bc52c26ee4a99fb31566572c3c21d408e66ae",
+      "bytes": 14167
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/activity-dark-zh-2-type-expanded.json": {
+      "sha256": "927790695d96712f67e307aef88930cdd67c5a05ef67401b7123e1cc45f9ade4",
+      "bytes": 7788
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/activity-dark-zh-2-type-selected.png": {
+      "sha256": "08df83123da67b323e122ba92c82cecc7a0efe47e0f0f72c63049c3801194f3b",
+      "bytes": 18213
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/activity-dark-zh-2-type-selected.xml": {
+      "sha256": "266a255b4b90bd4433b06c53a26e88496b9c5da8d8bdf8b74582d5d5d5ad9a14",
+      "bytes": 13108
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/activity-dark-zh-2-type-selected.json": {
+      "sha256": "b5fffe19d04947fb95095b598e5d00d4cbfe6ff7f7ada35fba0dc628f82708ab",
+      "bytes": 6906
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/activity-dark-zh-2-issuer-search-keyboard.png": {
+      "sha256": "d2a7568702a41e36683542e66ece9553dc673e6b0806c7ff5bbdbf5eaeea8f10",
+      "bytes": 18251
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/activity-dark-zh-2-issuer-search-keyboard.xml": {
+      "sha256": "f4ecbcb26168044f2403321047e1371a92d7618fa5a09221e511bdf25b1fa8ab",
+      "bytes": 13318
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/activity-dark-zh-2-issuer-search-keyboard.json": {
+      "sha256": "bbdfd00ab20459dde5af530b4c31bf1cb64ea98df2c61a8deb0a35e8f24c0234",
+      "bytes": 7087
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/activity-dark-zh-2-hide-selected.png": {
+      "sha256": "8269f89fea7e2c31bcf120a185e239442b2ae17f290101d9067107fbf9f4a23d",
+      "bytes": 18301
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/activity-dark-zh-2-hide-selected.xml": {
+      "sha256": "d7f2aadb870151334b883a8d265a835b2e02eec2f08dc6494d37c9c310c0d759",
+      "bytes": 14527
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/activity-dark-zh-2-hide-selected.json": {
+      "sha256": "e1abf3a2c758f57ad49ab82b6f919d323d4809ef1b7c9a9bda190a3852a4efe1",
+      "bytes": 8152
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/activity-dark-zh-2-hide-recollapsed.png": {
+      "sha256": "780c2e7131dfa763f86750d6939461190ce01e272c577e1f86e1e199e6c86f44",
+      "bytes": 18563
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/activity-dark-zh-2-hide-recollapsed.xml": {
+      "sha256": "44faa30a7fed31c84bade3b068581f944c28e32004383b0b673bac052614770e",
+      "bytes": 12881
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/activity-dark-zh-2-hide-recollapsed.json": {
+      "sha256": "2b4c414cb33f7e2fc178405b4684cab5e09d9c752b45d363f50d4ae69438e2ce",
+      "bytes": 6728
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/activity-dark-zh-2-applied.png": {
+      "sha256": "ca999740b1649024ac1c67d8901d3ee1154abade515cbc2037332910817feff6",
+      "bytes": 37819
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/activity-dark-zh-2-applied.xml": {
+      "sha256": "49421b60db741bf5ab5eb38b82e6e2b1e7f9debc30927b41fbb905b3e7d68bb1",
+      "bytes": 4468
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/activity-dark-zh-2-applied.json": {
+      "sha256": "9172e2f858f7e9603b83d6cb3e62c0927ee35dd8f8d834f8e05453c95e55c9a0",
+      "bytes": 472
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/general-dark-zh-2-selected.png": {
+      "sha256": "80ba4de88b0c9b17dbb6d1f4e79db7cf8e8f4a1dc18ed652472ccac675625e42",
+      "bytes": 134151
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/general-dark-zh-2-selected.xml": {
+      "sha256": "6f23ce90cc35ac818aa3ae619c267b70406603c170fa67e0d9d50560f73d7318",
+      "bytes": 11477
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/general-dark-zh-2-selected.json": {
+      "sha256": "7371675d6de6817fe97560fc5c206af6c6cf63d7f8ec779dcfa7f98a1f83bda9",
+      "bytes": 5218
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/security-dark-zh-2-expanded.png": {
+      "sha256": "f0910b3445181a896550aa1913469011bbf552fca5dba345c152ccb00a697fe2",
+      "bytes": 197241
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/security-dark-zh-2-expanded.xml": {
+      "sha256": "feea71262f237f3cea7d03433b40462401294f404162615958bdc3893618ad1d",
+      "bytes": 10951
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/security-dark-zh-2-expanded.json": {
+      "sha256": "69b7ce16dd17bb211f643042e5a6a9b5529cf885082be65927fe644fe454411f",
+      "bytes": 4803
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/security-dark-zh-2-save-gate.png": {
+      "sha256": "e8cb7c49b613dd4ee814c7a91e427d38f591cde50217ff2df5fcb675a5801681",
+      "bytes": 129389
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/security-dark-zh-2-save-gate.xml": {
+      "sha256": "982f0e6c612cacb2d9670a0c8860906df23be3dc0bdc07c2fd00d407f923bc3d",
+      "bytes": 12492
+    },
+    "/tmp/fresnica-ui-density-20261124/shots/security-dark-zh-2-save-gate.json": {
+      "sha256": "b112099cf39e87d9b170f8aab9c68b06842e1b0f69ed3986478a7f5ebd0534b3",
+      "bytes": 6123
+    }
+  },
+  "eventLog": {
+    "path": "/tmp/fresnica-ui-density-20261124/events.jsonl",
+    "sha256": "f2fd9e70d6fd022a9e99b30df5c101c5a8b26b057bb895ccafadd82b360b86e3"
+  },
+  "helperFiles": {
+    "/tmp/fresnica-ui-density-20261124/ui-density-fixture-entry.js": "d35a695362518a9e6f09b1bde6716173c6c85f9010ba8f40809fbf259089fcf7",
+    "/tmp/fresnica-ui-density-20261124/ui-density-driver.py": "7187e04ab7858f813a3933350f35a2b2e795f555efeb54d5e8b845f5cd2acfcb",
+    "/tmp/fresnica-ui-density-20261124/ui-density-fixture-server.py": "dc743addb26c1433388c8f76fd06794ce911b775101daf5b7e39b2181357c13e"
+  }
+}

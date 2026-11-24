@@ -7,7 +7,7 @@
 - GitHub / Mac 主工作树基线：`main@4b473360f103d47b67d5d17d84f017db09505fd3`，已包含 #231–#234 的相关 UI 修复。
 - 复用现有 UI PR #235，开发起点：`ec749305ac93e708a9a296ef73a5213b366f6333`。其中 Send Step、卡片边距和重复 Available 已实现，不重复开发。
 - 本轮在隔离工作区修改；不覆盖其他功能分支。最终 remote HEAD、实际验证和 CI 写入 PR。
-- 规范：现有 Phase 2c / §14 呈现角色，以及 S01/S02/S04/S05/S07/S09/S10/S13/S14/S17/S22–S25 的已有页面。仅 Adapt Fresnica 当前实现，不复制 Stellar/Xaman 源码，不新增产品能力，不提升原生验收成熟度。
+- 规范：现有 Phase 2c / §14 呈现角色，以及 S01/S02/S03/S04/S05/S06/S07/S09/S10/S13/S14/S17/S19/S22–S25 的已有页面。仅 Adapt Fresnica 当前实现，不复制 Stellar/Xaman 源码，不新增产品能力，不提升原生验收成熟度。
 - 主要依据：`AGENTS.md`、产品信息架构、Architecture Style Guide、Product Traceability Ledger、现行 Behavior Specs 和 Provenance Rules。源码覆盖与原生验收分别记录。
 
 ## 开发前清单
@@ -40,7 +40,7 @@
 
 - 重新选择当前值只收起，不触发变更或清空关联输入。Activity 的类型通过“全部”、资产通过“全部资产”、数量通过“不限数量”显式清除；方向和比较方式仍可再次点击取消。
 - 资产搜索匹配代码与完整发行方；同代码不同发行方继续是不同值。既有筛选资产暂时不在加载列表时，保留其当前身份，避免显示为无筛选。
-- 关闭、禁用、卸载、选项删除后的旧选择回调不会生效；状态是局部呈现状态，不保存或传播敏感材料。
+- 回调执行时，如果控件已收起、被禁用、已卸载，或目标选项当前已删除/禁用，则拒绝选择；状态是局部呈现状态，不保存或传播敏感材料。
 
 ## 已检查并保留
 
@@ -71,12 +71,36 @@
 
 | 验证 | 实际结果 / 边界 |
 | --- | --- |
-| `npm run check` | 完整退出码 0；314 Jest suites、3202 tests 通过，10 项既有跳过；Node repository tests 3 项通过 |
+| `npm run check` | UI 主实现提交 `b664941860bae1601194f416c214fcfa56275779` 完整退出码 0；314 Jest suites、3202 tests 通过，10 项既有跳过；Node repository tests 3 项通过；该提交的 GitHub CI #953 实际执行通过 |
 | TypeScript / ESLint / architecture / aliases / 格式 / native patch / artwork | 通过；ESLint 0 errors、79 warnings；smoke 脚本检查不是执行产品流程 |
 | locale / provenance / diff | 三语言 1437 keys 对齐、0 未批准 donor collision、`git diff --check` 通过 |
 | 交互定向 | SelectField + Activity 草稿/取消/Apply/数量筛选测试通过；Memo / Request / Settings / HD / 安全输入生命周期的既有回归通过，已包含在全量数字中 |
-| Android 布局辅助观察 | 尚在准备，未记作通过；最终实际覆盖与证据另列 |
+| Request 键盘补修 | 在主实现验证后发现并修复；Request 定向 2 suites / 26 tests、TypeScript、定向 ESLint、architecture 与 diff 检查通过；最终 remote HEAD 的完整 CI 另记在 PR |
+| Android 布局辅助观察 | 已执行公开数据 helper，发现 Request 搜索焦点遮挡并完成补修复测；实际覆盖和证据见下节，不作为完整产品流程验收 |
 | iOS / 真机 / 原生产品流程 / TalkBack / VoiceOver | 本轮未执行；既有验收缺口继续保留 |
 | 独立 Work Review / Merge | 尚未进行，按用户要求等待同意后再 Review；无开发方 APPROVED 声明 |
 
 这份清单不是独立审查证据。GitHub 当前 exact remote HEAD、CI 实际 steps 和 Work 的后续结论才决定该 PR 的审查状态。
+
+### Android 公开数据布局辅助观察
+
+在独立 AVD `Fresnica_UiDensity_20261124` / `emulator-5560` 中使用 840 × 1496 px、420 dpi（320 dp 宽）的窗口，直接装配实际呈现组件和公开固定数据。复用已有 debug APK，通过独立 Metro 加载本轮 JS；本轮没有重新构建原生二进制，也没有执行真实钱包、签名或广播流程。
+
+- Send：浅色 / English / 字体 1.0，Memo 默认收起，展开后重新选择当前 Text 不触发类型变更，已有 Memo 保留。
+- Request：浅色 / English / 字体 1.0，同代码不同 issuer 仍可按完整发行方搜索、准确选择。首次观察发现 IME 遮住焦点输入；补修后输入自动露出，键盘打开时可滚动到完整目标发行方并单次点选。
+- Activity：深色 / 简中 / 字体 2.0，类型选择、资产搜索与手动隐藏资产独立操作；Apply 收到 `payments`、目标发行方 B，以及仅包含发行方 A 的隐藏集合。输入框和固定 Apply 均位于 IME 上方。受保护的 Modal 截图为黑屏，只以 XML 几何和回调核对，不声称验证其颜色。
+- General：深色 / 简中 / 字体 2.0，USD 默认收起，展开后显示三种货币；选择 EUR 后收起，并产生一次内存保存回调。
+- Security：深色 / 简中 / 字体 2.0，锁定时长从 30 秒改选 1 分钟后收起；未输入口令时 Save 仍禁用，没有执行设置更新。
+
+#### Request 搜索键盘补修
+
+修复仅在 `RequestFormScreen` 最外层增加 `KeyboardAvoidingView`，保留已有 Screen 的唯一 safe-area 和自绘标题栏，不修改全局 Screen 或 Activity 的既有键盘策略。
+
+| 观察 | 修复前（主实现提交） | 修复后（同一源码 + 记录的补丁） |
+| --- | --- | --- |
+| ScrollView 垂直范围 | y = 215–1433 px，仍延伸到键盘下面 | y = 215–690 px，随键盘缩小 |
+| 已聚焦搜索框 | y = 895–1027 px，被 IME 遮挡 | y = 558–690 px，首次聚焦即完整可见 |
+| IME 顶边 | 753 px | 753 px |
+| 完整发行方选项 | 需在遮挡状态下手动找回 | 在可见滚动区域上滑一次后 y = 333–527 px，可直接点选 |
+
+修复前后 PNG、XML 和数据/回调摘要保存在 [UI 交互证据目录](ui-interaction-density-evidence/)。[原始辅助摘要](ui-interaction-density-evidence/native-layout-summary.json) 记录源码基线、补丁文件哈希、复用 APK 哈希、完整采集清单及边界；目录内保留代表截图、相关 XML 与 [原始回调日志](ui-interaction-density-evidence/events.jsonl)，所保留文件的 SHA256 均与原始摘要一致。最终 PR HEAD 另在 PR 描述中固定。辅助场景不覆盖完整导航、真实账户权限、iOS、真机或读屏验收。

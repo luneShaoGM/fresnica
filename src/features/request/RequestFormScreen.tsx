@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { Screen } from '../../ui/components';
@@ -47,7 +47,7 @@ export function RequestFormScreen(props: Props) {
   const styles = useThemedStyles(createRequestStyles);
   const actionsEnabled = props.canonicalUri !== undefined && !props.busy;
 
-  return (
+  const content = (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
         <View style={styles.headerSide}>
@@ -253,6 +253,12 @@ export function RequestFormScreen(props: Props) {
         </View>
       </ScrollView>
     </Screen>
+  );
+
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardAvoiding}>
+      {content}
+    </KeyboardAvoidingView>
   );
 }
 

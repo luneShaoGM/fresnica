@@ -4,6 +4,7 @@ import type { AppTheme } from '../../ui/theme';
 
 export function createRequestStyles(theme: AppTheme) {
   return StyleSheet.create({
+    keyboardAvoiding: { flex: 1, backgroundColor: theme.colors.background },
     header: {
       minHeight: 58,
       paddingVertical: theme.spacing.xs,

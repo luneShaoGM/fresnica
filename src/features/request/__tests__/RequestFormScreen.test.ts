@@ -77,7 +77,7 @@ function renderForm(overrides: Partial<React.ComponentProps<typeof RequestFormSc
   const onPasteRequest = jest.fn();
   const onScanRequest = jest.fn();
   const canonicalUri = 'web+stellar:pay?destination=GDESTINATION&amount=1';
-  const root = RequestFormScreen({
+  const layout = RequestFormScreen({
     accountLabel: 'Primary',
     accountAddress: 'GDESTINATION',
     assets: [{ kind: 'native' }, { kind: 'credit', code: 'usd', issuer: 'GISSUER' }],
@@ -104,6 +104,7 @@ function renderForm(overrides: Partial<React.ComponentProps<typeof RequestFormSc
     onCancel: jest.fn(),
     ...overrides,
   });
+  const root = layout.props.children as React.ReactElement<React.ComponentProps<typeof Screen>>;
   return { root, onCopy, onShare, onToggleQr, onPasteRequest, onScanRequest, canonicalUri };
 }
 
