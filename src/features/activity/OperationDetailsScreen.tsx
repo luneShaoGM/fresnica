@@ -23,7 +23,11 @@ import type {
   HistoryParticipantRole,
 } from '@capabilities/history/types';
 import { Header, Screen, StateView } from '@ui/components';
+import { SmallChevron } from '@ui/components/SmallIcons';
 import { useThemedStyles } from '@ui/theme';
+
+import { CopyAddressButton } from '../accounts/CopyAddressButton';
+import { TokenAssetIcon } from '../assets/TokenAssetIcon';
 
 import { ParticipantCard } from '../contacts/ParticipantCard';
 import type { ContactBook, ContactScanner } from '../contacts/contactBook';
@@ -56,6 +60,7 @@ type Props = Readonly<{
   invalidationRevision: number;
   onBack: () => void;
   openExternalUrl: (url: string) => Promise<void>;
+  copyPublicText: (value: string) => Promise<void>;
   projectExplorerUrl: (transactionHash: string) => string | undefined;
 }>;
 
@@ -70,6 +75,7 @@ export function OperationDetailsScreen({
   invalidationRevision,
   onBack,
   openExternalUrl,
+  copyPublicText,
   projectExplorerUrl,
 }: Props) {
   const { formatNumber, locale, t } = useLocalization();
@@ -240,8 +246,9 @@ export function OperationDetailsScreen({
           explorerUrl,
           explorerOpenState,
           openExplorer,
+          { viewedAddress: account.address, active, copyPublicText },
           (address, label) =>
-            contacts && contacts.network.id === account.networkId && contacts.isClassicAccountAddress(address) ? (
+            address !== account.address && contacts && contacts.network.id === account.networkId && contacts.isClassicAccountAddress(address) ? (
               <View key={`${account.networkId}:${address}:${label}`} style={styles.participant}>
                 <ParticipantCard
                   book={contacts}
@@ -250,6 +257,7 @@ export function OperationDetailsScreen({
                   address={address}
                   label={label}
                   active={active}
+                  compact
                 />
               </View>
             ) : (
@@ -264,6 +272,11 @@ export function OperationDetailsScreen({
 type Translate = ReturnType<typeof useLocalization>['t'];
 type FormatNumber = ReturnType<typeof useLocalization>['formatNumber'];
 type Styles = ReturnType<typeof createStyles>;
+type DetailPresentation = Readonly<{
+  viewedAddress: string;
+  active: boolean;
+  copyPublicText: (value: string) => Promise<void>;
+}>;
 
 function renderContent(
   state: LoadState,
@@ -275,6 +288,7 @@ function renderContent(
   explorerUrl: string | undefined,
   explorerOpenState: 'idle' | 'opening' | 'failed',
   onOpenExplorer: () => void,
+  detailPresentation: DetailPresentation,
   renderAccount: (address: string, label: string) => React.ReactNode,
 ) {
   if (state.kind === 'loading') {
@@ -345,6 +359,7 @@ function renderContent(
             explorerUrl,
             explorerOpenState,
             onOpenExplorer,
+            detailPresentation,
             renderAccount,
           )}
         </>
@@ -406,13 +421,14 @@ function renderEntry(
   explorerUrl: string | undefined,
   explorerOpenState: 'idle' | 'opening' | 'failed',
   onOpenExplorer: () => void,
+  detailPresentation: DetailPresentation,
   renderAccount: (address: string, label: string) => React.ReactNode,
 ) {
   const presentation = activityEntryPresentation(entry, t, formatNumber);
   const transfer = entry.kind === 'payment' || entry.kind === 'path-payment' || entry.kind === 'create-account';
   const primary = transfer ? `${amountPrefix(entry.direction)}${presentation.primary}` : presentation.primary;
   return (
-    <View style={styles.ready}>
+    <View key={entry.id} style={styles.ready}>
       <View style={styles.hero}>
         <View style={styles.heroIcon}>
           <Text style={styles.heroGlyph}>
@@ -420,10 +436,18 @@ function renderEntry(
           </Text>
         </View>
         <Text style={styles.heroTitle}>{presentation.title}</Text>
-        <Text style={styles.heroPrimary}>{primary}</Text>
         {entry.kind === 'payment' ? (
-          <Text selectable style={styles.heroAssetIdentity}>{assetIdentityLabel(entry.asset, t)}</Text>
-        ) : null}
+          <AssetAmount
+            key={JSON.stringify(entry.asset)}
+            asset={entry.asset}
+            value={primary}
+            active={detailPresentation.active}
+            t={t}
+            styles={styles}
+          />
+        ) : (
+          <Text style={styles.heroPrimary}>{primary}</Text>
+        )}
       </View>
 
       {entry.kind === 'unsupported' ? (
@@ -443,7 +467,19 @@ function renderEntry(
           value={dateFormatter.format(new Date(entry.occurredAt))}
           styles={styles}
         />
-        <DetailRow label={t('activity.detail.transactionHash')} value={entry.transactionHash} mono styles={styles} />
+        <TransactionHashRow
+          label={t('activity.detail.transactionHash')}
+          value={entry.transactionHash}
+          copyPublicText={detailPresentation.copyPublicText}
+          styles={styles}
+        />
+        {entry.recipientMemo ? (
+          <DetailRow
+            label={t('contacts.memo')}
+            value={`${t(`send.memo.type.${entry.recipientMemo.memo.type}`)}: ${entry.recipientMemo.memo.value}`}
+            styles={styles}
+          />
+        ) : null}
         {!transfer && entry.kind !== 'change-trust'
           ? renderAccount(entry.sourceAccount, t('activity.detail.sourceAccount'))
           : null}
@@ -719,29 +755,35 @@ function renderEntry(
         ) : null}
         {entry.kind === 'path-payment' ? (
           <>
-            <DetailRow
+            <AssetAmount
+              key={`sent:${JSON.stringify(entry.sourceAsset)}`}
               label={t('activity.detail.actualSent')}
-              value={`−${formatNumber(entry.sourceAmount, 7)} ${entry.sourceAsset.code}\n${assetIdentityLabel(entry.sourceAsset, t)}`}
-              fullValue
+              asset={entry.sourceAsset}
+              value={`−${formatNumber(entry.sourceAmount, 7)} ${entry.sourceAsset.code}`}
+              active={detailPresentation.active}
+              t={t}
               styles={styles}
             />
-            <DetailRow
+            <AssetAmount
+              key={`received:${JSON.stringify(entry.destinationAsset)}`}
               label={t('activity.detail.actualReceived')}
-              value={`+${formatNumber(entry.destinationAmount, 7)} ${entry.destinationAsset.code}\n${assetIdentityLabel(entry.destinationAsset, t)}`}
-              fullValue
+              asset={entry.destinationAsset}
+              value={`+${formatNumber(entry.destinationAmount, 7)} ${entry.destinationAsset.code}`}
+              active={detailPresentation.active}
+              t={t}
               styles={styles}
             />
-            <ParticipantRows participants={entry.participants} t={t} renderAccount={renderAccount} />
+            <ParticipantRows participants={entry.participants} viewedAddress={detailPresentation.viewedAddress} t={t} renderAccount={renderAccount} styles={styles} />
           </>
         ) : null}
         {entry.kind === 'payment' || entry.kind === 'create-account' ? (
-          <ParticipantRows participants={entry.participants} t={t} renderAccount={renderAccount} />
+          <ParticipantRows participants={entry.participants} viewedAddress={detailPresentation.viewedAddress} t={t} renderAccount={renderAccount} styles={styles} />
         ) : null}
         {entry.kind === 'change-trust' ? (
           <>
             <DetailRow label={t('activity.detail.asset')} value={entry.asset.code} styles={styles} />
             <DetailRow label={t('activity.detail.limit')} value={formatNumber(entry.limit)} styles={styles} />
-            <ParticipantRows participants={entry.participants} t={t} renderAccount={renderAccount} />
+            <ParticipantRows participants={entry.participants} t={t} renderAccount={renderAccount} styles={styles} />
           </>
         ) : null}
       </View>
@@ -802,18 +844,99 @@ export function OperationExplorerAction({
 
 function ParticipantRows({
   participants,
+  viewedAddress,
   t,
   renderAccount,
+  styles,
 }: Readonly<{
   participants: readonly HistoryParticipant[];
+  viewedAddress?: string;
   t: Translate;
   renderAccount: (address: string, label: string) => React.ReactNode;
+  styles: Styles;
 }>) {
-  return participants.map((participant, index) => (
-    <React.Fragment key={`${participant.role}:${index}`}>
-      {renderAccount(participant.identity, participantRoleLabel(participant.role, t))}
-    </React.Fragment>
-  ));
+  // Only suppress the exact selected identity. A distinct muxed identity must
+  // remain visible even if its base account is the viewed account.
+  const own = viewedAddress === undefined ? [] : participants.filter(participant => participant.identity === viewedAddress);
+  const others = participants.filter(participant => participant.identity !== viewedAddress);
+  return (
+    <>
+      {others.map((participant, index) => (
+        <React.Fragment key={`${participant.role}:${index}`}>
+          {renderAccount(participant.identity, participantRoleLabel(participant.role, t))}
+        </React.Fragment>
+      ))}
+      {own.length ? <OwnParticipants participants={own} t={t} styles={styles} /> : null}
+    </>
+  );
+}
+
+function OwnParticipants({ participants, t, styles }: Readonly<{
+  participants: readonly HistoryParticipant[];
+  t: Translate;
+  styles: Styles;
+}>) {
+  const [expanded, setExpanded] = useState(false);
+  const label = t('activity.detail.ownParticipants');
+  return (
+    <View>
+      <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ expanded }} onPress={() => setExpanded(value => !value)} style={styles.disclosure}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        <SmallChevron color={styles.rowLabel.color} up={expanded} />
+      </Pressable>
+      {expanded ? participants.map((participant, index) => (
+        <DetailRow key={`${participant.role}:${index}`} label={participantRoleLabel(participant.role, t)} value={participant.identity} mono styles={styles} />
+      )) : null}
+    </View>
+  );
+}
+
+export function AssetAmount({ asset, value, label, active, t, styles }: Readonly<{
+  asset: HistoryAsset;
+  value: string;
+  label?: string;
+  active: boolean;
+  t: Translate;
+  styles: Styles;
+}>) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <View style={label === undefined ? styles.heroAsset : undefined}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={[label, value, t('activity.detail.assetIdentity')].filter(Boolean).join(', ')}
+        accessibilityState={{ expanded }}
+        onPress={() => setExpanded(current => !current)}
+        style={label === undefined ? styles.heroAssetTrigger : styles.row}
+      >
+        {label === undefined ? null : <Text style={styles.rowLabel}>{label}</Text>}
+        <View style={label === undefined ? styles.heroAssetAmount : styles.assetValue}>
+          <TokenAssetIcon asset={asset} active={active} size={22} />
+          <Text style={label === undefined ? styles.heroAssetPrimary : styles.assetAmountText}>{value}</Text>
+        </View>
+        <SmallChevron color={styles.rowLabel.color} up={expanded} />
+      </Pressable>
+      {expanded ? (
+        <Text selectable style={styles.expandedAssetIdentity}>{assetIdentityLabel(asset, t)}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+function TransactionHashRow({ label, value, copyPublicText, styles }: Readonly<{
+  label: string;
+  value: string;
+  copyPublicText: (value: string) => Promise<void>;
+  styles: Styles;
+}>) {
+  return (
+    <View style={styles.row}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <View style={styles.hashValue}>
+        <CopyAddressButton key={value} address={value} copyPublicText={copyPublicText} kind="transaction-hash" />
+      </View>
+    </View>
+  );
 }
 
 function DetailRow({

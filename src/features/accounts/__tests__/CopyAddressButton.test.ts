@@ -68,3 +68,25 @@ it.each(['copied', 'error'])('renders accessible %s feedback', status => {
   expect(feedback.props.accessibilityLiveRegion).toBe('polite');
   expect(feedback.props.children).toBe(status === 'copied' ? 'accounts.copy.success' : 'accounts.copy.error');
 });
+
+it('uses the address shortening rule for a hash but copies the complete original value', async () => {
+  const hash = 'abcdef0123456789'.repeat(4);
+  const copyPublicText = jest.fn(async () => undefined);
+  const root = CopyAddressButton({ address: hash, copyPublicText, kind: 'transaction-hash' });
+  const [text, button] = root.props.children[0].props.children;
+  expect(text.props.children).toBe('abcd...6789');
+  expect(text.props.accessibilityLabel).toBe(hash);
+  expect(button.props.accessibilityLabel).toBe('activity.detail.hashCopy.action');
+  expect(copyPublicText).not.toHaveBeenCalled();
+  await button.props.onPress();
+  expect(copyPublicText).toHaveBeenCalledWith(hash);
+  expect(setStatus.mock.calls).toEqual([['copying'], ['copied']]);
+});
+
+it.each(['copied', 'error'])('uses hash-specific accessible %s feedback', status => {
+  mockedUseState.mockReturnValue([status, setStatus]);
+  const root = CopyAddressButton({ address: 'abcdef0123456789'.repeat(4), copyPublicText: jest.fn(), kind: 'transaction-hash' });
+  const feedback = root.props.children[1];
+  expect(feedback.props.accessibilityLiveRegion).toBe('polite');
+  expect(feedback.props.children).toBe(status === 'copied' ? 'activity.detail.hashCopy.success' : 'activity.detail.hashCopy.error');
+});

@@ -135,6 +135,7 @@ function detail(revision = 0, operationId = '1') {
     invalidationRevision: revision,
     onBack: jest.fn(),
     openExternalUrl: async () => undefined,
+    copyPublicText: async () => undefined,
     projectExplorerUrl: () => undefined,
   });
 }

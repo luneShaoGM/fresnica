@@ -1142,3 +1142,20 @@ it('marks participant cards as opening more actions without adding a second touc
   pressables[0].props.onPress!();
   expect(nodes(render(() => ParticipantCard({ book, label: 'Sender', address: row.address })), BottomSheet)).toHaveLength(1);
 });
+
+
+it('uses the compact detail card without changing the exact participant menu and copy action', async () => {
+  const address = 'GCOUNTERPARTY';
+  rows = [{ ...row, address }];
+  const draw = () => render(() => ParticipantCard({ book, label: 'Recipient', address, compact: true }));
+  const root = draw();
+  expect(nodes(root, AccountIdentityCard)[0].props).toMatchObject({
+    name: 'Alice', address, label: 'Recipient', presentation: 'compact-card',
+  });
+  nodes(root, Pressable)[0].props.onPress!();
+  const menu = draw();
+  expect(nodes(menu, Text).some(node => node.props.children === address)).toBe(true);
+  await button(menu, 'contacts.copy')();
+  expect(book.copyPublicText).toHaveBeenCalledWith(address);
+  expect(nodes(menu, NativeButton).some(node => node.props.label === 'contacts.edit')).toBe(true);
+});

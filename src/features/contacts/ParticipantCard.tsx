@@ -21,8 +21,9 @@ type Props = Recipient &
     scanner?: ContactScanner;
     active?: boolean;
     editable?: boolean;
+    compact?: boolean;
   }>;
-export function ParticipantCard({ book, label, address, memo, accounts = [], scanner, active = true, editable = true }: Props) {
+export function ParticipantCard({ book, label, address, memo, accounts = [], scanner, active = true, editable = true, compact = false }: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const { contacts, failed } = useContactList(book);
@@ -84,7 +85,7 @@ export function ParticipantCard({ book, label, address, memo, accounts = [], sca
       <Pressable
         accessibilityRole="button"
         accessibilityHint={t('contacts.actionsHint')}
-        accessibilityLabel={`${label}: ${displayName || address}`}
+        accessibilityLabel={compact && displayName ? `${label}: ${displayName}, ${address}` : `${label}: ${displayName || address}`}
         onPress={() => {
           if (available() && !current.current) {
             current.current = 'menu';
@@ -93,6 +94,7 @@ export function ParticipantCard({ book, label, address, memo, accounts = [], sca
         }}
       >
         <AccountIdentityCard
+          presentation={compact ? 'compact-card' : 'card'}
           avatar={<AccountAvatar address={address} active={active} />}
           address={address}
           name={displayName}

@@ -77,6 +77,7 @@ it('subscribes at composition, updates contacts and failures without replacing h
     ledgerReadInvalidation: { subscribe: () => () => {}, getRevision: () => 0 },
     history,
     externalUrl: { open: jest.fn(async () => undefined) },
+    copyPublicText: jest.fn(async () => undefined),
     transactionRecovery: { reconcile: jest.fn() },
   } as unknown as AppServices;
   const navigation = { navigate: jest.fn() };
@@ -141,7 +142,7 @@ it('subscribes at composition, updates contacts and failures without replacing h
     children(context: {
       navigation: { goBack: jest.Mock };
       route: { params: { accountId: string; operationId: string } };
-    }): React.ReactElement<{ account: AccountRecord; accounts?: readonly AccountRecord[] }>;
+    }): React.ReactElement<{ account: AccountRecord; accounts?: readonly AccountRecord[]; copyPublicText: AppServices['copyPublicText'] }>;
   }>;
   const detail = detailRoute.props.children({
     navigation: { goBack: jest.fn() },
@@ -149,4 +150,5 @@ it('subscribes at composition, updates contacts and failures without replacing h
   });
   expect(detail.props.account).toBe(account);
   expect(detail.props.accounts).toEqual([account, recipient]);
+  expect(detail.props.copyPublicText).toBe(services.copyPublicText);
 });
