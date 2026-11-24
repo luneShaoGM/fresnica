@@ -12,6 +12,7 @@ export type ProductRoute =
   | 'account-details'
   | 'add-account'
   | 'asset-details'
+  | 'contract-transfer'
   | 'send-form'
   | 'send-review'
   | 'send-result'
@@ -50,6 +51,7 @@ export type ProductRouteParams = Readonly<{
   'add-account': undefined;
   // Public domain identity only. Current balance is reloaded by the destination.
   'asset-details': Readonly<{ accountId: string; networkId: string; asset: BalanceAsset }>;
+  'contract-transfer': Readonly<{ accountId: string; networkId: string; contractId: string }>;
   'send-form': Readonly<{ accountId: string; requestIntent?: RequestPaymentIntent; initialAsset?: BalanceAsset }>;
   // Review/result state stays in the Send flow. Exact XDR and reviewed
   // transaction data must not be transported as navigation parameters.
@@ -84,6 +86,7 @@ export const PRODUCT_ROUTES: Readonly<Record<MainTab, readonly ProductRoute[]>> 
     'home',
     'add-account',
     'asset-details',
+    'contract-transfer',
     'send-form',
     'send-review',
     'send-result',

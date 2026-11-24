@@ -22,6 +22,7 @@ type Props = Readonly<{
   balanceDependencies: BalanceProductDependencies;
   catalog: AssetCatalogPort;
   invalidationRevision: number;
+  onTransfer?: (contractId: string) => void;
 }>;
 
 export function ContractAssetsPanel({
@@ -32,6 +33,7 @@ export function ContractAssetsPanel({
   balanceDependencies,
   catalog,
   invalidationRevision,
+  onTransfer,
 }: Props) {
   const { t, formatDate } = useLocalization();
   const styles = useThemedStyles(createContractAssetStyles);
@@ -252,6 +254,8 @@ export function ContractAssetsPanel({
           {record.balanceUnavailable ? (
             <Text style={styles.note}>{t('assets.contract.balanceUnavailable')}</Text>
           ) : null}
+          {onTransfer ? <Button label={t('assets.contract.transfer.title')} disabled={busy}
+            onPress={() => { if (live() && !operation.current) onTransfer(record.contractId); }} /> : null}
           <Button
             label={t('assets.contract.refresh')}
             variant="secondary"

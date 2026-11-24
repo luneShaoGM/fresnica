@@ -222,6 +222,13 @@ export function createContractAssets(
       load(account, id, signal, isCurrent, true),
     refresh: (account: AccountRecord, id: string, signal: AbortSignal, isCurrent: () => boolean) =>
       load(account, id, signal, isCurrent, false),
+    markBalanceStale(account: AccountRecord, id: string) {
+      const networkId = current(account);
+      validateId(id);
+      pending.delete(assetKey(networkId, account.address, id));
+      const existing = deps.store.get(networkId, account.address, id);
+      if (existing) deps.store.replace({ ...existing, balanceUnavailable: true });
+    },
     remove(account: AccountRecord, id: string) {
       const networkId = current(account);
       validateId(id);

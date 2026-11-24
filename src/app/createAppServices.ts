@@ -14,6 +14,8 @@ import type { XlmQuotePort } from '@capabilities/valuation/xlmQuote';
 import { createCreditFiatQuotes, type CreditFiatQuotePort } from '@capabilities/valuation/creditFiatQuote';
 import { createContractAssets, type ContractAssets } from '@capabilities/assets/contractAssets';
 import { createStellarContractTokenReader } from '@platform/stellar/StellarContractTokenReader';
+import { createContractTransfers, SOROBAN_TRANSFER_INTENT, type ContractTransfers } from '@capabilities/assets/contractTransfer';
+import { createStellarContractTransferGateway } from '@platform/stellar/StellarContractTransferGateway';
 import { RealmContractAssetStore } from '@platform/persistence/realm/RealmContractAssetStore';
 import { createCoinGeckoXlmQuotes } from '@platform/valuation/CoinGeckoXlmQuotes';
 import {
@@ -139,6 +141,7 @@ export type AppServices = Readonly<{
   xlmQuotes?: XlmQuotePort;
   creditFiatQuotes?: CreditFiatQuotePort;
   contractAssets?: ContractAssets;
+  contractTransfers?: ContractTransfers;
   applicationSession?: ApplicationSession;
   networkProfile: NetworkProfile;
   networkSettings?: NetworkSettings;
@@ -394,12 +397,28 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         .map(account => [account.id, ledgerReadInvalidation.getRevision(network.id, account.id)] as const);
     const claimableCache = new RealmClaimableCacheStore(realm);
     const contractAssetStore = new RealmContractAssetStore(realm);
+    const contractReader = session.bind(createStellarContractTokenReader(network));
     const contractAssets = createContractAssets({
-      reader: session.bind(createStellarContractTokenReader(network)),
+      reader: contractReader,
       store: contractAssetStore,
       repository,
       assertOpen: session.assertOpen,
       now: Date.now,
+    });
+    const contractGateway = session.bind(createStellarContractTransferGateway(network, {
+      loadAccountState: address => nodeReadSession.run(() => stellarGateway.loadAccountState(address)),
+      loadLedgerParameters: () => nodeReadSession.run(() => stellarGateway.loadLedgerParameters()),
+      loadAccountAuthorization: address => nodeReadSession.run(() => stellarGateway.loadAccountAuthorization(address)),
+    }), new Set(['submitTransaction']));
+    const contractTransfers = createContractTransfers({
+      repository, assets: contractAssets, reader: contractReader, gateway: contractGateway, sdk, recovery,
+      now: Date.now,
+      monotonic: () => performance.now(),
+      authorizationEpoch: () => {
+        session.assertOpen();
+        const current = applicationSession.getSnapshot();
+        return !current.locked && current.foreground ? current.revision : undefined;
+      },
     });
     const claimables = createClaimableProduct({
       networkId: network.id,
@@ -467,8 +486,17 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const friendbotGateway = session.bind(new StellarFriendbotGateway(APP_CONFIG.network.friendbotUrl));
     const transactionRecovery = createTransactionReconciliationCoordinator({
       gateway: {
-        loadTransactionOutcome: hash =>
-          nodeReadSession.run((signal, endpoint) => publicReads.loadTransactionOutcome(endpoint, hash, signal)),
+        loadTransactionOutcome: async hash => {
+          if (pendingSubmissions.get(network.id, hash)?.intentKind === SOROBAN_TRANSFER_INTENT) {
+            try {
+              const result = await contractGateway.loadTransactionOutcome(hash);
+              if (result.status !== 'still-unknown') return result;
+            } catch {
+              // The independently verified Horizon read remains a recovery source.
+            }
+          }
+          return nodeReadSession.run((signal, endpoint) => publicReads.loadTransactionOutcome(endpoint, hash, signal));
+        },
       },
       repository: pendingSubmissions,
       readInvalidation: ledgerReadInvalidation,
@@ -632,6 +660,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       xlmQuotes,
       creditFiatQuotes,
       contractAssets,
+      contractTransfers,
       networkProfile,
       networkSettings,
       assetCatalog,

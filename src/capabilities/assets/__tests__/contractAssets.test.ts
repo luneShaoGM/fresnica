@@ -201,3 +201,15 @@ it('keeps the prior observation when the RPC returns an older ledger', async () 
   expect(refreshed.balance).toEqual(original.balance);
   expect(refreshed.balanceUnavailable).toBe(true);
 });
+
+it('retires an older balance read after durable transfer invalidation without deleting membership', async () => {
+  const f = fixture();
+  const previous = await f.product.track(account, contractId, signal(), live);
+  let resolve!: (value: ContractTokenRead) => void;
+  f.readToken.mockImplementationOnce(() => new Promise(r => { resolve = r; }));
+  const old = f.product.refresh(account, contractId, signal(), live);
+  f.product.markBalanceStale(account, contractId);
+  resolve(read);
+  await expect(old).rejects.toThrow();
+  expect(f.product.list(account)[0]).toMatchObject({ balance: previous.balance, balanceUnavailable: true });
+});

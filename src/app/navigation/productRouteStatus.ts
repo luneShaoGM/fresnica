@@ -13,7 +13,7 @@ export type ProductRouteStatus = Readonly<{
 export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteStatus>> = {
   home: {
     readiness: 'implemented',
-    note: 'Home provides partitioned Balance/cache refresh, asset details, native reserve breakdown, Claimable and liquidity-pool categories, orders, and eligible Swap entry. Fiat estimates cover XLM, mainnet credit details and bounded on-demand Classic portfolio references with explicit partial coverage. The contract category supports curated suggestions, Classic SAC mirror labels and read-only metadata/balances; non-Classic valuation, account-wide discovery, contract transactions and native acceptance remain open.',
+    note: 'Home provides partitioned Balance/cache refresh, asset details, native reserve breakdown, Claimable and liquidity-pool categories, orders, and eligible Swap entry. Fiat estimates cover XLM, mainnet credit details and bounded on-demand Classic portfolio references with explicit partial coverage. The contract category supports curated suggestions, Classic SAC mirror labels and read-only metadata/balances; non-Classic valuation, account-wide discovery, broader contract transactions and native acceptance remain open.',
   },
   'account-details': {
     readiness: 'implemented',
@@ -26,6 +26,10 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   'asset-details': {
     readiness: 'implemented',
     note: 'Home opens a native form sheet using stable accountId + networkId + BalanceAsset identity. Current Balance, native reserve details, token imagery and Send/Remove actions are wired; a catalog or icon is not an asset-trust or valuation guarantee.',
+  },
+  'contract-transfer': {
+    readiness: 'implemented',
+    note: 'Tracked SEP-41 direct source-account transfer subset, exact simulated XDR review, native envelope signing, RPC submission and original-hash reconciliation. Address credentials, arbitrary contract effects and native product acceptance remain out of scope.',
   },
   'send-form': {
     readiness: 'implemented',

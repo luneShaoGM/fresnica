@@ -23,6 +23,7 @@ import {
 import { AddAccountScreen } from '@features/accounts/AddAccountScreen';
 import { AddAssetSheet } from '@features/trustlines/AddAssetSheet';
 import { ContractAssetsPanel } from '@features/assets/ContractAssetsPanel';
+import { ContractTransferScreen } from '@features/assets/ContractTransferScreen';
 import { AssetDetailsSheet } from '@features/home/AssetDetailsSheet';
 import { HomeScreen } from '@features/home/HomeScreen';
 import { ClaimableScreen } from '@features/claimable/ClaimableScreen';
@@ -132,6 +133,7 @@ export function HomeStackNavigator({
               navigation={navigation}
               catalog={services.assetCatalog}
               contractAssets={services.contractAssets}
+              contractTransfers={services.contractTransfers}
               captureContractSession={captureContractSession}
               markets={services.markets}
               marketSelectionRevision={marketSelectionRevision}
@@ -242,6 +244,24 @@ export function HomeStackNavigator({
               ) : null}
             </AssetDetailsRoute>
           );
+        }}
+      </Stack.Screen>
+      <Stack.Screen name="contract-transfer">
+        {({ navigation, route }) => {
+          const account = accounts.find(candidate => candidate.id === route.params.accountId && !candidate.hidden);
+          if (!account || account.id !== selectedAccount.id || account.networkId !== route.params.networkId ||
+              !services.contractTransfers || !canSign || !services.contractTransfers.canPrepare(account)) return <AssetAccountUnavailable onBack={() => navigation.popToTop()} />;
+          return <ContractTransferScreen
+            key={JSON.stringify([account.id, account.networkId, route.params.contractId])}
+            account={account} contractId={route.params.contractId} product={services.contractTransfers}
+            foreground={readRuntime.foreground}
+            captureSession={focus => captureAccountSelectionSession({
+              account, network: services.contractTransfers!.network,
+              getCurrentSelection: getCurrentSwapSelection, isCurrentFocusEpoch: () => focus() && navigation.isFocused(),
+            })}
+            onBack={() => navigation.goBack()}
+            onRecover={() => services.transactionRecovery.reconcile('manual-refresh')}
+          />;
         }}
       </Stack.Screen>
       <Stack.Screen name="add-account">
@@ -620,6 +640,7 @@ function HomeWithAssetSheets({
   navigation,
   catalog,
   contractAssets,
+  contractTransfers,
   captureContractSession,
   claimables,
   markets,
@@ -635,6 +656,7 @@ function HomeWithAssetSheets({
   navigation: NativeStackNavigationProp<HomeStackParamList, 'home'>;
   catalog: AppServices['assetCatalog'];
   contractAssets?: AppServices['contractAssets'];
+  contractTransfers?: AppServices['contractTransfers'];
   captureContractSession: (isCurrentFocusEpoch: () => boolean) => () => boolean;
   markets?: AppServices['markets'];
   marketSelectionRevision: number;
@@ -659,6 +681,14 @@ function HomeWithAssetSheets({
     contractFocusEpoch.current += 1;
   }, []));
   const renderedContractFocusEpoch = contractFocusEpoch.current;
+  const isCurrentContractCategory = captureContractSession(() =>
+    active &&
+    contractFocusEpoch.current === renderedContractFocusEpoch &&
+    categoryRef.current.value === 'contracts' &&
+    categoryRef.current.epoch === renderedCategoryEpoch &&
+    navigation.isFocused() &&
+    isSelectedAccount()
+  );
   const [categoryPickerVisible, setCategoryPickerVisible] = useState(false);
   const [refreshSignal, setRefreshSignal] = useState(0);
   const [claimableState, setClaimableState] = useState<ClaimableState>();
@@ -742,15 +772,12 @@ function HomeWithAssetSheets({
               catalog={catalog}
               balanceDependencies={props.balanceDependencies}
               invalidationRevision={props.invalidationRevision}
+              onTransfer={props.canSign && contractTransfers?.canPrepare(props.account) ? contractId => {
+                if (!isCurrentContractCategory() || !contractTransfers.canPrepare(props.account)) return;
+                navigation.navigate('contract-transfer', { accountId: props.account.id, networkId: props.account.networkId, contractId });
+              } : undefined}
               active={active}
-              isCurrent={captureContractSession(() =>
-                active &&
-                contractFocusEpoch.current === renderedContractFocusEpoch &&
-                categoryRef.current.value === 'contracts' &&
-                categoryRef.current.epoch === renderedCategoryEpoch &&
-                navigation.isFocused() &&
-                isSelectedAccount()
-              )}
+              isCurrent={isCurrentContractCategory}
             />
           ) : undefined
         }

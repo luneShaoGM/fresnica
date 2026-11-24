@@ -1074,3 +1074,7 @@ exact-HEAD independent Work review remain pending; no maturity promotion.
 ## S05/S06 Classic portfolio reference and curated contract discovery — candidate
 
 See the completion increments in [S05](behavior-specs/s05-credit-asset-fiat-reference.md) and [S06](behavior-specs/s06-contract-asset-read-model.md). Bounded on-demand Classic estimates, explicit incomplete price coverage, existing curated C-ID suggestions and deterministic Classic SAC mirror labels are local feature-completion candidates. Full non-Classic pricing, account-wide indexer discovery, contract writes and native acceptance remain separate. No maturity promotion.
+
+## S06/S10 tracked Soroban transfer — feature-completion candidate
+
+See [behavior contract](behavior-specs/s06-soroban-transfer.md). A direct source-account SEP-41 transfer subset is wired to existing native envelope signing and durable original-hash recovery. Dedicated address-credential/AuthEntry signing, wider Soroban operations, device and live acceptance remain open; no maturity promotion.

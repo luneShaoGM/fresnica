@@ -201,6 +201,7 @@ function fixture(seedEmpty = true) {
   let selectionRevision = 1;
   const services = {
     contractAssets: undefined as ContractAssets | undefined,
+    contractTransfers: undefined as AppServices['contractTransfers'],
     assetCatalog: { loadSource: jest.fn() },
     balance: { networkId: network.id },
     onboarding: { repository: { isWatchOnly: () => false } },
@@ -249,6 +250,8 @@ function fixture(seedEmpty = true) {
     createProduct,
     renderHome,
     setContractProduct: (product: ContractAssets) => { services.contractAssets = product; },
+    setContractTransfers: (product: AppServices['contractTransfers']) => { services.contractTransfers = product; },
+    navigation,
     changeSelectionRevision: () => { selectionRevision += 1; },
     replaceProduct: (next: ClaimableProduct) => {
       services.claimables = next;
@@ -343,7 +346,7 @@ describe('Home first Claimable discovery from ledger invalidation', () => {
 
 it('wires the selected contract category and permanently retires old category/selection guards', () => {
   const f = fixture();
-  const product: ContractAssets = { network, isContractId: jest.fn(() => true), classicMirrors: jest.fn(() => []), list: jest.fn(() => []), track: jest.fn(), refresh: jest.fn(), remove: jest.fn() };
+  const product: ContractAssets = { network, isContractId: jest.fn(() => true), classicMirrors: jest.fn(() => []), list: jest.fn(() => []), track: jest.fn(), refresh: jest.fn(), markBalanceStale: jest.fn(), remove: jest.fn() };
   f.setContractProduct(product);
   const initial = f.renderHome();
   expect(initial.categories.showContracts).toBe(true);
@@ -365,4 +368,24 @@ it('wires the selected contract category and permanently retires old category/se
   f.changeSelectionRevision();
   f.changeSelectionRevision();
   expect(next.props.isCurrent()).toBe(false);
+});
+
+it('opens a contract transfer with only public route identity and rejects retired category callbacks', () => {
+  const f = fixture();
+  f.setContractProduct({ network, isContractId: jest.fn(() => true), classicMirrors: jest.fn(() => []), list: jest.fn(() => []), track: jest.fn(), refresh: jest.fn(), markBalanceStale: jest.fn(), remove: jest.fn() });
+  const canPrepare = jest.fn(() => true);
+  f.setContractTransfers({ network, canPrepare, prepare: jest.fn(), submit: jest.fn(), outcome: jest.fn() });
+  f.renderHome().categories.onSelect('contracts');
+  const open = f.renderHome();
+  const panel = open.home.contractsContent as React.ReactElement<React.ComponentProps<typeof ContractAssetsPanel>>;
+  const contractId = 'C' + 'A'.repeat(55);
+  panel.props.onTransfer?.(contractId);
+  expect(f.navigation.navigate).toHaveBeenCalledWith('contract-transfer', { accountId: account.id, networkId: account.networkId, contractId });
+  open.categories.onSelect('tokens');
+  open.categories.onSelect('contracts');
+  panel.props.onTransfer?.(contractId);
+  expect(f.navigation.navigate).toHaveBeenCalledTimes(1);
+  canPrepare.mockReturnValue(false);
+  const current = f.renderHome().home.contractsContent as React.ReactElement<React.ComponentProps<typeof ContractAssetsPanel>>;
+  expect(current.props.onTransfer).toBeUndefined();
 });
