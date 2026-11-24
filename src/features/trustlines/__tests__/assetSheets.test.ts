@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, TextInput } from 'react-native';
+import { FlatList, Pressable, ScrollView, TextInput } from 'react-native';
 import type { AccountRecord } from '@capabilities/account/types';
 import type { BalanceProductDependencies } from '@capabilities/balance/BalanceCacheHydration';
 import { InMemoryBalanceCacheRepository } from '../../../platform/persistence/memory/InMemoryBalanceCacheRepository';
@@ -110,7 +110,23 @@ type Props = {
   canSign?: boolean;
   asset?: { code: string; issuer: string };
   state?: BalanceDisplayState;
+  ListHeaderComponent?: React.ReactNode;
+  ListFooterComponent?: React.ReactNode;
+  ListEmptyComponent?: React.ReactNode;
+  data?: readonly { code: string; issuer: string }[];
+  renderItem?: (info: { item: { code: string; issuer: string }; index: number }) => React.ReactNode;
 };
+function children(root: React.ReactElement<Props>): React.ReactNode[] {
+  if (root.type !== FlatList) return React.Children.toArray(root.props.children);
+  const data = root.props.data ?? [];
+  return [
+    root.props.ListHeaderComponent,
+    ...(data.length > 0
+      ? data.map((item, index) => root.props.renderItem?.({ item, index }))
+      : [root.props.ListEmptyComponent]),
+    root.props.ListFooterComponent,
+  ];
+}
 function find(
   root: React.ReactNode,
   predicate: (node: React.ReactElement<Props>) => boolean,
@@ -118,7 +134,7 @@ function find(
   if (!React.isValidElement<Props>(root)) return undefined;
   if (predicate(root)) return root;
   let found: React.ReactElement<Props> | undefined;
-  React.Children.forEach(root.props.children, child => {
+  children(root).forEach(child => {
     found ??= find(child, predicate);
   });
   return found;
@@ -126,7 +142,7 @@ function find(
 function hasText(root: React.ReactNode, text: string): boolean {
   if (root === text) return true;
   if (!React.isValidElement<Props>(root)) return false;
-  return React.Children.toArray(root.props.children).some(child => hasText(child, text));
+  return children(root).some(child => hasText(child, text));
 }
 function button(root: React.ReactNode, text: string) {
   const found = find(root, node => node.type === Pressable && hasText(node, text));
@@ -194,6 +210,45 @@ describe('asset sheet current balance integration', () => {
     expect(issued(root)).toBeUndefined();
     button(root, 'trustlines.add.retry').props.onPress?.();
     expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps add-asset controls in one scroll region while the submit footer stays outside it', () => {
+    const props = {
+      account: { ...account, networkId: 'stellar-mainnet' },
+      balanceDependencies: { ...dependencies, networkId: 'stellar-mainnet' },
+      catalog: { read: jest.fn() },
+      active: true,
+      visible: true,
+      invalidationRevision: 0,
+      onClose: jest.fn(),
+      onAddAndSign: jest.fn(),
+    };
+    let root = render(() => AddAssetSheet(props));
+    let list = find(root, node => node.type === FlatList);
+    expect(list).toBeDefined();
+    expect(hasText(list?.props.ListHeaderComponent, 'trustlines.add.title')).toBe(true);
+    expect(hasText(list?.props.ListHeaderComponent, 'trustlines.add.listDescription')).toBe(true);
+    expect(
+      find(list?.props.ListHeaderComponent, node => node.props.placeholder === 'trustlines.add.search'),
+    ).toBeDefined();
+    expect(find(root, node => node.type === ScrollView)).toBeUndefined();
+    expect(hasText(list, 'trustlines.add.addAndSign')).toBe(false);
+    expect(button(root, 'trustlines.add.addAndSign')).toBeDefined();
+
+    button(root, 'trustlines.add.manual').props.onPress?.();
+    root = render(() => AddAssetSheet(props));
+    list = find(root, node => node.type === FlatList);
+    expect(hasText(list?.props.ListHeaderComponent, 'trustlines.add.manualDescription')).toBe(true);
+    expect(find(list?.props.ListHeaderComponent, node => node.props.placeholder === 'https://example.com')).toBeDefined();
+    expect(
+      find(list?.props.ListFooterComponent, node => node.props.placeholder === 'trustlines.add.assetCodePlaceholder'),
+    ).toBeDefined();
+    expect(
+      find(list?.props.ListFooterComponent, node => node.props.placeholder === 'trustlines.add.issuerPlaceholder'),
+    ).toBeDefined();
+    expect(find(root, node => node.type === ScrollView)).toBeUndefined();
+    expect(hasText(list, 'trustlines.add.addAndSign')).toBe(false);
+    expect(button(root, 'trustlines.add.addAndSign').props.disabled).toBe(true);
   });
 
   it('lets Testnet open the unconfigured list without reading Mainnet sources, then return to Manual', () => {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 
 import type { DappCatalogEntry } from '@capabilities/dapp-catalog/catalog';
 import type { PublicDappDetailResult, DappPublicMediaPort } from '@capabilities/dapp-catalog/dappPublicMedia';
@@ -93,9 +93,9 @@ export function DappDetailSheet({
     !!entry && currentState?.kind === 'ready' && !currentState.value.stale && detail?.websiteUrl === entry.websiteUrl;
   return (
     <BottomSheet closeLabel={t('common.close')} onClose={onClose} visible={!!entry}>
-      <View style={styles.urlSheet}>
+      <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.urlSheet}>
         <View style={styles.urlSheetHeader}>
-          <Text style={styles.sectionTitle}>{entry?.title ?? t('dapps.details.title')}</Text>
+          <Text style={[styles.sectionTitle, styles.sheetHeaderTitle]}>{entry?.title ?? t('dapps.details.title')}</Text>
           <NativeButton label={t('common.close')} onPress={onClose} variant="quiet" />
         </View>
         <Text style={styles.websiteDetail}>{t('dapps.details.untrusted')}</Text>
@@ -146,7 +146,7 @@ export function DappDetailSheet({
             }
           />
         ) : null}
-      </View>
+      </ScrollView>
     </BottomSheet>
   );
 }

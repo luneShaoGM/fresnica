@@ -14,6 +14,9 @@ type Props = Readonly<{
   origin: string;
   passphraseRequired: boolean;
   failed: boolean;
+  busy?: boolean;
+  expiresAt?: number;
+  onExpired?: () => void;
   onConfirm: (appPassphrase: string) => void;
   onReject: () => void;
 }> &
@@ -23,13 +26,21 @@ type Props = Readonly<{
   );
 
 export function DappSignSheet(props: Props) {
-  const { visible, origin, intent, passphraseRequired, failed, onConfirm, onReject } = props;
+  const { visible, origin, intent, passphraseRequired, failed, busy, expiresAt, onExpired, onConfirm, onReject } =
+    props;
   const { t } = useLocalization();
   const styles = useThemedStyles(createConnectSheetStyles);
   const secureInput = useRef<SwapPassphraseInputHandle>(null);
   const [hasPassphrase, setHasPassphrase] = useState(false);
+  const expired = expiresAt !== undefined && Date.now() >= expiresAt;
   const confirm = () => {
-    if (passphraseRequired && !hasPassphrase) return;
+    // A delayed press must not consume a passphrase for an expired native callback.
+    if (expiresAt !== undefined && Date.now() >= expiresAt) {
+      secureInput.current?.clear();
+      onExpired?.();
+      return;
+    }
+    if (busy || (passphraseRequired && !hasPassphrase)) return;
     onConfirm(secureInput.current?.consume() ?? '');
   };
   const reject = () => {
@@ -37,8 +48,18 @@ export function DappSignSheet(props: Props) {
     onReject();
   };
   return (
-    <BottomSheet closeLabel={t('dapps.sign.reject')} onClose={reject} visible={visible}>
-      <ScrollView contentContainerStyle={styles.sheet}>
+    <BottomSheet
+      avoidAndroidKeyboard={passphraseRequired}
+      closeLabel={t('dapps.sign.reject')}
+      onClose={reject}
+      visible={visible}
+    >
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.sheet}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+      >
         <Text style={styles.title}>{t(intent ? 'dapps.sign.title' : 'dapps.signMessage.title')}</Text>
         <Text selectable style={styles.origin}>
           {origin}
@@ -123,7 +144,7 @@ export function DappSignSheet(props: Props) {
         )}
         <SwapPassphraseInput
           ref={secureInput}
-          disabled={!passphraseRequired}
+          disabled={!passphraseRequired || busy === true || expired}
           hint={t('dapps.sign.passphraseRequired')}
           label={t('dapps.sign.passphrase')}
           onPresenceChange={setHasPassphrase}
@@ -133,11 +154,11 @@ export function DappSignSheet(props: Props) {
         {failed ? <Text style={styles.hint}>{t('dapps.sign.retryError')}</Text> : null}
         <View style={styles.actions}>
           <Pressable accessibilityRole="button" onPress={reject} style={[styles.action, styles.secondary]}>
-            <Text style={styles.actionText}>{t('dapps.sign.reject')}</Text>
+            <Text style={[styles.actionText, styles.secondaryText]}>{t('dapps.sign.reject')}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            disabled={passphraseRequired && !hasPassphrase}
+            disabled={busy === true || expired || (passphraseRequired && !hasPassphrase)}
             onPress={confirm}
             style={styles.action}
           >

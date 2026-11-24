@@ -10,6 +10,12 @@ export function readSep53ReplyId(value: unknown): string | undefined {
   return typeof value === 'string' && validReplyId.test(value) ? value : undefined;
 }
 
+export function readSep53ReplyExpiresAt(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= Number.MAX_SAFE_INTEGER
+    ? value
+    : undefined;
+}
+
 export function buildFreighterReply(
   response: BridgeResponse | DappNotificationResponse,
   target?: DappMessageReplyTarget,
@@ -57,7 +63,11 @@ export function buildFreighterInjectionScript(): string {
     '      var serialized = JSON.stringify(payload);',
     '      if (!serialized || serialized.length > ' + String(MAX_BRIDGE_MESSAGE_LENGTH) + ') return;',
     '      if (payload.type === "SUBMIT_BLOB") {',
-    '        if (iosSep53) iosSep53.postMessage(serialized).then(forwardReply, function() {});',
+    '        var requestId = payload.messageId;',
+    '        if (iosSep53) iosSep53.postMessage(serialized).then(forwardReply, function() {',
+    '          forwardReply(JSON.stringify({ source: "FREIGHTER_EXTERNAL_MSG_RESPONSE", messagedId: requestId,',
+    '            error: "request-unavailable", apiError: { code: -1, apiCode: -1, message: "Wallet request unavailable" } }));',
+    '        });',
     '        else if (typeof nativeBridge.addEventListener === "function") nativeBridge.postMessage(' +
       JSON.stringify(SEP53_PREFIX) +
       ' + serialized);',

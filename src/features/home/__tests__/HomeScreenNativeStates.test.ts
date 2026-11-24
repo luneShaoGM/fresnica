@@ -17,6 +17,11 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { AppBrandMark } from '@ui/components/AppBrandMark';
 import { InactiveAccountPanel } from '../components/InactiveAccountPanel';
 import { AccountSummary } from '../components/AccountSummary';
+let mockFontScale = 1;
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  __esModule: true,
+  default: () => ({ width: 320, height: 568, scale: 2, fontScale: mockFontScale }),
+}));
 let mockHomeQuote: { currency: 'USD'; rate: string; updatedAt: number; source: 'CoinGecko' } | undefined;
 jest.mock('@features/valuation/useXlmQuote', () => ({ useXlmQuote: () => mockHomeQuote }));
 import type { HomeBalanceState } from '../homeViewModel';
@@ -129,6 +134,7 @@ function renderHome(
   const onSelectAccount = jest.fn();
   const onManualRefresh = jest.fn(async () => undefined);
   const onSend = jest.fn();
+  const onOpenAsset = jest.fn();
   const onSwitchNetwork = jest.fn();
   let stateIndex = 0;
   mockedUseState.mockImplementation(() => {
@@ -151,13 +157,13 @@ function renderHome(
     onSend,
     onSwitchNetwork,
     onManageAssets: jest.fn(),
-    onOpenAsset: jest.fn(),
+    onOpenAsset,
     onManualRefresh,
     invalidationRevision: 0,
     active: true,
     ...categoryOptions,
   });
-  return { root, setBalanceState, onSelectAccount, onManualRefresh, onSend, onSwitchNetwork };
+  return { root, setBalanceState, onSelectAccount, onManualRefresh, onSend, onOpenAsset, onSwitchNetwork };
 }
 
 describe('Home native balance-state presentation', () => {
@@ -199,6 +205,7 @@ describe('Home native balance-state presentation', () => {
   });
   beforeEach(() => {
     mockHomeQuote = undefined;
+    mockFontScale = 1;
     jest.clearAllMocks();
     mockedUseState.mockReset();
     mockedUseEffect.mockReset();
@@ -302,7 +309,8 @@ describe('Home native balance-state presentation', () => {
     expect(panel?.props).toMatchObject({ stale, address: account.address });
   });
 
-  it('renders native XLM outside both independently scrollable header and issued Token lists', () => {
+  it.each([1, 1.5])('keeps native XLM pinned outside both scrollers at font scale %s', fontScale => {
+    mockFontScale = fontScale;
     const { root } = renderHome({
       kind: 'ready',
       stale: false,
@@ -334,6 +342,54 @@ describe('Home native balance-state presentation', () => {
     expect(findElement(regions[2], element => element.type === AssetList)).toBeDefined();
     expect(findElement(regions[2], element => element.type === PinnedNativeAssetRow)).toBeUndefined();
   });
+
+  it.each([1.6, 2])(
+    'scrolls native and issued assets together at font scale %s without changing refresh',
+    async fontScale => {
+      mockFontScale = fontScale;
+      const snapshot = {
+        status: 'active' as const,
+        address: account.address,
+        balances: [
+          { asset: { kind: 'native' as const, code: 'XLM' as const }, balance: '922337203685.4775807' },
+          { asset: { kind: 'credit' as const, code: 'USD', issuer: 'GISSUER' }, balance: '7' },
+        ],
+        hiddenLiquidityPoolShareCount: 0,
+      };
+      const { root, onManualRefresh, onOpenAsset } = renderHome({
+        kind: 'ready',
+        stale: true,
+        refreshing: false,
+        refreshFailed: true,
+        lastSuccessfulUpdateAt: now,
+        snapshot,
+      });
+      const layout = React.Children.toArray(root.props.children)[0] as React.ReactElement<NodeProps>;
+      const regions = React.Children.toArray(layout.props.children) as React.ReactElement<NodeProps>[];
+      expect(regions.map(region => region.type)).toEqual([ScrollView, ScrollView]);
+      expect(findElement(regions[0], element => element.type === PinnedNativeAssetRow)).toBeUndefined();
+      const assets = React.Children.toArray(regions[1].props.children) as React.ReactElement<NodeProps>[];
+      expect(assets.map(element => element.type)).toEqual([BalanceFreshnessNotice, PinnedNativeAssetRow, AssetList]);
+      expect(assets[0].props).toMatchObject({ showRefreshStatus: false, state: { stale: true, refreshFailed: true } });
+      const native = assets[1] as React.ReactElement<React.ComponentProps<typeof PinnedNativeAssetRow>>;
+      expect(native.props.line).toBe(snapshot.balances[0]);
+      expect(native.props.onOpenAsset).toBe(onOpenAsset);
+      native.props.onOpenAsset(native.props.line.asset);
+      expect(onOpenAsset).toHaveBeenCalledWith(snapshot.balances[0].asset);
+
+      const loaded = new Promise<void>(resolve => {
+        mockedLoadBalanceSnapshot.mockImplementationOnce(async () => {
+          resolve();
+          return snapshot;
+        });
+      });
+      regions[1].props.refreshControl?.props.onRefresh();
+      await loaded;
+      expect(onManualRefresh).toHaveBeenCalledTimes(1);
+      expect(mockedLoadBalanceSnapshot).toHaveBeenCalledTimes(1);
+      expect(mockedLoadBalanceSnapshot).toHaveBeenCalledWith(balanceDependencies, account);
+    },
+  );
 
   it('embeds the mainnet XLM quote in the pinned reserve row instead of a separate fixed row', () => {
     const mainnetAccount = { ...account, networkId: 'stellar-mainnet' };

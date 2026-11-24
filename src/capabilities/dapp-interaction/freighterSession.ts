@@ -75,7 +75,10 @@ export type BridgeDecision =
 
 export type DappSignCompletion =
   | Readonly<{ status: 'declined' }>
-  | Readonly<{ status: 'failed'; error: 'invalid-transaction' | 'invalid-message' | 'unsupported-signer' }>
+  | Readonly<{
+      status: 'failed';
+      error: 'invalid-transaction' | 'invalid-message' | 'unsupported-signer' | 'request-expired';
+    }>
   | Readonly<{ status: 'message-signed'; signedBlob: string; signerAddress: string }>
   | Readonly<{ status: 'signed'; signedTransaction: string; signerAddress: string }>;
 

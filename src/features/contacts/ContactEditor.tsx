@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { saveContact, type ContactDraft } from '@capabilities/contacts/contacts';
 import type { StellarPaymentMemo } from '@capabilities/stellar/types';
 import { BottomSheet, Field } from '@ui/components';
@@ -231,7 +231,7 @@ export function ContactEditor({ book, initial, id, onClose, isCurrent = () => tr
           }}
           closeLabel={t('common.cancel')}
         >
-          <View style={styles.scanContent}>
+          <ScrollView contentContainerStyle={styles.scanContent}>
             <Text accessibilityRole="header" style={styles.title}>
               {t('contacts.scan.title')}
             </Text>
@@ -283,7 +283,7 @@ export function ContactEditor({ book, initial, id, onClose, isCurrent = () => tr
                 if (scanGeneration === scanSession.current) closeScanner();
               }}
             />
-          </View>
+          </ScrollView>
         </BottomSheet>
       ) : null}
       {confirmDelete ? (

@@ -224,7 +224,7 @@ export function OperationDetailsScreen({
               onPress={onBack}
               style={styles.backButton}
             >
-              <Text style={styles.backGlyph}>‹</Text>
+              <Text allowFontScaling={false} style={styles.backGlyph}>‹</Text>
             </Pressable>
           }
         />
@@ -820,7 +820,7 @@ function DetailRow({
   label,
   value,
   mono = false,
-  fullValue = false,
+  fullValue = true,
   styles,
 }: Readonly<{ label: string; value: string; mono?: boolean; fullValue?: boolean; styles: Styles }>) {
   return (

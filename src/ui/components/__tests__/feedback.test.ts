@@ -1,7 +1,7 @@
 import { NativeButton } from '../NativeButton';
 let mockFeedback: (() => void) | undefined;
 jest.mock('react', () => ({ ...jest.requireActual('react'), useContext: () => mockFeedback }));
-jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
+jest.mock('@fresnica/ui-native', () => ({ Button: () => null, useUiTheme: () => ({ colors: {} }) }));
 it('provides one feedback event and preserves the action result', () => {
   mockFeedback = jest.fn();
   const result = { operation: 'original' };

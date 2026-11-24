@@ -13,9 +13,9 @@ export function createStyles(theme: AppTheme) {
     types: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm },
     moreActions: { fontSize: 24, lineHeight: 28, color: theme.colors.textSecondary },
     card: { gap: theme.spacing.xs, marginVertical: theme.spacing.sm },
-    scanContent: { flex: 1, padding: theme.spacing.md, gap: theme.spacing.md },
-    // Let the camera preview shrink on short screens so Retry/Cancel remain visible.
-    scanFrame: { flex: 1, minHeight: 0, overflow: 'hidden', borderRadius: theme.radii.md },
+    scanContent: { flexGrow: 1, padding: theme.spacing.md, gap: theme.spacing.md },
+    // Keep a usable preview while allowing controls to scroll on short screens.
+    scanFrame: { flex: 1, minHeight: 160, overflow: 'hidden', borderRadius: theme.radii.md },
     confirmation: {
       padding: theme.spacing.md,
       gap: theme.spacing.md,

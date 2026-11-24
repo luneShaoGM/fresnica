@@ -128,3 +128,91 @@ describe('Android native network readiness boundary', () => {
     ).toEqual({ uri: props.url });
   });
 });
+
+it('uses only native iOS deadline metadata and withholds an incomplete reply handle', () => {
+  Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
+  const onMessage = jest.fn();
+  const tree = transport.render({ ...props, onMessage }, null) as React.ReactElement<{
+    onMessage: (event: { nativeEvent: Record<string, unknown> }) => void;
+  }>;
+  const replyId = '74f3db5b-10b8-4abd-8198-cfc869980742';
+  const data = JSON.stringify({
+    source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
+    type: 'SUBMIT_BLOB',
+    messageId: 31,
+    blob: 'abc',
+    sep53ReplyExpiresAt: 1_800_000_000_000,
+  });
+  const nativeEvent = { data, sourceOrigin: 'https://example.org', isMainFrame: true, sep53ReplyId: replyId };
+  tree.props.onMessage({ nativeEvent });
+  expect(onMessage).toHaveBeenLastCalledWith(data, 'https://example.org', undefined, undefined);
+  tree.props.onMessage({ nativeEvent: { ...nativeEvent, sep53ReplyExpiresAt: 1_800_000_000_000 } });
+  expect(onMessage).toHaveBeenLastCalledWith(data, 'https://example.org', replyId, 1_800_000_000_000);
+});
+
+describe('native SEP-53 reply expiry events', () => {
+  const replyId = '74f3db5b-10b8-4abd-8198-cfc869980742';
+  const origin = 'https://example.org';
+  const nativeEvent = {
+    data: '{}',
+    sourceOrigin: origin,
+    isMainFrame: true,
+    sep53ReplyId: replyId,
+    sep53ReplyExpired: true,
+  };
+
+  function mount(os: 'ios' | 'android' = 'ios') {
+    Object.defineProperty(Platform, 'OS', { value: os, configurable: true });
+    NativeModules.DappNetworkGuard = { available: true, prepare: async () => undefined };
+    ready = true;
+    const onMessage = jest.fn();
+    const onReplyExpired = jest.fn();
+    const tree = transport.render({ ...props, onMessage, onReplyExpired }, null) as React.ReactElement<{
+      onMessage: (event: { nativeEvent: Record<string, unknown> }) => void;
+    }>;
+    const receive = (overrides: Record<string, unknown> = {}) =>
+      tree.props.onMessage({ nativeEvent: { ...nativeEvent, ...overrides } });
+    return { receive, onMessage, onReplyExpired };
+  }
+
+  it('delivers trusted iOS expiry without a Unix deadline and never treats it as a page message', () => {
+    const { receive, onMessage, onReplyExpired } = mount();
+    receive();
+    expect(onReplyExpired).toHaveBeenCalledWith(replyId, origin);
+    expect(onMessage).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['subframe', { isMainFrame: false }],
+    ['non-HTTPS origin', { sourceOrigin: 'http://example.org' }],
+    ['non-canonical origin', { sourceOrigin: origin + '/path' }],
+    ['invalid reply handle', { sep53ReplyId: 'page-chosen-handle' }],
+  ])('drops expiry with an untrusted %s', (_name, overrides) => {
+    const { receive, onMessage, onReplyExpired } = mount();
+    receive(overrides as Record<string, unknown>);
+    expect(onReplyExpired).not.toHaveBeenCalled();
+    expect(onMessage).not.toHaveBeenCalled();
+  });
+
+  it('does not accept an iOS expiry event on Android', () => {
+    const { receive, onMessage, onReplyExpired } = mount('android');
+    receive();
+    expect(onReplyExpired).not.toHaveBeenCalled();
+    expect(onMessage).not.toHaveBeenCalled();
+  });
+
+  it('never reads expiry authority from page JSON or a non-Boolean native flag', () => {
+    const { receive, onMessage, onReplyExpired } = mount();
+    const data = JSON.stringify({
+      sep53ReplyExpired: true,
+      sep53ReplyId: replyId,
+      sourceOrigin: origin,
+      isMainFrame: true,
+    });
+    receive({ data, sep53ReplyExpired: undefined });
+    receive({ data, sep53ReplyExpired: 'true' });
+    expect(onReplyExpired).not.toHaveBeenCalled();
+    expect(onMessage).toHaveBeenCalledTimes(2);
+    expect(onMessage).toHaveBeenLastCalledWith(data, origin, undefined, undefined);
+  });
+});

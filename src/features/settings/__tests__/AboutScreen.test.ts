@@ -73,7 +73,7 @@ describe('About Settings native Back control', () => {
     expect(findAll(root, element => element.type === ScrollView)[0]?.props.showsVerticalScrollIndicator).toBe(false);
   });
 
-  it('centers About between identical flexible header columns rather than the old fixed 42dp placeholder', () => {
+  it('reserves the Back control width and gives About the remaining header space', () => {
     const root = AboutScreen({
       onBack: jest.fn(),
       appName: 'Fresnica',
@@ -89,14 +89,13 @@ describe('About Settings native Back control', () => {
     const columns = React.Children.toArray(header?.props.children).filter(
       (child): child is React.ReactElement<NodeProps> => React.isValidElement<NodeProps>(child),
     );
-    expect(columns).toHaveLength(3);
-    const [left, title, right] = columns;
+    expect(columns).toHaveLength(2);
+    const [left, title] = columns;
     expect(left?.type).toBe(View);
     expect(title?.type).toBe(Text);
-    expect(right?.type).toBe(View);
     expect(left?.props.style).toEqual(styles.headerSide);
-    expect(right?.props.style).toEqual(styles.headerSide);
-    expect(styles.headerSide).toMatchObject({ flex: 1, alignItems: 'flex-start' });
+    expect(styles.headerSide).toMatchObject({ flexShrink: 0, alignItems: 'flex-start' });
+    expect(styles.title).toMatchObject({ flex: 1, minWidth: 0 });
     expect(styles.header).not.toHaveProperty('justifyContent', 'space-between');
     expect(
       React.Children.toArray(left?.props.children).some(
@@ -133,7 +132,7 @@ describe('About Settings native Back control', () => {
     expect(styles.header.minHeight).toBe(58);
     expect(styles.content.paddingBottom).toBe(38);
     expect(styles.infoRow.minHeight).toBe(56);
-    expect(styles.headerSide.flex).toBe(1);
+    expect(styles.headerSide.flexShrink).toBe(0);
   });
 });
 

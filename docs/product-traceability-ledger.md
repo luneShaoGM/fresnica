@@ -30,7 +30,7 @@ PR #219 follow-ups addressed the three P2 findings on reviewed HEAD `02590e88e34
 | S16 | dApp browser/origin/navigation lifecycle | dapps + platform/dapp-browser | Adapt | clean-room | WebView/origin security | L0 |
 | S17 | dApp permissions/session/revoke | dapps/security + permission capability | Adapt | clean-room | Realm v8 scoped grants + Connected dApps Settings candidate (unmerged, stacked on PR #130); native acceptance and account-delete grant GC pending | L0 candidate |
 | S18 | Freighter account/network/transaction requests | dapps + Transaction/Signing | Adapt | clean-room | permission + arbitrary reviewed transaction contract | L0 |
-| S19 | SEP-53 message signing | dapps + Fresnica native | Adapt | clean-room | [Freighter message review and SDK signing](behavior-specs/s19-dapp-message-signing.md) | Implementation candidate; native acceptance pending |
+| S19 | SEP-53 message signing | dapps + Fresnica native | Adapt | clean-room | [Freighter message review and SDK signing](behavior-specs/s19-dapp-message-signing.md); [PR #230 repair evidence](test/sep53-native-reply-fix-2026-11-23.md) | Merged baseline; PR #230 repair candidate; native acceptance incomplete |
 | S20 | Soroban auth-entry request | dapps + Fresnica native | Adapt | clean-room | RN secure delivery missing | L0 blocked |
 | S21 | Browser commands/device/share/data bridge | dapps + controlled platform ports | Adapt | clean-room | [Android local notification slice](behavior-specs/s21-dapp-local-notifications.md); remaining commands require per-command contracts | Partial; native acceptance pending |
 | S22 | Address book/destination picker | contacts + Contacts capability | Adapt | clean-room | [S22 spec](behavior-specs/s22-address-book.md): #145–#147/#151/#156 merged global contacts (Realm v9, CRUD, sectioned directory, exact typed-Memo duplicate policy, local identities/Settings QR); #159 merged G-address Memo Return (distinct from Hash in Contacts/Request/SEP-7/SDK/exact-XDR Payment, explicitly unsupported by Swap/PathPayment); #162 merged Activity participant editor QR and G-only Send Details→Recipient→Summary, contact/Request/QR prefill, Back/edit, borrowed Memo clearing and review. Work APPROVED on final exact #159/#162 HEADs; #162 remote CI 217 suites/2148 tests plus Android/Apple/Realm passes. **M-address support paused by user**; trusted remote name/avatar source unavailable (local-only fallback); native/real-device acceptance deferred, not L4 | L2/L3 partial |
@@ -933,3 +933,107 @@ in app composition. Public account/network/asset identity and existing Balance,
 watch-only, stale-data and transaction boundaries remain authoritative.
 No donor code, new dependency or maturity promotion. Behavior and verification
 boundaries: [asset sheets](behavior-specs/s06-asset-sheets.md).
+
+### S19 SEP-53 native reply repair — 2026-11-23 / PR #230 candidate
+
+Clean-room Adapt repair of the Android Fabric SEP-53 reply dispatch and iOS
+native callback lifetime. Fabric replies consume the original document-bound,
+one-use native handle; missing, malformed, consumed or retired handles fail
+closed without a window/document fallback. iOS exposes its existing 120-second
+callback deadline through Fabric Codegen, bounds review/retry/SDK completion to
+that deadline, and returns a correlated failure in the original document.
+
+Verified implementation HEAD: `615bbd3ce1120c2b31c618020deb3b5bc86e7d3a`.
+The final documentation update records this implementation without changing
+runtime code. Full evidence and remaining cases:
+[SEP-53 native reply repair report](test/sep53-native-reply-fix-2026-11-23.md).
+
+- Automated npm validation: **306 suites / 2,910 tests passed**.
+- Android emulator native transport: **22 passed / 0 failed**, using the actual
+  Fabric manager. All five new regression cases fail against the original APK.
+  Synthetic transport responses provide no wallet-signing acceptance claim.
+- iOS Simulator runtime helper: the actual **120-second** native callback expiry,
+  Fabric deadline metadata, direct WK Promise rejection and production Freighter
+  failure response were observed in the original document.
+- Android emulator normal product UI: cancellation returned a correlated error
+  without a signature; empty passphrase disabled Sign; wrong passphrase retained
+  review and cleared input, followed by a successful correct retry. All three
+  D04 byte cases passed real native review, fresh App Passphrase and SDK signing.
+  The **13-byte UTF-8
+  Unicode challenge** verifies; trimmed bytes fail verification. The official
+  playground button's raw `YQ==` verifies as **4 literal bytes**; decoded `a`
+  fails verification. An explicit `blobEncoding: "base64"` protocol fixture
+  drives the same real product signing pipeline: decoded `a` verifies as
+  **1 byte**; literal `YQ==` fails verification. This last case uses a protocol
+  fixture, not the official button or a synthetic signature. All three responses
+  match the original request ID and current public account; each **64-byte
+  signature** passes independent `@stellar/stellar-sdk` verification.
+
+D04 evidence is indexed in the linked report:
+`android-d04-unicode-success-verified.json`,
+`android-d04-literal-verified.json`, and `android-d04-base64-verified.json`.
+D06 pending same-origin reload also passed: a real new document closed the old
+review and secure input, observed no old-ID reply, and accepted a new request
+whose cancellation returned the matching new ID. The remaining D05/D06 branches,
+including the SDK-in-flight invalidation matrix, remain outside this passing claim.
+iOS product/real-device acceptance and Stage 9 real-device System Auth
+cancel/retry remain deferred. No S19/L4 maturity promotion. Per the owner's
+instruction, PR #230 remains a candidate for consolidated user review; it is
+not merged and no independent Work approval is claimed.
+
+### S19 iOS native-expiry timing follow-up — 2026-11-24 / PR #230 candidate
+
+The independent Work review at `16540b7021d57dea7c601e49421f4405eefa7efa`
+concluded APPROVED with no P1/P2 and one P3: a wall-clock rollback between
+native handle creation and JS timer setup could leave the review open after
+the native callback expired. Implementation
+`bcc8cb0933378817f2bc49543afd23c5f506f032` closes that gap with a typed
+expiry event from the existing monotonic native timeout, matched to the
+current verified origin and one-use handle. Consumed handles emit no event;
+old or mismatched events cannot expire another request. The existing
+generation, session and secure-input cleanup paths handle expiry, including
+request/expiry delivery in the same React batch. No signing, authorization
+or clock-domain conversion implementation is added.
+
+The old implementation fails 8 of the new JS regression assertions.
+Focused verification passed 3 suites / 63 tests; the complete repository
+gate passed **306 suites / 2,922 tests**. Fabric Codegen and patch
+idempotence passed on both the existing dependency and a fresh
+integrity-verified WebView 14.0.1 package. These are automated/generated-code
+checks. The iOS Simulator build also passed at the implementation above.
+A controlled-clock runtime using production SecureDappWebView received one
+active native expiry after 120,698 ms and the original webpage's matching
+failure after 120,680 ms, while the helper's JS wall clock was five minutes
+behind. An early-consumed control produced no expiry over 121,707 ms.
+These are separate elapsed measurements within the RN and webpage realms.
+The helper used the unchanged native 120-second timer and no JS lifetime
+timer; host/device clocks were untouched. This is native transport evidence,
+not wallet review/signing UI acceptance. Full evidence and limitations:
+[SEP-53 repair report](test/sep53-native-reply-fix-2026-11-23.md#ios-p3-follow-up--2026-11-24--pr-230).
+
+The prior Work approval remains historical evidence for its exact HEAD.
+The new candidate requires the owner's consolidated review; no new Work
+approval or merge is claimed. Unaffected Android native results retain
+their original source/acceptance scope. iOS real-device wallet signing,
+review/input-clearing product acceptance and Stage 9 System Auth
+cancellation/retry remain unexecuted or deferred. No S19/L4 maturity promotion.
+
+#### Current main integration and final verification
+
+During finalization, main advanced through PR #231 to
+`d84502472e1f0e4ca81942f52fd54647246bcb9d`. The repair branch integrated
+that main in `b7103d834cd7bf028c057d74ea7394cb270d104b`; automatic merging
+preserved both the review layout and all expiry/secure-input guards.
+The exact integrated tree passed the complete repository gate:
+**308 suites / 2,947 tests**. The previous 306 / 2,922 result remains
+the pre-integration P3 run.
+
+The actual iOS build/runtime HEAD remains `bcc8cb0`. Native directories,
+patch/Codegen, dependencies, verified WebView/injection and secure-input
+implementations are unchanged; their identities and full gate results are
+recorded in `main-integration-validation.json`. Native runtime was not
+repeated or relabelled as an execution of the integrated HEAD. The merged
+handled-tap/keyboard-inset UI differs from the historical Android layout,
+so its old tap sequence is not acceptance of the new layout. Existing
+product/real-device limitations and the requirement for consolidated user
+review of the final exact HEAD remain unchanged.

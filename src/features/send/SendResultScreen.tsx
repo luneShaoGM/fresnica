@@ -2,6 +2,7 @@ import React from 'react';
 import {ScrollView, StyleSheet, Text, View} from 'react-native';
 
 import {Screen} from '@ui/components';
+import {contrastText} from '@ui/theme/appearanceTheme';
 import {NativeButton} from '@ui/components/NativeButton';
 
 import {useLocalization} from '../../locale';
@@ -35,7 +36,7 @@ export function SendResultScreen({result, onDone, recipientCard}: Props) {
               styles.resultIcon,
               positive ? styles.resultIconPositive : uncertain ? styles.resultIconUncertain : styles.resultIconNegative,
             ]}>
-            <Text style={styles.resultGlyph}>{positive ? '✓' : uncertain ? '?' : '!'}</Text>
+            <Text style={[styles.resultGlyph, positive ? styles.resultGlyphPositive : uncertain ? styles.resultGlyphUncertain : styles.resultGlyphNegative]}>{positive ? '✓' : uncertain ? '?' : '!'}</Text>
           </View>
           <Text style={styles.title}>{presentation.title}</Text>
           <Text style={styles.description}>{presentation.description}</Text>
@@ -67,7 +68,7 @@ function ResultRow({label, value, mono = false}: Readonly<{label: string; value:
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
-      <Text numberOfLines={mono ? 3 : 2} selectable style={[styles.rowValue, mono ? styles.mono : undefined]}>
+      <Text selectable style={[styles.rowValue, mono ? styles.mono : undefined]}>
         {value}
       </Text>
     </View>
@@ -131,7 +132,10 @@ function createStyles(theme: AppTheme) {
     resultIconPositive: {backgroundColor: theme.colors.positive},
     resultIconNegative: {backgroundColor: theme.colors.negative},
     resultIconUncertain: {backgroundColor: theme.colors.warning},
-    resultGlyph: {fontSize: 34, lineHeight: 39, color: theme.colors.onActionPrimary, fontWeight: '800'},
+    resultGlyph: {fontSize: 34, lineHeight: 39, fontWeight: '800'},
+    resultGlyphPositive: {color: contrastText(theme.colors.positive)},
+    resultGlyphUncertain: {color: contrastText(theme.colors.warning)},
+    resultGlyphNegative: {color: contrastText(theme.colors.negative)},
     title: {fontSize: 23, lineHeight: 28, color: theme.colors.textPrimary, fontWeight: '800', textAlign: 'center'},
     description: {fontSize: 12, lineHeight: 18, color: theme.colors.textSecondary, textAlign: 'center'},
     row: {
@@ -139,11 +143,12 @@ function createStyles(theme: AppTheme) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 18,
+      paddingVertical: 12,
       paddingHorizontal: 18,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: theme.colors.border,
     },
-    rowLabel: {fontSize: 12, lineHeight: 16, color: theme.colors.textSecondary, fontWeight: '600'},
+    rowLabel: {maxWidth: '40%', flexShrink: 1, fontSize: 12, lineHeight: 16, color: theme.colors.textSecondary, fontWeight: '600'},
     rowValue: {
       flex: 1,
       fontSize: 12,

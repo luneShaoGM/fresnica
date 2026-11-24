@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text } from 'react-native';
 
 import { NativeStateView } from '@ui/components/NativeStateView';
 
@@ -15,7 +15,7 @@ export function SendEntryStatus({
   const styles = useThemedStyles(createSendStatusStyles);
 
   return (
-    <View style={styles.messageBody}>
+    <ScrollView contentContainerStyle={styles.messageBody}>
       {state.kind === 'loading' ? (
         <>
           <ActivityIndicator color={theme.colors.actionPrimary} />
@@ -26,6 +26,6 @@ export function SendEntryStatus({
       ) : (
         <NativeStateView title={state.title} description={state.description} tone="error" />
       )}
-    </View>
+    </ScrollView>
   );
 }

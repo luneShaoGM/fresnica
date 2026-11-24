@@ -10,14 +10,22 @@ import { readVerifiedDappMessage } from '../../capabilities/dapp-interaction/ver
 
 import { canMountDappWebView } from './browserAvailability';
 import { prepareDappNetworkGuard } from './androidNetworkGuard';
-import { buildFreighterInjectionScript, buildFreighterReply, readSep53ReplyId } from './freighterInjection';
+import {
+  buildFreighterInjectionScript,
+  buildFreighterReply,
+  readSep53ReplyId,
+  readSep53ReplyExpiresAt,
+} from './freighterInjection';
 
 const styles = StyleSheet.create({ root: { flex: 1 } });
 
 /** Transport-only. URL policy, account/session validation and permission
  * decisions are deliberately owned outside this platform component. */
 export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowserSurfaceProps>(
-  function WebViewTransport({ url, shouldLoad, onMessage, onNavigation, onDocumentStart, onUnavailable }, ref) {
+  function WebViewTransport(
+    { url, shouldLoad, onMessage, onReplyExpired, onNavigation, onDocumentStart, onUnavailable },
+    ref,
+  ) {
     const webview = useRef<React.ElementRef<typeof WebView>>(null);
     const injected = useMemo(() => buildFreighterInjectionScript(), []);
     const [ready, setReady] = useState(Platform.OS === 'ios');
@@ -89,6 +97,8 @@ export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowse
             sourceOrigin?: unknown;
             isMainFrame?: unknown;
             sep53ReplyId?: unknown;
+            sep53ReplyExpiresAt?: unknown;
+            sep53ReplyExpired?: unknown;
           };
           const verified = readVerifiedDappMessage({
             data: nativeEvent.data,
@@ -96,7 +106,16 @@ export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowse
             isMainFrame: nativeEvent.isMainFrame,
           });
           if (!verified) return;
-          onMessage(verified.data, verified.origin, readSep53ReplyId(nativeEvent.sep53ReplyId));
+          const replyId = readSep53ReplyId(nativeEvent.sep53ReplyId);
+          if (nativeEvent.sep53ReplyExpired === true) {
+            // This native lifecycle event is not page data and carries no wall-clock deadline.
+            if (Platform.OS === 'ios' && replyId) onReplyExpired?.(replyId, verified.origin);
+            return;
+          }
+          const expiresAt = readSep53ReplyExpiresAt(nativeEvent.sep53ReplyExpiresAt);
+          // iOS must bind review lifetime to the native callback, never a page field.
+          const usableReplyId = Platform.OS === 'ios' && expiresAt === undefined ? undefined : replyId;
+          onMessage(verified.data, verified.origin, usableReplyId, expiresAt);
         }}
         injectedJavaScriptBeforeContentLoaded={injected}
         injectedJavaScriptBeforeContentLoadedForMainFrameOnly

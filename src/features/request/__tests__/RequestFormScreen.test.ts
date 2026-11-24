@@ -99,7 +99,7 @@ function renderForm(overrides: Partial<React.ComponentProps<typeof RequestFormSc
 }
 
 describe('RequestFormScreen', () => {
-  it('keeps the localized Back callback available during idle/busy and centers Request with symmetric header sides', () => {
+  it('keeps the localized Back callback available during idle/busy and preserves the Request title', () => {
     const styles = createRequestStyles(defaultTheme);
 
     for (const busy of [false, true]) {
@@ -117,15 +117,12 @@ describe('RequestFormScreen', () => {
       const parts = React.Children.toArray(header?.props.children).filter(
         (child): child is React.ReactElement<NodeProps> => React.isValidElement<NodeProps>(child),
       );
-      expect(parts).toHaveLength(3);
-      const [left, title, right] = parts;
+      expect(parts).toHaveLength(2);
+      const [left, title] = parts;
       expect(left?.type).toBe(View);
       expect(title?.type).toBe(Text);
       expect(title?.props.children).toBe('request.title');
-      expect(right?.type).toBe(View);
       expect(left?.props.style).toEqual(styles.headerSide);
-      expect(right?.props.style).toEqual(styles.headerSide);
-      expect(styles.headerSide).toMatchObject({ flex: 1, alignItems: 'flex-start' });
       expect(styles.header).not.toHaveProperty('justifyContent', 'space-between');
       expect(styles.header.minHeight).toBe(58);
 

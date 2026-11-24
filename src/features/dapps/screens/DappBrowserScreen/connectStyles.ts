@@ -4,7 +4,8 @@ import type { AppTheme } from '../../../../ui/theme';
 
 export function createConnectSheetStyles(theme: AppTheme) {
   return StyleSheet.create({
-    sheet: { paddingHorizontal: theme.spacing.lg, gap: theme.spacing.md },
+    scroll: { flex: 1, minHeight: 0 },
+    sheet: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.md, gap: theme.spacing.md },
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm },
     title: { ...theme.typography.sectionTitle, color: theme.colors.textPrimary, flex: 1, textAlign: 'center' },
     close: {
@@ -18,7 +19,7 @@ export function createConnectSheetStyles(theme: AppTheme) {
     closeText: { ...theme.typography.label, color: theme.colors.textPrimary },
     spacer: { width: 32 },
     hero: { alignItems: 'center', gap: theme.spacing.xs },
-    address: { ...theme.typography.caption, color: theme.colors.textSecondary },
+    address: { ...theme.typography.caption, color: theme.colors.textSecondary, maxWidth: '100%', textAlign: 'center' },
     avatar: {
       width: 64,
       height: 64,
@@ -29,8 +30,8 @@ export function createConnectSheetStyles(theme: AppTheme) {
       marginTop: theme.spacing.sm,
     },
     avatarText: { ...theme.typography.title, color: theme.colors.textPrimary },
-    name: { ...theme.typography.sectionTitle, color: theme.colors.textPrimary },
-    origin: { ...theme.typography.caption, color: theme.colors.textSecondary },
+    name: { ...theme.typography.sectionTitle, color: theme.colors.textPrimary, maxWidth: '100%', textAlign: 'center' },
+    origin: { ...theme.typography.caption, color: theme.colors.textSecondary, maxWidth: '100%' },
     message: { ...theme.typography.body, color: theme.colors.textSecondary, textAlign: 'center' },
     card: {
       borderRadius: theme.radii.md,
@@ -41,7 +42,7 @@ export function createConnectSheetStyles(theme: AppTheme) {
       justifyContent: 'space-between',
       gap: theme.spacing.sm,
     },
-    cardLabel: { ...theme.typography.caption, color: theme.colors.textSecondary },
+    cardLabel: { ...theme.typography.caption, color: theme.colors.textSecondary, maxWidth: '40%', flexShrink: 1 },
     cardValue: { ...theme.typography.label, color: theme.colors.textPrimary, flexShrink: 1 },
     passphraseInput: {
       minHeight: 48,
@@ -55,6 +56,9 @@ export function createConnectSheetStyles(theme: AppTheme) {
     actions: { flexDirection: 'row', gap: theme.spacing.sm },
     action: {
       flex: 1,
+      minWidth: 0,
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: theme.spacing.sm,
       minHeight: 48,
       borderRadius: theme.radii.md,
       alignItems: 'center',
@@ -62,6 +66,7 @@ export function createConnectSheetStyles(theme: AppTheme) {
       backgroundColor: theme.colors.actionPrimary,
     },
     secondary: { backgroundColor: theme.colors.surfaceStrong },
+    secondaryText: { color: theme.colors.onSurfaceStrong },
     actionText: { ...theme.typography.button, color: theme.colors.onActionPrimary, textAlign: 'center' },
   });
 }

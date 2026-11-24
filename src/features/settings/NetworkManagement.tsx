@@ -247,7 +247,12 @@ export function NetworkManagement({
             ))
         : null}
       {prompt ? (
-        <AppModal visible onRequestClose={cancel} title={t(`networkManage.prompt.${prompt.kind}`)}>
+        <AppModal
+          avoidAndroidKeyboard={prompt.kind === 'add'}
+          visible
+          onRequestClose={cancel}
+          title={t(`networkManage.prompt.${prompt.kind}`)}
+        >
           <ScrollView
             style={styles.dialogScroll}
             contentContainerStyle={styles.dialogContent}

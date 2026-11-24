@@ -1,0 +1,156 @@
+{
+  "date": "2026-11-23",
+  "base_commit": "f644b60ed46c10789138d9649d3fc2104f6584a3",
+  "source": "this PR worktree product source; temporary helper is excluded from product delivery",
+  "kind": "native-layout-helper, not native product-flow acceptance",
+  "runtime": {
+    "os": "Android 16 / API 36",
+    "avd": "Fresnica_Acceptance_20261123",
+    "serial": "emulator-5562",
+    "physical_px": [
+      840,
+      1496
+    ],
+    "density_dpi": 420,
+    "rn_viewport_dp": [
+      320,
+      569.9048
+    ],
+    "font_scale": [
+      1.0,
+      2.0
+    ],
+    "native_binary": "existing debug APK from base commit; current JS via Metro"
+  },
+  "security_boundary": "Public fixture Activity temporarily enabled screenshots through existing adapter; production policy unchanged, protected Modal windows remain FLAG_SECURE; Modal evidence is XML geometry, not color validation. No secrets, real signing or broadcasts.",
+  "captures": [
+    "accounts-light-en-font1.0.png",
+    "send-review-light-en-font2.0-bottom.png",
+    "components-dark-zh-font2.0-bottom.png",
+    "home-light-en-font2.0-bottom.png"
+  ],
+  "keyboard_geometry": [
+    {
+      "case": "dapp-sign",
+      "fontScale": 1.0,
+      "keyboardActuallyShown": true,
+      "imeTopPx": 753,
+      "scrollBoundsPx": [
+        0,
+        206,
+        840,
+        701
+      ],
+      "actionsAfterScroll": [
+        {
+          "text": "Reject",
+          "bounds": "[174,571][288,621]"
+        },
+        {
+          "text": "Sign",
+          "bounds": "[569,571][650,621]"
+        }
+      ]
+    },
+    {
+      "case": "add-asset-manual",
+      "fontScale": 1.0,
+      "keyboardActuallyShown": true,
+      "imeTopPx": 753,
+      "scrollBoundsPx": [
+        53,
+        206,
+        788,
+        522
+      ],
+      "actionsAfterScroll": [
+        {
+          "text": "Add and sign",
+          "bounds": "[303,607][538,657]"
+        }
+      ]
+    },
+    {
+      "case": "passphrase",
+      "fontScale": 2.0,
+      "keyboardActuallyShown": true,
+      "imeTopPx": 753,
+      "scrollBoundsPx": [
+        106,
+        144,
+        736,
+        609
+      ],
+      "actionsAfterScroll": [
+        {
+          "text": "Confirm and continue the current operation",
+          "bounds": "[151,144][691,180]"
+        },
+        {
+          "text": "Cancel and return to the previous screen",
+          "bounds": "[151,312][691,564]"
+        }
+      ],
+      "confirmScrollPositionsPx": [
+        [
+          151,
+          144,
+          691,
+          232
+        ],
+        [
+          151,
+          144,
+          691,
+          278
+        ],
+        [
+          151,
+          144,
+          691,
+          324
+        ],
+        [
+          151,
+          144,
+          691,
+          370
+        ],
+        [
+          151,
+          144,
+          691,
+          415
+        ],
+        [
+          151,
+          144,
+          691,
+          466
+        ],
+        [
+          151,
+          177,
+          691,
+          513
+        ]
+      ],
+      "confirmLabelFullyVisible": true
+    }
+  ],
+  "limitations": [
+    "Direct component assembly, not full Navigator product flow.",
+    "No iOS simulator or real-device execution in this audit.",
+    "No proof of protected Modal visual color from black screenshots.",
+    "Serial font change/remount with already-visible IME produced an unavoided dialog; fixed-font cold launch succeeded. This does not establish all already-visible-IME transition paths."
+  ],
+  "home_large_text_scroll": {
+    "case": "home",
+    "fontScale": 2.0,
+    "theme": "light",
+    "locale": "en",
+    "final_visible_asset": "TOKEN11",
+    "final_asset_amount_visible": "123,456.1234567",
+    "capture_note": "Cold launch after protected passphrase fixture to avoid inherited secure-window screenshot state; direct Home component without MainTabs."
+  }
+}

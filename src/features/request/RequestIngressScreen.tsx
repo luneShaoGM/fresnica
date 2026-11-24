@@ -55,7 +55,6 @@ export function RequestIngressScreen(props: Props) {
           <NativeButton label={t('request.ingress.close')} onPress={props.onClose} size="sm" variant="quiet" />
         </View>
         <Text style={styles.title}>{title}</Text>
-        <View style={styles.headerSide} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -319,7 +318,7 @@ function IngressAction({
         pressed ? styles.pressed : undefined,
       ]}
     >
-      <Text style={styles.actionText}>{label}</Text>
+      <Text style={[styles.actionText, secondary ? styles.secondaryActionText : undefined]}>{label}</Text>
     </Pressable>
   );
 }

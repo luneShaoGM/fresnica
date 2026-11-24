@@ -741,7 +741,7 @@ export function SwapPreviewScreen({
                 value={sourceAmount}
               />
               <View style={styles.row}>
-                <Text style={styles.secondary}>
+                <Text style={[styles.secondary, styles.flexibleText]}>
                   {t('swap.form.spendable')}:{' '}
                   {visibleSpendable.kind === 'ready'
                     ? visibleSpendable.amount
@@ -834,7 +834,7 @@ export function SwapPreviewScreen({
         {view.kind === 'quotes' ? (
           <>
             <View style={styles.row}>
-              <Text style={styles.label}>{t('swap.preview.routes')}</Text>
+              <Text style={[styles.label, styles.flexibleText]}>{t('swap.preview.routes')}</Text>
               <NativeButton
                 label={t('swap.settings.open')}
                 disabled={busy}
@@ -862,7 +862,7 @@ export function SwapPreviewScreen({
             {settingsVisible ? (
               <View style={styles.section}>
                 <View style={styles.row}>
-                  <Text style={styles.heading}>{t('swap.settings.title')}</Text>
+                  <Text style={[styles.heading, styles.flexibleText]}>{t('swap.settings.title')}</Text>
                   <NativeButton
                     label={t('swap.settings.done')}
                     disabled={busy}
@@ -1043,7 +1043,7 @@ function ReviewLine({ label, value }: Readonly<{ label: string; value: string }>
   const styles = useThemedStyles(createSwapPreviewStyles);
   return (
     <View style={styles.row}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, styles.rowLabel]}>{label}</Text>
       <Text selectable style={styles.rowValue}>
         {value}
       </Text>
@@ -1089,9 +1089,9 @@ function renderSwapUnavailable(
   return (
     <Screen scrollable={false} contentInset="none">
       {renderSwapHeader(styles, t, onBack)}
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.heading}>{t('swap.error.session')}</Text>
-      </View>
+      </ScrollView>
     </Screen>
   );
 }
@@ -1110,7 +1110,6 @@ function renderSwapHeader(
       <Text accessibilityRole="header" style={styles.headerTitle}>
         {t('swap.preview.title')}
       </Text>
-      <View style={styles.headerSide} />
     </View>
   );
 }

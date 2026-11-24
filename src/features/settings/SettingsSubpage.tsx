@@ -1,7 +1,7 @@
 import React from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { Screen } from '@ui/components';
-import { NativeButton } from '@ui/components/NativeButton';
+import { CenteredPageHeader } from '@ui/components/CenteredPageHeader/CenteredPageHeader';
 import { useThemedStyles } from '@ui/theme';
 import { useLocalization } from '../../locale';
 import { createStyles } from './SettingsSubpage.styles';
@@ -16,20 +16,13 @@ export function SettingsSubpage({
   const { t } = useLocalization();
   return (
     <Screen scrollable={false} contentInset="none">
-      <View style={styles.header}>
-        <View style={styles.side}>
-          <NativeButton label={t('common.back')} onPress={onBack} size="sm" variant="quiet" />
-        </View>
-        <Text accessibilityRole="header" style={styles.title}>
-          {title}
-        </Text>
-        <View style={styles.side} />
-      </View>
+      <CenteredPageHeader title={title} backLabel={t('common.back')} onBack={onBack} />
       {scrollable ? (
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
         >
           {children}
         </ScrollView>

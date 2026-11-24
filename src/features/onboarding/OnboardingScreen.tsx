@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 
 import { Screen } from '@ui/components';
 import { AppBrandMark } from '@ui/components/AppBrandMark';
+import { useLocalization } from '../../locale';
 
 import {
   NEW_PROTECTION_PASSPHRASE_MIN_UNICODE_SCALARS,
@@ -167,7 +168,9 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
       <FlowShell title="Recovery phrase">
         <View style={styles.backupHero}>
           <View style={styles.shieldMark}>
-            <Text style={styles.shieldGlyph}>✓</Text>
+            <Text allowFontScaling={false} accessible={false} style={styles.shieldGlyph}>
+              ✓
+            </Text>
           </View>
           <Text style={styles.heroTitle}>Back up your recovery phrase</Text>
           <Text style={styles.heroBody}>
@@ -316,7 +319,9 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
               confirmationMatches={passphraseConfirmationMatches}
             />
             <View style={styles.infoBox}>
-              <Text style={styles.infoGlyph}>i</Text>
+              <Text allowFontScaling={false} accessible={false} style={styles.infoGlyph}>
+                i
+              </Text>
               <Text style={styles.infoText}>
                 This passphrase protects local signing material. It is not stored in Realm.
               </Text>
@@ -344,6 +349,7 @@ function FlowShell({
   children,
 }: React.PropsWithChildren<Readonly<{ title: string; onBack?: () => void }>>) {
   const styles = useThemedStyles(createStyles);
+  const { t } = useLocalization();
 
   return (
     <Screen scrollable={false} contentInset="none">
@@ -351,11 +357,14 @@ function FlowShell({
         <View style={styles.headerSide}>
           {onBack ? (
             <Pressable
+              accessibilityLabel={t('common.back')}
               accessibilityRole="button"
               onPress={onBack}
               style={({ pressed }) => [styles.backButton, pressed ? styles.pressed : undefined]}
             >
-              <Text style={styles.backGlyph}>‹</Text>
+              <Text allowFontScaling={false} style={styles.backGlyph}>
+                ‹
+              </Text>
             </Pressable>
           ) : null}
         </View>
@@ -367,6 +376,7 @@ function FlowShell({
       <ScrollView
         contentContainerStyle={styles.flowScroll}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
       >
         {children}
@@ -451,7 +461,12 @@ function ChoiceButton(props: {
       ]}
     >
       <View style={[styles.choiceIcon, props.primary ? styles.choiceIconPrimary : undefined]}>
-        <Text style={[styles.choiceGlyph, props.primary ? styles.choiceGlyphPrimary : undefined]}>{props.glyph}</Text>
+        <Text
+          allowFontScaling={false}
+          style={[styles.choiceGlyph, props.primary ? styles.choiceGlyphPrimary : undefined]}
+        >
+          {props.glyph}
+        </Text>
       </View>
       <View style={styles.choiceText}>
         <Text style={[styles.choiceTitle, props.primary ? styles.choiceTitlePrimary : undefined]}>{props.title}</Text>
@@ -531,14 +546,16 @@ function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: theme.colors.background },
     brandHeader: {
-      height: 62,
+      minHeight: 62,
+      paddingVertical: theme.spacing.sm,
       paddingHorizontal: 20,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    brandLockup: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
+    brandLockup: { flexShrink: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
     brand: {
+      flexShrink: 1,
       color: theme.colors.textPrimary,
       fontSize: 25,
       lineHeight: 30,
@@ -577,7 +594,7 @@ function createStyles(theme: AppTheme) {
       backgroundColor: theme.colors.actionPrimaryDecoration,
     },
     introEyebrow: {
-      color: theme.colors.actionPrimary,
+      color: theme.colors.onSurfaceStrong,
       fontSize: 11,
       lineHeight: 14,
       fontWeight: '800',
@@ -619,7 +636,7 @@ function createStyles(theme: AppTheme) {
     choiceTitle: { color: theme.colors.textPrimary, fontSize: 15, lineHeight: 19, fontWeight: '800' },
     choiceTitlePrimary: { color: theme.colors.onActionPrimary },
     choiceSubtitle: { color: theme.colors.textSecondary, fontSize: 11, lineHeight: 15, marginTop: 3 },
-    choiceSubtitlePrimary: { color: theme.colors.onActionPrimaryMuted },
+    choiceSubtitlePrimary: { color: theme.colors.onActionPrimary },
     choiceChevron: { color: theme.colors.textTertiary, fontSize: 25, lineHeight: 28 },
     choiceChevronPrimary: { color: theme.colors.onActionPrimary },
     flowHeader: {
@@ -709,9 +726,16 @@ function createStyles(theme: AppTheme) {
       justifyContent: 'center',
       backgroundColor: theme.colors.actionPrimary,
       paddingHorizontal: 18,
+      paddingVertical: theme.spacing.sm,
     },
     primaryButtonPressed: { backgroundColor: theme.colors.actionPrimaryPressed },
-    primaryButtonText: { color: theme.colors.onActionPrimary, fontSize: 15, lineHeight: 20, fontWeight: '800' },
+    primaryButtonText: {
+      textAlign: 'center',
+      color: theme.colors.onActionPrimary,
+      fontSize: 15,
+      lineHeight: 20,
+      fontWeight: '800',
+    },
     disabled: { opacity: 0.45 },
     busy: { marginTop: 10 },
     backupHero: { alignItems: 'center', paddingHorizontal: 24, paddingTop: 34, paddingBottom: 22 },

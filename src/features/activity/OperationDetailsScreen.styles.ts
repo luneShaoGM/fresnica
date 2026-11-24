@@ -91,7 +91,13 @@ export function createStyles(theme: AppTheme) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.colors.border,
     },
-    rowLabel: { ...theme.typography.caption, fontWeight: '700', color: theme.colors.textSecondary },
+    rowLabel: {
+      ...theme.typography.caption,
+      fontWeight: '700',
+      color: theme.colors.textSecondary,
+      maxWidth: '40%',
+      flexShrink: 1,
+    },
     rowValue: { flex: 1, ...theme.typography.caption, color: theme.colors.textPrimary, textAlign: 'right' },
     mono: { fontSize: 10, lineHeight: 14, color: theme.colors.textSecondary, fontVariant: ['tabular-nums'] },
     explorerSection: {

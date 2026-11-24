@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, type ComponentType, type RefAttributes } from 'react';
+import React, { useCallback, useEffect, useRef, useState, type ComponentType, type RefAttributes } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import type {
@@ -60,6 +60,12 @@ type PendingSignature = Readonly<{
   passphraseRequired: boolean;
 }>;
 
+type PendingMessage = Extract<BridgeDecision, { kind: 'sign-message' }> & {
+  generation: number;
+  epoch: number;
+  target: DappMessageReplyTarget;
+};
+
 export function DappBrowserScreen({
   url,
   active,
@@ -108,13 +114,9 @@ export function DappBrowserScreen({
     setPendingNotification(undefined);
   };
   const [pendingSign, setPendingSign] = useState<PendingSignature>();
-  const [pendingMessage, setPendingMessage] = useState<
-    Extract<BridgeDecision, { kind: 'sign-message' }> & {
-      generation: number;
-      epoch: number;
-      target: DappMessageReplyTarget;
-    }
-  >();
+  const [pendingMessage, setPendingMessage] = useState<PendingMessage>();
+  const [messageExpired, setMessageExpired] = useState(false);
+  const [signingNow, setSigningNow] = useState(false);
   const messageReplyTarget = useRef<DappMessageReplyTarget | undefined>(undefined);
   const documentEpoch = useRef(0);
   const documentOrigin = useRef<string | undefined>(undefined);
@@ -219,10 +221,47 @@ export function DappBrowserScreen({
     }
   };
 
-  const handleMessage = (raw: string, messageUrl: string, replyId?: string) => {
+  const expireMessage = useCallback(
+    (request: Pick<PendingMessage, 'generation' | 'target'>) => {
+      if (
+        request.generation !== signGeneration.current ||
+        messageReplyTarget.current?.replyId !== request.target.replyId
+      )
+        return;
+      signGeneration.current += 1;
+      messageReplyTarget.current = undefined;
+      setPendingMessage(undefined);
+      setSignError(false);
+      setMessageExpired(true);
+      const expired = current?.session.finishSign({ status: 'failed', error: 'request-expired' });
+      if (expired && live.current) surface.current?.reply(expired, request.target);
+    },
+    [current],
+  );
+
+  const handleReplyExpired = (replyId: string, origin: string) => {
+    const target = messageReplyTarget.current;
+    if (!currentSession() || !target || target.replyId !== replyId || documentOrigin.current !== origin) return;
+    // The request and expiry may arrive before React commits pendingMessage.
+    // These refs bind the native event to the current request synchronously.
+    expireMessage({ generation: signGeneration.current, target });
+  };
+
+  useEffect(() => {
+    if (!pendingMessage || pendingMessage.target.expiresAt === undefined) return;
+    const request = pendingMessage;
+    const expiresAt = pendingMessage.target.expiresAt;
+    // Native expiry also retires this generation if wall time moves back before timer setup.
+    const timer = setTimeout(() => expireMessage(request), Math.max(0, expiresAt - Date.now()));
+    return () => clearTimeout(timer);
+  }, [pendingMessage, expireMessage]);
+
+  const handleMessage = (raw: string, messageUrl: string, replyId?: string, replyExpiresAt?: number) => {
     if (!current || !active || stale) return;
     const decision = current.session.receive(raw, messageUrl);
-    const target = replyId ? { replyId } : undefined;
+    const target = replyId
+      ? { replyId, ...(replyExpiresAt === undefined ? {} : { expiresAt: replyExpiresAt }) }
+      : undefined;
     if (decision.kind === 'notification') {
       const origin = documentOrigin.current;
       const remainingMs = decision.expiresAt - (notificationNow?.() ?? Number.NaN);
@@ -249,8 +288,11 @@ export function DappBrowserScreen({
       }
       signGeneration.current += 1;
       setSignError(false);
+      setMessageExpired(false);
       messageReplyTarget.current = target;
-      setPendingMessage({ ...decision, generation: signGeneration.current, epoch: documentEpoch.current, target });
+      const request = { ...decision, generation: signGeneration.current, epoch: documentEpoch.current, target };
+      if (target.expiresAt !== undefined && Date.now() >= target.expiresAt) expireMessage(request);
+      else setPendingMessage(request);
     }
     if (decision.kind === 'sign-transaction') {
       const generation = signGeneration.current + 1;
@@ -317,6 +359,7 @@ export function DappBrowserScreen({
     setPendingSign(undefined);
     setPendingMessage(undefined);
     setSignError(false);
+    setMessageExpired(false);
     if (!current || !active || stale) return;
     const target = current.session.hasPendingMessage() ? messageReplyTarget.current : undefined;
     messageReplyTarget.current = undefined;
@@ -332,6 +375,7 @@ export function DappBrowserScreen({
     const isCurrent = () =>
       currentSession() && generation === signGeneration.current && request.documentEpoch === documentEpoch.current;
     signing.current = true;
+    setSigningNow(true);
     setSignError(false);
     try {
       if (!isCurrent()) return;
@@ -372,18 +416,25 @@ export function DappBrowserScreen({
       }
     } finally {
       signing.current = false;
+      setSigningNow(false);
     }
   };
 
-  const confirmMessage = async (request: NonNullable<typeof pendingMessage>, appPassphrase: string) => {
+  const confirmMessage = async (request: PendingMessage, appPassphrase: string) => {
+    if (request.target.expiresAt !== undefined && Date.now() >= request.target.expiresAt) {
+      expireMessage(request);
+      return;
+    }
     if (!current || !signMessage || !appPassphrase || signing.current) return;
     const isCurrent = () =>
       currentSession() &&
       request.generation === signGeneration.current &&
       request.epoch === documentEpoch.current &&
+      (request.target.expiresAt === undefined || Date.now() < request.target.expiresAt) &&
       current.session.canSignMessage();
     if (!isCurrent()) return;
     signing.current = true;
+    setSigningNow(true);
     setSignError(false);
     try {
       const signature = await signMessage({
@@ -413,6 +464,7 @@ export function DappBrowserScreen({
       }
     } finally {
       signing.current = false;
+      setSigningNow(false);
     }
   };
 
@@ -501,6 +553,7 @@ export function DappBrowserScreen({
     setPendingSign(undefined);
     setPendingMessage(undefined);
     setSignError(false);
+    setMessageExpired(false);
   };
 
   const onNavigation = (next: DappBrowserNavigation) => {
@@ -569,6 +622,7 @@ export function DappBrowserScreen({
           <ToolButton glyph="×" label={t('dapps.browser.close')} onPress={close} styles={styles} />
         </View>
         <Text style={styles.notice}>{t('dapps.browser.noSigning')}</Text>
+        {messageExpired ? <Text style={styles.error}>{t('dapps.signMessage.expired')}</Text> : null}
         {pendingNotification ? (
           <View style={styles.permission}>
             <Text style={styles.heading}>{t('dapps.notification.title')}</Text>
@@ -592,6 +646,7 @@ export function DappBrowserScreen({
             url={current.url}
             nonce={current.token}
             onMessage={handleMessage}
+            onReplyExpired={handleReplyExpired}
             onNavigation={onNavigation}
             onDocumentStart={onDocumentStart}
             onUnavailable={retireInvalidNavigation}
@@ -613,6 +668,9 @@ export function DappBrowserScreen({
           <DappSignSheet
             key={pendingMessage.generation}
             message={pendingMessage.message}
+            expiresAt={pendingMessage.target.expiresAt}
+            onExpired={() => expireMessage(pendingMessage)}
+            busy={signingNow}
             address={current.selection.address}
             network={networkLabel(current.selection.networkId)}
             origin={pendingMessage.origin}
@@ -630,6 +688,7 @@ export function DappBrowserScreen({
         {pendingSign ? (
           <DappSignSheet
             intent={pendingSign.intent}
+            busy={signingNow}
             onConfirm={passphrase => {
               confirmSignature(passphrase);
             }}
@@ -667,7 +726,9 @@ function ToolButton({
       onPress={onPress}
       style={[styles.tool, disabled ? styles.toolDisabled : undefined]}
     >
-      <Text style={styles.toolGlyph}>{glyph}</Text>
+      <Text allowFontScaling={false} style={styles.toolGlyph}>
+        {glyph}
+      </Text>
     </Pressable>
   );
 }
