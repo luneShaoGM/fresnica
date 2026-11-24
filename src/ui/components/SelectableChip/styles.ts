@@ -5,19 +5,21 @@ import type { AppTheme } from '@ui/theme';
 export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     chip: {
+      maxWidth: '100%',
       borderRadius: theme.radii.pill,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: theme.colors.surfaceMuted,
     },
     compact: {
-      height: 32,
+      minHeight: 32,
       paddingHorizontal: 14,
+      paddingVertical: theme.spacing.xs,
     },
     regular: {
       minHeight: 44,
-      maxWidth: '100%',
       paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
     },
     selected: {
       backgroundColor: theme.colors.surfaceStrong,
@@ -30,6 +32,7 @@ export function createStyles(theme: AppTheme) {
     },
     text: {
       fontWeight: '700',
+      textAlign: 'center',
       color: theme.colors.textSecondary,
     },
     compactText: {

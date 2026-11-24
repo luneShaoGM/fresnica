@@ -505,7 +505,7 @@ export function ClaimableScreen({
                 <Text style={styles.warning}>{t('claimable.risk.' + selected.risk)}</Text>
               ) : null}
             </View>
-            <Text numberOfLines={1} style={styles.amount}>
+            <Text selectable style={[styles.amount, styles.detailAmount]}>
               {selected.amount}
             </Text>
           </View>

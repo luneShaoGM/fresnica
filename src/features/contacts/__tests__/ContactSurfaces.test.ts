@@ -36,6 +36,7 @@ jest.mock('../../../ui/theme', () => {
 
 type Props = {
   children?: React.ReactNode;
+  header?: React.ReactNode;
   recipientCard?: React.ReactNode;
   avatar?: React.ReactElement<{ address: string; active?: boolean }>;
   label?: string;
@@ -75,6 +76,7 @@ function nodes(root: React.ReactNode, type: unknown): React.ReactElement<Props>[
     if (React.isValidElement<Props>(node)) {
       if (node.type === type) result.push(node);
       React.Children.forEach(node.props.children, visit);
+      visit(node.props.header);
     }
   };
   visit(root);

@@ -37,52 +37,50 @@ export function DappConnectSheet({
 
   return (
     <BottomSheet closeLabel={t('dapps.permission.reject')} onClose={onReject} visible={visible}>
-      <View style={styles.sheet}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.sheet}>
         <View style={styles.header}>
           <View style={styles.spacer} />
-          <Text numberOfLines={1} style={styles.title}>
-            {t('dapps.permission.connectTitle')}
-          </Text>
+          <Text style={styles.title}>{t('dapps.permission.connectTitle')}</Text>
           <Pressable
             accessibilityLabel={t('dapps.permission.reject')}
             accessibilityRole="button"
             onPress={onReject}
             style={styles.close}
           >
-            <Text style={styles.closeText}>×</Text>
+            <Text allowFontScaling={false} style={styles.closeText}>
+              ×
+            </Text>
           </Pressable>
         </View>
-        <ScrollView contentContainerStyle={styles.hero}>
+        <View style={styles.hero}>
           <Text selectable style={styles.address}>
             {address}
           </Text>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{hostname.slice(0, 1).toUpperCase()}</Text>
+            <Text allowFontScaling={false} style={styles.avatarText}>
+              {hostname.slice(0, 1).toUpperCase()}
+            </Text>
           </View>
-          <Text numberOfLines={1} style={styles.name}>
-            {hostname}
-          </Text>
-          <Text numberOfLines={1} style={styles.origin}>
+          <Text style={styles.name}>{hostname}</Text>
+          <Text selectable style={styles.origin}>
             {origin}
           </Text>
           <Text style={styles.message}>{t('dapps.permission.connectMessage')}</Text>
-        </ScrollView>
+        </View>
         <View style={styles.card}>
           <Text style={styles.cardLabel}>{t('dapps.permission.network')}</Text>
-          <Text numberOfLines={1} style={styles.cardValue}>
-            {networkLabel}
-          </Text>
+          <Text style={styles.cardValue}>{networkLabel}</Text>
         </View>
         <Text style={styles.hint}>{t('dapps.permission.manageHint')}</Text>
         <View style={styles.actions}>
           <Pressable accessibilityRole="button" onPress={onAllowOnce} style={[styles.action, styles.secondary]}>
-            <Text style={styles.actionText}>{t('dapps.permission.allowOnce')}</Text>
+            <Text style={[styles.actionText, styles.secondaryText]}>{t('dapps.permission.allowOnce')}</Text>
           </Pressable>
           <Pressable accessibilityRole="button" onPress={onAllowAlways} style={styles.action}>
             <Text style={styles.actionText}>{t('dapps.permission.allowAlways')}</Text>
           </Pressable>
         </View>
-      </View>
+      </ScrollView>
     </BottomSheet>
   );
 }

@@ -22,9 +22,11 @@ export function createStyles(theme: AppTheme) {
       borderRadius: 8,
       backgroundColor: theme.colors.surface,
       paddingHorizontal: 9,
+      paddingVertical: theme.spacing.xs,
     },
     recoveryNumber: {
-      width: 22,
+      minWidth: 22,
+      marginRight: theme.spacing.xs,
       color: theme.colors.textTertiary,
       fontSize: 11,
       lineHeight: 15,
@@ -91,8 +93,10 @@ export function createStyles(theme: AppTheme) {
       justifyContent: 'center',
       backgroundColor: theme.colors.actionPrimary,
       paddingHorizontal: 18,
+      paddingVertical: theme.spacing.sm,
     },
     primaryText: {
+      textAlign: 'center',
       color: theme.colors.onActionPrimary,
       fontSize: 15,
       lineHeight: 20,
@@ -100,6 +104,8 @@ export function createStyles(theme: AppTheme) {
     },
     secondaryButton: {
       minHeight: 46,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
       borderRadius: 9,
       alignItems: 'center',
       justifyContent: 'center',
@@ -107,6 +113,7 @@ export function createStyles(theme: AppTheme) {
       borderColor: theme.colors.border,
     },
     secondaryText: {
+      textAlign: 'center',
       color: theme.colors.textSecondary,
       fontSize: 14,
       lineHeight: 18,

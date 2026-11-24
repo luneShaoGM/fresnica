@@ -26,14 +26,14 @@ export function TransactionResult({ tone, title, subtitle, details, actions, not
       text: styles.successTone,
       mark: styles.successMark,
       button: styles.successButton,
-      buttonText: styles.onToneText,
+      buttonText: styles.onSuccessText,
     },
     failed: {
       screen: styles.failedScreen,
       text: styles.failedTone,
       mark: styles.failedMark,
       button: styles.failedButton,
-      buttonText: styles.onToneText,
+      buttonText: styles.onFailedText,
     },
     unverified: {
       screen: styles.unverifiedScreen,
@@ -50,10 +50,10 @@ export function TransactionResult({ tone, title, subtitle, details, actions, not
           <View style={[styles.mark, colors.mark]}>
             <Text style={[styles.markText, colors.text]}>{tone === 'success' ? '✓' : '!'}</Text>
           </View>
-          <Text accessibilityLiveRegion="polite" style={[styles.title, colors.text]}>
+          <Text accessibilityLiveRegion="polite" style={styles.title}>
             {title}
           </Text>
-          <Text style={[styles.subtitle, colors.text]}>{subtitle}</Text>
+          <Text style={styles.subtitle}>{subtitle}</Text>
         </View>
         <View style={styles.card}>
           {details.map((detail, index) => (

@@ -1,6 +1,7 @@
 import { StyleSheet } from 'react-native';
 
 import type { AppTheme } from '@ui/theme';
+import { contrastText } from '@ui/theme/appearanceTheme';
 
 export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
@@ -21,10 +22,12 @@ export function createStyles(theme: AppTheme) {
     },
     title: {
       ...theme.typography.title,
+      color: theme.colors.textPrimary,
       textAlign: 'center',
     },
     subtitle: {
       ...theme.typography.body,
+      color: theme.colors.textSecondary,
       textAlign: 'center',
     },
     mark: {
@@ -81,9 +84,11 @@ export function createStyles(theme: AppTheme) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
     },
     secondaryText: {
       ...theme.typography.button,
+      textAlign: 'center',
       color: theme.colors.textPrimary,
     },
     notice: {
@@ -92,6 +97,7 @@ export function createStyles(theme: AppTheme) {
       textAlign: 'center',
     },
     footer: {
+      paddingTop: theme.spacing.sm,
       paddingHorizontal: theme.spacing.lg,
       paddingBottom: theme.spacing.lg,
     },
@@ -101,9 +107,11 @@ export function createStyles(theme: AppTheme) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
     },
     primaryText: {
       ...theme.typography.button,
+      textAlign: 'center',
     },
     disabled: {
       opacity: 0.45,
@@ -120,7 +128,8 @@ export function createStyles(theme: AppTheme) {
     unverifiedTone: { color: theme.colors.warning },
     unverifiedMark: { borderColor: theme.colors.warning },
     unverifiedButton: { backgroundColor: theme.colors.warning },
-    onToneText: { color: theme.colors.onActionPrimary },
-    onWarningText: { color: theme.colors.textPrimary },
+    onSuccessText: { color: contrastText(theme.colors.positive) },
+    onFailedText: { color: contrastText(theme.colors.negative) },
+    onWarningText: { color: contrastText(theme.colors.warning) },
   });
 }

@@ -2,7 +2,16 @@ import type { XlmQuotePort } from '@capabilities/valuation/xlmQuote';
 import { useXlmQuote } from '@features/valuation/useXlmQuote';
 import { estimateFiat } from '@capabilities/valuation/xlmQuote';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 
 import { Screen } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
@@ -93,6 +102,7 @@ export function HomeScreen({
   const theme = useAppTheme();
   const { t, formatNumber, displayPreferences } = useLocalization();
   const styles = useThemedStyles(createStyles);
+  const largeText = useWindowDimensions().fontScale > 1.5;
   const currency = displayPreferences?.currency ?? 'USD';
   const quote = useXlmQuote(xlmQuotes, currency, active && account.networkId === 'stellar-mainnet');
   const {
@@ -191,6 +201,27 @@ export function HomeScreen({
     ? matchingNativeBalance(nativeDetails, nativeLine.balance, balanceState.kind !== 'ready' || balanceState.stale)
     : undefined;
 
+  const nativeRow =
+    assetCategory === 'tokens' && nativeLine ? (
+      <PinnedNativeAssetRow
+        showReserve={displayPreferences?.reserveDisplay}
+        formatAmount={formatNumber ? value => formatNumber(value, 7) : undefined}
+        line={nativeLine}
+        breakdown={safeNativeDetails}
+        onOpenAsset={onOpenAsset}
+        t={t}
+        currency={account.networkId === 'stellar-mainnet' ? currency : undefined}
+        quoteExpiresAt={quote ? quote.updatedAt + 300_000 : undefined}
+        availableFiat={quote ? estimateFiat(safeNativeDetails?.available ?? nativeLine.balance, quote.rate) : undefined}
+        reserveFiat={safeNativeDetails && quote ? estimateFiat(safeNativeDetails.reserved, quote.rate) : undefined}
+        formatFiat={value => (formatNumber ? formatNumber(value, 2) : value)}
+      />
+    ) : null;
+  const freshnessNotice =
+    assetCategory === 'tokens' ? (
+      <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} showRefreshStatus={false} />
+    ) : null;
+
   return (
     <Screen scrollable={false} contentInset="none" safeAreaEdges={['top', 'right', 'left']}>
       <View style={styles.homeLayout}>
@@ -275,27 +306,7 @@ export function HomeScreen({
             ) : null}
           </View>
         </ScrollView>
-        {assetCategory === 'tokens' && nativeLine ? (
-          <View style={styles.nativeFixedWrap}>
-            <PinnedNativeAssetRow
-              showReserve={displayPreferences?.reserveDisplay}
-              formatAmount={formatNumber ? value => formatNumber(value, 7) : undefined}
-              line={nativeLine}
-              breakdown={safeNativeDetails}
-              onOpenAsset={onOpenAsset}
-              t={t}
-              currency={account.networkId === 'stellar-mainnet' ? currency : undefined}
-              quoteExpiresAt={quote ? quote.updatedAt + 300_000 : undefined}
-              availableFiat={
-                quote ? estimateFiat(safeNativeDetails?.available ?? nativeLine.balance, quote.rate) : undefined
-              }
-              reserveFiat={
-                safeNativeDetails && quote ? estimateFiat(safeNativeDetails.reserved, quote.rate) : undefined
-              }
-              formatFiat={value => (formatNumber ? formatNumber(value, 2) : value)}
-            />
-          </View>
-        ) : null}
+        {!largeText && nativeRow ? <View style={styles.nativeFixedWrap}>{nativeRow}</View> : null}
         <ScrollView
           style={styles.tokenScroll}
           contentContainerStyle={styles.tokenContent}
@@ -318,6 +329,8 @@ export function HomeScreen({
           }
           showsVerticalScrollIndicator={false}
         >
+          {largeText ? freshnessNotice : null}
+          {largeText ? nativeRow : null}
           {assetCategory === 'pools'
             ? poolsContent
             : assetCategory === 'claimable'
@@ -336,9 +349,7 @@ export function HomeScreen({
                   formatNumber ? value => formatNumber(value, 7) : undefined,
                 )}
         </ScrollView>
-        {assetCategory === 'tokens' ? (
-          <BalanceFreshnessNotice state={balanceState} onRefresh={refreshBalances} showRefreshStatus={false} />
-        ) : null}
+        {!largeText ? freshnessNotice : null}
       </View>
       <AccountPickerModal
         accounts={selectableAccounts}

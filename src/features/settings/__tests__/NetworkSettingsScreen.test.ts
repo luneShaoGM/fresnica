@@ -107,7 +107,7 @@ describe('Network Settings native Back and read-only contract', () => {
     expect(findAll(root, element => element.type === ScrollView)[0]?.props.showsVerticalScrollIndicator).toBe(false);
   });
 
-  it('keeps Network title centered using equal flexible sides, not the old 42dp spacer', () => {
+  it('reserves the Back control width and gives Network the remaining header space', () => {
     const root = NetworkSettingsScreen({
       onBack: jest.fn(),
       monitor,
@@ -121,16 +121,15 @@ describe('Network Settings native Back and read-only contract', () => {
     const columns = React.Children.toArray(header?.props.children).filter(
       (child): child is React.ReactElement<NodeProps> => React.isValidElement<NodeProps>(child),
     );
-    expect(columns).toHaveLength(3);
-    const [left, title, right] = columns;
+    expect(columns).toHaveLength(2);
+    const [left, title] = columns;
 
     expect(left?.type).toBe(View);
     expect(title?.type).toBe(Text);
     expect(title?.props.children).toBe('Network');
-    expect(right?.type).toBe(View);
     expect(left?.props.style).toEqual(styles.headerSide);
-    expect(right?.props.style).toEqual(styles.headerSide);
-    expect(styles.headerSide).toMatchObject({ flex: 1, alignItems: 'flex-start' });
+    expect(styles.headerSide).toMatchObject({ flexShrink: 0, alignItems: 'flex-start' });
+    expect(styles.title).toMatchObject({ flex: 1, minWidth: 0 });
     expect(styles.header).not.toHaveProperty('justifyContent', 'space-between');
     expect(styles.header.minHeight).toBe(58);
     expect(

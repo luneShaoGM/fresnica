@@ -17,7 +17,6 @@ export function CenteredPageHeader({ title, backLabel, onBack }: Props) {
       <Text accessibilityRole="header" style={styles.title}>
         {title}
       </Text>
-      <View style={styles.side} />
     </View>
   );
 }

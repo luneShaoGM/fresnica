@@ -33,6 +33,7 @@ export function createStyles(theme: AppTheme) {
     },
     identity: {
       flex: 1,
+      minWidth: 0,
       gap: theme.spacing.xs,
     },
     label: {
@@ -45,12 +46,15 @@ export function createStyles(theme: AppTheme) {
     },
     current: {
       ...theme.typography.caption,
-      color: theme.colors.actionPrimary,
+      color: theme.colors.textPrimary,
+      maxWidth: '45%',
+      flexShrink: 1,
+      textAlign: 'right',
       fontWeight: '700',
     },
     error: {
       ...theme.typography.body,
-      color: theme.colors.negative,
+      color: theme.colors.negativeStrong,
     },
   });
 }

@@ -29,7 +29,6 @@ export function AboutScreen({ onBack, appName, projectName, isMainnet }: Props) 
         <Text accessibilityRole="header" style={styles.title}>
           {t('settings.about')}
         </Text>
-        <View style={styles.headerSide} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

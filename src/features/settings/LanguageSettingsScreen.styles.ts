@@ -24,6 +24,7 @@ export function createStyles(theme: AppTheme) {
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: theme.spacing.sm,
+      paddingVertical: theme.spacing.sm,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.colors.border,
     },

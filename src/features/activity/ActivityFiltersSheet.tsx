@@ -48,7 +48,7 @@ export function ActivityFiltersSheet({
   const styles = useThemedStyles(createStyles);
   const [draft, setDraft] = useState(initial);
   return (
-    <BottomSheet visible onClose={onClose} closeLabel={t('common.close')}>
+    <BottomSheet avoidAndroidKeyboard visible onClose={onClose} closeLabel={t('common.close')}>
       <View style={styles.sheetHeading}>
         <Pressable accessibilityRole="button" onPress={onClose} style={styles.sheetTextButton}>
           <Text style={styles.sheetLink}>{t('common.cancel')}</Text>

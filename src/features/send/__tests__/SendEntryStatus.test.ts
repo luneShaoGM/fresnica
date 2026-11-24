@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text } from 'react-native';
 
 import { NativeStateView } from '@ui/components/NativeStateView';
 
@@ -40,7 +40,7 @@ function elements(node: React.ReactNode): React.ReactElement<NodeProps>[] {
 describe('Send entry status', () => {
   it('shows only the loading message and spinner while balances are being read', () => {
     const content = elements(SendEntryStatus({ state: { kind: 'loading' } }));
-    expect(content[0]?.type).toBe(View);
+    expect(content[0]?.type).toBe(ScrollView);
     expect(content.filter(node => node.type === ActivityIndicator)).toHaveLength(1);
     expect(content.filter(node => node.type === NativeStateView)).toHaveLength(0);
     expect(content.filter(node => node.type === Text).map(node => node.props.children)).toEqual([

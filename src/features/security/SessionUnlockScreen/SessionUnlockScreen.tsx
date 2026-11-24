@@ -86,7 +86,7 @@ export function SessionUnlockScreen({ unlock, cancel, canUseBiometrics, unlockWi
         {biometrics ? (
           <Button label={t('session.biometricUnlock')} disabled={busy} onPress={() => void submitBiometrics()} />
         ) : null}
-        <View>
+        <View style={styles.field}>
           <Text style={styles.body}>{t('session.passphrase')}</Text>
           <TextInput
             ref={field}

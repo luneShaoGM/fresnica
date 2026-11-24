@@ -31,8 +31,8 @@ export function createClaimableStyles(theme: AppTheme) {
     issuer: { ...theme.typography.caption, color: theme.colors.textSecondary },
     amount: { ...theme.typography.label, fontWeight: '700', color: theme.colors.textPrimary },
     state: { ...theme.typography.caption, color: theme.colors.textSecondary },
-    safe: { color: theme.colors.positive },
-    warning: { color: theme.colors.warning },
+    safe: { color: theme.colors.textSecondary },
+    warning: { color: theme.colors.textPrimary },
     error: { ...theme.typography.caption, color: theme.colors.negativeStrong },
     section: {
       flexDirection: 'row',
@@ -45,7 +45,7 @@ export function createClaimableStyles(theme: AppTheme) {
       borderRadius: theme.radii.md,
       borderWidth: 1,
     },
-    sectionTitle: { ...theme.typography.label, fontWeight: '700', color: theme.colors.textPrimary },
+    sectionTitle: { ...theme.typography.label, flexShrink: 1, fontWeight: '700', color: theme.colors.textPrimary },
     helper: { ...theme.typography.caption, color: theme.colors.textSecondary },
     divider: { backgroundColor: theme.colors.border, height: StyleSheet.hairlineWidth },
     detailCard: {
@@ -55,7 +55,7 @@ export function createClaimableStyles(theme: AppTheme) {
       gap: theme.spacing.md,
     },
     pair: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: theme.spacing.sm },
-    label: { ...theme.typography.caption, color: theme.colors.textSecondary, flexShrink: 1 },
+    label: { ...theme.typography.caption, color: theme.colors.textSecondary, maxWidth: '45%', flexShrink: 1 },
     value: { ...theme.typography.label, color: theme.colors.textPrimary, flex: 1, textAlign: 'right' },
     sheetContent: { gap: theme.spacing.md, padding: theme.spacing.md, minHeight: 180 },
     sheetActions: { gap: theme.spacing.sm, marginTop: theme.spacing.sm },
@@ -87,6 +87,7 @@ export function createClaimableStyles(theme: AppTheme) {
       justifyContent: 'center',
     },
     suspectRow: { opacity: 0.72 },
+    detailAmount: { maxWidth: '48%', flexShrink: 1, textAlign: 'right' },
     amountColumn: {
       alignItems: 'flex-end',
       justifyContent: 'center',
@@ -159,6 +160,7 @@ export function createClaimableStyles(theme: AppTheme) {
       padding: theme.spacing.sm,
     },
     technicalToggle: {
+      gap: theme.spacing.sm,
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',

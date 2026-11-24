@@ -7,15 +7,16 @@ export function createSendFormStyles(theme: AppTheme) {
     safeArea: {flex: 1, backgroundColor: theme.colors.background},
     header: {
       minHeight: 58,
+      paddingVertical: theme.spacing.xs,
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 12,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.colors.border,
     },
-    headerSide: {flex: 1, alignItems: 'flex-start'},
+    headerSide: {flexShrink: 0, alignItems: 'flex-start'},
     headerTrailing: {alignItems: 'flex-end'},
-    headerTitle: {fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary},
+    headerTitle: {flex: 1, minWidth: 0, textAlign: 'center', fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary},
     content: {paddingBottom: 28},
     stepIndicator: {paddingHorizontal: 18, paddingTop: 12, fontSize: 11, color: theme.colors.textSecondary},
     recipientSummary: {
@@ -59,6 +60,9 @@ export function createSendFormStyles(theme: AppTheme) {
     assetBalance: {fontSize: 10, lineHeight: 13, color: theme.colors.textSecondary},
     balanceLine: {
       minHeight: 42,
+      flexWrap: 'wrap',
+      gap: 8,
+      paddingVertical: 8,
       marginHorizontal: 18,
       marginTop: 10,
       paddingHorizontal: 12,
@@ -69,7 +73,7 @@ export function createSendFormStyles(theme: AppTheme) {
       justifyContent: 'space-between',
     },
     balanceLabel: {fontSize: 11, color: theme.colors.textSecondary},
-    balanceValue: {fontSize: 11, color: theme.colors.secondary, fontWeight: '700'},
+    balanceValue: {maxWidth: '100%', flexShrink: 1, fontSize: 11, color: theme.colors.secondary, fontWeight: '700'},
     fieldBox: {
       minHeight: 52,
       marginHorizontal: 18,
@@ -87,6 +91,8 @@ export function createSendFormStyles(theme: AppTheme) {
     memoTypeButton: {
       minHeight: 36,
       minWidth: 64,
+      maxWidth: '100%',
+      paddingVertical: 8,
       paddingHorizontal: 12,
       borderRadius: 9,
       borderWidth: 1,
@@ -99,8 +105,8 @@ export function createSendFormStyles(theme: AppTheme) {
       borderColor: theme.colors.actionPrimary,
       backgroundColor: theme.colors.actionPrimarySubtle,
     },
-    memoTypeText: {fontSize: 11, color: theme.colors.textSecondary, fontWeight: '700'},
-    memoTypeTextSelected: {color: theme.colors.actionPrimary},
+    memoTypeText: {textAlign: 'center', fontSize: 11, color: theme.colors.textSecondary, fontWeight: '700'},
+    memoTypeTextSelected: {color: theme.colors.textPrimary},
     amountBox: {
       minHeight: 70,
       marginHorizontal: 18,
@@ -120,14 +126,14 @@ export function createSendFormStyles(theme: AppTheme) {
       fontWeight: '600',
       paddingVertical: 0,
     },
-    amountAsset: {fontSize: 15, color: theme.colors.secondary, fontWeight: '800'},
+    amountAsset: {maxWidth: '40%', flexShrink: 1, fontSize: 15, color: theme.colors.secondary, fontWeight: '800'},
     error: {
       marginHorizontal: 18,
       marginTop: 16,
       borderRadius: 9,
       padding: 12,
       backgroundColor: theme.colors.negativeMuted,
-      color: theme.colors.negative,
+      color: theme.colors.negativeStrong,
       fontSize: 11,
       lineHeight: 16,
     },
@@ -141,13 +147,15 @@ export function createSendFormStyles(theme: AppTheme) {
     },
     reviewButton: {
       minHeight: 54,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
       borderRadius: 11,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: theme.colors.actionPrimary,
     },
     reviewButtonDisabled: {opacity: 0.5},
-    reviewButtonText: {fontSize: 15, color: theme.colors.onActionPrimary, fontWeight: '800'},
+    reviewButtonText: {textAlign: 'center', fontSize: 15, color: theme.colors.onActionPrimary, fontWeight: '800'},
     pressed: {opacity: 0.68},
   });
 }
@@ -157,6 +165,7 @@ export function createSendReviewStyles(theme: AppTheme) {
     safeArea: {flex: 1, backgroundColor: theme.colors.background},
     header: {
       minHeight: 58,
+      paddingVertical: theme.spacing.xs,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -166,7 +175,7 @@ export function createSendReviewStyles(theme: AppTheme) {
     },
     backButton: {width: 42, height: 42, alignItems: 'center', justifyContent: 'center'},
     backGlyph: {fontSize: 36, lineHeight: 38, fontWeight: '300', color: theme.colors.secondary},
-    headerTitle: {fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary},
+    headerTitle: {flex: 1, minWidth: 0, textAlign: 'center', fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary},
     headerSpacer: {width: 42},
     content: {paddingBottom: 28},
     summaryHero: {alignItems: 'center', paddingHorizontal: 20, paddingTop: 28, paddingBottom: 24},
@@ -177,7 +186,7 @@ export function createSendReviewStyles(theme: AppTheme) {
       fontWeight: '800',
       letterSpacing: 0.8,
     },
-    summaryAmount: {fontSize: 36, lineHeight: 44, color: theme.colors.textPrimary, fontWeight: '700', marginTop: 5},
+    summaryAmount: {textAlign: 'center', fontSize: 36, lineHeight: 44, color: theme.colors.textPrimary, fontWeight: '700', marginTop: 5},
     summaryAsset: {
       fontSize: 13,
       lineHeight: 17,
@@ -192,11 +201,12 @@ export function createSendReviewStyles(theme: AppTheme) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 18,
+      paddingVertical: 12,
       paddingHorizontal: 18,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.colors.border,
     },
-    label: {fontSize: 12, lineHeight: 16, color: theme.colors.textSecondary, fontWeight: '600'},
+    label: {maxWidth: '40%', flexShrink: 1, fontSize: 12, lineHeight: 16, color: theme.colors.textSecondary, fontWeight: '600'},
     value: {
       flex: 1,
       fontSize: 12,
@@ -238,7 +248,7 @@ export function createSendReviewStyles(theme: AppTheme) {
       borderRadius: 9,
       padding: 12,
       backgroundColor: theme.colors.negativeMuted,
-      color: theme.colors.negative,
+      color: theme.colors.negativeStrong,
       fontSize: 11,
       lineHeight: 16,
     },
@@ -255,7 +265,7 @@ export function createSendReviewStyles(theme: AppTheme) {
 
 export function createSendStatusStyles(theme: AppTheme) {
   return StyleSheet.create({
-    messageBody: {flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 34, gap: 10},
+    messageBody: {flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 34, paddingVertical: 24, gap: 10},
     messageText: {fontSize: 12, lineHeight: 18, color: theme.colors.textSecondary, textAlign: 'center'},
   });
 }

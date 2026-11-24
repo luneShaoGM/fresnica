@@ -1,6 +1,6 @@
 import { AccountAvatar } from './AccountAvatar';
 import React, { useEffect, useRef, useState } from 'react';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
 import { searchContacts, type Contact } from '@capabilities/contacts/contacts';
 import { AccountIdentityCard, Field, SectionedList, StateView } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
@@ -83,52 +83,52 @@ export function AddressBookScreen({
           )}
         </>
       ) : (
-        <>
-          <Text style={styles.hint}>{t('contacts.local')}</Text>
-          <Field
-            label={t('contacts.search')}
-            accessibilityLabel={t('contacts.search')}
-            autoCorrect={false}
-            value={query}
-            onChangeText={setQuery}
-          />
-          <NativeButton label={t('contacts.add')} variant="primary" onPress={() => choose({ kind: 'add' })} />
-          {failed ? (
-            <StateView
-              kind="error"
-              title={t('contacts.error.storage')}
-              message={t('contacts.error.storage')}
-              actionLabel={t('activity.retry')}
-              onAction={() => retry(value => value + 1)}
-            />
-          ) : (
-            <SectionedList
-              sections={sections}
-              empty={
-                <StateView
-                  kind="empty"
-                  title={t('contacts.empty')}
-                  message={t(query ? 'contacts.noMatches' : 'contacts.emptyDetail')}
-                />
-              }
-              keyExtractor={contact => contact.id}
-              renderItem={contact => (
-                <AccountIdentityCard
-                  avatar={<AccountAvatar address={contact.address} active={active} />}
-                  address={contact.address}
-                  name={contact.name}
-                  label={t('contacts.local')}
-                  presentation="selectable"
-                  secondary={t('contacts.source.contact')}
-                  memoText={
-                    contact.memo ? `${t(`send.memo.type.${contact.memo.type}`)}: ${contact.memo.value}` : undefined
-                  }
-                  onPress={() => choose({ kind: 'contact', contact })}
-                />
-              )}
+        <SectionedList
+          sections={failed ? [] : sections}
+          header={
+            <View style={styles.actions}>
+              <Text style={styles.hint}>{t('contacts.local')}</Text>
+              <Field
+                label={t('contacts.search')}
+                accessibilityLabel={t('contacts.search')}
+                autoCorrect={false}
+                value={query}
+                onChangeText={setQuery}
+              />
+              <NativeButton label={t('contacts.add')} variant="primary" onPress={() => choose({ kind: 'add' })} />
+            </View>
+          }
+          empty={
+            failed ? (
+              <StateView
+                kind="error"
+                title={t('contacts.error.storage')}
+                message={t('contacts.error.storage')}
+                actionLabel={t('activity.retry')}
+                onAction={() => retry(value => value + 1)}
+              />
+            ) : (
+              <StateView
+                kind="empty"
+                title={t('contacts.empty')}
+                message={t(query ? 'contacts.noMatches' : 'contacts.emptyDetail')}
+              />
+            )
+          }
+          keyExtractor={contact => contact.id}
+          renderItem={contact => (
+            <AccountIdentityCard
+              avatar={<AccountAvatar address={contact.address} active={active} />}
+              address={contact.address}
+              name={contact.name}
+              label={t('contacts.local')}
+              presentation="selectable"
+              secondary={t('contacts.source.contact')}
+              memoText={contact.memo ? `${t(`send.memo.type.${contact.memo.type}`)}: ${contact.memo.value}` : undefined}
+              onPress={() => choose({ kind: 'contact', contact })}
             />
           )}
-        </>
+        />
       )}
     </SettingsSubpage>
   );

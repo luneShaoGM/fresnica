@@ -54,7 +54,7 @@ describe('RequestDeepLinkScreen Native Close', () => {
   it.each([
     { state: { kind: 'ready' as const, intent, accountId: 'current-testnet-account' } },
     { state: { kind: 'blocked' as const, reason: 'network-mismatch' as const } },
-  ])('keeps localized Close on the original onClose and balances the %p header', ({ state }) => {
+  ])('keeps localized Close on the original onClose and preserves the %p title', ({ state }) => {
     const onClose = jest.fn();
     const onContinue = jest.fn();
     const styles = createRequestIngressStyles(defaultTheme);
@@ -70,16 +70,13 @@ describe('RequestDeepLinkScreen Native Close', () => {
     expect(scroller?.type).toBe(ScrollView);
     expect(scroller?.props.showsVerticalScrollIndicator).toBe(false);
 
-    const [left, title, right] = React.Children.toArray(header?.props.children).filter(
+    const [left, title] = React.Children.toArray(header?.props.children).filter(
       (child): child is React.ReactElement<NodeProps> => React.isValidElement<NodeProps>(child),
     );
     expect(left?.type).toBe(View);
     expect(title?.type).toBe(Text);
     expect(title?.props.children).toBe('request.deepLink.title');
-    expect(right?.type).toBe(View);
     expect(left?.props.style).toEqual(styles.deepLinkHeaderSide);
-    expect(right?.props.style).toEqual(styles.deepLinkHeaderSide);
-    expect(styles.deepLinkHeaderSide).toMatchObject({ flex: 1, alignItems: 'flex-start' });
     expect(styles.deepLinkHeader).not.toHaveProperty('justifyContent', 'space-between');
     expect(styles.deepLinkHeader.minHeight).toBe(58);
 
@@ -115,7 +112,7 @@ describe('RequestDeepLinkScreen Native Close', () => {
       expect(content?.props.onContinue).toBeUndefined();
     }
 
-    // UI-05c migrates Ingress independently; both screens now use the same symmetric header tokens.
+    // UI-05c migrates Ingress independently; both screens now use the same header tokens.
     expect(styles.header).toEqual(styles.deepLinkHeader);
     expect(styles.headerSide).toEqual(styles.deepLinkHeaderSide);
   });

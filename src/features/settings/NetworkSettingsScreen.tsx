@@ -34,7 +34,6 @@ export function NetworkSettingsScreen({ onBack, network, monitor, settings, show
         <Text accessibilityRole="header" style={styles.title}>
           {t('settings.network')}
         </Text>
-        <View style={styles.headerSide} />
       </View>
 
       <ScrollView
@@ -57,7 +56,9 @@ export function NetworkSettingsScreen({ onBack, network, monitor, settings, show
                   <Text style={styles.networkSubtitle}>{t('settings.activeNetwork')}</Text>
                 </View>
                 <View style={styles.selectedMark}>
-                  <Text style={styles.selectedGlyph}>✓</Text>
+                  <Text allowFontScaling={false} accessible={false} style={styles.selectedGlyph}>
+                    ✓
+                  </Text>
                 </View>
               </View>
             </View>

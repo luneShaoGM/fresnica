@@ -74,7 +74,7 @@ describe('SelectableChip', () => {
     expect(chip.props.accessibilityState).toEqual({ selected: false, disabled: true });
     expect(chip.props.disabled).toBe(true);
     expect(StyleSheet.flatten(chip.props.style({ pressed: false }))).toMatchObject({
-      height: 32,
+      minHeight: 32,
       paddingHorizontal: 14,
       opacity: 0.45,
     });

@@ -588,7 +588,9 @@ function ToolButton({
       onPress={onPress}
       style={[styles.tool, disabled ? styles.toolDisabled : undefined]}
     >
-      <Text style={styles.toolGlyph}>{glyph}</Text>
+      <Text allowFontScaling={false} style={styles.toolGlyph}>
+        {glyph}
+      </Text>
     </Pressable>
   );
 }

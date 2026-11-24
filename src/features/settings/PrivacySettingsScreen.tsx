@@ -1,6 +1,6 @@
 import { AppModal, Button } from '@ui/components';
 import React, { useRef, useState, useSyncExternalStore } from 'react';
-import { ScrollView, Switch, Text, View } from 'react-native';
+import { Switch, Text, View } from 'react-native';
 import type { NetworkSettings } from '@capabilities/network/createNetworkSettings';
 import { DEFAULT_NETWORK_PREFERENCES } from '@capabilities/network/networkPreferences';
 import { useThemedStyles } from '@ui/theme';
@@ -92,8 +92,8 @@ export function PrivacySettingsScreen({
         {!settings ? <Text style={styles.label}>{t('settings.controlsUnavailable')}</Text> : null}
         {saveFailed ? <Text style={styles.label}>{t('settings.privacy.saveFailed')}</Text> : null}
       </View>
-      <AppModal visible={avatarPrompt} onRequestClose={() => setAvatarPrompt(false)}>
-        <ScrollView>
+      <AppModal visible={avatarPrompt} onRequestClose={() => setAvatarPrompt(false)} scrollable>
+        <View style={styles.dialogContent}>
           <Text accessibilityRole="header" style={styles.title}>
             {t('settings.privacy.avatarConsentTitle')}
           </Text>
@@ -112,7 +112,7 @@ export function PrivacySettingsScreen({
             variant="secondary"
             onPress={() => setAvatarPrompt(false)}
           />
-        </ScrollView>
+        </View>
       </AppModal>
     </SettingsSubpage>
   );

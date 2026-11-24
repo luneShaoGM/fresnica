@@ -149,8 +149,8 @@ export function SecuritySettingsScreen({
             />
           ))
         : null}
-      <AppModal visible={captureWarning} onRequestClose={() => setCaptureWarning(false)}>
-        <View>
+      <AppModal visible={captureWarning} onRequestClose={() => setCaptureWarning(false)} scrollable>
+        <View style={styles.modalContent}>
           <Text style={styles.body}>{t('security.settings.captureWarning')}</Text>
           <Button
             label={t('security.settings.allowCapture')}
