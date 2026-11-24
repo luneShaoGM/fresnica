@@ -31,4 +31,21 @@ describe('navigation contract', () => {
     expect(PRODUCT_ROUTES.home).not.toContain('exchange');
     expect(PRODUCT_ROUTE_STATUS.swap.readiness).toBe('implemented');
   });
+
+  it('indexes every registered product route without reintroducing obsolete feature blockers', () => {
+    const registered = [...new Set(Object.values(PRODUCT_ROUTES).flat())].sort();
+    expect(Object.keys(PRODUCT_ROUTE_STATUS).sort()).toEqual(registered);
+    // Availability of these supported routes is separate from native acceptance.
+    for (const route of [
+      'home',
+      'account-details',
+      'add-account',
+      'request',
+      'dapps',
+      'general-settings',
+      'security-settings',
+    ] as const) {
+      expect(PRODUCT_ROUTE_STATUS[route].readiness).toBe('implemented');
+    }
+  });
 });
