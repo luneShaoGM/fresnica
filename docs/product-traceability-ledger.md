@@ -1017,3 +1017,23 @@ approval or merge is claimed. Unaffected Android native results retain
 their original source/acceptance scope. iOS real-device wallet signing,
 review/input-clearing product acceptance and Stage 9 System Auth
 cancellation/retry remain unexecuted or deferred. No S19/L4 maturity promotion.
+
+#### Current main integration and final verification
+
+During finalization, main advanced through PR #231 to
+`d84502472e1f0e4ca81942f52fd54647246bcb9d`. The repair branch integrated
+that main in `b7103d834cd7bf028c057d74ea7394cb270d104b`; automatic merging
+preserved both the review layout and all expiry/secure-input guards.
+The exact integrated tree passed the complete repository gate:
+**308 suites / 2,947 tests**. The previous 306 / 2,922 result remains
+the pre-integration P3 run.
+
+The actual iOS build/runtime HEAD remains `bcc8cb0`. Native directories,
+patch/Codegen, dependencies, verified WebView/injection and secure-input
+implementations are unchanged; their identities and full gate results are
+recorded in `main-integration-validation.json`. Native runtime was not
+repeated or relabelled as an execution of the integrated HEAD. The merged
+handled-tap/keyboard-inset UI differs from the historical Android layout,
+so its old tap sequence is not acceptance of the new layout. Existing
+product/real-device limitations and the requirement for consolidated user
+review of the final exact HEAD remain unchanged.
