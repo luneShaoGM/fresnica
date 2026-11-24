@@ -5,10 +5,13 @@ import Realm from 'realm';
 import {
   balancePartition,
   balanceSnapshot,
+  creditBalanceSnapshot,
   runBalanceCacheRepositoryContract,
 } from '../../__tests__/balanceCacheRepositoryContract';
 import { historySnapshot, payment } from '../../__tests__/historyCacheRepositoryContract';
 import { RealmBalanceCacheRepository } from '../RealmBalanceCacheRepository';
+import { RealmClaimableCacheStore } from '../RealmClaimableCacheStore';
+import { RealmDappPermissionStore } from '../RealmDappPermissionStore';
 import { RealmHistoryCacheRepository } from '../RealmHistoryCacheRepository';
 import { RealmAccountSignerRepository } from '../RealmAccountSignerRepository';
 import { RealmPendingSubmissionRepository } from '../RealmPendingSubmissionRepository';
@@ -31,6 +34,18 @@ describe('Realm Balance cache', () => {
   });
   afterAll(() => Realm.shutdown());
   runBalanceCacheRepositoryContract(() => new RealmBalanceCacheRepository(realm));
+
+  it('persists all credit facts in balance JSON across close and reopen without a schema migration', async () => {
+    const snapshot = creditBalanceSnapshot();
+    new RealmBalanceCacheRepository(realm).replaceSnapshot(balancePartition, snapshot);
+    const record = realm.objectForPrimaryKey(BALANCE_CACHE_SNAPSHOT_ENTITY, JSON.stringify(['stellar-testnet', 'GA']))!;
+    expect(JSON.parse(String(record.balanceJson))).toEqual(snapshot.balance);
+    expect(record.schemaVersion).toBe(1);
+    const path = realm.path;
+    realm.close();
+    realm = await openWalletRealm({ path });
+    expect(new RealmBalanceCacheRepository(realm).getSnapshot(balancePartition)).toEqual(snapshot);
+  });
 
   it('survives close/reopen and atomically preserves the previous cache when a replacement fails', async () => {
     const repository = new RealmBalanceCacheRepository(realm);
@@ -149,6 +164,8 @@ describe('Realm Balance cache', () => {
         pendingSubmissions: new RealmPendingSubmissionRepository(realm),
         historyCache: new RealmHistoryCacheRepository(realm),
         balanceCache,
+        claimableCache: new RealmClaimableCacheStore(realm),
+        dappPermissions: new RealmDappPermissionStore(realm),
       },
       'old',
     );

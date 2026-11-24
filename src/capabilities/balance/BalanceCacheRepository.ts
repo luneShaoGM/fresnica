@@ -1,4 +1,5 @@
 import type { BalanceSnapshot } from './types';
+import { stroops } from '../stellar/classicAmounts';
 
 export const BALANCE_CACHE_SCHEMA_VERSION = 1 as const;
 export const BALANCE_CACHE_MAX_LINES = 2000;
@@ -70,10 +71,30 @@ export function normalizeBalanceCacheSnapshot(
     const key = JSON.stringify(normalizedAsset);
     if (seen.has(key)) throw new Error('balance-cache-duplicate-asset');
     seen.add(key);
+    if (
+      asset.kind === 'credit' &&
+      (!optionalAmount(line.buyingLiabilities) ||
+        !optionalAmount(line.sellingLiabilities) ||
+        [line.isAuthorized, line.isAuthorizedToMaintainLiabilities, line.isClawbackEnabled].some(
+          value => value !== undefined && typeof value !== 'boolean',
+        ))
+    )
+      throw new Error('balance-cache-invalid-line');
     return Object.freeze({
       asset: Object.freeze(normalizedAsset),
       balance: line.balance,
       ...(line.limit === undefined ? {} : { limit: line.limit }),
+      ...(asset.kind !== 'credit'
+        ? {}
+        : {
+            ...(line.buyingLiabilities === undefined ? {} : { buyingLiabilities: line.buyingLiabilities }),
+            ...(line.sellingLiabilities === undefined ? {} : { sellingLiabilities: line.sellingLiabilities }),
+            ...(line.isAuthorized === undefined ? {} : { isAuthorized: line.isAuthorized }),
+            ...(line.isAuthorizedToMaintainLiabilities === undefined
+              ? {}
+              : { isAuthorizedToMaintainLiabilities: line.isAuthorizedToMaintainLiabilities }),
+            ...(line.isClawbackEnabled === undefined ? {} : { isClawbackEnabled: line.isClawbackEnabled }),
+          }),
     });
   });
   return Object.freeze({
@@ -92,4 +113,13 @@ function text(value: unknown, max: number): value is string {
 }
 function decimal(value: unknown): value is string {
   return typeof value === 'string' && value.length <= 64 && /^-?\d+(?:\.\d{1,7})?$/.test(value);
+}
+function optionalAmount(value: string | undefined): boolean {
+  if (value === undefined) return true;
+  try {
+    stroops(value);
+    return true;
+  } catch {
+    return false;
+  }
 }

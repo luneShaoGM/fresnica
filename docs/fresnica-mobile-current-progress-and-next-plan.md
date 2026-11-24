@@ -1,10 +1,69 @@
 # Fresnica Mobile｜当前基线与执行队列
 
-## 2026-11-16 Actions owner-requested queue
+## 2026-11-24 当前基线、实现范围与修复候选
 
-GitHub baseline `main@2152ce858b54f9073e525814e1d92b41fedf280b`. Current user priority is all identified Actions differences, implemented as the five slices in [Actions alignment](behavior-specs/actions-stellar-alignment.md). A1 covers the slide/drag/scroll/localized-close panel; A2 scan, A3 persistent Recent, A4 featured suggestions and A5 fixed actions/Swap preflight follow after each preceding slice is reviewed and user-merged. A1 is an unmerged candidate, not native product acceptance. Existing open #203 (asset-detail header drag) and #204 (asset picker) are separate work; do not silently merge or replay either. Earlier dated milestones and remaining product/release requirements remain historical evidence and outstanding scope.
+本节以 GitHub `main@6ed7b7c9d4c1ccf93e19dfc4265ec37d8a8b3f7d`
+和当前源码为基线，优先于下方带日期的历史队列。该基线已包含
+[#231 UI](https://github.com/luneShaoGM/fresnica/pull/231)、
+[#230 SEP-53 修复](https://github.com/luneShaoGM/fresnica/pull/230) 与
+[#228 Android 前台 dApp 本地通知](https://github.com/luneShaoGM/fresnica/pull/228)。
+历史模拟器、设备和原生产品证据仍绑定原记录 SHA，不能改记成本轮候选执行结果。
 
-## 2026-11-06 当前 `main` 状态（优先于下方历史队列）
+### 当前功能索引
+
+| 模块 | 已进入基线的支持范围 | 当前边界／剩余工作 |
+| --- | --- | --- |
+| S01/S02 账户 | 首次与已有钱包 Create/Import/HD/watch-only、备份验证/恢复、选择/默认账户、排序、隐藏/恢复/删除；Classic 身份沿用显式运行时网络上下文 | 本轮修复敏感输入生命周期和关联数据清理；硬件、完整多签与当前版本原生聚合验收仍未完成 |
+| S05/S06 Home / 资产 | 分区 Balance 缓存与权威重读、XLM 储备拆分、资产详情/图标/TOML/catalog、Trustline 入口、Claimable/LP 分类 | 法币估值只覆盖 XLM；完整信用资产估值、Soroban Token 产品和原生验收不能算已完成；本轮补信用资产授权/负债的只读投影 |
+| S07/S09 Send / Request / Contacts | Send Details→Recipient→Summary、G 地址/全局 Contacts/QR/Request 预填、typed Memo（含 Return）；SEP-7 Copy/Share/QR、粘贴、相机、相册 QR、Deep Link | M 地址按用户决定暂停；Contacts 为全局用户数据，创建网络只是来源信息，付款/请求仍按明确账户与网络校验 |
+| S10 Swap | strict-send/receive 报价、过期/滑点、Spendable/Max、exact-XDR 审阅、fresh App Passphrase、提交及 uncertain/recovery；Home 与 Actions 入口 | 不再以旧 #134 合同缺失阻断；端到端原生聚合和发布验收未封板，Swap 仍拒绝 Memo Return |
+| S11 Claimable / S30 Trustline | Claimable 列表、风险分组、用户标记、领取；Trustline Add/Set Limit/Remove、账本复验和共享交易恢复 | 本轮补 Claimable TTL 内账本失效／首次发现，以及 Trustline 审阅到签名的 route/account/focus 生命周期 |
+| S12 / Markets | 独立 SDEX 订单列表/创建/修改/取消；LP 持仓、详情、退出与可选 share-trustline 清理 | LP 存入/建池、市场图表/成交等完整交易面板不在已实现范围；原生验收另列 |
+| S13 Activity | 分页、搜索/筛选、详情/参与方、缓存/离线、操作族与可核实 effects 投影 | 链上事实与展示缓存分开；缺失 effects 不伪造金额，历史 iOS Retry/重连与完整原生证据仍有边界 |
+| S14–S19/S21 dApps | catalog/详情/缓存、Recent、自定义 URL/disclaimer、受控浏览器、origin/account/network 权限及撤销、Freighter 账户/网络、受限 plain-payment exact-XDR 签名、SEP-53 和每次独立同意的 Android 前台本地通知 | S18 不是任意 Stellar/Soroban 交易审阅器；auth-entry/token 请求仍拒绝，WalletConnect 仍关闭；iOS 通知不支持，完整原生验收仍未完成 |
+| Actions A1–A5 | 面板/拖动/滚动、通用扫码、持久 Recent、featured 建议、Swap-only 固定入口及 live source preflight 均已合并 | 不再把 A1 标为待合并；各 slice 原生/无障碍验收继续按 [Actions 矩阵](behavior-specs/actions-stellar-alignment.md) 记录 |
+| S03/S04 安全 | 应用锁、独立生物识别 App access 与口令回退、超时/隐私设置、恢复材料展示和口令更换 | App 解锁不授予签名权；每次签名使用新的 App Passphrase。Stage 9 iOS 真机 System Auth 取消/重试仍延期；硬件与 Realm 加密密钥生命周期另行交付 |
+| S23–S26 Settings / Theme | light/dark/system/image 主题、语言、USD/EUR/CNY 显示币种、触觉/分隔符/储备偏好、网络/节点、确认式 Developer Mode、脱敏 Session Logs、支持/Terms 阅读器 | XLM 估值不是全资产估值；Terms 正文/版本/接受政策待 owner，ChangeLog 和发布/支持闭环未完成 |
+
+当前源码定位见 [路由功能索引](../src/app/navigation/productRouteStatus.ts)、
+[Capability 状态](mobile-capability-status.md) 和
+[产品追踪表](product-traceability-ledger.md)。`implemented` 仅指支持范围内存在可达实现，
+不表示完整 Stellar 对齐、Work 审批或 L4 / 原生验收。
+
+### 本轮候选与最终证据登记
+
+用户授权按审计顺序修复，最后统一 Review。
+`fix/audit-state-contracts-2026-11-24` 的第 2–6 项构成本轮修复候选：
+Trustline 生命周期、Claimable 失效/首次发现、账户关联数据清理、S01 敏感输入/备份生命周期、
+Classic 信用资产授权/负债可用性。行为边界见
+[审计修复规格](behavior-specs/audit-state-contracts-2026-11-24.md)。
+第 7 项仅同步现有功能索引，不扩充新的功能注册系统。
+
+| 登记项 | 事实源与证据边界 |
+| --- | --- |
+| 已合并基线 | `6ed7b7c9d4c1ccf93e19dfc4265ec37d8a8b3f7d`；#230/#231/#228 已包含 |
+| 修复分支 | `fix/audit-state-contracts-2026-11-24`；提交与 Push 状态以 [GitHub 分支比较](https://github.com/luneShaoGM/fresnica/compare/main...fix/audit-state-contracts-2026-11-24) 为准 |
+| PR / exact remote HEAD | 关联 PR 和当前 40 位远端 SHA 以 GitHub 为准；独立 Review 在 PR 中记录 PR number 与 `reviewed_head_sha`。版本化索引不复制会随下一次提交改变的当前 HEAD |
+| 自动化 / Realm / repository check | 实际执行提交、范围、计数与结果集中记录于 [本轮验证记录](test/audit-state-contract-repairs-2026-11-24.md)，不以开发报告替代独立检查 |
+| 独立 Work Review | 最后对完整候选统一 Review；PR 报告必须记录 `reviewed_head_sha`、P1/P2/P3、结论、检查范围及证据边界。该 SHA 必须等于当时的 remote PR HEAD |
+| 原生产品验收 | 本轮自动化和 Realm 回归不构成原生流程验收；历史证据保留原 SHA；Stage 9 iOS 真机 auth 取消/重试仍延期 |
+| Merge | 未授权自动 Merge；完成必要验证且无未解决 P1/P2 后由用户决定 |
+
+### 修复后队列与冻结范围
+
+先完成本轮候选、与改动相称的验证及统一 exact-HEAD Review，再由用户决定 Merge。
+Soroban 合约资产/auth-entry、硬件与完整多签、完整通知和发布各按独立后续产品阶段推进，
+不因本轮索引修正被标成已完成。
+[#228 Android 前台 dApp 本地通知](https://github.com/luneShaoGM/fresnica/pull/228) 已并入 main，
+每次通知独立同意，iOS 不支持，原生通知验收与完整通知/Backend 仍未完成。
+[#78 Automation V2.2](https://github.com/luneShaoGM/fresnica/pull/78) 继续暂停。
+WalletConnect 关闭、M 地址暂停、Terms owner 内容待定的决策保持不变。
+
+## 2026-11-16 Actions owner-requested queue（历史快照）
+
+At the historical baseline `main@2152ce858b54f9073e525814e1d92b41fedf280b`, the owner queued the five slices in [Actions alignment](behavior-specs/actions-stellar-alignment.md): A1 panel, A2 scan, A3 Recent, A4 featured suggestions and A5 fixed actions/Swap preflight. A1 was then an unmerged candidate. A1–A5 have since merged via #205/#212/#214/#217/#219; #203/#204 are no longer treated as an open execution queue. This paragraph retains the original plan, not current PR status or native acceptance.
+
+## 2026-11-06 历史 `main` 状态（当日证据）
 
 **事实源：** GitHub `luneShaoGM/fresnica` 的
 `main@b944cf34e2d9552acc8df79fa9304fb94d6a14df`，
@@ -29,7 +88,7 @@ S22 typed-Memo 本地联系人/Realm 已实现，远端 Resolver
 缺获批服务、TTL 和地址隐私契约，继续延期。
 公开图标始终默认 OFF；图标或目录条目不是可信 origin/授权证明。
 
-### 后续执行顺序（每个步骤一个独立 PR）
+### 当时的后续执行顺序（历史，不作为当前队列）
 
 1. **本 PR：校准执行计划、进度索引与追踪账本。** 只更新
    GitHub 合并事实和未验收边界；不重做缓存代码。

@@ -192,6 +192,7 @@ export function DappBrowserScreen({
     return permissions.subscribe(event => {
       if (
         event.kind === 'closed' ||
+        (event.kind === 'account-revoked' && event.accountId === current.selection.accountId) ||
         (event.kind === 'revoked' &&
           event.scope.origin === documentOrigin.current &&
           event.scope.accountId === current.selection.accountId &&

@@ -1,4 +1,6 @@
 import type { BalanceAsset, BalanceLine, BalanceSnapshot } from '../../capabilities/balance/types';
+import { projectCreditBalanceAvailability } from '../../capabilities/balance/creditBalanceAvailability';
+import { stroops } from '../../capabilities/stellar/classicAmounts';
 
 export type AssetDetailsSnapshotState =
   | Readonly<{ kind: 'ready'; line: BalanceLine }>
@@ -29,10 +31,15 @@ export function sameBalanceAsset(left: BalanceAsset, right: BalanceAsset): boole
 }
 
 // Display gates only; financial authority stays in the transaction capabilities.
-export function canRemoveIssuedBalance(balance: string): boolean {
-  return /^0(?:\.0{1,7})?$/.test(balance);
+export function canRemoveIssuedBalance(line: BalanceLine): boolean {
+  return line.asset.kind === 'credit' && projectCreditBalanceAvailability(line).canRemove;
 }
 
-export function canSendBalance(balance: string): boolean {
-  return /^(?:0|[1-9]\d*)(?:\.\d{1,7})?$/.test(balance) && /[1-9]/.test(balance);
+export function canSendBalance(line: BalanceLine): boolean {
+  if (line.asset.kind === 'credit') return projectCreditBalanceAvailability(line).canSend;
+  try {
+    return stroops(line.balance) > 0n;
+  } catch {
+    return false;
+  }
 }

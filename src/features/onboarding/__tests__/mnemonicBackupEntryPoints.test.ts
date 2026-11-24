@@ -1,184 +1,798 @@
-import React, { useEffect, useState } from 'react';
-
+import React from 'react';
+import { InMemoryAccountSignerRepository } from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
 import type { AccountRecord } from '../../../capabilities/account/types';
 import type { SignerRecord } from '../../../capabilities/signer/types';
-import { InMemoryAccountSignerRepository } from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
+import type { FresnicaSdkPort } from '../../../capabilities/ports/FresnicaSdkPort';
 import { AddAccountScreen } from '../../accounts/AddAccountScreen';
-import type { ExistingWalletCreateResult } from '../../accounts/createExistingWalletAccount';
-import { MnemonicBackupVerification } from '../MnemonicBackupVerification';
+import { createExistingWalletAccount } from '../../accounts/createExistingWalletAccount';
+import { importExistingWalletAccount } from '../../accounts/importExistingWalletAccount';
 import { OnboardingScreen } from '../OnboardingScreen';
 import { PendingMnemonicBackupScreen } from '../PendingMnemonicBackupScreen';
-import type { OnboardingProvisioningDependencies } from '../runOnboardingProvisioning';
+import { MnemonicBackupVerification, type MnemonicBackupVerificationHandle } from '../MnemonicBackupVerification';
+import { SensitiveTextInput, type SensitiveTextInputHandle, type SensitiveTextInputProps } from '../SensitiveTextInput';
+import { runGeneratedMnemonicOnboarding, runSecretImportOnboarding, type OnboardingProvisioningDependencies } from '../runOnboardingProvisioning';
+import { resolveOnboardingBootstrap } from '../onboardingBootstrap';
+import { appStatePort, nodes, sensitiveField, SensitiveFlowHarness } from './sensitiveFlowHarness';
+import { mnemonicBackupHarness } from './mnemonicBackupHarness';
 
-jest.mock('react', () => {
-  const actual = jest.requireActual('react') as typeof import('react');
-  return { ...actual, useEffect: jest.fn(), useState: jest.fn() };
-});
-
-jest.mock('@ui/theme', () => {
-  const actual = jest.requireActual('@ui/theme') as typeof import('@ui/theme');
-  return {
-    ...actual,
-    useAppTheme: () => actual.defaultTheme,
-    useThemedStyles: (factory: (theme: typeof actual.defaultTheme) => unknown) => factory(actual.defaultTheme),
-  };
-});
-jest.mock('../../../locale', () => ({
-  useLocalization: () => ({
-    t: (key: string) => key,
-  }),
+jest.mock('react', () => ({
+  ...jest.requireActual('react'),
+  useState: jest.fn(), useRef: jest.fn(), useEffect: jest.fn(), useLayoutEffect: jest.fn(), useCallback: jest.fn(), useImperativeHandle: jest.fn(),
 }));
+jest.mock('@react-navigation/native', () => ({ useFocusEffect: jest.fn(), useIsFocused: jest.fn() }));
+jest.mock('../../../ui/theme', () => {
+  const actual = jest.requireActual('../../../ui/theme');
+  return { ...actual, useAppTheme: () => actual.defaultTheme,
+    useThemedStyles: (factory: (theme: unknown) => unknown) => factory(actual.defaultTheme) };
+});
+jest.mock('../../../locale', () => ({ useLocalization: () => ({
+  t: (key: string, params?: { position: number }) => params?.position ? `${key}:${params.position}` : key,
+}) }));
+jest.mock('../runOnboardingProvisioning', () => ({
+  ...jest.requireActual('../runOnboardingProvisioning'),
+  runGeneratedMnemonicOnboarding: jest.fn(), runSecretImportOnboarding: jest.fn(),
+}));
+jest.mock('../../accounts/createExistingWalletAccount', () => ({ createExistingWalletAccount: jest.fn() }));
+jest.mock('../../accounts/importExistingWalletAccount', () => ({ importExistingWalletAccount: jest.fn() }));
 
-const mockedUseState = useState as unknown as jest.Mock;
-const mockedUseEffect = useEffect as unknown as jest.Mock;
-const now = new Date('2026-09-18T00:00:00.000Z');
 const mnemonic = 'alpha beta gamma delta epsilon zeta golf hotel india juliet kilo lima';
+const passphrase = 'amber river below silver clouds';
+const now = new Date('2026-11-24T00:00:00Z');
+const account: AccountRecord = {
+  id: 'account-created', address: 'GCREATED', identityKind: 'classic', networkId: 'stellar-testnet',
+  label: 'Created', sortOrder: 0, hidden: false, createdAt: now, updatedAt: now,
+};
+const signer: SignerRecord = {
+  id: 'signer-created', publicKey: 'GCREATED', kind: 'protected-software', envelopeJson: '{opaque-envelope}',
+  recoveryKind: 'mnemonic', backupState: 'pending', createdAt: now, updatedAt: now,
+};
 
-function account(): AccountRecord {
-  return {
-    id: 'account-created',
-    address: 'GCREATED',
-    identityKind: 'classic',
-    networkId: 'stellar-testnet',
-    label: 'Created',
-    sortOrder: 1,
-    hidden: false,
-    createdAt: now,
-    updatedAt: now,
-  };
-}
-
-function pendingSigner(): SignerRecord {
-  return {
-    id: 'signer-created',
-    publicKey: 'GCREATED',
-    kind: 'protected-software',
-    envelopeJson: '{opaque-envelope}',
-    recoveryKind: 'mnemonic',
-    backupState: 'pending',
-    createdAt: now,
-    updatedAt: now,
-  };
-}
-
-function setupDependencies() {
+function fixture() {
   const repository = new InMemoryAccountSignerRepository();
-  repository.createAccountWithSigner({
-    account: account(),
-    signer: pendingSigner(),
+  const reveal = jest.fn().mockResolvedValue({ kind: 'mnemonic', mnemonic, language: 'english', index: 0 });
+  const dependencies: OnboardingProvisioningDependencies = {
+    repository, sdk: { reveal } as unknown as OnboardingProvisioningDependencies['sdk'],
+    createId: () => 'unused', now: () => now, networkId: 'stellar-testnet',
+  };
+  const persist = () => repository.createAccountWithSigner({ account, signer, attachedAt: now });
+  const created = { account: { account, signer }, backup: { mnemonic, language: 'english', index: 0 },
+    systemAuthRegistration: 'not-configured' as const };
+  return { repository, dependencies, reveal, persist, created };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+}
+
+function realCreateFixture(kind: 'first-run' | 'existing-wallet') {
+  const f = fixture();
+  const generated: Awaited<ReturnType<FresnicaSdkPort['generateMnemonic']>> = {
+    signer: { signerPublicKey: signer.publicKey, envelopeJson: signer.envelopeJson! },
+    mnemonic, language: 'english', index: 0,
+  };
+  const generation = deferred<typeof generated>();
+  const generate = jest.fn(() => generation.promise);
+  const verify = jest.fn().mockResolvedValue(true);
+  f.dependencies.sdk = {
+    ...f.dependencies.sdk,
+    generateMnemonic: generate,
+    verifyProtectedSignerPassphrase: verify,
+    parseAccount: async (address: string) => ({ kind: 'classic' as const, address, publicKey: address }),
+  };
+  let nextId = 0;
+  f.dependencies.createId = recordKind => `${recordKind}-${++nextId}`;
+  if (kind === 'existing-wallet') f.repository.createAccountWithSigner({
+    account: { ...account, id: 'existing-account', address: 'GEXISTING' },
+    signer: { ...signer, id: 'existing-signer', publicKey: 'GEXISTING', backupState: 'confirmed' },
     attachedAt: now,
   });
-  const dependencies: OnboardingProvisioningDependencies = {
-    repository,
-    sdk: {} as never,
-    createId: () => 'unused',
-    now: () => new Date('2026-09-18T01:00:00.000Z'),
-    networkId: 'stellar-testnet',
+  // Exercise the actual feature -> capability -> repository path. Only the
+  // native SDK ports and React lifecycle are controlled by this host test.
+  const existing = jest.requireActual<typeof import('../../accounts/createExistingWalletAccount')>(
+    '../../accounts/createExistingWalletAccount',
+  );
+  const onboarding = jest.requireActual<typeof import('../runOnboardingProvisioning')>('../runOnboardingProvisioning');
+  jest.mocked(createExistingWalletAccount).mockImplementation(existing.createExistingWalletAccount);
+  jest.mocked(runGeneratedMnemonicOnboarding).mockImplementation(onboarding.runGeneratedMnemonicOnboarding);
+  return { ...f, generated, generation, generate, verify };
+}
+
+function realFirstProtectionFixture(kind: 'first-run' | 'existing-wallet') {
+  const f = realCreateFixture('first-run');
+  if (kind === 'existing-wallet') f.repository.createAccount({
+    ...account, id: 'watch-only', address: 'GWATCH',
+  });
+  const imported: Awaited<ReturnType<FresnicaSdkPort['protectSecret']>> = {
+    signerPublicKey: 'GIMPORTED', envelopeJson: '{imported-envelope}',
   };
-  return { dependencies, repository };
+  const importing = deferred<typeof imported>();
+  const protectSecret = jest.fn(() => importing.promise);
+  const protectMnemonic = jest.fn(() => importing.promise);
+  f.dependencies.sdk = { ...f.dependencies.sdk, protectSecret, protectMnemonic };
+  const existing = jest.requireActual<typeof import('../../accounts/importExistingWalletAccount')>(
+    '../../accounts/importExistingWalletAccount',
+  );
+  const onboarding = jest.requireActual<typeof import('../runOnboardingProvisioning')>('../runOnboardingProvisioning');
+  jest.mocked(importExistingWalletAccount).mockImplementation(existing.importExistingWalletAccount);
+  jest.mocked(runSecretImportOnboarding).mockImplementation(onboarding.runSecretImportOnboarding);
+  return { ...f, imported, importing, protectSecret, protectMnemonic };
 }
 
-function useStateValues(values: Readonly<Record<number, unknown>>) {
-  let call = 0;
-  mockedUseState.mockImplementation((initial: unknown) => {
-    const value = Object.prototype.hasOwnProperty.call(values, call) ? values[call] : initial;
-    call += 1;
-    return [value, jest.fn()];
-  });
+function screenHarness(renderScreen: () => React.ReactElement) {
+  const h = new SensitiveFlowHarness();
+  const fields = new Map<string, ReturnType<typeof sensitiveField>>();
+  let root: React.ReactElement;
+  const render = () => {
+    root = h.render(renderScreen);
+    const current = new Set<string>();
+    for (const node of nodes(root)) {
+      if (!node.props.inputRef && node.type !== SensitiveTextInput) continue;
+      const label = String(node.props.label ?? node.props.accessibilityLabel);
+      current.add(label);
+      const field = fields.get(label) ?? sensitiveField(node.props as SensitiveTextInputProps,
+        (node.props.inputRef ?? node.props.ref) as React.Ref<SensitiveTextInputHandle>);
+      field.render(node.props as SensitiveTextInputProps);
+      fields.set(label, field);
+    }
+    for (const [label, field] of fields) if (!current.has(label)) { field.close(); fields.delete(label); }
+    return root;
+  };
+  const callback = (label: string) => {
+    const action = nodes(root).find(node => (node.props.label === label || node.props.title === label
+      || (typeof node.props.onPress === 'function' && nodes(node).some(child => child.props.children === label)))
+      && typeof node.props.onPress === 'function');
+    if (!action) throw new Error(`missing-action:${label}`);
+    return action.props.onPress as () => void | Promise<void>;
+  };
+  const press = (label: string) => callback(label)();
+  render();
+  return {
+    h, render, press, callback, root: () => root,
+    field: (label: string) => {
+      const found = fields.get(label);
+      if (!found) throw new Error(`missing-field:${label}`);
+      return found;
+    },
+    back() { (nodes(root).find(node => typeof node.props.onBack === 'function')!.props.onBack as () => void)(); },
+    verifier() {
+      const node = nodes(root).find(value => value.type === MnemonicBackupVerification)!;
+      expect(node).toBeDefined();
+      expect(node.props).not.toHaveProperty('mnemonic');
+      const v = mnemonicBackupHarness(node.props.onVerified as () => Promise<void>,
+        node.props.ref as React.Ref<MnemonicBackupVerificationHandle>);
+      v.render();
+      return v;
+    },
+    close() { h.unmount(); fields.forEach(field => field.close()); },
+  };
 }
 
-type NodeProps = Readonly<{
-  children?: React.ReactNode;
-  mnemonic?: string;
-  onVerified?: () => void | Promise<void>;
-}>;
+async function settle() { for (let i = 0; i < 24; i += 1) await Promise.resolve(); }
 
-function findVerifier(root: React.ReactNode): React.ReactElement<NodeProps> | undefined {
-  let verifier: React.ReactElement<NodeProps> | undefined;
-  function visit(node: React.ReactNode): void {
-    if (!React.isValidElement<NodeProps>(node)) return;
-    if (node.type === MnemonicBackupVerification) verifier = node;
-    React.Children.forEach(node.props.children, visit);
+let lifecycle: ReturnType<typeof appStatePort>;
+beforeEach(() => {
+  jest.clearAllMocks();
+  jest.spyOn(Math, 'random').mockReturnValue(0);
+  lifecycle = appStatePort();
+});
+afterEach(() => { lifecycle.close(); jest.restoreAllMocks(); });
+
+type EntryKind = 'first-run' | 'existing-wallet';
+type ProtectedMethod = 'create' | 'secret' | 'mnemonic';
+
+function mountProtectedEntry(
+  kind: EntryKind,
+  dependencies: OnboardingProvisioningDependencies,
+  complete: () => void,
+  refresh = jest.fn(),
+) {
+  return screenHarness(() => kind === 'first-run'
+    ? OnboardingScreen({ dependencies, onComplete: complete })
+    : AddAccountScreen({ dependencies, onCreatedAccountReady: complete, onAccountPersisted: refresh,
+      onWatchOnlyComplete: jest.fn(), onCancel: jest.fn() }));
+}
+
+function startFirstProtection(
+  h: ReturnType<typeof screenHarness>, kind: EntryKind, method: ProtectedMethod, credential: string,
+) {
+  const firstRunChoices = { create: 'Create new wallet', secret: 'Import Stellar secret', mnemonic: 'Import recovery phrase' };
+  const existingChoices = { create: 'accounts.add.create.title', secret: 'accounts.add.importSecret.title', mnemonic: 'accounts.add.importMnemonic.title' };
+  h.press((kind === 'first-run' ? firstRunChoices : existingChoices)[method]); h.render();
+  if (method === 'secret') h.field(kind === 'first-run' ? 'Stellar secret' : 'accounts.add.import.secret').type('S-PRIVATE-IMPORT');
+  if (method === 'mnemonic') h.field(kind === 'first-run' ? 'Recovery phrase' : 'accounts.add.import.mnemonic').type(mnemonic);
+  h.field(kind === 'first-run' ? 'App passphrase' : 'accounts.add.newPassphrase').type(credential);
+  h.field(kind === 'first-run' ? 'Confirm app passphrase' : 'accounts.add.confirmPassphrase').type(credential);
+  h.render();
+  const existingActions = { create: 'accounts.add.create.action', secret: 'accounts.add.importSecret.action', mnemonic: 'accounts.add.importMnemonic.action' };
+  h.press(kind === 'first-run' ? 'Continue' : existingActions[method]);
+}
+
+it.each([
+  ['first-run', 'secret'], ['first-run', 'mnemonic'],
+  ['existing-wallet', 'secret'], ['existing-wallet', 'mnemonic'],
+] as const)('owns first protection across %s Create unmount and a replacement %s Import', async (kind, method) => {
+  const f = realFirstProtectionFixture(kind);
+  const oldComplete = jest.fn(), nextComplete = jest.fn(), nextRefresh = jest.fn();
+  const first = mountProtectedEntry(kind, f.dependencies, oldComplete);
+  startFirstProtection(first, kind, 'create', passphrase); await settle();
+  first.close();
+  const retiredState = JSON.stringify(first.h.states);
+  const next = mountProtectedEntry(kind, f.dependencies, nextComplete, nextRefresh);
+  startFirstProtection(next, kind, method, 'violet ocean above amber hills'); await settle();
+  expect(f.generate).toHaveBeenCalledTimes(1);
+  expect(f.protectSecret).not.toHaveBeenCalled();
+  expect(f.protectMnemonic).not.toHaveBeenCalled();
+  expect(f.verify).not.toHaveBeenCalled();
+
+  f.generation.resolve(f.generated); await settle();
+  const pending = next.render();
+  expect(pending.type).toBe(PendingMnemonicBackupScreen);
+  expect((pending.props as React.ComponentProps<typeof PendingMnemonicBackupScreen>).completionError).toBeUndefined();
+  expect(f.repository.listSigners()).toHaveLength(1);
+  expect(f.repository.listSigners()[0].backupState).toBe('pending');
+  expect(JSON.stringify(next.h.states)).not.toContain('violet ocean above amber hills');
+  expect(JSON.stringify(next.h.states)).not.toContain('S-PRIVATE-IMPORT');
+  expect(JSON.stringify(next.h.states)).not.toContain(mnemonic);
+  expect(JSON.stringify(first.h.states)).toBe(retiredState);
+  expect(oldComplete).not.toHaveBeenCalled();
+  expect(nextComplete).not.toHaveBeenCalled();
+  expect(nextRefresh).not.toHaveBeenCalled();
+  expect(f.protectSecret).not.toHaveBeenCalled();
+  expect(f.protectMnemonic).not.toHaveBeenCalled();
+  next.close();
+});
+
+it.each(['first-run', 'existing-wallet'] as const)('reconciles %s Import unmount before a replacement Create without repeating old navigation', async kind => {
+  const f = realFirstProtectionFixture(kind);
+  const oldComplete = jest.fn(), nextComplete = jest.fn(), nextRefresh = jest.fn();
+  const first = mountProtectedEntry(kind, f.dependencies, oldComplete);
+  startFirstProtection(first, kind, 'secret', passphrase); await settle();
+  first.close();
+  const next = mountProtectedEntry(kind, f.dependencies, nextComplete, nextRefresh);
+  startFirstProtection(next, kind, 'create', 'violet ocean above amber hills'); await settle();
+  expect(f.generate).not.toHaveBeenCalled();
+  f.importing.resolve(f.imported); await settle(); next.render();
+  expect(f.repository.listSigners()).toHaveLength(1);
+  expect(f.repository.listSigners()[0].backupState).toBe('not-required');
+  expect(f.generate).not.toHaveBeenCalled();
+  expect(oldComplete).not.toHaveBeenCalled();
+  expect(nextComplete).toHaveBeenCalledTimes(kind === 'first-run' ? 1 : 0);
+  expect(nextRefresh).toHaveBeenCalledTimes(kind === 'existing-wallet' ? 1 : 0);
+  next.close();
+});
+
+it.each([
+  ['first-run', false], ['first-run', true],
+  ['existing-wallet', false], ['existing-wallet', true],
+] as const)('publishes %s Import settlement once to its current owner or idle replacement, retired=%s', async (kind, retired) => {
+  const f = realFirstProtectionFixture(kind);
+  const firstComplete = jest.fn(), firstRefresh = jest.fn(), nextComplete = jest.fn(), nextRefresh = jest.fn();
+  const first = mountProtectedEntry(kind, f.dependencies, firstComplete, firstRefresh);
+  startFirstProtection(first, kind, 'secret', passphrase); await settle();
+  let next: ReturnType<typeof screenHarness> | undefined;
+  if (retired) {
+    first.close();
+    next = mountProtectedEntry(kind, f.dependencies, nextComplete, nextRefresh);
   }
-  visit(root);
-  return verifier;
-}
+  f.importing.resolve(f.imported); await settle();
+  expect(f.protectSecret).toHaveBeenCalledTimes(1);
+  expect(firstComplete).toHaveBeenCalledTimes(retired ? 0 : 1);
+  expect(firstRefresh).toHaveBeenCalledTimes(!retired && kind === 'existing-wallet' ? 1 : 0);
+  expect(nextComplete).toHaveBeenCalledTimes(retired && kind === 'first-run' ? 1 : 0);
+  expect(nextRefresh).toHaveBeenCalledTimes(retired && kind === 'existing-wallet' ? 1 : 0);
+  if (next) next.close();
+  else first.close();
+});
 
-describe('S01 mnemonic backup verification entry points', () => {
-  beforeEach(() => {
-    mockedUseState.mockReset();
-    mockedUseEffect.mockReset();
-    mockedUseEffect.mockImplementation(() => undefined);
+it.each([
+  ['first-run', false], ['first-run', true],
+  ['existing-wallet', false], ['existing-wallet', true],
+] as const)('reconciles %s Create after a true unmount and fresh instance, replacement retry=%s', async (kind, retry) => {
+  const f = realCreateFixture(kind);
+  const oldComplete = jest.fn();
+  const nextComplete = jest.fn();
+  const mount = (complete: () => void) => screenHarness(() => kind === 'first-run'
+    ? OnboardingScreen({ dependencies: f.dependencies, onComplete: complete })
+    : AddAccountScreen({ dependencies: f.dependencies, onCreatedAccountReady: complete,
+      onAccountPersisted: jest.fn(), onWatchOnlyComplete: jest.fn(), onCancel: jest.fn() }));
+  const start = (h: ReturnType<typeof screenHarness>) => {
+    h.press(kind === 'first-run' ? 'Create new wallet' : 'accounts.add.create.title'); h.render();
+    h.field(kind === 'first-run' ? 'App passphrase' : 'accounts.add.currentPassphrase').type(passphrase);
+    if (kind === 'first-run') h.field('Confirm app passphrase').type(passphrase);
+    h.render();
+    h.press(kind === 'first-run' ? 'Continue' : 'accounts.add.create.action');
+  };
+  const first = mount(oldComplete);
+  start(first); await settle();
+  expect(f.generate).toHaveBeenCalledTimes(1);
+  first.close();
+  const retiredState = JSON.stringify(first.h.states);
+  const next = mount(nextComplete);
+  if (retry) start(next);
+  await settle();
+  expect(f.generate).toHaveBeenCalledTimes(1);
+  expect(f.repository.listSigners().filter(value => value.backupState === 'pending')).toHaveLength(0);
+  f.generation.resolve(f.generated); await settle();
+
+  expect(f.generate).toHaveBeenCalledTimes(1);
+  expect(f.repository.listAccounts()).toHaveLength(kind === 'first-run' ? 1 : 2);
+  expect(f.repository.listSigners().filter(value => value.backupState === 'pending')).toHaveLength(1);
+  const bootstrap = resolveOnboardingBootstrap(f.dependencies);
+  expect(bootstrap.kind).toBe('pending-mnemonic-backup');
+  const pending = next.render();
+  expect(pending.type).toBe(PendingMnemonicBackupScreen);
+  if (bootstrap.kind !== 'pending-mnemonic-backup') throw new Error('missing-pending-backup');
+  const pendingProps = pending.props as React.ComponentProps<typeof PendingMnemonicBackupScreen>;
+  expect(pendingProps).toMatchObject({ signerId: bootstrap.signerId, disabled: false });
+  expect(pendingProps.completionError).toBeUndefined();
+  expect(JSON.stringify(pending)).not.toContain(mnemonic);
+  expect(JSON.stringify(next.h.states)).not.toContain(mnemonic);
+  expect(JSON.stringify(first.h.states)).toBe(retiredState);
+  expect(oldComplete).not.toHaveBeenCalled();
+  expect(nextComplete).not.toHaveBeenCalled();
+  expect(f.reveal).not.toHaveBeenCalled();
+
+  const recovery = screenHarness(() => PendingMnemonicBackupScreen(pendingProps));
+  recovery.field('App passphrase').type('fresh replacement passphrase'); recovery.render();
+  await recovery.press('Reveal recovery phrase'); recovery.render();
+  expect(f.reveal).toHaveBeenCalledWith(expect.objectContaining({ freshAppPassphrase: 'fresh replacement passphrase' }));
+  const challenge = recovery.verifier();
+  expect(challenge.outputs().map(output => output.read())).toEqual(mnemonic.split(' '));
+  await challenge.verify();
+  expect(f.repository.getSigner(bootstrap.signerId)?.backupState).toBe('confirmed');
+  expect(nextComplete).toHaveBeenCalledTimes(1);
+  expect(oldComplete).not.toHaveBeenCalled();
+  challenge.close(); recovery.close(); next.close();
+});
+
+it.each(['first-run', 'existing-wallet'] as const)('releases a retired %s Create on failure and permits only an explicit replacement retry', async kind => {
+  const f = realCreateFixture(kind);
+  const oldComplete = jest.fn();
+  const nextComplete = jest.fn();
+  const mount = (complete: () => void) => screenHarness(() => kind === 'first-run'
+    ? OnboardingScreen({ dependencies: f.dependencies, onComplete: complete })
+    : AddAccountScreen({ dependencies: f.dependencies, onCreatedAccountReady: complete,
+      onAccountPersisted: jest.fn(), onWatchOnlyComplete: jest.fn(), onCancel: jest.fn() }));
+  const fill = (h: ReturnType<typeof screenHarness>) => {
+    h.field(kind === 'first-run' ? 'App passphrase' : 'accounts.add.currentPassphrase').type(passphrase);
+    if (kind === 'first-run') h.field('Confirm app passphrase').type(passphrase);
+    h.render();
+  };
+  const submit = kind === 'first-run' ? 'Continue' : 'accounts.add.create.action';
+  const choice = kind === 'first-run' ? 'Create new wallet' : 'accounts.add.create.title';
+  const first = mount(oldComplete);
+  first.press(choice); first.render(); fill(first); first.press(submit); await settle();
+  first.close();
+  const retiredState = JSON.stringify(first.h.states);
+  const next = mount(nextComplete);
+  next.press(choice); next.render(); fill(next); next.press(submit); await settle();
+  expect(f.generate).toHaveBeenCalledTimes(1);
+  f.generation.reject(new Error('native-generation-failed')); await settle(); next.render();
+  expect(f.generate).toHaveBeenCalledTimes(1);
+  expect(f.repository.listSigners().filter(value => value.backupState === 'pending')).toHaveLength(0);
+  expect(JSON.stringify(first.h.states)).toBe(retiredState);
+  expect(oldComplete).not.toHaveBeenCalled();
+  expect(nextComplete).not.toHaveBeenCalled();
+
+  f.generate.mockResolvedValueOnce(f.generated);
+  fill(next); next.press(submit); await settle(); next.render();
+  expect(f.generate).toHaveBeenCalledTimes(2);
+  expect(f.repository.listSigners().filter(value => value.backupState === 'pending')).toHaveLength(1);
+  // Settlement observers preserve the successful current owner's one-time
+  // phrase. Only a retired owner's phrase requires a new reveal.
+  const challenge = next.verifier();
+  expect(challenge.outputs().map(output => output.read())).toEqual(mnemonic.split(' '));
+  expect(f.reveal).not.toHaveBeenCalled();
+  expect(oldComplete).not.toHaveBeenCalled();
+  expect(nextComplete).not.toHaveBeenCalled();
+  challenge.close(); next.close();
+});
+
+it.each(['first-run', 'existing-wallet'] as const)('gates %s create behind actual three-word verification, consumes inputs before provisioning and rolls completion back on failure', async kind => {
+  const f = fixture();
+  const complete = jest.fn().mockRejectedValueOnce(new Error('default-persistence-failed')).mockResolvedValue(undefined);
+  // First-run completion is synchronous by contract; use a synchronous failure.
+  const firstComplete = jest.fn().mockImplementationOnce(() => { throw new Error('completion-failed'); });
+  const h = screenHarness(() => kind === 'first-run'
+    ? OnboardingScreen({ dependencies: f.dependencies, onComplete: firstComplete })
+    : AddAccountScreen({ dependencies: f.dependencies, onCreatedAccountReady: complete,
+      onAccountPersisted: jest.fn(), onWatchOnlyComplete: jest.fn(), onCancel: jest.fn() }));
+  const currentLabel = kind === 'first-run' ? 'App passphrase' : 'accounts.add.newPassphrase';
+  const confirmLabel = kind === 'first-run' ? 'Confirm app passphrase' : 'accounts.add.confirmPassphrase';
+  const create = async () => {
+    expect(h.field(currentLabel).native.read()).toBe('');
+    expect(h.field(confirmLabel).native.read()).toBe('');
+    expect(h.field(currentLabel).handle.current!.read()).toBe('');
+    f.persist();
+    return f.created;
+  };
+  jest.mocked(createExistingWalletAccount).mockImplementation(create);
+  jest.mocked(runGeneratedMnemonicOnboarding).mockImplementation(async () => ({
+    ...await create(), state: { step: 'backup-generated-mnemonic', method: 'generate-mnemonic' },
+  }));
+  h.press(kind === 'first-run' ? 'Create new wallet' : 'accounts.add.create.title'); h.render();
+  h.field(currentLabel).type(passphrase); h.field(confirmLabel).type(passphrase); h.render();
+  const submit = kind === 'first-run' ? 'Continue' : 'accounts.add.create.action';
+  h.press(submit); h.press(submit); await settle(); h.render();
+  expect(kind === 'first-run' ? runGeneratedMnemonicOnboarding : createExistingWalletAccount).toHaveBeenCalledTimes(1);
+  expect(JSON.stringify(h.h.states)).not.toContain(mnemonic);
+  expect(JSON.stringify(h.root())).not.toContain(mnemonic);
+  const v = h.verifier();
+  expect(v.outputs().map(output => output.read())).toEqual(mnemonic.split(' '));
+  expect(f.repository.getSigner(signer.id)?.backupState).toBe('pending');
+  await v.verify();
+  expect(f.repository.getSigner(signer.id)?.backupState).toBe('pending');
+  expect(v.h.refs.some(ref => ref.current === mnemonic)).toBe(false);
+  v.close();
+  const pending = h.render();
+  expect(pending.type).toBe(PendingMnemonicBackupScreen);
+  const recovery = screenHarness(() => PendingMnemonicBackupScreen(pending.props as React.ComponentProps<typeof PendingMnemonicBackupScreen>));
+  recovery.field('App passphrase').type(passphrase); recovery.render();
+  await recovery.press('Reveal recovery phrase'); recovery.render();
+  const fresh = recovery.verifier(); await fresh.verify();
+  expect(f.repository.getSigner(signer.id)?.backupState).toBe('confirmed');
+  expect(kind === 'first-run' ? firstComplete : complete).toHaveBeenCalledTimes(2);
+  expect(f.reveal).toHaveBeenCalledTimes(1);
+  fresh.close(); recovery.close(); h.close();
+});
+
+it.each(['back', 'blur', 'background', 'unmount'] as const)('retires a delayed create on %s, never releases its duplicate gate early and preserves only persisted pending identity', async exit => {
+  const f = fixture();
+  let finish!: () => void;
+  jest.mocked(runGeneratedMnemonicOnboarding).mockImplementation(() => new Promise(resolve => {
+    finish = () => { f.persist(); resolve({ ...f.created, state: { step: 'backup-generated-mnemonic' } }); };
+  }));
+  const onComplete = jest.fn();
+  const h = screenHarness(() => OnboardingScreen({ dependencies: f.dependencies, onComplete }));
+  h.press('Create new wallet'); h.render();
+  h.field('App passphrase').type(passphrase); h.field('Confirm app passphrase').type(passphrase); h.render();
+  h.press('Continue');
+  if (exit === 'back') h.back();
+  if (exit === 'blur') { h.h.blur(); h.h.focus(); }
+  if (exit === 'background') { lifecycle.change('inactive'); lifecycle.change('active'); }
+  if (exit === 'unmount') h.close();
+  // Old captured button callbacks cannot start another create after retirement.
+  h.press('Continue');
+  expect(runGeneratedMnemonicOnboarding).toHaveBeenCalledTimes(1);
+  const before = JSON.stringify(h.h.states);
+  finish(); await settle();
+  expect(resolveOnboardingBootstrap(f.dependencies)).toMatchObject({ kind: 'pending-mnemonic-backup', signerId: signer.id });
+  expect(onComplete).not.toHaveBeenCalled();
+  if (exit === 'unmount') expect(JSON.stringify(h.h.states)).toBe(before);
+  else {
+    const root = h.render();
+    expect(root.type).toBe(PendingMnemonicBackupScreen);
+    expect(JSON.stringify(root)).not.toContain(mnemonic);
+    expect(JSON.stringify(h.h.states)).not.toContain(mnemonic);
+    h.close();
+  }
+});
+
+it('clears a displayed phrase on blur and resumes the same persisted account through fresh-passphrase recovery', async () => {
+  const f = fixture();
+  jest.mocked(runGeneratedMnemonicOnboarding).mockImplementation(async () => {
+    f.persist(); return { ...f.created, state: { step: 'backup-generated-mnemonic' } };
   });
-
-  it('gates first-run generated backup completion behind the shared verifier', async () => {
-    const { dependencies, repository } = setupDependencies();
-    const onComplete = jest.fn();
-    useStateValues({
-      7: { mnemonic, language: 'english', index: 0, signerId: 'signer-created' },
-    });
-
-    const root = OnboardingScreen({ dependencies, onComplete });
-    const verifier = findVerifier(root);
-
-    expect(verifier?.props.mnemonic).toBe(mnemonic);
-    expect(repository.getSigner('signer-created')?.backupState).toBe('pending');
-    expect(onComplete).not.toHaveBeenCalled();
-
-    await verifier?.props.onVerified?.();
-
-    expect(repository.getSigner('signer-created')?.backupState).toBe('confirmed');
-    expect(onComplete).toHaveBeenCalledTimes(1);
+  const onComplete = jest.fn();
+  const h = screenHarness(() => OnboardingScreen({ dependencies: f.dependencies, onComplete }));
+  h.press('Create new wallet'); h.render();
+  h.field('App passphrase').type(passphrase); h.field('Confirm app passphrase').type(passphrase); h.render();
+  h.press('Continue'); await settle(); h.render();
+  const old = h.verifier();
+  h.h.blur();
+  expect(old.outputs().every(output => output.read() === '')).toBe(true);
+  h.h.focus();
+  const pending = h.render();
+  expect(pending.type).toBe(PendingMnemonicBackupScreen);
+  const recovery = screenHarness(() => PendingMnemonicBackupScreen(pending.props as React.ComponentProps<typeof PendingMnemonicBackupScreen>));
+  recovery.field('App passphrase').type('fresh-recovery-passphrase'); recovery.render();
+  f.reveal.mockImplementation(async input => {
+    expect(recovery.field('App passphrase').native.read()).toBe('');
+    expect(input.freshAppPassphrase).toBe('fresh-recovery-passphrase');
+    return { kind: 'mnemonic', mnemonic };
   });
+  await recovery.press('Reveal recovery phrase'); recovery.render();
+  const fresh = recovery.verifier(); await fresh.verify();
+  expect(runGeneratedMnemonicOnboarding).toHaveBeenCalledTimes(1);
+  expect(f.reveal).toHaveBeenCalledTimes(1);
+  expect(f.repository.getSigner(signer.id)?.backupState).toBe('confirmed');
+  expect(onComplete).toHaveBeenCalledTimes(1);
+  fresh.close(); recovery.close(); old.close(); h.close();
+});
 
-  it('gates Existing-wallet Add Account Create completion behind the shared verifier', async () => {
-    const { dependencies, repository } = setupDependencies();
-    const onCreatedAccountReady = jest.fn();
-    const created: ExistingWalletCreateResult = {
-      account: { account: account(), signer: pendingSigner() },
-      backup: { mnemonic, language: 'english', index: 0 },
-      systemAuthRegistration: 'not-configured',
+it('clears failed reveal input, accepts a fresh retry, and ignores a late result after signer replacement', async () => {
+  const f = fixture(); f.persist();
+  let target = signer.id;
+  const onComplete = jest.fn();
+  const h = screenHarness(() => PendingMnemonicBackupScreen({ dependencies: f.dependencies, signerId: target, onComplete }));
+  f.reveal.mockRejectedValueOnce(new Error('wrong-passphrase'));
+  h.field('App passphrase').type('wrong-passphrase'); h.render();
+  await h.press('Reveal recovery phrase'); h.render();
+  expect(h.field('App passphrase').native.read()).toBe('');
+  let finish!: (value: unknown) => void;
+  f.reveal.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  h.field('App passphrase').type(passphrase); h.render();
+  const pending = h.press('Reveal recovery phrase');
+  target = 'replacement-signer'; h.render();
+  finish({ kind: 'mnemonic', mnemonic }); await pending; h.render();
+  expect(nodes(h.root()).some(node => node.type === MnemonicBackupVerification)).toBe(false);
+  expect(JSON.stringify(h.h.states)).not.toContain(mnemonic);
+  expect(onComplete).not.toHaveBeenCalled();
+  expect(f.repository.getSigner(signer.id)?.backupState).toBe('pending');
+  h.close();
+});
+
+it('consumes imported private keys and mnemonic/passphrase inputs before the feature operation', async () => {
+  const f = fixture();
+  const onComplete = jest.fn();
+  const first = screenHarness(() => OnboardingScreen({ dependencies: f.dependencies, onComplete }));
+  first.press('Import Stellar secret'); first.render();
+  first.field('Stellar secret').type('S-PRIVATE-IMPORT');
+  first.field('App passphrase').type(passphrase); first.field('Confirm app passphrase').type(passphrase); first.render();
+  jest.mocked(runSecretImportOnboarding).mockImplementation(async (_deps, input) => {
+    expect(input.secret).toBe('S-PRIVATE-IMPORT');
+    expect(first.field('Stellar secret').native.read()).toBe('');
+    expect(first.field('App passphrase').native.read()).toBe('');
+    return { account: { account, signer }, state: { step: 'complete' } };
+  });
+  first.press('Continue'); await settle();
+  expect(onComplete).toHaveBeenCalledTimes(1);
+  first.close();
+
+  const added = screenHarness(() => AddAccountScreen({ dependencies: f.dependencies,
+    onCreatedAccountReady: jest.fn(), onAccountPersisted: jest.fn(), onWatchOnlyComplete: jest.fn(), onCancel: jest.fn() }));
+  added.press('accounts.add.importMnemonic.title'); added.render();
+  added.field('accounts.add.import.mnemonic').type(mnemonic);
+  added.field('accounts.add.import.mnemonicPassphrase').type('mnemonic-only-password');
+  added.field('accounts.add.newPassphrase').type(passphrase);
+  added.field('accounts.add.confirmPassphrase').type(passphrase); added.render();
+  jest.mocked(importExistingWalletAccount).mockImplementation(async (_deps, input) => {
+    expect(input).toMatchObject({ mnemonic, mnemonicPassphrase: 'mnemonic-only-password', appPassphrase: passphrase });
+    for (const key of ['accounts.add.import.mnemonic', 'accounts.add.import.mnemonicPassphrase', 'accounts.add.newPassphrase']) {
+      expect(added.field(key).native.read()).toBe('');
+    }
+    return { account: { account, signer }, systemAuthRegistration: 'not-configured' };
+  });
+  await added.press('accounts.add.importMnemonic.action');
+  expect(importExistingWalletAccount).toHaveBeenCalledTimes(1);
+  expect(JSON.stringify(added.h.states)).not.toContain(mnemonic);
+  expect(JSON.stringify(added.h.states)).not.toContain('mnemonic-only-password');
+  added.close();
+});
+
+it.each(['first-run', 'existing-wallet'] as const)('reconciles a retired %s import from public persistence without reviving its secrets or changing an old default', async kind => {
+  const f = fixture();
+  const refreshed = jest.fn();
+  const selected = jest.fn();
+  let finish!: () => void;
+  const imported = { account: { account, signer: { ...signer, backupState: 'not-required' as const } },
+    systemAuthRegistration: 'not-configured' as const };
+  const waitForImport = () => new Promise<typeof imported>(resolve => {
+    finish = () => {
+      f.repository.createAccountWithSigner({ account, signer: imported.account.signer, attachedAt: now });
+      resolve(imported);
     };
-    useStateValues({ 12: created });
-
-    const root = AddAccountScreen({
-      dependencies,
-      onCreatedAccountReady,
-      onAccountPersisted: jest.fn(),
-      onWatchOnlyComplete: jest.fn(),
-      onCancel: jest.fn(),
-    });
-    const verifier = findVerifier(root);
-
-    expect(verifier?.props.mnemonic).toBe(mnemonic);
-    expect(repository.getSigner('signer-created')?.backupState).toBe('pending');
-    expect(onCreatedAccountReady).not.toHaveBeenCalled();
-
-    await verifier?.props.onVerified?.();
-
-    expect(repository.getSigner('signer-created')?.backupState).toBe('confirmed');
-    expect(onCreatedAccountReady).toHaveBeenCalledWith('account-created');
   });
+  jest.mocked(importExistingWalletAccount).mockImplementation(waitForImport);
+  jest.mocked(runSecretImportOnboarding).mockImplementation(async () => ({
+    ...await waitForImport(), state: { step: 'complete' },
+  }));
+  const h = screenHarness(() => kind === 'first-run'
+    ? OnboardingScreen({ dependencies: f.dependencies, onComplete: refreshed })
+    : AddAccountScreen({ dependencies: f.dependencies, onCreatedAccountReady: selected,
+      onAccountPersisted: refreshed, onWatchOnlyComplete: jest.fn(), onCancel: jest.fn() }));
+  h.press(kind === 'first-run' ? 'Import Stellar secret' : 'accounts.add.importSecret.title'); h.render();
+  h.field(kind === 'first-run' ? 'Stellar secret' : 'accounts.add.import.secret').type('S-RETIRED-IMPORT');
+  h.field(kind === 'first-run' ? 'App passphrase' : 'accounts.add.newPassphrase').type(passphrase);
+  h.field(kind === 'first-run' ? 'Confirm app passphrase' : 'accounts.add.confirmPassphrase').type(passphrase);
+  h.render();
+  h.press(kind === 'first-run' ? 'Continue' : 'accounts.add.importSecret.action');
+  h.h.blur(); h.h.focus();
+  finish(); await settle(); h.render();
+  expect(resolveOnboardingBootstrap(f.dependencies).kind).toBe('ready');
+  expect(refreshed).toHaveBeenCalledTimes(1);
+  expect(selected).not.toHaveBeenCalled();
+  expect(JSON.stringify(h.h.states)).not.toContain('S-RETIRED-IMPORT');
+  h.close();
+});
 
-  it('gates recovered process-death backup completion behind the same verifier', async () => {
-    const { dependencies, repository } = setupDependencies();
-    const onComplete = jest.fn();
-    useStateValues({ 1: { mnemonic, language: 'english', index: 0 } });
-
-    const root = PendingMnemonicBackupScreen({
-      dependencies,
-      signerId: 'signer-created',
-      onComplete,
-    });
-    const verifier = findVerifier(root);
-
-    expect(verifier?.props.mnemonic).toBe(mnemonic);
-    expect(repository.getSigner('signer-created')?.backupState).toBe('pending');
-    expect(onComplete).not.toHaveBeenCalled();
-
-    await verifier?.props.onVerified?.();
-
-    expect(repository.getSigner('signer-created')?.backupState).toBe('confirmed');
-    expect(onComplete).toHaveBeenCalledTimes(1);
+it.each(['mode-change', 'blur-return'] as const)('rejects an old Continue after %s and request settlement while a freshly rendered callback still works', async change => {
+  const f = fixture();
+  let rejectFirst!: (reason: Error) => void;
+  jest.mocked(runGeneratedMnemonicOnboarding).mockReset()
+    .mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectFirst = reject; }))
+    .mockRejectedValueOnce(new Error('fresh-create-rejected'));
+  jest.mocked(runSecretImportOnboarding).mockResolvedValue({
+    account: { account, signer }, state: { step: 'complete' },
   });
+  const h = screenHarness(() => OnboardingScreen({ dependencies: f.dependencies, onComplete: jest.fn() }));
+  h.press('Create new wallet'); h.render();
+  h.field('App passphrase').type(passphrase); h.field('Confirm app passphrase').type(passphrase); h.render();
+  const oldContinue = h.callback('Continue');
+  oldContinue();
+  if (change === 'mode-change') {
+    h.back(); h.render();
+    h.press('Import Stellar secret'); h.render();
+  } else {
+    h.h.blur(); h.h.focus();
+  }
+  rejectFirst(new Error('retired-create-rejected')); await settle(); h.render();
+  if (change === 'mode-change') h.field('Stellar secret').type('S-FRESH-IMPORT');
+  h.field('App passphrase').type(passphrase); h.field('Confirm app passphrase').type(passphrase); h.render();
+  const freshContinue = h.callback('Continue');
+  oldContinue(); await settle();
+  expect(runGeneratedMnemonicOnboarding).toHaveBeenCalledTimes(1);
+  expect(runSecretImportOnboarding).not.toHaveBeenCalled();
+  expect(h.field('App passphrase').native.read()).toBe(passphrase);
+  freshContinue(); await settle();
+  expect(change === 'mode-change' ? runSecretImportOnboarding : runGeneratedMnemonicOnboarding)
+    .toHaveBeenCalledTimes(change === 'mode-change' ? 1 : 2);
+  h.close();
+});
+
+it('retires an old reveal callback on owner replacement and schedules a usable public render for the new scope', async () => {
+  const first = fixture(), next = fixture();
+  first.persist(); next.persist();
+  let dependencies = first.dependencies;
+  const h = screenHarness(() => PendingMnemonicBackupScreen({ dependencies, signerId: signer.id, onComplete: jest.fn() }));
+  h.field('App passphrase').type(passphrase); h.render();
+  // The form is empty before replacement; epoch publication, rather than
+  // plaintext/presence changes, must make the next scope render usable.
+  h.field('App passphrase').type(''); h.render();
+  h.h.blur(); h.h.focus(); h.render();
+  const oldReveal = h.callback('Reveal recovery phrase');
+  const before = JSON.stringify(h.h.states);
+  dependencies = next.dependencies;
+  h.render();
+  expect(JSON.stringify(h.h.states)).not.toBe(before);
+  h.render();
+  h.field('App passphrase').type('fresh-replacement-passphrase'); h.render();
+  await oldReveal();
+  expect(first.reveal).not.toHaveBeenCalled();
+  expect(next.reveal).not.toHaveBeenCalled();
+  expect(h.field('App passphrase').native.read()).toBe('fresh-replacement-passphrase');
+  await h.press('Reveal recovery phrase');
+  expect(next.reveal).toHaveBeenCalledWith(expect.objectContaining({ freshAppPassphrase: 'fresh-replacement-passphrase' }));
+  expect(next.reveal).toHaveBeenCalledTimes(1);
+  h.close();
+});
+
+it.each([
+  ['first-run', 'pending'], ['first-run', 'empty'],
+  ['existing-wallet', 'pending'], ['existing-wallet', 'empty'],
+] as const)('reconciles a late %s create against the current %s repository instead of its retired owner', async (kind, currentState) => {
+  const old = fixture(), next = fixture();
+  const currentAccount = { ...account, id: 'account-current', address: 'GCURRENT' };
+  const currentSigner = { ...signer, id: 'signer-current', publicKey: 'GCURRENT' };
+  if (currentState === 'pending') next.repository.createAccountWithSigner({
+    account: currentAccount, signer: currentSigner, attachedAt: now,
+  });
+  let dependencies = old.dependencies;
+  const oldComplete = jest.fn(), currentComplete = jest.fn();
+  const oldRefresh = jest.fn(), currentRefresh = jest.fn();
+  let finish!: () => void;
+  const waitForOldCreate = () => new Promise<typeof old.created>(resolve => {
+    finish = () => { old.persist(); resolve(old.created); };
+  });
+  jest.mocked(createExistingWalletAccount).mockImplementation(waitForOldCreate);
+  jest.mocked(runGeneratedMnemonicOnboarding).mockImplementation(async () => ({
+    ...await waitForOldCreate(), state: { step: 'backup-generated-mnemonic' },
+  }));
+  const h = screenHarness(() => kind === 'first-run'
+    ? OnboardingScreen({ dependencies, onComplete: dependencies === old.dependencies ? oldComplete : currentComplete })
+    : AddAccountScreen({ dependencies,
+      onCreatedAccountReady: dependencies === old.dependencies ? oldComplete : currentComplete,
+      onAccountPersisted: dependencies === old.dependencies ? oldRefresh : currentRefresh,
+      onWatchOnlyComplete: jest.fn(), onCancel: jest.fn() }));
+  const passphraseLabel = kind === 'first-run' ? 'App passphrase' : 'accounts.add.newPassphrase';
+  const confirmationLabel = kind === 'first-run' ? 'Confirm app passphrase' : 'accounts.add.confirmPassphrase';
+  const submitLabel = kind === 'first-run' ? 'Continue' : 'accounts.add.create.action';
+  h.press(kind === 'first-run' ? 'Create new wallet' : 'accounts.add.create.title'); h.render();
+  h.field(passphraseLabel).type(passphrase); h.field(confirmationLabel).type(passphrase); h.render();
+  h.press(submitLabel);
+  dependencies = next.dependencies; h.render(); h.render();
+  finish(); await settle();
+  const root = h.render();
+  expect(old.repository.getSigner(signer.id)?.backupState).toBe('pending');
+  expect(oldComplete).not.toHaveBeenCalled();
+  expect(oldRefresh).not.toHaveBeenCalled();
+  expect(currentComplete).not.toHaveBeenCalled();
+  if (currentState === 'pending') {
+    expect(root.type).toBe(PendingMnemonicBackupScreen);
+    expect((root.props as { signerId: string }).signerId).toBe(currentSigner.id);
+    expect((root.props as { disabled: boolean }).disabled).toBe(false);
+    expect(JSON.stringify(h.h.states)).not.toContain(signer.id);
+  } else {
+    expect(nodes(root).some(node => node.type === PendingMnemonicBackupScreen)).toBe(false);
+    expect(JSON.stringify(h.h.states)).not.toContain(signer.id);
+    h.field(passphraseLabel).type(passphrase); h.field(confirmationLabel).type(passphrase); h.render();
+    const rejectFreshCreate = async (deps: OnboardingProvisioningDependencies) => {
+      expect(deps).toBe(next.dependencies);
+      throw new Error('fresh-create-request');
+    };
+    jest.mocked(createExistingWalletAccount).mockImplementation(rejectFreshCreate);
+    jest.mocked(runGeneratedMnemonicOnboarding).mockImplementation(rejectFreshCreate);
+    h.press(submitLabel); await settle();
+    expect(kind === 'first-run' ? runGeneratedMnemonicOnboarding : createExistingWalletAccount).toHaveBeenCalledTimes(2);
+  }
+  h.close();
+});
+
+it.each(['first-run', 'existing-wallet'] as const)('clears the former %s pending identity when an empty repository replaces it during recovery', async kind => {
+  const old = fixture(), next = fixture();
+  let dependencies = old.dependencies;
+  const oldComplete = jest.fn(), currentComplete = jest.fn();
+  jest.mocked(createExistingWalletAccount).mockImplementation(async () => { old.persist(); return old.created; });
+  jest.mocked(runGeneratedMnemonicOnboarding).mockImplementation(async () => {
+    old.persist(); return { ...old.created, state: { step: 'backup-generated-mnemonic' } };
+  });
+  const h = screenHarness(() => kind === 'first-run'
+    ? OnboardingScreen({ dependencies, onComplete: dependencies === old.dependencies ? oldComplete : currentComplete })
+    : AddAccountScreen({ dependencies,
+      onCreatedAccountReady: dependencies === old.dependencies ? oldComplete : currentComplete,
+      onAccountPersisted: jest.fn(), onWatchOnlyComplete: jest.fn(), onCancel: jest.fn() }));
+  const passphraseLabel = kind === 'first-run' ? 'App passphrase' : 'accounts.add.newPassphrase';
+  const confirmationLabel = kind === 'first-run' ? 'Confirm app passphrase' : 'accounts.add.confirmPassphrase';
+  h.press(kind === 'first-run' ? 'Create new wallet' : 'accounts.add.create.title'); h.render();
+  h.field(passphraseLabel).type(passphrase); h.field(confirmationLabel).type(passphrase); h.render();
+  h.press(kind === 'first-run' ? 'Continue' : 'accounts.add.create.action'); await settle(); h.render();
+  const displayed = h.verifier();
+  h.h.blur(); h.h.focus();
+  const pending = h.render();
+  expect(pending.type).toBe(PendingMnemonicBackupScreen);
+  const recovery = screenHarness(() => PendingMnemonicBackupScreen(pending.props as React.ComponentProps<typeof PendingMnemonicBackupScreen>));
+  let finishReveal!: (value: unknown) => void;
+  old.reveal.mockImplementationOnce(() => new Promise(resolve => { finishReveal = resolve; }));
+  recovery.field('App passphrase').type(passphrase); recovery.render();
+  const revealing = recovery.press('Reveal recovery phrase');
+  dependencies = next.dependencies; h.render();
+  const current = h.render();
+  expect(nodes(current).some(node => node.type === PendingMnemonicBackupScreen)).toBe(false);
+  expect(JSON.stringify(h.h.states)).not.toContain(signer.id);
+  expect(JSON.stringify(h.h.states)).not.toContain(account.id);
+  // React unmounts this old recovery child when the parent returns to its form.
+  recovery.close();
+  finishReveal({ kind: 'mnemonic', mnemonic }); await revealing;
+  expect(oldComplete).not.toHaveBeenCalled();
+  expect(currentComplete).not.toHaveBeenCalled();
+  expect(old.repository.getSigner(signer.id)?.backupState).toBe('pending');
+  expect(nodes(h.render()).some(node => node.type === PendingMnemonicBackupScreen)).toBe(false);
+  expect((h.field(passphraseLabel).render().props as { editable: boolean }).editable).toBe(true);
+  displayed.close(); h.close();
+});
+
+it('drops a reveal from replaced dependencies and completes only the current repository pending identity', async () => {
+  const old = fixture(), next = fixture(); old.persist();
+  const currentAccount = { ...account, id: 'account-current', address: 'GCURRENT' };
+  const currentSigner = { ...signer, id: 'signer-current', publicKey: 'GCURRENT' };
+  next.repository.createAccountWithSigner({ account: currentAccount, signer: currentSigner, attachedAt: now });
+  const currentWords = mnemonic.split(' ').reverse();
+  next.reveal.mockResolvedValue({ kind: 'mnemonic', mnemonic: currentWords.join(' ') });
+  let dependencies = old.dependencies;
+  const oldComplete = jest.fn(), currentComplete = jest.fn();
+  const h = screenHarness(() => PendingMnemonicBackupScreen({
+    dependencies, signerId: dependencies === old.dependencies ? signer.id : currentSigner.id,
+    onComplete: dependencies === old.dependencies ? oldComplete : currentComplete,
+  }));
+  let finishReveal!: (value: unknown) => void;
+  old.reveal.mockImplementationOnce(() => new Promise(resolve => { finishReveal = resolve; }));
+  h.field('App passphrase').type(passphrase); h.render();
+  const revealing = h.press('Reveal recovery phrase');
+  dependencies = next.dependencies; h.render(); h.render();
+  finishReveal({ kind: 'mnemonic', mnemonic }); await revealing; h.render();
+  expect(nodes(h.root()).some(node => node.type === MnemonicBackupVerification)).toBe(false);
+  expect(oldComplete).not.toHaveBeenCalled();
+  h.field('App passphrase').type('fresh-current-passphrase'); h.render();
+  await h.press('Reveal recovery phrase'); h.render();
+  const current = h.verifier();
+  expect(current.outputs().map(output => output.read())).toEqual(currentWords);
+  await current.verify(currentWords.slice(0, 3));
+  expect(currentComplete).toHaveBeenCalledTimes(1);
+  expect(oldComplete).not.toHaveBeenCalled();
+  expect(old.repository.getSigner(signer.id)?.backupState).toBe('pending');
+  expect(next.repository.getSigner(currentSigner.id)?.backupState).toBe('confirmed');
+  current.close(); h.close();
 });

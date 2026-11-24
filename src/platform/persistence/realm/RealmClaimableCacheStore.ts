@@ -93,4 +93,20 @@ export class RealmClaimableCacheStore implements ClaimableCacheStore {
     };
     this.realm.write(() => this.realm.create(CLAIMABLE_RISK_OVERRIDE_ENTITY, row, true));
   }
+
+  clearPartition(networkId: string, accountAddress: string): void {
+    this.realm.write(() => {
+      const snapshot = this.realm.objectForPrimaryKey(
+        CLAIMABLE_CACHE_ENTITY,
+        this.partition(networkId, accountAddress),
+      );
+      if (snapshot) this.realm.delete(snapshot);
+      const overrides = this.realm.objects(CLAIMABLE_RISK_OVERRIDE_ENTITY).filtered(
+        'networkId == $0 AND accountAddress == $1',
+        networkId,
+        accountAddress,
+      );
+      this.realm.delete(overrides);
+    });
+  }
 }

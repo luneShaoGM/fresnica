@@ -3,6 +3,7 @@ import type { AccountSignerRepository } from './AccountSignerRepository';
 import { nextAccountSortOrder } from './accountOrder';
 import type { AccountRecord } from './types';
 import type { BackupState, RecoveryKind, SignerRecord } from '../signer/types';
+import { protectedSignerVerificationIdentity } from '../application-security/verifyExistingAppPassphrase';
 
 export type ProvisionRecordIdFactory = (kind: 'account' | 'signer') => string;
 
@@ -61,6 +62,34 @@ export type GeneratedProvisionedAccount = ProvisionedAccount & {
   index: number;
 };
 
+// One repository owner spans credential authorization and protected writes.
+// A remounted route shares only settlement, never credentials or results.
+const protectedProvisions = new WeakMap<AccountSignerRepository, Promise<void>>();
+const provisioningObservers = new WeakMap<AccountSignerRepository, Set<() => void>>();
+
+export class AccountProvisioningInProgressError extends Error {
+  constructor() {
+    super('account-provisioning-in-progress');
+  }
+}
+
+type ProvisionAuthorization = () => void | Promise<void>;
+
+export function subscribeProtectedAccountProvisioning(
+  repository: AccountSignerRepository,
+  onSettled: () => void,
+): () => void {
+  const observers = provisioningObservers.get(repository) ?? new Set<() => void>();
+  provisioningObservers.set(repository, observers);
+  observers.add(onSettled);
+  return () => {
+    observers.delete(onSettled);
+    if (!observers.size && provisioningObservers.get(repository) === observers) {
+      provisioningObservers.delete(repository);
+    }
+  };
+}
+
 export async function registerWatchOnlyAccount(
   dependencies: ProvisionAccountDependencies,
   input: WatchOnlyAccountInput,
@@ -87,87 +116,143 @@ export async function registerWatchOnlyAccount(
 export async function importSecretAccount(
   dependencies: ProvisionAccountDependencies,
   input: ImportSecretAccountInput,
+  authorize?: ProvisionAuthorization,
 ): Promise<ProvisionedAccount> {
-  const protectedSigner = await dependencies.sdk.protectSecret({
-    secret: input.secret,
-    appPassphrase: input.appPassphrase,
-  });
+  return runProtectedProvisioning(dependencies.repository, authorize, async assertProtectionCurrent => {
+    const protectedSigner = await dependencies.sdk.protectSecret({
+      secret: input.secret,
+      appPassphrase: input.appPassphrase,
+    });
 
-  return persistProtectedSigner(dependencies, protectedSigner, {
-    networkId: input.networkId,
-    label: input.label,
-    recoveryKind: 'secret',
-    backupState: 'not-required',
-    duplicatePolicy: 'upgrade-watch-only',
+    return persistProtectedSigner(dependencies, protectedSigner, {
+      networkId: input.networkId,
+      label: input.label,
+      recoveryKind: 'secret',
+      backupState: 'not-required',
+      duplicatePolicy: 'upgrade-watch-only',
+      assertProtectionCurrent,
+    });
   });
 }
 
 export async function importMnemonicAccount(
   dependencies: ProvisionAccountDependencies,
   input: ImportMnemonicAccountInput,
+  authorize?: ProvisionAuthorization,
 ): Promise<ProvisionedAccount> {
-  const protectedSigner = await dependencies.sdk.protectMnemonic({
-    mnemonic: input.mnemonic,
-    mnemonicPassphrase: input.mnemonicPassphrase,
-    index: input.index,
-    language: input.language,
-    appPassphrase: input.appPassphrase,
-  });
+  return runProtectedProvisioning(dependencies.repository, authorize, async assertProtectionCurrent => {
+    const protectedSigner = await dependencies.sdk.protectMnemonic({
+      mnemonic: input.mnemonic,
+      mnemonicPassphrase: input.mnemonicPassphrase,
+      index: input.index,
+      language: input.language,
+      appPassphrase: input.appPassphrase,
+    });
 
-  return persistProtectedSigner(dependencies, protectedSigner, {
-    networkId: input.networkId,
-    label: input.label,
-    recoveryKind: 'mnemonic',
-    backupState: 'not-required',
-    duplicatePolicy: 'upgrade-watch-only',
+    return persistProtectedSigner(dependencies, protectedSigner, {
+      networkId: input.networkId,
+      label: input.label,
+      recoveryKind: 'mnemonic',
+      backupState: 'not-required',
+      duplicatePolicy: 'upgrade-watch-only',
+      assertProtectionCurrent,
+    });
   });
 }
 
 export async function generateMnemonicAccount(
   dependencies: ProvisionAccountDependencies,
   input: GenerateMnemonicAccountInput,
+  authorize?: ProvisionAuthorization,
 ): Promise<GeneratedProvisionedAccount> {
-  const generated = await dependencies.sdk.generateMnemonic({
-    language: input.language,
-    strength: input.strength,
-    mnemonicPassphrase: input.mnemonicPassphrase,
-    index: input.index,
-    appPassphrase: input.appPassphrase,
-  });
+  return runProtectedProvisioning(dependencies.repository, authorize, async assertProtectionCurrent => {
+    assertNoPendingMnemonicBackup(dependencies.repository);
+    const generated = await dependencies.sdk.generateMnemonic({
+      language: input.language,
+      strength: input.strength,
+      mnemonicPassphrase: input.mnemonicPassphrase,
+      index: input.index,
+      appPassphrase: input.appPassphrase,
+    });
 
-  const persisted = await persistProtectedSigner(dependencies, generated.signer, {
-    networkId: input.networkId,
-    label: input.label,
-    recoveryKind: 'mnemonic',
-    backupState: 'pending',
-  });
+    const persisted = await persistProtectedSigner(dependencies, generated.signer, {
+      networkId: input.networkId,
+      label: input.label,
+      recoveryKind: 'mnemonic',
+      backupState: 'pending',
+      assertProtectionCurrent,
+    });
 
-  return {
-    ...persisted,
-    mnemonic: generated.mnemonic,
-    language: generated.language,
-    index: generated.index,
-  };
+    return {
+      ...persisted,
+      mnemonic: generated.mnemonic,
+      language: generated.language,
+      index: generated.index,
+    };
+  });
 }
 
 export async function deriveMnemonicAccount(
   dependencies: ProvisionAccountDependencies,
   input: DeriveMnemonicAccountInput,
 ): Promise<ProvisionedAccount> {
-  const protectedSigner = await dependencies.sdk.deriveMnemonicSigner({
-    sourceEnvelopeJson: input.sourceEnvelopeJson,
-    appPassphrase: input.appPassphrase,
-    expectedSourceSignerPublicKey: input.expectedSourceSignerPublicKey,
-    index: input.index,
-  });
+  // The existing derive SDK call owns fresh source-passphrase authorization.
+  return runProtectedProvisioning(dependencies.repository, undefined, async assertProtectionCurrent => {
+    const protectedSigner = await dependencies.sdk.deriveMnemonicSigner({
+      sourceEnvelopeJson: input.sourceEnvelopeJson,
+      appPassphrase: input.appPassphrase,
+      expectedSourceSignerPublicKey: input.expectedSourceSignerPublicKey,
+      index: input.index,
+    });
 
-  return persistProtectedSigner(dependencies, protectedSigner, {
-    networkId: input.networkId,
-    label: input.label,
-    recoveryKind: 'mnemonic',
-    backupState: input.backupState,
-    duplicatePolicy: 'upgrade-watch-only',
+    return persistProtectedSigner(dependencies, protectedSigner, {
+      networkId: input.networkId,
+      label: input.label,
+      recoveryKind: 'mnemonic',
+      backupState: input.backupState,
+      duplicatePolicy: 'upgrade-watch-only',
+      assertProtectionCurrent,
+    });
   });
+}
+
+async function runProtectedProvisioning<T>(
+  repository: AccountSignerRepository,
+  authorize: ProvisionAuthorization | undefined,
+  provision: (assertProtectionCurrent: () => void) => Promise<T>,
+): Promise<T> {
+  const active = protectedProvisions.get(repository);
+  if (active) {
+    await active;
+    // The caller must reconcile current public state and explicitly retry.
+    // It must never run an authorization decision made before this owner.
+    throw new AccountProvisioningInProgressError();
+  }
+  let settle!: () => void;
+  const completion = new Promise<void>(resolve => { settle = resolve; });
+  protectedProvisions.set(repository, completion);
+  try {
+    const protectionIdentity = protectedSignerVerificationIdentity(repository);
+    const assertProtectionCurrent = () => {
+      if (protectedSignerVerificationIdentity(repository) !== protectionIdentity) {
+        throw new Error('account-protection-changed');
+      }
+    };
+    if (authorize) await authorize();
+    assertProtectionCurrent();
+    return await provision(assertProtectionCurrent);
+  } finally {
+    protectedProvisions.delete(repository);
+    settle();
+    for (const observer of [...(provisioningObservers.get(repository) ?? [])]) {
+      try {
+        observer();
+      } catch {
+        // Presentation observers cannot change a persistence result or leave
+        // another caller behind this operation's duplicate gate.
+      }
+    }
+  }
 }
 
 type PersistProtectedSignerOptions = {
@@ -176,6 +261,7 @@ type PersistProtectedSignerOptions = {
   recoveryKind: RecoveryKind;
   backupState?: BackupState;
   duplicatePolicy?: 'reject' | 'upgrade-watch-only';
+  assertProtectionCurrent: () => void;
 };
 
 async function persistProtectedSigner(
@@ -230,6 +316,13 @@ async function persistProtectedSigner(
     updatedAt: now,
   };
 
+  if (options.recoveryKind === 'mnemonic' && options.backupState === 'pending') {
+    // Recheck after the asynchronous SDK parse, immediately before the
+    // synchronous write, including changes made through another repo handle.
+    assertNoPendingMnemonicBackup(dependencies.repository);
+  }
+  options.assertProtectionCurrent();
+
   if (existingAccount) {
     try {
       dependencies.repository.upgradeWatchOnlyAccountWithSigner({
@@ -252,6 +345,13 @@ async function persistProtectedSigner(
   }
 
   return { account, signer };
+}
+
+function assertNoPendingMnemonicBackup(repository: AccountSignerRepository): void {
+  if (repository.listSigners().some(signer => signer.kind === 'protected-software'
+    && signer.recoveryKind === 'mnemonic' && signer.backupState === 'pending')) {
+    throw new Error('pending-mnemonic-backup-exists');
+  }
 }
 
 function requireNonEmpty(value: string, field: string): string {

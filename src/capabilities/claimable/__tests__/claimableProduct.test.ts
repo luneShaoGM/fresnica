@@ -94,6 +94,10 @@ describe('S11 snapshot lifecycle and partition isolation', () => {
     setUserSpam: (_network, _address, balanceId, value) => {
       spam.set(balanceId, value);
     },
+    clearPartition: () => {
+      cached = undefined;
+      spam.clear();
+    },
   };
   beforeEach(() => {
     cached = undefined;

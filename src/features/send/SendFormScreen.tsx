@@ -10,6 +10,7 @@ import type { StellarPaymentMemo } from '../../capabilities/stellar/types';
 import { useLocalization } from '../../locale';
 import { useAppTheme, useThemedStyles } from '../../ui/theme';
 import { sendAssetKey } from './sendProductFlow';
+import { sendAssetAvailability } from '../assets/assetSelection';
 import { createSendFormStyles } from './styles';
 
 type Props = Readonly<{
@@ -92,6 +93,11 @@ export function SendFormScreen({
   const { t } = useLocalization();
   const styles = useThemedStyles(createSendFormStyles);
   const selectedBalance = balances.find(line => sendAssetKey(line.asset) === sendAssetKey(selectedAsset));
+  const availability = sendAssetAvailability(selectedBalance);
+  const blockedReason = availability.blockedReason
+    ? t(`assets.availability.send.${availability.blockedReason}`)
+    : undefined;
+  const continueDisabled = building || !active || blockedReason !== undefined;
 
   return (
     <>
@@ -116,12 +122,13 @@ export function SendFormScreen({
               disabled={building || !active}
               onSelect={onSelectAsset}
               label={t('assets.picker.title')}
+              purpose="send"
             />
 
             <View style={styles.balanceLine}>
-              <Text style={styles.balanceLabel}>Available</Text>
+              <Text style={styles.balanceLabel}>{t('assets.availability.available')}</Text>
               <Text style={styles.balanceValue}>
-                {selectedBalance?.balance ?? '—'} {selectedAsset.code}
+                {availability.available ?? t('assets.availability.unknown')} {selectedAsset.code}
               </Text>
             </View>
 
@@ -236,17 +243,22 @@ export function SendFormScreen({
             ) : null}
           </>
         )}
+        {blockedReason ? <Text style={styles.fieldHint}>{blockedReason}</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </ScrollView>
 
       <View style={styles.bottomBar}>
         <Pressable
           accessibilityRole="button"
-          disabled={building}
-          onPress={onContinue}
+          accessibilityState={{ disabled: continueDisabled }}
+          accessibilityHint={blockedReason}
+          disabled={continueDisabled}
+          onPress={() => {
+            if (!continueDisabled) onContinue();
+          }}
           style={({ pressed }) => [
             styles.reviewButton,
-            building ? styles.reviewButtonDisabled : undefined,
+            continueDisabled ? styles.reviewButtonDisabled : undefined,
             pressed ? styles.pressed : undefined,
           ]}
         >

@@ -1,5 +1,5 @@
 import type { AccountRecord } from '../../../capabilities/account/types';
-import { captureAccountSelectionSession, captureSwapCurrentSession } from '../swapCurrentSession';
+import { captureAccountRouteSession, captureAccountSelectionSession, captureSwapCurrentSession, type SwapCurrentSelection } from '../swapCurrentSession';
 import { createRequestRouteFocusLifetime } from '../requestContinueRouting';
 
 const network = Object.freeze({ id: 'stellar-testnet', networkPassphrase: 'Test SDF Network ; September 2015' });
@@ -15,6 +15,59 @@ const account: AccountRecord = {
   updatedAt: new Date(0),
 };
 const other: AccountRecord = { ...account, id: 'wallet-b', address: 'GOTHER' };
+
+describe('explicit account route session', () => {
+  function routeFixture() {
+    const focus = createRequestRouteFocusLifetime();
+    focus.focus();
+    let selection: SwapCurrentSelection = { selectedAccountId: account.id, selectionRevision: 1, accounts: [account, other], network };
+    const input = { account: other, network, getCurrentSelection: () => selection, isCurrentFocusEpoch: focus.capture() };
+    return {
+      current: captureAccountRouteSession(input),
+      selectedCurrent: captureAccountSelectionSession(input),
+      focus,
+      change(next: Partial<typeof selection>) {
+        selection = { ...selection, ...next };
+      },
+    };
+  }
+
+  it('allows Settings to manage visible account B while Home keeps account A selected', () => {
+    const f = routeFixture();
+    expect(f.current()).toBe(true);
+    expect(f.selectedCurrent()).toBe(false);
+  });
+
+  it('retires the B review across A to B to A selection and blur/refocus', () => {
+    const f = routeFixture();
+    f.change({ selectedAccountId: other.id, selectionRevision: 2 });
+    f.change({ selectedAccountId: account.id, selectionRevision: 3 });
+    expect(f.current()).toBe(false);
+    const focused = routeFixture();
+    focused.focus.blur();
+    focused.focus.focus();
+    expect(focused.current()).toBe(false);
+  });
+
+  it.each([
+    ['deleted', [account]],
+    ['hidden', [account, { ...other, hidden: true }]],
+    ['rebound', [account, { ...other, address: 'GREBOUND' }]],
+    ['duplicate', [account, other, { ...other }]],
+  ])('never falls back to A when route account B is %s', (_name, accounts) => {
+    const f = routeFixture();
+    f.change({ accounts });
+    expect(f.current()).toBe(false);
+  });
+
+  it('rejects a changed full network and accepts harmless account record replacement', () => {
+    const f = routeFixture();
+    f.change({ accounts: [{ ...account }, { ...other, label: 'Renamed B' }] });
+    expect(f.current()).toBe(true);
+    f.change({ network: { ...network, networkPassphrase: 'wrong network' } });
+    expect(f.current()).toBe(false);
+  });
+});
 
 it('allows public contract scans while keeping Swap Classic-only and retaining identity/revision guards', () => {
   const contract = { ...account, identityKind: 'contract' as const, address: 'CCONTRACT' };

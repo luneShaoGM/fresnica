@@ -7,6 +7,7 @@ import { defaultTheme } from '@ui/theme';
 
 import { SendEntryScreen, SendFormScreen } from '../SendFormScreen';
 import { createSendFormStyles } from '../styles';
+import { AssetPicker } from '../../assets/AssetPicker';
 
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
 
@@ -39,7 +40,8 @@ jest.mock('../../../locale', () => ({
 type NodeProps = Readonly<{
   children?: React.ReactNode;
   accessibilityLabel?: string;
-  accessibilityState?: { selected?: boolean };
+  accessibilityState?: { selected?: boolean; disabled?: boolean };
+  accessibilityHint?: string;
   onPress?: () => void;
   keyboardType?: string;
   value?: string;
@@ -59,7 +61,8 @@ function visit(node: React.ReactNode, callback: (element: React.ReactElement<Nod
   React.Children.forEach(node.props.children, child => visit(child, callback));
 }
 
-function renderForm(onSelectMemoType = jest.fn(), building = false, step: 'details' | 'recipient' = 'recipient') {
+function renderForm(onSelectMemoType = jest.fn(), building = false, step: 'details' | 'recipient' = 'recipient',
+  overrides: Partial<Parameters<typeof SendFormScreen>[0]> = {}) {
   return {
     onSelectMemoType,
     root: SendFormScreen({
@@ -78,6 +81,7 @@ function renderForm(onSelectMemoType = jest.fn(), building = false, step: 'detai
       onSelectMemoType,
       onChangeMemoValue: jest.fn(),
       onContinue: jest.fn(),
+      ...overrides,
     }),
   };
 }
@@ -220,5 +224,49 @@ describe('SendFormScreen memo families', () => {
     });
     idChoice?.props.onPress?.();
     expect(onSelectMemoType).not.toHaveBeenCalled();
+  });
+});
+
+describe('Send credit availability', () => {
+  const asset = { kind: 'credit', code: 'USD', issuer: 'GISSUER' } as const;
+  function continueButton(root: React.ReactNode) {
+    let match: React.ReactElement<NodeProps> | undefined;
+    visit(root, node => {
+      if (node.props.accessibilityState?.disabled !== undefined) match = node;
+    });
+    return match;
+  }
+
+  it('shows exact available credit after selling liabilities and marks the picker as a Send consumer', () => {
+    const { root } = renderForm(jest.fn(), false, 'details', {
+      selectedAsset: asset,
+      balances: [{ asset, balance: '10.0000001', sellingLiabilities: '10', isAuthorized: true }],
+    });
+    const texts: React.ReactNode[] = [];
+    let pickerPurpose: string | undefined;
+    visit(root, node => {
+      if (node.type === Text) texts.push(node.props.children);
+      if (node.type === AssetPicker) pickerPurpose = (node.props as React.ComponentProps<typeof AssetPicker>).purpose;
+    });
+    expect(texts).toContainEqual(['0.0000001', ' ', 'USD']);
+    expect(texts).not.toContainEqual(['10.0000001', ' ', 'USD']);
+    expect(pickerPurpose).toBe('send');
+    expect(continueButton(root)?.props.disabled).toBe(false);
+  });
+
+  it.each(['details', 'recipient'] as const)('blocks both UI and direct continue from %s when credit facts are unknown', step => {
+    const onContinue = jest.fn();
+    const { root } = renderForm(jest.fn(), false, step, {
+      selectedAsset: asset, balances: [{ asset, balance: '10' }], onContinue,
+    });
+    const button = continueButton(root);
+    expect(button?.props.disabled).toBe(true);
+    expect(button?.props.accessibilityHint).toBe('assets.availability.send.unknown');
+    button?.props.onPress?.();
+    expect(onContinue).not.toHaveBeenCalled();
+    const text: React.ReactNode[] = [];
+    visit(root, node => { if (node.type === Text) text.push(node.props.children); });
+    expect(text).toContain('assets.availability.send.unknown');
+    if (step === 'details') expect(text).toContainEqual(['assets.availability.unknown', ' ', 'USD']);
   });
 });

@@ -319,6 +319,13 @@ export function mapBalance(input: HorizonBalanceLike): StellarBalanceLine {
         code: input.asset_code,
         issuer: input.asset_issuer,
         ...(input.limit === undefined ? {} : { limit: input.limit }),
+        ...(input.buying_liabilities === undefined ? {} : { buyingLiabilities: input.buying_liabilities }),
+        ...(input.selling_liabilities === undefined ? {} : { sellingLiabilities: input.selling_liabilities }),
+        ...(input.is_authorized === undefined ? {} : { isAuthorized: input.is_authorized }),
+        ...(input.is_authorized_to_maintain_liabilities === undefined
+          ? {}
+          : { isAuthorizedToMaintainLiabilities: input.is_authorized_to_maintain_liabilities }),
+        ...(input.is_clawback_enabled === undefined ? {} : { isClawbackEnabled: input.is_clawback_enabled }),
       };
     case 'liquidity_pool_shares':
       if (!input.liquidity_pool_id) {

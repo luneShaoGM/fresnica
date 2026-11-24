@@ -1,7 +1,10 @@
 import { leaseSessionServices } from '../../leaseSessionServices';
 import { NativeModules } from 'react-native';
 import { createAppServices } from '../../createAppServices';
+import * as ledgerReadRuntimeModule from '../../readModels/LedgerReadRuntime';
 import { deleteLocalAccount } from '@capabilities/account/deleteLocalAccount';
+import type { AccountRecord } from '@capabilities/account/types';
+import type { ClaimableSnapshot } from '@capabilities/claimable/records';
 import {
   NETWORKS,
   DEFAULT_NETWORK_PREFERENCES,
@@ -46,6 +49,8 @@ const mockGateway = {
 const mockStellarConfig = jest.fn();
 const mockPathConfig = jest.fn();
 const mockProbe = jest.fn(async () => NETWORKS['stellar-mainnet'].networkPassphrase as string);
+const mockClaimableSnapshots = new Map<string, ClaimableSnapshot>();
+const mockClaimablePage = jest.fn(async () => ({ records: [] }));
 
 jest.mock('@react-native-clipboard/clipboard', () => ({ getString: jest.fn(), setString: jest.fn() }));
 jest.mock('react-native-permissions', () => ({
@@ -88,6 +93,7 @@ jest.mock('../../../platform/persistence/realm', () => ({
     has: () => false,
     grant: jest.fn(),
     revoke: jest.fn(),
+    revokeAccount: jest.fn(),
     list: () => [],
     subscribe: () => () => undefined,
     getRevision: () => 0,
@@ -98,6 +104,19 @@ jest.mock('../../../platform/persistence/realm/RealmGeneralPreferenceStore', () 
 jest.mock('../../../platform/persistence/realm/RealmNetworkPreferenceStore', () => ({
   openNetworkPreferences: jest.fn(async () => mockPreferenceRealm),
   RealmNetworkPreferenceStore: jest.fn(() => ({ load: () => mockPreferences, save: mockSave })),
+}));
+jest.mock('../../../platform/persistence/realm/RealmClaimableCacheStore', () => ({
+  RealmClaimableCacheStore: jest.fn(() => ({
+    read: (networkId: string, address: string) => mockClaimableSnapshots.get(JSON.stringify([networkId, address])),
+    replace: (snapshot: ClaimableSnapshot) => {
+      mockClaimableSnapshots.set(JSON.stringify([snapshot.networkId, snapshot.address]), snapshot);
+    },
+    userSpam: () => undefined,
+    setUserSpam: jest.fn(),
+    clearPartition: (networkId: string, address: string) => {
+      mockClaimableSnapshots.delete(JSON.stringify([networkId, address]));
+    },
+  })),
 }));
 jest.mock('../../../platform/stellar/StellarSdkGateway', () => ({
   StellarSdkGateway: jest.fn((config: unknown) => {
@@ -114,6 +133,9 @@ jest.mock('../../../platform/stellar/StellarPathPaymentSdkGateway', () => ({
 jest.mock('../../../platform/stellar/HorizonPublicReadGateway', () => ({
   createHorizonPublicReadGateway: () => ({ probe: mockProbe }),
 }));
+jest.mock('../../../platform/stellar/HorizonClaimableGateway', () => ({
+  createHorizonClaimableGateway: () => ({ page: mockClaimablePage, byId: jest.fn() }),
+}));
 jest.mock('../../readModels/createForegroundAccountSync', () => ({
   createForegroundAccountSync: () => ({ close: jest.fn() }),
 }));
@@ -129,12 +151,127 @@ beforeEach(() => {
     { id: 's', publicKey: 'GS', kind: 'protected-software', envelopeJson: '{encrypted}', backupState: 'confirmed' },
   ];
   mockUnresolved = [];
+  mockClaimableSnapshots.clear();
+  mockClaimablePage.mockReset().mockResolvedValue({ records: [] });
   mockSave.mockImplementation(next => {
     mockPreferences = next;
   });
   mockProbe.mockImplementation(async () => NETWORKS['stellar-mainnet'].networkPassphrase);
   mockSdk.verifyProtectedSignerPassphrase.mockImplementation(async () => true);
 });
+
+describe('production Claimable revision composition', () => {
+  const account: AccountRecord = {
+    id: 'claimable-account',
+    networkId: 'stellar-mainnet',
+    address: 'G' + 'A'.repeat(55),
+    identityKind: 'classic',
+    label: 'Claimable account',
+    hidden: false,
+    sortOrder: 0,
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+  };
+  const snapshot: ClaimableSnapshot = {
+    networkId: account.networkId,
+    address: account.address,
+    savedAt: 1_000,
+    records: [],
+    everSeen: false,
+  };
+
+  beforeEach(() => {
+    const createRuntime = ledgerReadRuntimeModule.createLedgerReadRuntime;
+    jest.spyOn(ledgerReadRuntimeModule, 'createLedgerReadRuntime').mockImplementation(() => {
+      const runtime = createRuntime();
+      // Start with real accounts and no node-recovery invalidation events.
+      runtime.update({ foreground: true, connectivity: 'offline' });
+      return runtime;
+    });
+    jest.spyOn(Date, 'now').mockReturnValue(2_000);
+    mockAccounts = [account];
+    mockClaimableSnapshots.set(JSON.stringify([account.networkId, account.address]), snapshot);
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('reuses a one-second-old persisted snapshot before and after service recreation without invalidation', async () => {
+    for (let restart = 0; restart < 2; restart += 1) {
+      const services = await createAppServices();
+      try {
+        expect(services.ledgerReadInvalidation.getRevision(account.networkId, account.id)).toBe(0);
+        expect(services.claimables.readCached(account)).toEqual({ snapshot, stale: false, refreshFailed: false });
+        expect(await services.claimables.refresh(account)).toEqual({ snapshot, stale: false, refreshFailed: false });
+        expect(mockClaimablePage).not.toHaveBeenCalled();
+        expect(mockProbe).not.toHaveBeenCalled();
+      } finally {
+        services.close();
+      }
+    }
+  });
+
+  it('honors invalidation before the first cache read and permits a new revision to bypass failure cooldown', async () => {
+    const services = await createAppServices();
+    try {
+      const invalidation = {
+        networkId: account.networkId,
+        accountId: account.id,
+        transactionHash: 'a'.repeat(64),
+      };
+      services.ledgerReadInvalidation.invalidate(invalidation);
+      expect(services.claimables.readCached(account)).toEqual({ snapshot, stale: true, refreshFailed: false });
+
+      const ready = new Promise<void>(resolve => {
+        const stop = services.nodeReadSession.subscribe(() => {
+          if (services.nodeReadSession.getSnapshot().phase === 'healthy') {
+            stop();
+            resolve();
+          }
+        });
+      });
+      services.ledgerReadRuntime.update({ foreground: true, connectivity: 'online' });
+      await ready;
+      mockClaimablePage.mockRejectedValueOnce(new Error('claimable-read-failed'));
+      expect(await services.claimables.refresh(account)).toEqual({ snapshot, stale: true, refreshFailed: true });
+      expect(await services.claimables.refresh(account)).toEqual({ snapshot, stale: true, refreshFailed: true });
+      expect(mockClaimablePage).toHaveBeenCalledTimes(1);
+
+      services.ledgerReadInvalidation.invalidate({ ...invalidation, transactionHash: 'b'.repeat(64) });
+      const refreshed = await services.claimables.refresh(account);
+      expect(refreshed).toEqual({ snapshot: { ...snapshot, savedAt: 2_000 }, stale: false, refreshFailed: false });
+      expect(await services.claimables.refresh(account)).toEqual(refreshed);
+      expect(mockClaimablePage).toHaveBeenCalledTimes(2);
+    } finally {
+      services.close();
+    }
+  });
+
+  it('tracks every same-address alias while keeping other addresses and networks isolated', async () => {
+    const alias = { ...account, id: 'claimable-alias' };
+    const other = { ...account, id: 'other-account', address: 'G' + 'B'.repeat(55) };
+    mockAccounts = [account, alias, other];
+    const services = await createAppServices();
+    try {
+      expect(services.claimables.readCached(account)?.stale).toBe(false);
+      services.ledgerReadInvalidation.refresh({
+        networkId: 'stellar-testnet', accountId: account.id, reason: 'manual-refresh',
+      });
+      services.ledgerReadInvalidation.refresh({
+        networkId: other.networkId, accountId: other.id, reason: 'manual-refresh',
+      });
+      expect(services.claimables.readCached(account)?.stale).toBe(false);
+
+      services.ledgerReadInvalidation.refresh({
+        networkId: alias.networkId, accountId: alias.id, reason: 'account-effects',
+      });
+      expect(services.claimables.readCached(account)?.stale).toBe(true);
+      expect(services.claimables.readCached(alias)?.stale).toBe(true);
+    } finally {
+      services.close();
+    }
+  });
+});
+
 describe('production network composition and retirement', () => {
   it('wires default-on external icons to wallet-wide privacy preference across service restart', async () => {
     const modules = NativeModules as Record<string, unknown>;

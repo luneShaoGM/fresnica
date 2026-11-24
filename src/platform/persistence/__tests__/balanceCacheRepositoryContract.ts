@@ -5,6 +5,7 @@ import {
   type BalanceCacheRepository,
   type BalanceCacheSnapshot,
 } from '../../../capabilities/balance/BalanceCacheRepository';
+import { projectCreditBalanceAvailability } from '../../../capabilities/balance/creditBalanceAvailability';
 
 export const balancePartition: BalanceCachePartition = { networkId: 'stellar-testnet', accountAddress: 'GA' };
 export function balanceSnapshot(address = 'GA'): BalanceCacheSnapshot {
@@ -22,7 +23,53 @@ export function balanceSnapshot(address = 'GA'): BalanceCacheSnapshot {
     },
   };
 }
+export function creditBalanceSnapshot(address = 'GA'): BalanceCacheSnapshot {
+  return {
+    ...balanceSnapshot(address),
+    balance: {
+      status: 'active', address, hiddenLiquidityPoolShareCount: 0,
+      balances: [{ asset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' },
+        balance: '7.0000001', limit: '922337203685.4775807',
+        buyingLiabilities: '0.0000001', sellingLiabilities: '2.0000001',
+        isAuthorized: false, isAuthorizedToMaintainLiabilities: true, isClawbackEnabled: true,
+      }],
+    },
+  };
+}
 export function runBalanceCacheRepositoryContract(createRepository: () => BalanceCacheRepository) {
+  it('round-trips liability strings and explicit false authorization through the public-field allowlist', () => {
+    const repository = createRepository();
+    const snapshot = creditBalanceSnapshot();
+    repository.replaceSnapshot(balancePartition, snapshot);
+    expect(repository.getSnapshot(balancePartition)).toEqual(snapshot);
+  });
+  it('reads old balance-only snapshots without inventing spendable amounts or authorization', () => {
+    const repository = createRepository();
+    repository.replaceSnapshot(balancePartition, balanceSnapshot());
+    const result = repository.getSnapshot(balancePartition);
+    if (result?.balance.status !== 'active') throw new Error('expected-active-cache');
+    const line = result.balance.balances[1];
+    expect(line.isAuthorized).toBeUndefined();
+    expect(line.buyingLiabilities).toBeUndefined();
+    expect(line.sellingLiabilities).toBeUndefined();
+    expect(projectCreditBalanceAvailability(line)).toMatchObject({ authorization: 'unknown', canSend: false });
+    expect(projectCreditBalanceAvailability(line).available).toBeUndefined();
+  });
+  it.each([
+    ['buyingLiabilities', '0.00000001'], ['sellingLiabilities', '-1'],
+    ['sellingLiabilities', '922337203685.4775808'], ['buyingLiabilities', null],
+    ['isAuthorized', 'true'], ['isAuthorizedToMaintainLiabilities', 1], ['isClawbackEnabled', null],
+  ])('rejects malformed credit %s without replacing a valid snapshot', (field, value) => {
+    const repository = createRepository();
+    const valid = creditBalanceSnapshot();
+    repository.replaceSnapshot(balancePartition, valid);
+    if (valid.balance.status !== 'active') throw new Error('expected-active-fixture');
+    const invalid = { ...valid, balance: { ...valid.balance,
+      balances: [{ ...valid.balance.balances[0], [field as string]: value }],
+    } } as unknown as BalanceCacheSnapshot;
+    expect(() => repository.replaceSnapshot(balancePartition, invalid)).toThrow('balance-cache-invalid-line');
+    expect(repository.getSnapshot(balancePartition)).toEqual(valid);
+  });
   it('stores canonical public fields without losing decimal precision and returns detached dates', () => {
     const repository = createRepository();
     const polluted = {

@@ -47,6 +47,7 @@ const permissions: DappPermissionStore = {
   has: () => false,
   grant: () => undefined,
   revoke,
+  revokeAccount: () => undefined,
   list: networkId => grants.filter(grant => grant.networkId === networkId),
   subscribe: () => () => undefined,
   getRevision: () => 1,

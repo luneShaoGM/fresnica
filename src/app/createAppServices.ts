@@ -381,10 +381,26 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       },
     });
     closeReadRecovery = () => nodeReadSession.close();
+    const getAccountReadRevisions = (address: string) =>
+      repository
+        .listAccounts()
+        .filter(account => account.networkId === network.id && account.address === address)
+        .map(account => [account.id, ledgerReadInvalidation.getRevision(network.id, account.id)] as const);
+    const claimableCache = new RealmClaimableCacheStore(realm);
     const claimables = createClaimableProduct({
       networkId: network.id,
-      cache: new RealmClaimableCacheStore(realm),
+      cache: claimableCache,
       now: () => Date.now(),
+      getRevision: account => {
+        const revisions = getAccountReadRevisions(account.address);
+        // Persisted snapshots start at revision zero in each new product instance.
+        return revisions.every(([, value]) => value === 0) ? 0 : JSON.stringify(revisions);
+      },
+      isAccountCurrent: account => {
+        const current = repository.getAccount(account.id);
+        return current?.address === account.address && current.identityKind === 'classic' &&
+          current.networkId === network.id && !current.hidden;
+      },
       read: {
         page: (address, cursor) =>
           nodeReadSession.run((signal, endpoint) => claimableReads.page(endpoint, address, cursor, signal)),
@@ -405,13 +421,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
           nodeReadSession.run((signal, endpoint) => publicReads.loadOperation(endpoint, input, signal)),
       },
       runtime: ledgerReadRuntime,
-      getAccountRevision: address =>
-        JSON.stringify(
-          repository
-            .listAccounts()
-            .filter(account => account.networkId === network.id && account.address === address)
-            .map(account => [account.id, ledgerReadInvalidation.getRevision(network.id, account.id)]),
-        ),
+      getAccountRevision: address => JSON.stringify(getAccountReadRevisions(address)),
     });
     const markets = createMarkets({
       network,
@@ -630,6 +640,8 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         cacheNetworkIds: Object.keys(NETWORKS),
         historyCache,
         balanceCache,
+        claimableCache,
+        dappPermissions,
         onDeleted: () => {
           if (
             networkSettings?.getSnapshot().preferences.retainedTestnet &&

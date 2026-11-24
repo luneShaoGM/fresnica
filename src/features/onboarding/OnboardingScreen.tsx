@@ -1,5 +1,5 @@
 import { NewPassphraseGuidance } from '../security/NewPassphraseGuidance/NewPassphraseGuidance';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Screen } from '@ui/components';
@@ -12,9 +12,13 @@ import {
   assertNewProtectionPassphrase,
 } from '../../capabilities/application-security/newPassphrasePolicy';
 import { useAppTheme, useThemedStyles, type AppTheme } from '../../ui/theme';
-import { confirmMnemonicBackup, type RecoveredMnemonicBackup } from './onboardingBootstrap';
-import { MnemonicBackupVerification } from './MnemonicBackupVerification';
+import { completeMnemonicBackup, resolveOnboardingBootstrap } from './onboardingBootstrap';
+import { MnemonicBackupVerification, type MnemonicBackupVerificationHandle } from './MnemonicBackupVerification';
+import { PendingMnemonicBackupScreen } from './PendingMnemonicBackupScreen';
+import { SensitiveTextInput, type SensitiveTextInputHandle, type SensitiveTextInputProps } from './SensitiveTextInput';
+import { useSensitiveFlowLifetime, type SensitiveFlowRequest } from './useSensitiveFlowLifetime';
 import { projectFeatureError } from '../featureError';
+import { AccountProvisioningInProgressError, subscribeProtectedAccountProvisioning } from '../../capabilities/account/provisionAccount';
 import type { OnboardingMethod } from './onboardingState';
 import {
   runGeneratedMnemonicOnboarding,
@@ -30,8 +34,9 @@ type Props = Readonly<{
   onCancel?: () => void;
 }>;
 
-type GeneratedBackupState = RecoveredMnemonicBackup & {
+type GeneratedBackupState = {
   signerId: string;
+  visible: boolean;
 };
 
 export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) {
@@ -40,76 +45,109 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
   const [method, setMethod] = useState<OnboardingMethod>();
   const [label, setLabel] = useState('');
   const [address, setAddress] = useState('');
-  const [secret, setSecret] = useState('');
-  const [mnemonic, setMnemonic] = useState('');
-  const [appPassphrase, setAppPassphrase] = useState('');
-  const [confirmPassphrase, setConfirmPassphrase] = useState('');
+  const secretInput = useRef<SensitiveTextInputHandle>(null);
+  const mnemonicInput = useRef<SensitiveTextInputHandle>(null);
+  const passphraseInput = useRef<SensitiveTextInputHandle>(null);
+  const confirmationInput = useRef<SensitiveTextInputHandle>(null);
+  const verifier = useRef<MnemonicBackupVerificationHandle>(null);
+  const pendingPhrase = useRef<{ mnemonic: string; owner: SensitiveFlowRequest } | undefined>(undefined);
   const [generatedBackup, setGeneratedBackup] = useState<GeneratedBackupState>();
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [shortRiskAccepted, setShortRiskAccepted] = useState(false);
-  const passphraseAssessment = assessNewProtectionPassphrase(appPassphrase);
-  const passphraseConfirmationMatches = confirmPassphrase.length > 0 && appPassphrase === confirmPassphrase;
+  const [passphraseAssessment, setPassphraseAssessment] = useState(() => assessNewProtectionPassphrase(''));
+  const [passphraseConfirmationMatches, setPassphraseConfirmationMatches] = useState(false);
+  const lifetime = useSensitiveFlowLifetime(clearOwnedMaterial, resumePersistedBackup, dependencies);
+  const { busy, owns, resumeWhenIdle } = lifetime;
+  useEffect(() => subscribeProtectedAccountProvisioning(dependencies.repository, resumeWhenIdle), [dependencies.repository, resumeWhenIdle]);
+  const attachVerifier = useCallback((input: MnemonicBackupVerificationHandle | null) => {
+    verifier.current = input;
+    if (!input) return;
+    const pending = pendingPhrase.current;
+    pendingPhrase.current = undefined;
+    if (pending && owns(pending.owner)) input.load(pending.mnemonic);
+  }, [owns]);
   const passphraseReady =
     !passphraseAssessment.rejection &&
     (passphraseAssessment.meetsMinimum || shortRiskAccepted) &&
     passphraseConfirmationMatches;
 
   function chooseMethod(nextMethod: OnboardingMethod) {
-    clearSensitiveInputs();
+    lifetime.retire();
     setGeneratedBackup(undefined);
     setError(undefined);
     setMethod(nextMethod);
   }
 
   function returnToMethodSelection() {
-    clearSensitiveInputs();
+    lifetime.retire();
     setAddress('');
     setError(undefined);
     setMethod(undefined);
   }
 
-  function clearSensitiveInputs() {
-    setSecret('');
-    setMnemonic('');
-    setAppPassphrase('');
-    setShortRiskAccepted(false);
-    setConfirmPassphrase('');
+  function clearOwnedMaterial(updateUi: boolean) {
+    for (const input of [secretInput, mnemonicInput, passphraseInput, confirmationInput]) input.current?.clear(false);
+    pendingPhrase.current = undefined;
+    verifier.current?.clear(updateUi);
+    if (updateUi) {
+      setPassphraseAssessment(assessNewProtectionPassphrase(''));
+      setPassphraseConfirmationMatches(false);
+      setShortRiskAccepted(false);
+      setGeneratedBackup(current => current ? { ...current, visible: false } : current);
+      setError(undefined);
+    }
   }
 
-  function validatePassphrase() {
-    assertNewProtectionPassphrase(appPassphrase, shortRiskAccepted);
-    if (appPassphrase !== confirmPassphrase) {
-      throw new Error('app-passphrase-confirmation-mismatch');
+  function resumePersistedBackup() {
+    try {
+      const bootstrap = resolveOnboardingBootstrap(dependencies);
+      if (bootstrap.kind === 'pending-mnemonic-backup') {
+        setError(undefined);
+        setGeneratedBackup(current => current?.signerId === bootstrap.signerId
+          ? current : { signerId: bootstrap.signerId, visible: false });
+      } else {
+        setGeneratedBackup(undefined);
+        if (bootstrap.kind === 'ready') {
+          // A retired import may still persist. Refresh the public bootstrap;
+          // do not strand a now-populated wallet in first-run setup.
+          onComplete();
+        }
+      }
+    } catch (caught) {
+      setError(readableError(caught));
     }
   }
 
   async function submit() {
-    if (!method) {
-      return;
-    }
-
-    setBusy(true);
+    if (!method) return;
+    const owner = lifetime.begin();
+    if (!owner) return;
+    const riskAccepted = shortRiskAccepted;
+    const secret = secretInput.current?.consume() ?? '';
+    const mnemonic = mnemonicInput.current?.consume() ?? '';
+    const appPassphrase = passphraseInput.current?.consume() ?? '';
+    const confirmPassphrase = confirmationInput.current?.consume() ?? '';
+    let reconcileProvisioning = false;
     setError(undefined);
 
     try {
       if (method === 'watch-only') {
         await runWatchOnlyOnboarding(dependencies, { address, label });
-        onComplete();
+        if (lifetime.isCurrent(owner)) onComplete();
         return;
       }
 
-      validatePassphrase();
+      assertNewProtectionPassphrase(appPassphrase, riskAccepted);
+      if (appPassphrase !== confirmPassphrase) throw new Error('app-passphrase-confirmation-mismatch');
 
       if (method === 'import-secret') {
         await runSecretImportOnboarding(dependencies, {
           secret,
           appPassphrase,
-          shortPassphraseRiskAccepted: shortRiskAccepted,
+          shortPassphraseRiskAccepted: riskAccepted,
           label,
         });
-        clearSensitiveInputs();
-        onComplete();
+        if (lifetime.isCurrent(owner)) onComplete();
         return;
       }
 
@@ -119,11 +157,10 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
           mnemonicPassphrase: '',
           index: 0,
           appPassphrase,
-          shortPassphraseRiskAccepted: shortRiskAccepted,
+          shortPassphraseRiskAccepted: riskAccepted,
           label,
         });
-        clearSensitiveInputs();
-        onComplete();
+        if (lifetime.isCurrent(owner)) onComplete();
         return;
       }
 
@@ -133,34 +170,51 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
         mnemonicPassphrase: '',
         index: 0,
         appPassphrase,
-        shortPassphraseRiskAccepted: shortRiskAccepted,
+        shortPassphraseRiskAccepted: riskAccepted,
         label,
       });
 
-      setGeneratedBackup({
-        ...result.backup,
-        signerId: result.account.signer.id,
-      });
-      clearSensitiveInputs();
+      if (lifetime.isCurrent(owner)) {
+        pendingPhrase.current = { mnemonic: result.backup.mnemonic, owner };
+        setGeneratedBackup({ signerId: result.account.signer.id, visible: true });
+      }
     } catch (caught) {
-      setError(readableError(caught));
+      reconcileProvisioning = caught instanceof AccountProvisioningInProgressError;
+      if (lifetime.isCurrent(owner)) setError(readableError(caught));
     } finally {
-      setBusy(false);
+      const retired = !lifetime.isCurrent(owner);
+      lifetime.finish(owner);
+      if (retired || method === 'generate-mnemonic' || reconcileProvisioning) {
+        lifetime.resume(reconcileProvisioning ? 'provisioning' : undefined);
+      }
     }
   }
 
-  function confirmGeneratedBackup() {
-    if (!generatedBackup) {
-      return;
-    }
-
+  async function confirmGeneratedBackup() {
+    if (!generatedBackup) return;
+    const owner = lifetime.begin();
+    if (!owner) return;
+    pendingPhrase.current = undefined;
+    verifier.current?.clear();
+    setGeneratedBackup(current => current ? { ...current, visible: false } : current);
+    setError(undefined);
     try {
-      confirmMnemonicBackup(dependencies, generatedBackup.signerId);
-      setGeneratedBackup(undefined);
-      onComplete();
+      await completeMnemonicBackup(dependencies, generatedBackup.signerId, onComplete);
+      if (lifetime.isCurrent(owner)) {
+        pendingPhrase.current = undefined;
+        verifier.current?.clear();
+        setGeneratedBackup(undefined);
+      }
     } catch (caught) {
-      setError(readableError(caught));
+      if (lifetime.isCurrent(owner)) setError(readableError(caught));
+    } finally {
+      lifetime.finish(owner);
     }
+  }
+
+  if (generatedBackup && !generatedBackup.visible) {
+    return <PendingMnemonicBackupScreen dependencies={dependencies} signerId={generatedBackup.signerId} disabled={busy}
+      completionError={error} onComplete={onComplete} />;
   }
 
   if (generatedBackup) {
@@ -177,7 +231,7 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
             Write these words down in order and store them offline. Fresnica does not persist this plaintext phrase.
           </Text>
         </View>
-        <MnemonicBackupVerification mnemonic={generatedBackup.mnemonic} onVerified={confirmGeneratedBackup} />
+        <MnemonicBackupVerification ref={attachVerifier} disabled={busy} onVerified={confirmGeneratedBackup} />
         {error ? <ErrorText message={error} /> : null}
       </FlowShell>
     );
@@ -194,7 +248,7 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
           {onCancel ? (
             <Pressable
               accessibilityRole="button"
-              onPress={onCancel}
+              onPress={() => { lifetime.retire(); onCancel(); }}
               style={({ pressed }) => [styles.cancelButton, pressed ? styles.pressed : undefined]}
             >
               <Text style={styles.cancelText}>Cancel</Text>
@@ -261,10 +315,10 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
         ) : null}
 
         {method === 'import-secret' ? (
-          <Field
+          <SensitiveField
             label="Stellar secret"
-            value={secret}
-            onChangeText={setSecret}
+            inputRef={secretInput}
+            editable={!busy}
             placeholder="S..."
             secureTextEntry
             autoCapitalize="characters"
@@ -272,10 +326,10 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
         ) : null}
 
         {method === 'import-mnemonic' ? (
-          <Field
+          <SensitiveField
             label="Recovery phrase"
-            value={mnemonic}
-            onChangeText={setMnemonic}
+            inputRef={mnemonicInput}
+            editable={!busy}
             placeholder="Enter words in order"
             multiline
             autoCapitalize="none"
@@ -284,28 +338,27 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
 
         {method !== 'watch-only' ? (
           <>
-            <Field
+            <SensitiveField
               label="App passphrase"
-              value={appPassphrase}
-              onChangeText={value => {
-                setAppPassphrase(value);
+              inputRef={passphraseInput}
+              editable={!busy}
+              onTextChange={value => {
+                setPassphraseAssessment(assessNewProtectionPassphrase(value));
+                setPassphraseConfirmationMatches(!!value && value === confirmationInput.current?.read());
                 setShortRiskAccepted(false);
               }}
               placeholder="15 or more characters recommended"
               secureTextEntry
               autoCapitalize="none"
-              autoComplete="new-password"
-              textContentType="newPassword"
             />
-            <Field
+            <SensitiveField
               label="Confirm app passphrase"
-              value={confirmPassphrase}
-              onChangeText={setConfirmPassphrase}
+              inputRef={confirmationInput}
+              editable={!busy}
+              onTextChange={value => setPassphraseConfirmationMatches(!!value && value === passphraseInput.current?.read())}
               placeholder="Enter it again"
               secureTextEntry
               autoCapitalize="none"
-              autoComplete="new-password"
-              textContentType="newPassword"
             />
             <NewPassphraseGuidance
               assessment={passphraseAssessment}
@@ -394,6 +447,28 @@ function Field(props: React.ComponentProps<typeof TextInput> & { label: string }
       <Text style={styles.label}>{label}</Text>
       <TextInput
         {...inputProps}
+        multiline={multiline}
+        placeholderTextColor={theme.colors.textTertiary}
+        selectionColor={theme.colors.actionPrimary}
+        style={[styles.input, multiline ? styles.multiline : undefined]}
+      />
+    </View>
+  );
+}
+
+function SensitiveField({ label, inputRef, multiline, ...props }: SensitiveTextInputProps & {
+  label: string;
+  inputRef: React.RefObject<SensitiveTextInputHandle | null>;
+}) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      <SensitiveTextInput
+        {...props}
+        ref={inputRef}
+        accessibilityLabel={label}
         multiline={multiline}
         placeholderTextColor={theme.colors.textTertiary}
         selectionColor={theme.colors.actionPrimary}

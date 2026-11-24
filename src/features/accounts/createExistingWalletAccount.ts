@@ -25,14 +25,6 @@ export async function createExistingWalletAccount(
   dependencies: OnboardingProvisioningDependencies,
   input: ExistingWalletCreateInput,
 ): Promise<ExistingWalletCreateResult> {
-  await authorizeExistingWalletProtection(
-    dependencies,
-    input.appPassphrase,
-    input.confirmAppPassphrase,
-    input.shortPassphraseRiskAccepted,
-  );
-
-  // Authorization above owns first-time policy or exact existing-credential verification.
   const generated = await generateMnemonicAccount(dependencies, {
     networkId: dependencies.networkId,
     language: 'english',
@@ -41,7 +33,12 @@ export async function createExistingWalletAccount(
     index: 0,
     appPassphrase: input.appPassphrase,
     label: input.label,
-  });
+  }, () => authorizeExistingWalletProtection(
+    dependencies,
+    input.appPassphrase,
+    input.confirmAppPassphrase,
+    input.shortPassphraseRiskAccepted,
+  ));
 
   const systemAuthRegistration = 'not-configured' as const;
 

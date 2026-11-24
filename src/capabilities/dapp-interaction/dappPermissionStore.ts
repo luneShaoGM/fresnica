@@ -10,6 +10,7 @@ export type DappReadGrant = DappGrantScope & Readonly<{ createdAtUnixMs: number 
 
 export type DappPermissionEvent =
   | Readonly<{ kind: 'revoked'; scope: DappGrantScope }>
+  | Readonly<{ kind: 'account-revoked'; accountId: string }>
   | Readonly<{ kind: 'closed' }>
   | Readonly<{ kind: 'granted'; scope: DappGrantScope }>;
 
@@ -17,6 +18,7 @@ export type DappPermissionStore = Readonly<{
   has: (scope: DappGrantScope) => boolean;
   grant: (scope: DappGrantScope) => void;
   revoke: (scope: DappGrantScope) => void;
+  revokeAccount: (accountId: string) => void;
   list: (networkId: string) => readonly DappReadGrant[];
   subscribe: (listener: (event: DappPermissionEvent) => void) => () => void;
   getRevision: () => number;

@@ -8,7 +8,12 @@ function fakeRealm() {
   let failWrite = false;
   const realm = {
     objectForPrimaryKey: (_entity: string, id: string) => records.get(id) ?? null,
-    objects: () => Array.from(records.values()),
+    objects: () => {
+      const rows = Array.from(records.values());
+      return Object.assign(rows, {
+        filtered: (_query: string, accountId: string) => rows.filter(row => row.accountId === accountId),
+      });
+    },
     write: (fn: () => void) => {
       if (failWrite) throw new Error('realm-write-failed');
       fn();
@@ -16,8 +21,8 @@ function fakeRealm() {
     create: (_entity: string, row: Record<string, unknown>) => {
       records.set(row.id as string, row);
     },
-    delete: (row: Record<string, unknown>) => {
-      records.delete(row.id as string);
+    delete: (value: Record<string, unknown> | Record<string, unknown>[]) => {
+      for (const row of Array.isArray(value) ? value : [value]) records.delete(row.id as string);
     },
   };
   return {
@@ -67,6 +72,7 @@ describe('S17 durable read grants', () => {
       expect(store.has({ ...demo, origin })).toBe(false);
     }
     expect(() => store.grant({ ...demo, accountId: 'wallet\n2' })).toThrow('dapp-permission-unavailable');
+    expect(() => store.revokeAccount('wallet\n2')).toThrow('dapp-permission-unavailable');
     expect(fake.records.size).toBe(0);
   });
 
@@ -78,6 +84,7 @@ describe('S17 durable read grants', () => {
     fake.failWrites();
     expect(() => store.grant(demo)).toThrow('realm-write-failed');
     expect(() => store.revoke(demo)).toThrow('realm-write-failed');
+    expect(() => store.revokeAccount(demo.accountId)).toThrow('realm-write-failed');
     expect(store.has(demo)).toBe(false);
     expect(store.getRevision()).toBe(0);
     expect(events).toEqual([]);
@@ -96,6 +103,26 @@ describe('S17 durable read grants', () => {
     expect(() => store.list(demo.networkId)).toThrow('dapp-permission-unavailable');
     expect(() => store.grant(demo)).toThrow('dapp-permission-unavailable');
     expect(() => store.revoke(demo)).toThrow('dapp-permission-unavailable');
+    expect(() => store.revokeAccount(demo.accountId)).toThrow('dapp-permission-unavailable');
+  });
+
+  it('revokes one account across networks and origins while preserving other accounts', () => {
+    const store = new RealmDappPermissionStore(fakeRealm().realm);
+    const other = { ...demo, accountId: 'wallet-2' };
+    const mainnet = { ...demo, origin: 'https://other.example.org', networkId: 'stellar-mainnet' };
+    store.grant(demo);
+    store.grant(mainnet);
+    store.grant(other);
+    const events: unknown[] = [];
+    store.subscribe(event => events.push(event));
+    store.revokeAccount(demo.accountId);
+    expect(store.has(demo)).toBe(false);
+    expect(store.has(mainnet)).toBe(false);
+    expect(store.has(other)).toBe(true);
+    expect(events).toEqual([{ kind: 'account-revoked', accountId: demo.accountId }]);
+    // A repeated delete/retry still retires active allow-once sessions.
+    store.revokeAccount(demo.accountId);
+    expect(events).toHaveLength(2);
   });
 
   it('does not misreport a committed write when a subscriber throws', () => {

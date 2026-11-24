@@ -10,6 +10,8 @@ import { openWalletRealm } from '../../openWalletRealm';
 import { RealmAccountSignerRepository } from '../../RealmAccountSignerRepository';
 import { RealmDefaultAccountPreferenceStore } from '../../RealmDefaultAccountPreferenceStore';
 import { RealmBalanceCacheRepository } from '../../RealmBalanceCacheRepository';
+import { RealmClaimableCacheStore } from '../../RealmClaimableCacheStore';
+import { RealmDappPermissionStore } from '../../RealmDappPermissionStore';
 import { RealmHistoryCacheRepository } from '../../RealmHistoryCacheRepository';
 import { RealmPendingSubmissionRepository } from '../../RealmPendingSubmissionRepository';
 
@@ -143,6 +145,8 @@ describe('persisted identity and per-network runtime contexts', () => {
         pendingSubmissions,
         balanceCache,
         historyCache: new RealmHistoryCacheRepository(realm),
+        claimableCache: new RealmClaimableCacheStore(realm),
+        dappPermissions: new RealmDappPermissionStore(realm),
         cacheNetworkIds: [main, test],
       };
       expect(() => deleteLocalAccount(deps, account.id)).toThrow('account-delete-blocked-by-pending-submission');

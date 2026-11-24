@@ -23,6 +23,7 @@ export async function submitReviewedTrustline(input: {
   signer: SignerRecord;
   appPassphrase?: string;
   systemAuthReason?: string;
+  isCurrent?: () => boolean;
   network: NetworkContext;
 }): Promise<SubmitReviewedTrustlineResult> {
   const exactReview = buildTrustlineReview(
@@ -56,6 +57,7 @@ export async function submitReviewedTrustline(input: {
     thresholdLevel: 'medium',
     ...(input.appPassphrase === undefined ? {} : { appPassphrase: input.appPassphrase }),
     ...(input.systemAuthReason === undefined ? {} : { systemAuthReason: input.systemAuthReason }),
+    ...(input.isCurrent === undefined ? {} : { isCurrent: input.isCurrent }),
     networkPassphrase: input.network.networkPassphrase,
   });
 }

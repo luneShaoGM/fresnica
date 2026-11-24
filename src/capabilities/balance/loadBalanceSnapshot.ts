@@ -39,7 +39,14 @@ export async function loadBalanceSnapshot(
         balances.push({
           asset: { kind: 'credit', code: line.code, issuer: line.issuer },
           balance: line.balance,
-          ...(line.limit === undefined ? {} : {limit: line.limit}),
+          ...(line.limit === undefined ? {} : { limit: line.limit }),
+          ...(line.buyingLiabilities === undefined ? {} : { buyingLiabilities: line.buyingLiabilities }),
+          ...(line.sellingLiabilities === undefined ? {} : { sellingLiabilities: line.sellingLiabilities }),
+          ...(line.isAuthorized === undefined ? {} : { isAuthorized: line.isAuthorized }),
+          ...(line.isAuthorizedToMaintainLiabilities === undefined
+            ? {}
+            : { isAuthorizedToMaintainLiabilities: line.isAuthorizedToMaintainLiabilities }),
+          ...(line.isClawbackEnabled === undefined ? {} : { isClawbackEnabled: line.isClawbackEnabled }),
         });
         break;
       case 'liquidity-pool-share':

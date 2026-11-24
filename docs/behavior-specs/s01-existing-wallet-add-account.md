@@ -31,6 +31,29 @@ A protected-software signer without a usable envelope is invalid local security 
 
 Any false verification result or Native verification error fails the operation with zero product writes. No signer is generated/protected, no Account/Signer/default state changes, and System Auth enrollment is not modified.
 
+### 2026-11-24 provisioning lifetime clarification
+
+Create, Secret/Mnemonic Import and HD provisioning share a repository-scoped
+operation owner across route replacement. Acquire ownership before deciding
+whether this wallet needs its first App Passphrase or verification of existing
+protected targets, and retain it through native work and persistence. A new
+screen or different entry method cannot reuse an earlier empty-inventory
+decision while another protected operation is unsettled.
+
+Waiting callers do not automatically resume generation/protection or inherit
+another operation's inputs/results. After settlement, retry is explicit and
+uses the current inventory and existing policy. First-run entry points obey
+the same inventory rule if another retired operation has already populated
+the wallet. Credential-relevant target changes while asynchronous work runs
+invalidate the operation before persistence; account labels and unrelated
+display metadata are not credential authority.
+
+Settlement notification contains no secret or previous result. An idle
+replacement screen may refresh public account/recovery identity, but must not
+perform the retired screen's selection/navigation. The active successful
+owner still completes its existing callback once. This clarifies the existing
+single App Passphrase invariant; it adds no verifier, SDK authority or schema.
+
 ## Duplicate account policy
 
 Account identity remains `(networkId, address)`.

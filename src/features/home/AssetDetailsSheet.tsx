@@ -12,6 +12,10 @@ import { TokenAssetIcon } from '../assets/TokenAssetIcon';
 import type { NativeBalanceBreakdown } from '@capabilities/balance/nativeBalanceBreakdown';
 import { BalanceFreshnessNotice } from './components/BalanceFreshnessNotice';
 import type { BalanceAsset, BalanceLine } from '../../capabilities/balance/types';
+import {
+  projectCreditBalanceAvailability,
+  type CreditBalanceAvailability,
+} from '../../capabilities/balance/creditBalanceAvailability';
 import { useLocalization } from '../../locale';
 import {
   canRemoveIssuedBalance,
@@ -133,8 +137,16 @@ export function AssetDetailsSheet({
         ) : (
           <IssuedAsset
             asset={asset}
-            canSend={canSign && actionable && canSendBalance(line.balance)}
-            canRemove={canSign && actionable && canRemoveIssuedBalance(line.balance)}
+            canSend={canSign && actionable && canSendBalance(line)}
+            canRemove={canSign && actionable && canRemoveIssuedBalance(line)}
+            availability={projectCreditBalanceAvailability(line)}
+            actionUnavailableReason={
+              !canSign
+                ? t('home.asset.readOnlySpendable')
+                : !actionable
+                  ? t('assets.availability.refreshRequired')
+                  : undefined
+            }
             confirmCopy={confirmCopy}
             copied={copied}
             line={line}
@@ -273,6 +285,8 @@ function IssuedAsset({
   line,
   canSend,
   canRemove,
+  availability,
+  actionUnavailableReason,
   confirmCopy,
   copied,
   onSend,
@@ -285,6 +299,8 @@ function IssuedAsset({
   line: BalanceLine;
   canSend: boolean;
   canRemove: boolean;
+  availability: CreditBalanceAvailability;
+  actionUnavailableReason?: string;
   confirmCopy: boolean;
   copied: boolean;
   onSend: () => void;
@@ -293,6 +309,16 @@ function IssuedAsset({
   styles: ReturnType<typeof createAssetDetailsSheetStyles>;
   t: (key: string, params?: Record<string, string>) => string;
 }>): React.JSX.Element {
+  const sendReason = canSend
+    ? undefined
+    : actionUnavailableReason ??
+      (availability.sendBlockedReason ? t(`assets.availability.send.${availability.sendBlockedReason}`) : undefined);
+  const removeReason = canRemove
+    ? undefined
+    : actionUnavailableReason ??
+      (availability.removeBlockedReason
+        ? t(`assets.availability.remove.${availability.removeBlockedReason}`)
+        : undefined);
   return (
     <View style={styles.details}>
       <View style={styles.balanceBlock}>
@@ -319,28 +345,74 @@ function IssuedAsset({
             <Text style={styles.cardValue}>{line.limit}</Text>
           </View>
         ) : null}
+        <BalanceDetailRow
+          label={t('assets.availability.available')}
+          value={availability.available ?? t('assets.availability.unknown')}
+          styles={styles}
+        />
+        <BalanceDetailRow
+          label={t('assets.availability.sellingLiabilities')}
+          value={availability.sellingLiabilities ?? t('assets.availability.unknown')}
+          styles={styles}
+        />
+        <BalanceDetailRow
+          label={t('assets.availability.buyingLiabilities')}
+          value={availability.buyingLiabilities ?? t('assets.availability.unknown')}
+          styles={styles}
+        />
+        <BalanceDetailRow
+          label={t('assets.availability.receivingCapacity')}
+          value={availability.receivingCapacity ?? t('assets.availability.unknown')}
+          styles={styles}
+        />
+        <BalanceDetailRow
+          label={t('assets.availability.authorization')}
+          value={t(`assets.availability.authorization.${availability.authorization}`)}
+          styles={styles}
+        />
+        <BalanceDetailRow
+          label={t('assets.availability.clawback')}
+          value={t(
+            availability.clawbackEnabled === undefined
+              ? 'assets.availability.unknown'
+              : availability.clawbackEnabled
+                ? 'assets.availability.enabled'
+                : 'assets.availability.disabled',
+          )}
+          styles={styles}
+        />
+        {availability.clawbackEnabled ? (
+          <Text style={styles.helper}>{t('assets.availability.clawbackHint')}</Text>
+        ) : null}
       </View>
       <View style={styles.actions}>
         <Pressable
           accessibilityRole="button"
           accessibilityState={{ disabled: !canSend }}
+          accessibilityHint={sendReason}
           disabled={!canSend}
-          onPress={onSend}
+          onPress={() => {
+            if (canSend) onSend();
+          }}
           style={[styles.action, canSend ? undefined : styles.disabled]}
         >
           <Text style={styles.actionText}>{t('home.asset.send')}</Text>
         </Pressable>
       </View>
+      {sendReason ? <Text style={styles.helper}>{sendReason}</Text> : null}
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ disabled: !canRemove }}
+        accessibilityHint={removeReason}
         disabled={!canRemove}
-        onPress={onRemove}
+        onPress={() => {
+          if (canRemove) onRemove();
+        }}
         style={[styles.remove, canRemove ? undefined : styles.disabled]}
       >
         <Text style={styles.removeText}>{t('home.asset.remove')}</Text>
       </Pressable>
-      {canRemove ? null : <Text style={styles.helper}>{t('home.asset.removeUnavailable')}</Text>}
+      {removeReason ? <Text style={styles.helper}>{removeReason}</Text> : null}
     </View>
   );
 }

@@ -5,6 +5,7 @@ import { loadBalanceSnapshot } from '@capabilities/balance/loadBalanceSnapshot';
 import type { PaymentReview } from '@capabilities/payment/buildPaymentReview';
 import { buildRequestUri, parseRequestInput } from '@capabilities/request/requestUri';
 import type { NetworkContext } from '@capabilities/network/types';
+import type { BalanceLine } from '@capabilities/balance/types';
 import { SendFlowScreen } from '../SendFlowScreen';
 import { SendEntryScreen, SendFormScreen } from '../SendFormScreen';
 import { SendEntryStatus } from '../SendEntryStatus';
@@ -205,6 +206,44 @@ it('clears the entered amount when selecting an asset in Details', async () => {
   const form = screen(draw(intent), SendFormScreen);
   form.props.onSelectAsset(native);
   expect(screen(draw(intent), SendFormScreen).props.amount).toBe('');
+  expect(buildSendReview).not.toHaveBeenCalled();
+});
+
+it.each([
+  [{}, 'unknown'],
+  [{ isAuthorized: false, isAuthorizedToMaintainLiabilities: true, sellingLiabilities: '0' }, 'maintain-liabilities'],
+  [{ isAuthorized: true, sellingLiabilities: '2' }, 'no-available-balance'],
+] as const)('blocks direct asset selection without losing the current draft: %s', async (fields, reason) => {
+  const asset = { kind: 'credit', code: 'USD', issuer: 'GISSUER' } as const;
+  const credit: BalanceLine = { asset, balance: '2', ...fields };
+  jest.mocked(loadBalanceSnapshot).mockResolvedValue({
+    status: 'active', address: account.address,
+    balances: [{ asset: native, balance: '10' }, credit], hiddenLiquidityPoolShareCount: 0,
+  });
+  draw(undefined);
+  jest.mocked(useEffect).mock.calls[0][0]();
+  for (let i = 0; i < 4; i++) await Promise.resolve();
+  screen(draw(undefined), SendFormScreen).props.onChangeAmount('3');
+  screen(draw(undefined), SendFormScreen).props.onSelectAsset(asset);
+  const form = screen(draw(undefined), SendFormScreen);
+  expect(form.props.selectedAsset).toEqual(native);
+  expect(form.props.amount).toBe('3');
+  expect(form.props.error).toBe(`assets.availability.send.${reason}`);
+  expect(buildSendReview).not.toHaveBeenCalled();
+});
+
+it('chooses an available default asset while keeping an unavailable first credit row visible', async () => {
+  const credit: BalanceLine = { asset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' }, balance: '2' };
+  jest.mocked(loadBalanceSnapshot).mockResolvedValue({
+    status: 'active', address: account.address,
+    balances: [credit, { asset: native, balance: '10' }], hiddenLiquidityPoolShareCount: 0,
+  });
+  draw(undefined);
+  jest.mocked(useEffect).mock.calls[0][0]();
+  for (let i = 0; i < 4; i++) await Promise.resolve();
+  const form = screen(draw(undefined), SendFormScreen);
+  expect(form.props.selectedAsset).toEqual(native);
+  expect(form.props.balances[0]).toEqual(credit);
   expect(buildSendReview).not.toHaveBeenCalled();
 });
 

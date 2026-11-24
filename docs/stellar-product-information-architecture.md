@@ -1,6 +1,6 @@
 # Fresnica Mobile 重写指南
 
-> 地位：产品范围、信息架构与完成标准权威。开工同时看本文成熟度总表和 `docs/fresnica-mobile-rewrite-execution-plan.md`；后者是唯一施工顺序与当前状态账本。
+> 地位：产品范围、信息架构与完成标准。GitHub、当前源码和 PR 状态是开发事实源；本文成熟度摘要与 [当前进度](fresnica-mobile-current-progress-and-next-plan.md) 同步事实，`fresnica-mobile-rewrite-execution-plan.md` 保留阶段、依赖和验收框架。
 >
 > 产品思路参考：`origin/Stellar@stellar-migration`（`bd0f4540`）。
 >
@@ -10,13 +10,13 @@
 >
 > 代码风格与分层规则：`docs/mobile-architecture-style-guide.md`。
 >
-> 本文覆盖 §13 所列历史文档里关于 Tab、产品壳和命名的说法。施工顺序/当前状态冲突时以 `docs/fresnica-mobile-rewrite-execution-plan.md` 为准；产品范围和完成标准冲突时以本文为准。
+> 本文覆盖 §13 所列历史文档里关于 Tab、产品壳和命名的说法。历史计划中的「候选／阻塞」不能覆盖已合并代码；产品范围和完成标准仍以本文及当前行为规格为准。
 >
 > 完整性优先于施工快。总表里不是「完成」或「卡上游（设计留位）」的 Phase，不得当作下一阶段的开工依据。
 
 ## 怎么用这份指南
 
-1. **开工**：先看下面成熟度总表确认 Foundation gate，再看 `docs/fresnica-mobile-rewrite-execution-plan.md` 的当前阶段、provenance 和依赖顺序。Phase 0 与 Stage 0A 基础门已建立；Stage 2.5 交易恢复已于 2026-09-10 用 S07/S30 完成首轮共享证明，当前继续 2c/F3 与 Stage 4。所有 donor-derived PR 仍持续执行 Stage 0A。
+1. **开工**：先恢复 GitHub/local exact HEAD、工作树和 PR，再看下面成熟度总表、[当前进度](fresnica-mobile-current-progress-and-next-plan.md) 与本 slice 行为规格。Phase 0/Stage 0A、导航主题基础及 Stage 2.5 共享恢复已有实现和各自证据，不重复重建。当前处理既有产品的窄范围状态合同修复；所有 donor-derived PR 仍持续执行 Stage 0A。
 2. **有什么**：产品表面 §7（含 §7.8）、工程角色 §14、数据权威 §2.1。Exclude 则停止。表外默认不存在；要做必须先入表。
 3. **做成什么样**：§8 与对应的 §9。Git 脚手架能点 ≠ 完成。`docs/mobile-capability-status.md` 只记现状，不当验收。
 4. **每条 PR**：下面三条门禁 + §11。共享契约没有的语义，不要在 Mobile 里发明。
@@ -25,7 +25,9 @@
 
 F0–F4 只是总表里的别名（导航库 / 守卫 / 栈 / 主题壳 / 按表面重建），**不再单独当施工队列**。
 
-### 成熟度总表
+### 成熟度总表 — 2026-11-24
+
+当前基线为 `main@6ed7b7c9d4c1ccf93e19dfc4265ec37d8a8b3f7d`，包含已合并 #231 UI、#230 SEP-53 修复和 #228 Android 前台 dApp 本地通知。下表区分实现与验收；本轮第 2–6 项作为修复候选交付，最终 PR/HEAD/检查/Work Review 在 [当前进度](fresnica-mobile-current-progress-and-next-plan.md) 登记。通知仅实现每次独立同意的 Android 子集，iOS 不支持，原生通知验收未完成；#78 暂停。历史原生结果保留原 SHA，Stage 9 iOS 真机 auth 取消/重试仍延期。
 
 状态词：`完成` = 不要重做；`脚手架` = 能跑，不算产品闭环；`未过` / `未做` = 挡住后续；`卡上游` = 设计留位，Mobile 不发明语义；`未到` = 还没轮到。
 
@@ -36,20 +38,20 @@ F0–F4 只是总表里的别名（导航库 / 守卫 / 栈 / 主题壳 / 按表
 | 1 骨架 | F1 部分 | build、启动、目录、CI | 完成 | App 能启动；CI 能跑真实步骤 | 再搭空 App |
 | 2a 注入 / 存储 / 网络 | — | `createAppServices`、Realm 身份、Horizon gateway | 完成 | 一份注入；密钥不进 Realm；链上快照不当 Realm 真值 | 重写存储/SDK 当「重写项目」 |
 | 2b 导航壳 | F0、F2 | React Navigation：根 stack + tabs + OverlayHost | 完成 | 主壳 tabs + 每 tab native-stack；Actions 为 overlay | 加 RNN / `NavigationService` |
-| 2c 主题 / 状态栏 / 安全区 | F3 | 可替换 `AppTheme`、壳 `StatusBar`、inset | **部分完成**：浅色语义主题、壳状态栏、安全区和共享 primitive 已接；dark/system/image theme 与 Settings 入口未完成 | §6 F3 退出勾选全部成立 | 未完成部分不得被脚手架冒充；不要和产品 Capability 混 PR |
-| 2d 日志 | — | Session logs / 统一 Logger | 基础完成 / 产品未做：有脱敏 ring-buffer logger；无全流程使用、Dev Mode 页面和用户导出闭环 | Dev Mode 后可查看/导出会话日志；日志无密钥 / 明文 XDR | 在业务 PR 里顺手发明第二套日志 |
-| 2e 会话 / 锁 | — | 选中账户一份；`locked` 角色 | 部分 / 卡上游 | 选中账户在 `app/`；锁不伪造解锁 | 假 PIN 顶上；各 Tab 各一份选中态 |
-| 3 Core 边界 | capability-status | Account / Balance / Payment / Transaction / Trustline / Signing / Gateway | 主体完成 | App 只依赖 capability，不依赖 `StellarSdk.xxx` | 缺的契约（Path Payment、SDEX、锁、dApp 授权）在 Mobile 发明 |
-| 4 Account 切片 | F4-1 | 启动 → 创建/导入 → 落库 → 进壳 | 脚手架 | §9 Onboarding；含硬件入口（可禁用） | 只加页面不加用例/测试 |
-| 5 Wallet / Balance | F4-2 | 选中账户、snapshot、Home、未激活 ≠ 断网 | 脚手架 | §9 Home；交易后 focus 失效 | 余额写入 Realm；乐观减余额 |
+| 2c 主题 / 状态栏 / 安全区 | F3 | 可替换 `AppTheme`、壳 `StatusBar`、inset | light/dark/system/image、图片调色与 Settings 入口已实现；完整视觉/原生验收未封板 | §6 F3 契约与原生/可访问性证据分别成立 | 把主题模式已实现等同最终视觉或 L4 |
+| 2d 日志 | — | Session logs / 统一 Logger | 脱敏 logger、Developer Mode Session Logs 查看/清空/分享已实现；完整诊断与原生验收仍有边界 | 日志无密钥/明文 XDR；导出与取消/失败有证据 | 在业务 PR 里发明第二套日志 |
+| 2e 会话 / 锁 | — | 一份选中账户；真实 `locked` 生命周期 | 应用锁、OS 生物识别 App access/口令回退、超时/隐私设置已实现 | App access 与签名授权独立；原生设备验收另列 | 假 PIN；把解锁凭证传给签名；各 Tab 独立选中态 |
+| 3 Core 边界 | capability-status | Account / Balance / Payment / Transaction / Trustline / Signing / Gateway | 支持范围内主体已实现，Swap/Claimable/SDEX/LP 和受限 dApp 复用边界 | App 消费 capability，SDK/Core 负责敏感操作 | 在 Mobile 发明未支持的 Soroban、多签或 provider 语义 |
+| 4 Account 切片 | F4-1 | 创建/导入/HD/watch-only、备份、账户生命周期 | 已实现；历史 L3 / L4 partial；本轮输入/清理修复为候选 | §9 Onboarding 与当前 S01/S02 规格；硬件/完整原生验收另列 | 把自动回归记作原生验收；重做未受影响流程 |
+| 5 Wallet / Balance | F4-2 | 选中账户、snapshot/cache、Home、未激活/离线 | 已实现；历史 L3 / L4 partial；本轮信用资产投影为候选 | §9 Home；分区缓存和权威重读；完整估值/原生证据另列 | 将缓存当链上真值；乐观改余额；XLM 估值冒充全资产估值 |
 | 6 交易框架 | — | prepare → review → authorize → sign → submit → 协调/结果 | **Stage 2.5 完成**：S07/S30 共用 pre-broadcast pending、无时效 duplicate guard、single-flight lifecycle reconciliation 与 read invalidation；Android 真实 Testnet process-death/restart 已验证 | 新写路径必须复用同一提交/reconciliation 管线并满足自己的 Capability/Stage 门 | 另建提交/恢复管线；把基础恢复通过误当成未开工写类型已获授权 |
-| 7 Send / Request | F4-3、F4-4 | 精确 XDR Send；Request 分享公开身份 | Send 脚手架；Request 未做 | §9 Send / Request | Phase 6 未复用就开新写路径 |
-| 8 Swap / SDEX | F4 表内未编号 | Path Payment；SDEX 独立 | Swap 卡 Path Payment 上游；SDEX 有规范但产品未实现 | 各自 Capability 契约 + 走 Phase 6 管线 | 未到契约就做执行；Swap 和 SDEX 混名 |
-| 9 Security | F4-9 部分 | System Auth、Vault、硬件签名、截屏 | 部分 / 卡上游 | §7.6–§7.7、§9 Security；锁/改口令卡 Core 则占位 | 把 System Auth 当成 Dev Mode 或锁已经做完 |
-| 10 Settings / 次要 | F4-5–8 | Dev Mode、主题入口、Activity 详情、dApps、Help | Activity detail 已有有限闭环；其余未做 / 预览壳 | 对应 §9；dApps 按 behavior clean-room 重写 | 空 Tab 当完成；复制 donor 或搬入 `services/` |
-| 11 发布 | — | 异常、deep link、崩溃、商店 | 未到 | 原生变更走 native gate；签名不回落 debug | 用 `steps:null` 当通过 |
+| 7 Send / Request | F4-3、F4-4 | 精确 XDR Send；SEP-7 / QR / Share / ingress | Details→Recipient→Summary、全局 Contacts、typed Memo 与 Request/扫码/Deep Link 已实现；M 暂停 | §9 Send/Request；fresh App Passphrase；剩余原生验收 | 把公开请求预填当签名或网络授权 |
+| 8 Swap / SDEX | F4 表内未编号 | Path Payment；SDEX 独立；LP 退出 | 报价/执行、订单管理、LP 持仓/退出已实现；完整交易面板及原生验收未完成 | 各自 Capability 与共享恢复；LP 存入/建池另列 | 沿用旧 #134 阻塞；Swap/SDEX/LP 混名 |
+| 9 Security | F4-9 部分 | App access、恢复材料/改口令、硬件、隐私 | 应用锁/reveal/reprotect/隐私已实现；硬件、Realm 加密生命周期及设备验收未完成 | §7.6–§7.7、§9 Security 与现行 S04 策略 | 把 App unlock 当签名授权；把 Developer Mode 当密钥鉴权 |
+| 10 Settings / 次要 | F4-5–8 | 主题/日志/网络、Activity、dApps、Help | 受支持产品流已实现；dApps 是受限签名矩阵；Terms 正文、完整支持及原生验收未完成 | 对应 §9 与行为规格；支持范围、失败路径、证据分别记录 | 把有限矩阵当任意 Soroban/dApp 支持；复制 donor |
+| 11 发布 | — | 异常、deep link、崩溃、商店 | Deep Link 与 Android 前台 dApp 本地通知已实现；完整通知/发布及原生验收未完成 | 签名/身份/发布和原生矩阵；Stage 9 iOS 真机 auth 延期项闭合 | 用 CI 或 `steps:null` 当原生发布验收 |
 
-当前封面结论：**Phase 0 与 Stage 0A 基础门已建立，Stage 1/2 可继续使用，Stage 2.5 交易恢复门已通过，但整个钱包仍未封板。** 当前继续 2c/F3 与 Stage 4；Stage 0A 对所有 donor-derived PR 持续生效。新的改账本产品类型仍必须先过自己的 Stage/Capability 门并复用 Stage 2.5 管线，不能因为恢复底座完成就提前实施。F4 已有切片仍按 §8/§9 补齐，不能因页面可达而标记完成。
+当前以既有实现为基础修复跨流程状态合同，不再把 Create/Import/HD、Request、Swap、dApps、主题或应用锁当作未开工。实现范围、exact-HEAD 审查和原生验收分别记录；本轮修复候选不提升 L4。Soroban 合约资产/auth-entry、硬件/完整多签、完整通知和发布仍是后续产品阶段；WalletConnect 关闭、M 地址暂停和 Terms owner 内容待定保持不变。新改账本类型必须经过自己的 Capability 门并复用共享提交/恢复。
 
 ### PR 门禁
 
@@ -139,9 +141,10 @@ Stellar 里有某个屏幕，只证明需要审计该产品行为，不代表可
 | 当前选中账户 | `app/` 组合层持有的公开 `accountId` | 每个 Tab 各自一份互不同步的选中态 |
 | 链上事实（余额、是否激活、trustline、手续费/储备） | Horizon，经 Balance / Trustline / Payment 等 capability | 把上次 snapshot **当成**已上链真值；乐观改数字 |
 | 历史操作 | Horizon 仍是权威；**允许**上次已拉页面的 UX 缓存（先展示再后台刷新） | 用本地缓存宣称「历史已完整 / 缺口已补全」（那是 donor 缺口恢复，History 契约没有） |
-| 慢变数据（资产图标/名称、目录 etag、claimable 快照 TTL） | 本地缓存 + 过期再拉 | 当账本余额或精确 XDR |
-| 用户 RPC / 网络列表 | 本地持久化（Settings）；当前连接走 gateway | 未开 Dev Mode 时伪装已在 Mainnet |
-| 可见网络 | Mainnet 正常默认；Testnet/custom node 由鉴权 Developer Mode 门控 | 未鉴权开放 Testnet/custom node，或把网络偏好当签名授权 |
+| 慢变展示数据（资产图标/名称、目录 etag） | 本地缓存 + 过期再拉 | 可信 origin、签名授权、账本余额或精确 XDR |
+| Claimable 快照 / 用户风险标记 | 快照按账户/网络缓存并受账本失效驱动；风险 override 是独立用户数据 | 仅凭 TTL 宣称账本仍新鲜；把风险标记当链上事实。本轮失效/删除修复尚待统一 Review |
+| 用户 RPC / 网络列表 | 本地持久化（Settings）；当前连接走 gateway | 未完成网络会话切换却宣称已经连接成功 |
+| 可见网络 | Mainnet 正常默认；Testnet/custom node 由警告/确认式 Developer Mode 门控，既有 Testnet 恢复例外按现行规格 | 把 Developer Mode 或网络偏好当签名授权 |
 
 **交易后怎么更新余额（也适用于 Trustline / 任何已上链结果）：**
 
@@ -151,7 +154,7 @@ Stellar 里有某个屏幕，只证明需要审计该产品行为，不代表可
 4. 下拉刷新走同一条 capability，不另开数据源。
 5. Horizon 404 是未激活；请求失败是断网 / 网关错误。二者不要和「刚转完、旧 snapshot 还在」混成一种 UI。
 
-Stage 2.5 已把 submitted/uncertain 写入 network/account-scoped invalidation，并接入 focus 与交易核对。2026-10-23 核查确认：原 foreground/network recovery 只核对 pending，无 pending 时不会因此刷新读取。补齐规格见 `docs/behavior-specs/account-data-lifecycle.md`：LC1 已通过 PR #111 合并（`2452623`），把生命周期读取失效与交易核对分离，补首次在线、后台门控、请求合并和旧响应隔离。余额展示缓存 LC2 已通过 PR #112 合并（`be96178`）。LC3 前台事件流已通过 PR #113 合并（`ea007d8`）；LC4 节点恢复与提交后有界收敛已通过 PR #114 合并（`288f5ca`）。原生到账/延迟与设备验收尚未完成。LC5 现有 Request/dApps 消费者接入为候选，尚无实现的缓存随所属产品交付，详见行为规格的消费者清单。
+Stage 2.5 已把 submitted/uncertain 写入 network/account-scoped invalidation，并接入 focus 与交易核对。2026-10-23 核查确认：原 foreground/network recovery 只核对 pending，无 pending 时不会因此刷新读取。补齐规格见 `docs/behavior-specs/account-data-lifecycle.md`：LC1 已通过 PR #111 合并（`2452623`），把生命周期读取失效与交易核对分离，补首次在线、后台门控、请求合并和旧响应隔离。余额展示缓存 LC2 已通过 PR #112 合并（`be96178`）。LC3 前台事件流已通过 PR #113 合并（`ea007d8`）；LC4 节点恢复与提交后有界收敛已通过 PR #114 合并（`288f5ca`）。原生到账/延迟与设备验收尚未完成。LC5 的 Request/dApps 和慢变缓存消费者已进入基线；Claimable 当前消费者也已实现，本轮修复 TTL 内失效和 Home 首次发现。最终候选证据以当前进度登记为准，不从既有 LC1–LC4 证据外推。
 
 **UX 缓存（要做）和「缓存当权威」（不做）不是同一件事。** 上次余额/历史可以立刻上屏，但过期后必须再问 Horizon；交易后必须失效。Stellar 把余额写进 Realm 当真值，那条不要。
 
@@ -159,28 +162,29 @@ Stage 2.5 已把 submitted/uncertain 写入 network/account-scoped invalidation�
 
 ## 3. 目标 vs 现状
 
-本文描述的是**目标**。Git 只是未完成脚手架，**不要拿当前代码当重写完成标准**。现有 Onboarding / Send / Home / Activity 能跑，不等于产品已覆盖。新代码用目标名。不要加 Events / XApps 兼容别名。
+本节按上述 exact main 基线记录当前实现，§7–§9 仍定义完整目标。支持范围内的可达实现不等于 Stellar 全量对齐或原生验收。新代码使用目标产品名，不加 Events / XApps 兼容别名。
 
-| 事项 | 目标 | 当前脚手架（不是完成态） |
+| 事项 | 目标 | 当前实现与验收边界 |
 | --- | --- | --- |
-| 产品壳 | Home / Activity / Actions / dApps / Settings | 当前为中性功能型 presentation：四个目的地只显示文字 Tab，中央 Actions 为 `+` + 文字，操作为纯文字按钮；无 donor 图标。最终视觉与品牌资产未完成 |
+| 产品壳 | Home / Activity / Actions / dApps / Settings | 四目的地与 Actions overlay 已实现；A1–A5 已合并，含通用扫码、Recent、featured 和 Swap source preflight；#231 UI 已进入基线，原生/可访问性验收另列 |
 | Tab id | `home`、`activity`、`dapps`、`settings` | 已是这些 id |
-| Activity | 完整列表 / 筛选 / 详情 | `features/activity` + History capability；列表与单 operation detail 已接，筛选/搜索/完整 operation-family projection 未完 |
-| dApps | clean-room 重写 Stellar 已形成的目录、Recent、浏览器、权限、Freighter 桥行为 | `features/dapps` 预览壳，未接目录 |
-| Developer Mode | 采用 Stellar/Xaman 设计（鉴权开启、网络可见性、日志、开发者页） | 鉴权/网络门控候选已实现；Session Logs/完整开发者工具未完成，原生验收待执行 |
+| Activity | 完整列表 / 筛选 / 详情 | 分页/搜索/筛选/详情、主要 operation-family 与可核实 effects、缓存/离线已实现；完整原生矩阵尚未封板 |
+| dApps | clean-room 目录、Recent、浏览器、权限、Freighter 桥 | catalog/details/cache、Recent、custom URL/disclaimer、origin 生命周期、授权/撤销、受限支付签名和 SEP-53 已实现；Soroban/token/auth-entry 不支持，WalletConnect 关闭 |
+| Developer Mode | 警告/确认开启、网络可见性、日志、开发者设置 | Network 工具与脱敏 Session Logs 查看/清空/分享已实现；不要求签名口令。完整开发工具及原生验收仍有边界 |
 | 硬件钱包 | 产品内一等 signer（添加、签名、账户列表） | 类型里有 `hardware`，产品流 **未做** |
-| Vault / 加密 | 参考 Stellar Vault overlay 与 native 加密；Core 管密钥 | 无 Vault overlay；Realm 不存密钥 |
-| 自定义主题 | 上传图片 → 提取主色 / 次主色等 → `AppTheme` 全 app 应用 | semantic `AppTheme` 与可替换 seed 接口已建立；当前功能型 UI 消费语义 token。dark/system/image-generated theme、最终视觉与品牌资产仍未完成 |
-| 状态栏 / 安全区 | 状态栏对比度跟主题走；壳消费设备 inset（刘海 / 灵动岛 / 手势条） | App-level `StatusBar` + `SafeAreaProvider` + shared `Screen` 已接；Feature 直接 `SafeAreaView` 审计为 0。dark/system/image theme 仍未完成，契约见 §10.1 |
-| 导航 | React Navigation：根 stack + tabs + 每 tab 的 native-stack + OverlayHost | **F2 主壳已接上。** 根流程仍按 bootstrap 条件注册 `bootstrap` / `onboarding` / `main`；`locked` 已注册但未进入；modal / 其余 overlay 角色尚未占用 |
-| 链上快照 | 交易后（含 uncertain）按账户失效，focus / 显式刷新再拉 Balance / History | Stage 2.5 已建立 network/account-scoped invalidation revision；submitted/uncertain、reconciliation、focus 与 manual refresh 会驱动 Balance / Activity 重新读取权威状态 |
-| i18n | 已改写表面没有硬编码文案 | 语言运行时已有；多数屏幕仍是英文直写 |
+| Vault / 加密 | 敏感材料/授权生命周期由 Core 和原生机制约束 | 已有 passphrase/reveal/change-passphrase 产品流；没有引入 donor Vault。Realm 加密密钥生命周期和硬件仍未完成 |
+| 自定义主题 | 图片取色生成 `AppTheme` 并持久化 | light/dark/system/image 和图片调色、Settings 入口已实现；完整视觉/设备验收另列 |
+| 状态栏 / 安全区 | 对比度跟随主题；壳消费设备 inset | App-level `StatusBar`、`SafeAreaProvider`、shared `Screen` 和模式切换已接；需要逐表面原生/动态字体/读屏证据 |
+| 导航 | 根 stack + tabs + 每 tab native-stack + overlay | `SessionGate` 在导航外承载真实 SessionUnlock；AppNavigator 保留旧 `locked` route 占位。Review、扫码、Actions/账户选择等产品角色已可达 |
+| 链上快照 | submitted/uncertain、账本事件与生命周期按账户失效，再问权威 | Balance/History 读取有分区/代次隔离和可替换缓存；本轮 Claimable revision/首次发现及删除后旧响应退休仍是候选 |
+| i18n | 已改写表面无硬编码产品文案 | 语言运行时和共享词典已实现；局部旧英文与完整读屏/动态字体验收仍需按产品表面收口 |
 
-本轮 Stage 0A presentation remediation 的成熟度必须拆开记录：**功能闭环：已实现；语义主题接口：已建立；临时功能型 presentation：已实现；最终视觉设计与品牌资产：未完成。** 最终设计替换 presentation 时不得重写 Capability、Transaction 或 Platform。
+Stage 0A 的历史 presentation remediation 记录继续保留；现已实现的主题与 #231 UI 不应倒退标成纯文字脚手架。最终视觉、可访问性和原生产品验收仍各自记录；替换 presentation 不重写 Capability、Transaction 或 Platform。
 
-安全不变量仍要遵守（Account ≠ Signer、密钥不进 JS 持久化、会改账本的路径绑精确 XDR）。它们约束怎么实现，不证明当前屏幕已经写完。`docs/mobile-capability-status.md` 只记录脚手架做过什么，不当产品验收。
+安全不变量仍要遵守（Account ≠ Signer、密钥不进 JS 持久化、会改账本的路径绑精确 XDR）。它们约束怎么实现，不证明当前屏幕已经写完。`docs/mobile-capability-status.md` 分别记录实现范围与证据，不单凭可达页面判定产品验收。
 
 ---
+
 
 ## 4. 产品壳
 
@@ -190,10 +194,10 @@ Home | Activity | Actions | dApps | Settings
 
 - `Home`、`Activity`、`dApps`、`Settings` 是真正的目的地。
 - `Actions` 是中间触发器。它打开操作 overlay，不得变成被选中的 Tab。
-- 根流程：`bootstrap` → `onboarding/setup` →（`locked`）→ `main`。
-- 即使上游 System Auth challenge 仍缺失，`locked` 也留在树里。不要伪造解锁。
+- 产品生命周期包含 bootstrap、onboarding/setup、App access 锁定和 main；真实锁屏由导航外的 `SessionGate` 呈现。
+- `SessionGate` 使用真实 App access 生命周期；OS 生物识别/口令回退与每次签名授权分开。旧 `locked` route 占位不能作为应用锁未实现的依据。
 
-计划改名后的 feature 归属：
+当前 feature 归属：
 
 | Tab / 操作 | 目标 feature | 当前目录 |
 | --- | --- | --- |
@@ -201,7 +205,7 @@ Home | Activity | Actions | dApps | Settings
 | Activity | `features/activity` | `features/activity` |
 | dApps | `features/dapps` | `features/dapps` |
 | Settings | `features/settings` | `features/settings` |
-| Send / Request / Exchange | `features/send`、`features/request`、`features/exchange` | Send 已有；Request / Exchange 没有 |
+| Send / Request / Swap | `features/send`、`features/request`、`features/swap` | 三条支持范围内的产品流均已实现 |
 
 产品壳的 locale key 用产品名（`activity`、`dapps`），不用 donor 残留 id。
 
@@ -234,7 +238,7 @@ App
 
 `app/navigation` 负责 tab / stack / modal。OverlayHost 留在 `app/` 组合层。feature 不得 import 全局 `NavigationService`。只有当 OverlayHost 无法覆盖必须盖住原生 modal 的锁 / 鉴权层，并且把失败证据记下来，才重新考虑 RNN。
 
-根流程（`bootstrap` / `onboarding` / `locked` / `main`）当前按鉴权状态**条件注册**其中一个主屏幕，同时始终注册 `locked` 占位。这不是产品 destination `switch`。不必在 F3 之前改成四屏始终挂齐；有真实 lock / onboarding 子栈时再改。
+AppNavigator 按 bootstrap 条件注册产品根；外层 `SessionGate` 按 applicationSession 状态显示 SessionUnlock 或导航。旧 `locked` route 仍保留占位，实际锁屏不靠跳转该 route。根生命周期不是产品 destination `switch`，不为文档形式重建导航。
 
 F2 已用稳定 React Navigation 7.x，并匹配 `react-native-screens`、`react-native-safe-area-context`。`react-native-gesture-handler` 尚未装；需要手势栈或 modal 手势时再补。不要在本指南里钉 pre-release。
 
@@ -253,7 +257,7 @@ JS bootstrap     装 polyfill、建 Realm / SDK / gateway（createAppServices）
         ↓
 onboarding       创建 / 导入 / 待备份（产品流）
         ↓
-locked           应用锁；上游 API 未到也不要伪造解锁
+SessionGate      应用锁；OS 生物识别 / SDK 口令回退，独立于签名授权
         ↓
 main             四 Tab + OverlayHost
 ```
@@ -263,9 +267,9 @@ main             四 Tab + OverlayHost
 | Splash | 原生启动画面，JS 起来前 | 产品 Onboarding；也不是 `bootstrap` 路由 |
 | `bootstrap` 路由 | JS 启动闸：依赖还没有、或启动失败 | 闪屏；钱包已就绪后的空白页 |
 | Onboarding | 没有可用钱包、或待备份时的产品栈 | 每次冷启动都要走的 Splash |
-| `locked` | 会话锁占位，始终注册 | 当前没有进入路径时用假 PIN 顶上 |
+| App access / `locked` 角色 | `SessionGate` / SessionUnlock 的真实锁定恢复；同名导航 route 仍是旧占位 | 签名授权、导出授权或假 PIN |
 
-根流程目前按鉴权状态**条件注册**其中一个主屏幕。不必在 F3 之前改成四屏始终挂齐；有真实 lock / onboarding 子栈时再改。
+根流程按实际 bootstrap / App access 生命周期选择产品分支；锁定和离开前台不应让旧审核回调恢复有效。
 
 ---
 
@@ -273,9 +277,11 @@ main             四 Tab + OverlayHost
 
 **排队以文首成熟度总表为准。** 本节只保留总表引用的合同细节。不要把 F0–F4 读成「F2 完了就做 F3」。
 
-完整性优先：Phase 0 已过。2c 已有浅色语义主题/壳基础但未完成 dark/system/image theme 与 Settings 入口；不得把未完成部分说成已消费。不要把 F1–F3 和新的产品 Capability 混在同一批改动里。
+Phase 0 和主题/壳模式实现均已有基础；当前剩余验收按文首总表逐项记录。不要重复搭建 F1–F3，也不要把无关产品 Capability 混在一批改动里。
 
-### 6.0 Phase 0 盘点（有界，已写入）
+### 6.0 Phase 0 盘点（有界，历史快照）
+
+以下盘点保留原阶段对 Stellar 调用链和 Fresnica 当时缺口的记录，不代表 2026-11-24 的功能状态。表中的「脚手架／未做／卡上游」只说明当时情况；当前实现以文首成熟度表、§3 和当前行为规格为准，尤其 Swap、应用锁、Request、dApps、主题与日志已不再沿用旧阻塞。
 
 范围：Onboarding、Home、Send、Activity、Settings、Trustline、dApps，以及共享审阅 / 提交 / 鉴权 / Vault。不扫 Stellar 每一个 XRPL 残留模板。
 
@@ -495,7 +501,7 @@ XAppsView → DappCatalogService（https://dapp.fchain.io/v1）
 | 迁入 Fresnica 分层，不搬 `services/` | 待建 dApp 授权 capability |
 | 删：Xaman xApps 后端 | 已 Exclude |
 
-#### 对照 Fresnica 现状（本行闭合依据）
+#### 对照当时 Fresnica 状态（Phase 0 历史闭合依据）
 
 | 表面 | Stellar 链已梳 | Fresnica |
 | --- | --- | --- |
@@ -511,7 +517,7 @@ XAppsView → DappCatalogService（https://dapp.fchain.io/v1）
 
 有界范围外仍 Exclude 的：Tangem、Cipher、内购 / Monetization、NetworkRailsSync、XRPL Destination tag **名**、Realm Viewer。Xaman `BackendService` 咨询/KYC/third-party-permissions 云 API 仍 Exclude。
 
-**与原设计冲突、因本次产品确认而改表的：** Push（原 §7.1 Exclude）、Activity UX 缓存（原 History non-goal「不要持久化缓存」过粗）、Friendbot/Linking/资产元数据/Claimable 搬运（原盘点标成可选/占位/Phase 11）。Swap **产品要做**，但 Path Payment **执行契约**仍是 fresnica#134，这条没有因「钱包需要 swap」而消失。
+**当时与原设计冲突、因产品确认而改表的：** Push（原 §7.1 Exclude）、Activity UX 缓存（原 History non-goal「不要持久化缓存」过粗）、Friendbot/Linking/资产元数据/Claimable 搬运（原盘点标成可选/占位/Phase 11）。当时 Swap 等待 fresnica#134；该记录保留依赖来源，当前支持范围内的 Swap 执行已实现，不再是现行阻塞。
 
 本行退出条件已满足：**Phase 0 过关。** 不得再以「盘点没做」挡 2c。F3 已有浅色语义主题、壳状态栏/安全区与共享 primitive，剩余项以总表和执行计划为准。
 
@@ -560,8 +566,8 @@ F2 落实这一选择。不要加 RNN。不要引入 `NavigationService` 或其�
 F2 尾巴，随对应表面补（不构成「可以开 F3」）：
 
 - 根流程仍按 bootstrap **条件注册** `bootstrap` / `onboarding` / `main`（见 §5 说明）。不必为了主题壳先改成始终挂齐四屏。
-- `locked` 已在根栈注册，没有进入路径，也不要伪造解锁。
-- `presentation: 'modal'` 以及锁 / 鉴权 / Alert / 切账户 overlay，等那些表面存在再占用角色。
+- 真实锁定/恢复由 `SessionGate` 承担；保留的 `locked` route 占位不作为产品证据。App access 不授予签名权。
+- modal / overlay 已承载审核、扫码、Actions、账户选择与授权；各 surface 继续使用其生命周期/取消边界。
 - Activity `operation-details` 已挂入 Activity native stack；导航只传 `accountId + operationId`，详情重新查询 History capability。
 
 ### F3 — UI kit 契约（总表 2c；Phase 0 已过，本行部分完成）
@@ -580,7 +586,7 @@ F2 尾巴，随对应表面补（不构成「可以开 F3」）：
 
 退出条件：
 
-- [ ] `AppTheme` 语义字段已写出，并且能被「默认主题」和「从图片生成的主题」替换，而不改 feature 屏幕
+- [x] `AppTheme` 语义字段和默认/图片主题替换已实现；该实现勾选不替代原生产品验收
 - [x] `AppTheme` 能派生或携带状态栏内容样式（浅底深字 / 深底浅字）；壳随主题替换更新
 - [x] 当前约定中的壳组件消费 token；这些文件没有裸颜色
 - [x] 自定义主题的入口位置已记在 Settings（实现可在 F4 之后，契约必须在 F3 留下）
@@ -600,13 +606,13 @@ F2 尾巴，随对应表面补（不构成「可以开 F3」）：
 8. dApps：保留 Stellar 已形成的产品行为，按 Stage 0A provenance 做 clean-room 重写，不是空壳
 9. Vault overlay（参考 Stellar，接 Fresnica 签名 / 揭示）
 
-Exchange / Path Payment、SDEX 挂单仍在产品表里（§7.2），执行卡上游契约时不要从 F4 清单删掉，也不要提前在 Mobile 发明语义。
+Swap / Path Payment 与 SDEX 挂单已在支持范围内实现并留在产品表（§7.2）；新增交易语义仍须有 Capability 契约。
 
 每个表面必须满足 §8 和对应的 §9，并消费它用到的 §2.1 / §14 行。对照的是 Stellar 产品行为，不是当前 Mobile 占位。
 
 退出条件：这些流程能通过 F2 导航到达；`npm run check` 通过；安全不变量没有被削弱。
 
-实现可能卡在上游、但**设计必须包含**的：Path Payment / Swap 执行、应用锁、已有钱包添加受保护软件 signer、Realm 加密密钥生命周期、多签、**硬件签名器**、Mainnet。Mainnet 是正常模式默认网络；Testnet 与自定义 endpoint 才由 Developer Mode 门控，不要把当前 Testnet 脚手架冒充发布网络策略。
+Swap 执行、应用锁、已有钱包软件 signer 添加和 Mainnet 已有实现。仍需单独交付的 Realm 加密密钥生命周期、完整多签、硬件签名器继续留在设计中；Mainnet 为正常默认网络，Testnet/custom endpoint 的门控与恢复例外按当前网络规格。
 
 ---
 
@@ -620,8 +626,8 @@ Adopt（采用）= 在 Fresnica 重写用户可见表面。Adapt（适配）= �
 | --- | --- | --- | --- |
 | Onboarding | Adopt | `features/onboarding` | Account、Signer、Application Security |
 | Setup / Passcode | Adapt 为应用口令 | `features/onboarding`、`features/security` | Application Security、Signing Coordination |
-| Setup / Biometry | 有 System Auth 契约则 Adopt | `features/security` | Application Security |
-| Setup / Push notification | **Adopt**（产品提升；不要搬 Xaman Firebase 签请求） | `features/settings` / platform | 需自有推送契约，当前无 |
+| Setup / Biometry | Adapt 为独立 OS App access；签名另取口令 | `features/security` | Application Security |
+| Setup / Push notification | **Adopt**（产品提升；不要搬 Xaman Firebase 签请求） | `features/settings` / platform | 完整通知/Backend 为后续范围；#228 Android 前台本地通知已合并，iOS 不支持；[S21 规格](behavior-specs/s21-dapp-local-notifications.md) 与原生验收分别记录 |
 | Setup / Finish | Adopt | `features/onboarding` | Account |
 
 ### 7.2 Tab 与主操作
@@ -630,13 +636,13 @@ Adopt（采用）= 在 Fresnica 重写用户可见表面。Adapt（适配）= �
 | --- | --- | --- | --- |
 | Home | Adopt | `features/home` | Account、Balance |
 | Events id / Activity 名 | Adopt 为 Activity | `features/activity` | History |
-| XApps id / dApps 名 | 保留 Stellar 已形成的目录、Recent、浏览器、权限、Freighter 桥、数据互通行为，按 Stage 0A clean-room 重写 | `features/dapps`（当前仍是预览壳） | 待建 dApp 授权 / 桥接；donor 是行为审计来源，不是可复制实现 |
+| XApps id / dApps 名 | 保留 Stellar 目录、Recent、浏览器、权限、Freighter 桥行为，clean-room 重写 | `features/dapps`（受支持子集已实现） | 完整 Soroban/任意交易矩阵仍未完成；donor 仅是行为来源，不可复制实现 |
 | Settings | Adopt | `features/settings` | — |
 | Overlay / HomeActions | Adopt | app 壳 + feature 操作 | — |
 | Send | Adopt | `features/send` | Payment、Transaction、Signing Coordination |
 | Request | Adopt | `features/request` | Account（分享公开身份） |
-| Exchange | Adopt UI 结构；执行卡在 Path Payment 契约 | `features/exchange` | Path Payment（缺失） |
-| SDEX 挂单 | Adopt 为独立产品阶段，不要和 Exchange / Path Payment 混名 | 待建 `features/`（或 Exchange 内明确分子流） | 上游 SDEX 契约已有；未排进 F4 主序编号，设计要留位 |
+| Exchange / Swap | Adapt 为已实现的 strict-send/receive Swap；原生验收另列 | `features/swap` | Path Payment / Transaction |
+| SDEX 挂单 | Adapt 为独立订单产品；列表/创建/修改/取消已实现 | `features/markets` | SDEX / Transaction；市场图表和完整交易面板另列 |
 
 ### 7.3 账户
 
@@ -645,7 +651,7 @@ Adopt（采用）= 在 Fresnica 重写用户可见表面。Adapt（适配）= �
 | Account Add / Import / Generate / List / Edit | Adopt | `features/accounts` | Account、Signer |
 | 添加硬件钱包 | Adopt；设计阶段就纳入，不是 residual | `features/accounts`、Signing | Signer（`hardware`） |
 | 查看助记词 / 密钥 | Adopt；可参考 Stellar Vault 揭示交互 | `features/security` | Signer、Application Security |
-| 修改口令 | Core 验证 API 就绪后 Adopt | `features/security` | Application Security |
+| 修改口令 | Adopt；当前 SDK 验证/reprotect 与原子持久化路径已实现 | `features/security` | Application Security |
 | Tangem（Xaman 卡） | Exclude，除非 Core 明确支持 | — | 不是通用硬件钱包需求 |
 | Cipher 迁移 | Exclude | — | donor 残留 |
 
@@ -657,12 +663,12 @@ Adopt（采用）= 在 Fresnica 重写用户可见表面。Adapt（适配）= �
 | --- | --- | --- |
 | 审阅交易 | `Modal/ReviewTransaction` | Adopt；绑定精确 XDR |
 | 提交 / 进度 / 结果 | `Modal/Submit`、`TransactionLoader` | Adopt |
-| 扫码 | `Modal/Scan`，由 HomeActions 打开 | Adopt。已落地的是 Request 内付款请求扫描：摄像头，以及系统相册单张选图后只读 QR，进入同一 SEP-7 解析器。HomeActions 上的共享扫码入口尚未接线 |
+| 扫码 | `Modal/Scan`，由 HomeActions 打开 | Adopt。Request 摄像头/系统相册 QR 与 A2 Actions 通用扫码均已接线，公开输入进入 typed parser/router；扫描不授予签名权 |
 | 币种 / 收款方 / 账户 / 手续费选择器 | Modal + Overlay pickers | Adopt 角色；手续费策略仅在 Capability 支持时 |
 | 全局选择器 | `Global/Picker` | Adopt 为共享选择器壳 |
 | Alert / 确认 | `Overlay/Alert` | Adopt |
 | 鉴权 / 口令 | Auth overlays | Adapt 到 Signing Coordination；可参考 Vault 方法 |
-| 锁 | `Overlay/Lock` | Adopt 角色；实现可能卡上游 API，设计要留位 |
+| 锁 | `Overlay/Lock` | Adapt 角色；当前由 SessionGate / Application Session 实现，独立于签名授权 |
 | Vault / 解密签名 | `Overlay/Vault`、`common/libs/vault.ts` | **参考**并纳入；接 Fresnica 签名 / 揭示，不要当第二套加密权威 |
 | 切换账户 / 网络 | overlays | Adopt |
 | 分享账户 | overlay | Adopt |
@@ -695,13 +701,13 @@ Settings
 
 ### 7.6 Developer Mode
 
-Stellar 保留了 Xaman 的 Developer Mode，Fresnica **要做**。当前候选已实现模式鉴权和网络工具；Session Logs/完整开发者页仍待后续切片，见共享行为契约。
+Stellar/Xaman 的 Developer Mode 产品角色已在 Fresnica 重写。当前已实现警告/确认开关、网络工具和脱敏 Session Logs；完整诊断工具与原生验收继续按 S23–S25 规格收口。
 
 参考 `origin/Stellar`：`Settings/Advanced/AdvancedSettingsView`、`CoreRepository.isDeveloperModeEnabled`、`NetworkRepository.getVisibleNetworks`。
 
 产品角色：
 
-- Advanced 里开关；**开启需鉴权**，并警告。
+- Advanced 里开关；开启需阅读警告并确认，不要求 App Passphrase 或签名授权。
 - 开启后：显示测试网等非 Main 网络、Session logs、Developer settings、Android 可关截屏保护。
 - 关闭时：若当前不在 Main 网络，先切回默认网络再关。
 - Send / Token settings 等处的 Dev Mode 分支一并搬产品行为，语义仍走 Fresnica 网络 / 网关。
@@ -765,7 +771,7 @@ Stellar 有、§7.1–§7.7 原先没逐行写的表面。这里给决定，避�
 
 - 创建 / 导入 / 只读观察仍走 SDK 保护 API。JS 持久化里不得出现明文助记词或口令。
 - 添加流程里要有**硬件钱包**入口（§7.7）。Core 未接通时可禁用，不能从信息架构里删掉。
-- 已有钱包上添加受保护**软件** signer 保持关闭，直到 Core 提供只验证当前口令的能力。
+- 已有钱包 Create/Import/HD 已通过 SDK 当前口令验证接通；按当前 S01 规格处理各自授权和敏感输入生命周期，不重复封闭已有路径。
 - 待备份助记词是栈上的一等目的地，不能只靠 bootstrap 特例。
 - 文案和错误已本地化。
 
@@ -790,7 +796,7 @@ Stellar 有、§7.1–§7.7 原先没逐行写的表面。这里给决定，避�
 ### Activity
 
 - 运行时 id 和目录是 `activity` / `features/activity`。用户文案是 Activity。Capability 仍是 `capabilities/history`。
-- 列表行为对齐按 [S13 list alignment](behavior-specs/s13-activity-list-alignment.md) 分批交付：先补现有 payment/create_account/change_trust 的主体身份与金额布局；具体日期分组保留，不采用 Today/Yesterday。S22 名称仅作当前网络临时展示，不进入 History/cache。后续操作族和可见性规则按同一清单补齐，不能把首片当全量完成。
+- 列表行为对齐按 [S13 list alignment](behavior-specs/s13-activity-list-alignment.md) 分批交付：先补现有 payment/create_account/change_trust 的主体身份与金额布局；具体日期分组保留，不采用 Today/Yesterday。S22 全局联系人名称仅作临时展示，不进入 History/cache；联系人创建网络是来源信息，不是展示分区。后续操作族和可见性规则按同一清单补齐，不能把首片当全量完成。
 - 列表、下拉刷新、加载更多、空态、错误、操作详情都在。
 - FilterEvents：对已加载（含 UX 缓存）条目做呈现筛选。允许上次列表先上屏再刷新。**不要**把本地缓存说成完整链上历史或做 donor 缺口恢复。
 - 从改账本流回到已挂载的列表时，同样失效 / 刷新。
@@ -798,13 +804,13 @@ Stellar 有、§7.1–§7.7 原先没逐行写的表面。这里给决定，避�
 
 ### Settings / Security / Language / Network / About / Developer Mode / 主题
 
-- 分组符合 §7.5。**Developer Mode 是必要项**，不是推迟项。当前候选的鉴权/网络门控按 §7.6 与共享行为契约验收；日志等未实现范围继续保留。
+- 分组符合 §7.5。**Developer Mode 是必要项**，不是推迟项。当前警告/确认式模式、网络工具与日志按 §7.6 和 S23–S25 规格验收；完整诊断/原生证据另列。
 - 自定义主题入口在 General；实现依赖 F3 的 `AppTheme` 可替换契约。
 - 不要在未开 Dev Mode 时提供假 Mainnet 开关。用户仍可在已可见网络上 **增删 RPC**。
 - 推送是产品项（§7.1 已提升）；不要搬 Xaman SignRequest 云载荷。
 - 语言通过 locale preference store 持久化。
-- Security / Vault 不把密钥写入普通持久化。应用锁在上游 API 出现前保留占位角色。
-- S04 System Auth 关闭属于高影响安全设置变更：点击关闭先进入明确确认，不得直接调用 Native remove。确认文案必须说明关闭后 routine signing 将回退到 Fresnica/App Passphrase，同时明确不会删除钱包、protected signer 或改变 App Passphrase。Cancel、遮罩/系统返回均不得产生副作用；Confirm 在 busy 期间只能执行一次。Native 关闭失败时继续展示真实 enabled 状态并允许重试，不得用本地状态伪装成功。该行为来自 Fresnica 安全产品要求，本切片不依赖 donor 实现。
+- Security / Vault 不把密钥写入普通持久化。当前应用锁使用 SessionGate/Application Session，和签名 SDK 的 fresh-passphrase 权限分开。
+- 当前 Security 生物识别设置仅控制 App access；关闭后使用 SDK 口令回退，每次签名始终另取 fresh App Passphrase。旧 routine-signing System Auth 开关/确认记录按历史证据保留，不作为当前签名策略。取消/失败保持真实状态并允许重试，不能用本地状态伪装授权成功。
 - ChangeLog 在 About 或版本升级说明里；Terms / Credits 走通用 InAppBrowser，不走 dApp 浏览器。
 - Connected dApps 覆盖原 ThirdPartyApps 角色，不另开一页。
 
@@ -820,17 +826,17 @@ Stellar 有、§7.1–§7.7 原先没逐行写的表面。这里给决定，避�
 - Tab id 和目录是 `dapps` / `features/dapps`。用户文案是 dApps。
 - clean-room 重写并覆盖 Stellar 已形成的行为：FChain 目录、Home / Recent、分类、自定义 URL、disclaimer、浏览器、Freighter 注入、权限与数据互通。`origin/Stellar` 的 `screens/xApps`、`Modal/XAppBrowser`、`freighter/` 只作行为与协议审计来源；直接移植文件必须有独立权利证据和审批记录。
 - 实现在 Fresnica 分层内完成，不要复制 donor 目录或整棵 `services/`。
-- 当前 `features/dapps` 预览壳**不算**完成。
+- 当前 catalog/browser/permission/Freighter/SEP-53 支持子集已实现；这不等于完整 Soroban/任意交易矩阵或原生验收完成。
 
 ### 硬件钱包
 
 - 见 §7.7。账户、签名、列表三条路径都要在设计里。当前「Not yet implemented」不是 Exclude。
 
-### Request / Exchange / SDEX
+### Request / Swap / SDEX
 
-- Request 若只分享公开账户身份，可在 Home / Send 之后做。
-- Exchange 盘点 UI 结构。Path Payment 执行仍可能卡契约，但不要从产品表删掉。
-- SDEX 挂单是独立阶段（§7.2 / §7.8），跟 Exchange 换汇不是同一产品。未排进 F4 编号前，不要用 Path Payment 屏幕冒充挂单。
+- Request 已实现公开 SEP-7/QR 分享与受控输入；预填必须继续进入显式 Send 审阅。
+- Swap 的报价/执行与 SDEX 订单管理均已实现支持子集，不再沿用旧 Path Payment 合同阻塞。
+- SDEX/LP 与 Swap 是独立产品表面；LP 存入/建池、完整市场面板和原生验收仍另列。
 
 ---
 
@@ -867,7 +873,7 @@ F3 只锁这些：
 - 安全区用已接入的 `react-native-safe-area-context`（根上 `SafeAreaProvider`，壳用 `useSafeAreaInsets`）。Screen / Header / TabBar / Overlay 消费 inset。不要再搬 Xaman 的 native inset 模块，不要为灵动岛写死 47/59，不要把 RN 自带 `SafeAreaView` 当成完成态（Android 挖孔和自定义 TabBar 底栏都不可靠）。
 - **主 Tab 底栏安全区所有权（2026-11-23）：** `MainTabBar` 的 `SafeAreaView` 唯一消费底部 inset；Home、Activity、dApps、Settings 根页面及无账户占位页的 `Screen` 只消费 `top/right/left`。滚动内容末尾保留 8 dp 的视觉缓冲，不叠加额外底部安全区。次级路由（交易详情、账户管理、设置子页）、登录/恢复表单及弹窗继续使用各自默认/专用的底部安全区，不能全局删除 `Screen` 默认 `bottom`。本变动仅是布局所有权调整，不改变数据、导航或授权语义。
 - 允许内容画到状态栏后面（edge-to-edge），由壳 inset 让开刘海 / 灵动岛 / Home Indicator / 手势条。
-- F3 壳原语已落地 App-level `StatusBar`、`SafeAreaProvider` 与 shared `Screen` inset；F4 表面只消费壳。dark/system/image-generated theme 等未完成项仍不得冒充完整 F3。
+- F3 壳原语已落地 App-level `StatusBar`、`SafeAreaProvider` 与 shared `Screen` inset；F4 表面只消费壳。light/dark/system/image 已实现；不得由此直接宣称完整 F3 原生/可访问性验收。
 
 ---
 
@@ -876,7 +882,7 @@ F3 只锁这些：
 先看文首总表：该 Phase 未过则不要开这条表面。导航库是 React Navigation（§5；总表 2b）。每条 PR 还要过文首三条门禁（垂直切片、交易一体、闭环进度）。
 
 1. 在 PR 说明里写出 §7 / §7.8 / §14 / §2.1 对应行、feature 归属、Capability。若是 Exclude，停止。
-2. 读 `docs/mobile-capability-status.md` 只当作「脚手架现状」，不当验收。Capability 被挡住时 UI 保持诚实（禁用 / 占位），但不要从产品表删掉（硬件钱包、Dev Mode、dApp 都是例子）。
+2. 读 `docs/mobile-capability-status.md` 区分实现范围、历史证据和未验收项。Capability 被挡住时 UI 保持诚实（禁用 / 占位），但不要从产品表删掉（硬件钱包、Dev Mode、dApp 都是例子）。
 3. 看 `origin/Stellar`：只提取屏幕顺序、空态 / 加载 / 错误、overlay / modal、协议输入输出和异常行为。dApp 同样执行 Stage 0A provenance 与 clean-room 规则；实现者不得把 donor 文件当模板逐行改写。Vault / 加密只对照交互角色，再接到 Core。
 4. 实现进 `features/*` + `ui/*`。适配器在 `app/`。可复用钱包策略进 `capabilities/`。链上快照不要写入 Realm 当真值。
 5. 文案走 i18n。用目标名（`activity`、`dapps`）。
@@ -894,7 +900,7 @@ F3 只锁这些：
 - 为「兼容」留下 Events / XApps 别名
 - 把底层 PR 和新的产品 Capability 混在一起
 - 实现表外横切，或不经 §7.8 / §14 把未点名屏幕丢掉
-- 把链上余额写入 Realm，或在提交成功后本地乐观改余额
+- 把 Realm 中的链上快照当成余额权威，或在提交成功后本地乐观改余额。允许按 §2.1 保存可替换的分区展示缓存；交易准备必须重新读取权威账本状态。
 
 ---
 
@@ -921,7 +927,7 @@ F3 只锁这些：
 | 文档 | 角色 |
 | --- | --- |
 | 本文件 | 产品范围/信息架构权威：成熟度 Foundation gate、闭合表（有什么）、完成标准（做成什么样） |
-| `fresnica-mobile-rewrite-execution-plan.md` | 唯一施工顺序、当前状态、provenance、发布与依赖账本 |
+| `fresnica-mobile-rewrite-execution-plan.md` | 阶段、provenance、发布与依赖框架；当前执行状态见 `fresnica-mobile-current-progress-and-next-plan.md` |
 | `docs/product-traceability-ledger.md` | S01–S30 稳定产品 ID、owner、依赖、目标阶段和验收锚点；S07 为 Send，S30 为 Trustline |
 | `docs/provenance/README.md` | donor 文件来源证据、clean-room 工作规则和直接移植禁区 |
 | `docs/mobile-architecture-style-guide.md` | 分层、依赖方向、代码风格 |
@@ -959,7 +965,7 @@ F3 只锁这些：
 | 跟系统浅色 / 深色 | 同一 theme provider；入口在 Settings | 契约 F3，实现 F4 | 第二套自动主题 |
 | Android 系统导航条颜色 | 跟 background token | F3 壳 | RNN `navigationBar` |
 | 截屏保护 | platform 机制；Dev Mode 可关 | F4 Advanced | 在 JS 里假装 FLAG_SECURE |
-| 前后台 / 应用锁 | Overlay `locked`；勿伪造解锁 | F4，卡上游也留位 | 假 PIN 顶上；密钥进普通状态 |
+| 前后台 / 应用锁 | SessionGate / Application Session 与原生隐私保护 | 已有实现；原生设备验收单列 | 假 PIN；密钥进普通状态；App unlock 授予签名权 |
 | 网络通断 | ConnectionIssue overlay；与「未激活」分开 | F4；Home 已有区分 | 把 Horizon 404 当成断网 |
 | Session logs | Settings Advanced，Dev Mode 后 | F4 | 日志里写密钥 / XDR 明文 |
 | 键盘避让 | RN 常规 KeyboardAvoiding / 表单原语 | 有表单的表面 | 抄 Xaman KeyboardModule |

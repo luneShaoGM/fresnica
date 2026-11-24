@@ -6,6 +6,11 @@ export type BalanceLine = Readonly<{
   asset: BalanceAsset;
   balance: string;
   limit?: string;
+  buyingLiabilities?: string;
+  sellingLiabilities?: string;
+  isAuthorized?: boolean;
+  isAuthorizedToMaintainLiabilities?: boolean;
+  isClawbackEnabled?: boolean;
 }>;
 
 export type BalanceSnapshot =

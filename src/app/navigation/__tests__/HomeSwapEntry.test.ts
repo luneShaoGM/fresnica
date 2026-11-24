@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 
 import type { AccountRecord } from '../../../capabilities/account/types';
 import type { AppServices } from '../../createAppServices';
+import { ManageAssetsScreen } from '@features/trustlines/ManageAssetsScreen';
 import { HomeStackNavigator } from '../HomeStackNavigator';
 
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null, StateView: () => null }));
@@ -66,8 +67,15 @@ const account: AccountRecord = {
   updatedAt: new Date('2026-10-27T00:00:00Z'),
 };
 
-function renderHomeEntry(swapEnabled: boolean, watchOnly = false, selectedAccount = account, markets = false) {
+function renderHomeEntry(
+  swapEnabled: boolean,
+  watchOnly = false,
+  selectedAccount = account,
+  markets = false,
+  otherAccounts: readonly AccountRecord[] = [],
+) {
   const navigate = jest.fn();
+  const accounts = [...(selectedAccount === account ? [account] : [account, selectedAccount]), ...otherAccounts];
   const services = {
     markets: markets ? { networkId: selectedAccount.networkId } : undefined,
     onboarding: { repository: { isWatchOnly: () => watchOnly } },
@@ -77,11 +85,12 @@ function renderHomeEntry(swapEnabled: boolean, watchOnly = false, selectedAccoun
     send: { network: { id: selectedAccount.networkId, networkPassphrase: 'test' } },
     swapPreview: { network: { id: selectedAccount.networkId, networkPassphrase: 'test' } },
     swapExecution: {},
+    trustline: { network: { id: selectedAccount.networkId, networkPassphrase: 'test' } },
     copyPublicText: jest.fn(),
     externalUrl: { open: jest.fn() },
   } as unknown as AppServices;
   const root = HomeStackNavigator({
-    accounts: selectedAccount === account ? [account] : [account, selectedAccount],
+    accounts,
     selectedAccountId: selectedAccount.id,
     selectableAccounts: selectedAccount === account ? [account] : [account, selectedAccount],
     swapEnabled,
@@ -92,7 +101,7 @@ function renderHomeEntry(swapEnabled: boolean, watchOnly = false, selectedAccoun
     getCurrentSwapSelection: () => ({
       selectedAccountId: selectedAccount.id,
       selectionRevision: 1,
-      accounts: [selectedAccount],
+      accounts,
       network: { id: selectedAccount.networkId, networkPassphrase: 'test' },
     }),
     subscribeToSwapSelection: jest.fn(),
@@ -113,6 +122,50 @@ function renderHomeEntry(swapEnabled: boolean, watchOnly = false, selectedAccoun
   );
   return { navigate, onSwap: homeScreen?.props.onSwap, onOrders: homeScreen?.props.onOrders, root };
 }
+
+describe('Manage Assets route account', () => {
+  const other = { ...account, id: 'other-account', address: 'GOTHER' };
+  function openRoute(available: readonly AccountRecord[], requestedAction = false) {
+    const { root } = renderHomeEntry(false, false, account, false, available);
+    const page = React.Children.toArray(root.props.children).find(
+      child => React.isValidElement<{ name: string }>(child) && child.props.name === 'manage-assets',
+    ) as React.ReactElement<{
+      children: (input: unknown) => React.ReactElement<{
+        account?: AccountRecord;
+        captureSession: (focused: () => boolean) => () => boolean;
+      }>;
+    }>;
+    return page.props.children({
+      navigation: { isFocused: () => true, popToTop: jest.fn(), goBack: jest.fn() },
+      route: {
+        params: {
+          accountId: other.id,
+          ...(requestedAction ? { requestedAction: { code: 'USD', issuer: 'GISSUER' } } : {}),
+        },
+      },
+    });
+  }
+
+  it('retains Settings navigation to nonselected visible account B without switching to A', () => {
+    const screen = openRoute([other]);
+    expect(screen.type).toBe(ManageAssetsScreen);
+    expect(screen.props.account).toBe(other);
+    const current = screen.props.captureSession(() => true);
+    expect(current()).toBe(true);
+  });
+
+  it.each([
+    ['deleted', []],
+    ['hidden', [{ ...other, hidden: true }]],
+    ['wrong-network', [{ ...other, networkId: 'stellar-mainnet' }]],
+  ])('does not substitute A when B is %s', (_reason, available) => {
+    expect(openRoute(available).type).not.toBe(ManageAssetsScreen);
+  });
+
+  it('keeps Home asset-sheet actions bound to the selected account', () => {
+    expect(openRoute([other], true).type).not.toBe(ManageAssetsScreen);
+  });
+});
 
 describe('Home Swap entry wiring', () => {
   it('keeps camera/photo website sessions available on the actual Actions request route for a contract, but blocks Send', async () => {

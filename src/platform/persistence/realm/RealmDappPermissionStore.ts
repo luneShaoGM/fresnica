@@ -105,6 +105,17 @@ export class RealmDappPermissionStore implements DappPermissionStore {
     this.emit({ kind: 'revoked', scope });
   };
 
+  revokeAccount = (accountId: string): void => {
+    if (this.closed || !/^[a-zA-Z0-9._:-]{1,128}$/.test(accountId))
+      throw new Error('dapp-permission-unavailable');
+    this.realm.write(() => {
+      const records = this.realm.objects(DAPP_PERMISSION_GRANT_ENTITY).filtered('accountId == $0', accountId);
+      this.realm.delete(records);
+    });
+    // The account may have allow-once sessions without any persistent grant.
+    this.emit({ kind: 'account-revoked', accountId });
+  };
+
   list = (networkId: string): readonly DappReadGrant[] => {
     if (this.closed) throw new Error('dapp-permission-unavailable');
     if (!/^[a-zA-Z0-9._:-]{1,128}$/.test(networkId)) return [];

@@ -6,7 +6,8 @@ import { resolveRequestSendPrefill } from '../requestSendPrefill';
 const network = Object.freeze({ id: 'stellar-testnet', networkPassphrase: 'Test SDF Network ; September 2015' });
 const issuer = 'GISSUER';
 const nativeBalance: BalanceLine = { asset: { kind: 'native', code: 'XLM' }, balance: '10' };
-const creditBalance: BalanceLine = { asset: { kind: 'credit', code: 'USD', issuer }, balance: '4' };
+const creditBalance: BalanceLine = { asset: { kind: 'credit', code: 'USD', issuer }, balance: '4',
+  isAuthorized: true, sellingLiabilities: '0' };
 const balances = [nativeBalance, creditBalance];
 
 function account(overrides: Partial<AccountRecord> = {}): AccountRecord {
@@ -97,6 +98,18 @@ describe('Request into Send prefill', () => {
       kind: 'blocked',
       reason: 'asset-unavailable',
     });
+  });
+
+  it.each([
+    { isAuthorized: undefined },
+    { isAuthorized: false, isAuthorizedToMaintainLiabilities: true },
+    { sellingLiabilities: undefined },
+    { sellingLiabilities: '4.0000000' },
+  ])('cannot bypass the credit display gate through a Request prefill: %s', fields => {
+    expect(resolveRequestSendPrefill(
+      intent({ asset: { kind: 'credit', code: 'USD', issuer } }), account(), network,
+      [nativeBalance, { ...creditBalance, ...fields }], false,
+    )).toEqual({ kind: 'blocked', reason: 'asset-unavailable' });
   });
 
   it('fails closed on hidden, watch-only, wrong-network and non-Classic source accounts', () => {

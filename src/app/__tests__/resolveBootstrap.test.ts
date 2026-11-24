@@ -44,7 +44,9 @@ describe('resolveAppBootstrap account selection cleanup', () => {
         repository,
         pendingSubmissions,
         historyCache: new InMemoryHistoryCacheRepository(),
-    balanceCache: new InMemoryBalanceCacheRepository(),
+        balanceCache: new InMemoryBalanceCacheRepository(),
+        claimableCache: { clearPartition: jest.fn() },
+        dappPermissions: { revokeAccount: jest.fn() },
       },
       'account-a',
     );

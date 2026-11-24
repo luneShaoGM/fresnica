@@ -7,26 +7,29 @@ export type ProductRouteStatus = Readonly<{
   note: string;
 }>;
 
+// Route readiness describes the supported, reachable implementation only.
+// It does not certify full Stellar parity, independent review or native/release
+// acceptance. Candidate repairs and dated evidence live in the product ledger.
 export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteStatus>> = {
   home: {
-    readiness: 'structure-only',
-    note: 'Home presents live Balance and asset details; the same eligible Classic account may open Swap from Home or Actions independently of cached balance freshness. Portfolio metadata remains deferred.',
+    readiness: 'implemented',
+    note: 'Home provides partitioned Balance/cache refresh, asset details, native reserve breakdown, Claimable and liquidity-pool categories, orders, and eligible Swap entry. Fiat estimates cover XLM; complete issued-asset valuation and native aggregate acceptance remain open.',
   },
   'account-details': {
-    readiness: 'structure-only',
-    note: 'The account surface is registered in the Settings native stack so Accounts → Detail preserves local back history; signer/access presenter behavior remains deferred.',
+    readiness: 'implemented',
+    note: 'Settings account details exposes public identity/copy, rename, hide/restore, guarded deletion, Send, Manage Assets and supported recovery access. Account and Signer ownership remain distinct; hardware/provider flows remain outside this route scope.',
   },
   'add-account': {
     readiness: 'implemented',
-    note: 'Existing-wallet Add Account exposes the accepted Create protected-account slice plus watch-only from both Home and Settings; Import and HD derivation remain separate pending slices.',
+    note: 'Home and Settings reach existing-wallet Create, mnemonic/secret Import, HD derivation and watch-only entry, with SDK-owned protection and pending-backup recovery. Sensitive-input lifecycle repairs and native acceptance are tracked separately.',
   },
   'asset-details': {
     readiness: 'implemented',
-    note: 'Home opens an iOS/Android native form sheet using only stable accountId + networkId + BalanceAsset identity; the destination reloads the current Balance capability snapshot and keeps metadata/TOML deferred.',
+    note: 'Home opens a native form sheet using stable accountId + networkId + BalanceAsset identity. Current Balance, native reserve details, token imagery and Send/Remove actions are wired; a catalog or icon is not an asset-trust or valuation guarantee.',
   },
   'send-form': {
     readiness: 'implemented',
-    note: 'Send validates destination, exact decimal amount, selected balance asset and none/text/ID/hash memo before building an unsigned payment.',
+    note: 'Send uses Details → Recipient → Summary, G-address/Contacts/Request/QR prefill, exact decimal amounts and none/text/ID/hash/return memo before preparing Payment or CreateAccount. M addresses remain paused.',
   },
   'send-review': {
     readiness: 'implemented',
@@ -38,7 +41,7 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
   },
   request: {
     readiness: 'implemented',
-    note: 'Request is user-reachable for visible Classic accounts, builds one canonical SEP-7 pay URI, and projects that exact URI through Copy, system Share and QR; paste/scan/deep-link ingress remains later S09 work.',
+    note: 'Request builds canonical SEP-7 pay URIs for Copy, Share and QR. Paste, camera, photo QR and deep-link ingress feed bounded parsing and explicit Send review; Actions also reaches general scan. No ingress grants signing authority; native permission/lifecycle acceptance remains separate.',
   },
   swap: {
     readiness: 'implemented',
@@ -57,32 +60,32 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
     note: 'Detail navigation carries only accountId + operationId. History reloads the single Horizon operation, verifies account association, distinguishes 404 from gateway failure, and projects only stable domain fields.',
   },
   dapps: {
-    readiness: 'structure-only',
-    note: 'S14 has an honest read-only catalog load/search/category boundary, but no verified remote provider is configured. Recent, browser, permissions, Freighter bridge and data exchange remain deferred.',
+    readiness: 'implemented',
+    note: 'dApps has catalog/details/cache, Recent, disclaimer/custom URL, browser origin controls, scoped account-read permissions/revocation, Freighter account/network replies, reviewed plain-payment XDR signing and SEP-53 messages. Soroban auth-entry/token requests and WalletConnect remain unavailable; native acceptance is incomplete.',
   },
   'settings-home': {
     readiness: 'implemented',
-    note: 'Settings routes General to preferences/Language and Advanced to authenticated Developer Mode/Network; Accounts, Security and About keep their native-stack histories.',
+    note: 'Settings routes General/Theme/Language, Advanced/Network/Logs, Accounts/Recovery, Security, Contacts, Connected dApps and support readers through native-stack history. Developer Mode uses warning/confirmation; signing always requires fresh App Passphrase.',
   },
   'general-settings': {
     readiness: 'implemented',
-    note: 'Language is reachable from General; named appearance/currency/haptic/format preferences remain explicitly unavailable. This is not full S23 product acceptance.',
+    note: 'General persists light/dark/system/image theme, USD/EUR/CNY display currency, haptics, separators and reserve-display preferences, with Language entry. Image palette extraction and XLM fiat estimates are implemented; full valuation and native product acceptance remain open.',
   },
   'advanced-settings': {
     readiness: 'implemented',
-    note: 'Advanced exposes a controlled, warning/authenticated Developer Mode switch and Network entry; release metadata, logs and developer tools remain explicitly unavailable. Native acceptance is recorded separately.',
+    note: 'Advanced exposes Network, warning/confirmation-only Developer Mode, version/session identity and gated redacted Session Logs. ChangeLog and broader developer/release tooling remain incomplete; native acceptance is recorded separately.',
   },
   'address-book': {
     readiness: 'implemented',
-    note: 'S22 network-scoped local contacts, typed memo identity, management and destination selection. Native acceptance pending.',
+    note: 'S22 wallet-wide G-address Contacts retain original network provenance, exact typed-memo identity, CRUD/search, QR and recipient/participant selection. Network-bound transactions remain isolated; M addresses and trusted remote resolution remain deferred.',
   },
   'accounts-settings': {
-    readiness: 'structure-only',
-    note: 'Account list/details surfaces are live, use durable Account records only, and follow the Stellar visual hierarchy; deeper signer/access presentation remains deferred.',
+    readiness: 'implemented',
+    note: 'Account list/details supports direct selection/default restore, ordering, hide/restore/delete and Create/Import/HD/watch-only entry. Classic identity persists across explicit runtime network contexts; hardware and full multisig workflows remain separate work.',
   },
   'security-settings': {
     readiness: 'implemented',
-    note: 'System Auth status/enable/repair/disable is routed through the Stellar-style security surface; app session lock remains upstream-blocked.',
+    note: 'Application lock/unlock, biometric App access with passphrase fallback, timeout/privacy settings, recovery reveal and passphrase change are reachable. App access never authorizes signatures: each key operation requires fresh App Passphrase. Real-device acceptance remains open.',
   },
   'network-settings': {
     readiness: 'implemented',
@@ -93,7 +96,7 @@ export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteSta
     note: 'The app exposes the full Stellar locale inventory, persists the selected locale independently of wallet secrets, and falls back to English for Fresnica dictionaries not yet migrated.',
   },
   about: {
-    readiness: 'structure-only',
-    note: 'The Settings native stack reaches the visually aligned About destination and displays application information.',
+    readiness: 'implemented',
+    note: 'About displays application/runtime/network identity. Support and read-only Terms/Credits surfaces exist elsewhere in Settings; owner-approved legal text, release content and full support closure remain pending.',
   },
 };

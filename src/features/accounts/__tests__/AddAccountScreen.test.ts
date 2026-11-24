@@ -5,11 +5,22 @@ import type { AccountRecord } from '../../../capabilities/account/types';
 import type { SignerRecord } from '../../../capabilities/signer/types';
 import type { OnboardingProvisioningDependencies } from '../../onboarding/runOnboardingProvisioning';
 import { AddAccountScreen } from '../AddAccountScreen';
+import type { SensitiveTextInputHandle, SensitiveTextInputProps } from '../../onboarding/SensitiveTextInput';
+import { nodes, sensitiveField, SensitiveFlowHarness } from '../../onboarding/__tests__/sensitiveFlowHarness';
 
 jest.mock('react', () => {
   const actual = jest.requireActual('react') as typeof import('react');
-  return { ...actual, useState: jest.fn() };
+  return {
+    ...actual,
+    useState: jest.fn(),
+    useRef: jest.fn((initial: unknown) => ({ current: initial })),
+    useCallback: jest.fn((callback: unknown) => callback),
+    useEffect: jest.fn(),
+    useLayoutEffect: jest.fn(),
+    useImperativeHandle: jest.fn(),
+  };
 });
+jest.mock('@react-navigation/native', () => ({ useIsFocused: jest.fn(() => true), useFocusEffect: jest.fn() }));
 
 jest.mock('@ui/theme', () => {
   const actual = jest.requireActual('@ui/theme') as typeof import('@ui/theme');
@@ -118,7 +129,7 @@ function renderWithMode(
 ) {
   let call = 0;
   mockedUseState.mockImplementation((initial: unknown) => {
-    const value = call === 0 && mode !== undefined ? mode : initial;
+    const value = call === 0 && mode !== undefined ? mode : typeof initial === 'function' ? initial() : initial;
     call += 1;
     return [value, jest.fn()];
   });
@@ -262,41 +273,31 @@ describe('AddAccountScreen Existing-wallet account choices', () => {
 });
 
 it('requires short-password consent, resets it on edit, and prevents weak-password override', () => {
-  const values: unknown[] = [];
-  let cursor = 0;
-  mockedUseState.mockImplementation((initial: unknown) => {
-    const index = cursor++;
-    if (!(index in values)) values[index] = index === 0 ? 'create' : initial;
-    return [
-      values[index],
-      (value: unknown) => {
-        values[index] = typeof value === 'function' ? (value as (previous: unknown) => unknown)(values[index]) : value;
-      },
-    ];
-  });
+  const h = new SensitiveFlowHarness();
+  const fields = new Map<string, ReturnType<typeof sensitiveField>>();
   const deps = dependencies();
+  const render = () => h.render(() => AddAccountScreen({
+    dependencies: deps,
+    onCreatedAccountReady: jest.fn(),
+    onAccountPersisted: jest.fn(),
+    onWatchOnlyComplete: jest.fn(),
+    onCancel: jest.fn(),
+  }));
+  const choices = nodes(render());
+  (choices.find(node => node.props.title === 'Create new wallet')!.props.onPress as () => void)();
   const draw = () => {
-    cursor = 0;
-    const nodes: React.ReactElement<Record<string, unknown>>[] = [];
-    const walk = (node: React.ReactNode) => {
-      if (!React.isValidElement<Record<string, unknown>>(node)) return;
-      nodes.push(node);
-      React.Children.forEach(node.props.children as React.ReactNode, walk);
-    };
-    walk(
-      AddAccountScreen({
-        dependencies: deps,
-        onCreatedAccountReady: jest.fn(),
-        onAccountPersisted: jest.fn(),
-        onWatchOnlyComplete: jest.fn(),
-        onCancel: jest.fn(),
-      }),
-    );
+    const rendered = nodes(render());
+    for (const node of rendered.filter(value => value.props.inputRef)) {
+      const label = String(node.props.label);
+      const field = fields.get(label) ?? sensitiveField(node.props as SensitiveTextInputProps,
+        node.props.inputRef as React.Ref<SensitiveTextInputHandle>);
+      field.render(node.props as SensitiveTextInputProps);
+      fields.set(label, field);
+    }
     return {
-      edit: (label: string, value: string) =>
-        (nodes.find(n => n.props.label === label)!.props.onChangeText as (v: string) => void)(value),
-      consent: nodes.find(n => typeof n.props.onAccept === 'function')!.props,
-      create: nodes.find(n => n.props.label === 'Create account')!.props,
+      edit: (label: string, value: string) => fields.get(label)!.type(value),
+      consent: rendered.find(n => typeof n.props.onAccept === 'function')!.props,
+      create: rendered.find(n => n.props.label === 'Create account')!.props,
     };
   };
   draw().edit('New App Passphrase', 'river sky');
@@ -312,4 +313,7 @@ it('requires short-password consent, resets it on edit, and prevents weak-passwo
   draw().edit('Confirm App Passphrase', '111111111111111');
   (draw().consent.onAccept as (v: boolean) => void)(true);
   expect(draw().create.disabled).toBe(true);
+  expect(JSON.stringify(h.states)).not.toContain('111111111111111');
+  h.unmount();
+  fields.forEach(field => field.close());
 });

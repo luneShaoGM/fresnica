@@ -1,9 +1,18 @@
 import { PassphraseInput, type PassphraseInputHandle } from '@ui/components/PassphraseInput';
 import { TokenAssetIcon } from '../assets/TokenAssetIcon';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  ActivityIndicator,
+  AppState,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
-import { useIsFocused } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import type { BalanceProductDependencies } from '@capabilities/balance/BalanceCacheHydration';
 import type { AssetCatalogPort } from '@capabilities/trustline/curatedAssetCatalog';
 import { Screen } from '@ui/components';
@@ -38,7 +47,7 @@ type LoadState =
 type FlowState =
   | Readonly<{ kind: 'manage' }>
   | Readonly<{ kind: 'preparing' }>
-  | Readonly<{ kind: 'review'; review: TrustlineReview }>
+  | Readonly<{ kind: 'review'; review: TrustlineReview; isCurrent: () => boolean }>
   | Readonly<{ kind: 'result'; result: TrustlineSubmissionResult }>;
 
 type LimitEditorState = Readonly<{
@@ -54,6 +63,8 @@ type Props = Readonly<{
   balanceDependencies: BalanceProductDependencies;
   catalog: AssetCatalogPort;
   foreground: boolean;
+  selectionRevision: number;
+  captureSession: (isCurrentFocusEpoch: () => boolean) => () => boolean;
   invalidationRevision: number;
   requestedAdd?: AddAssetSelection & Readonly<{ action?: 'add' | 'remove' }>;
   onReviewDismiss?: () => void;
@@ -66,24 +77,14 @@ export function ManageAssetsScreen({
   balanceDependencies,
   catalog,
   foreground,
+  selectionRevision,
+  captureSession,
   invalidationRevision,
   requestedAdd,
   onReviewDismiss,
   onDone,
 }: Props) {
   const focused = useIsFocused();
-  const active = focused && foreground;
-  const currentActive = useRef(active);
-  currentActive.current = active;
-  const prepareVersion = useRef(0);
-  useEffect(() => {
-    if (!active) {
-      setBuilding(false);
-    }
-    return () => {
-      prepareVersion.current += 1;
-    };
-  }, [active, account]);
   const { t } = useLocalization();
   const theme = useAppTheme();
   const styles = useThemedStyles(createManageAssetsStyles);
@@ -97,9 +98,61 @@ export function ManageAssetsScreen({
   const [passphraseRequired, setPassphraseRequired] = useState(true);
   const [hasPassphrase, setHasPassphrase] = useState(false);
   const [error, setError] = useState<string>();
+  const [appActive, setAppActive] = useState(
+    AppState.currentState !== 'background' && AppState.currentState !== 'inactive',
+  );
+  const active = focused && foreground && appActive;
+  const currentActive = useRef(active);
+  currentActive.current = active;
+  const prepareVersion = useRef(0);
+  const running = useRef(false);
   const loadVersion = useRef(0);
   const consumedAddRef = useRef<AddAssetSelection | undefined>(undefined);
   const passphraseInput = useRef<PassphraseInputHandle>(null);
+
+  const retire = useCallback(() => {
+    currentActive.current = false;
+    prepareVersion.current += 1;
+    running.current = false;
+    passphraseInput.current?.clear();
+    setHasPassphrase(false);
+    setPassphraseRequired(true);
+    setBuilding(false);
+    setSubmitting(false);
+    setAddSheetOpen(false);
+    setLimitEditor(undefined);
+    setError(undefined);
+    setFlow(current =>
+      current.kind === 'result' ? current : { kind: openedForReviewRef.current ? 'preparing' : 'manage' },
+    );
+  }, []);
+
+  // Retire synchronously on navigation blur, before a render can catch up.
+  // Refocusing must not revive the review or a delayed Slide callback.
+  useFocusEffect(useCallback(() => () => retire(), [retire]));
+  useEffect(() => {
+    retire();
+    currentActive.current = active;
+    return () => retire();
+  }, [
+    active,
+    account.id,
+    account.address,
+    account.networkId,
+    account.identityKind,
+    account.hidden,
+    dependencies.network.id,
+    dependencies.network.networkPassphrase,
+    selectionRevision,
+    retire,
+  ]);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', next => {
+      if (next !== 'active') retire();
+      setAppActive(next === 'active');
+    });
+    return () => subscription.remove();
+  }, [retire]);
 
   const loadTrustlines = useCallback(() => {
     const version = loadVersion.current + 1;
@@ -134,15 +187,6 @@ export function ManageAssetsScreen({
   }, [account, dependencies.gateway, dependencies.network.id, t]);
 
   useEffect(() => {
-    if (!openedForReviewRef.current) {
-      setFlow({ kind: 'manage' });
-      setAddSheetOpen(false);
-      setLimitEditor(undefined);
-      passphraseInput.current?.clear();
-      setHasPassphrase(false);
-      setPassphraseRequired(true);
-      setError(undefined);
-    }
     loadTrustlines();
 
     return () => {
@@ -152,8 +196,11 @@ export function ManageAssetsScreen({
 
   const prepare = useCallback(
     async (action: TrustlineAction, code: string, issuer: string, limit?: string) => {
-      if (!currentActive.current) return;
+      if (!currentActive.current || running.current) return;
       const version = ++prepareVersion.current;
+      const isCurrent = captureSession(() => currentActive.current && version === prepareVersion.current);
+      if (!isCurrent()) return;
+      running.current = true;
       if (action === 'add') setFlow({ kind: 'preparing' });
       setBuilding(true);
       setError(undefined);
@@ -163,22 +210,25 @@ export function ManageAssetsScreen({
           asset: { code, issuer },
           ...(limit === undefined ? {} : { limit }),
         });
-        if (version !== prepareVersion.current || !currentActive.current) return;
+        if (!isCurrent()) return;
         passphraseInput.current?.clear();
         setHasPassphrase(false);
         setPassphraseRequired(true);
-        setFlow({ kind: 'review', review });
+        setFlow({ kind: 'review', review, isCurrent });
       } catch (caught) {
-        if (version !== prepareVersion.current || !currentActive.current) return;
+        if (!isCurrent()) return;
         const message = readableError(caught, t);
         setError(message);
         if (!openedForReviewRef.current) setFlow({ kind: 'manage' });
         AccessibilityInfo.announceForAccessibility(message);
       } finally {
-        if (version === prepareVersion.current) setBuilding(false);
+        if (version === prepareVersion.current) {
+          running.current = false;
+          setBuilding(false);
+        }
       }
     },
-    [account, dependencies, t],
+    [account, captureSession, dependencies, t],
   );
 
   useEffect(() => {
@@ -188,7 +238,7 @@ export function ManageAssetsScreen({
   }, [active, prepare, requestedAdd]);
 
   const submit = useCallback(async () => {
-    if (!currentActive.current || flow.kind !== 'review') {
+    if (!currentActive.current || running.current || flow.kind !== 'review' || !flow.isCurrent()) {
       return;
     }
 
@@ -199,6 +249,8 @@ export function ManageAssetsScreen({
       setHasPassphrase(false);
     }
 
+    const version = prepareVersion.current;
+    running.current = true;
     setSubmitting(true);
     setError(undefined);
     try {
@@ -208,24 +260,35 @@ export function ManageAssetsScreen({
         flow.review,
         systemAuthReason(flow.review, t),
         passphrase,
+        flow.isCurrent,
       );
+      if (!flow.isCurrent()) return;
       if (result.status === 'passphrase-required') {
         setPassphraseRequired(true);
         AccessibilityInfo.announceForAccessibility(t('trustlines.authorization.passphraseRequired'));
         return;
       }
+      // A completed review cannot be replayed by another delayed gesture.
+      prepareVersion.current += 1;
+      running.current = false;
+      setSubmitting(false);
       setFlow({ kind: 'result', result });
     } catch (caught) {
+      if (!flow.isCurrent()) return;
       const message = readableError(caught, t);
       setError(message);
       AccessibilityInfo.announceForAccessibility(message);
     } finally {
-      setSubmitting(false);
+      if (version === prepareVersion.current) {
+        running.current = false;
+        setSubmitting(false);
+      }
     }
   }, [account, dependencies, flow, passphraseRequired, t]);
 
   const leaveReview = () => {
     prepareVersion.current += 1;
+    running.current = false;
     setBuilding(false);
     passphraseInput.current?.clear();
     setHasPassphrase(false);
@@ -250,7 +313,10 @@ export function ManageAssetsScreen({
         }
         headerTitle={t('trustlines.review.title')}
         loading={building}
-        message={error ?? t('trustlines.review.preparing')}
+        message={
+          error ??
+          t(!building && consumedAddRef.current ? 'trustlines.error.reviewExpired' : 'trustlines.review.preparing')
+        }
         onBack={leaveReview}
         title={error ? t('trustlines.error.generic') : t('trustlines.review.title')}
       />
