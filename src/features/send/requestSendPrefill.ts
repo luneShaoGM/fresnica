@@ -3,6 +3,7 @@ import type { BalanceAsset, BalanceLine } from '../../capabilities/balance/types
 import type { NetworkContext } from '../../capabilities/network/types';
 import type { RequestPaymentIntent } from '../../capabilities/request/requestUri';
 import type { StellarPaymentMemo } from '../../capabilities/stellar/types';
+import { sendAssetAvailability } from '../assets/assetSelection';
 
 export type RequestSendPrefill =
   | Readonly<{
@@ -40,7 +41,7 @@ export function resolveRequestSendPrefill(
         line.asset.code === intent.asset.code &&
         line.asset.issuer === intent.asset.issuer,
   );
-  if (selected === undefined) {
+  if (selected === undefined || sendAssetAvailability(selected).blockedReason !== undefined) {
     return { kind: 'blocked', reason: 'asset-unavailable' };
   }
 

@@ -1,6 +1,17 @@
 export type StellarBalanceLine =
   | Readonly<{ kind: 'native'; balance: string }>
-  | Readonly<{ kind: 'credit'; balance: string; code: string; issuer: string; limit?: string }>
+  | Readonly<{
+      kind: 'credit';
+      balance: string;
+      code: string;
+      issuer: string;
+      limit?: string;
+      buyingLiabilities?: string;
+      sellingLiabilities?: string;
+      isAuthorized?: boolean;
+      isAuthorizedToMaintainLiabilities?: boolean;
+      isClawbackEnabled?: boolean;
+    }>
   | Readonly<{
       kind: 'liquidity-pool-share';
       balance: string;

@@ -32,7 +32,7 @@ function find<P>(root: React.ReactNode, type: unknown): React.ReactElement<P> {
   if (!match) throw new Error('missing component');
   return match;
 }
-function harness() {
+function harness(sourceBalances = balances, purpose?: 'send') {
   const slots: unknown[] = [];
   let cursor = 0;
   jest.mocked(useState).mockImplementation((initial?: unknown) => {
@@ -50,7 +50,7 @@ function harness() {
     onSelect,
     draw: (disabled = false) => {
       cursor = 0;
-      return AssetPicker({ balances, selectedAsset: native, label: 'Assets', disabled, onSelect });
+      return AssetPicker({ balances: sourceBalances, selectedAsset: native, label: 'Assets', disabled, onSelect, purpose });
     },
   };
 }
@@ -73,6 +73,38 @@ it('opens, searches issuer, selects the exact row and closes with cleared search
   root = h.draw();
   expect(find<React.ComponentProps<typeof BottomSheet>>(root, BottomSheet).props.visible).toBe(false);
   expect(find<React.ComponentProps<typeof TextInput>>(root, TextInput).props.value).toBe('');
+});
+
+it.each([
+  [{}, 'unknown'],
+  [{ isAuthorized: false, isAuthorizedToMaintainLiabilities: true, sellingLiabilities: '0' }, 'maintain-liabilities'],
+  [{ isAuthorized: true, sellingLiabilities: '2' }, 'no-available-balance'],
+] as const)('keeps restricted credit visible with an enforced Send reason: %s', (fields, reason) => {
+  const credit: BalanceLine = { asset: usd, balance: '2', ...fields };
+  const h = harness([balances[0], credit], 'send');
+  const root = h.draw();
+  const list = find<React.ComponentProps<typeof FlatList<BalanceLine>>>(root, FlatList).props;
+  expect(list.data).toContain(credit);
+  const row = list.renderItem?.({ item: credit, index: 1, separators: {} as never }) as React.ReactElement<
+    React.ComponentProps<typeof Pressable>
+  >;
+  expect(row.props.disabled).toBe(true);
+  expect(row.props.accessibilityHint).toBe(`assets.availability.send.${reason}`);
+  row.props.onPress?.({} as never);
+  expect(h.onSelect).not.toHaveBeenCalled();
+});
+
+it('allows fully authorized credit selection even when clawback is enabled', () => {
+  const credit: BalanceLine = { asset: usd, balance: '2', sellingLiabilities: '1.9999999', isAuthorized: true, isClawbackEnabled: true };
+  const h = harness([balances[0], credit], 'send');
+  const root = h.draw();
+  const list = find<React.ComponentProps<typeof FlatList<BalanceLine>>>(root, FlatList).props;
+  const row = list.renderItem?.({ item: credit, index: 1, separators: {} as never }) as React.ReactElement<
+    React.ComponentProps<typeof Pressable>
+  >;
+  expect(row.props.disabled).toBe(false);
+  row.props.onPress?.({} as never);
+  expect(h.onSelect).toHaveBeenCalledWith(usd);
 });
 it('cancel preserves selection and disabling hides an open picker', () => {
   const h = harness();

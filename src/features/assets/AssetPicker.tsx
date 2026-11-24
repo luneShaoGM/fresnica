@@ -6,7 +6,7 @@ import { useAppTheme, useThemedStyles } from '../../ui/theme';
 import { useLocalization } from '../../locale';
 import type { BalanceAsset, BalanceLine } from '../../capabilities/balance/types';
 import { TokenAssetIcon } from './TokenAssetIcon';
-import { assetSelectionKey, matchesAssetSearch } from './assetSelection';
+import { assetSelectionKey, matchesAssetSearch, sendAssetAvailability } from './assetSelection';
 import { createAssetPickerStyles } from './assetPickerStyles';
 
 export function AssetPicker({
@@ -15,12 +15,14 @@ export function AssetPicker({
   disabled = false,
   onSelect,
   label,
+  purpose,
 }: Readonly<{
   balances: readonly BalanceLine[];
   selectedAsset: BalanceAsset;
   disabled?: boolean;
   onSelect: (asset: BalanceAsset) => void;
   label: string;
+  purpose?: 'send';
 }>) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -38,18 +40,29 @@ export function AssetPicker({
     }
   }, [disabled]);
   const selected = balances.find(line => assetSelectionKey(line.asset) === assetSelectionKey(selectedAsset));
-  const content = (asset: BalanceAsset, balance: string) => (
-    <>
-      <TokenAssetIcon asset={asset} />
-      <View style={styles.body}>
-        <Text style={styles.code}>{asset.code}</Text>
-        <Text style={styles.detail}>{asset.kind === 'credit' ? asset.issuer : t('assets.picker.native')}</Text>
-        <Text style={styles.detail}>
-          {t('assets.picker.balance')}: {balance}
-        </Text>
-      </View>
-    </>
-  );
+  const content = (asset: BalanceAsset, balance: string, line?: BalanceLine) => {
+    const availability = purpose === 'send' && asset.kind === 'credit' ? sendAssetAvailability(line) : undefined;
+    return (
+      <>
+        <TokenAssetIcon asset={asset} />
+        <View style={styles.body}>
+          <Text style={styles.code}>{asset.code}</Text>
+          <Text style={styles.detail}>{asset.kind === 'credit' ? asset.issuer : t('assets.picker.native')}</Text>
+          <Text style={styles.detail}>
+            {t('assets.picker.balance')}: {balance}
+          </Text>
+          {availability ? (
+            <Text style={styles.detail}>
+              {t('assets.availability.available')}: {availability.available ?? t('assets.availability.unknown')}
+            </Text>
+          ) : null}
+          {availability?.blockedReason ? (
+            <Text style={styles.detail}>{t(`assets.availability.send.${availability.blockedReason}`)}</Text>
+          ) : null}
+        </View>
+      </>
+    );
+  };
   return (
     <>
       <Pressable
@@ -60,7 +73,7 @@ export function AssetPicker({
         onPress={() => setOpen(true)}
         style={styles.row}
       >
-        {content(selectedAsset, selected?.balance ?? '—')}
+        {content(selectedAsset, selected?.balance ?? '—', selected)}
         {balances.length > 1 ? <Text style={styles.indicator}>⌄</Text> : null}
       </Pressable>
       <BottomSheet visible={open && !disabled} onClose={close} closeLabel={t('common.cancel')}>
@@ -90,19 +103,22 @@ export function AssetPicker({
             ListEmptyComponent={<Text style={styles.detail}>{t('assets.picker.empty')}</Text>}
             renderItem={({ item }) => {
               const isSelected = assetSelectionKey(item.asset) === assetSelectionKey(selectedAsset);
+              const blockedReason = purpose === 'send' ? sendAssetAvailability(item).blockedReason : undefined;
+              const unavailable = disabled || blockedReason !== undefined;
               return (
                 <Pressable
                   accessibilityRole="radio"
-                  accessibilityState={{ selected: isSelected }}
-                  disabled={disabled}
+                  accessibilityState={{ selected: isSelected, disabled: unavailable }}
+                  accessibilityHint={blockedReason ? t(`assets.availability.send.${blockedReason}`) : undefined}
+                  disabled={unavailable}
                   onPress={() => {
-                    if (disabled) return;
+                    if (unavailable) return;
                     onSelect(item.asset);
                     close();
                   }}
                   style={[styles.row, isSelected ? styles.selected : undefined]}
                 >
-                  {content(item.asset, item.balance)}
+                  {content(item.asset, item.balance, item)}
                   <Text style={styles.indicator}>{isSelected ? '◉' : '○'}</Text>
                 </Pressable>
               );

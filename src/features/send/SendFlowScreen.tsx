@@ -1,4 +1,4 @@
-import { sendSelectableBalances } from '../assets/assetSelection';
+import { sendAssetAvailability, sendSelectableBalances } from '../assets/assetSelection';
 import type { PassphraseInputHandle } from '@ui/components/PassphraseInput';
 import { AppState } from 'react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -177,12 +177,21 @@ export function SendFlowScreen({
         } else {
           const requested = initialAsset
             ? selectable.find(line => sameBalanceAsset(line.asset, initialAsset))
-            : selectable[0];
+            : selectable.find(line => sendAssetAvailability(line).blockedReason === undefined);
           if (!requested) {
             setLoadState({
               kind: 'blocked',
               title: t('home.asset.missing'),
               description: t('send.request.assetUnavailable'),
+            });
+            return;
+          }
+          const blockedReason = sendAssetAvailability(requested).blockedReason;
+          if (blockedReason) {
+            setLoadState({
+              kind: 'blocked',
+              title: t('assets.availability.sendUnavailable'),
+              description: t(`assets.availability.send.${blockedReason}`),
             });
             return;
           }
@@ -264,6 +273,14 @@ export function SendFlowScreen({
 
   const continueForm = () => {
     if (!activeRef.current || building || pickerOpen || scanOpen) return;
+    if (loadState.kind !== 'ready') return;
+    const blockedReason = sendAssetAvailability(
+      loadState.balances.find(line => selectedAsset && sameBalanceAsset(line.asset, selectedAsset)),
+    ).blockedReason;
+    if (blockedReason) {
+      setError(t(`assets.availability.send.${blockedReason}`));
+      return;
+    }
     if (entryStep === 'details') {
       try {
         validateStellarAmount(amount);
@@ -433,6 +450,13 @@ export function SendFlowScreen({
         error={error}
         onSelectAsset={asset => {
           if (!activeRef.current || building) return;
+          const blockedReason = sendAssetAvailability(
+            loadState.balances.find(line => sameBalanceAsset(line.asset, asset)),
+          ).blockedReason;
+          if (blockedReason) {
+            setError(t(`assets.availability.send.${blockedReason}`));
+            return;
+          }
           setSelectedAsset(asset);
           setAmount('');
           setError(undefined);

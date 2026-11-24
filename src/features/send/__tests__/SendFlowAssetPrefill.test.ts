@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { AccountRecord } from '@capabilities/account/types';
 import { loadBalanceSnapshot } from '@capabilities/balance/loadBalanceSnapshot';
-import type { BalanceAsset } from '@capabilities/balance/types';
+import type { BalanceAsset, BalanceLine } from '@capabilities/balance/types';
 import { SendFlowScreen } from '../SendFlowScreen';
 import type { SendProductDependencies } from '../sendProductFlow';
 
@@ -25,7 +25,7 @@ const dependencies = {
 } as unknown as SendProductDependencies;
 const usd = { kind: 'credit', code: 'usd', issuer: 'GISSUER' } as const;
 const native = { kind: 'native', code: 'XLM' } as const;
-async function prepare(initialAsset: BalanceAsset) {
+async function prepare(initialAsset: BalanceAsset, fields: Partial<BalanceLine> = {}) {
   const setters: jest.Mock[] = [];
   jest.mocked(useState).mockImplementation((initial?: unknown) => {
     const setter = jest.fn();
@@ -38,7 +38,7 @@ async function prepare(initialAsset: BalanceAsset) {
     address: account.address,
     balances: [
       { asset: native, balance: '1' },
-      { asset: usd, balance: '2' },
+      { asset: usd, balance: '2', isAuthorized: true, sellingLiabilities: '0', ...fields },
     ],
     hiddenLiquidityPoolShareCount: 0,
   });
@@ -61,5 +61,16 @@ describe('Send asset-sheet preselection', () => {
     expect(setters[2]).toHaveBeenCalledTimes(1);
     expect(setters[2]).toHaveBeenCalledWith(undefined);
     expect(setters[0]).toHaveBeenLastCalledWith(expect.objectContaining({ kind: 'blocked' }));
+  });
+  it.each([
+    [{ isAuthorized: undefined }, 'unknown'],
+    [{ isAuthorized: false, isAuthorizedToMaintainLiabilities: true }, 'maintain-liabilities'],
+    [{ sellingLiabilities: '2' }, 'no-available-balance'],
+  ] as const)('blocks direct asset-sheet preselection when credit is unavailable: %s', async (fields, reason) => {
+    const setters = await prepare(usd, fields);
+    expect(setters[2]).toHaveBeenLastCalledWith(undefined);
+    expect(setters[0]).toHaveBeenLastCalledWith(expect.objectContaining({
+      kind: 'blocked', description: `assets.availability.send.${reason}`,
+    }));
   });
 });

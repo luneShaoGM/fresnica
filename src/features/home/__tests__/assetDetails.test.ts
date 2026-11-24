@@ -1,4 +1,4 @@
-import type { BalanceSnapshot } from '../../../capabilities/balance/types';
+import type { BalanceLine, BalanceSnapshot } from '../../../capabilities/balance/types';
 import { canRemoveIssuedBalance, canSendBalance, resolveAssetDetailsSnapshot, sameBalanceAsset } from '../assetDetails';
 
 const issuer = 'GISSUER';
@@ -41,16 +41,26 @@ describe('asset details state', () => {
 });
 
 describe('asset action display gates', () => {
-  it.each(['0', '0.0000000'])('allows exact zero removal: %s', value => {
-    expect(canRemoveIssuedBalance(value)).toBe(true);
-    expect(canSendBalance(value)).toBe(false);
+  const line = (balance: string, overrides: Partial<BalanceLine> = {}): BalanceLine => ({
+    asset: { kind: 'credit', code: 'USD', issuer }, balance,
+    buyingLiabilities: '0', sellingLiabilities: '0', isAuthorized: true, ...overrides,
   });
-  it.each(['0.0000001', '0.00009', '1', '9007199254740993.0000001'])('rejects any nonzero removal: %s', value => {
-    expect(canRemoveIssuedBalance(value)).toBe(false);
-    expect(canSendBalance(value)).toBe(true);
+  it.each(['0', '0.0000000'])('allows exact zero removal: %s', value => {
+    expect(canRemoveIssuedBalance(line(value))).toBe(true);
+    expect(canSendBalance(line(value))).toBe(false);
+  });
+  it.each(['0.0000001', '0.00009', '1', '922337203685.4775807'])('rejects any nonzero removal: %s', value => {
+    expect(canRemoveIssuedBalance(line(value))).toBe(false);
+    expect(canSendBalance(line(value))).toBe(true);
   });
   it.each(['-1', 'NaN', '1e3', '', '0.00000001'])('fails closed on invalid amounts: %s', value => {
-    expect(canRemoveIssuedBalance(value)).toBe(false);
-    expect(canSendBalance(value)).toBe(false);
+    expect(canRemoveIssuedBalance(line(value))).toBe(false);
+    expect(canSendBalance(line(value))).toBe(false);
+  });
+  it('uses the same authorization and liabilities rules at both display gates', () => {
+    expect(canSendBalance(line('10', { isAuthorized: false, isAuthorizedToMaintainLiabilities: true }))).toBe(false);
+    expect(canSendBalance(line('10', { sellingLiabilities: '10' }))).toBe(false);
+    expect(canRemoveIssuedBalance(line('0', { buyingLiabilities: '0.0000001' }))).toBe(false);
+    expect(canRemoveIssuedBalance(line('0', { sellingLiabilities: undefined }))).toBe(false);
   });
 });

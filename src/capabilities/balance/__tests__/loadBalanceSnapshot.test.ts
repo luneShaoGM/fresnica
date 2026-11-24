@@ -35,7 +35,9 @@ describe('loadBalanceSnapshot', () => {
       address: 'GTEST',
       balances: [
         { kind: 'native', balance: '12.3456789' },
-        { kind: 'credit', balance: '7.0000001', code: 'USD', issuer: 'GISSUER', limit: '500.0000000' },
+        { kind: 'credit', balance: '7.0000001', code: 'USD', issuer: 'GISSUER', limit: '500.0000000',
+          buyingLiabilities: '1.0000001', sellingLiabilities: '0.0000001',
+          isAuthorized: false, isAuthorizedToMaintainLiabilities: true, isClawbackEnabled: false },
       ],
     });
 
@@ -48,10 +50,28 @@ describe('loadBalanceSnapshot', () => {
           asset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' },
           balance: '7.0000001',
           limit: '500.0000000',
+          buyingLiabilities: '1.0000001',
+          sellingLiabilities: '0.0000001',
+          isAuthorized: false,
+          isAuthorizedToMaintainLiabilities: true,
+          isClawbackEnabled: false,
         },
       ],
       hiddenLiquidityPoolShareCount: 0,
     });
+  });
+
+  it('leaves omitted credit facts absent rather than synthesizing zeros and authorization', async () => {
+    const stellar = gateway();
+    stellar.loadAccountBalances.mockResolvedValue({ status: 'active', address: 'GTEST', balances: [
+      { kind: 'credit', code: 'USD', issuer: 'GISSUER', balance: '1' },
+    ] });
+    const result = await loadBalanceSnapshot(dependencies(stellar), account());
+    expect(result).toMatchObject({ status: 'active', balances: [
+      { asset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' }, balance: '1' },
+    ] });
+    if (result.status !== 'active') throw new Error('expected-active');
+    expect(Object.keys(result.balances[0]).sort()).toEqual(['asset', 'balance']);
   });
 
   it('keeps liquidity-pool shares out of the token list until that product model exists', async () => {

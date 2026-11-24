@@ -12,7 +12,7 @@ import {
 import { assertPathPaymentPreflight } from '../../../capabilities/path-payment/preflightPathPayment';
 import type { PathPaymentPreflightGatewayPort, PathPaymentQuote } from '../../../capabilities/path-payment/types';
 
-import { StellarSdkGateway } from '../StellarSdkGateway';
+import { StellarSdkGateway, mapBalance } from '../StellarSdkGateway';
 import type { HorizonAccountLike, HorizonOperationLike, HorizonServerLike } from '../types';
 
 const sourceAddress = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(1));
@@ -236,6 +236,24 @@ describe('StellarSdkGateway', () => {
         },
       ],
     });
+  });
+
+  it.each(['credit_alphanum4', 'credit_alphanum12'])('preserves all public credit facts from %s', asset_type => {
+    expect(mapBalance({ asset_type, asset_code: 'USD', asset_issuer: signerAddress,
+      balance: '7.0000001', limit: '922337203685.4775807',
+      buying_liabilities: '0.0000001', selling_liabilities: '2.0000001',
+      is_authorized: false, is_authorized_to_maintain_liabilities: true, is_clawback_enabled: false,
+    })).toEqual({ kind: 'credit', code: 'USD', issuer: signerAddress,
+      balance: '7.0000001', limit: '922337203685.4775807',
+      buyingLiabilities: '0.0000001', sellingLiabilities: '2.0000001',
+      isAuthorized: false, isAuthorizedToMaintainLiabilities: true, isClawbackEnabled: false,
+    });
+  });
+
+  it('does not invent missing Horizon authorization or liability fields', () => {
+    expect(mapBalance({ asset_type: 'credit_alphanum4', asset_code: 'USD', asset_issuer: signerAddress,
+      balance: '1.0000000',
+    })).toEqual({ kind: 'credit', code: 'USD', issuer: signerAddress, balance: '1.0000000' });
   });
 
   it('maps the account facts required by Trustline preflight', async () => {

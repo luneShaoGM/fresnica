@@ -11,7 +11,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { BalanceAsset } from '../../../capabilities/balance/types';
+import type { BalanceAsset, BalanceLine } from '../../../capabilities/balance/types';
 import type { AccountRecord } from '../../../capabilities/account/types';
 import type { BalanceProductDependencies } from '../../../capabilities/balance/BalanceCacheHydration';
 import { InMemoryBalanceCacheRepository } from '../../../platform/persistence/memory/InMemoryBalanceCacheRepository';
@@ -42,6 +42,7 @@ jest.mock('../../../locale', () => ({
 let mockBodyHeight = 0;
 let mockBalanceKind = 'ready';
 let mockBalanceAsset: BalanceAsset = { kind: 'native', code: 'XLM' };
+let mockBalanceFields: Partial<BalanceLine> = {};
 
 jest.mock('../useBalanceDisplay', () => ({
   useBalanceDisplay: () => ({
@@ -55,7 +56,7 @@ jest.mock('../useBalanceDisplay', () => ({
             snapshot: {
               status: 'active',
               address: 'GACCOUNT',
-              balances: [{ asset: mockBalanceAsset, balance: '10.0000000' }],
+              balances: [{ asset: mockBalanceAsset, balance: '10.0000000', ...mockBalanceFields }],
               hiddenLiquidityPoolShareCount: 0,
             },
           }
@@ -92,6 +93,10 @@ type NodeProps = {
   nestedScrollEnabled?: boolean;
   style?: StyleProp<TextStyle | ViewStyle>;
   accessibilityRole?: string;
+  accessibilityHint?: string;
+  disabled?: boolean;
+  label?: string;
+  value?: string;
 };
 function nodes(root: React.ReactNode): React.ReactElement<NodeProps>[] {
   if (!React.isValidElement<NodeProps>(root)) return [];
@@ -101,6 +106,8 @@ function nodes(root: React.ReactNode): React.ReactElement<NodeProps>[] {
 describe('native asset sheet content', () => {
   beforeEach(() => {
     mockBalanceKind = 'ready';
+    mockBalanceAsset = { kind: 'native', code: 'XLM' };
+    mockBalanceFields = {};
   });
   it.each(['android', 'ios'] as const)('keeps short content scroll handoff available on %s', os => {
     const originalOS = Platform.OS;
@@ -217,5 +224,83 @@ describe('native asset sheet content', () => {
     const renderBody = body.type as (props: unknown) => React.ReactElement;
     expect(nodes(renderBody(body.props)).some(node => node.type === ScrollView)).toBe(false);
     expect(result.props.onAccessibilityEscape).toBe(onClose);
+  });
+});
+
+describe('credit asset availability', () => {
+  function renderCredit(fields: Partial<BalanceLine> = {}) {
+    mockBalanceKind = 'ready';
+    const asset = { kind: 'credit', code: 'USD', issuer: 'GISSUER' } as const;
+    mockBalanceAsset = asset;
+    mockBalanceFields = fields;
+    const onSend = jest.fn();
+    const onRemove = jest.fn();
+    const result = AssetDetailsSheet({
+      asset, account, balanceDependencies, active: true, invalidationRevision: 0,
+      canSign: true, onClose: jest.fn(), copyPublicText: jest.fn(async () => undefined), onSend, onRemove,
+    });
+    const body = React.Children.toArray(result.props.children.props.children).at(-1) as React.ReactElement;
+    const renderBody = body.type as (props: unknown) => React.ReactElement;
+    const all = nodes(renderBody(body.props));
+    const action = (key: string) => all.find(node => node.type === Pressable &&
+      nodes(node).some(child => child.type === Text && child.props.children === key));
+    const value = (label: string) => all.find(node => node.props.label === label)?.props.value;
+    return { all, action, value, onSend, onRemove, asset };
+  }
+
+  it('shows exact available/capacity, authorization and independent clawback information', () => {
+    const h = renderCredit({
+      balance: '10.0000001', limit: '20', buyingLiabilities: '3', sellingLiabilities: '2',
+      isAuthorized: true, isAuthorizedToMaintainLiabilities: false, isClawbackEnabled: true,
+    });
+    expect(h.value('assets.availability.available')).toBe('8.0000001');
+    expect(h.value('assets.availability.receivingCapacity')).toBe('6.9999999');
+    expect(h.value('assets.availability.buyingLiabilities')).toBe('3.0000000');
+    expect(h.value('assets.availability.sellingLiabilities')).toBe('2.0000000');
+    expect(h.value('assets.availability.authorization')).toBe('assets.availability.authorization.authorized');
+    expect(h.value('assets.availability.clawback')).toBe('assets.availability.enabled');
+    expect(h.action('home.asset.send')?.props.disabled).toBe(false);
+    h.action('home.asset.send')?.props.onPress?.();
+    expect(h.onSend).toHaveBeenCalledWith(h.asset);
+  });
+
+  it.each([
+    [{}, 'unknown'],
+    [{ isAuthorized: false, isAuthorizedToMaintainLiabilities: true, sellingLiabilities: '0' }, 'maintain-liabilities'],
+    [{ isAuthorized: false, sellingLiabilities: '0' }, 'unauthorized'],
+    [{ isAuthorized: true, sellingLiabilities: '10' }, 'no-available-balance'],
+  ] as const)('explains and enforces disabled send for %s', (fields, reason) => {
+    const h = renderCredit(fields);
+    const send = h.action('home.asset.send');
+    expect(send?.props.disabled).toBe(true);
+    expect(send?.props.accessibilityHint).toBe(`assets.availability.send.${reason}`);
+    expect(h.all.some(node => node.type === Text && node.props.children === `assets.availability.send.${reason}`)).toBe(true);
+    send?.props.onPress?.();
+    expect(h.onSend).not.toHaveBeenCalled();
+    if (reason === 'unknown') {
+      expect(h.value('assets.availability.available')).toBe('assets.availability.unknown');
+      expect(h.value('assets.availability.buyingLiabilities')).toBe('assets.availability.unknown');
+      expect(h.value('assets.availability.clawback')).toBe('assets.availability.unknown');
+    }
+  });
+
+  it.each([
+    [{ balance: '0' }, 'unknown'],
+    [{ balance: '0', buyingLiabilities: '0.0000001', sellingLiabilities: '0' }, 'liabilities'],
+    [{ balance: '1', buyingLiabilities: '0', sellingLiabilities: '0' }, 'balance-not-zero'],
+  ] as const)('explains and enforces disabled removal for %s', (fields, reason) => {
+    const h = renderCredit(fields);
+    const remove = h.action('home.asset.remove');
+    expect(remove?.props.disabled).toBe(true);
+    expect(remove?.props.accessibilityHint).toBe(`assets.availability.remove.${reason}`);
+    remove?.props.onPress?.();
+    expect(h.onRemove).not.toHaveBeenCalled();
+  });
+
+  it('allows removal of a known empty line even when ordinary transfers are not authorized', () => {
+    const h = renderCredit({ balance: '0', buyingLiabilities: '0', sellingLiabilities: '0', isAuthorized: false });
+    expect(h.action('home.asset.remove')?.props.disabled).toBe(false);
+    h.action('home.asset.remove')?.props.onPress?.();
+    expect(h.onRemove).toHaveBeenCalledWith(h.asset);
   });
 });

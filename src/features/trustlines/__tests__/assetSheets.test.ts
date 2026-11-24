@@ -114,7 +114,7 @@ const ready = (balance = '0.0000000', stale = false): BalanceDisplayState => ({
   snapshot: {
     status: 'active',
     address: account.address,
-    balances: [{ asset, balance }],
+    balances: [{ asset, balance, buyingLiabilities: '0', sellingLiabilities: '0', isAuthorized: true }],
     hiddenLiquidityPoolShareCount: 0,
   },
   stale,
