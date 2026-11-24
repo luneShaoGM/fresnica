@@ -142,14 +142,17 @@ export function RecoveryMaterialScreen({
                   />
                 ))
               : null}
-            <PassphraseInput
-              ref={input}
-              label={t('recovery.current')}
-              hint={t('recovery.fresh')}
-              disabled={status === 'busy'}
-              style={styles.input}
-              onPresenceChange={setPresent}
-            />
+            <View style={styles.field}>
+              <Text style={styles.label}>{t('recovery.current')}</Text>
+              <PassphraseInput
+                ref={input}
+                label={t('recovery.current')}
+                hint={t('recovery.fresh')}
+                disabled={status === 'busy'}
+                style={styles.input}
+                onPresenceChange={setPresent}
+              />
+            </View>
             <Button label={t('recovery.reveal')} disabled={!present || status === 'busy'} onPress={reveal} />
           </>
         )}

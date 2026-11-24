@@ -21,23 +21,6 @@ export function createRequestStyles(theme: AppTheme) {
     addressTitle: { fontSize: 10, lineHeight: 13, color: theme.colors.textTertiary, fontWeight: '800' },
     address: { fontSize: 11, lineHeight: 16, color: theme.colors.textPrimary, fontWeight: '600' },
     sectionLabel: { marginTop: 10, fontSize: 10, lineHeight: 13, color: theme.colors.textTertiary, fontWeight: '800' },
-    assetList: { gap: 8, paddingVertical: 2 },
-    assetButton: {
-      minHeight: 48,
-      minWidth: 104,
-      borderRadius: 9,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 12,
-      backgroundColor: theme.colors.surface,
-    },
-    assetButtonSelected: { borderColor: theme.colors.actionPrimary, backgroundColor: theme.colors.actionPrimarySubtle },
-    assetText: { fontSize: 11, lineHeight: 15, color: theme.colors.textSecondary, fontWeight: '700' },
-    assetTextSelected: { color: theme.colors.textPrimary },
-    assetIssuer: { fontSize: 9, lineHeight: 12, color: theme.colors.textTertiary },
-    assetIssuerSelected: { color: theme.colors.textSecondary },
     warning: { fontSize: 10, lineHeight: 15, color: theme.colors.textPrimary },
     optionRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
     optionButton: {
@@ -114,7 +97,6 @@ export function createRequestStyles(theme: AppTheme) {
       borderColor: theme.colors.border,
       gap: 12,
     },
-    qrText: { fontSize: 9, lineHeight: 13, color: theme.colors.textSecondary, textAlign: 'center' },
     pressed: { opacity: 0.7 },
   });
 }

@@ -5,6 +5,7 @@ import type { AccountRecord } from '../../../capabilities/account/types';
 import type { SignerRecord } from '../../../capabilities/signer/types';
 import type { OnboardingProvisioningDependencies } from '../../onboarding/runOnboardingProvisioning';
 import { AddAccountScreen } from '../AddAccountScreen';
+import { SelectField } from '@ui/components/SelectField';
 import type { SensitiveTextInputHandle, SensitiveTextInputProps } from '../../onboarding/SensitiveTextInput';
 import { nodes, sensitiveField, SensitiveFlowHarness } from '../../onboarding/__tests__/sensitiveFlowHarness';
 
@@ -114,7 +115,6 @@ type TestProps = Readonly<{
   label?: string;
   title?: string;
   disabled?: boolean;
-  candidate?: { signerPublicKey?: string };
 }>;
 
 function visit(node: React.ReactNode, callback: (element: React.ReactElement<TestProps>) => void): void {
@@ -198,13 +198,31 @@ describe('AddAccountScreen Existing-wallet account choices', () => {
       signer: protectedSigner(),
       attachedAt: now,
     });
-    const root = renderWithMode('derive-hd', repository);
+    const harness = new SensitiveFlowHarness();
+    const deps = dependencies(repository);
+    const render = () => harness.render(() => AddAccountScreen({
+      dependencies: deps,
+      onCreatedAccountReady: jest.fn(),
+      onAccountPersisted: jest.fn(),
+      onWatchOnlyComplete: jest.fn(),
+      onCancel: jest.fn(),
+    }));
+    const choices = nodes(render());
+    (choices.find(node => node.props.title === 'Derive from recovery phrase')!.props.onPress as () => void)();
+    const source = nodes(render()).find(node => node.type === SelectField)!;
+    expect(source.props.value).toBe('');
+    expect(source.props.options).toEqual([{
+      value: 'signer-a',
+      label: 'Primary recovery',
+      description: 'GSIGNER',
+      accessibilityLabel: 'Primary recovery: GSIGNER',
+    }]);
+    (source.props.onValueChange as (value: string) => void)('signer-a');
+    const root = render();
     const labels: string[] = [];
-    const sourceKeys: string[] = [];
     const textContent: string[] = [];
     visit(root, element => {
       if (element.props.label) labels.push(element.props.label);
-      if (element.props.candidate?.signerPublicKey) sourceKeys.push(element.props.candidate.signerPublicKey);
     });
     collectText(root, textContent);
 
@@ -212,8 +230,12 @@ describe('AddAccountScreen Existing-wallet account choices', () => {
     expect(labels).toContain('Account index');
     expect(labels).toContain('Current App Passphrase');
     expect(labels).not.toContain('Recovery phrase');
-    expect(sourceKeys).toEqual(['GSIGNER']);
+    const selectedSource = nodes(root).find(node => node.type === SelectField)!;
+    expect(selectedSource.props.value).toBe('signer-a');
+    expect((selectedSource.props.options as readonly { value: string; description?: string }[])
+      .find(option => option.value === selectedSource.props.value)?.description).toBe('GSIGNER');
     expect(textContent).toContain("m/44'/148'/1'");
+    harness.unmount();
   });
 
   it('asks for the current App Passphrase when a protected signer already exists', () => {

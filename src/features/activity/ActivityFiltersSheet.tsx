@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
-import { BottomSheet } from '@ui/components';
+import { BottomSheet, SelectField } from '@ui/components';
 import { SelectableChip } from '@ui/components/SelectableChip';
 import { NativeButton } from '@ui/components/NativeButton';
 import { useThemedStyles } from '@ui/theme';
@@ -47,6 +47,13 @@ export function ActivityFiltersSheet({
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const [draft, setDraft] = useState(initial);
+  const [assetControlsExpanded, setAssetControlsExpanded] = useState(false);
+  const assetChoices = [...new Set([...assets, ...(draft.quantity.asset ? [draft.quantity.asset] : [])])].map(
+    identity => {
+      const [code, issuer] = identity === 'native:XLM' ? ['XLM', ''] : (JSON.parse(identity) as [string, string]);
+      return { value: identity, label: code, ...(issuer ? { description: issuer } : {}) };
+    },
+  );
   return (
     <BottomSheet avoidAndroidKeyboard visible onClose={onClose} closeLabel={t('common.close')}>
       <View style={styles.sheetHeading}>
@@ -78,47 +85,22 @@ export function ActivityFiltersSheet({
             />
           ))}
         </View>
-        <Text style={styles.sheetSection}>{t('activity.filters.type')}</Text>
-        <View style={styles.filterOptions}>
-          {TYPES.map(type => (
-            <SelectableChip
-              key={type}
-              label={t(`activity.filter.${type}`)}
-              accessibilityRole="radio"
-              selected={draft.type === type}
-              onPress={() => setDraft(value => ({ ...value, type: value.type === type ? 'all' : type }))}
-            />
-          ))}
-        </View>
-        <Text style={styles.sheetSection}>{t('activity.filters.asset')}</Text>
+        <SelectField
+          label={t('activity.filters.type')}
+          value={draft.type}
+          options={TYPES.map(type => ({ value: type, label: t(`activity.filter.${type}`) }))}
+          onValueChange={type => setDraft(value => ({ ...value, type }))}
+        />
+        <SelectField
+          label={t('activity.filters.asset')}
+          value={draft.quantity.asset ?? ''}
+          options={[{ value: '', label: t('activity.filters.allAssets') }, ...assetChoices]}
+          search={{ label: t('assets.picker.search'), emptyLabel: t('assets.picker.empty') }}
+          onValueChange={asset =>
+            setDraft(value => ({ ...value, quantity: { ...value.quantity, asset: asset || undefined } }))
+          }
+        />
         <Text style={styles.settingHint}>{t('activity.filters.loadedAssets')}</Text>
-        {assets.map(identity => {
-          const [code, issuer] = identity === 'native:XLM' ? ['XLM', ''] : (JSON.parse(identity) as [string, string]);
-          const selected = draft.quantity.asset === identity;
-          return (
-            <Pressable
-              key={identity}
-              accessibilityRole="radio"
-              accessibilityLabel={issuer ? `${code} · ${issuer}` : code}
-              accessibilityState={{ selected }}
-              onPress={() =>
-                setDraft(value => ({
-                  ...value,
-                  quantity: { ...value.quantity, asset: value.quantity.asset === identity ? undefined : identity },
-                }))
-              }
-              style={styles.settingRow}
-            >
-              <View style={styles.settingCopy}>
-                <Text style={styles.settingTitle}>{code}</Text>
-                {issuer ? <Text style={styles.issuer}>{issuer}</Text> : null}
-              </View>
-              <Text accessible={false} style={styles.sheetLink}>
-                {selected ? '●' : '○'}
-              </Text>
-            </Pressable>
-          );
-        })}
         <Text style={styles.sheetSection}>{t('activity.filters.amount')}</Text>
         <View style={styles.filterOptions}>
           {(['at-most', 'at-least'] as const).map(comparison => (
@@ -138,21 +120,18 @@ export function ActivityFiltersSheet({
               }
             />
           ))}
-          {['10', '25', '50', '100', '250', '500', '1000'].map(amount => (
-            <SelectableChip
-              key={amount}
-              label={amount}
-              accessibilityRole="radio"
-              selected={draft.quantity.amount === amount}
-              onPress={() =>
-                setDraft(value => ({
-                  ...value,
-                  quantity: { ...value.quantity, amount: value.quantity.amount === amount ? undefined : amount },
-                }))
-              }
-            />
-          ))}
         </View>
+        <SelectField
+          label={t('activity.filters.amountValue')}
+          value={draft.quantity.amount ?? ''}
+          options={[
+            { value: '', label: t('activity.filters.anyAmount') },
+            ...['10', '25', '50', '100', '250', '500', '1000'].map(amount => ({ value: amount, label: amount })),
+          ]}
+          onValueChange={amount =>
+            setDraft(value => ({ ...value, quantity: { ...value.quantity, amount: amount || undefined } }))
+          }
+        />
         <Text style={styles.settingHint}>{t('activity.filters.amountHint')}</Text>
         <View style={styles.settingRow}>
           <View style={styles.settingCopy}>
@@ -186,44 +165,67 @@ export function ActivityFiltersSheet({
             onValueChange={value => setDraft(current => ({ ...current, showFailed: value }))}
           />
         </View>
-        <Text style={styles.sheetSection}>{t('activity.visibility.manageAssets')}</Text>
-        <Text style={styles.settingHint}>{t('activity.visibility.manualOnly')}</Text>
-        {assets.filter(identity => identity !== 'native:XLM').length === 0 ? (
-          <Text style={styles.settingHint}>{t('activity.filters.noAssets')}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('activity.visibility.manageAssets')}
+          accessibilityState={{ expanded: assetControlsExpanded }}
+          onPress={() => setAssetControlsExpanded(value => !value)}
+          style={styles.settingRow}
+        >
+          <View style={styles.settingCopy}>
+            <Text style={styles.settingTitle}>{t('activity.visibility.manageAssets')}</Text>
+            <Text style={styles.settingHint}>
+              {t('activity.filters.hiddenCount', { count: String(draft.hiddenAssets.size) })}
+            </Text>
+          </View>
+          <Text accessible={false} allowFontScaling={false} style={styles.sheetLink}>
+            {assetControlsExpanded ? '⌃' : '⌄'}
+          </Text>
+        </Pressable>
+        {assetControlsExpanded ? (
+          <View style={styles.assetVisibilityPanel}>
+            <Text style={styles.settingHint}>{t('activity.visibility.manualOnly')}</Text>
+            {assets.filter(identity => identity !== 'native:XLM').length === 0 ? (
+              <Text style={styles.settingHint}>{t('activity.filters.noAssets')}</Text>
+            ) : null}
+            {assets
+              .filter(identity => identity !== 'native:XLM')
+              .map(identity => {
+                const [code, issuer] = JSON.parse(identity) as [string, string];
+                const hidden = draft.hiddenAssets.has(identity);
+                return (
+                  <Pressable
+                    key={identity}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: hidden }}
+                    accessibilityLabel={t(
+                      hidden ? 'activity.visibility.restoreAsset' : 'activity.visibility.hideAsset',
+                      {
+                        asset: `${code} · ${issuer}`,
+                      },
+                    )}
+                    onPress={() =>
+                      setDraft(current => {
+                        const hiddenAssets = new Set(current.hiddenAssets);
+                        if (hiddenAssets.has(identity)) hiddenAssets.delete(identity);
+                        else hiddenAssets.add(identity);
+                        return { ...current, hiddenAssets };
+                      })
+                    }
+                    style={styles.settingRow}
+                  >
+                    <View style={styles.settingCopy}>
+                      <Text style={styles.settingTitle}>{code}</Text>
+                      <Text style={styles.issuer}>{issuer}</Text>
+                    </View>
+                    <Text accessible={false} style={styles.sheetLink}>
+                      {hidden ? '☑' : '☐'}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+          </View>
         ) : null}
-        {assets
-          .filter(identity => identity !== 'native:XLM')
-          .map(identity => {
-            const [code, issuer] = JSON.parse(identity) as [string, string];
-            const hidden = draft.hiddenAssets.has(identity);
-            return (
-              <Pressable
-                key={identity}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: hidden }}
-                accessibilityLabel={t(hidden ? 'activity.visibility.restoreAsset' : 'activity.visibility.hideAsset', {
-                  asset: `${code} · ${issuer}`,
-                })}
-                onPress={() =>
-                  setDraft(current => {
-                    const hiddenAssets = new Set(current.hiddenAssets);
-                    if (hiddenAssets.has(identity)) hiddenAssets.delete(identity);
-                    else hiddenAssets.add(identity);
-                    return { ...current, hiddenAssets };
-                  })
-                }
-                style={styles.settingRow}
-              >
-                <View style={styles.settingCopy}>
-                  <Text style={styles.settingTitle}>{code}</Text>
-                  <Text style={styles.issuer}>{issuer}</Text>
-                </View>
-                <Text accessible={false} style={styles.sheetLink}>
-                  {hidden ? '☑' : '☐'}
-                </Text>
-              </Pressable>
-            );
-          })}
         <NativeButton
           label={t('activity.refresh')}
           size="sm"

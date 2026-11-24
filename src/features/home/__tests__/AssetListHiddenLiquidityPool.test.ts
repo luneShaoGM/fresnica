@@ -28,6 +28,15 @@ jest.mock('@ui/theme', () => {
   };
 });
 
+jest.mock('../../../locale', () => ({
+  useLocalization: () => ({
+    t: (key: string, params?: { count?: number }) =>
+      key === 'home.assets.poolPositionsNotListed'
+        ? jest.requireActual('../../../locale/localization').createLocalization('en').t(key, params)
+        : key,
+  }),
+}));
+
 jest.mock('../../assets/tokenIconContext', () => ({
   useTokenIconContext: () => ({
     snapshot: { enabled: mockIconState.enabled, revision: 0 },
@@ -238,7 +247,7 @@ describe('Home hidden liquidity-pool positions', () => {
     });
     const labels = texts(root);
     expect(labels).toContain('No other assets.');
-    expect(labels).toContain('2 liquidity-pool position(s) are not shown by the current Home balance contract.');
+    expect(labels).toContain('Liquidity-pool positions not shown in this list: 2.');
     expect(elements(root, Pressable)).toHaveLength(0);
     expect(labels).not.toContain('Refresh balances');
   });
@@ -249,7 +258,7 @@ describe('Home hidden liquidity-pool positions', () => {
       hiddenLiquidityPoolShareCount: 0,
       onOpenAsset,
     });
-    expect(texts(root).some(text => text.includes('liquidity-pool position(s)'))).toBe(false);
+    expect(texts(root).some(text => text.includes('home.assets.poolPositionsNotListed'))).toBe(false);
     expect(texts(root)).toContain('No other assets.');
   });
 
@@ -261,7 +270,7 @@ describe('Home hidden liquidity-pool positions', () => {
     });
     const labels = texts(root);
     expect(labels).toContain('USD');
-    expect(labels).toContain('1 liquidity-pool position(s) are not shown by the current Home balance contract.');
+    expect(labels).toContain('Liquidity-pool positions not shown in this list: 1.');
     expect(labels).not.toContain('No other assets.');
     expect(labels).not.toContain('Refresh balances');
     expect(elements(root, Pressable)).toHaveLength(1);

@@ -24,13 +24,6 @@ export function createStyles(theme: AppTheme) {
     },
     headerSide: { flexShrink: 0, alignItems: 'flex-start' },
     content: { paddingTop: 16, paddingBottom: 34 },
-    description: {
-      paddingHorizontal: 20,
-      paddingBottom: 12,
-      fontSize: 12,
-      lineHeight: 16,
-      color: theme.colors.textTertiary,
-    },
     sortError: { marginHorizontal: 20, marginBottom: 12, fontSize: 12, lineHeight: 16, color: theme.colors.negative },
     accountGroup: { marginBottom: 12 },
     accountCard: {

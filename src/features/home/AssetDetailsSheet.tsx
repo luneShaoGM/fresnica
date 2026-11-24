@@ -110,11 +110,10 @@ export function AssetDetailsSheet({
             </Pressable>
           </View>
         </View>
-        <BalanceFreshnessNotice state={balanceState} onRefresh={refresh} />
+        <BalanceFreshnessNotice state={balanceState} onRefresh={refresh} showRefreshStatus={false} />
         <Pressable accessibilityRole="button" onPress={() => refresh()}>
           <Text style={styles.helper}>{t('trustlines.add.retry')}</Text>
         </Pressable>
-        {asset.kind === 'native' ? <Text style={styles.explanation}>{t('home.asset.nativeExplanation')}</Text> : null}
         {state.kind === 'loading' ? (
           <View style={styles.status}>
             <ActivityIndicator color={theme.colors.actionPrimary} />

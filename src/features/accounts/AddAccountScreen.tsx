@@ -2,13 +2,11 @@ import { NewPassphraseGuidance } from '../security/NewPassphraseGuidance/NewPass
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import {
-  NEW_PROTECTION_PASSPHRASE_MIN_UNICODE_SCALARS,
-  assessNewProtectionPassphrase,
-} from '@capabilities/application-security/newPassphrasePolicy';
+import { assessNewProtectionPassphrase } from '@capabilities/application-security/newPassphrasePolicy';
 import { requiresExistingAppPassphrase } from '@capabilities/application-security/verifyExistingAppPassphrase';
 import { AccountProvisioningInProgressError, subscribeProtectedAccountProvisioning } from '@capabilities/account/provisionAccount';
 import { Screen } from '@ui/components';
+import { SelectField } from '@ui/components/SelectField';
 import { useAppTheme, useThemedStyles, type AppTheme } from '@ui/theme';
 
 import { useLocalization } from '../../locale';
@@ -480,20 +478,19 @@ export function AddAccountScreen({
         ) : null}
         {isHdDerive ? (
           <>
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>{t('accounts.add.deriveHd.source')}</Text>
-              <View style={styles.sourceList}>
-                {hdSourceCandidates.map(candidate => (
-                  <HdSourceButton
-                    key={candidate.signerId}
-                    candidate={candidate}
-                    selected={candidate.signerId === hdSourceSignerId}
-                    disabled={busy}
-                    onPress={() => setHdSourceSignerId(candidate.signerId)}
-                  />
-                ))}
-              </View>
-            </View>
+            <SelectField
+              label={t('accounts.add.deriveHd.source')}
+              placeholder={t('accounts.add.deriveHd.chooseSource')}
+              value={hdSourceSignerId}
+              options={hdSourceCandidates.map(candidate => ({
+                value: candidate.signerId,
+                label: candidate.accountLabel,
+                description: candidate.signerPublicKey,
+                accessibilityLabel: `${candidate.accountLabel}: ${candidate.signerPublicKey}`,
+              }))}
+              disabled={busy}
+              onValueChange={setHdSourceSignerId}
+            />
             <Field
               label={t('accounts.add.deriveHd.index')}
               value={hdIndex}
@@ -587,11 +584,6 @@ export function AddAccountScreen({
               disabled={busy}
               onAccept={setShortRiskAccepted}
             />
-            <Text style={styles.passphraseHint}>
-              {t('accounts.add.passphraseMinimum', {
-                count: NEW_PROTECTION_PASSPHRASE_MIN_UNICODE_SCALARS,
-              })}
-            </Text>
           </>
         ) : null}
         {error ? (
@@ -729,42 +721,6 @@ function ChoiceButton({
         <Text style={styles.choiceSubtitle}>{subtitle}</Text>
       </View>
       <Text style={styles.chevron}>›</Text>
-    </Pressable>
-  );
-}
-
-function HdSourceButton({
-  candidate,
-  selected,
-  disabled,
-  onPress,
-}: Readonly<{
-  candidate: ReturnType<typeof listExistingWalletHdSourceCandidates>[number];
-  selected: boolean;
-  disabled: boolean;
-  onPress: () => void;
-}>) {
-  const styles = useThemedStyles(createStyles);
-  return (
-    <Pressable
-      accessibilityLabel={candidate.signerPublicKey}
-      accessibilityRole="radio"
-      accessibilityState={{ selected, disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.sourceButton,
-        selected ? styles.sourceButtonSelected : undefined,
-        pressed ? styles.pressed : undefined,
-      ]}
-    >
-      <View style={styles.sourceRadio}>{selected ? <View style={styles.sourceRadioDot} /> : null}</View>
-      <View style={styles.flex}>
-        <Text style={styles.sourceLabel}>{candidate.accountLabel}</Text>
-        <Text selectable style={styles.sourceKey}>
-          {candidate.signerPublicKey}
-        </Text>
-      </View>
     </Pressable>
   );
 }
@@ -961,31 +917,6 @@ function createStyles(theme: AppTheme) {
     description: { color: theme.colors.textSecondary, fontSize: 13, lineHeight: 20 },
     field: { gap: 7 },
     fieldLabel: { color: theme.colors.textPrimary, fontSize: 12, lineHeight: 16, fontWeight: '700' },
-    sourceList: { gap: 8 },
-    sourceButton: {
-      minHeight: 62,
-      borderRadius: 10,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      paddingHorizontal: 12,
-      paddingVertical: theme.spacing.sm,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-    },
-    sourceButtonSelected: { borderColor: theme.colors.actionPrimary },
-    sourceRadio: {
-      width: 18,
-      height: 18,
-      borderRadius: 9,
-      borderWidth: 1,
-      borderColor: theme.colors.textTertiary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    sourceRadioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: theme.colors.actionPrimary },
-    sourceLabel: { color: theme.colors.textPrimary, fontSize: 13, lineHeight: 18, fontWeight: '700' },
-    sourceKey: { color: theme.colors.textSecondary, fontSize: 10, lineHeight: 15 },
     pathBox: { borderRadius: 10, backgroundColor: theme.colors.surfaceMuted, padding: 12, gap: 4 },
     pathLabel: { color: theme.colors.textSecondary, fontSize: 11, lineHeight: 15, fontWeight: '700' },
     pathValue: { color: theme.colors.textPrimary, fontSize: 14, lineHeight: 19, fontWeight: '700' },
@@ -997,7 +928,6 @@ function createStyles(theme: AppTheme) {
       color: theme.colors.textPrimary,
       fontSize: 14,
     },
-    passphraseHint: { color: theme.colors.textTertiary, fontSize: 11, lineHeight: 17 },
     error: {
       marginHorizontal: 18,
       marginTop: 14,

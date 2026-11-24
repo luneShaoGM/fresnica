@@ -37,25 +37,15 @@ export function AboutScreen({ onBack, appName, projectName, isMainnet }: Props) 
             <View style={styles.logoDot} />
           </View>
           <Text style={styles.appName}>{appName}</Text>
-          <Text style={styles.tagline}>Stellar wallet powered by the Fresnica Native SDK security boundary.</Text>
+          <Text style={styles.tagline}>{t('settings.aboutTagline')}</Text>
         </View>
 
         <View style={styles.rows}>
-          <InfoRow label="Project" value={projectName} />
+          <InfoRow label={t('settings.project')} value={projectName} />
           <InfoRow
-            label="Network"
+            label={t('settings.network')}
             value={t(isMainnet ? 'networkManage.name.stellar-mainnet' : 'networkManage.name.stellar-testnet')}
           />
-          <InfoRow label="Runtime" value="React Native 0.87" />
-          <InfoRow label="Security" value="Fresnica Native SDK" />
-        </View>
-
-        <View style={styles.note}>
-          <Text style={styles.noteTitle}>Compatibility</Text>
-          <Text style={styles.noteText}>
-            Native SDK and adapter compatibility is enforced at the platform boundary. Detailed diagnostics remain
-            developer/support tooling rather than wallet state.
-          </Text>
         </View>
       </ScrollView>
     </Screen>

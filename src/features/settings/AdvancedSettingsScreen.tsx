@@ -21,24 +21,17 @@ export function AdvancedSettingsScreen({
   const styles = useThemedStyles(createStyles);
   return (
     <SettingsSubpage title={t('settings.advanced')} onBack={onBack}>
-      <View style={styles.section}>
-        <Text style={styles.label}>{t('settings.network')}</Text>
-      </View>
       <ListRow title={t('settings.network')} subtitle={t('settings.networkDetail')} onPress={onOpenNetwork} />
       <View style={styles.section}>
         <Text style={styles.label}>{t('settings.releaseInformation')}</Text>
       </View>
       <ListRow title={t('settings.about')} onPress={onOpenAbout} />
       <ListRow title={t('settings.version')} subtitle={appVersion ?? t('settings.unavailable')} />
-      {['changeLog'].map(key => (
-        <ListRow key={key} title={t('settings.' + key)} subtitle={t('settings.unavailable')} />
-      ))}
       <View style={styles.section}>
         <Text style={styles.label}>{t('settings.debug')}</Text>
       </View>
-      <ListRow title={t('preferences.sessionId')} subtitle={sessionId ?? t('settings.unavailable')} />
       {settings ? (
-        <DeveloperSection settings={settings} onOpenLogs={onOpenLogs} />
+        <DeveloperSection settings={settings} onOpenLogs={onOpenLogs} sessionId={sessionId} />
       ) : (
         <ListRow title={t('settings.developerMode')} subtitle={t('settings.controlsUnavailable')} />
       )}
@@ -46,14 +39,17 @@ export function AdvancedSettingsScreen({
     </SettingsSubpage>
   );
 }
-function DeveloperSection({ settings, onOpenLogs }: Readonly<{ settings: NetworkSettings; onOpenLogs?: () => void; appVersion?: string; sessionId?: string }>) {
+function DeveloperSection({ settings, onOpenLogs, sessionId }: Readonly<{ settings: NetworkSettings; onOpenLogs?: () => void; sessionId?: string }>) {
   const { t } = useLocalization();
   const snapshot = useSyncExternalStore(settings.subscribe, settings.getSnapshot);
   return (
     <>
       <NetworkManagement settings={settings} section="developer-mode" />
       {snapshot.preferences.developerMode ? (
-        <ListRow title={t('settings.sessionLogs')} onPress={onOpenLogs} />
+        <>
+          <ListRow title={t('preferences.sessionId')} subtitle={sessionId ?? t('settings.unavailable')} />
+          <ListRow title={t('settings.sessionLogs')} onPress={onOpenLogs} />
+        </>
       ) : null}
     </>
   );

@@ -35,14 +35,9 @@ export function InactiveAccountPanel({
     <View style={styles.inactiveContainer} testID="not-activated-account-container">
       <Text style={styles.inactiveTitle}>{t(showStale ? 'home.inactive.staleTitle' : 'home.inactive.title')}</Text>
 
-      {showStale ? (
-        <Text style={styles.inactiveStepText}>{t('balance.cache.inactive')}</Text>
-      ) : (
-        <View style={styles.inactiveStep}>
-          <Text style={styles.inactiveStepTitle}>{t('home.inactive.fundTitle')}</Text>
-          <Text style={styles.inactiveStepText}>{t('home.inactive.fundMessage')}</Text>
-        </View>
-      )}
+      <Text style={styles.inactiveStepText}>
+        {t(showStale ? 'balance.cache.inactive' : 'home.inactive.fundMessage')}
+      </Text>
 
       <Text selectable style={styles.inactiveAddress}>
         {address}
@@ -58,13 +53,6 @@ export function InactiveAccountPanel({
       {!showStale && friendbotState === 'error' ? (
         <Text style={styles.inactiveError}>{t('home.friendbot.error')}</Text>
       ) : null}
-      {showStale ? null : (
-        <View style={styles.inactiveStep}>
-          <Text style={styles.inactiveStepTitle}>{t('home.inactive.refreshTitle')}</Text>
-          <Text style={styles.inactiveStepText}>{t('home.inactive.refreshMessage')}</Text>
-        </View>
-      )}
-
       <Button label={t('home.inactive.refreshAction')} onPress={onRefresh} variant="secondary" />
     </View>
   );

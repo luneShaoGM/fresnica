@@ -686,10 +686,6 @@ export function SwapPreviewScreen({
     <Screen scrollable={false} contentInset="none">
       {renderSwapHeader(styles, t, close, submitting)}
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-        <View style={styles.notice}>
-          <Text style={styles.text}>{t('swap.preview.notice')}</Text>
-          <Text style={styles.secondary}>{t('swap.execution.safePreview')}</Text>
-        </View>
         <AccountIdentityCard
           avatar={<AccountAvatar address={account.address} active={active} />}
           address={account.address}
@@ -824,7 +820,6 @@ export function SwapPreviewScreen({
               />
             </View>
             <Text style={styles.secondary}>{t('swap.preview.' + mode)}</Text>
-            <Text style={styles.secondary}>{t('swap.quote.automatic')}</Text>
             {busy && view.kind === 'form' ? <ActivityIndicator accessibilityLabel={t('swap.preview.loading')} /> : null}
             {amount && !isQuotableSwapAmount(amount) ? (
               <Text style={styles.error}>{t('swap.amount.invalid')}</Text>

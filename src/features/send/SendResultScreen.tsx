@@ -23,7 +23,6 @@ type Props = Readonly<{
 export function SendResultScreen({result, onDone, recipientCard}: Props) {
   const styles = useThemedStyles(createStyles);
   const {t} = useLocalization();
-  const presentation = describeResult(result);
   const positive = result.status === 'submitted';
   const uncertain = result.status === 'uncertain';
 
@@ -38,20 +37,20 @@ export function SendResultScreen({result, onDone, recipientCard}: Props) {
             ]}>
             <Text style={[styles.resultGlyph, positive ? styles.resultGlyphPositive : uncertain ? styles.resultGlyphUncertain : styles.resultGlyphNegative]}>{positive ? '✓' : uncertain ? '?' : '!'}</Text>
           </View>
-          <Text style={styles.title}>{presentation.title}</Text>
-          <Text style={styles.description}>{presentation.description}</Text>
+          <Text style={styles.title}>{t(`send.result.${result.status}.title`)}</Text>
+          <Text style={styles.description}>{t(`send.result.${result.status}.description`)}</Text>
         </View>
 
         {recipientCard}
-        {'hash' in result ? <ResultRow label="Transaction hash" value={result.hash} mono /> : null}
+        {'hash' in result ? <ResultRow label={t('send.result.hash')} value={result.hash} mono /> : null}
         {'transactionHash' in result ? (
-          <ResultRow label="Transaction hash" value={result.transactionHash} mono />
+          <ResultRow label={t('send.result.hash')} value={result.transactionHash} mono />
         ) : null}
         {result.status === 'submitted' && result.ledger !== undefined ? (
-          <ResultRow label="Ledger" value={String(result.ledger)} />
+          <ResultRow label={t('send.result.ledger')} value={String(result.ledger)} />
         ) : null}
-        {result.status === 'submitted' ? (
-          <ResultRow label="Authorization" value={result.authorization} />
+        {result.status === 'rejected' && result.resultCode ? (
+          <ResultRow label={t('send.result.code')} value={result.resultCode} mono />
         ) : null}
       </ScrollView>
 
@@ -73,54 +72,6 @@ function ResultRow({label, value, mono = false}: Readonly<{label: string; value:
       </Text>
     </View>
   );
-}
-
-function describeResult(result: SendTerminalResult): {
-  title: string;
-  description: string;
-} {
-  switch (result.status) {
-    case 'submitted':
-      return {
-        title: 'Payment sent',
-        description: 'Horizon accepted the exact signed transaction.',
-      };
-    case 'rejected':
-      return {
-        title: 'Payment rejected',
-        description: result.resultCode
-          ? `Horizon deterministically rejected the transaction: ${result.resultCode}.`
-          : 'Horizon deterministically rejected the transaction.',
-      };
-    case 'uncertain':
-      return {
-        title: 'Status uncertain',
-        description:
-          'Fresnica could not prove whether the network accepted this transaction. Verify the transaction hash before trying again.',
-      };
-    case 'authorization-blocked':
-      return {
-        title: 'Authorization unavailable',
-        description: `Current ledger authorization is blocked (${result.reason}). Required weight ${result.requiredWeight}; available local weight ${result.availableWeight}.`,
-      };
-    case 'unsupported-signer':
-      return {
-        title: 'Signer unsupported',
-        description:
-          'The signer attached to this account cannot be invoked by the current Mobile signing provider.',
-      };
-    case 'watch-only':
-      return {
-        title: 'Watch-only account',
-        description: 'This account has no attached signer and cannot send a payment.',
-      };
-    case 'unsupported-account-signers':
-      return {
-        title: 'Multiple signers not yet supported',
-        description:
-          'This account requires the future multisig coordination milestone before Mobile can submit this payment.',
-      };
-  }
 }
 
 function createStyles(theme: AppTheme) {

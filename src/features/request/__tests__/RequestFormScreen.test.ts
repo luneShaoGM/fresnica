@@ -4,9 +4,10 @@ import QRCode from 'react-native-qrcode-svg';
 
 import { Screen } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
+import { SelectField } from '@ui/components/SelectField';
 import { defaultTheme } from '@ui/theme';
 
-import { maskRequestIssuer, RequestFormScreen } from '../RequestFormScreen';
+import { RequestFormScreen } from '../RequestFormScreen';
 import { createRequestStyles } from '../styles';
 
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
@@ -46,6 +47,8 @@ type NodeProps = Readonly<{
   onPress?: () => void;
   keyboardType?: string;
   value?: string;
+  options?: readonly { value: string; label: string; description?: string; accessibilityLabel?: string }[];
+  onValueChange?: (value: string) => void;
   size?: string;
   variant?: string;
   style?: unknown;
@@ -59,6 +62,12 @@ function visit(node: React.ReactNode, callback: (element: React.ReactElement<Nod
   if (!React.isValidElement<NodeProps>(node)) return;
   callback(node);
   React.Children.forEach(node.props.children, child => visit(child, callback));
+}
+
+function selectField(root: React.ReactNode, label: string) {
+  let found: React.ReactElement<NodeProps> | undefined;
+  visit(root, node => { if (node.type === SelectField && node.props.label === label) found = node; });
+  return found;
 }
 
 function renderForm(overrides: Partial<React.ComponentProps<typeof RequestFormScreen>> = {}) {
@@ -167,45 +176,52 @@ describe('RequestFormScreen', () => {
     expect(inputs[1]?.props.keyboardType).toBe('number-pad');
   });
 
-  it('distinguishes duplicate issued-asset codes visually and announces each exact issuer identity', () => {
+  it('selects the exact issuer when two request assets share a code', () => {
     const issuerA = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
     const issuerB = 'GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
+    const assetA = { kind: 'credit' as const, code: 'USD', issuer: issuerA };
+    const assetB = { kind: 'credit' as const, code: 'USD', issuer: issuerB };
+    const onSelectAsset = jest.fn();
     const { root } = renderForm({
-      assets: [
-        { kind: 'native' },
-        { kind: 'credit', code: 'USD', issuer: issuerA },
-        { kind: 'credit', code: 'USD', issuer: issuerB },
-      ],
-      selectedAsset: { kind: 'credit', code: 'USD', issuer: issuerA },
+      assets: [{ kind: 'native' }, assetA, assetB],
+      selectedAsset: assetA,
+      onSelectAsset,
     });
-    const issuedLabels: string[] = [];
-    const visibleText: string[] = [];
-
-    visit(root, element => {
-      if (element.props.accessibilityLabel?.startsWith('issued:USD:')) {
-        issuedLabels.push(element.props.accessibilityLabel);
-      }
-      if (typeof element.props.children === 'string') {
-        visibleText.push(element.props.children);
-      }
-    });
-
-    expect(issuedLabels).toEqual([`issued:USD:${issuerA}`, `issued:USD:${issuerB}`]);
-    expect(maskRequestIssuer(issuerA)).not.toBe(maskRequestIssuer(issuerB));
-    expect(visibleText).toContain(maskRequestIssuer(issuerA));
-    expect(visibleText).toContain(maskRequestIssuer(issuerB));
+    const picker = selectField(root, 'request.asset');
+    const issuedOptions = picker?.props.options?.filter(option => option.label === 'USD');
+    expect(issuedOptions?.map(option => option.description)).toEqual([issuerA, issuerB]);
+    expect(issuedOptions?.map(option => option.accessibilityLabel)).toEqual([
+      `issued:USD:${issuerA}`, `issued:USD:${issuerB}`,
+    ]);
+    expect(picker?.props.value).toBe(issuedOptions?.[0].value);
+    picker?.props.onValueChange?.(issuedOptions![1].value);
+    expect(onSelectAsset).toHaveBeenCalledWith(assetB);
+    picker?.props.onValueChange?.('missing-asset');
+    expect(onSelectAsset).toHaveBeenCalledTimes(1);
   });
 
-  it('offers Return memo as its own request family and passes the exact selector type', () => {
+  it('offers Return memo separately and preserves a value on same-type selection', () => {
     const onSelectMemoType = jest.fn();
     const { root } = renderForm({ onSelectMemoType });
-    let choice: React.ReactElement<NodeProps> | undefined;
-    visit(root, element => {
-      if (element.props.accessibilityLabel === 'request.memo.type.return') choice = element;
-    });
-    expect(choice?.props.accessibilityState).toEqual({ selected: false });
-    choice?.props.onPress?.();
+    const picker = selectField(root, 'request.memo');
+    expect(picker?.props.options?.map(option => option.value)).toEqual(['none', 'text', 'id', 'hash', 'return']);
+    picker?.props.onValueChange?.('id');
+    expect(onSelectMemoType).not.toHaveBeenCalled();
+    picker?.props.onValueChange?.('return');
     expect(onSelectMemoType).toHaveBeenCalledWith('return');
+  });
+
+  it('keeps request asset and memo selection disabled while busy', () => {
+    const onSelectAsset = jest.fn(), onSelectMemoType = jest.fn();
+    const { root } = renderForm({ busy: true, onSelectAsset, onSelectMemoType });
+    const assets = selectField(root, 'request.asset');
+    const memo = selectField(root, 'request.memo');
+    expect(assets?.props.disabled).toBe(true);
+    expect(memo?.props.disabled).toBe(true);
+    assets?.props.onValueChange?.(assets.props.options![1].value);
+    memo?.props.onValueChange?.('return');
+    expect(onSelectAsset).not.toHaveBeenCalled();
+    expect(onSelectMemoType).not.toHaveBeenCalled();
   });
 
   it('routes Copy, Share and QR actions without rebuilding request semantics', () => {

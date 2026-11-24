@@ -12,3 +12,4 @@ export * from './AccountIdentityCard';
 export * from './SectionedList';
 export * from './TransactionResult';
 export * from './SelectableChip';
+export * from './SelectField';

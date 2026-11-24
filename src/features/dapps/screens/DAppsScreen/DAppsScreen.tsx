@@ -462,7 +462,6 @@ export function DAppsScreen({
                       ))}
                     </ScrollView>
                   ) : null}
-                  <Text style={styles.sectionTitle}>{t('dapps.catalog.readOnly')}</Text>
                   <DappPublicIconToggle media={catalog.publicMedia} />
                   {visibleEntries.length > 0 ? (
                     visibleEntries.map(entry => (
@@ -564,7 +563,6 @@ export function DAppsScreen({
                 <Text style={[styles.sectionTitle, styles.sheetHeaderTitle]}>{t('nav.dapps')}</Text>
                 <NativeButton label={t('dapps.website.cancel')} onPress={closeUrlSheet} variant="quiet" />
               </View>
-              <Text style={styles.websiteDetail}>{t('dapps.website.input')}</Text>
               <NativeField
                 label={t('dapps.website.input')}
                 accessibilityLabel={t('dapps.website.input')}
@@ -783,7 +781,6 @@ function InterfaceSample({
           />
         ))}
       </ScrollView>
-      <Text style={styles.sectionTitle}>{t('dapps.catalog.readOnly')}</Text>
       {visibleEntries.length > 0 ? (
         visibleEntries.map(entry => <AppRow key={entry.id} entry={entry} styles={styles} />)
       ) : (

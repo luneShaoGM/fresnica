@@ -299,14 +299,6 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.textPrimary,
       textAlign: 'center',
     },
-    inactiveStep: {
-      gap: theme.spacing.xs,
-    },
-    inactiveStepTitle: {
-      ...theme.typography.body,
-      color: theme.colors.textPrimary,
-      fontWeight: '700',
-    },
     inactiveStepText: {
       ...theme.typography.label,
       color: theme.colors.textSecondary,

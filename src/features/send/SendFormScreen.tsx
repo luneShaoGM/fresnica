@@ -4,6 +4,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { Screen } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
+import { SelectField } from '@ui/components/SelectField';
 
 import type { BalanceAsset, BalanceLine } from '../../capabilities/balance/types';
 import type { StellarPaymentMemo } from '../../capabilities/stellar/types';
@@ -107,12 +108,12 @@ export function SendFormScreen({
         showsVerticalScrollIndicator={false}
       >
         <Text numberOfLines={1} style={styles.fromLabel}>
-          From {accountLabel}
+          {t('send.form.from', { account: accountLabel })}
         </Text>
 
         {step === 'details' ? (
           <>
-            <Text style={styles.sectionLabel}>ASSET</Text>
+            <Text style={styles.sectionLabel}>{t('send.form.asset')}</Text>
             <View style={styles.assetPicker}>
               <AssetPicker
                 balances={balances}
@@ -124,9 +125,10 @@ export function SendFormScreen({
               />
             </View>
 
-            <Text style={styles.sectionLabel}>AMOUNT</Text>
+            <Text style={styles.sectionLabel}>{t('send.form.amount')}</Text>
             <View style={styles.amountBox}>
               <TextInput
+                accessibilityLabel={t('send.form.amount')}
                 editable={!building}
                 keyboardType="decimal-pad"
                 onChangeText={onChangeAmount}
@@ -137,21 +139,22 @@ export function SendFormScreen({
               />
               <Text style={styles.amountAsset}>{selectedAsset.code}</Text>
             </View>
-            <Text style={styles.fieldHint}>Up to 7 decimal places.</Text>
+            <Text style={styles.fieldHint}>{t('send.form.amountHint')}</Text>
           </>
         ) : (
           <>
             <Text style={styles.recipientSummary}>
               {amount} {selectedAsset.code}
             </Text>
-            <Text style={styles.sectionLabel}>RECIPIENT</Text>
+            <Text style={styles.sectionLabel}>{t('send.step.recipient')}</Text>
             <View style={styles.fieldBox}>
               <TextInput
+                accessibilityLabel={t('send.step.recipient')}
                 autoCapitalize="characters"
                 autoCorrect={false}
                 editable={!building}
                 onChangeText={onChangeDestination}
-                placeholder="Stellar G... address"
+                placeholder={t('send.form.destinationPlaceholder')}
                 placeholderTextColor={theme.colors.textTertiary}
                 style={styles.fieldInput}
                 value={destination}
@@ -168,43 +171,25 @@ export function SendFormScreen({
                 </Pressable>
               ) : null}
             </View>
-            <Text style={styles.fieldHint}>Classic Stellar G... destinations are supported.</Text>
             {onScanRecipient ? (
               <NativeButton label={t('contacts.scan.open')} variant="quiet" onPress={onScanRecipient} />
             ) : null}
 
-            <Text style={styles.sectionLabel}>MEMO</Text>
-            <View style={styles.memoTypeRow}>
-              {(['none', 'text', 'id', 'hash', 'return'] as const).map(type => {
-                const selected = memoType === type;
-                return (
-                  <Pressable
-                    accessibilityLabel={t(`send.memo.type.${type}`)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    disabled={building}
-                    key={type}
-                    onPress={() => {
-                      if (!selected) {
-                        onSelectMemoType(type);
-                      }
-                    }}
-                    style={({ pressed }) => [
-                      styles.memoTypeButton,
-                      selected ? styles.memoTypeButtonSelected : undefined,
-                      pressed ? styles.pressed : undefined,
-                    ]}
-                  >
-                    <Text style={[styles.memoTypeText, selected ? styles.memoTypeTextSelected : undefined]}>
-                      {t(`send.memo.type.${type}`)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+            <View style={styles.memoPicker}>
+              <SelectField
+                label={t('send.form.memo')}
+                value={memoType}
+                options={(['none', 'text', 'id', 'hash', 'return'] as const).map(type => ({
+                  value: type,
+                  label: t(`send.memo.type.${type}`),
+                }))}
+                disabled={building || !active}
+                onValueChange={type => {
+                  if (!building && active && type !== memoType) onSelectMemoType(type);
+                }}
+              />
             </View>
-            {memoType === 'none' ? (
-              <Text style={styles.fieldHint}>{t('send.memo.hint.none')}</Text>
-            ) : (
+            {memoType !== 'none' ? (
               <>
                 <View style={styles.fieldBox}>
                   <TextInput
@@ -222,7 +207,7 @@ export function SendFormScreen({
                 </View>
                 <Text style={styles.fieldHint}>{t(`send.memo.hint.${memoType}`)}</Text>
               </>
-            )}
+            ) : null}
 
             {requestMessage ? (
               <View>

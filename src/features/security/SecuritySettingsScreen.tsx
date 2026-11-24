@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState, Platform, Text, View } from 'react-native';
 import { AppModal, Button, ListRow } from '@ui/components';
+import { SelectField } from '@ui/components/SelectField';
 import { PassphraseInput, type PassphraseInputHandle } from '@ui/components/PassphraseInput';
 import { useThemedStyles } from '@ui/theme';
 import {
@@ -14,6 +15,7 @@ import { createStyles } from './SessionUnlockScreen/styles';
 
 const subscribeNothing = () => () => {};
 const defaults = () => DEFAULT_SECURITY_PREFERENCES;
+const backgroundTimeouts = [0, 30000, 60000, 300000] as const;
 type Props = Readonly<{
   onClose(): void;
   onChangePassphrase?: () => void;
@@ -87,7 +89,6 @@ export function SecuritySettingsScreen({
   };
   return (
     <SettingsSubpage title={t('security.policy.title')} onBack={onClose}>
-      <Text style={styles.body}>{t('session.explanation')}</Text>
       <Text style={styles.body}>{t('security.policy.keys')}</Text>
       <ListRow
         title={t('security.settings.biometric')}
@@ -96,16 +97,19 @@ export function SecuritySettingsScreen({
         disabled={busy || !settings}
         onPress={() => setPatch(p => ({ ...p, biometricUnlock: !value.biometricUnlock }))}
       />
-      <Text style={styles.body}>{t('security.settings.timeout')}</Text>
-      {([0, 30000, 60000, 300000] as const).map(timeout => (
-        <ListRow
-          key={timeout}
-          title={t(`security.settings.timeout${timeout}`)}
-          selected={value.backgroundTimeoutMs === timeout}
-          disabled={busy || !settings}
-          onPress={() => setPatch(p => ({ ...p, backgroundTimeoutMs: timeout }))}
-        />
-      ))}
+      <SelectField
+        label={t('security.settings.timeout')}
+        value={String(value.backgroundTimeoutMs)}
+        options={backgroundTimeouts.map(timeout => ({
+          value: String(timeout),
+          label: t(`security.settings.timeout${timeout}`),
+        }))}
+        disabled={busy || !settings || !active}
+        onValueChange={timeout => {
+          const selected = backgroundTimeouts.find(option => String(option) === timeout);
+          if (selected !== undefined) setPatch(p => ({ ...p, backgroundTimeoutMs: selected }));
+        }}
+      />
       {Platform.OS === 'android' ? (
         <ListRow
           title={t('security.settings.capture')}
@@ -119,14 +123,17 @@ export function SecuritySettingsScreen({
         />
       ) : null}
       {requiresPassphrase ? (
-        <PassphraseInput
-          ref={input}
-          label={t('recovery.current')}
-          hint={t('recovery.fresh')}
-          style={styles.input}
-          disabled={busy}
-          onPresenceChange={setPresent}
-        />
+        <View style={styles.field}>
+          <Text style={styles.body}>{t('recovery.current')}</Text>
+          <PassphraseInput
+            ref={input}
+            label={t('recovery.current')}
+            hint={t('recovery.fresh')}
+            style={styles.input}
+            disabled={busy}
+            onPresenceChange={setPresent}
+          />
+        </View>
       ) : null}
       <Button
         label={t('security.settings.save')}

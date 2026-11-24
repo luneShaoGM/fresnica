@@ -5,6 +5,8 @@ export function createStyles(theme: AppTheme) {
     content: { gap: theme.spacing.md },
     title: { ...theme.typography.title, color: theme.colors.textPrimary },
     body: { ...theme.typography.body, color: theme.colors.textSecondary },
+    field: { gap: theme.spacing.sm },
+    label: { ...theme.typography.body, color: theme.colors.textPrimary },
     error: { ...theme.typography.body, color: theme.colors.negative },
     input: {
       ...theme.typography.body,
