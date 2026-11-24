@@ -100,3 +100,66 @@ The final CDP helper requires observing a new matching `SUBMIT_BLOB` before repo
 At implementation HEAD `615bbd3ce1120c2b31c618020deb3b5bc86e7d3a`, GitHub CI ran `npm ci` and `npm run check` successfully. Android, Apple and Realm workflows completed successfully at their planning/disposition layers; their heavy jobs were explicitly skipped. The native builds and runtime results reported above are local executions and are not attributed to those skipped CI jobs.
 
 The disposable Android wallet app data was cleared successfully. The private helper process, dedicated Metro 8093 and this session's emulator process were stopped; the 9227 CDP forward and 8093 reverse were removed. The pre-existing emulator remained available. The iOS helper server and app were stopped and only this session's simulator was shut down. Cleanup records are `android-fix-cleanup.json` and the iOS cleanup record. `android-product-final-evidence-summary.json` checks the saved D04/D05/D06 evidence and confirms that only the pre-existing Android emulator remains, all three owned Android processes have stopped, and the original repository and isolated iOS worktree are clean. Final helper sources and SHA-256 values are retained under `helpers/`. No unrelated workspace reset, cleanup, merge or independent Work approval was performed.
+
+## iOS P3 follow-up — 2026-11-24 / PR #230
+
+The [independent Work review](https://github.com/luneShaoGM/fresnica/pull/230#pullrequestreview-6032299649) examined `16540b7021d57dea7c601e49421f4405eefa7efa` and concluded APPROVED with P1 = 0, P2 = 0 and one P3. The [remaining timing finding](https://github.com/luneShaoGM/fresnica/pull/230#discussion_r4674370962) concerns wall-clock rollback after the native handle is created but before JavaScript receives the request and schedules its timer. The historical approval applies only to that reviewed HEAD; this follow-up is for the owner's consolidated review and is not merged.
+
+Implementation commit: `bcc8cb0933378817f2bc49543afd23c5f506f032`, parent `16540b7021d57dea7c601e49421f4405eefa7efa`.
+
+### Fix and isolation
+
+The existing native 120-second `dispatch_time` timeout now emits a typed expiry event after removing the still-live, one-use reply handle. It uses the original verified HTTPS origin and reply UUID, and does not retain the request body or introduce another clock-domain conversion. Consumed handles emit no expiry event. The original native Promise still rejects through its existing callback.
+
+Fabric Codegen transports the boolean expiry marker. `SecureDappWebView` accepts it only from trusted iOS main-frame metadata with a valid origin and reply UUID; a flag inside page JSON cannot provide that authority. The feature matches the current document origin and handle, then uses the existing generation/session expiry path. Synchronous refs also cover request and expiry delivery before a React commit. Old, mismatched or duplicate events cannot retire a new request. The Unix deadline remains an additional early confirmation/completion guard, and wrong-passphrase retry retains its original deadline. SDK/Core signing and secure-input ownership are unchanged.
+
+### Automated and generated-code verification
+
+| Layer | Actual result | Evidence boundary |
+| --- | --- | --- |
+| Regression control | The new JS regressions produced 8 expected failures against the old implementation, across 2 suites. | Red evidence, not a post-fix failure. |
+| Focused JS verification | 3 suites / 63 tests passed; the change adds 12 Jest cases overall. | Component/transport harnesses and the existing secure-input cleanup test. |
+| Complete repository gate | `npm run check` passed: 306 suites / 2,922 tests, including type, lint, formatting, architecture, provenance, locale and native patch gates. | Automated checks, not device acceptance. |
+| Fabric Codegen regression | The new assertion failed against the old schema; patched schema/header/serialization passed. | Actual Codegen execution. |
+| Fresh package compatibility | The locked WebView 14.0.1 tarball matched its package-lock SHA-512; apply, check, second-apply idempotence and Codegen passed. | Fresh package and already-patched dependency paths both checked. |
+
+The clock regression starts the simulated native lifetime before message delivery, advances 15 seconds in transit, rolls wall time back before JS timer setup and expires at the original 120-second lifecycle. Tests also cover same-batch delivery, obsolete confirmation, SDK resolve/reject after expiry, fresh-request recovery, invalid origins/UUIDs and Android rejection of the iOS expiry marker. The feature harness asserts review removal and generation/session retirement; the unchanged shared secure-input test separately verifies native input clearing and transient-buffer destruction on unmount.
+
+The first complete gate stopped only at formatting of the modified Codegen test, after its Codegen/typecheck stages had passed. That file was formatted with the repository formatter and the complete gate then passed. The first offline package-cache attempt returned `ENOTCACHED`; the successful fresh-package check used the integrity-verified locked tarball. These unsuccessful setup/check attempts remain in the evidence and are not counted as passes.
+
+Evidence directory: `/Users/lune/.codex/.chatgpt-projects/g-p-6ab1f61c087c8191bc1941dfdecacf86/acceptance/2026-11-24-sep53-expiry-p3`. Core records: `baseline.json`, `implementation-source.json`, `js-expiry-p3-tests-result.json`, the red/green JS logs, `npm-check-final-result.json`, `npm-check-final.log`, `ios-expiry-codegen-before.*`, `ios-expiry-patch-codegen.*` and `ios-expiry-fresh-tarball-codegen.*`.
+
+### Simulator build and runtime evidence
+
+The iOS worktree was clean before switching from its prior owned detached commit to `bcc8cb0933378817f2bc49543afd23c5f506f032`. Postinstall, the pinned Apple SDK check and `pod install --deployment` passed; both dependency lock files retained their hashes. The actual generated Fabric header contains the boolean expiry field, its serializer includes the payload property and the native event mapping populates it.
+
+The Debug iPhone 15 / iOS 17.2 Simulator build passed from **09:52:30 to 09:55:54 on 2026-11-24 (Asia/Shanghai)**. Native build evidence is `ios-p3-baseline.json`, `ios-p3-postinstall-result.json`, `ios-p3-sdk-result.json`, `ios-p3-podinstall-result.json`, `ios-p3-codegen-evidence.json` and `ios-p3-build-result.json`. These results establish a compiled Simulator candidate; they do not establish real-device or wallet-product acceptance.
+
+The controlled-clock runtime passed on its first launch, **10:00:30–10:02:35 on 2026-11-24 (Asia/Shanghai)**. It used actual WKWebView, production `SecureDappWebView` and production Freighter injection in one `https://example.com` document. A temporary Metro passthrough wrapper added only the public fixture's document-end request script while forwarding the real WebView props, handlers and ref. This auxiliary test entry point did not exercise the wallet review/signing UI.
+
+The control request used the real JS clock and was consumed early through the production surface with a standard failure response. Only after the active request had received its native handle/deadline did the helper offset its own RN `Date.now()` by **-300,000 ms**. It used **no JS lifetime timer**; the actual native timeout remained 120 seconds. The Mac and Simulator system clocks, native timeout and PrivacyShield were unchanged. Both timeout signals arrived while the helper clock was still behind and the Unix deadline still appeared in the future; the clock was restored before a final settle window.
+
+| Runtime observation | Actual result |
+| --- | --- |
+| Consumed control | Original webpage settled after 41 ms; RN observed the page result after 3 ms in its own clock domain. No native expiry event over 121,707 ms of observation. |
+| Active native expiry | Exactly one trusted notification, matching the original origin/handle, after 120,698 ms from RN request receipt. |
+| Active original-document outcome | Promise failure observed after 120,680 ms from the webpage request, with matching request ID/source, `request-unavailable`, API code -1 / apiCode -1, and no `signedBlob`. |
+| Ordering and isolation | Active receipt preceded rollback; rollback preceded native expiry. No early timeout, navigation, duplicate outcome, unexpected expiry or watchdog expiry. |
+| Final settling | 1,007 ms after clock restoration; no late duplicate or control expiry. Server exited 0. |
+
+Elapsed values above are measured within their own JS realm; no native-uptime/JS-clock or cross-realm clock conversion is used. The native signal and original-document error are actual Simulator runtime evidence. The component tests establish the review/generation/input lifecycle behavior separately; this helper does not establish native wallet UI, signing or real-device acceptance.
+
+- Current iOS `Fresnica.debug.dylib` SHA-256: `e3c1e7f8b4c2f91bb436afcda4c74754fdde3e29b7c5ddacad24696eac3aab71`.
+- Loader stub SHA-256: `3e324bc507c58520599f203a9eaf8e7958017aef651ed1a6376046cfb77e7579` (not used as the actual native code identity).
+- Temporary helper bundle SHA-256: `05f122e65e25101d468f7c08883a2208b6994cf1c7f8e5641d05c1d4da06d5ee`.
+- Runtime records: `ios-p3-runtime.json`, `ios-p3-runtime-run.json` and `ios-p3-runtime-server.log`.
+
+One read-only RDC connection error occurred while reading the running test. The existing process/result was resumed without relaunching the app, restarting the server or rerunning the 120-second scenario.
+
+### Follow-up evidence preservation and cleanup
+
+The six helper source files are retained in `ios-p3-helper-source/`; their hashes and scope are in `ios-p3-helper-provenance.json`. The bundle and app identities are also recorded in `ios-p3-helper-bundle-result.json` and `ios-p3-app-artifact.json`.
+
+Cleanup completed at **10:03:41 on 2026-11-24 (Asia/Shanghai)**. The owned app was terminated and the owned Simulator shut down successfully; the pre-existing Simulator remained booted. The helper server had exited successfully and port 8791 had no listener. The two CocoaPods-generated diffs were restored only after matching the previously saved generated patch exactly. The isolated iOS worktree is clean at the implementation commit; runtime and helper source hashes are unchanged. No unknown changes or original user resources were removed. See `ios-p3-cleanup.json`.
+
+This follow-up preserves the existing Android acceptance boundaries and does not repeat unaffected Android native execution. iOS wallet review/input clearing, actual wallet signing and real-device acceptance remain unexecuted; Stage 9 System Auth cancellation/retry remains deferred. The final documentation commit records this evidence without changing the tested runtime source. The new PR HEAD is for consolidated user review, with no new independent Work approval or merge claimed.

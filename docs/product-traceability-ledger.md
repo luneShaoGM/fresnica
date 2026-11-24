@@ -980,3 +980,40 @@ iOS product/real-device acceptance and Stage 9 real-device System Auth
 cancel/retry remain deferred. No S19/L4 maturity promotion. Per the owner's
 instruction, PR #230 remains a candidate for consolidated user review; it is
 not merged and no independent Work approval is claimed.
+
+### S19 iOS native-expiry timing follow-up — 2026-11-24 / PR #230 candidate
+
+The independent Work review at `16540b7021d57dea7c601e49421f4405eefa7efa`
+concluded APPROVED with no P1/P2 and one P3: a wall-clock rollback between
+native handle creation and JS timer setup could leave the review open after
+the native callback expired. Implementation
+`bcc8cb0933378817f2bc49543afd23c5f506f032` closes that gap with a typed
+expiry event from the existing monotonic native timeout, matched to the
+current verified origin and one-use handle. Consumed handles emit no event;
+old or mismatched events cannot expire another request. The existing
+generation, session and secure-input cleanup paths handle expiry, including
+request/expiry delivery in the same React batch. No signing, authorization
+or clock-domain conversion implementation is added.
+
+The old implementation fails 8 of the new JS regression assertions.
+Focused verification passed 3 suites / 63 tests; the complete repository
+gate passed **306 suites / 2,922 tests**. Fabric Codegen and patch
+idempotence passed on both the existing dependency and a fresh
+integrity-verified WebView 14.0.1 package. These are automated/generated-code
+checks. The iOS Simulator build also passed at the implementation above.
+A controlled-clock runtime using production SecureDappWebView received one
+active native expiry after 120,698 ms and the original webpage's matching
+failure after 120,680 ms, while the helper's JS wall clock was five minutes
+behind. An early-consumed control produced no expiry over 121,707 ms.
+These are separate elapsed measurements within the RN and webpage realms.
+The helper used the unchanged native 120-second timer and no JS lifetime
+timer; host/device clocks were untouched. This is native transport evidence,
+not wallet review/signing UI acceptance. Full evidence and limitations:
+[SEP-53 repair report](test/sep53-native-reply-fix-2026-11-23.md#ios-p3-follow-up--2026-11-24--pr-230).
+
+The prior Work approval remains historical evidence for its exact HEAD.
+The new candidate requires the owner's consolidated review; no new Work
+approval or merge is claimed. Unaffected Android native results retain
+their original source/acceptance scope. iOS real-device wallet signing,
+review/input-clearing product acceptance and Stage 9 System Auth
+cancellation/retry remain unexecuted or deferred. No S19/L4 maturity promotion.
