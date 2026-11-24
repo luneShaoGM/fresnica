@@ -48,8 +48,18 @@ export function DappSignSheet(props: Props) {
     onReject();
   };
   return (
-    <BottomSheet closeLabel={t('dapps.sign.reject')} onClose={reject} visible={visible}>
-      <ScrollView contentContainerStyle={styles.sheet}>
+    <BottomSheet
+      avoidAndroidKeyboard={passphraseRequired}
+      closeLabel={t('dapps.sign.reject')}
+      onClose={reject}
+      visible={visible}
+    >
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.sheet}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+      >
         <Text style={styles.title}>{t(intent ? 'dapps.sign.title' : 'dapps.signMessage.title')}</Text>
         <Text selectable style={styles.origin}>
           {origin}
@@ -144,7 +154,7 @@ export function DappSignSheet(props: Props) {
         {failed ? <Text style={styles.hint}>{t('dapps.sign.retryError')}</Text> : null}
         <View style={styles.actions}>
           <Pressable accessibilityRole="button" onPress={reject} style={[styles.action, styles.secondary]}>
-            <Text style={styles.actionText}>{t('dapps.sign.reject')}</Text>
+            <Text style={[styles.actionText, styles.secondaryText]}>{t('dapps.sign.reject')}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"

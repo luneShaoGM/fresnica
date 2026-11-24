@@ -539,7 +539,9 @@ function Header({
         onPress={onBack}
         style={styles.backButton}
       >
-        <Text style={styles.backGlyph}>‹</Text>
+        <Text allowFontScaling={false} style={styles.backGlyph}>
+          ‹
+        </Text>
       </Pressable>
       <Text style={styles.headerTitle}>{title}</Text>
       <View style={styles.headerSpacer} />
@@ -574,6 +576,7 @@ function FlowShell({
       <ScrollView
         contentContainerStyle={styles.flowScroll}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
       >
         {children}
@@ -610,7 +613,9 @@ function ChoiceButton({
       ]}
     >
       <View style={styles.choiceGlyphBox}>
-        <Text style={styles.choiceGlyph}>{glyph}</Text>
+        <Text allowFontScaling={false} style={styles.choiceGlyph}>
+          {glyph}
+        </Text>
       </View>
       <View style={styles.flex}>
         <Text style={styles.choiceTitle}>{title}</Text>
@@ -789,7 +794,15 @@ function createStyles(theme: AppTheme) {
     },
     backButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
     backGlyph: { fontSize: 36, lineHeight: 38, fontWeight: '300', color: theme.colors.surfaceStrong },
-    headerTitle: { fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary },
+    headerTitle: {
+      flex: 1,
+      textAlign: 'center',
+      paddingVertical: theme.spacing.sm,
+      fontSize: 18,
+      lineHeight: 22,
+      fontWeight: '800',
+      color: theme.colors.textPrimary,
+    },
     headerSpacer: { width: 42 },
     content: { paddingHorizontal: 18, paddingTop: 28, paddingBottom: 32, gap: 12 },
     intro: { color: theme.colors.textSecondary, fontSize: 14, lineHeight: 21, marginBottom: 8 },
@@ -798,6 +811,7 @@ function createStyles(theme: AppTheme) {
       borderRadius: 12,
       backgroundColor: theme.colors.surfaceMuted,
       paddingHorizontal: 14,
+      paddingVertical: theme.spacing.sm,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
@@ -810,7 +824,7 @@ function createStyles(theme: AppTheme) {
       justifyContent: 'center',
       backgroundColor: theme.colors.surfaceStrong,
     },
-    choiceGlyph: { color: theme.colors.actionPrimary, fontSize: 22, fontWeight: '800' },
+    choiceGlyph: { color: theme.colors.onSurfaceStrong, fontSize: 22, fontWeight: '800' },
     choiceTitle: { color: theme.colors.textPrimary, fontSize: 15, lineHeight: 20, fontWeight: '800' },
     choiceSubtitle: { color: theme.colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 3 },
     chevron: { color: theme.colors.textTertiary, fontSize: 28, fontWeight: '300' },
@@ -826,6 +840,7 @@ function createStyles(theme: AppTheme) {
       borderWidth: 1,
       borderColor: theme.colors.border,
       paddingHorizontal: 12,
+      paddingVertical: theme.spacing.sm,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
@@ -881,12 +896,20 @@ function createStyles(theme: AppTheme) {
     },
     primaryButton: {
       minHeight: 52,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
       borderRadius: 10,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: theme.colors.actionPrimary,
     },
-    primaryButtonText: { color: theme.colors.onActionPrimary, fontSize: 15, lineHeight: 20, fontWeight: '800' },
+    primaryButtonText: {
+      textAlign: 'center',
+      color: theme.colors.onActionPrimary,
+      fontSize: 15,
+      lineHeight: 20,
+      fontWeight: '800',
+    },
     disabled: { opacity: 0.45 },
     pressed: { opacity: 0.68 },
     backupHero: { alignItems: 'center', paddingHorizontal: 24, paddingTop: 28, gap: 8 },

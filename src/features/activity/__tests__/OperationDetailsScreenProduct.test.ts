@@ -669,7 +669,7 @@ it.each(['create', 'claim', 'clawback', 'clawback-reference'])(
   },
 );
 
-it('wraps the complete depth-four condition structure without changing other detail line limits', () => {
+it('wraps complete conditions and detail values without truncating audit information', () => {
   mockedUseState.mockReset();
   let predicate: HistoryClaimPredicate = { abs_before: '+292277026596-12-04T15:30:22.1234567Z' };
   for (let depth = 0; depth < 4; depth += 1) predicate = { and: [predicate, predicate] };
@@ -709,7 +709,14 @@ it('wraps the complete depth-four condition structure without changing other det
     other,
     element => element.type === Text && element.props.children === 'create_claimable_balance',
   );
-  expect((otherValue?.props as { numberOfLines?: number }).numberOfLines).toBe(2);
+  expect((otherValue?.props as { numberOfLines?: number }).numberOfLines).toBeUndefined();
+  const hash = renderDetail('Transaction hash');
+  const hashValue = findElement(
+    hash,
+    element => element.type === Text && element.props.children === entry.transactionHash,
+  );
+  expect(hashValue?.props.children).toBe(entry.transactionHash);
+  expect((hashValue?.props as { numberOfLines?: number }).numberOfLines).toBeUndefined();
 });
 
 it.each(maintenanceTypes)('shows exact %s parameters and historical limits without monetary labels', type => {

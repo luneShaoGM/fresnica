@@ -257,13 +257,9 @@ export function MainTabBar({
                 disabled={!enabled}
                 key={action}
                 onPress={selectSwap}
-                style={({ pressed }) => [
-                  styles.actionItem,
-                  !enabled ? styles.actionItemDisabled : undefined,
-                  pressed ? styles.pressed : undefined,
-                ]}
+                style={({ pressed }) => [styles.actionItem, pressed ? styles.pressed : undefined]}
               >
-                <Text style={styles.actionLabel}>{label}</Text>
+                <Text style={[styles.actionLabel, !enabled ? styles.disabledActionLabel : undefined]}>{label}</Text>
                 {!enabled ? (
                   <Text style={styles.actionStatus}>
                     {t(

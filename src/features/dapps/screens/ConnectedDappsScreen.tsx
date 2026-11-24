@@ -68,14 +68,16 @@ export function ConnectedDappsScreen({ permissions, networkId, accounts, onBack 
                   {account?.label ?? grant.accountId}
                 </Text>
               </View>
-              <NativeButton
-                label={t('dapps.connected.disconnect')}
-                onPress={() =>
-                  disconnect({ origin: grant.origin, accountId: grant.accountId, networkId: grant.networkId })
-                }
-                size="sm"
-                variant="secondary"
-              />
+              <View style={styles.disconnect}>
+                <NativeButton
+                  label={t('dapps.connected.disconnect')}
+                  onPress={() =>
+                    disconnect({ origin: grant.origin, accountId: grant.accountId, networkId: grant.networkId })
+                  }
+                  size="sm"
+                  variant="secondary"
+                />
+              </View>
             </View>
           );
         })}

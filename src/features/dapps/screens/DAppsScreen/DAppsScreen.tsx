@@ -548,10 +548,20 @@ export function DAppsScreen({
                 : undefined
             }
           />
-          <BottomSheet closeLabel={t('dapps.website.cancel')} onClose={closeUrlSheet} visible={urlSheetOpen}>
-            <View style={styles.urlSheet}>
+          <BottomSheet
+            avoidAndroidKeyboard
+            closeLabel={t('dapps.website.cancel')}
+            onClose={closeUrlSheet}
+            visible={urlSheetOpen}
+          >
+            <ScrollView
+              style={styles.sheetScroll}
+              contentContainerStyle={styles.urlSheet}
+              keyboardShouldPersistTaps="handled"
+              automaticallyAdjustKeyboardInsets
+            >
               <View style={styles.urlSheetHeader}>
-                <Text style={styles.sectionTitle}>{t('nav.dapps')}</Text>
+                <Text style={[styles.sectionTitle, styles.sheetHeaderTitle]}>{t('nav.dapps')}</Text>
                 <NativeButton label={t('dapps.website.cancel')} onPress={closeUrlSheet} variant="quiet" />
               </View>
               <Text style={styles.websiteDetail}>{t('dapps.website.input')}</Text>
@@ -587,7 +597,7 @@ export function DAppsScreen({
                 onPress={submitUrlSheet}
                 variant="primary"
               />
-            </View>
+            </ScrollView>
           </BottomSheet>
           {preparedWebsite ? (
             <View style={styles.websiteConfirmation}>

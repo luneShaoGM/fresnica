@@ -59,6 +59,11 @@ jest.mock('react', () => ({
   },
 }));
 
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  __esModule: true,
+  default: () => ({ width: 390, height: 844, scale: 3, fontScale: 1 }),
+}));
+
 jest.mock('@fresnica/ui-native', () => ({ StateView: () => null, Button: () => null }));
 jest.mock('@features/valuation/useXlmQuote', () => ({ useXlmQuote: () => undefined }));
 

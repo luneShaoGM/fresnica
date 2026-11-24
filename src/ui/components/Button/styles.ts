@@ -40,7 +40,7 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.textPrimary,
     },
     ghostText: {
-      color: theme.colors.actionPrimary,
+      color: theme.colors.textPrimary,
     },
   });
 }

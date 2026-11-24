@@ -12,6 +12,7 @@ jest.mock('@fresnica/ui-native', () => {
     StateView: ({ title }: { title: string }) => ReactActual.createElement('StateView', { title }),
     Field: (props: Record<string, unknown>) => ReactActual.createElement('Field', props),
     Button: (props: Record<string, unknown>) => ReactActual.createElement('Button', props),
+    useUiTheme: () => ({ colors: {} }),
     Screen: ({ children }: { children?: React.ReactNode }) =>
       ReactActual.createElement(ReactActual.Fragment, null, children),
   };

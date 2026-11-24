@@ -2,7 +2,10 @@ import React from 'react';
 import {
   Animated,
   Modal,
+  KeyboardAvoidingView,
+  Text,
   PanResponder,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -39,6 +42,7 @@ type ElementProps = {
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
   gesture?: unknown;
+  behavior?: React.ComponentProps<typeof KeyboardAvoidingView>['behavior'];
   onPress?: () => void;
   onAccessibilityEscape?: () => void;
   edges?: readonly string[];
@@ -218,5 +222,78 @@ describe('AppModal sheet-to-dialog drag handoff', () => {
 
     createResponder.mock.lastCall?.[0]?.onPanResponderRelease?.({} as never, { dy: 124, vy: 0.25 } as never);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('explicit Android keyboard avoidance', () => {
+  it.each([
+    { platform: 'android' as const, presentation: 'dialog' as const },
+    { platform: 'android' as const, presentation: 'sheet' as const },
+    { platform: 'ios' as const, presentation: 'dialog' as const },
+    { platform: 'ios' as const, presentation: 'sheet' as const },
+  ])('keeps the existing $platform $presentation scroller and dismissal callback', ({ platform, presentation }) => {
+    jest.replaceProperty(Platform, 'OS', platform);
+    const close = jest.fn();
+    const body = React.createElement(ScrollView, { keyboardShouldPersistTaps: 'handled' });
+    const root = AppModal({
+      visible: true,
+      presentation,
+      avoidAndroidKeyboard: true,
+      onRequestClose: close,
+      children: body,
+    });
+    const nodes = elements(root);
+    const avoiding = nodes.find(node => node.type === KeyboardAvoidingView);
+    if (platform === 'android') expect(avoiding?.props.behavior).toBe('height');
+    else expect(avoiding).toBeUndefined();
+    const scrollers = nodes.filter(node => node.type === ScrollView);
+    expect(scrollers).toHaveLength(1);
+    expect(scrollers[0].props).toEqual(body.props);
+    expect(root.props.onRequestClose).toBe(close);
+  });
+});
+
+describe('scrollable dialog', () => {
+  it.each([
+    { presentation: 'dialog' as const, scrollable: false },
+    { presentation: 'sheet' as const, scrollable: true },
+  ])('keeps existing $presentation content outside opt-in keyboard avoidance', props => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    const body = React.createElement(ScrollView);
+    const root = AppModal({ visible: true, onRequestClose: jest.fn(), children: body, ...props });
+    const nodes = elements(root);
+    expect(nodes.some(node => node.type === KeyboardAvoidingView)).toBe(false);
+    const scrollers = nodes.filter(node => node.type === ScrollView);
+    expect(scrollers).toHaveLength(1);
+    expect(scrollers[0].props).toEqual(body.props);
+  });
+
+  it.each([
+    ['ios', 'padding'],
+    ['android', 'height'],
+  ] as const)('keeps long content together with %s keyboard avoidance', (platform, behavior) => {
+    jest.replaceProperty(Platform, 'OS', platform);
+    const confirm = jest.fn();
+    const close = jest.fn();
+    const title = 'A title that wraps on small screens';
+    const root = AppModal({
+      visible: true,
+      scrollable: true,
+      title,
+      description: 'A long explanation '.repeat(30),
+      onRequestClose: close,
+      children: React.createElement(Pressable, { onPress: confirm }, React.createElement(Text, null, 'Confirm')),
+    });
+    const nodes = elements(root);
+    expect(nodes.find(node => node.type === KeyboardAvoidingView)?.props.behavior).toBe(behavior);
+    const scroll = nodes.find(node => node.type === ScrollView)!;
+    expect(scroll).toBeDefined();
+    const content = elements(scroll);
+    expect(content.some(node => node.type === Text && node.props.children === title)).toBe(true);
+    content.find(node => node.type === Pressable)?.props.onPress?.();
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(close).not.toHaveBeenCalled();
+    root.props.onRequestClose?.({} as never);
+    expect(close).toHaveBeenCalledTimes(1);
   });
 });

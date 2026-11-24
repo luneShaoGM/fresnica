@@ -30,7 +30,7 @@ export function NetworkStatus({ networkLabel, onPress }: Props) {
         pressed ? styles.pressed : undefined,
       ]}
     >
-      <Text numberOfLines={1} style={[styles.networkText, !enabled ? styles.networkTextDisabled : undefined]}>
+      <Text style={[styles.networkText, !enabled ? styles.networkTextDisabled : undefined]}>
         Network: {networkLabel}
         {enabled ? ' ▾' : ''}
       </Text>

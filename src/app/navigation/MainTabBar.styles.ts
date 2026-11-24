@@ -50,13 +50,15 @@ export function createStyles(theme: AppTheme) {
       justifyContent: 'center',
     },
     actionsButton: {
-      minWidth: 58,
+      width: '100%',
+      minWidth: 0,
       minHeight: 48,
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: theme.radii.md,
       backgroundColor: theme.colors.actionPrimarySubtle,
       paddingHorizontal: theme.spacing.xs,
+      paddingVertical: theme.spacing.xs,
     },
     actionsPlus: {
       fontSize: 24,
@@ -66,6 +68,7 @@ export function createStyles(theme: AppTheme) {
     },
     actionsLabel: {
       ...theme.typography.caption,
+      textAlign: 'center',
       color: theme.colors.actionPrimaryPressed,
       fontWeight: '700',
     },
@@ -96,6 +99,7 @@ export function createStyles(theme: AppTheme) {
       borderColor: theme.colors.border,
       backgroundColor: theme.colors.surfaceMuted,
       paddingHorizontal: theme.spacing.sm,
+      paddingVertical: theme.spacing.sm,
       gap: theme.spacing.xs,
     },
     actionItemDisabled: {
@@ -107,9 +111,10 @@ export function createStyles(theme: AppTheme) {
       fontWeight: '700',
       textAlign: 'center',
     },
+    disabledActionLabel: { color: theme.colors.textSecondary },
     actionStatus: {
       ...theme.typography.caption,
-      color: theme.colors.textTertiary,
+      color: theme.colors.textSecondary,
       textAlign: 'center',
     },
     actionsHeader: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
@@ -130,6 +135,7 @@ export function createStyles(theme: AppTheme) {
       borderColor: theme.colors.border,
       backgroundColor: theme.colors.surfaceMuted,
       paddingHorizontal: theme.spacing.sm,
+      paddingVertical: theme.spacing.sm,
     },
     recentSection: { gap: theme.spacing.sm },
     recentItem: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, minHeight: 56 },
@@ -141,7 +147,7 @@ export function createStyles(theme: AppTheme) {
       justifyContent: 'center',
       backgroundColor: theme.colors.surfaceMuted,
     },
-    recentIdentity: { flex: 1, alignItems: 'flex-start' },
+    recentIdentity: { flex: 1, minWidth: 0, alignItems: 'flex-start' },
     recentName: { ...theme.typography.label, color: theme.colors.textPrimary },
     sectionTitle: { ...theme.typography.label, color: theme.colors.textSecondary },
   });

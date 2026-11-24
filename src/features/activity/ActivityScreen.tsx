@@ -476,111 +476,6 @@ export function ActivityScreen({
         </Pressable>
       </View>
 
-      <View style={styles.controls}>
-        <NativeField
-          accessibilityHint={t('activity.searchHint')}
-          accessibilityLabel={t('activity.searchLabel')}
-          autoCapitalize="none"
-          autoCorrect={false}
-          label={t('activity.searchLabel')}
-          onChangeText={value => {
-            setSearchText(value);
-            if (value) {
-              setFilter('all');
-              setQuantityFilter({});
-              setHiddenAssets(new Set());
-              setShowHidden(false);
-              setShowFailed(false);
-            }
-          }}
-          placeholder={t('activity.searchPlaceholder')}
-          returnKeyType="search"
-          value={searchText}
-        />
-        {hideDust ||
-        filter !== 'all' ||
-        showHidden ||
-        showFailed ||
-        hiddenAssets.size > 0 ||
-        Object.values(quantityFilter).some(Boolean) ? (
-          <View style={styles.activeFilters}>
-            {hideDust ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('activity.filters.revealDust')}
-                onPress={() => setHideDust(false)}
-                style={styles.filterChip}
-              >
-                <Text style={styles.filterText}>{t('activity.filters.dustActive')} ×</Text>
-              </Pressable>
-            ) : null}
-            {filter !== 'all' ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('activity.filters.clearType')}
-                onPress={() => setFilter('all')}
-                style={styles.filterChip}
-              >
-                <Text style={styles.filterText}>{t(`activity.filter.${filter}`)} ×</Text>
-              </Pressable>
-            ) : null}
-            {showHidden ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('activity.filters.clearHidden')}
-                onPress={() => setShowHidden(false)}
-                style={styles.filterChip}
-              >
-                <Text style={styles.filterText}>{t('activity.visibility.showMarked')} ×</Text>
-              </Pressable>
-            ) : null}
-            {showFailed ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('activity.filters.clearFailed')}
-                onPress={() => setShowFailed(false)}
-                style={styles.filterChip}
-              >
-                <Text style={styles.filterText}>{t('activity.filters.showFailed')} ×</Text>
-              </Pressable>
-            ) : null}
-            {(['direction', 'asset', 'comparison', 'amount'] as const).map(key => {
-              const value = quantityFilter[key];
-              if (!value) return null;
-              const label =
-                key === 'asset'
-                  ? value === 'native:XLM'
-                    ? 'XLM'
-                    : (JSON.parse(value) as string[]).join(' · ')
-                  : key === 'amount'
-                    ? value
-                    : t(`activity.filters.${value}`);
-              return (
-                <Pressable
-                  key={key}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('activity.filters.remove', { filter: label })}
-                  onPress={() => setQuantityFilter(current => ({ ...current, [key]: undefined }))}
-                  style={styles.filterChip}
-                >
-                  <Text style={styles.filterText}>{label} ×</Text>
-                </Pressable>
-              );
-            })}
-            {hiddenAssets.size > 0 ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('activity.filters.editHidden')}
-                onPress={() => setFiltersOpen(true)}
-                style={styles.filterChip}
-              >
-                <Text style={styles.filterText}>{t('activity.filters.hiddenCount', { count: hiddenAssets.size })}</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        ) : null}
-      </View>
-
       <FlatList
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -619,7 +514,117 @@ export function ActivityScreen({
         initialNumToRender={8}
         maxToRenderPerBatch={4}
         windowSize={3}
-        ListHeaderComponent={<ActivityContent {...contentProps} listChrome="header" />}
+        ListHeaderComponent={
+          <>
+            <View style={styles.controls}>
+              <NativeField
+                accessibilityHint={t('activity.searchHint')}
+                accessibilityLabel={t('activity.searchLabel')}
+                autoCapitalize="none"
+                autoCorrect={false}
+                label={t('activity.searchLabel')}
+                onChangeText={value => {
+                  setSearchText(value);
+                  if (value) {
+                    setFilter('all');
+                    setQuantityFilter({});
+                    setHiddenAssets(new Set());
+                    setShowHidden(false);
+                    setShowFailed(false);
+                  }
+                }}
+                placeholder={t('activity.searchPlaceholder')}
+                returnKeyType="search"
+                value={searchText}
+              />
+              {hideDust ||
+              filter !== 'all' ||
+              showHidden ||
+              showFailed ||
+              hiddenAssets.size > 0 ||
+              Object.values(quantityFilter).some(Boolean) ? (
+                <View style={styles.activeFilters}>
+                  {hideDust ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t('activity.filters.revealDust')}
+                      onPress={() => setHideDust(false)}
+                      style={styles.filterChip}
+                    >
+                      <Text style={styles.filterText}>{t('activity.filters.dustActive')} ×</Text>
+                    </Pressable>
+                  ) : null}
+                  {filter !== 'all' ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t('activity.filters.clearType')}
+                      onPress={() => setFilter('all')}
+                      style={styles.filterChip}
+                    >
+                      <Text style={styles.filterText}>{t(`activity.filter.${filter}`)} ×</Text>
+                    </Pressable>
+                  ) : null}
+                  {showHidden ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t('activity.filters.clearHidden')}
+                      onPress={() => setShowHidden(false)}
+                      style={styles.filterChip}
+                    >
+                      <Text style={styles.filterText}>{t('activity.visibility.showMarked')} ×</Text>
+                    </Pressable>
+                  ) : null}
+                  {showFailed ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t('activity.filters.clearFailed')}
+                      onPress={() => setShowFailed(false)}
+                      style={styles.filterChip}
+                    >
+                      <Text style={styles.filterText}>{t('activity.filters.showFailed')} ×</Text>
+                    </Pressable>
+                  ) : null}
+                  {(['direction', 'asset', 'comparison', 'amount'] as const).map(key => {
+                    const value = quantityFilter[key];
+                    if (!value) return null;
+                    const label =
+                      key === 'asset'
+                        ? value === 'native:XLM'
+                          ? 'XLM'
+                          : (JSON.parse(value) as string[]).join(' · ')
+                        : key === 'amount'
+                          ? value
+                          : t(`activity.filters.${value}`);
+                    return (
+                      <Pressable
+                        key={key}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('activity.filters.remove', { filter: label })}
+                        onPress={() => setQuantityFilter(current => ({ ...current, [key]: undefined }))}
+                        style={styles.filterChip}
+                      >
+                        <Text style={styles.filterText}>{label} ×</Text>
+                      </Pressable>
+                    );
+                  })}
+                  {hiddenAssets.size > 0 ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t('activity.filters.editHidden')}
+                      onPress={() => setFiltersOpen(true)}
+                      style={styles.filterChip}
+                    >
+                      <Text style={styles.filterText}>
+                        {t('activity.filters.hiddenCount', { count: hiddenAssets.size })}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
+            <ActivityContent {...contentProps} listChrome="header" />
+          </>
+        }
         ListFooterComponent={<ActivityContent {...contentProps} listChrome="footer" />}
         renderItem={({ item, index }) => (
           <>

@@ -1,5 +1,5 @@
 import React, { useContext, useState } from 'react';
-import { Pressable, Text, View, type StyleProp, type TextStyle } from 'react-native';
+import { Platform, Pressable, Text, View, type StyleProp, type TextStyle } from 'react-native';
 
 import { SmallCopy } from '@ui/components/SmallIcons';
 import { FeedbackContext } from '@ui/feedback';
@@ -39,7 +39,7 @@ export function CopyAddressButton({ address, copyPublicText, numberOfLines = 1, 
         <Text
           numberOfLines={numberOfLines}
           ellipsizeMode="middle"
-          selectable
+          selectable={Platform.OS !== 'android' || numberOfLines !== 1}
           style={[styles.address, styles.copyAddressText, addressStyle]}
         >
           {address}

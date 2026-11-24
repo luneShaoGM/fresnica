@@ -8,6 +8,7 @@ import type {AccountRecord} from '../../capabilities/account/types';
 import {useLocalization} from '../../locale';
 import { CopyAddressButton } from './CopyAddressButton';
 import {useThemedStyles, type AppTheme} from '@ui/theme';
+import { contrastText } from '@ui/theme/appearanceTheme';
 
 type Props = Readonly<{
   account: AccountRecord;
@@ -115,7 +116,7 @@ export function AccountDetailsScreen({
           accessibilityRole="button"
           onPress={onBack}
           style={styles.backButton}>
-          <Text style={styles.backGlyph}>‹</Text>
+          <Text allowFontScaling={false} style={styles.backGlyph}>‹</Text>
         </Pressable>
         <Text style={styles.title}>Account</Text>
         <View style={styles.headerSpacer} />
@@ -189,7 +190,8 @@ export function AccountDetailsScreen({
         description={t('accounts.rename.description')}
         onRequestClose={closeRename}
         title={t('accounts.rename.title')}
-        visible={renameVisible}>
+        visible={renameVisible}
+        scrollable>
         <View style={styles.renameContent}>
           <Field
             accessibilityLabel={t('accounts.rename.field')}
@@ -224,7 +226,8 @@ export function AccountDetailsScreen({
         description={t('accounts.delete.description')}
         onRequestClose={closeDelete}
         title={t('accounts.delete.title')}
-        visible={deleteVisible}>
+        visible={deleteVisible}
+        scrollable>
         <View style={styles.renameContent}>
           {deleteError ? (
             <Text accessibilityLiveRegion="polite" style={styles.lifecycleError}>
@@ -283,7 +286,7 @@ function createStyles(theme: AppTheme) {
   },
   backButton: {width: 42, height: 42, alignItems: 'center', justifyContent: 'center'},
   backGlyph: {fontSize: 36, lineHeight: 38, fontWeight: '300', color: theme.colors.surfaceStrong},
-  title: {fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary},
+  title: {flex: 1, textAlign: 'center', paddingVertical: theme.spacing.sm, fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary},
   headerSpacer: {width: 42},
   content: {paddingBottom: 34},
   identityBlock: {alignItems: 'center', paddingHorizontal: 24, paddingTop: 28, paddingBottom: 24, gap: 8},
@@ -299,7 +302,7 @@ function createStyles(theme: AppTheme) {
     borderBottomColor: theme.colors.border,
     gap: 20,
   },
-  detailLabel: {fontSize: 13, lineHeight: 17, color: theme.colors.textPrimary, fontWeight: '600'},
+  detailLabel: {maxWidth: '45%', flexShrink: 1, fontSize: 13, lineHeight: 17, color: theme.colors.textPrimary, fontWeight: '600'},
   detailValue: {flex: 1, fontSize: 12, lineHeight: 16, color: theme.colors.textSecondary, textAlign: 'right'},
   sectionLabel: {paddingHorizontal: 18, paddingTop: 24, paddingBottom: 8, fontSize: 11, color: theme.colors.textTertiary, fontWeight: '700'},
   actionRow: {paddingHorizontal: 18, gap: 10},
@@ -309,8 +312,8 @@ function createStyles(theme: AppTheme) {
   secondaryActionText: {fontSize: 15, color: theme.colors.surfaceStrong, fontWeight: '800'},
   deleteAction: {minHeight: 52, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.negative},
   deleteActionText: {fontSize: 15, color: theme.colors.negative, fontWeight: '800'},
-  deleteConfirm: {minHeight: 48, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.negative},
-  deleteConfirmText: {fontSize: 15, color: theme.colors.onActionPrimary, fontWeight: '800'},
+  deleteConfirm: {minHeight: 48, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.negative},
+  deleteConfirmText: {textAlign: 'center', fontSize: 15, color: contrastText(theme.colors.negative), fontWeight: '800'},
   lifecycleNote: {...theme.typography.caption, color: theme.colors.textTertiary},
   lifecycleError: {...theme.typography.body, color: theme.colors.negative},
   note: {paddingHorizontal: 22, paddingTop: 18, fontSize: 10, lineHeight: 15, color: theme.colors.textTertiary, textAlign: 'center'},

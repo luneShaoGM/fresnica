@@ -96,7 +96,7 @@ describe('AccountsScreen sort controls', () => {
     jest.restoreAllMocks();
   });
 
-  it('keeps Accounts Back wired to onBack and centers the title between identical flexible header sides', () => {
+  it('keeps Accounts Back wired to onBack with its natural width and a flexible title', () => {
     const onBack = jest.fn();
     const onOpenAccount = jest.fn();
     const onAddAccount = jest.fn();
@@ -121,15 +121,14 @@ describe('AccountsScreen sort controls', () => {
       const columns = React.Children.toArray(header?.props.children).filter(
         (child): child is React.ReactElement<TestElementProps> => React.isValidElement<TestElementProps>(child),
       );
-      expect(columns).toHaveLength(3);
-      const [left, title, right] = columns;
+      expect(columns).toHaveLength(2);
+      const [left, title] = columns;
       expect(left?.type).toBe(View);
       expect(title?.type).toBe(Text);
       expect(title?.props.children).toBe('账户');
-      expect(right?.type).toBe(View);
       expect(left?.props.style).toEqual(styles.headerSide);
-      expect(right?.props.style).toEqual(styles.headerSide);
-      expect(styles.headerSide).toMatchObject({ flex: 1, alignItems: 'flex-start' });
+      expect(styles.headerSide).toMatchObject({ flexShrink: 0, alignItems: 'flex-start' });
+      expect(styles.title).toMatchObject({ flex: 1, minWidth: 0 });
       expect(styles.header).not.toHaveProperty('justifyContent', 'space-between');
       expect(styles.header.minHeight).toBe(58);
 

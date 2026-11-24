@@ -15,11 +15,14 @@ export function createStyles(theme: AppTheme) {
     },
     header: {
       minHeight: 54,
+      gap: theme.spacing.sm,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
     },
     title: {
+      flex: 1,
+      minWidth: 0,
       fontSize: 28,
       lineHeight: 34,
       fontWeight: '800',
@@ -31,6 +34,7 @@ export function createStyles(theme: AppTheme) {
       gap: 8,
     },
     headerIcon: {
+      flexShrink: 0,
       width: 36,
       height: 36,
       borderRadius: 18,
@@ -43,6 +47,8 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.surfaceStrong,
       fontWeight: '700',
     },
+    sheetScroll: { flex: 1, minHeight: 0 },
+    sheetHeaderTitle: { flex: 1, minWidth: 0 },
     urlSheet: {
       paddingHorizontal: 18,
       paddingTop: 8,
@@ -51,6 +57,7 @@ export function createStyles(theme: AppTheme) {
     },
     urlSheetHeader: {
       flexDirection: 'row',
+      gap: theme.spacing.sm,
       alignItems: 'center',
       justifyContent: 'space-between',
     },
@@ -95,7 +102,7 @@ export function createStyles(theme: AppTheme) {
       marginTop: 8,
     },
     segment: {
-      height: 42,
+      minHeight: 42,
       borderRadius: 10,
       backgroundColor: theme.colors.surfaceMuted,
       padding: 3,
@@ -104,6 +111,9 @@ export function createStyles(theme: AppTheme) {
     },
     segmentButton: {
       flex: 1,
+      minWidth: 0,
+      paddingHorizontal: theme.spacing.xs,
+      paddingVertical: theme.spacing.sm,
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: 8,
@@ -112,6 +122,7 @@ export function createStyles(theme: AppTheme) {
       backgroundColor: theme.colors.surface,
     },
     segmentText: {
+      textAlign: 'center',
       fontSize: 13,
       color: theme.colors.textSecondary,
       fontWeight: '600',
@@ -137,6 +148,7 @@ export function createStyles(theme: AppTheme) {
     },
     appRow: {
       minHeight: 76,
+      paddingVertical: theme.spacing.sm,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 11,
@@ -156,11 +168,12 @@ export function createStyles(theme: AppTheme) {
     },
     appInitials: {
       fontSize: 11,
-      color: theme.colors.onActionPrimary,
+      color: theme.colors.onSurfaceStrong,
       fontWeight: '800',
     },
     appIdentity: {
       flex: 1,
+      minWidth: 0,
       gap: 3,
     },
     appTitle: {

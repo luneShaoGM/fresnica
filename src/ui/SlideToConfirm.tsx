@@ -140,17 +140,17 @@ export function SlideToConfirm({
 
 const styles = StyleSheet.create({
   track: {
-    height: 58,
+    minHeight: 58,
     borderRadius: 29,
     justifyContent: 'center',
     overflow: 'hidden',
     paddingHorizontal: TRACK_PADDING,
+    paddingVertical: TRACK_PADDING * 2,
   },
   disabled: { opacity: 0.46 },
   label: {
-    position: 'absolute',
-    left: 64,
-    right: 18,
+    marginLeft: 60,
+    marginRight: 14,
     textAlign: 'center',
     color: '#FFFFFF',
     fontSize: 14,
@@ -158,6 +158,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   knob: {
+    position: 'absolute',
+    left: TRACK_PADDING,
     width: KNOB_SIZE,
     height: KNOB_SIZE,
     borderRadius: KNOB_SIZE / 2,

@@ -228,7 +228,14 @@ describe('ActivityScreen filter/search closure', () => {
   });
   it('opens a compact filter sheet while keeping search and the default list uncluttered', () => {
     const { root, setters } = renderScreen([trustline('trustline-1'), unsupported('other-1')]);
-    const search = findElement(root, element => element.type === NativeField);
+    const list = findElement(root, element => element.type === FlatList);
+    const search = findElement(list?.props.ListHeaderComponent, element => element.type === NativeField);
+    expect(
+      findElement(
+        list?.props.ListHeaderComponent,
+        element => element.props.accessibilityLabel === 'Show dust activity',
+      ),
+    ).toBeDefined();
     expect(search?.props).toMatchObject({
       accessibilityLabel: 'Search activity',
       accessibilityHint: 'Search only the activity currently loaded on this device.',
@@ -845,7 +852,11 @@ it('virtualizes a large loaded collection without eagerly rendering row avatars 
   expect(list?.props.data).toHaveLength(500);
   expect(list?.props.initialNumToRender).toBe(8);
   expect(list?.props.windowSize).toBe(3);
-  const header = list?.props.ListHeaderComponent as React.ReactElement<React.ComponentProps<typeof ActivityContent>>;
+  const header = findElement(
+    list?.props.ListHeaderComponent,
+    element => element.type === ActivityContent,
+  ) as React.ReactElement<React.ComponentProps<typeof ActivityContent>>;
+  expect(header).toBeDefined();
   expect(findElement(ActivityContent(header.props), element => element.type === ActivityRow)).toBeUndefined();
   const first = list?.props.renderItem?.({ item: entries[0], index: 0 });
   const second = list?.props.renderItem?.({ item: entries[1], index: 1 });

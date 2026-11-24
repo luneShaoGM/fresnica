@@ -105,7 +105,6 @@ describe('SendFormScreen memo families', () => {
     expect(right?.type).toBe(View);
     expect(left?.props.style).toEqual(styles.headerSide);
     expect(right?.props.style).toEqual([styles.headerSide, styles.headerTrailing]);
-    expect(styles.headerSide).toMatchObject({ flex: 1, alignItems: 'flex-start' });
     expect(styles.header).not.toHaveProperty('justifyContent', 'space-between');
 
     const close = React.Children.toArray(left?.props.children).filter(

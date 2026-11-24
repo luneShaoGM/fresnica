@@ -8,7 +8,7 @@ import { createRequestIngressStyles } from '../ingressStyles';
 import { parseRequestIngress } from '../requestIngressFlow';
 import { RequestIngressScreen, type RequestScannerViewComponent } from '../RequestIngressScreen';
 
-jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
+jest.mock('@fresnica/ui-native', () => ({ Button: () => null, useUiTheme: () => ({ colors: {} }) }));
 
 jest.mock('react-native-qrcode-svg', () => ({
   __esModule: true,
@@ -115,7 +115,7 @@ describe('RequestIngressScreen', () => {
       continueBusy: true,
       title: 'request.ingress.title.scan',
     },
-  ])('keeps localized Close active and title centered for %p', state => {
+  ])('keeps localized Close active and the localized title for %p', state => {
     const onClose = jest.fn();
     const onContinue = jest.fn();
     const onRetry = jest.fn();
@@ -131,16 +131,13 @@ describe('RequestIngressScreen', () => {
     expect(scroller?.type).toBe(ScrollView);
     expect(scroller?.props.showsVerticalScrollIndicator).toBe(false);
 
-    const [left, title, right] = React.Children.toArray(header?.props.children).filter(
+    const [left, title] = React.Children.toArray(header?.props.children).filter(
       (child): child is React.ReactElement<NodeProps> => React.isValidElement<NodeProps>(child),
     );
     expect(left?.type).toBe(View);
     expect(title?.type).toBe(Text);
     expect(title?.props.children).toBe(state.title);
-    expect(right?.type).toBe(View);
     expect(left?.props.style).toEqual(styles.headerSide);
-    expect(right?.props.style).toEqual(styles.headerSide);
-    expect(styles.headerSide).toMatchObject({ flex: 1, alignItems: 'flex-start' });
     expect(styles.header).not.toHaveProperty('justifyContent', 'space-between');
     expect(styles.header.minHeight).toBe(58);
 

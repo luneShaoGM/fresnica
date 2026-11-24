@@ -44,7 +44,6 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.surfaceStrong,
     },
     controls: {
-      paddingHorizontal: theme.spacing.md,
       paddingBottom: theme.spacing.sm,
     },
     sheetHeading: {
@@ -115,6 +114,7 @@ export function createStyles(theme: AppTheme) {
       maxWidth: '100%',
       borderRadius: theme.radii.pill,
       paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.xs,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: theme.colors.surfaceMuted,
@@ -203,7 +203,7 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.incoming,
     },
     amountNegative: {
-      color: theme.colors.negative,
+      color: theme.colors.negativeStrong,
     },
     statePanel: {
       minHeight: 280,

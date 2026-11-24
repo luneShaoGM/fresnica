@@ -54,7 +54,6 @@ export function RequestFormScreen(props: Props) {
           <NativeButton label={t('request.back')} onPress={props.onCancel} size="sm" variant="quiet" />
         </View>
         <Text style={styles.headerTitle}>{t('request.title')}</Text>
-        <View style={styles.headerSide} />
       </View>
 
       <ScrollView
@@ -315,7 +314,7 @@ function RequestAction({
         pressed ? styles.pressed : undefined,
       ]}
     >
-      <Text style={styles.actionText}>{label}</Text>
+      <Text style={[styles.actionText, secondary ? styles.secondaryActionText : undefined]}>{label}</Text>
     </Pressable>
   );
 }

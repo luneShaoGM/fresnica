@@ -33,7 +33,6 @@ export function RequestDeepLinkScreen({ state, onClose, onContinue }: Props) {
           <NativeButton label={t('request.deepLink.close')} onPress={onClose} size="sm" variant="quiet" />
         </View>
         <Text style={styles.title}>{t('request.deepLink.title')}</Text>
-        <View style={styles.deepLinkHeaderSide} />
       </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {state.kind === 'ready' ? (
