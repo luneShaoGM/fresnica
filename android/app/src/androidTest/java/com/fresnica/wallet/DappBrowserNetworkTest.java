@@ -31,7 +31,7 @@ import javax.net.ssl.SSLServerSocket;
 import com.reactnativecommunity.webview.RNCWebChromeClient;
 
 /** Actual Android WebView + local TLS receiver. No external site or wallet is used.
- * Tests the network mechanism, not native wallet product-flow acceptance.
+ * Tests network and synthetic SEP-53 transport mechanisms, not wallet product acceptance.
  */
 public final class DappBrowserNetworkTest extends Instrumentation {
   private Activity activity;
@@ -167,6 +167,16 @@ public final class DappBrowserNetworkTest extends Instrumentation {
         fetch("https://127.0.0.1:" + forbidden.getLocalPort() + "/xhr");
         noForbidden();
       });
+      // These use the same real TLS receiver and native proxy, with synthetic responses only.
+      try (DappSep53TransportFixture transport = new DappSep53TransportFixture(this, activity, base())) {
+        test("fabric-sep53-cancel-original-document", transport::cancelOriginalDocument);
+        test("fabric-sep53-success-original-document", transport::successOriginalDocument);
+        test("fabric-sep53-handle-fail-closed", transport::handlesFailClosed);
+        test("fabric-sep53-new-document-expires-old-reply", transport::newDocumentExpiresOldReply);
+        test("fabric-sep53-history-retains-current-document", transport::historyRetainsCurrentDocument);
+      } finally {
+        runOnMainSync(() -> activity.setContentView(webview));
+      }
       test("proxy-failure-has-no-direct-fallback", () -> {
         proxy.close();
         load("https://127.0.0.1:" + forbidden.getLocalPort() + "/dead-proxy");
@@ -208,7 +218,7 @@ public final class DappBrowserNetworkTest extends Instrumentation {
     Bundle status = new Bundle();
     status.putString("class", getClass().getName());
     status.putString("test", name);
-    status.putInt("numtests", 17);
+    status.putInt("numtests", 22);
     status.putInt("current", passed + failed + 1);
     sendStatus(1, status);
     try { body.run(); passed++; status.putString("stream", "\nPASS " + name + "\n"); sendStatus(0, status); }

@@ -14,6 +14,9 @@ type Props = Readonly<{
   origin: string;
   passphraseRequired: boolean;
   failed: boolean;
+  busy?: boolean;
+  expiresAt?: number;
+  onExpired?: () => void;
   onConfirm: (appPassphrase: string) => void;
   onReject: () => void;
 }> &
@@ -23,13 +26,21 @@ type Props = Readonly<{
   );
 
 export function DappSignSheet(props: Props) {
-  const { visible, origin, intent, passphraseRequired, failed, onConfirm, onReject } = props;
+  const { visible, origin, intent, passphraseRequired, failed, busy, expiresAt, onExpired, onConfirm, onReject } =
+    props;
   const { t } = useLocalization();
   const styles = useThemedStyles(createConnectSheetStyles);
   const secureInput = useRef<SwapPassphraseInputHandle>(null);
   const [hasPassphrase, setHasPassphrase] = useState(false);
+  const expired = expiresAt !== undefined && Date.now() >= expiresAt;
   const confirm = () => {
-    if (passphraseRequired && !hasPassphrase) return;
+    // A delayed press must not consume a passphrase for an expired native callback.
+    if (expiresAt !== undefined && Date.now() >= expiresAt) {
+      secureInput.current?.clear();
+      onExpired?.();
+      return;
+    }
+    if (busy || (passphraseRequired && !hasPassphrase)) return;
     onConfirm(secureInput.current?.consume() ?? '');
   };
   const reject = () => {
@@ -133,7 +144,7 @@ export function DappSignSheet(props: Props) {
         )}
         <SwapPassphraseInput
           ref={secureInput}
-          disabled={!passphraseRequired}
+          disabled={!passphraseRequired || busy === true || expired}
           hint={t('dapps.sign.passphraseRequired')}
           label={t('dapps.sign.passphrase')}
           onPresenceChange={setHasPassphrase}
@@ -147,7 +158,7 @@ export function DappSignSheet(props: Props) {
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            disabled={passphraseRequired && !hasPassphrase}
+            disabled={busy === true || expired || (passphraseRequired && !hasPassphrase)}
             onPress={confirm}
             style={styles.action}
           >

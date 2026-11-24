@@ -697,6 +697,7 @@
   "dapps.permission.manageHint": "Always allow persists for this account and network until you disconnect it in Settings.",
   "dapps.signMessage.title": "Review message signature",
   "dapps.signMessage.notice": "Review the exact message. A signature can authorize actions on this website.",
+  "dapps.signMessage.expired": "This signing request expired. Ask the website to send a new request.",
   "dapps.signMessage.payload": "Message (quoted text)",
   "dapps.sign.title": "Sign transaction?",
   "dapps.sign.message": "Check the website and the transaction. Fresnica returns the signature and does not submit it.",

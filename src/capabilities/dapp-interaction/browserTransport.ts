@@ -7,13 +7,14 @@ export type DappBrowserNavigation = Readonly<{
   canGoForward: boolean;
 }>;
 
-export type DappMessageReplyTarget = Readonly<{ replyId: string }>;
+export type DappMessageReplyTarget = Readonly<{ replyId: string; expiresAt?: number }>;
 
 export type DappBrowserSurfaceProps = Readonly<{
   url: string;
   nonce: string;
   shouldLoad: (url: string) => boolean;
-  onMessage: (data: string, messageUrl: string, replyId?: string) => void;
+  onMessage: (data: string, messageUrl: string, replyId?: string, replyExpiresAt?: number) => void;
+  onReplyExpired?: (replyId: string, origin: string) => void;
   onNavigation: (navigation: DappBrowserNavigation) => void;
   onDocumentStart: (url: string) => void;
   onUnavailable?: () => void;

@@ -50,6 +50,7 @@ jest.spyOn(react, 'useRef').mockImplementation(((init: unknown) => {
   if (!refs[i]) refs[i] = { current: init };
   return refs[i];
 }) as typeof react.useRef);
+jest.spyOn(react, 'useCallback').mockImplementation(((callback: unknown) => callback) as typeof react.useCallback);
 jest.spyOn(react, 'useEffect').mockImplementation(((effect: () => void | (() => void)) => {
   effects.push(effect);
 }) as typeof react.useEffect);
@@ -158,12 +159,17 @@ type NodeProps = Readonly<{
   fee?: string;
   operationCount?: number;
   onMessage?: DappBrowserSurfaceProps['onMessage'];
+  onReplyExpired?: DappBrowserSurfaceProps['onReplyExpired'];
   onNavigation?: DappBrowserSurfaceProps['onNavigation'];
   onDocumentStart?: DappBrowserSurfaceProps['onDocumentStart'];
   onUnavailable?: DappBrowserSurfaceProps['onUnavailable'];
   shouldLoad?: DappBrowserSurfaceProps['shouldLoad'];
   disabled?: boolean;
   failed?: boolean;
+  busy?: boolean;
+  expiresAt?: number;
+  onExpired?: () => void;
+  onPresenceChange?: (present: boolean) => void;
 }>;
 function find(
   root: React.ReactNode,
@@ -769,3 +775,277 @@ it.each(['approve', 'base64', 'cancel', 'reload', 'document', 'late-result', 'mi
     }
   },
 );
+
+describe('native SEP-53 reply deadline', () => {
+  const now = 1_800_000_000_000;
+  const origin = 'https://demo.example.org';
+  const replyId = '74f3db5b-10b8-4abd-8198-cfc869980742';
+  const nextReplyId = '74f3db5b-10b8-4abd-8198-cfc869980743';
+  const signature = 'A'.repeat(86) + '==';
+
+  beforeEach(() => jest.useFakeTimers({ now }));
+  afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  function start(
+    signer: DappMessageSigner,
+    beforeReceive?: (expire: NonNullable<DappBrowserSurfaceProps['onReplyExpired']>) => void,
+    initialExpiresAt = now + 1000,
+  ) {
+    const draw = () => render(true, undefined, undefined, signer);
+    const browser = find(draw(), node => node.type === BrowserSurface);
+    refs[1].current = { reply: replies, reload };
+    browser?.props.onMessage?.(request('REQUEST_ACCESS', 30), origin);
+    find(draw(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
+    const send = (id: number, handle: string, expiresAt: number) =>
+      browser?.props.onMessage?.(
+        JSON.stringify({
+          source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
+          type: 'SUBMIT_BLOB',
+          messageId: id,
+          apiVersion: '6.0.1',
+          blob: 'challenge ' + id,
+        }),
+        origin,
+        handle,
+        expiresAt,
+      );
+    const expire = (handle: string, source = origin) => browser?.props.onReplyExpired?.(handle, source);
+    beforeReceive?.(expire);
+    send(31, replyId, initialExpiresAt);
+    const sheet = find(draw(), node => node.type === DappSignSheet);
+    return { draw, send, sheet, expire };
+  }
+
+  it('retires the native lifetime when wall time rolls back while the request is in transit', () => {
+    const signer = jest.fn<ReturnType<DappMessageSigner>, Parameters<DappMessageSigner>>(async () => signature);
+    const nativeLifetime = 120_000;
+    const transit = 15_000;
+    const { draw, sheet } = start(
+      signer,
+      expire => {
+        // Model the native lifetime starting before JS receives the request.
+        // Its callback retains the original elapsed-time budget through wall-clock changes.
+        setTimeout(() => expire(replyId, origin), nativeLifetime);
+        jest.advanceTimersByTime(transit);
+        jest.setSystemTime(now - 3_600_000);
+      },
+      now + nativeLifetime,
+    );
+    for (const effect of effects.splice(0)) effect();
+    jest.advanceTimersByTime(nativeLifetime - transit - 1);
+    expect(find(draw(), node => node.type === DappSignSheet)).toBeDefined();
+    jest.advanceTimersByTime(1);
+    expect(find(draw(), node => node.type === DappSignSheet)).toBeUndefined();
+    sheet?.props.onConfirm?.('late old entry');
+    expect(signer).not.toHaveBeenCalled();
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 31, error: 'request-expired' }), {
+      replyId,
+      expiresAt: now + nativeLifetime,
+    });
+  });
+
+  it('retires a request and expiry delivered before the next React commit', () => {
+    const signer = jest.fn<ReturnType<DappMessageSigner>, Parameters<DappMessageSigner>>(async () => signature);
+    const { draw, send, expire } = start(signer);
+    expire(replyId);
+    send(32, nextReplyId, now + 5000);
+    // No draw/effect occurs between the new request and its native expiry event.
+    expire(nextReplyId);
+    expect(find(draw(), node => node.type === DappSignSheet)).toBeUndefined();
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 32, error: 'request-expired' }), {
+      replyId: nextReplyId,
+      expiresAt: now + 5000,
+    });
+    expect(signer).not.toHaveBeenCalled();
+  });
+
+  it('ignores mismatched origins and old handles while allowing a fresh request to finish', async () => {
+    const signer = jest.fn<ReturnType<DappMessageSigner>, Parameters<DappMessageSigner>>(async () => signature);
+    const { draw, send, sheet, expire } = start(signer);
+    expire(nextReplyId);
+    expire(replyId, 'https://other.example.org');
+    expect(find(draw(), node => node.type === DappSignSheet)).toBeDefined();
+    expect(replies.mock.calls.some(([response]) => response.error === 'request-expired')).toBe(false);
+    expire(replyId);
+    send(32, nextReplyId, now + 5000);
+    expire(replyId);
+    expire(nextReplyId, 'https://other.example.org');
+    sheet?.props.onConfirm?.('old entry');
+    expect(signer).not.toHaveBeenCalled();
+    find(draw(), node => node.type === DappSignSheet)?.props.onConfirm?.('new entry');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(replies.mock.calls.filter(([response]) => response.signedBlob)).toEqual([
+      [
+        expect.objectContaining({ messagedId: 32, signedBlob: signature }),
+        { replyId: nextReplyId, expiresAt: now + 5000 },
+      ],
+    ]);
+  });
+
+  it('retires the scheduled generation even after a wall-clock rollback and accepts a fresh request', () => {
+    const signer = jest.fn<ReturnType<DappMessageSigner>, Parameters<DappMessageSigner>>(async () => signature);
+    const { draw, send, sheet } = start(signer);
+    for (const effect of effects.splice(0)) effect();
+    jest.setSystemTime(now - 10_000);
+    jest.advanceTimersByTime(1000);
+    expect(find(draw(), node => node.type === DappSignSheet)).toBeUndefined();
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 31, error: 'request-expired' }), {
+      replyId,
+      expiresAt: now + 1000,
+    });
+    send(32, nextReplyId, now + 5000);
+    sheet?.props.onConfirm?.('late old passphrase');
+    expect(signer).not.toHaveBeenCalled();
+    expect(find(draw(), node => node.type === DappSignSheet)?.props.expiresAt).toBe(now + 5000);
+  });
+
+  it('refuses a deadline-crossing confirm before the timer callback executes', () => {
+    const signer = jest.fn<ReturnType<DappMessageSigner>, Parameters<DappMessageSigner>>(async () => signature);
+    const { draw, sheet } = start(signer);
+    jest.setSystemTime(now + 1000);
+    sheet?.props.onConfirm?.('too late');
+    expect(signer).not.toHaveBeenCalled();
+    expect(find(draw(), node => node.type === DappSignSheet)).toBeUndefined();
+  });
+
+  it.each([
+    ['timer', 'resolve'],
+    ['timer', 'reject'],
+    ['native', 'resolve'],
+    ['native', 'reject'],
+  ] as const)('keeps a fresh review intact after %s expiry and a late SDK %s', async (expiry, outcome) => {
+    let resolveOld: ((value: string) => void) | undefined;
+    let rejectOld: ((error: Error) => void) | undefined;
+    const signer = jest
+      .fn<ReturnType<DappMessageSigner>, Parameters<DappMessageSigner>>()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve, reject) => {
+            resolveOld = resolve;
+            rejectOld = reject;
+          }),
+      )
+      .mockResolvedValue(signature);
+    const { draw, send, sheet, expire } = start(signer);
+    for (const effect of effects.splice(0)) effect();
+    sheet?.props.onConfirm?.('first passphrase');
+    expect(signer.mock.calls[0][0].isCurrent()).toBe(true);
+    if (expiry === 'native') {
+      jest.setSystemTime(now - 10_000);
+      expire(replyId);
+    } else jest.advanceTimersByTime(1000);
+    expect(signer.mock.calls[0][0].isCurrent()).toBe(false);
+    send(32, nextReplyId, now + 5000);
+    const next = find(draw(), node => node.type === DappSignSheet);
+    expect(next?.props.busy).toBe(true);
+    next?.props.onConfirm?.('must not start while old SDK call is busy');
+    expect(signer).toHaveBeenCalledTimes(1);
+    if (outcome === 'resolve') resolveOld?.(signature);
+    else rejectOld?.(new Error('late failure'));
+    await Promise.resolve();
+    await Promise.resolve();
+    const ready = find(draw(), node => node.type === DappSignSheet);
+    expect(ready?.props).toMatchObject({ busy: false, failed: false, expiresAt: now + 5000 });
+    ready?.props.onConfirm?.('fresh passphrase');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(replies.mock.calls.filter(([value]) => value.signedBlob)).toEqual([
+      [
+        expect.objectContaining({ messagedId: 32, signedBlob: signature }),
+        { replyId: nextReplyId, expiresAt: now + 5000 },
+      ],
+    ]);
+  });
+
+  it('suppresses an SDK completion after the deadline before a delayed timer runs', async () => {
+    let complete: ((value: string) => void) | undefined;
+    const signer = jest.fn<ReturnType<DappMessageSigner>, Parameters<DappMessageSigner>>(
+      () =>
+        new Promise(resolve => {
+          complete = resolve;
+        }),
+    );
+    const { draw, sheet } = start(signer);
+    for (const effect of effects.splice(0)) effect();
+    sheet?.props.onConfirm?.('fresh entry');
+    jest.setSystemTime(now + 1000);
+    expect(signer.mock.calls[0][0].isCurrent()).toBe(false);
+    complete?.(signature);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(replies.mock.calls.some(([response]) => response.signedBlob)).toBe(false);
+    jest.advanceTimersByTime(1000);
+    expect(find(draw(), node => node.type === DappSignSheet)).toBeUndefined();
+  });
+
+  it('retains the original deadline across wrong-passphrase retry', async () => {
+    const signer = jest
+      .fn<ReturnType<DappMessageSigner>, Parameters<DappMessageSigner>>()
+      .mockRejectedValueOnce({ code: 'invalid-passcode' })
+      .mockResolvedValueOnce(signature);
+    const { draw, sheet } = start(signer);
+    sheet?.props.onConfirm?.('wrong');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(find(draw(), node => node.type === DappSignSheet)?.props).toMatchObject({
+      failed: true,
+      expiresAt: now + 1000,
+    });
+    jest.setSystemTime(now + 500);
+    find(draw(), node => node.type === DappSignSheet)?.props.onConfirm?.('new entry');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(signer.mock.calls.map(([input]) => input.appPassphrase)).toEqual(['wrong', 'new entry']);
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 31, signedBlob: signature }), {
+      replyId,
+      expiresAt: now + 1000,
+    });
+  });
+
+  it.each(['expired', 'busy'] as const)('does not consume secure input on a %s sheet confirmation', state => {
+    const consume = jest.fn(() => 'secret');
+    const clear = jest.fn();
+    const onConfirm = jest.fn();
+    const onExpired = jest.fn();
+    const props = {
+      visible: true,
+      origin,
+      message: 'challenge',
+      address: 'GSOURCE',
+      network: 'TESTNET',
+      passphraseRequired: true,
+      failed: false,
+      busy: state === 'busy',
+      expiresAt: now + 1000,
+      onConfirm,
+      onExpired,
+      onReject: jest.fn(),
+    };
+    const draw = () => {
+      si = 0;
+      ri = 0;
+      return DappSignSheet(props);
+    };
+    const tree = draw();
+    refs[0].current = { consume, clear };
+    find(tree, node => node.props.label === 'dapps.sign.passphrase')?.props.onPresenceChange?.(true);
+    const button = find(
+      draw(),
+      node =>
+        node.props.children !== undefined &&
+        React.Children.toArray(node.props.children).some(
+          child => React.isValidElement<{ children?: unknown }>(child) && child.props.children === 'dapps.sign.confirm',
+        ),
+    );
+    if (state === 'expired') jest.setSystemTime(now + 1000);
+    button?.props.onPress?.();
+    expect(consume).not.toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(onExpired).toHaveBeenCalledTimes(state === 'expired' ? 1 : 0);
+    expect(clear).toHaveBeenCalledTimes(state === 'expired' ? 1 : 0);
+  });
+});
