@@ -12,6 +12,8 @@ import { TokenAssetIcon } from '../assets/TokenAssetIcon';
 import type { NativeBalanceBreakdown } from '@capabilities/balance/nativeBalanceBreakdown';
 import { BalanceFreshnessNotice } from './components/BalanceFreshnessNotice';
 import type { BalanceAsset, BalanceLine } from '../../capabilities/balance/types';
+import type { CreditFiatQuotePort } from '@capabilities/valuation/creditFiatQuote';
+import { CreditFiatEstimate } from '@features/valuation/CreditFiatEstimate';
 import {
   projectCreditBalanceAvailability,
   type CreditBalanceAvailability,
@@ -27,6 +29,7 @@ import { createAssetDetailsSheetStyles } from './assetDetailsSheetStyles';
 
 type Props = Readonly<{
   asset: BalanceAsset;
+  creditFiatQuotes?: CreditFiatQuotePort;
   account: AccountRecord;
   balanceDependencies: BalanceProductDependencies;
   active: boolean;
@@ -43,6 +46,7 @@ type ViewState =
 
 export function AssetDetailsSheet({
   asset,
+  creditFiatQuotes,
   account,
   balanceDependencies,
   active,
@@ -137,6 +141,14 @@ export function AssetDetailsSheet({
         ) : (
           <IssuedAsset
             asset={asset}
+            fiatEstimate={
+              creditFiatQuotes &&
+              account.networkId === 'stellar-mainnet' &&
+              balanceState.kind === 'ready' &&
+              !balanceState.stale ? (
+                <CreditFiatEstimate quotes={creditFiatQuotes} asset={asset} balance={line.balance} active={active} />
+              ) : undefined
+            }
             canSend={canSign && actionable && canSendBalance(line)}
             canRemove={canSign && actionable && canRemoveIssuedBalance(line)}
             availability={projectCreditBalanceAvailability(line)}
@@ -282,6 +294,7 @@ function BalanceDetailRow({
 
 function IssuedAsset({
   asset,
+  fiatEstimate,
   line,
   canSend,
   canRemove,
@@ -296,6 +309,7 @@ function IssuedAsset({
   t,
 }: Readonly<{
   asset: Extract<BalanceAsset, { kind: 'credit' }>;
+  fiatEstimate?: React.ReactNode;
   line: BalanceLine;
   canSend: boolean;
   canRemove: boolean;
@@ -325,6 +339,7 @@ function IssuedAsset({
         <TokenAssetIcon asset={asset} />
         <Text style={styles.amount}>{line.balance}</Text>
         <Text style={styles.code}>{asset.code}</Text>
+        {fiatEstimate}
       </View>
       <View style={styles.card}>
         <View style={styles.issuerRow}>

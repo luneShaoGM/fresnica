@@ -206,6 +206,7 @@ export function HomeStackNavigator({
                   key={JSON.stringify([account.id, account.networkId, route.params.asset])}
                   account={account}
                   asset={route.params.asset}
+                  creditFiatQuotes={services.creditFiatQuotes}
                   balanceDependencies={services.balance}
                   active={readRuntime.foreground}
                   invalidationRevision={invalidationRevision}

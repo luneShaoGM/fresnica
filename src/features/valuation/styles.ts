@@ -2,6 +2,11 @@ import { StyleSheet } from 'react-native';
 import type { AppTheme } from '@ui/theme';
 export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
+    creditHint: {
+      ...theme.typography.caption,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
     compactHint: {
       ...theme.typography.caption,
       color: theme.colors.textSecondary,

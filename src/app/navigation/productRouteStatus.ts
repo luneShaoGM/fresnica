@@ -13,7 +13,7 @@ export type ProductRouteStatus = Readonly<{
 export const PRODUCT_ROUTE_STATUS: Readonly<Record<ProductRoute, ProductRouteStatus>> = {
   home: {
     readiness: 'implemented',
-    note: 'Home provides partitioned Balance/cache refresh, asset details, native reserve breakdown, Claimable and liquidity-pool categories, orders, and eligible Swap entry. Fiat estimates cover XLM; complete issued-asset valuation and native aggregate acceptance remain open.',
+    note: 'Home provides partitioned Balance/cache refresh, asset details, native reserve breakdown, Claimable and liquidity-pool categories, orders, and eligible Swap entry. Fiat estimates cover XLM and on-demand mainnet credit-asset details; complete portfolio and native aggregate acceptance remain open.',
   },
   'account-details': {
     readiness: 'implemented',

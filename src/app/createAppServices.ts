@@ -11,6 +11,7 @@ import {
 } from '@capabilities/preferences/createThemeImageSelection';
 import { pickImagePalette, cancelImagePalette } from '@platform/system/presentationPreferences';
 import type { XlmQuotePort } from '@capabilities/valuation/xlmQuote';
+import { createCreditFiatQuotes, type CreditFiatQuotePort } from '@capabilities/valuation/creditFiatQuote';
 import { createCoinGeckoXlmQuotes } from '@platform/valuation/CoinGeckoXlmQuotes';
 import {
   createGeneralPreferences,
@@ -133,6 +134,7 @@ export type AppServices = Readonly<{
   securitySettings?: SecuritySettings;
   themeImageSelection?: ThemeImageSelection;
   xlmQuotes?: XlmQuotePort;
+  creditFiatQuotes?: CreditFiatQuotePort;
   applicationSession?: ApplicationSession;
   networkProfile: NetworkProfile;
   networkSettings?: NetworkSettings;
@@ -557,6 +559,15 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     closeAssetCatalog = assetCatalog.close;
     const xlmQuotes = createCoinGeckoXlmQuotes(createNativeSafePublicTransport());
     closeXlmQuotes = xlmQuotes.close;
+    const creditFiatQuotes =
+      network.id === 'stellar-mainnet'
+        ? createCreditFiatQuotes({
+            gateway: pathPaymentGateway,
+            xlmQuotes,
+            isClassicAccountAddress: address => stellarGateway.isClassicAccountAddress(address),
+            now: Date.now,
+          })
+        : undefined;
     const publicAssetTransport = createNativeSafePublicTransport();
     const tokenMetadata = createTokenMetadataPort({
       networkId: networkProfile.id,
@@ -605,6 +616,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       securitySettings,
       themeImageSelection,
       xlmQuotes,
+      creditFiatQuotes,
       networkProfile,
       networkSettings,
       assetCatalog,

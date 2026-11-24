@@ -2,6 +2,8 @@ import { AppState } from 'react-native';
 import { useXlmQuote } from '../useXlmQuote';
 import { NativeFiatEstimate } from '../NativeFiatEstimate';
 import type { FiatCurrency, XlmQuote, XlmQuotePort } from '@capabilities/valuation/xlmQuote';
+import { useCreditFiatQuote } from '../useCreditFiatQuote';
+import type { CreditAsset, CreditFiatQuote, CreditFiatQuotePort } from '@capabilities/valuation/creditFiatQuote';
 
 type Slot = { value?: unknown; deps?: readonly unknown[]; cleanup?: () => void };
 let mockSlots: Slot[] = [];
@@ -252,4 +254,96 @@ it('refreshes on returning to Home without exposing an expired or old-provider v
   await settle();
   expect(QuoteHarness(quotes)).toMatchObject({ rate: '0.70000000' });
   effects();
+});
+
+const creditA: CreditAsset = { kind: 'credit', code: 'USD', issuer: 'GISSUER_A' };
+const creditB: CreditAsset = { ...creditA, issuer: 'GISSUER_B' };
+function creditFixture(asset = creditA, currency: FiatCurrency = 'USD'): CreditFiatQuote {
+  return {
+    networkId: 'stellar-mainnet',
+    assetKey: asset.code + ':' + asset.issuer,
+    currency,
+    xlmPerUnit: '2.0000000',
+    xlmFiatRate: '0.50000000',
+    quotedAt: Date.now(),
+    expiresAt: Date.now() + 30_000,
+  };
+}
+function CreditHarness(port: CreditFiatQuotePort, asset = creditA, currency: FiatCurrency = 'USD', active = true) {
+  mockCursor = 0;
+  return useCreditFiatQuote(port, asset, currency, active);
+}
+
+it('never displays a credit quote for another issuer or currency, even before effects run', async () => {
+  const load = jest.fn().mockResolvedValueOnce(creditFixture());
+  load.mockImplementation(() => new Promise(() => undefined));
+  const port = { load };
+  CreditHarness(port);
+  effects();
+  await settle();
+  expect(CreditHarness(port)).toEqual(creditFixture());
+  expect(CreditHarness(port, creditB)).toBeUndefined();
+  expect(CreditHarness(port, creditA, 'EUR')).toBeUndefined();
+});
+
+it('drops late credit price results after blur, background, and issuer replacement', async () => {
+  let resolveOld!: (quote: CreditFiatQuote) => void;
+  let resolveNext!: (quote: CreditFiatQuote) => void;
+  const load = jest
+    .fn()
+    .mockImplementationOnce(
+      () =>
+        new Promise<CreditFiatQuote>(resolve => {
+          resolveOld = resolve;
+        }),
+    )
+    .mockImplementationOnce(
+      () =>
+        new Promise<CreditFiatQuote>(resolve => {
+          resolveNext = resolve;
+        }),
+    )
+    .mockResolvedValue(creditFixture(creditB));
+  const port = { load };
+  CreditHarness(port);
+  effects();
+  const oldSignal = load.mock.calls[0][2] as AbortSignal;
+  CreditHarness(port, creditB);
+  effects();
+  expect(oldSignal.aborted).toBe(true);
+  resolveOld(creditFixture());
+  await settle();
+  expect(CreditHarness(port, creditB)).toBeUndefined();
+  emitAppState('background');
+  const nextSignal = load.mock.calls[1][2] as AbortSignal;
+  expect(nextSignal.aborted).toBe(true);
+  resolveNext(creditFixture(creditB));
+  await settle();
+  expect(CreditHarness(port, creditB)).toBeUndefined();
+  emitAppState('active');
+  await settle();
+  expect(CreditHarness(port, creditB)).toEqual(creditFixture(creditB));
+  expect(CreditHarness(port, creditB, 'USD', false)).toBeUndefined();
+  effects();
+});
+
+it('expires credit reference prices and retries without retaining an unavailable quote', async () => {
+  const load = jest
+    .fn()
+    .mockResolvedValueOnce(creditFixture())
+    .mockRejectedValueOnce(new Error('no-route'))
+    .mockImplementation(async () => creditFixture());
+  const port = { load };
+  CreditHarness(port);
+  effects();
+  await settle();
+  expect(CreditHarness(port)).toBeDefined();
+  jest.advanceTimersByTime(30_000);
+  await settle();
+  expect(CreditHarness(port)).toBeUndefined();
+  expect(load).toHaveBeenCalledTimes(2);
+  jest.advanceTimersByTime(60_000);
+  await settle();
+  expect(CreditHarness(port)).toEqual(creditFixture());
+  expect(load).toHaveBeenCalledTimes(3);
 });

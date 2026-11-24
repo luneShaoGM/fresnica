@@ -16,6 +16,7 @@ import type { AccountRecord } from '../../../capabilities/account/types';
 import type { BalanceProductDependencies } from '../../../capabilities/balance/BalanceCacheHydration';
 import { InMemoryBalanceCacheRepository } from '../../../platform/persistence/memory/InMemoryBalanceCacheRepository';
 import { AssetDetailsSheet } from '../AssetDetailsSheet';
+import { CreditFiatEstimate } from '@features/valuation/CreditFiatEstimate';
 
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null, StateView: () => null }));
 jest.mock('react', () => {
@@ -303,4 +304,22 @@ describe('credit asset availability', () => {
     h.action('home.asset.remove')?.props.onPress?.();
     expect(h.onRemove).toHaveBeenCalledWith(h.asset);
   });
+});
+
+it.each(['stellar-mainnet', 'stellar-testnet'])('wires the exact detail asset to valuation only on %s', networkId => {
+  const asset = { kind: 'credit', code: 'USD', issuer: 'GISSUER' } as const;
+  mockBalanceKind = 'ready';
+  mockBalanceAsset = asset;
+  mockBalanceFields = {};
+  const quotes = { load: jest.fn() };
+  const result = AssetDetailsSheet({
+    asset, account: { ...account, networkId }, balanceDependencies, creditFiatQuotes: quotes,
+    active: true, invalidationRevision: 0, canSign: false, onClose: jest.fn(),
+    copyPublicText: jest.fn(async () => undefined), onSend: jest.fn(), onRemove: jest.fn(),
+  });
+  const body = React.Children.toArray(result.props.children.props.children).at(-1) as React.ReactElement;
+  const renderBody = body.type as (props: unknown) => React.ReactElement;
+  const estimate = nodes(renderBody(body.props)).find(node => node.type === CreditFiatEstimate);
+  if (networkId === 'stellar-mainnet') expect(estimate?.props).toMatchObject({ asset, quotes, balance: '10.0000000', active: true });
+  else expect(estimate).toBeUndefined();
 });
