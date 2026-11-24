@@ -44,7 +44,9 @@ export async function submitTrustlineProductReview(
   review: TrustlineReview,
   systemAuthReason: string,
   appPassphrase?: string,
+  isCurrent?: () => boolean,
 ): Promise<TrustlineSubmissionResult> {
+  if (isCurrent && !isCurrent()) throw new Error('reviewed-transaction-session-retired');
   const exactReview = buildTrustlineReview(
     { gateway: dependencies.gateway, network: dependencies.network },
     {
@@ -76,6 +78,7 @@ export async function submitTrustlineProductReview(
     account,
     exactReview,
   );
+  if (isCurrent && !isCurrent()) throw new Error('reviewed-transaction-session-retired');
 
   return submitReviewedTrustline({
     gateway: dependencies.gateway,
@@ -86,6 +89,7 @@ export async function submitTrustlineProductReview(
     signer: signers[0],
     ...(appPassphrase === undefined ? {} : { appPassphrase }),
     systemAuthReason,
+    ...(isCurrent === undefined ? {} : { isCurrent }),
     network: dependencies.network,
   });
 }

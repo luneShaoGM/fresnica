@@ -4,6 +4,7 @@ import type { TrustlineReview } from '../../../capabilities/trustline/buildTrust
 import { InMemoryAccountSignerRepository } from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
 import { submitTrustlineProductReview, type TrustlineProductDependencies } from '../trustlineProductFlow';
 import type { PendingSubmissionRepository } from '../../../capabilities/transaction/pendingSubmission';
+import type { StellarAccountStateResult } from '../../../capabilities/stellar/types';
 
 const TEST_NETWORK = Object.freeze({
   id: 'stellar-testnet',
@@ -82,7 +83,90 @@ function recovery() {
   };
 }
 
+function signingFixture() {
+  const repository = new InMemoryAccountSignerRepository();
+  const source = account();
+  repository.createAccount(source);
+  repository.createSigner({
+    id: 'signer', publicKey: source.address, kind: 'protected-software', envelopeJson: '{}',
+    createdAt: source.createdAt, updatedAt: source.updatedAt,
+  });
+  repository.attachSigner(source.id, 'signer', source.createdAt);
+  const sourceState: StellarAccountStateResult = {
+    status: 'active',
+    account: {
+      address: source.address, subentryCount: 0, numSponsoring: 0, numSponsored: 0,
+      flags: { authRequired: false, authClawbackEnabled: false },
+      balances: [{ kind: 'native', balance: '100', sellingLiabilities: '0' }],
+    },
+  };
+  const stellar = {
+    ...gateway(),
+    isClassicAccountAddress: jest.fn().mockReturnValue(true),
+    loadAccountState: jest.fn(async (address: string): Promise<StellarAccountStateResult> => ({
+      ...sourceState,
+      account: { ...sourceState.account, address },
+    })),
+    loadLedgerParameters: jest.fn().mockResolvedValue({ baseReserveStroops: 5_000_000, baseFeeStroops: 100 }),
+    loadAccountAuthorization: jest.fn().mockResolvedValue({
+      address: source.address, thresholds: { low: 1, medium: 1, high: 1 },
+      signers: [{ kind: 'ed25519', publicKey: source.address, weight: 1 }],
+    }),
+    transactionHash: jest.fn().mockReturnValue('hash'),
+    submitTransaction: jest.fn(),
+  };
+  const sdk = { signWithPassphrase: jest.fn().mockResolvedValue('signed-xdr') };
+  const deps: TrustlineProductDependencies = {
+    repository, gateway: stellar, network: TEST_NETWORK, recovery: recovery(),
+    sdk: sdk as unknown as FresnicaSdkPort,
+  };
+  return { source, sourceState, stellar, sdk, deps };
+}
+
 describe('trustlineProductFlow', () => {
+  it('rejects an already retired review before revalidation or signer access', async () => {
+    const repository = new InMemoryAccountSignerRepository();
+    const deps = dependencies(repository);
+    await expect(
+      submitTrustlineProductReview(deps, account(), review(), 'Authorize asset change', undefined, () => false),
+    ).rejects.toThrow('reviewed-transaction-session-retired');
+    expect(deps.gateway.inspectTrustlineTransaction).not.toHaveBeenCalled();
+  });
+
+  it('stops after delayed ledger revalidation when the account route retired', async () => {
+    const f = signingFixture();
+    let current = true;
+    let resolve!: (value: StellarAccountStateResult) => void;
+    f.stellar.loadAccountState.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+    const result = submitTrustlineProductReview(
+      f.deps, f.source, review(), 'Authorize asset change', 'fresh test passphrase', () => current,
+    );
+    current = false;
+    resolve(f.sourceState);
+    await expect(result).rejects.toThrow('reviewed-transaction-session-retired');
+    expect(f.stellar.loadAccountAuthorization).not.toHaveBeenCalled();
+    expect(f.sdk.signWithPassphrase).not.toHaveBeenCalled();
+    expect(f.deps.recovery.repository.create).not.toHaveBeenCalled();
+    expect(f.stellar.submitTransaction).not.toHaveBeenCalled();
+  });
+
+  it('carries the same route guard through real revalidation to a late native signing result', async () => {
+    const f = signingFixture();
+    let current = true;
+    let resolve!: (value: string) => void;
+    f.sdk.signWithPassphrase.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+    const result = submitTrustlineProductReview(
+      f.deps, f.source, review(), 'Authorize asset change', 'fresh test passphrase', () => current,
+    );
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    expect(f.sdk.signWithPassphrase).toHaveBeenCalledTimes(1);
+    current = false;
+    resolve('late-signed-xdr');
+    await expect(result).rejects.toThrow('reviewed-transaction-session-retired');
+    expect(f.deps.recovery.repository.create).not.toHaveBeenCalled();
+    expect(f.stellar.submitTransaction).not.toHaveBeenCalled();
+  });
+
   it('fails closed before signing for a watch-only account', async () => {
     const repository = new InMemoryAccountSignerRepository();
     const source = account();

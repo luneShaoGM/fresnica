@@ -23,6 +23,22 @@ export function captureAccountSelectionSession(
     isCurrentFocusEpoch: () => boolean;
   }>,
 ): () => boolean {
+  return captureAccountSession(input, true);
+}
+
+// Settings may explicitly manage a visible account other than the Home
+// selection. Keep that route account fixed while still retiring its review
+// on every App selection transition, including A→B→A.
+export function captureAccountRouteSession(
+  input: Parameters<typeof captureAccountSelectionSession>[0],
+): () => boolean {
+  return captureAccountSession(input, false);
+}
+
+function captureAccountSession(
+  input: Parameters<typeof captureAccountSelectionSession>[0],
+  requireSelectedAccount: boolean,
+): () => boolean {
   const expected = Object.freeze({
     id: input.account.id,
     address: input.account.address,
@@ -37,6 +53,7 @@ export function captureAccountSelectionSession(
   // object is only structurally readonly and can still be mutated at runtime.
   const { getCurrentSelection, isCurrentFocusEpoch } = input;
   let capturedRevision: number | undefined;
+  let capturedSelectedAccountId: string | undefined;
   let wasValidAtCapture = false;
   try {
     const current = getCurrentSelection();
@@ -45,9 +62,10 @@ export function captureAccountSelectionSession(
       Number.isSafeInteger(current.selectionRevision) &&
       current.selectionRevision >= 0 &&
       isCurrentFocusEpoch() &&
-      matchesSelection(current, expected, expectedNetwork)
+      matchesSelection(current, expected, expectedNetwork, requireSelectedAccount)
     ) {
       capturedRevision = current.selectionRevision;
+      capturedSelectedAccountId = current.selectedAccountId;
       wasValidAtCapture = true;
     }
   } catch {
@@ -62,7 +80,8 @@ export function captureAccountSelectionSession(
       return (
         current !== undefined &&
         current.selectionRevision === capturedRevision &&
-        matchesSelection(current, expected, expectedNetwork)
+        current.selectedAccountId === capturedSelectedAccountId &&
+        matchesSelection(current, expected, expectedNetwork, requireSelectedAccount)
       );
     } catch {
       return false;
@@ -74,10 +93,11 @@ function matchesSelection(
   current: SwapCurrentSelection,
   account: SwapSourceIdentity,
   network: NetworkContext,
+  requireSelectedAccount: boolean,
 ): boolean {
   if (
     !current ||
-    current.selectedAccountId !== account.id ||
+    (requireSelectedAccount && current.selectedAccountId !== account.id) ||
     current.network?.id !== network.id ||
     current.network.networkPassphrase !== network.networkPassphrase ||
     account.networkId !== network.id ||

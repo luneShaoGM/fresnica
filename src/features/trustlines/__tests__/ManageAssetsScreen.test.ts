@@ -18,7 +18,7 @@ import {
 
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
 
-jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true }));
+jest.mock('@react-navigation/native', () => ({ useIsFocused: () => true, useFocusEffect: jest.fn() }));
 
 jest.mock('react', () => {
   const actual = jest.requireActual('react') as typeof import('react');
@@ -114,7 +114,7 @@ const review: TrustlineReview = {
 
 type StateOverrides = Readonly<{
   loadState?: unknown;
-  flow?: unknown;
+  flow?: Readonly<{ kind: string; review?: TrustlineReview; result?: TrustlineSubmissionResult }>;
   assetCode?: string;
   assetIssuer?: string;
   limitEditor?: unknown;
@@ -153,7 +153,7 @@ function renderWithState(overrides: StateOverrides = {}) {
   const setters = Array.from({ length: 10 }, () => jest.fn());
   const values = [
     overrides.loadState ?? readyLoadState,
-    overrides.flow ?? { kind: 'manage' },
+    overrides.flow ? { isCurrent: () => true, ...overrides.flow } : { kind: 'manage' },
     false,
     overrides.limitEditor,
     overrides.building ?? false,
@@ -177,6 +177,8 @@ function renderWithState(overrides: StateOverrides = {}) {
       balanceDependencies: {} as BalanceProductDependencies,
       catalog: { read: jest.fn() },
       foreground: true,
+      selectionRevision: 0,
+      captureSession: focus => focus,
       invalidationRevision: 0,
       onDone: jest.fn(),
     }),
@@ -338,6 +340,7 @@ describe('ManageAssetsScreen Stage 4 hardening', () => {
       review,
       'Set USD trustline limit',
       undefined,
+      expect.any(Function),
     );
   });
 

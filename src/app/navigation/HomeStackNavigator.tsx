@@ -15,6 +15,7 @@ import { canContinueRequestToSend } from '../requestDeepLinkRouting';
 import { continueRequestToSendIfCurrent, createRequestRouteFocusLifetime } from './requestContinueRouting';
 import { createRequestScanLifetime } from './requestScanLifetime';
 import {
+  captureAccountRouteSession,
   captureAccountSelectionSession,
   captureSwapCurrentSession,
   type SwapCurrentSelection,
@@ -340,12 +341,11 @@ export function HomeStackNavigator({
       </Stack.Screen>
       <Stack.Screen name="manage-assets">
         {({ navigation, route }) => {
-          const account = resolveVisibleAccount(accounts, route.params.accountId);
+          const account = accounts.find(candidate => candidate.id === route.params.accountId && !candidate.hidden);
           if (
-            route.params.requestedAction &&
-            (account.id !== route.params.accountId ||
-              account.id !== selectedAccount.id ||
-              account.networkId !== services.trustline.network.id)
+            !account ||
+            account.networkId !== services.trustline.network.id ||
+            (route.params.requestedAction && account.id !== selectedAccount.id)
           ) {
             return <AssetAccountUnavailable onBack={() => navigation.popToTop()} />;
           }
@@ -357,6 +357,15 @@ export function HomeStackNavigator({
               balanceDependencies={services.balance}
               catalog={services.assetCatalog}
               foreground={readRuntime.foreground}
+              selectionRevision={marketSelectionRevision}
+              captureSession={isCurrentFocusEpoch =>
+                captureAccountRouteSession({
+                  account,
+                  network: services.trustline.network,
+                  getCurrentSelection: getCurrentSwapSelection,
+                  isCurrentFocusEpoch: () => navigation.isFocused() && isCurrentFocusEpoch(),
+                })
+              }
               invalidationRevision={invalidationRevision}
               requestedAdd={route.params.requestedAction}
               onReviewDismiss={() => navigation.goBack()}
