@@ -20,6 +20,7 @@ describe('injected in-app Freighter bridge', () => {
     const listeners: Array<(event: { source: unknown; origin: string; data: unknown }) => void> = [];
     const windowMock: Record<string, unknown> = {
       location: { protocol: 'https:', origin: 'https://demo.example.org' },
+      FresnicaNotificationClock: { now: () => 123_456 },
       ReactNativeWebView: { postMessage: (data: string) => posts.push(data) },
       addEventListener: (
         _name: string,
@@ -37,6 +38,7 @@ describe('injected in-app Freighter bridge', () => {
       platform: 'desktop',
       wallet: 'fresnica',
     });
+    expect((windowMock.stellar as { notificationNow: () => number }).notificationNow()).toBe(123_456);
     const request = {
       source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
       messageId: 4,
@@ -128,6 +130,16 @@ it.each(['android', 'ios'] as const)('returns SEP-53 only through the native %s 
   expect(buildFreighterReply(response, { replyId })).toEqual({
     nativeCommand: 'fresnica-sep53:' + replyId + ':' + wire,
   });
+});
+
+it('supports notification replies without creating a signature injection fallback', () => {
+  const notification = { source: 'FRESNICA_DAPP_MSG_RESPONSE', messagedId: 41, shown: true } as const;
+  expect(buildFreighterReply(notification)).toEqual({
+    script: 'window.postMessage(' + JSON.stringify(notification) + ', window.location.origin);true;',
+  });
+  expect(
+    buildFreighterReply({ source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE', messagedId: 42, signedBlob: 'secret' }),
+  ).toBeUndefined();
 });
 
 it('returns native iOS rejection to the original document with the captured request id', async () => {

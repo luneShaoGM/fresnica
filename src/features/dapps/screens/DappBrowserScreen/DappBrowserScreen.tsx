@@ -18,6 +18,7 @@ import {
   createFreighterSession,
   type BridgeDecision,
   type BridgeResponse,
+  type DappNotificationResponse,
   type DappPublicSelection,
 } from '../../../../capabilities/dapp-interaction/freighterSession';
 import type {
@@ -38,6 +39,8 @@ type Props = Readonly<{
   active: boolean;
   onClose: () => void;
   onVisit?: (url: string) => void;
+  notificationNow?: () => number;
+  showNotification?: (origin: string, title: string, body: string, expiresAt: number) => boolean;
   currentSelection: () => DappPublicSelection | undefined;
   subscribeSelection: (listener: () => void) => () => void;
   createNonce: () => string;
@@ -68,6 +71,8 @@ export function DappBrowserScreen({
   active,
   onClose,
   onVisit,
+  showNotification,
+  notificationNow,
   currentSelection,
   subscribeSelection,
   createNonce,
@@ -95,6 +100,19 @@ export function DappBrowserScreen({
   const [stale, setStale] = useState(false);
   const [pendingOrigin, setPendingOrigin] = useState<string>();
   const [page, setPage] = useState({ origin: '', canGoBack: false, canGoForward: false });
+  type NotificationRequest = Extract<BridgeDecision, { kind: 'notification' }> & {
+    origin: string;
+    epoch: number;
+  };
+  const notificationRequest = useRef<NotificationRequest | undefined>(undefined);
+  const notificationTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [pendingNotification, setPendingNotification] = useState<NotificationRequest>();
+  const clearNotification = () => {
+    clearTimeout(notificationTimer.current);
+    notificationTimer.current = undefined;
+    notificationRequest.current = undefined;
+    setPendingNotification(undefined);
+  };
   const [pendingSign, setPendingSign] = useState<PendingSignature>();
   const [pendingMessage, setPendingMessage] = useState<PendingMessage>();
   const [messageExpired, setMessageExpired] = useState(false);
@@ -118,6 +136,17 @@ export function DappBrowserScreen({
         const token = createNonce();
         const trustedInitialOrigin = trustedCatalogOrigin === target.origin;
         documentOrigin.current = target.origin;
+        const hasSavedGrant = () => {
+          const origin = documentOrigin.current;
+          return (
+            origin !== undefined &&
+            permissions.has({
+              origin,
+              accountId: selection.accountId,
+              networkId: selection.networkId,
+            })
+          );
+        };
         initial.current = Object.freeze({
           url: target.url,
           origin: target.origin,
@@ -128,18 +157,11 @@ export function DappBrowserScreen({
             token,
             initial: selection,
             current: () => (live.current ? currentSelection() : undefined),
-            persistedAllowed: () => {
-              const origin = documentOrigin.current;
-              if (origin === undefined) return false;
-              return (
-                (trustedInitialOrigin && curatedDocumentActive.current && origin === target.origin) ||
-                permissions.has({
-                  origin,
-                  accountId: selection.accountId,
-                  networkId: selection.networkId,
-                })
-              );
-            },
+            persistedAllowed: () =>
+              (trustedInitialOrigin && curatedDocumentActive.current && documentOrigin.current === target.origin) ||
+              hasSavedGrant(),
+            persistedNotificationAllowed: hasSavedGrant,
+            notificationNow,
           }),
         });
       }
@@ -159,6 +181,8 @@ export function DappBrowserScreen({
     });
     return () => {
       unsubscribe();
+      clearTimeout(notificationTimer.current);
+      notificationRequest.current = undefined;
       current.session.revoke();
     };
   }, [current, subscribeSelection]);
@@ -191,7 +215,7 @@ export function DappBrowserScreen({
     }
   }, [active, current]);
 
-  const reply = (message: BridgeResponse, target?: DappMessageReplyTarget) => {
+  const reply = (message: BridgeResponse | DappNotificationResponse, target?: DappMessageReplyTarget) => {
     if (active && !stale) {
       if (target) surface.current?.reply(message, target);
       else surface.current?.reply(message);
@@ -239,6 +263,22 @@ export function DappBrowserScreen({
     const target = replyId
       ? { replyId, ...(replyExpiresAt === undefined ? {} : { expiresAt: replyExpiresAt }) }
       : undefined;
+    if (decision.kind === 'notification') {
+      const origin = documentOrigin.current;
+      const remainingMs = decision.expiresAt - (notificationNow?.() ?? Number.NaN);
+      if (!showNotification || !origin || notificationRequest.current || !(remainingMs > 0)) {
+        reply({ source: 'FRESNICA_DAPP_MSG_RESPONSE', messagedId: decision.messageId, shown: false });
+      } else {
+        const request = {
+          ...decision,
+          origin,
+          epoch: documentEpoch.current,
+        };
+        notificationRequest.current = request;
+        setPendingNotification(request);
+        notificationTimer.current = setTimeout(() => answerNotification(request, false), remainingMs);
+      }
+    }
     if (decision.kind === 'respond') reply(decision.response, target);
     if (decision.kind === 'permission') setPendingOrigin(decision.origin);
     if (decision.kind === 'sign-message') {
@@ -260,6 +300,23 @@ export function DappBrowserScreen({
       signGeneration.current = generation;
       inspectSignature(decision, generation).catch(() => undefined);
     }
+  };
+
+  const answerNotification = (request: NotificationRequest, approved: boolean) => {
+    if (notificationRequest.current !== request) return;
+    clearNotification();
+    const stillCurrent = () =>
+      currentSession() && documentEpoch.current === request.epoch && documentOrigin.current === request.origin;
+    if (!stillCurrent()) return;
+    let shown = false;
+    if (approved && current?.session.notificationAllowed() && (notificationNow?.() ?? Number.NaN) < request.expiresAt) {
+      try {
+        shown = showNotification?.(request.origin, request.title, request.body, request.expiresAt) === true;
+      } catch {
+        // An unavailable native transport reports failure to the requesting document.
+      }
+    }
+    if (stillCurrent()) reply({ source: 'FRESNICA_DAPP_MSG_RESPONSE', messagedId: request.messageId, shown });
   };
 
   const inspectSignature = async (
@@ -413,6 +470,7 @@ export function DappBrowserScreen({
   };
 
   const navigateBrowser = (action: 'goBack' | 'goForward' | 'reload') => {
+    clearNotification();
     if (current?.session.hasPendingMessage()) rejectSignature();
     surface.current?.[action]();
   };
@@ -457,6 +515,7 @@ export function DappBrowserScreen({
     // A navigation bypassing the normal URL gate must synchronously revoke
     // the bridge. Do not keep showing the previous, trusted address.
     current?.session.revoke();
+    clearNotification();
     messageReplyTarget.current = undefined;
     documentEpoch.current += 1;
     signGeneration.current += 1;
@@ -484,6 +543,7 @@ export function DappBrowserScreen({
     // document and does not retire the first-document proof.
     if (documentStarts.current > 0 || target.url !== current.url) curatedDocumentActive.current = false;
     documentStarts.current += 1;
+    clearNotification();
     messageReplyTarget.current = undefined;
     documentEpoch.current += 1;
     documentOrigin.current = target.origin;
@@ -506,6 +566,7 @@ export function DappBrowserScreen({
     }
     // Some WebView platforms can report a completed cross-origin navigation
     // before document-start. Even that path must retire curated read access.
+    if (target.origin !== documentOrigin.current) clearNotification();
     if (target.origin !== documentOrigin.current && current.session.hasPendingMessage()) rejectSignature();
     if (target.origin !== current.origin) curatedDocumentActive.current = false;
     setPage({ origin: target.origin, canGoBack: next.canGoBack, canGoForward: next.canGoForward });
@@ -513,6 +574,7 @@ export function DappBrowserScreen({
 
   const close = () => {
     current?.session.revoke();
+    clearNotification();
     onClose();
   };
 
@@ -562,6 +624,23 @@ export function DappBrowserScreen({
         </View>
         <Text style={styles.notice}>{t('dapps.browser.noSigning')}</Text>
         {messageExpired ? <Text style={styles.error}>{t('dapps.signMessage.expired')}</Text> : null}
+        {pendingNotification ? (
+          <View style={styles.permission}>
+            <Text style={styles.heading}>{t('dapps.notification.title')}</Text>
+            <Text selectable style={styles.notice}>
+              {pendingNotification.origin}
+            </Text>
+            <NativeButton
+              label={t('dapps.notification.allow')}
+              onPress={() => answerNotification(pendingNotification, true)}
+            />
+            <NativeButton
+              label={t('common.cancel')}
+              onPress={() => answerNotification(pendingNotification, false)}
+              variant="quiet"
+            />
+          </View>
+        ) : null}
         <View style={styles.browser}>
           <BrowserSurface
             ref={surface}

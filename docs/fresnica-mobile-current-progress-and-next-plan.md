@@ -2,10 +2,11 @@
 
 ## 2026-11-24 当前基线、实现范围与修复候选
 
-本节以 GitHub `main@a670b04f0851a41e80a9d4b6b12403f977d6f6d0`
+本节以 GitHub `main@6ed7b7c9d4c1ccf93e19dfc4265ec37d8a8b3f7d`
 和当前源码为基线，优先于下方带日期的历史队列。该基线已包含
-[#231 UI](https://github.com/luneShaoGM/fresnica/pull/231) 与
-[#230 SEP-53 修复](https://github.com/luneShaoGM/fresnica/pull/230)。
+[#231 UI](https://github.com/luneShaoGM/fresnica/pull/231)、
+[#230 SEP-53 修复](https://github.com/luneShaoGM/fresnica/pull/230) 与
+[#228 Android 前台 dApp 本地通知](https://github.com/luneShaoGM/fresnica/pull/228)。
 历史模拟器、设备和原生产品证据仍绑定原记录 SHA，不能改记成本轮候选执行结果。
 
 ### 当前功能索引
@@ -19,7 +20,7 @@
 | S11 Claimable / S30 Trustline | Claimable 列表、风险分组、用户标记、领取；Trustline Add/Set Limit/Remove、账本复验和共享交易恢复 | 本轮补 Claimable TTL 内账本失效／首次发现，以及 Trustline 审阅到签名的 route/account/focus 生命周期 |
 | S12 / Markets | 独立 SDEX 订单列表/创建/修改/取消；LP 持仓、详情、退出与可选 share-trustline 清理 | LP 存入/建池、市场图表/成交等完整交易面板不在已实现范围；原生验收另列 |
 | S13 Activity | 分页、搜索/筛选、详情/参与方、缓存/离线、操作族与可核实 effects 投影 | 链上事实与展示缓存分开；缺失 effects 不伪造金额，历史 iOS Retry/重连与完整原生证据仍有边界 |
-| S14–S19 dApps | catalog/详情/缓存、Recent、自定义 URL/disclaimer、受控浏览器、origin/account/network 权限及撤销、Freighter 账户/网络、受限 plain-payment exact-XDR 签名和 SEP-53 | S18 不是任意 Stellar/Soroban 交易审阅器；auth-entry/token 请求仍拒绝，WalletConnect 仍关闭；#230 修复已合并但不代表完整原生验收 |
+| S14–S19/S21 dApps | catalog/详情/缓存、Recent、自定义 URL/disclaimer、受控浏览器、origin/account/network 权限及撤销、Freighter 账户/网络、受限 plain-payment exact-XDR 签名、SEP-53 和每次独立同意的 Android 前台本地通知 | S18 不是任意 Stellar/Soroban 交易审阅器；auth-entry/token 请求仍拒绝，WalletConnect 仍关闭；iOS 通知不支持，完整原生验收仍未完成 |
 | Actions A1–A5 | 面板/拖动/滚动、通用扫码、持久 Recent、featured 建议、Swap-only 固定入口及 live source preflight 均已合并 | 不再把 A1 标为待合并；各 slice 原生/无障碍验收继续按 [Actions 矩阵](behavior-specs/actions-stellar-alignment.md) 记录 |
 | S03/S04 安全 | 应用锁、独立生物识别 App access 与口令回退、超时/隐私设置、恢复材料展示和口令更换 | App 解锁不授予签名权；每次签名使用新的 App Passphrase。Stage 9 iOS 真机 System Auth 取消/重试仍延期；硬件与 Realm 加密密钥生命周期另行交付 |
 | S23–S26 Settings / Theme | light/dark/system/image 主题、语言、USD/EUR/CNY 显示币种、触觉/分隔符/储备偏好、网络/节点、确认式 Developer Mode、脱敏 Session Logs、支持/Terms 阅读器 | XLM 估值不是全资产估值；Terms 正文/版本/接受政策待 owner，ChangeLog 和发布/支持闭环未完成 |
@@ -40,7 +41,7 @@ Classic 信用资产授权/负债可用性。行为边界见
 
 | 登记项 | 事实源与证据边界 |
 | --- | --- |
-| 已合并基线 | `a670b04f0851a41e80a9d4b6b12403f977d6f6d0`；#230/#231 已包含 |
+| 已合并基线 | `6ed7b7c9d4c1ccf93e19dfc4265ec37d8a8b3f7d`；#230/#231/#228 已包含 |
 | 修复分支 | `fix/audit-state-contracts-2026-11-24`；提交与 Push 状态以 [GitHub 分支比较](https://github.com/luneShaoGM/fresnica/compare/main...fix/audit-state-contracts-2026-11-24) 为准 |
 | PR / exact remote HEAD | 关联 PR 和当前 40 位远端 SHA 以 GitHub 为准；独立 Review 在 PR 中记录 PR number 与 `reviewed_head_sha`。版本化索引不复制会随下一次提交改变的当前 HEAD |
 | 自动化 / Realm / repository check | 实际执行提交、范围、计数与结果集中记录于 [本轮验证记录](test/audit-state-contract-repairs-2026-11-24.md)，不以开发报告替代独立检查 |
@@ -53,8 +54,9 @@ Classic 信用资产授权/负债可用性。行为边界见
 先完成本轮候选、与改动相称的验证及统一 exact-HEAD Review，再由用户决定 Merge。
 Soroban 合约资产/auth-entry、硬件与完整多签、完整通知和发布各按独立后续产品阶段推进，
 不因本轮索引修正被标成已完成。
-[#228 通知](https://github.com/luneShaoGM/fresnica/pull/228) 仍是独立开放且未批准的 PR，
-不混入本轮；[#78 Automation V2.2](https://github.com/luneShaoGM/fresnica/pull/78) 继续暂停。
+[#228 Android 前台 dApp 本地通知](https://github.com/luneShaoGM/fresnica/pull/228) 已并入 main，
+每次通知独立同意，iOS 不支持，原生通知验收与完整通知/Backend 仍未完成。
+[#78 Automation V2.2](https://github.com/luneShaoGM/fresnica/pull/78) 继续暂停。
 WalletConnect 关闭、M 地址暂停、Terms owner 内容待定的决策保持不变。
 
 ## 2026-11-16 Actions owner-requested queue（历史快照）

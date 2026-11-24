@@ -691,6 +691,8 @@
   "dapps.permission.connectTitle": "Connect this site?",
   "dapps.permission.connectMessage": "This site wants to view your address.",
   "dapps.permission.network": "Network",
+  "dapps.notification.title": "Allow this website to send one system notification?",
+  "dapps.notification.allow": "Allow this notification",
   "dapps.permission.allowOnce": "Allow once",
   "dapps.permission.allowAlways": "Always allow",
   "dapps.permission.reject": "Cancel",

@@ -6,11 +6,11 @@ Target product shell and completion rules: [information architecture](stellar-pr
 
 ## Current baseline — 2026-11-24
 
-The implementation matrix below describes `main@a670b04f0851a41e80a9d4b6b12403f977d6f6d0`, including merged #231 UI and #230 SEP-53 reply repair. Swap, Request/QR/deep link, Actions A1–A5, Claimable, SDEX/LP exit, dApp browser/permissions, persistent themes, Session Logs and application lock are supported implementations, not the old scaffolding/blocker state. Contacts are wallet-wide user records; transaction, cache and grant isolation still uses the relevant account/network identity.
+The implementation matrix below describes `main@6ed7b7c9d4c1ccf93e19dfc4265ec37d8a8b3f7d`, including merged #231 UI, #230 SEP-53 reply repair and #228 Android foreground dApp local notifications. Swap, Request/QR/deep link, Actions A1–A5, Claimable, SDEX/LP exit, dApp browser/permissions, persistent themes, Session Logs and application lock are supported implementations, not the old scaffolding/blocker state. Contacts are wallet-wide user records; transaction, cache and grant isolation still uses the relevant account/network identity.
 
 The local `fix/audit-state-contracts-2026-11-24` repairs for Trustline review lifetime, Claimable invalidation/discovery, account cleanup, sensitive input/backup lifetime and credit-asset availability remain **candidates pending one final exact-HEAD Review**. Their scope is [the audit behavior spec](behavior-specs/audit-state-contracts-2026-11-24.md); final PR, remote HEAD, checks and review belong in the current-progress record. No candidate or automated regression is recorded here as merged or natively accepted.
 
-Current [S04 authentication policy](behavior-specs/s04-authentication-policy.md) separates biometric App access from fresh App Passphrase signing. Network settings use normal Mainnet access and warning/confirmation-gated Developer Mode for Testnet/custom nodes. Full Soroban/token/auth-entry support, hardware/multisig, full notification and release work remain later scope. #228 notifications is a separate open, unapproved PR; #78 automation stays paused; WalletConnect is off and M addresses remain owner-paused.
+Current [S04 authentication policy](behavior-specs/s04-authentication-policy.md) separates biometric App access from fresh App Passphrase signing. Network settings use normal Mainnet access and warning/confirmation-gated Developer Mode for Testnet/custom nodes. Full Soroban/token/auth-entry support, hardware/multisig, full notification and release work remain later scope. #228 adds merged Android foreground dApp local notifications with one-time consent; iOS is unsupported and native notification acceptance remains pending. #78 automation stays paused; WalletConnect is off and M addresses remain owner-paused.
 
 Historical native records below retain their original dates and SHAs. In particular, Stage 9 real-iPhone System Auth cancellation/retry remains deferred; historical System Auth signing evidence is not evidence for today's fresh-passphrase policy.
 
@@ -269,7 +269,7 @@ Complete the narrow 2026-11-24 state-contract repairs and their targeted automat
 - Full Soroban contract-asset balance/transfer/simulation and auth-entry/token request products; arbitrary dApp transaction review beyond the supported plain-payment subset.
 - Hardware/external signer providers and full multisig coordination; Agent standing authorization requires its own transaction-specific Core authority contract.
 - LP deposit/pool creation, order-book/trade/chart products and full issued-asset fiat valuation.
-- Full notifications and release work. #228 remains separate, open and unapproved; it is not part of this repair.
+- Full notification/backend and release work; #228's Android foreground local-notification subset is merged, without implying iOS support or native product acceptance.
 - Realm database encryption-key lifecycle; owner-provided legal text/version/acceptance policy, ChangeLog and the remaining support/release loop.
 - Repeatable aggregate native/product gates, dynamic-font and screen-reader evidence, historical iOS Activity Retry/reconnect closure, and Stage 9 real-iPhone System Auth cancellation/retry. Existing dated native evidence remains attached to its original SHA.
 - M addresses are paused by owner decision; WalletConnect remains disabled and #78 automation remains paused. These are preserved scope decisions, not newly opened work.

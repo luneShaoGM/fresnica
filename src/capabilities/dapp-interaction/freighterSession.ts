@@ -52,8 +52,15 @@ export type BridgeResponse = Readonly<{
   apiError?: Readonly<{ code: number; apiCode: number; message: string }>;
 }>;
 
+export type DappNotificationResponse = Readonly<{
+  source: 'FRESNICA_DAPP_MSG_RESPONSE';
+  messagedId: string | number;
+  shown: boolean;
+}>;
+
 export type BridgeDecision =
   | Readonly<{ kind: 'drop' }>
+  | Readonly<{ kind: 'notification'; messageId: string | number; title: string; body: string; expiresAt: number }>
   | Readonly<{ kind: 'permission'; messageId: string | number; origin: string }>
   | Readonly<{
       kind: 'sign-transaction';
@@ -244,6 +251,8 @@ export function createFreighterSession(
     initial: DappPublicSelection;
     current: () => DappPublicSelection | undefined;
     persistedAllowed?: () => boolean;
+    persistedNotificationAllowed?: () => boolean;
+    notificationNow?: () => number;
   }>,
 ) {
   const initial = Object.freeze({ ...input.initial });
@@ -257,16 +266,20 @@ export function createFreighterSession(
     | undefined;
   let closed = false;
 
-  function remembered(): boolean {
+  function remembered(check: (() => boolean) | undefined): boolean {
     try {
-      return input.persistedAllowed?.() === true;
+      return check?.() === true;
     } catch {
       return false;
     }
   }
 
   function connected(): boolean {
-    return allowed || remembered();
+    return allowed || remembered(input.persistedAllowed);
+  }
+
+  function notificationAllowed(): boolean {
+    return !closed && live() && (allowed || remembered(input.persistedNotificationAllowed));
   }
 
   function live(): boolean {
@@ -309,6 +322,51 @@ export function createFreighterSession(
       json = JSON.parse(raw);
     } catch {
       return DROP;
+    }
+    if (json && typeof json === 'object' && 'source' in json && json.source === 'FRESNICA_DAPP_MSG_REQUEST') {
+      let now: number | undefined;
+      try {
+        now = input.notificationNow?.();
+      } catch {
+        return DROP;
+      }
+      if (
+        typeof now !== 'number' ||
+        !Number.isSafeInteger(now) ||
+        now < 0 ||
+        !('type' in json) ||
+        json.type !== 'SHOW_SYSTEM_NOTIFICATION' ||
+        !('messageId' in json) ||
+        !isMessageId(json.messageId) ||
+        !('title' in json) ||
+        typeof json.title !== 'string' ||
+        !json.title.trim() ||
+        json.title.length > 64 ||
+        !('body' in json) ||
+        typeof json.body !== 'string' ||
+        !json.body.trim() ||
+        json.body.length > 256 ||
+        !('clock' in json) ||
+        json.clock !== 'android-elapsed-realtime' ||
+        !('expiresAt' in json) ||
+        typeof json.expiresAt !== 'number' ||
+        !Number.isSafeInteger(json.expiresAt) ||
+        json.expiresAt <= now ||
+        json.expiresAt > now + 5_000 ||
+        Object.keys(json).length !== 7 ||
+        !notificationAllowed()
+      )
+        return DROP;
+      const id = typeof json.messageId + ':' + String(json.messageId);
+      if (used.has(id) || used.size >= MAX_IDS_PER_DOCUMENT) return DROP;
+      used.add(id);
+      return {
+        kind: 'notification',
+        messageId: json.messageId,
+        title: json.title,
+        body: json.body,
+        expiresAt: json.expiresAt,
+      };
     }
     if (!isRequest(json) || (json.token !== undefined && json.token !== input.token)) return DROP;
     const id = typeof json.messageId + ':' + String(json.messageId);
@@ -531,6 +589,7 @@ export function createFreighterSession(
 
   return Object.freeze({
     receive,
+    notificationAllowed,
     resolvePermission,
     finishSign,
     reset,

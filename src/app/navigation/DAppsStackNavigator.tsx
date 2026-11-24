@@ -1,3 +1,4 @@
+import { readDappNotificationTime, showDappNotification } from '../../platform/dapp-browser/dappNotification';
 import React, { useRef, useSyncExternalStore } from 'react';
 import { canMountDappWebView } from '../../platform/dapp-browser/browserAvailability';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
@@ -197,6 +198,8 @@ function DappBrowserRoute({
       permissions={permissions}
       trustedCatalogOrigin={proofRef.current.origin}
       createNonce={createDappBridgeNonce}
+      showNotification={showDappNotification}
+      notificationNow={readDappNotificationTime}
       BrowserSurface={SecureDappWebView}
     />
   );

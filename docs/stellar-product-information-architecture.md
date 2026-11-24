@@ -27,7 +27,7 @@ F0–F4 只是总表里的别名（导航库 / 守卫 / 栈 / 主题壳 / 按表
 
 ### 成熟度总表 — 2026-11-24
 
-当前基线为 `main@a670b04f0851a41e80a9d4b6b12403f977d6f6d0`，包含已合并 #231 UI 和 #230 SEP-53 修复。下表区分实现与验收；本轮第 2–6 项作为修复候选交付，最终 PR/HEAD/检查/Work Review 在 [当前进度](fresnica-mobile-current-progress-and-next-plan.md) 登记。#228 通知独立开放且未批准，不混入本轮；#78 暂停。历史原生结果保留原 SHA，Stage 9 iOS 真机 auth 取消/重试仍延期。
+当前基线为 `main@6ed7b7c9d4c1ccf93e19dfc4265ec37d8a8b3f7d`，包含已合并 #231 UI、#230 SEP-53 修复和 #228 Android 前台 dApp 本地通知。下表区分实现与验收；本轮第 2–6 项作为修复候选交付，最终 PR/HEAD/检查/Work Review 在 [当前进度](fresnica-mobile-current-progress-and-next-plan.md) 登记。通知仅实现每次独立同意的 Android 子集，iOS 不支持，原生通知验收未完成；#78 暂停。历史原生结果保留原 SHA，Stage 9 iOS 真机 auth 取消/重试仍延期。
 
 状态词：`完成` = 不要重做；`脚手架` = 能跑，不算产品闭环；`未过` / `未做` = 挡住后续；`卡上游` = 设计留位，Mobile 不发明语义；`未到` = 还没轮到。
 
@@ -49,7 +49,7 @@ F0–F4 只是总表里的别名（导航库 / 守卫 / 栈 / 主题壳 / 按表
 | 8 Swap / SDEX | F4 表内未编号 | Path Payment；SDEX 独立；LP 退出 | 报价/执行、订单管理、LP 持仓/退出已实现；完整交易面板及原生验收未完成 | 各自 Capability 与共享恢复；LP 存入/建池另列 | 沿用旧 #134 阻塞；Swap/SDEX/LP 混名 |
 | 9 Security | F4-9 部分 | App access、恢复材料/改口令、硬件、隐私 | 应用锁/reveal/reprotect/隐私已实现；硬件、Realm 加密生命周期及设备验收未完成 | §7.6–§7.7、§9 Security 与现行 S04 策略 | 把 App unlock 当签名授权；把 Developer Mode 当密钥鉴权 |
 | 10 Settings / 次要 | F4-5–8 | 主题/日志/网络、Activity、dApps、Help | 受支持产品流已实现；dApps 是受限签名矩阵；Terms 正文、完整支持及原生验收未完成 | 对应 §9 与行为规格；支持范围、失败路径、证据分别记录 | 把有限矩阵当任意 Soroban/dApp 支持；复制 donor |
-| 11 发布 | — | 异常、deep link、崩溃、商店 | Deep Link 已实现；完整发布仍未完成，通知 #228 另行开放 | 签名/身份/发布和原生矩阵；Stage 9 iOS 真机 auth 延期项闭合 | 用 CI 或 `steps:null` 当原生发布验收 |
+| 11 发布 | — | 异常、deep link、崩溃、商店 | Deep Link 与 Android 前台 dApp 本地通知已实现；完整通知/发布及原生验收未完成 | 签名/身份/发布和原生矩阵；Stage 9 iOS 真机 auth 延期项闭合 | 用 CI 或 `steps:null` 当原生发布验收 |
 
 当前以既有实现为基础修复跨流程状态合同，不再把 Create/Import/HD、Request、Swap、dApps、主题或应用锁当作未开工。实现范围、exact-HEAD 审查和原生验收分别记录；本轮修复候选不提升 L4。Soroban 合约资产/auth-entry、硬件/完整多签、完整通知和发布仍是后续产品阶段；WalletConnect 关闭、M 地址暂停和 Terms owner 内容待定保持不变。新改账本类型必须经过自己的 Capability 门并复用共享提交/恢复。
 
@@ -627,7 +627,7 @@ Adopt（采用）= 在 Fresnica 重写用户可见表面。Adapt（适配）= �
 | Onboarding | Adopt | `features/onboarding` | Account、Signer、Application Security |
 | Setup / Passcode | Adapt 为应用口令 | `features/onboarding`、`features/security` | Application Security、Signing Coordination |
 | Setup / Biometry | Adapt 为独立 OS App access；签名另取口令 | `features/security` | Application Security |
-| Setup / Push notification | **Adopt**（产品提升；不要搬 Xaman Firebase 签请求） | `features/settings` / platform | 完整通知为后续范围；#228 独立开放且未批准，不属本轮 |
+| Setup / Push notification | **Adopt**（产品提升；不要搬 Xaman Firebase 签请求） | `features/settings` / platform | 完整通知/Backend 为后续范围；#228 Android 前台本地通知已合并，iOS 不支持；[S21 规格](behavior-specs/s21-dapp-local-notifications.md) 与原生验收分别记录 |
 | Setup / Finish | Adopt | `features/onboarding` | Account |
 
 ### 7.2 Tab 与主操作

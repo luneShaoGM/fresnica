@@ -299,6 +299,35 @@ Unchanged Realm and native evidence retains its prior revision. The new remote
 HEAD must receive its own CI and independent exact-HEAD review; the earlier
 approval does not automatically apply to this follow-up.
 
+### Main synchronization after PR #228 merged
+
+While preparing the P3 follow-up, main advanced to
+`6ed7b7c9d4c1ccf93e19dfc4265ec37d8a8b3f7d` by merging PR #228. The Claimable
+fix is preserved separately as `ea2f1194b831325ac98beebc1e77acfdc6bb6341`.
+The repair branch then incorporated that main revision. This synchronizes the
+feature branch; PR #232 remains subject to owner-controlled merge.
+
+Two content conflicts required resolution: the product traceability index and
+DappBrowserScreen tests. The merged index retains the current #232 implementation
+inventory and the S21 notification spec. The browser tests retain main's complete
+notification/SEP-53 regressions and #232's account-deletion cases. One additional
+notification case verifies that account revocation retires an outstanding
+approval before delivery. Current status documents now mark #228's Android-only
+foreground notification subset merged, while preserving iOS unsupported, native
+acceptance pending and full notification/backend scope. Historical SHAs remain.
+
+Actual targeted execution on this merged working tree: **four suites / 125 tests
+passed**, with **10 external Demo linkage cases skipped** under their existing
+explicit-local-verification policy. Scope: DappBrowserScreen, freighterSession,
+freighterInjection and DAppsStackNavigator. TypeScript, locale consistency
+(three dictionaries / 1,397 keys), WebView patch consistency and changed-browser
+ESLint all passed. Log: `/tmp/fresnica-main-228-integration-targeted.log`.
+The repository's existing patch script was applied to this isolated dependency
+copy to incorporate main's read-only native notification clock. No dependency or
+lockfile update was introduced. The Claimable implementation and its passing
+regressions are unchanged by this main synchronization. No native acceptance,
+external Demo linkage or repeated Realm execution is claimed.
+
 ## Explicitly deferred or outside this repair
 
 - Stage 9 iOS real-device System Auth cancel/retry remains deferred.
@@ -310,7 +339,9 @@ approval does not automatically apply to this follow-up.
   the baseline. The earlier native/helper record remains
   `sep53-native-reply-fix-2026-11-23.md`; it is not relabelled as evidence for
   this candidate.
-- PR #228 notification work remains a separate candidate; hardware, advanced
-  Soroban/dApp capabilities and full release readiness are later feature work.
+- PR #228 Android foreground dApp local notifications is now part of main;
+  its existing automated/emulator mechanism evidence retains its original
+  revisions. Physical-device notification product acceptance, full notifications/
+  backend, hardware, advanced Soroban/dApp capabilities and release remain later work.
 - WalletConnect exclusion, deferred M addresses and paused Automation V2.2 /
   PR #78 retain their existing decisions.
