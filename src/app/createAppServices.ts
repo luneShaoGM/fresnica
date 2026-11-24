@@ -381,10 +381,18 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       },
     });
     closeReadRecovery = () => nodeReadSession.close();
+    const getAccountReadRevision = (address: string) =>
+      JSON.stringify(
+        repository
+          .listAccounts()
+          .filter(account => account.networkId === network.id && account.address === address)
+          .map(account => [account.id, ledgerReadInvalidation.getRevision(network.id, account.id)]),
+      );
     const claimables = createClaimableProduct({
       networkId: network.id,
       cache: new RealmClaimableCacheStore(realm),
       now: () => Date.now(),
+      getRevision: account => getAccountReadRevision(account.address),
       read: {
         page: (address, cursor) =>
           nodeReadSession.run((signal, endpoint) => claimableReads.page(endpoint, address, cursor, signal)),
@@ -405,13 +413,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
           nodeReadSession.run((signal, endpoint) => publicReads.loadOperation(endpoint, input, signal)),
       },
       runtime: ledgerReadRuntime,
-      getAccountRevision: address =>
-        JSON.stringify(
-          repository
-            .listAccounts()
-            .filter(account => account.networkId === network.id && account.address === address)
-            .map(account => [account.id, ledgerReadInvalidation.getRevision(network.id, account.id)]),
-        ),
+      getAccountRevision: getAccountReadRevision,
     });
     const markets = createMarkets({
       network,

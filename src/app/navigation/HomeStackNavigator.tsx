@@ -655,6 +655,7 @@ function HomeWithAssetSheets({
   useEffect(() => {
     if (!active || !canReadClaimable) return;
     let retained = true;
+    setClaimableState(current => (current ? { ...current, stale: true } : current));
     void claimables
       .refresh(props.account)
       .then(value => {
@@ -664,7 +665,7 @@ function HomeWithAssetSheets({
     return () => {
       retained = false;
     };
-  }, [active, canReadClaimable, claimables, props.account]);
+  }, [active, canReadClaimable, claimables, props.account, props.invalidationRevision]);
   const onSnapshotUpdated = useCallback((snapshot: ClaimableState) => setClaimableState(snapshot), []);
   const chooseCategory = (next: HomeAssetCategory) => {
     if (next === 'pools' && (!markets || props.account.identityKind !== 'classic')) return;

@@ -120,6 +120,7 @@ export function ClaimableScreen({
       const id = ++generation.current;
       setLoading(true);
       setLoadError(false);
+      setData(current => (current ? { ...current, stale: true } : current));
       void product
         .refresh(account, force)
         .then(result => {
