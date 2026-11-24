@@ -53,6 +53,12 @@ Ordinary visits retain TTL reuse. A new invalidation during an existing
 read cannot be consumed by that old response; consumers share current
 work without creating an unbounded refresh loop.
 
+After service recreation, a persisted snapshot within its TTL remains fresh
+when no ledger invalidation has occurred. Claimable uses the same zero-version
+baseline as its cache reader; a real invalidation before the first cache read
+still makes the snapshot stale. All same-address account aliases participate
+in invalidation, while other addresses and networks remain isolated.
+
 Complete snapshots, stale-on-error fallback, retry cooldown, pagination
 integrity and partition isolation remain in force. A stale or retired
 response cannot replace the latest snapshot. Existing successful-claim,

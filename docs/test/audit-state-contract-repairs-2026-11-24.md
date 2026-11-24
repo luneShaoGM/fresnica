@@ -258,6 +258,47 @@ Phase test totals overlap and must not be added into a unique coverage total.
 The independent report belongs to the reviewed remote SHA, not to this
 developer-maintained execution record.
 
+### Claimable initial-revision P3 follow-up
+
+Independent [review 6034444724](https://github.com/luneShaoGM/fresnica/pull/232#pullrequestreview-6034444724)
+approved exact HEAD `815d19667b116f2c8d9f831edf94e04ef5bdf2f1` with no P1/P2
+and one P3: the production Claimable revision callback returned a JSON token
+containing zero-valued account revisions, while a new product instance uses
+numeric zero as the persisted-cache baseline. Without a ledger invalidation,
+this incorrectly marked a one-second-old snapshot stale after recreation.
+
+The narrow correction canonicalizes only Claimable's all-zero account revisions
+to numeric zero. Any nonzero revision retains the complete account/revision
+tuples, including same-address aliases. Balance/history display reads continue
+receiving their existing full JSON token. No cache schema, TTL, retry duration,
+Claimable request-retirement logic or transaction behavior changed.
+
+Actual execution in the isolated Mac worktree, prepared against that exact HEAD:
+
+- Before the production fix, the three new composition regressions returned
+  **two expected failures / one pass**. The failures directly observed
+  `stale: true` for zero-revision snapshots. Log:
+  `/tmp/fresnica-claimable-p3-red.log`.
+- After the fix, **five targeted suites / 55 tests passed**, followed by
+  `tsc --noEmit`. Scope: createAppServices.network, claimableProduct,
+  claimableInvalidation, createDisplayReadGateway and
+  LedgerReadInvalidationStore. Log: `/tmp/fresnica-claimable-p3-targeted.log`.
+- ESLint on both changed TypeScript files passed with no warnings or errors.
+  Log: `/tmp/fresnica-claimable-p3-lint.log`.
+
+The composition regressions use actual AppServices, Claimable, invalidation
+and node-session implementations with controlled persistence/Horizon ports.
+An initially offline real runtime avoids legitimate startup node-recovery
+invalidations in the zero-event case. The tests cover service recreation,
+invalidation before the first cache read, same-version failure cooldown,
+new-revision retry, same-address aliases and unrelated account/network isolation.
+The retry test returns the runtime online and waits for actual node health before
+refreshing. These are automated tests, not native or actual Realm execution.
+
+Unchanged Realm and native evidence retains its prior revision. The new remote
+HEAD must receive its own CI and independent exact-HEAD review; the earlier
+approval does not automatically apply to this follow-up.
+
 ## Explicitly deferred or outside this repair
 
 - Stage 9 iOS real-device System Auth cancel/retry remains deferred.

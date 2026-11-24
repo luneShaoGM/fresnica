@@ -381,19 +381,21 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       },
     });
     closeReadRecovery = () => nodeReadSession.close();
-    const getAccountReadRevision = (address: string) =>
-      JSON.stringify(
-        repository
-          .listAccounts()
-          .filter(account => account.networkId === network.id && account.address === address)
-          .map(account => [account.id, ledgerReadInvalidation.getRevision(network.id, account.id)]),
-      );
+    const getAccountReadRevisions = (address: string) =>
+      repository
+        .listAccounts()
+        .filter(account => account.networkId === network.id && account.address === address)
+        .map(account => [account.id, ledgerReadInvalidation.getRevision(network.id, account.id)] as const);
     const claimableCache = new RealmClaimableCacheStore(realm);
     const claimables = createClaimableProduct({
       networkId: network.id,
       cache: claimableCache,
       now: () => Date.now(),
-      getRevision: account => getAccountReadRevision(account.address),
+      getRevision: account => {
+        const revisions = getAccountReadRevisions(account.address);
+        // Persisted snapshots start at revision zero in each new product instance.
+        return revisions.every(([, value]) => value === 0) ? 0 : JSON.stringify(revisions);
+      },
       isAccountCurrent: account => {
         const current = repository.getAccount(account.id);
         return current?.address === account.address && current.identityKind === 'classic' &&
@@ -419,7 +421,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
           nodeReadSession.run((signal, endpoint) => publicReads.loadOperation(endpoint, input, signal)),
       },
       runtime: ledgerReadRuntime,
-      getAccountRevision: getAccountReadRevision,
+      getAccountRevision: address => JSON.stringify(getAccountReadRevisions(address)),
     });
     const markets = createMarkets({
       network,
