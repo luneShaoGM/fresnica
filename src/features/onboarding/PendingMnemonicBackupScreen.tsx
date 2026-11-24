@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Screen } from '@ui/components';
 import { AppBrandMark } from '@ui/components/AppBrandMark';
@@ -12,29 +12,58 @@ import {
 import { projectFeatureError } from '../featureError';
 import { useLocalization } from '../../locale';
 import { useAppTheme, useThemedStyles, type AppTheme } from '../../ui/theme';
-import { MnemonicBackupVerification } from './MnemonicBackupVerification';
+import { MnemonicBackupVerification, type MnemonicBackupVerificationHandle } from './MnemonicBackupVerification';
+import { SensitiveTextInput, type SensitiveTextInputHandle } from './SensitiveTextInput';
+import { useSensitiveFlowLifetime, type SensitiveFlowRequest } from './useSensitiveFlowLifetime';
 import {
   completeMnemonicBackup,
   recoverPendingMnemonicBackup,
-  type RecoveredMnemonicBackup,
 } from './onboardingBootstrap';
 
 type Props = Readonly<{
   dependencies: ProvisionAccountDependencies;
   signerId: string;
   securityDependencies?: ApplicationSecurityDependencies;
+  disabled?: boolean;
+  completionError?: string;
   onComplete: () => void | Promise<void>;
 }>;
 
-export function PendingMnemonicBackupScreen({ dependencies, signerId, securityDependencies, onComplete }: Props) {
+export function PendingMnemonicBackupScreen({ dependencies, signerId, securityDependencies, disabled = false, completionError, onComplete }: Props) {
   const theme = useAppTheme();
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
-  const [appPassphrase, setAppPassphrase] = useState('');
-  const [backup, setBackup] = useState<RecoveredMnemonicBackup>();
-  const [busy, setBusy] = useState(false);
+  const passphraseInput = useRef<SensitiveTextInputHandle>(null);
+  const verifier = useRef<MnemonicBackupVerificationHandle>(null);
+  const pendingPhrase = useRef<{ mnemonic: string; owner: SensitiveFlowRequest } | undefined>(undefined);
+  const [present, setPresent] = useState(false);
+  const [backupVisible, setBackupVisible] = useState(false);
   const [error, setError] = useState<string>();
+  const [completionErrorDismissed, setCompletionErrorDismissed] = useState(false);
   const [systemAuthRepairRequired, setSystemAuthRepairRequired] = useState(false);
+  const lifetime = useSensitiveFlowLifetime(clearOwnedMaterial, () => undefined, dependencies, signerId);
+  const { owns } = lifetime;
+  const busy = lifetime.busy || disabled;
+  const visibleError = error ?? (completionErrorDismissed ? undefined : completionError);
+  const attachVerifier = useCallback((input: MnemonicBackupVerificationHandle | null) => {
+    verifier.current = input;
+    if (!input) return;
+    const pending = pendingPhrase.current;
+    pendingPhrase.current = undefined;
+    if (pending && owns(pending.owner)) input.load(pending.mnemonic);
+  }, [owns]);
+
+  function clearOwnedMaterial(updateUi: boolean) {
+    passphraseInput.current?.clear(false);
+    pendingPhrase.current = undefined;
+    verifier.current?.clear(updateUi);
+    if (updateUi) {
+      setPresent(false);
+      setBackupVisible(false);
+      setError(undefined);
+      setCompletionErrorDismissed(true);
+    }
+  }
 
   useEffect(() => {
     if (!securityDependencies) return;
@@ -54,29 +83,43 @@ export function PendingMnemonicBackupScreen({ dependencies, signerId, securityDe
   }, [securityDependencies]);
 
   async function recover() {
-    setBusy(true);
+    if (disabled) return;
+    const owner = lifetime.begin();
+    if (!owner) return;
+    const appPassphrase = passphraseInput.current?.consume() ?? '';
     setError(undefined);
+    setCompletionErrorDismissed(true);
     try {
       const recovered = await recoverPendingMnemonicBackup(dependencies, signerId, appPassphrase);
-      setAppPassphrase('');
-      setBackup(recovered);
+      if (lifetime.isCurrent(owner)) {
+        pendingPhrase.current = { mnemonic: recovered.mnemonic, owner };
+        setBackupVisible(true);
+      }
     } catch (caught) {
-      setError(readableError(caught));
+      if (lifetime.isCurrent(owner)) setError(readableError(caught));
     } finally {
-      setBusy(false);
+      lifetime.finish(owner);
     }
   }
 
   async function confirm() {
-    setBusy(true);
+    if (disabled) return;
+    const owner = lifetime.begin();
+    if (!owner) return;
+    pendingPhrase.current = undefined;
+    verifier.current?.clear();
+    setBackupVisible(false);
     setError(undefined);
     try {
       await completeMnemonicBackup(dependencies, signerId, onComplete);
-      setBackup(undefined);
+      if (lifetime.isCurrent(owner)) {
+        verifier.current?.clear();
+        setBackupVisible(false);
+      }
     } catch (caught) {
-      setError(readableError(caught));
+      if (lifetime.isCurrent(owner)) setError(readableError(caught));
     } finally {
-      setBusy(false);
+      lifetime.finish(owner);
     }
   }
 
@@ -102,22 +145,24 @@ export function PendingMnemonicBackupScreen({ dependencies, signerId, securityDe
           </View>
           <Text style={styles.title}>Finish recovery phrase backup</Text>
           <Text style={styles.body}>
-            {backup
+            {backupVisible
               ? 'Write these words down in order and store them offline. They are shown only for this explicit backup step.'
               : 'Fresnica did not store the plaintext phrase. Enter your app passphrase to reveal it again through Fresnica Core and finish the interrupted backup.'}
           </Text>
         </View>
 
-        {backup ? (
-          <MnemonicBackupVerification disabled={busy} mnemonic={backup.mnemonic} onVerified={confirm} />
+        {backupVisible ? (
+          <MnemonicBackupVerification ref={attachVerifier} disabled={busy} onVerified={confirm} />
         ) : (
           <View style={styles.formCard}>
             <Text style={styles.label}>App passphrase</Text>
-            <TextInput
+            <SensitiveTextInput
+              ref={passphraseInput}
+              accessibilityLabel="App passphrase"
+              editable={!busy}
               autoCapitalize="none"
               secureTextEntry
-              value={appPassphrase}
-              onChangeText={setAppPassphrase}
+              onTextChange={value => setPresent(value.length > 0)}
               placeholder="Enter your app passphrase"
               placeholderTextColor={theme.colors.textTertiary}
               selectionColor={theme.colors.actionPrimary}
@@ -140,20 +185,20 @@ export function PendingMnemonicBackupScreen({ dependencies, signerId, securityDe
           </View>
         ) : null}
 
-        {error ? (
+        {visibleError ? (
           <View style={styles.errorBox}>
-            <Text style={styles.error}>{error}</Text>
+            <Text style={styles.error}>{visibleError}</Text>
           </View>
         ) : null}
-        {backup ? null : (
+        {backupVisible ? null : (
           <View style={styles.footer}>
             <Pressable
               accessibilityRole="button"
-              disabled={busy || appPassphrase.length === 0}
+              disabled={busy || !present}
               onPress={recover}
               style={({ pressed }) => [
                 styles.primaryButton,
-                busy || appPassphrase.length === 0 ? styles.disabled : undefined,
+                busy || !present ? styles.disabled : undefined,
                 pressed ? styles.primaryButtonPressed : undefined,
               ]}
             >

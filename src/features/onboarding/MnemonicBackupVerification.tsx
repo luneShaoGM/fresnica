@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useLocalization } from '../../locale';
 import { useAppTheme, useThemedStyles } from '../../ui/theme';
@@ -12,63 +12,159 @@ import {
   type MnemonicBackupVerificationState,
 } from './mnemonicBackupVerificationState';
 import { createStyles } from './styles';
+import { SensitiveTextInput, type SensitiveTextInputHandle } from './SensitiveTextInput';
 
 type Props = Readonly<{
-  mnemonic: string;
   disabled?: boolean;
   onVerified: () => void | Promise<void>;
 }>;
 
-export function MnemonicBackupVerification({ mnemonic, disabled = false, onVerified }: Props) {
+export type MnemonicBackupVerificationHandle = Readonly<{
+  load: (mnemonic: string) => void;
+  clear: (updateUi?: boolean) => void;
+}>;
+
+export const MnemonicBackupVerification = forwardRef<MnemonicBackupVerificationHandle, Props>(
+function MnemonicBackupVerification({ disabled = false, onVerified }, ref) {
   const theme = useAppTheme();
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
+  const phrase = useRef('');
+  const outputs = useRef<Array<React.ElementRef<typeof TextInput> | null>>([]);
+  const answers = useRef<Array<SensitiveTextInputHandle | null>>([]);
+  const epoch = useRef(0);
+  const completingNow = useRef(false);
+  const live = useRef(true);
+  const [revision, setRevision] = useState(0);
+  const [wordCount, setWordCount] = useState(0);
   const [state, setState] = useState<MnemonicBackupVerificationState>(MNEMONIC_BACKUP_PRESENTATION);
   const [completing, setCompleting] = useState(false);
   const blocked = disabled || completing;
 
+  const clearAnswers = useCallback(() => {
+    answers.current.forEach(input => input?.clear(false));
+  }, []);
+
+  const clear = useCallback((updateUi = true) => {
+    epoch.current += 1;
+    phrase.current = '';
+    outputs.current.forEach(input => input?.clear());
+    clearAnswers();
+    completingNow.current = false;
+    if (updateUi && live.current) {
+      setRevision(epoch.current);
+      setWordCount(0);
+      setState(MNEMONIC_BACKUP_PRESENTATION);
+      setCompleting(false);
+    }
+  }, [clearAnswers]);
+
+  useImperativeHandle(ref, () => ({
+    load(mnemonic) {
+      clear();
+      if (!live.current || !mnemonic.trim()) return;
+      phrase.current = mnemonic;
+      setWordCount(mnemonic.trim().split(/\s+/u).length);
+    },
+    clear,
+  }), [clear]);
+
+  useEffect(() => {
+    live.current = true;
+    return () => {
+      live.current = false;
+      clear(false);
+    };
+  }, [clear]);
+
   function beginVerification() {
-    if (blocked) return;
-    setState(beginMnemonicBackupVerification(mnemonic));
+    if (revision !== epoch.current || blocked || completingNow.current || !phrase.current) return;
+    outputs.current.forEach(input => input?.clear());
+    clearAnswers();
+    setState(beginMnemonicBackupVerification(wordCount));
   }
 
   function showPhraseAgain() {
-    if (blocked) return;
+    if (revision !== epoch.current || blocked || completingNow.current || !phrase.current) return;
+    clearAnswers();
     setState(returnToMnemonicBackupPresentation());
   }
 
   function changeAnswer(answerIndex: number, value: string) {
-    setState(current => updateMnemonicBackupAnswer(current, answerIndex, value));
+    if (revision !== epoch.current || completingNow.current) return;
+    setState(current => updateMnemonicBackupAnswer(current, answerIndex, value.trim().length > 0));
   }
 
   async function submitVerification() {
-    if (blocked) return;
+    if (revision !== epoch.current || blocked || completingNow.current || !phrase.current) return;
 
-    const evaluation = evaluateMnemonicBackupVerification(mnemonic, state);
+    const evaluation = evaluateMnemonicBackupVerification(
+      phrase.current,
+      state,
+      answers.current.map(input => input?.read() ?? ''),
+    );
     setState(evaluation.state);
     if (!evaluation.verified) return;
 
+    // A mismatch preserves the fields for correction. Success releases both
+    // the answers and the full phrase before asynchronous completion begins.
+    clearAnswers();
+    phrase.current = '';
+    outputs.current.forEach(input => input?.clear());
+    setWordCount(0);
+    setState(MNEMONIC_BACKUP_PRESENTATION);
+    completingNow.current = true;
+    const owner = epoch.current;
     setCompleting(true);
     try {
       await onVerified();
     } finally {
-      setCompleting(false);
+      if (live.current && epoch.current === owner) {
+        completingNow.current = false;
+        setCompleting(false);
+      }
     }
   }
 
   if (state.kind === 'phrase') {
     return (
       <View style={styles.container}>
-        <RecoveryPhrase mnemonic={mnemonic} />
+        <View style={styles.recoveryBox}>
+          {Array.from({ length: wordCount }, (_, index) => (
+            <View key={index} style={styles.recoveryWord}>
+              <Text style={styles.recoveryNumber}>{index + 1}</Text>
+              <TextInput
+                ref={input => {
+                  outputs.current[index]?.clear();
+                  outputs.current[index] = input;
+                  if (input && phrase.current) {
+                    input.setNativeProps({ text: phrase.current.trim().split(/\s+/u)[index] ?? '' });
+                  }
+                }}
+                accessibilityLabel={t('backup.verify.wordAccessibilityLabel', { position: index + 1 })}
+                defaultValue=""
+                editable={false}
+                caretHidden
+                showSoftInputOnFocus={false}
+                autoComplete="off"
+                importantForAutofill="no"
+                textContentType="none"
+                autoCorrect={false}
+                selectionColor={theme.colors.actionPrimary}
+                style={[styles.recoveryText, nativeStyles.word]}
+              />
+            </View>
+          ))}
+        </View>
         <View style={styles.actionBlock}>
           <Text style={styles.guidance}>{t('backup.verify.presentationHint')}</Text>
-          <PrimaryAction disabled={blocked} label={t('backup.verify.start')} onPress={beginVerification} />
+          <PrimaryAction disabled={blocked || wordCount === 0} label={t('backup.verify.start')} onPress={beginVerification} />
         </View>
       </View>
     );
   }
 
-  const answersReady = state.answers.every(answer => answer.trim().length > 0);
+  const answersReady = state.answersPresent.every(Boolean);
 
   return (
     <View style={styles.container}>
@@ -80,7 +176,8 @@ export function MnemonicBackupVerification({ mnemonic, disabled = false, onVerif
         {state.positions.map((position, answerIndex) => (
           <View key={position} style={styles.field}>
             <Text style={styles.fieldLabel}>{t('backup.verify.wordLabel', { position: position + 1 })}</Text>
-            <TextInput
+            <SensitiveTextInput
+              ref={input => { answers.current[answerIndex] = input; }}
               accessibilityLabel={t('backup.verify.wordAccessibilityLabel', {
                 position: position + 1,
               })}
@@ -89,13 +186,12 @@ export function MnemonicBackupVerification({ mnemonic, disabled = false, onVerif
               autoCorrect={false}
               editable={!blocked}
               importantForAutofill="no"
-              onChangeText={value => changeAnswer(answerIndex, value)}
+              onTextChange={value => changeAnswer(answerIndex, value)}
               placeholder={t('backup.verify.wordPlaceholder')}
               placeholderTextColor={theme.colors.textTertiary}
               selectionColor={theme.colors.actionPrimary}
               spellCheck={false}
               style={styles.input}
-              value={state.answers[answerIndex] ?? ''}
             />
           </View>
         ))}
@@ -129,27 +225,9 @@ export function MnemonicBackupVerification({ mnemonic, disabled = false, onVerif
       </View>
     </View>
   );
-}
+});
 
-function RecoveryPhrase({ mnemonic }: Readonly<{ mnemonic: string }>) {
-  const styles = useThemedStyles(createStyles);
-
-  return (
-    <View style={styles.recoveryBox}>
-      {mnemonic
-        .trim()
-        .split(/\s+/u)
-        .map((word, index) => (
-          <View key={index} style={styles.recoveryWord}>
-            <Text style={styles.recoveryNumber}>{index + 1}</Text>
-            <Text selectable style={styles.recoveryText}>
-              {word}
-            </Text>
-          </View>
-        ))}
-    </View>
-  );
-}
+const nativeStyles = StyleSheet.create({ word: { padding: 0 } });
 
 function PrimaryAction({
   label,

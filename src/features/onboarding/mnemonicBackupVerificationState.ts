@@ -5,7 +5,7 @@ export type MnemonicBackupVerificationState =
   | Readonly<{
       kind: 'challenge';
       positions: readonly number[];
-      answers: readonly string[];
+      answersPresent: readonly boolean[];
       mismatch: boolean;
     }>;
 
@@ -14,12 +14,12 @@ export const MNEMONIC_BACKUP_PRESENTATION: MnemonicBackupVerificationState = Obj
 });
 
 export function beginMnemonicBackupVerification(
-  mnemonic: string,
+  wordCount: number,
   random: () => number = Math.random,
 ): MnemonicBackupVerificationState {
-  const words = mnemonicWords(mnemonic);
-  const count = Math.min(MNEMONIC_BACKUP_CHALLENGE_SIZE, words.length);
-  const candidates = words.map((_, index) => index);
+  if (!Number.isSafeInteger(wordCount) || wordCount < 1) throw new Error('mnemonic-backup-empty');
+  const count = Math.min(MNEMONIC_BACKUP_CHALLENGE_SIZE, wordCount);
+  const candidates = Array.from({ length: wordCount }, (_, index) => index);
 
   for (let cursor = 0; cursor < count; cursor += 1) {
     const value = random();
@@ -34,7 +34,7 @@ export function beginMnemonicBackupVerification(
   return {
     kind: 'challenge',
     positions,
-    answers: positions.map(() => ''),
+    answersPresent: positions.map(() => false),
     mismatch: false,
   };
 }
@@ -42,23 +42,24 @@ export function beginMnemonicBackupVerification(
 export function updateMnemonicBackupAnswer(
   state: MnemonicBackupVerificationState,
   answerIndex: number,
-  value: string,
+  present: boolean,
 ): MnemonicBackupVerificationState {
-  if (state.kind !== 'challenge' || answerIndex < 0 || answerIndex >= state.answers.length) {
+  if (state.kind !== 'challenge' || answerIndex < 0 || answerIndex >= state.answersPresent.length) {
     return state;
   }
 
-  const answers = [...state.answers];
-  answers[answerIndex] = value;
+  const answersPresent = [...state.answersPresent];
+  answersPresent[answerIndex] = present;
   return {
     ...state,
-    answers,
+    answersPresent,
     mismatch: false,
   };
 }
 export function evaluateMnemonicBackupVerification(
   mnemonic: string,
   state: MnemonicBackupVerificationState,
+  answers: readonly string[],
 ): Readonly<{ state: MnemonicBackupVerificationState; verified: boolean }> {
   if (state.kind !== 'challenge') {
     return { state, verified: false };
@@ -72,7 +73,7 @@ export function evaluateMnemonicBackupVerification(
       (position, answerIndex) =>
         position >= 0 &&
         position < words.length &&
-        normalizeMnemonicWord(state.answers[answerIndex] ?? '') === normalizeMnemonicWord(words[position]),
+        normalizeMnemonicWord(answers[answerIndex] ?? '') === normalizeMnemonicWord(words[position]),
     );
 
   return {

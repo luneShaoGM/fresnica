@@ -1,5 +1,5 @@
 import { NewPassphraseGuidance } from '../security/NewPassphraseGuidance/NewPassphraseGuidance';
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import {
@@ -12,8 +12,11 @@ import { useAppTheme, useThemedStyles, type AppTheme } from '@ui/theme';
 
 import { useLocalization } from '../../locale';
 import { projectFeatureError } from '../featureError';
-import { MnemonicBackupVerification } from '../onboarding/MnemonicBackupVerification';
-import { completeMnemonicBackup } from '../onboarding/onboardingBootstrap';
+import { MnemonicBackupVerification, type MnemonicBackupVerificationHandle } from '../onboarding/MnemonicBackupVerification';
+import { PendingMnemonicBackupScreen } from '../onboarding/PendingMnemonicBackupScreen';
+import { SensitiveTextInput, type SensitiveTextInputHandle, type SensitiveTextInputProps } from '../onboarding/SensitiveTextInput';
+import { useSensitiveFlowLifetime, type SensitiveFlowRequest } from '../onboarding/useSensitiveFlowLifetime';
+import { completeMnemonicBackup, resolveOnboardingBootstrap } from '../onboarding/onboardingBootstrap';
 import {
   runWatchOnlyOnboarding,
   type OnboardingProvisioningDependencies,
@@ -27,6 +30,12 @@ import {
 import { importExistingWalletAccount } from './importExistingWalletAccount';
 
 type AddMode = 'create' | 'derive-hd' | 'import-mnemonic' | 'import-secret' | 'watch-only';
+type CreatedState = Readonly<{
+  accountId: string;
+  signerId: string;
+  visible: boolean;
+  systemAuthRegistration: ExistingWalletCreateResult['systemAuthRegistration'];
+}>;
 
 type Props = Readonly<{
   dependencies: OnboardingProvisioningDependencies;
@@ -48,35 +57,98 @@ export function AddAccountScreen({
   const [mode, setMode] = useState<AddMode>();
   const [label, setLabel] = useState('');
   const [address, setAddress] = useState('');
-  const [secret, setSecret] = useState('');
-  const [mnemonic, setMnemonic] = useState('');
-  const [mnemonicPassphrase, setMnemonicPassphrase] = useState('');
+  const secretInput = useRef<SensitiveTextInputHandle>(null);
+  const mnemonicInput = useRef<SensitiveTextInputHandle>(null);
+  const mnemonicPassphraseInput = useRef<SensitiveTextInputHandle>(null);
+  const passphraseInput = useRef<SensitiveTextInputHandle>(null);
+  const confirmationInput = useRef<SensitiveTextInputHandle>(null);
+  const verifier = useRef<MnemonicBackupVerificationHandle>(null);
+  const pendingPhrase = useRef<{ mnemonic: string; owner: SensitiveFlowRequest } | undefined>(undefined);
+  const needsAccountRefresh = useRef(false);
+  const [secretPresent, setSecretPresent] = useState(false);
+  const [mnemonicPresent, setMnemonicPresent] = useState(false);
+  const [passphrasePresent, setPassphrasePresent] = useState(false);
   const [mnemonicIndex, setMnemonicIndex] = useState('0');
   const [mnemonicLanguage, setMnemonicLanguage] = useState('');
   const [hdSourceSignerId, setHdSourceSignerId] = useState('');
   const [hdIndex, setHdIndex] = useState('1');
-  const [appPassphrase, setAppPassphrase] = useState('');
-  const [confirmPassphrase, setConfirmPassphrase] = useState('');
-  const [created, setCreated] = useState<ExistingWalletCreateResult>();
-  const [busy, setBusy] = useState(false);
+  const [created, setCreated] = useState<CreatedState>();
   const [error, setError] = useState<string>();
   const hdSourceCandidates = listExistingWalletHdSourceCandidates(dependencies);
   const requiresCurrentPassphrase = requiresExistingAppPassphrase(dependencies.repository);
   const [shortRiskAccepted, setShortRiskAccepted] = useState(false);
-  const passphraseAssessment = assessNewProtectionPassphrase(appPassphrase);
+  const [passphraseAssessment, setPassphraseAssessment] = useState(() => assessNewProtectionPassphrase(''));
+  const [confirmationMatches, setConfirmationMatches] = useState(false);
+  const lifetime = useSensitiveFlowLifetime(clearOwnedMaterial, resumePersistedBackup, dependencies);
+  const { busy, owns } = lifetime;
+  const attachVerifier = useCallback((input: MnemonicBackupVerificationHandle | null) => {
+    verifier.current = input;
+    if (!input) return;
+    const pending = pendingPhrase.current;
+    pendingPhrase.current = undefined;
+    if (pending && owns(pending.owner)) input.load(pending.mnemonic);
+  }, [owns]);
   const newPassphraseReady =
     !passphraseAssessment.rejection &&
     (passphraseAssessment.meetsMinimum || shortRiskAccepted) &&
-    confirmPassphrase.length > 0 &&
-    confirmPassphrase === appPassphrase;
+    confirmationMatches;
 
-  function clearSensitiveInputs() {
-    setSecret('');
-    setMnemonic('');
-    setMnemonicPassphrase('');
-    setAppPassphrase('');
-    setShortRiskAccepted(false);
-    setConfirmPassphrase('');
+  function clearOwnedMaterial(updateUi: boolean) {
+    for (const input of [secretInput, mnemonicInput, mnemonicPassphraseInput, passphraseInput, confirmationInput]) {
+      input.current?.clear(false);
+    }
+    pendingPhrase.current = undefined;
+    verifier.current?.clear(updateUi);
+    if (updateUi) {
+      setSecretPresent(false);
+      setMnemonicPresent(false);
+      setPassphrasePresent(false);
+      setPassphraseAssessment(assessNewProtectionPassphrase(''));
+      setConfirmationMatches(false);
+      setShortRiskAccepted(false);
+      setCreated(current => current ? { ...current, visible: false } : current);
+      setError(undefined);
+    }
+  }
+
+  function resumePersistedBackup() {
+    try {
+      const bootstrap = resolveOnboardingBootstrap(dependencies);
+      if (bootstrap.kind === 'pending-mnemonic-backup') {
+        setCreated(current => current?.signerId === bootstrap.signerId && current.accountId === bootstrap.accountId ? current : {
+          accountId: bootstrap.accountId,
+          signerId: bootstrap.signerId,
+          systemAuthRegistration: 'not-configured',
+          visible: false,
+        });
+      } else {
+        setCreated(undefined);
+        if (needsAccountRefresh.current) {
+          needsAccountRefresh.current = false;
+          // A retired import/derivation may have persisted. Refresh only the
+          // public account list; do not navigate or change its default account.
+          onAccountPersisted();
+        }
+      }
+    } catch (caught) {
+      setError(readableError(caught, t('accounts.add.error')));
+    }
+  }
+
+  function consumeProtection() {
+    const riskAccepted = shortRiskAccepted;
+    const appPassphrase = passphraseInput.current?.consume() ?? '';
+    const confirmAppPassphrase = confirmationInput.current?.consume() ?? '';
+    return {
+      appPassphrase,
+      ...(requiresCurrentPassphrase ? {} : { confirmAppPassphrase, shortPassphraseRiskAccepted: riskAccepted }),
+    };
+  }
+
+  function finish(owner: NonNullable<ReturnType<typeof lifetime.begin>>) {
+    const retired = !lifetime.isCurrent(owner);
+    lifetime.finish(owner);
+    if (retired) lifetime.resume();
   }
 
   function resetImportMetadata() {
@@ -90,7 +162,7 @@ export function AddAccountScreen({
   }
 
   function chooseMode(nextMode: AddMode) {
-    clearSensitiveInputs();
+    lifetime.retire();
     resetImportMetadata();
     resetHdMetadata();
     setAddress('');
@@ -100,7 +172,7 @@ export function AddAccountScreen({
 
   function backToChoices() {
     if (busy) return;
-    clearSensitiveInputs();
+    lifetime.retire();
     resetImportMetadata();
     resetHdMetadata();
     setAddress('');
@@ -109,28 +181,39 @@ export function AddAccountScreen({
   }
 
   async function submitCreate() {
-    setBusy(true);
+    const owner = lifetime.begin();
+    if (!owner) return;
+    const protection = consumeProtection();
     setError(undefined);
     try {
       const result = await createExistingWalletAccount(dependencies, {
-        appPassphrase,
-        ...(requiresCurrentPassphrase
-          ? {}
-          : { confirmAppPassphrase: confirmPassphrase, shortPassphraseRiskAccepted: shortRiskAccepted }),
+        ...protection,
         label,
       });
-      clearSensitiveInputs();
-      setCreated(result);
+      if (lifetime.isCurrent(owner)) {
+        pendingPhrase.current = { mnemonic: result.backup.mnemonic, owner };
+        setCreated({
+          accountId: result.account.account.id,
+          signerId: result.account.signer.id,
+          systemAuthRegistration: result.systemAuthRegistration,
+          visible: true,
+        });
+      }
     } catch (caught) {
-      setError(readableError(caught, t('accounts.add.error')));
+      if (lifetime.isCurrent(owner)) setError(readableError(caught, t('accounts.add.error')));
     } finally {
-      setBusy(false);
+      finish(owner);
     }
   }
 
   async function submitImport() {
     if (mode !== 'import-mnemonic' && mode !== 'import-secret') return;
-    setBusy(true);
+    const owner = lifetime.begin();
+    if (!owner) return;
+    const protection = consumeProtection();
+    const secret = secretInput.current?.consume() ?? '';
+    const mnemonic = mnemonicInput.current?.consume() ?? '';
+    const mnemonicPassphrase = mnemonicPassphraseInput.current?.consume() ?? '';
     setError(undefined);
     try {
       const result =
@@ -138,10 +221,7 @@ export function AddAccountScreen({
           ? await importExistingWalletAccount(dependencies, {
               kind: 'secret',
               secret,
-              appPassphrase,
-              ...(requiresCurrentPassphrase
-                ? {}
-                : { confirmAppPassphrase: confirmPassphrase, shortPassphraseRiskAccepted: shortRiskAccepted }),
+              ...protection,
               label,
             })
           : await importExistingWalletAccount(dependencies, {
@@ -150,25 +230,27 @@ export function AddAccountScreen({
               mnemonicPassphrase,
               index: parseDerivationIndex(mnemonicIndex),
               ...(mnemonicLanguage.trim() ? { language: mnemonicLanguage.trim() } : {}),
-              appPassphrase,
-              ...(requiresCurrentPassphrase
-                ? {}
-                : { confirmAppPassphrase: confirmPassphrase, shortPassphraseRiskAccepted: shortRiskAccepted }),
+              ...protection,
               label,
             });
-      clearSensitiveInputs();
-      onAccountPersisted();
-      await onCreatedAccountReady(result.account.account.id);
+      if (lifetime.isCurrent(owner)) {
+        onAccountPersisted();
+        await onCreatedAccountReady(result.account.account.id);
+      } else {
+        needsAccountRefresh.current = true;
+      }
     } catch (caught) {
-      setError(readableImportError(caught, t));
+      if (lifetime.isCurrent(owner)) setError(readableImportError(caught, t));
     } finally {
-      setBusy(false);
+      finish(owner);
     }
   }
 
   async function submitHdDerive() {
     if (mode !== 'derive-hd') return;
-    setBusy(true);
+    const owner = lifetime.begin();
+    if (!owner) return;
+    const appPassphrase = passphraseInput.current?.consume() ?? '';
     setError(undefined);
     try {
       const result = await deriveExistingWalletAccount(dependencies, {
@@ -177,43 +259,60 @@ export function AddAccountScreen({
         appPassphrase,
         label,
       });
-      clearSensitiveInputs();
-      onAccountPersisted();
-      await onCreatedAccountReady(result.account.account.id);
+      if (lifetime.isCurrent(owner)) {
+        onAccountPersisted();
+        await onCreatedAccountReady(result.account.account.id);
+      } else {
+        needsAccountRefresh.current = true;
+      }
     } catch (caught) {
-      setError(readableHdError(caught, t));
+      if (lifetime.isCurrent(owner)) setError(readableHdError(caught, t));
     } finally {
-      setBusy(false);
+      finish(owner);
     }
   }
 
   async function submitWatchOnly() {
-    setBusy(true);
+    const owner = lifetime.begin();
+    if (!owner) return;
     setError(undefined);
     try {
       await runWatchOnlyOnboarding(dependencies, { address, label });
-      onWatchOnlyComplete();
+      if (lifetime.isCurrent(owner)) onWatchOnlyComplete();
+      else needsAccountRefresh.current = true;
     } catch (caught) {
-      setError(readableError(caught, t('accounts.add.error')));
+      if (lifetime.isCurrent(owner)) setError(readableError(caught, t('accounts.add.error')));
     } finally {
-      setBusy(false);
+      finish(owner);
     }
   }
 
   async function confirmCreatedBackup() {
     if (!created) return;
-    setBusy(true);
+    const owner = lifetime.begin();
+    if (!owner) return;
+    pendingPhrase.current = undefined;
+    verifier.current?.clear();
+    setCreated(current => current ? { ...current, visible: false } : current);
     setError(undefined);
     try {
-      await completeMnemonicBackup(dependencies, created.account.signer.id, () =>
-        onCreatedAccountReady(created.account.account.id),
+      await completeMnemonicBackup(dependencies, created.signerId, () =>
+        onCreatedAccountReady(created.accountId),
       );
-      setCreated(undefined);
+      if (lifetime.isCurrent(owner)) {
+        verifier.current?.clear();
+        setCreated(undefined);
+      }
     } catch (caught) {
-      setError(readableError(caught, t('accounts.add.defaultError')));
+      if (lifetime.isCurrent(owner)) setError(readableError(caught, t('accounts.add.defaultError')));
     } finally {
-      setBusy(false);
+      finish(owner);
     }
+  }
+
+  if (created && !created.visible) {
+    return <PendingMnemonicBackupScreen dependencies={dependencies} signerId={created.signerId} disabled={busy}
+      completionError={error} onComplete={() => onCreatedAccountReady(created.accountId)} />;
   }
 
   if (created) {
@@ -224,8 +323,8 @@ export function AddAccountScreen({
           <Text style={styles.description}>{t('accounts.add.backup.body')}</Text>
         </View>
         <MnemonicBackupVerification
+          ref={attachVerifier}
           disabled={busy}
-          mnemonic={created.backup.mnemonic}
           onVerified={confirmCreatedBackup}
         />
         {created.systemAuthRegistration === 'repair-required' ? (
@@ -245,7 +344,7 @@ export function AddAccountScreen({
   if (!mode) {
     return (
       <Screen scrollable={false} contentInset="none">
-        <Header title={t('accounts.add.title')} onBack={onCancel} disabled={busy} />
+        <Header title={t('accounts.add.title')} onBack={() => { lifetime.retire(); onCancel(); }} disabled={busy} />
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Text style={styles.intro}>{t('accounts.add.intro')}</Text>
           <ChoiceButton
@@ -327,7 +426,7 @@ export function AddAccountScreen({
     );
   }
 
-  const protectionReady = requiresCurrentPassphrase ? appPassphrase.length > 0 : newPassphraseReady;
+  const protectionReady = requiresCurrentPassphrase ? passphrasePresent : newPassphraseReady;
   const isMnemonicImport = mode === 'import-mnemonic';
   const isSecretImport = mode === 'import-secret';
   const isHdDerive = mode === 'derive-hd';
@@ -361,10 +460,10 @@ export function AddAccountScreen({
           editable={!busy}
         />
         {isSecretImport ? (
-          <Field
+          <SensitiveField
             label={t('accounts.add.import.secret')}
-            value={secret}
-            onChangeText={setSecret}
+            inputRef={secretInput}
+            onTextChange={value => setSecretPresent(value.trim().length > 0)}
             placeholder={t('accounts.add.import.secretPlaceholder')}
             editable={!busy}
             secureTextEntry
@@ -406,20 +505,19 @@ export function AddAccountScreen({
         ) : null}
         {isMnemonicImport ? (
           <>
-            <Field
+            <SensitiveField
               label={t('accounts.add.import.mnemonic')}
-              value={mnemonic}
-              onChangeText={setMnemonic}
+              inputRef={mnemonicInput}
+              onTextChange={value => setMnemonicPresent(value.trim().length > 0)}
               placeholder={t('accounts.add.import.mnemonicPlaceholder')}
               editable={!busy}
               multiline
               autoCapitalize="none"
               autoCorrect={false}
             />
-            <Field
+            <SensitiveField
               label={t('accounts.add.import.mnemonicPassphrase')}
-              value={mnemonicPassphrase}
-              onChangeText={setMnemonicPassphrase}
+              inputRef={mnemonicPassphraseInput}
               placeholder={t('accounts.add.import.mnemonicPassphrasePlaceholder')}
               editable={!busy}
               secureTextEntry
@@ -445,11 +543,13 @@ export function AddAccountScreen({
             />
           </>
         ) : null}
-        <Field
+        <SensitiveField
           label={requiresCurrentPassphrase ? t('accounts.add.currentPassphrase') : t('accounts.add.newPassphrase')}
-          value={appPassphrase}
-          onChangeText={value => {
-            setAppPassphrase(value);
+          inputRef={passphraseInput}
+          onTextChange={value => {
+            setPassphrasePresent(value.length > 0);
+            setPassphraseAssessment(assessNewProtectionPassphrase(value));
+            setConfirmationMatches(!!value && value === confirmationInput.current?.read());
             setShortRiskAccepted(false);
           }}
           placeholder={
@@ -464,10 +564,10 @@ export function AddAccountScreen({
         />
         {!requiresCurrentPassphrase ? (
           <>
-            <Field
+            <SensitiveField
               label={t('accounts.add.confirmPassphrase')}
-              value={confirmPassphrase}
-              onChangeText={setConfirmPassphrase}
+              inputRef={confirmationInput}
+              onTextChange={value => setConfirmationMatches(!!value && value === passphraseInput.current?.read())}
               placeholder={t('accounts.add.confirmPassphrasePlaceholder')}
               editable={!busy}
               secureTextEntry
@@ -498,8 +598,8 @@ export function AddAccountScreen({
           disabled={
             busy ||
             !protectionReady ||
-            (isSecretImport && secret.trim().length === 0) ||
-            (isMnemonicImport && mnemonic.trim().length === 0) ||
+            (isSecretImport && !secretPresent) ||
+            (isMnemonicImport && !mnemonicPresent) ||
             (isHdDerive && (hdSourceSignerId.length === 0 || hdPath === undefined))
           }
           label={
@@ -672,6 +772,27 @@ function Field(props: React.ComponentProps<typeof TextInput> & { label: string }
       <TextInput
         {...inputProps}
         accessibilityLabel={inputProps.accessibilityLabel ?? label}
+        placeholderTextColor={theme.colors.textTertiary}
+        selectionColor={theme.colors.actionPrimary}
+        style={styles.input}
+      />
+    </View>
+  );
+}
+
+function SensitiveField({ label, inputRef, ...props }: SensitiveTextInputProps & {
+  label: string;
+  inputRef: React.RefObject<SensitiveTextInputHandle | null>;
+}) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+  return (
+    <View style={styles.field}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <SensitiveTextInput
+        {...props}
+        ref={inputRef}
+        accessibilityLabel={props.accessibilityLabel ?? label}
         placeholderTextColor={theme.colors.textTertiary}
         selectionColor={theme.colors.actionPrimary}
         style={styles.input}
