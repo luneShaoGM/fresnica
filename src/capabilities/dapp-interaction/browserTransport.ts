@@ -14,6 +14,7 @@ export type DappBrowserSurfaceProps = Readonly<{
   nonce: string;
   shouldLoad: (url: string) => boolean;
   onMessage: (data: string, messageUrl: string, replyId?: string, replyExpiresAt?: number) => void;
+  onReplyExpired?: (replyId: string, origin: string) => void;
   onNavigation: (navigation: DappBrowserNavigation) => void;
   onDocumentStart: (url: string) => void;
   onUnavailable?: () => void;

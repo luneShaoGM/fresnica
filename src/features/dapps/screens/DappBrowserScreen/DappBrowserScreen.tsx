@@ -198,7 +198,7 @@ export function DappBrowserScreen({
   };
 
   const expireMessage = useCallback(
-    (request: PendingMessage) => {
+    (request: Pick<PendingMessage, 'generation' | 'target'>) => {
       if (
         request.generation !== signGeneration.current ||
         messageReplyTarget.current?.replyId !== request.target.replyId
@@ -215,11 +215,19 @@ export function DappBrowserScreen({
     [current],
   );
 
+  const handleReplyExpired = (replyId: string, origin: string) => {
+    const target = messageReplyTarget.current;
+    if (!currentSession() || !target || target.replyId !== replyId || documentOrigin.current !== origin) return;
+    // The request and expiry may arrive before React commits pendingMessage.
+    // These refs bind the native event to the current request synchronously.
+    expireMessage({ generation: signGeneration.current, target });
+  };
+
   useEffect(() => {
     if (!pendingMessage || pendingMessage.target.expiresAt === undefined) return;
     const request = pendingMessage;
     const expiresAt = pendingMessage.target.expiresAt;
-    // Once scheduled, expiry retires this generation even if the wall clock moves back.
+    // Native expiry also retires this generation if wall time moves back before timer setup.
     const timer = setTimeout(() => expireMessage(request), Math.max(0, expiresAt - Date.now()));
     return () => clearTimeout(timer);
   }, [pendingMessage, expireMessage]);
@@ -559,6 +567,7 @@ export function DappBrowserScreen({
             url={current.url}
             nonce={current.token}
             onMessage={handleMessage}
+            onReplyExpired={handleReplyExpired}
             onNavigation={onNavigation}
             onDocumentStart={onDocumentStart}
             onUnavailable={retireInvalidNavigation}

@@ -566,6 +566,36 @@ export type WebViewOpenWindowEvent`,
     to: `.sep53ReplyId = nullSafeString([dictionary valueForKey:@"sep53ReplyId"]),
                     .sep53ReplyExpiresAt = [[dictionary valueForKey:@"sep53ReplyExpiresAt"] doubleValue]`,
   },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
+    applied: '@"sep53ReplyExpired": @YES',
+    from: `    [view.fresnicaSep53Replies removeObjectForKey:replyId];
+    if (expired) expired(nil, @"Wallet request expired");`,
+    to: `    if (!expired) return;
+    [view.fresnicaSep53Replies removeObjectForKey:replyId];
+    // Native callback lifetime must not depend on JavaScript wall time.
+    if (view.onMessage) {
+      NSMutableDictionary<NSString *, id> *expiryEvent = [view baseEvent];
+      [expiryEvent addEntriesFromDictionary:@{@"data": @"{}", @"sourceOrigin": origin,
+          @"isMainFrame": @YES, @"sep53ReplyId": replyId, @"sep53ReplyExpired": @YES}];
+      view.onMessage(expiryEvent);
+    }
+    expired(nil, @"Wallet request expired");`,
+  },
+  {
+    file: 'node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts',
+    applied: 'sep53ReplyExpired: boolean;',
+    from: '  sep53ReplyExpiresAt: Double;',
+    to: `  sep53ReplyExpiresAt: Double;
+  sep53ReplyExpired: boolean;`,
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebView.mm',
+    applied: '.sep53ReplyExpired = ',
+    from: '.sep53ReplyExpiresAt = [[dictionary valueForKey:@"sep53ReplyExpiresAt"] doubleValue]',
+    to: `.sep53ReplyExpiresAt = [[dictionary valueForKey:@"sep53ReplyExpiresAt"] doubleValue],
+                    .sep53ReplyExpired = static_cast<bool>([[dictionary valueForKey:@"sep53ReplyExpired"] boolValue])`,
+  },
 ];
 
 let pending = false;

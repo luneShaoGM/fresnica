@@ -159,6 +159,7 @@ type NodeProps = Readonly<{
   fee?: string;
   operationCount?: number;
   onMessage?: DappBrowserSurfaceProps['onMessage'];
+  onReplyExpired?: DappBrowserSurfaceProps['onReplyExpired'];
   onNavigation?: DappBrowserSurfaceProps['onNavigation'];
   onDocumentStart?: DappBrowserSurfaceProps['onDocumentStart'];
   onUnavailable?: DappBrowserSurfaceProps['onUnavailable'];
@@ -788,7 +789,11 @@ describe('native SEP-53 reply deadline', () => {
     jest.useRealTimers();
   });
 
-  function start(signer: DappMessageSigner) {
+  function start(
+    signer: DappMessageSigner,
+    beforeReceive?: (expire: NonNullable<DappBrowserSurfaceProps['onReplyExpired']>) => void,
+    initialExpiresAt = now + 1000,
+  ) {
     const draw = () => render(true, undefined, undefined, signer);
     const browser = find(draw(), node => node.type === BrowserSurface);
     refs[1].current = { reply: replies, reload };
@@ -807,10 +812,79 @@ describe('native SEP-53 reply deadline', () => {
         handle,
         expiresAt,
       );
-    send(31, replyId, now + 1000);
+    const expire = (handle: string, source = origin) => browser?.props.onReplyExpired?.(handle, source);
+    beforeReceive?.(expire);
+    send(31, replyId, initialExpiresAt);
     const sheet = find(draw(), node => node.type === DappSignSheet);
-    return { draw, send, sheet };
+    return { draw, send, sheet, expire };
   }
+
+  it('retires the native lifetime when wall time rolls back while the request is in transit', () => {
+    const signer = jest.fn<ReturnType<DappMessageSigner>, Parameters<DappMessageSigner>>(async () => signature);
+    const nativeLifetime = 120_000;
+    const transit = 15_000;
+    const { draw, sheet } = start(
+      signer,
+      expire => {
+        // Model the native lifetime starting before JS receives the request.
+        // Its callback retains the original elapsed-time budget through wall-clock changes.
+        setTimeout(() => expire(replyId, origin), nativeLifetime);
+        jest.advanceTimersByTime(transit);
+        jest.setSystemTime(now - 3_600_000);
+      },
+      now + nativeLifetime,
+    );
+    for (const effect of effects.splice(0)) effect();
+    jest.advanceTimersByTime(nativeLifetime - transit - 1);
+    expect(find(draw(), node => node.type === DappSignSheet)).toBeDefined();
+    jest.advanceTimersByTime(1);
+    expect(find(draw(), node => node.type === DappSignSheet)).toBeUndefined();
+    sheet?.props.onConfirm?.('late old entry');
+    expect(signer).not.toHaveBeenCalled();
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 31, error: 'request-expired' }), {
+      replyId,
+      expiresAt: now + nativeLifetime,
+    });
+  });
+
+  it('retires a request and expiry delivered before the next React commit', () => {
+    const signer = jest.fn<ReturnType<DappMessageSigner>, Parameters<DappMessageSigner>>(async () => signature);
+    const { draw, send, expire } = start(signer);
+    expire(replyId);
+    send(32, nextReplyId, now + 5000);
+    // No draw/effect occurs between the new request and its native expiry event.
+    expire(nextReplyId);
+    expect(find(draw(), node => node.type === DappSignSheet)).toBeUndefined();
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 32, error: 'request-expired' }), {
+      replyId: nextReplyId,
+      expiresAt: now + 5000,
+    });
+    expect(signer).not.toHaveBeenCalled();
+  });
+
+  it('ignores mismatched origins and old handles while allowing a fresh request to finish', async () => {
+    const signer = jest.fn<ReturnType<DappMessageSigner>, Parameters<DappMessageSigner>>(async () => signature);
+    const { draw, send, sheet, expire } = start(signer);
+    expire(nextReplyId);
+    expire(replyId, 'https://other.example.org');
+    expect(find(draw(), node => node.type === DappSignSheet)).toBeDefined();
+    expect(replies.mock.calls.some(([response]) => response.error === 'request-expired')).toBe(false);
+    expire(replyId);
+    send(32, nextReplyId, now + 5000);
+    expire(replyId);
+    expire(nextReplyId, 'https://other.example.org');
+    sheet?.props.onConfirm?.('old entry');
+    expect(signer).not.toHaveBeenCalled();
+    find(draw(), node => node.type === DappSignSheet)?.props.onConfirm?.('new entry');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(replies.mock.calls.filter(([response]) => response.signedBlob)).toEqual([
+      [
+        expect.objectContaining({ messagedId: 32, signedBlob: signature }),
+        { replyId: nextReplyId, expiresAt: now + 5000 },
+      ],
+    ]);
+  });
 
   it('retires the scheduled generation even after a wall-clock rollback and accepts a fresh request', () => {
     const signer = jest.fn<ReturnType<DappMessageSigner>, Parameters<DappMessageSigner>>(async () => signature);
@@ -838,49 +912,54 @@ describe('native SEP-53 reply deadline', () => {
     expect(find(draw(), node => node.type === DappSignSheet)).toBeUndefined();
   });
 
-  it.each(['resolve', 'reject'] as const)(
-    'keeps a fresh review intact after an expired SDK call %ss',
-    async outcome => {
-      let resolveOld: ((value: string) => void) | undefined;
-      let rejectOld: ((error: Error) => void) | undefined;
-      const signer = jest
-        .fn<ReturnType<DappMessageSigner>, Parameters<DappMessageSigner>>()
-        .mockImplementationOnce(
-          () =>
-            new Promise((resolve, reject) => {
-              resolveOld = resolve;
-              rejectOld = reject;
-            }),
-        )
-        .mockResolvedValue(signature);
-      const { draw, send, sheet } = start(signer);
-      for (const effect of effects.splice(0)) effect();
-      sheet?.props.onConfirm?.('first passphrase');
-      expect(signer.mock.calls[0][0].isCurrent()).toBe(true);
-      jest.advanceTimersByTime(1000);
-      expect(signer.mock.calls[0][0].isCurrent()).toBe(false);
-      send(32, nextReplyId, now + 5000);
-      const next = find(draw(), node => node.type === DappSignSheet);
-      expect(next?.props.busy).toBe(true);
-      next?.props.onConfirm?.('must not start while old SDK call is busy');
-      expect(signer).toHaveBeenCalledTimes(1);
-      if (outcome === 'resolve') resolveOld?.(signature);
-      else rejectOld?.(new Error('late failure'));
-      await Promise.resolve();
-      await Promise.resolve();
-      const ready = find(draw(), node => node.type === DappSignSheet);
-      expect(ready?.props).toMatchObject({ busy: false, failed: false, expiresAt: now + 5000 });
-      ready?.props.onConfirm?.('fresh passphrase');
-      await Promise.resolve();
-      await Promise.resolve();
-      expect(replies.mock.calls.filter(([value]) => value.signedBlob)).toEqual([
-        [
-          expect.objectContaining({ messagedId: 32, signedBlob: signature }),
-          { replyId: nextReplyId, expiresAt: now + 5000 },
-        ],
-      ]);
-    },
-  );
+  it.each([
+    ['timer', 'resolve'],
+    ['timer', 'reject'],
+    ['native', 'resolve'],
+    ['native', 'reject'],
+  ] as const)('keeps a fresh review intact after %s expiry and a late SDK %s', async (expiry, outcome) => {
+    let resolveOld: ((value: string) => void) | undefined;
+    let rejectOld: ((error: Error) => void) | undefined;
+    const signer = jest
+      .fn<ReturnType<DappMessageSigner>, Parameters<DappMessageSigner>>()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve, reject) => {
+            resolveOld = resolve;
+            rejectOld = reject;
+          }),
+      )
+      .mockResolvedValue(signature);
+    const { draw, send, sheet, expire } = start(signer);
+    for (const effect of effects.splice(0)) effect();
+    sheet?.props.onConfirm?.('first passphrase');
+    expect(signer.mock.calls[0][0].isCurrent()).toBe(true);
+    if (expiry === 'native') {
+      jest.setSystemTime(now - 10_000);
+      expire(replyId);
+    } else jest.advanceTimersByTime(1000);
+    expect(signer.mock.calls[0][0].isCurrent()).toBe(false);
+    send(32, nextReplyId, now + 5000);
+    const next = find(draw(), node => node.type === DappSignSheet);
+    expect(next?.props.busy).toBe(true);
+    next?.props.onConfirm?.('must not start while old SDK call is busy');
+    expect(signer).toHaveBeenCalledTimes(1);
+    if (outcome === 'resolve') resolveOld?.(signature);
+    else rejectOld?.(new Error('late failure'));
+    await Promise.resolve();
+    await Promise.resolve();
+    const ready = find(draw(), node => node.type === DappSignSheet);
+    expect(ready?.props).toMatchObject({ busy: false, failed: false, expiresAt: now + 5000 });
+    ready?.props.onConfirm?.('fresh passphrase');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(replies.mock.calls.filter(([value]) => value.signedBlob)).toEqual([
+      [
+        expect.objectContaining({ messagedId: 32, signedBlob: signature }),
+        { replyId: nextReplyId, expiresAt: now + 5000 },
+      ],
+    ]);
+  });
 
   it('suppresses an SDK completion after the deadline before a delayed timer runs', async () => {
     let complete: ((value: string) => void) | undefined;

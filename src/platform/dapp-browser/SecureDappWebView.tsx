@@ -22,7 +22,10 @@ const styles = StyleSheet.create({ root: { flex: 1 } });
 /** Transport-only. URL policy, account/session validation and permission
  * decisions are deliberately owned outside this platform component. */
 export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowserSurfaceProps>(
-  function WebViewTransport({ url, shouldLoad, onMessage, onNavigation, onDocumentStart, onUnavailable }, ref) {
+  function WebViewTransport(
+    { url, shouldLoad, onMessage, onReplyExpired, onNavigation, onDocumentStart, onUnavailable },
+    ref,
+  ) {
     const webview = useRef<React.ElementRef<typeof WebView>>(null);
     const injected = useMemo(() => buildFreighterInjectionScript(), []);
     const [ready, setReady] = useState(Platform.OS === 'ios');
@@ -95,6 +98,7 @@ export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowse
             isMainFrame?: unknown;
             sep53ReplyId?: unknown;
             sep53ReplyExpiresAt?: unknown;
+            sep53ReplyExpired?: unknown;
           };
           const verified = readVerifiedDappMessage({
             data: nativeEvent.data,
@@ -103,6 +107,11 @@ export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowse
           });
           if (!verified) return;
           const replyId = readSep53ReplyId(nativeEvent.sep53ReplyId);
+          if (nativeEvent.sep53ReplyExpired === true) {
+            // This native lifecycle event is not page data and carries no wall-clock deadline.
+            if (Platform.OS === 'ios' && replyId) onReplyExpired?.(replyId, verified.origin);
+            return;
+          }
           const expiresAt = readSep53ReplyExpiresAt(nativeEvent.sep53ReplyExpiresAt);
           // iOS must bind review lifetime to the native callback, never a page field.
           const usableReplyId = Platform.OS === 'ios' && expiresAt === undefined ? undefined : replyId;
