@@ -410,3 +410,15 @@ shared UI and the App composition of the public clipboard port only.
 Acceptance: automated rendering, copy success/failure, full identity disclosure,
 local-account/other/muxed/self roles and existing contact interactions; actual
 native small-screen/font-scale, theme and accessibility checks remain separate.
+
+### Shared copy feedback accessibility (2026-11-24 follow-up)
+
+PR #233 Work review identified a non-blocking iOS announcement gap. For both
+account-address and transaction-hash copying, the existing shared
+`CopyAddressButton` announces the same localized success/failure message on
+iOS after each completed clipboard attempt; Android retains its polite live
+region without a second explicit announcement. No raw error or copied value
+is announced. Late completion after the keyed component unmounts does not
+announce or update the removed row. Clipboard contents, retry behavior and
+existing visual feedback remain unchanged. Native VoiceOver/TalkBack
+acceptance remains separate from automated platform-branch tests.
