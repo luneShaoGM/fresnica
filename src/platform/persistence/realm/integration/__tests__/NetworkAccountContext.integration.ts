@@ -11,6 +11,7 @@ import { RealmAccountSignerRepository } from '../../RealmAccountSignerRepository
 import { RealmDefaultAccountPreferenceStore } from '../../RealmDefaultAccountPreferenceStore';
 import { RealmBalanceCacheRepository } from '../../RealmBalanceCacheRepository';
 import { RealmClaimableCacheStore } from '../../RealmClaimableCacheStore';
+import { RealmContractAssetStore } from '../../RealmContractAssetStore';
 import { RealmDappPermissionStore } from '../../RealmDappPermissionStore';
 import { RealmHistoryCacheRepository } from '../../RealmHistoryCacheRepository';
 import { RealmPendingSubmissionRepository } from '../../RealmPendingSubmissionRepository';
@@ -146,6 +147,7 @@ describe('persisted identity and per-network runtime contexts', () => {
         balanceCache,
         historyCache: new RealmHistoryCacheRepository(realm),
         claimableCache: new RealmClaimableCacheStore(realm),
+        contractAssets: new RealmContractAssetStore(realm),
         dappPermissions: new RealmDappPermissionStore(realm),
         cacheNetworkIds: [main, test],
       };

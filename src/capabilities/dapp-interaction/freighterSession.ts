@@ -1,3 +1,4 @@
+import { SOROBAN_RPC_URLS } from '../network/sorobanRpc';
 import { fromBase64, toBase64 } from '@exodus/bytes/base64.js';
 import { utf8fromString, utf8toString } from '@exodus/bytes/utf8.js';
 
@@ -220,7 +221,7 @@ function freighterNetwork(selection: DappPublicSelection): FreighterNetworkDetai
       networkName: 'Main Net',
       networkUrl: selection.networkUrl,
       networkPassphrase: selection.networkPassphrase,
-      sorobanRpcUrl: 'https://mainnet.sorobanrpc.com',
+      sorobanRpcUrl: SOROBAN_RPC_URLS['stellar-mainnet'],
     };
   }
   if (network === 'TESTNET') {
@@ -229,7 +230,7 @@ function freighterNetwork(selection: DappPublicSelection): FreighterNetworkDetai
       networkName: 'Test Net',
       networkUrl: selection.networkUrl,
       networkPassphrase: selection.networkPassphrase,
-      sorobanRpcUrl: 'https://soroban-testnet.stellar.org',
+      sorobanRpcUrl: SOROBAN_RPC_URLS['stellar-testnet'],
     };
   }
   if (network === 'FUTURENET') {

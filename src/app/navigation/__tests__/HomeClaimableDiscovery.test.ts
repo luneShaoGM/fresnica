@@ -8,6 +8,8 @@ import {
 } from '../../../capabilities/claimable/createClaimableProduct';
 import { mapClaimableRecord, type ClaimableSnapshot } from '../../../capabilities/claimable/records';
 import { HomeScreen } from '../../../features/home/HomeScreen';
+import { ContractAssetsPanel } from '../../../features/assets/ContractAssetsPanel';
+import type { ContractAssets } from '@capabilities/assets/contractAssets';
 import { AssetCategoryDialog } from '../../../features/home/components/AssetCategoryDialog';
 import type { AppServices } from '../../createAppServices';
 import { createLedgerReadInvalidationStore } from '../../readModels/LedgerReadInvalidationStore';
@@ -196,7 +198,9 @@ function fixture(seedEmpty = true) {
       getRevision: target => invalidation.getRevision(target.networkId, target.id),
     });
   const product = createProduct();
+  let selectionRevision = 1;
   const services = {
+    contractAssets: undefined as ContractAssets | undefined,
     onboarding: { repository: { isWatchOnly: () => false } },
     ledgerReadRuntime: { subscribe: jest.fn(), getSnapshot: () => ({ foreground: true }) },
     ledgerReadInvalidation: invalidation,
@@ -216,7 +220,7 @@ function fixture(seedEmpty = true) {
     onAccountsChanged: jest.fn(),
     onCreatedAccountReady: jest.fn(),
     onSelectAccount: jest.fn(),
-    getCurrentSwapSelection: () => ({ selectedAccountId: account.id, selectionRevision: 1, accounts, network }),
+    getCurrentSwapSelection: () => ({ selectedAccountId: account.id, selectionRevision, accounts, network }),
     subscribeToSwapSelection: () => () => undefined,
   };
   const navigation = { isFocused: () => true, navigate: jest.fn() };
@@ -242,6 +246,8 @@ function fixture(seedEmpty = true) {
     replace,
     createProduct,
     renderHome,
+    setContractProduct: (product: ContractAssets) => { services.contractAssets = product; },
+    changeSelectionRevision: () => { selectionRevision += 1; },
     replaceProduct: (next: ClaimableProduct) => {
       services.claimables = next;
     },
@@ -331,4 +337,28 @@ describe('Home first Claimable discovery from ledger invalidation', () => {
     expect(replacement.readCached(account)?.snapshot.records.map(row => row.id)).toEqual([claim('c').id]);
     expect(page).toHaveBeenCalledTimes(1);
   });
+});
+
+it('wires the selected contract category and permanently retires old category/selection guards', () => {
+  const f = fixture();
+  const product: ContractAssets = { network, list: jest.fn(() => []), track: jest.fn(), refresh: jest.fn(), remove: jest.fn() };
+  f.setContractProduct(product);
+  const initial = f.renderHome();
+  expect(initial.categories.showContracts).toBe(true);
+  initial.categories.onSelect('contracts');
+  const open = f.renderHome();
+  expect(open.home.assetCategory).toBe('contracts');
+  const panel = open.home.contractsContent as React.ReactElement<React.ComponentProps<typeof ContractAssetsPanel>>;
+  expect(panel.type).toBe(ContractAssetsPanel);
+  expect(panel.props.account).toEqual(account);
+  expect(panel.props.product).toBe(product);
+  expect(panel.props.isCurrent()).toBe(true);
+  open.categories.onSelect('tokens');
+  open.categories.onSelect('contracts');
+  expect(panel.props.isCurrent()).toBe(false);
+  const next = f.renderHome().home.contractsContent as React.ReactElement<React.ComponentProps<typeof ContractAssetsPanel>>;
+  expect(next.props.isCurrent()).toBe(true);
+  f.changeSelectionRevision();
+  f.changeSelectionRevision();
+  expect(next.props.isCurrent()).toBe(false);
 });

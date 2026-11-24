@@ -261,7 +261,7 @@ const creditB: CreditAsset = { ...creditA, issuer: 'GISSUER_B' };
 function creditFixture(asset = creditA, currency: FiatCurrency = 'USD'): CreditFiatQuote {
   return {
     networkId: 'stellar-mainnet',
-    assetKey: asset.code + ':' + asset.issuer,
+    assetKey: JSON.stringify(['stellar-mainnet', 'credit', asset.code, asset.issuer]),
     currency,
     xlmPerUnit: '2.0000000',
     xlmFiatRate: '0.50000000',

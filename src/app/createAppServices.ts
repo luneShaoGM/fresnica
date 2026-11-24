@@ -12,6 +12,9 @@ import {
 import { pickImagePalette, cancelImagePalette } from '@platform/system/presentationPreferences';
 import type { XlmQuotePort } from '@capabilities/valuation/xlmQuote';
 import { createCreditFiatQuotes, type CreditFiatQuotePort } from '@capabilities/valuation/creditFiatQuote';
+import { createContractAssets, type ContractAssets } from '@capabilities/assets/contractAssets';
+import { createStellarContractTokenReader } from '@platform/stellar/StellarContractTokenReader';
+import { RealmContractAssetStore } from '@platform/persistence/realm/RealmContractAssetStore';
 import { createCoinGeckoXlmQuotes } from '@platform/valuation/CoinGeckoXlmQuotes';
 import {
   createGeneralPreferences,
@@ -135,6 +138,7 @@ export type AppServices = Readonly<{
   themeImageSelection?: ThemeImageSelection;
   xlmQuotes?: XlmQuotePort;
   creditFiatQuotes?: CreditFiatQuotePort;
+  contractAssets?: ContractAssets;
   applicationSession?: ApplicationSession;
   networkProfile: NetworkProfile;
   networkSettings?: NetworkSettings;
@@ -389,6 +393,14 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         .filter(account => account.networkId === network.id && account.address === address)
         .map(account => [account.id, ledgerReadInvalidation.getRevision(network.id, account.id)] as const);
     const claimableCache = new RealmClaimableCacheStore(realm);
+    const contractAssetStore = new RealmContractAssetStore(realm);
+    const contractAssets = createContractAssets({
+      reader: session.bind(createStellarContractTokenReader(network)),
+      store: contractAssetStore,
+      repository,
+      assertOpen: session.assertOpen,
+      now: Date.now,
+    });
     const claimables = createClaimableProduct({
       networkId: network.id,
       cache: claimableCache,
@@ -617,6 +629,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       themeImageSelection,
       xlmQuotes,
       creditFiatQuotes,
+      contractAssets,
       networkProfile,
       networkSettings,
       assetCatalog,
@@ -653,6 +666,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         historyCache,
         balanceCache,
         claimableCache,
+        contractAssets: contractAssetStore,
         dappPermissions,
         onDeleted: () => {
           if (

@@ -168,6 +168,7 @@ describe('Classic identity with separate network account contexts', () => {
       balanceCache: { clearPartition: jest.fn() },
       historyCache: { clearPartition: jest.fn() },
       claimableCache: { clearPartition: jest.fn() },
+      contractAssets: { clearPartition: jest.fn() },
       dappPermissions: { revokeAccount: jest.fn() },
     };
     expect(() => deleteLocalAccount(deps, account.id)).toThrow('account-delete-blocked-by-pending-submission');

@@ -24,6 +24,7 @@ export function walletRealmConfiguration(options: OpenWalletRealmOptions = {}): 
       // v12 adds public dApp detail/icon candidate evidence; grants stay independent.
       // v13 adds strictly public, network/account-scoped S11 claimable snapshots and user display spam overrides.
       // v14 adds network-scoped public Recent origins, separate from permission grants.
+      // v15 adds account/network/contract-scoped display-only tracked contract assets.
     },
   };
 }

@@ -33,12 +33,14 @@ import {
   WALLET_REALM_SCHEMAS,
   WALLET_REALM_SCHEMA_VERSION,
   DAPP_RECENT_SCHEMA,
+  CONTRACT_ASSET_SCHEMA,
 } from '../schemas';
 
-describe('Realm wallet schema v14', () => {
-  it('adds public Recent origins without changing wallet entity identities', () => {
-    expect(WALLET_REALM_SCHEMA_VERSION).toBe(14);
+describe('Realm wallet schema v15', () => {
+  it('adds public contract tracking without changing wallet entity identities', () => {
+    expect(WALLET_REALM_SCHEMA_VERSION).toBe(15);
     expect(WALLET_REALM_SCHEMAS).toEqual([
+      CONTRACT_ASSET_SCHEMA,
       DAPP_RECENT_SCHEMA,
       CLAIMABLE_CACHE_SCHEMA,
       CLAIMABLE_RISK_OVERRIDE_SCHEMA,

@@ -16,6 +16,7 @@ import { historySnapshot, payment } from '../../__tests__/historyCacheRepository
 import { RealmAccountSignerRepository } from '../RealmAccountSignerRepository';
 import { RealmBalanceCacheRepository } from '../RealmBalanceCacheRepository';
 import { RealmClaimableCacheStore } from '../RealmClaimableCacheStore';
+import { RealmContractAssetStore } from '../RealmContractAssetStore';
 import { RealmContactStore } from '../RealmContactStore';
 import { RealmDappPermissionStore } from '../RealmDappPermissionStore';
 import { RealmHistoryCacheRepository } from '../RealmHistoryCacheRepository';
@@ -52,6 +53,7 @@ function dependencies(realm: Realm) {
     balanceCache: new RealmBalanceCacheRepository(realm),
     historyCache: new RealmHistoryCacheRepository(realm),
     claimableCache: new RealmClaimableCacheStore(realm),
+    contractAssets: new RealmContractAssetStore(realm),
     dappPermissions: new RealmDappPermissionStore(realm),
     cacheNetworkIds: networks,
   };
@@ -84,6 +86,12 @@ function seedAddress(deps: ReturnType<typeof dependencies>, target: AccountRecor
     });
     deps.claimableCache.setUserSpam(networkId, target.address, claimId, true);
     deps.claimableCache.setUserSpam(networkId, target.address, orphanRiskId, false);
+    deps.contractAssets.replace({
+      networkId: networkId as 'stellar-mainnet' | 'stellar-testnet',
+      accountAddress: target.address, contractId: 'C' + 'A'.repeat(55),
+      metadata: { name: 'Token', symbol: 'TOK', decimals: 7 },
+      trackedAt: now.getTime(), attemptedAt: now.getTime(), balanceUnavailable: true,
+    });
   }
 }
 
@@ -101,6 +109,7 @@ function expectAddressCleared(deps: ReturnType<typeof dependencies>, target: Acc
     expect(deps.claimableCache.read(networkId, target.address)).toBeUndefined();
     expect(deps.claimableCache.userSpam(networkId, target.address, claimId)).toBeUndefined();
     expect(deps.claimableCache.userSpam(networkId, target.address, orphanRiskId)).toBeUndefined();
+    expect(deps.contractAssets.list(networkId, target.address)).toHaveLength(0);
   }
 }
 
@@ -112,6 +121,7 @@ function expectAddressPreserved(deps: ReturnType<typeof dependencies>, target: A
     expect(deps.claimableCache.read(networkId, target.address)?.records).toEqual([claim(target)]);
     expect(deps.claimableCache.userSpam(networkId, target.address, claimId)).toBe(true);
     expect(deps.claimableCache.userSpam(networkId, target.address, orphanRiskId)).toBe(false);
+    expect(deps.contractAssets.list(networkId, target.address)).toHaveLength(1);
   }
 }
 

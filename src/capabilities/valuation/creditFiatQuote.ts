@@ -1,4 +1,5 @@
 import type { BalanceAsset } from '../balance/types';
+import { walletAssetKey } from '../assets/walletAssetIdentity';
 import { NETWORKS } from '../network/networkPreferences';
 import type { PathPaymentQuoteGatewayPort } from '../path-payment/types';
 import { validatePaymentAsset } from '../payment/preparePayment';
@@ -56,7 +57,7 @@ export function createCreditFiatQuotes(
         throw new Error('credit-quote-unavailable');
       const sourceAsset = { kind: 'credit' as const, code: asset.code, issuer: asset.issuer };
       validatePaymentAsset(sourceAsset, deps.isClassicAccountAddress);
-      const key = assetKey(sourceAsset);
+      const key = walletAssetKey(MAINNET.id, sourceAsset);
       const xlm = await deps.xlmQuotes.load(currency, signal);
       assertCurrent(signal);
       const started = deps.now();
@@ -84,7 +85,7 @@ export function createCreditFiatQuotes(
       for (const route of routes) {
         if (
           route.sourceAsset.kind !== 'credit' ||
-          assetKey(route.sourceAsset) !== key ||
+          walletAssetKey(MAINNET.id, route.sourceAsset) !== key ||
           route.destinationAsset.kind !== 'native' ||
           stroops(route.sourceAmount) !== UNIT ||
           !Array.isArray(route.path) ||
@@ -93,7 +94,7 @@ export function createCreditFiatQuotes(
           throw new Error('credit-quote-unavailable');
         for (const intermediate of route.path) {
           validatePaymentAsset(intermediate, deps.isClassicAccountAddress);
-          if (intermediate.kind === 'native' || assetKey(intermediate) === key)
+          if (intermediate.kind === 'native' || assetKey(intermediate) === assetKey(sourceAsset))
             throw new Error('credit-quote-unavailable');
         }
         const destination = stroops(route.destinationAmount);
@@ -125,7 +126,7 @@ export function creditQuoteCurrent(
 ): boolean {
   return (
     quote.networkId === MAINNET.id &&
-    quote.assetKey === assetKey(asset) &&
+    quote.assetKey === walletAssetKey(MAINNET.id, asset) &&
     quote.currency === currency &&
     Number.isSafeInteger(quote.quotedAt) &&
     Number.isSafeInteger(quote.expiresAt) &&

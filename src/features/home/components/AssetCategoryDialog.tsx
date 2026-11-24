@@ -6,22 +6,32 @@ import { useThemedStyles } from '@ui/theme';
 import { useLocalization } from '../../../locale';
 import { createStyles } from '../styles';
 
-export type HomeAssetCategory = 'tokens' | 'claimable' | 'pools';
+export type HomeAssetCategory = 'tokens' | 'claimable' | 'pools' | 'contracts';
 
 type Props = Readonly<{
   visible: boolean;
   current: HomeAssetCategory;
   showClaimable: boolean;
   showPools?: boolean;
+  showContracts?: boolean;
   onClose: () => void;
   onSelect: (category: HomeAssetCategory) => void;
 }>;
 
-export function AssetCategoryDialog({ visible, current, showClaimable, showPools, onClose, onSelect }: Props) {
+export function AssetCategoryDialog({
+  visible,
+  current,
+  showClaimable,
+  showPools,
+  showContracts,
+  onClose,
+  onSelect,
+}: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const categories: HomeAssetCategory[] = [
     'tokens',
+    ...(showContracts ? ['contracts' as const] : []),
     ...(showPools ? ['pools' as const] : []),
     ...(showClaimable ? ['claimable' as const] : []),
   ];
@@ -45,9 +55,11 @@ export function AssetCategoryDialog({ visible, current, showClaimable, showPools
           accessibilityLabel={t(
             category === 'pools'
               ? 'market.pools'
-              : category === 'tokens'
-                ? 'claimable.category.assets'
-                : 'claimable.category.claimable',
+              : category === 'contracts'
+                ? 'assets.contract.category'
+                : category === 'tokens'
+                  ? 'claimable.category.assets'
+                  : 'claimable.category.claimable',
           )}
           accessibilityState={{ selected: current === category }}
           onPress={() => onSelect(category)}
@@ -57,9 +69,11 @@ export function AssetCategoryDialog({ visible, current, showClaimable, showPools
             {t(
               category === 'pools'
                 ? 'market.pools'
-                : category === 'tokens'
-                  ? 'claimable.category.assets'
-                  : 'claimable.category.claimable',
+                : category === 'contracts'
+                  ? 'assets.contract.category'
+                  : category === 'tokens'
+                    ? 'claimable.category.assets'
+                    : 'claimable.category.claimable',
             )}
           </Text>
         </Pressable>
