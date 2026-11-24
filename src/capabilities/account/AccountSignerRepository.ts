@@ -26,6 +26,7 @@ export interface AccountSignerRepository {
   upgradeWatchOnlyAccountWithSigner(registration: WatchOnlySignerUpgrade): void;
   attachSigner(accountId: string, signerId: string, createdAt: Date): void;
   detachSigner(accountId: string, signerId: string): void;
+  downgradeToReadOnly(accountId: string, expectedSignerId: string, expectedEnvelopeRevision: string | undefined): void;
   deleteAccount(accountId: string): void;
   getAccount(accountId: string): AccountRecord | undefined;
   getSigner(signerId: string): SignerRecord | undefined;

@@ -102,6 +102,17 @@ export class InMemoryAccountSignerRepository implements AccountSignerRepository 
     this.deleteOrphanSigners();
   }
 
+  downgradeToReadOnly(accountId: string, expectedSignerId: string, expectedEnvelopeRevision: string | undefined): void {
+    if (!this.accounts.has(accountId)) throw new Error('account-context-changed');
+    const references = [...this.references.values()].filter(reference => reference.accountId === accountId);
+    const signer = this.signers.get(expectedSignerId);
+    if (references.length !== 1 || references[0].signerId !== expectedSignerId ||
+        signer?.kind !== 'protected-software' || signer.envelopeRevision !== expectedEnvelopeRevision ||
+        signer.backupState === 'pending') throw new Error('account-context-changed');
+    this.references.delete(references[0].id);
+    this.deleteOrphanSigners();
+  }
+
   deleteAccount(accountId: string): void {
     this.accounts.delete(accountId);
 

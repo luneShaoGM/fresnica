@@ -67,6 +67,10 @@ export type GeneratedProvisionedAccount = ProvisionedAccount & {
 const protectedProvisions = new WeakMap<AccountSignerRepository, Promise<void>>();
 const provisioningObservers = new WeakMap<AccountSignerRepository, Set<() => void>>();
 
+export function isProtectedAccountProvisioning(repository: AccountSignerRepository): boolean {
+  return protectedProvisions.has(repository);
+}
+
 export class AccountProvisioningInProgressError extends Error {
   constructor() {
     super('account-provisioning-in-progress');

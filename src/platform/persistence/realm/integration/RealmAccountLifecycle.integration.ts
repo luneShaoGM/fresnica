@@ -38,6 +38,44 @@ afterAll(() => {
 });
 
 describe('Realm account lifecycle', () => {
+  it('keeps account identity and display caches after a read-only downgrade and reopen', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'fresnica-account-downgrade-'));
+    const path = join(directory, 'wallet.realm');
+    let activeRealm: Awaited<ReturnType<typeof openWalletRealm>> | undefined;
+    try {
+      activeRealm = await openWalletRealm({ path });
+      let repository = new RealmAccountSignerRepository(activeRealm);
+      const record = { ...account('account-a'), label: 'Keep', sortOrder: 3, hidden: true };
+      const signer = {
+        id: 'signer-a', publicKey: record.address, kind: 'protected-software' as const,
+        envelopeJson: '{opaque}', envelopeRevision: 'rev-1',
+        recoveryKind: 'secret' as const, backupState: 'not-required' as const,
+        createdAt, updatedAt: createdAt,
+      };
+      repository.createAccountWithSigner({ account: record, signer, attachedAt: createdAt });
+      const history = new RealmHistoryCacheRepository(activeRealm);
+      history.replaceSnapshot(
+        { networkId: record.networkId, accountAddress: record.address },
+        historySnapshot([payment('kept-history')]),
+      );
+      repository.downgradeToReadOnly(record.id, signer.id, signer.envelopeRevision);
+      activeRealm.close();
+      activeRealm = undefined;
+
+      activeRealm = await openWalletRealm({ path });
+      repository = new RealmAccountSignerRepository(activeRealm);
+      expect(repository.getAccount(record.id)).toEqual(record);
+      expect(repository.isWatchOnly(record.id)).toBe(true);
+      expect(repository.getSigner(signer.id)).toBeUndefined();
+      expect(new RealmHistoryCacheRepository(activeRealm).getSnapshot({
+        networkId: record.networkId, accountAddress: record.address,
+      })).toBeDefined();
+    } finally {
+      activeRealm?.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it('persists hidden state across reopen and can restore the account', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'fresnica-account-visibility-'));
     const path = join(directory, 'wallet.realm');

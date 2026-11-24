@@ -316,4 +316,34 @@ export function runAccountSignerRepositoryContract(
     repository.deleteAccount('account-b');
     expect(repository.getSigner('shared')).toBeUndefined();
   });
+
+  it('downgrades one account atomically and preserves its record and a shared signer', () => {
+    const repository = createRepository();
+    const first = account('account-a', 'Gshared');
+    const second = account('account-b', 'Gshared', 'stellar-mainnet');
+    repository.createAccount(first);
+    repository.createAccount(second);
+    repository.createSigner({ ...signer('shared'), publicKey: 'Gshared' });
+    repository.attachSigner(first.id, 'shared', now);
+    repository.attachSigner(second.id, 'shared', now);
+
+    expect(() => repository.downgradeToReadOnly(first.id, 'shared', 'stale')).toThrow('account-context-changed');
+    expect(repository.isWatchOnly(first.id)).toBe(false);
+    repository.downgradeToReadOnly(first.id, 'shared', 'rev-1');
+
+    expect(repository.getAccount(first.id)).toEqual(first);
+    expect(repository.isWatchOnly(first.id)).toBe(true);
+    expect(repository.getSigner('shared')).toBeDefined();
+    expect(repository.isWatchOnly(second.id)).toBe(false);
+  });
+
+  it('removes an orphan signer only when the final account reference is downgraded', () => {
+    const repository = createRepository();
+    repository.createAccount(account('account-a', 'Gshared'));
+    repository.createSigner({ ...signer('shared'), publicKey: 'Gshared' });
+    repository.attachSigner('account-a', 'shared', now);
+    repository.downgradeToReadOnly('account-a', 'shared', 'rev-1');
+    expect(repository.getSigner('shared')).toBeUndefined();
+    expect(repository.getAccount('account-a')).toBeDefined();
+  });
 }

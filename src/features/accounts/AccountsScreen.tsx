@@ -13,6 +13,7 @@ import { useThemedStyles } from '@ui/theme';
 
 type Props = Readonly<{
   accounts: readonly AccountRecord[];
+  accessForAccount?: (accountId: string) => 'read-only' | 'full-access' | undefined;
   onOpenAccount: (accountId: string) => void;
   onAddAccount: () => void;
   onMoveAccount: (accountId: string, direction: AccountMoveDirection) => void | Promise<void>;
@@ -22,6 +23,7 @@ type Props = Readonly<{
 
 export function AccountsScreen({
   accounts,
+  accessForAccount,
   onOpenAccount,
   onAddAccount,
   onMoveAccount,
@@ -77,6 +79,17 @@ export function AccountsScreen({
                       <View style={styles.accessBadge}>
                         <Text style={styles.accessBadgeText}>{account.identityKind}</Text>
                       </View>
+                      {accessForAccount?.(account.id) ? (
+                        <View style={styles.accessBadge}>
+                          <Text style={styles.accessBadgeText}>
+                            {t(
+                              accessForAccount(account.id) === 'read-only'
+                                ? 'accounts.downgrade.readOnly'
+                                : 'accounts.downgrade.fullAccess',
+                            )}
+                          </Text>
+                        </View>
+                      ) : null}
                       {account.hidden ? (
                         <View style={styles.hiddenBadge}>
                           <Text style={styles.hiddenBadgeText}>Hidden</Text>

@@ -15,6 +15,7 @@ const strictPresentationScopes = [
   'src/features/home/',
   'src/features/accounts/CopyAddressButton',
   'src/features/accounts/AccountsScreen',
+  'src/features/accounts/AccountDetailsScreen',
   'src/features/settings/NetworkSettingsScreen',
   'src/features/settings/NetworkNodeHealth',
   'src/features/settings/NetworkManagement',

@@ -1,14 +1,16 @@
 import { AccountAvatar } from '../contacts/AccountAvatar';
-import React, {useState} from 'react';
-import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import React, {useEffect, useRef, useState} from 'react';
+import {Pressable, ScrollView, Text, View} from 'react-native';
 
 import {AppModal, Button, Field, Screen} from '@ui/components';
+import {PassphrasePrompt} from '@ui/components/PassphrasePrompt/PassphrasePrompt';
+import type {PassphraseInputHandle} from '@ui/components/PassphraseInput/PassphraseInput';
 
 import type {AccountRecord} from '../../capabilities/account/types';
 import {useLocalization} from '../../locale';
 import { CopyAddressButton } from './CopyAddressButton';
-import {useThemedStyles, type AppTheme} from '@ui/theme';
-import { contrastText } from '@ui/theme/appearanceTheme';
+import {useThemedStyles} from '@ui/theme';
+import {createAccountDetailsStyles} from './styles';
 
 type Props = Readonly<{
   account: AccountRecord;
@@ -19,6 +21,9 @@ type Props = Readonly<{
   onRename: (label: string) => void | Promise<void>;
   onToggleHidden: () => void | Promise<void>;
   onDelete: () => void | Promise<void>;
+  canDowngrade: boolean;
+  readOnly: boolean;
+  onDowngrade: (passphrase: string, signal: AbortSignal) => Promise<void>;
   copyPublicText: (text: string) => Promise<void>;
   onOpenRecovery?: () => void;
   onBack: () => void;
@@ -35,12 +40,15 @@ export function AccountDetailsScreen({
   onRename,
   onToggleHidden,
   onDelete,
+  canDowngrade,
+  readOnly,
+  onDowngrade,
   onBack,
   copyPublicText,
   onOpenRecovery,
 }: Props) {
   const {t} = useLocalization();
-  const styles = useThemedStyles(createStyles);
+  const styles = useThemedStyles(createAccountDetailsStyles);
   const [renameVisible, setRenameVisible] = useState(false);
   const [draftLabel, setDraftLabel] = useState(account.label);
   const [renameState, setRenameState] = useState<'idle' | 'saving' | 'error'>('idle');
@@ -48,6 +56,54 @@ export function AccountDetailsScreen({
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [deleteState, setDeleteState] = useState<'idle' | 'deleting'>('idle');
   const [deleteError, setDeleteError] = useState<DeleteError | undefined>();
+  const [downgradeStep, setDowngradeStep] = useState<'closed' | 'warning' | 'passphrase' | 'busy'>('closed');
+  const [downgradeError, setDowngradeError] = useState<string | undefined>();
+  const [hasPassphrase, setHasPassphrase] = useState(false);
+  const passphraseInput = useRef<PassphraseInputHandle>(null);
+  const downgradeOwner = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const field = passphraseInput.current;
+    if (!active) {
+      downgradeOwner.current?.abort();
+      field?.clear();
+      setDowngradeStep('closed');
+    }
+    return () => {
+      downgradeOwner.current?.abort();
+      field?.clear();
+    };
+  }, [active]);
+
+  const cancelDowngrade = () => {
+    downgradeOwner.current?.abort();
+    downgradeOwner.current = null;
+    passphraseInput.current?.clear();
+    setDowngradeStep('closed');
+    setDowngradeError(undefined);
+  };
+
+  const confirmDowngrade = async () => {
+    if (downgradeStep !== 'passphrase' || downgradeOwner.current) return;
+    const passphrase = passphraseInput.current?.consume();
+    if (!passphrase) return;
+    const owner = new AbortController();
+    downgradeOwner.current = owner;
+    setDowngradeStep('busy');
+    setDowngradeError(undefined);
+    try {
+      await onDowngrade(passphrase, owner.signal);
+      if (!owner.signal.aborted) setDowngradeStep('closed');
+    } catch (error) {
+      if (!owner.signal.aborted) {
+        setDowngradeError(error instanceof Error && error.message === 'invalid-passcode'
+          ? t('accounts.downgrade.wrongPassphrase') : t('accounts.downgrade.error'));
+        setDowngradeStep('passphrase');
+      }
+    } finally {
+      if (downgradeOwner.current === owner) downgradeOwner.current = null;
+    }
+  };
 
   const openRename = () => {
     setDraftLabel(account.label);
@@ -136,7 +192,7 @@ export function AccountDetailsScreen({
           <DetailRow label="Visibility" value={account.hidden ? 'Hidden' : 'Visible'} styles={styles} />
         </View>
 
-        {!account.hidden ? (
+        {!account.hidden && !readOnly ? (
           <>
             <Text style={styles.sectionLabel}>Wallet actions</Text>
             <View style={styles.actionRow}>
@@ -150,9 +206,11 @@ export function AccountDetailsScreen({
           </>
         ) : null}
 
-        {onOpenRecovery ? <View style={styles.actionRow}><Button label={t('recovery.title')} onPress={onOpenRecovery} variant="secondary" /></View> : null}
+        {onOpenRecovery && !readOnly ? <View style={styles.actionRow}><Button label={t('recovery.title')} onPress={onOpenRecovery} variant="secondary" /></View> : null}
         <Text style={styles.sectionLabel}>{t('accounts.localActions')}</Text>
         <View style={styles.actionRow}>
+          {readOnly || canDowngrade ? <Text style={styles.lifecycleNote}>{readOnly ? t('accounts.downgrade.readOnly') : t('accounts.downgrade.fullAccess')}</Text> : null}
+          {canDowngrade ? <Button label={t('accounts.downgrade.open')} onPress={() => setDowngradeStep('warning')} variant="secondary" /> : null}
           <Button
             disabled={visibilityState === 'saving' || (!account.hidden && !canHide)}
             label={
@@ -223,6 +281,35 @@ export function AccountDetailsScreen({
       </AppModal>
 
       <AppModal
+        title={t('accounts.downgrade.title')}
+        description={t('accounts.downgrade.warning')}
+        visible={downgradeStep === 'warning'}
+        onRequestClose={cancelDowngrade}
+        scrollable>
+        <View style={styles.renameActions}>
+          <Button label={t('accounts.downgrade.continue')} onPress={() => setDowngradeStep('passphrase')} />
+          <Button label={t('accounts.delete.cancel')} onPress={cancelDowngrade} variant="secondary" />
+        </View>
+      </AppModal>
+      <PassphrasePrompt
+        visible={downgradeStep === 'passphrase' || downgradeStep === 'busy'}
+        active={active}
+        busy={downgradeStep === 'busy'}
+        title={t('accounts.downgrade.title')}
+        label={t('accounts.downgrade.passphrase')}
+        hint={t('accounts.downgrade.passphraseHint')}
+        confirmLabel={t('accounts.downgrade.confirm')}
+        cancelLabel={t('accounts.delete.cancel')}
+        inputRef={passphraseInput}
+        hasValue={hasPassphrase}
+        onPresenceChange={setHasPassphrase}
+        onConfirm={confirmDowngrade}
+        onCancel={cancelDowngrade}
+        onExpire={cancelDowngrade}
+        error={downgradeError}
+      />
+
+      <AppModal
         description={t('accounts.delete.description')}
         onRequestClose={closeDelete}
         title={t('accounts.delete.title')}
@@ -262,7 +349,7 @@ function deleteErrorKey(error: DeleteError): string {
   return 'accounts.delete.error';
 }
 
-type Styles = ReturnType<typeof createStyles>;
+type Styles = ReturnType<typeof createAccountDetailsStyles>;
 
 function DetailRow({label, value, styles}: Readonly<{label: string; value: string; styles: Styles}>) {
   return (
@@ -271,56 +358,4 @@ function DetailRow({label, value, styles}: Readonly<{label: string; value: strin
       <Text numberOfLines={2} selectable style={styles.detailValue}>{value}</Text>
     </View>
   );
-}
-
-function createStyles(theme: AppTheme) {
-  return StyleSheet.create({
-  header: {
-    minHeight: 58,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.border,
-  },
-  backButton: {width: 42, height: 42, alignItems: 'center', justifyContent: 'center'},
-  backGlyph: {fontSize: 36, lineHeight: 38, fontWeight: '300', color: theme.colors.surfaceStrong},
-  title: {flex: 1, textAlign: 'center', paddingVertical: theme.spacing.sm, fontSize: 18, lineHeight: 22, fontWeight: '800', color: theme.colors.textPrimary},
-  headerSpacer: {width: 42},
-  content: {paddingBottom: 34},
-  identityBlock: {alignItems: 'center', paddingHorizontal: 24, paddingTop: 28, paddingBottom: 24, gap: 8},
-  accountLabel: {fontSize: 20, lineHeight: 25, fontWeight: '800', color: theme.colors.textPrimary},
-  address: {fontSize: 10, lineHeight: 15, color: theme.colors.textSecondary, textAlign: 'center', fontVariant: ['tabular-nums']},
-  section: {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border},
-  detailRow: {
-    minHeight: 55,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.border,
-    gap: 20,
-  },
-  detailLabel: {maxWidth: '45%', flexShrink: 1, fontSize: 13, lineHeight: 17, color: theme.colors.textPrimary, fontWeight: '600'},
-  detailValue: {flex: 1, fontSize: 12, lineHeight: 16, color: theme.colors.textSecondary, textAlign: 'right'},
-  sectionLabel: {paddingHorizontal: 18, paddingTop: 24, paddingBottom: 8, fontSize: 11, color: theme.colors.textTertiary, fontWeight: '700'},
-  actionRow: {paddingHorizontal: 18, gap: 10},
-  primaryAction: {minHeight: 52, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.actionPrimary},
-  primaryActionText: {fontSize: 15, color: theme.colors.onActionPrimary, fontWeight: '800'},
-  secondaryAction: {minHeight: 52, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surfaceMuted},
-  secondaryActionText: {fontSize: 15, color: theme.colors.surfaceStrong, fontWeight: '800'},
-  deleteAction: {minHeight: 52, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.negative},
-  deleteActionText: {fontSize: 15, color: theme.colors.negative, fontWeight: '800'},
-  deleteConfirm: {minHeight: 48, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.negative},
-  deleteConfirmText: {textAlign: 'center', fontSize: 15, color: contrastText(theme.colors.negative), fontWeight: '800'},
-  lifecycleNote: {...theme.typography.caption, color: theme.colors.textTertiary},
-  lifecycleError: {...theme.typography.body, color: theme.colors.negative},
-  note: {paddingHorizontal: 22, paddingTop: 18, fontSize: 10, lineHeight: 15, color: theme.colors.textTertiary, textAlign: 'center'},
-  renameContent: {gap: theme.spacing.md},
-  renameActions: {gap: theme.spacing.sm},
-  renameError: {...theme.typography.body, color: theme.colors.negative},
-  pressed: {opacity: 0.68},
-  disabled: {opacity: 0.45},
-  });
 }

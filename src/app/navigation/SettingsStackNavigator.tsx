@@ -11,6 +11,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { moveAccount, orderAccounts } from '@capabilities/account/accountOrder';
 import { setAccountHidden } from '@capabilities/account/accountVisibility';
 import { deleteLocalAccount } from '@capabilities/account/deleteLocalAccount';
+import { canDowngradeLocalAccount, downgradeLocalAccount } from '@capabilities/account/downgradeLocalAccount';
 import { renameAccount } from '@capabilities/account/renameAccount';
 import type { AccountRecord } from '@capabilities/account/types';
 import { AddressBookScreen } from '@features/contacts/AddressBookScreen';
@@ -128,6 +129,9 @@ export function SettingsStackNavigator({
         {({ navigation }) => (
           <AccountsScreen
             accounts={orderedAccountList}
+            accessForAccount={accountId => services.accountManagement.repository.isWatchOnly(accountId)
+              ? 'read-only'
+              : canDowngradeLocalAccount(services.accountManagement.repository, accountId) ? 'full-access' : undefined}
             copyPublicText={services.copyPublicText}
             onBack={() => navigation.goBack()}
             onOpenAccount={accountId => navigation.navigate('account-details', { accountId })}
@@ -161,6 +165,25 @@ export function SettingsStackNavigator({
                 deleteLocalAccount(services.accountManagement, account.id);
                 navigation.popToTop();
                 onAccountsChanged();
+              }}
+              canDowngrade={canDowngradeLocalAccount(services.accountManagement.repository, account.id)}
+              readOnly={services.accountManagement.repository.isWatchOnly(account.id)}
+              onDowngrade={(passphrase, signal) => {
+                const revision = services.applicationSession?.getSnapshot().revision;
+                return downgradeLocalAccount({
+                  repository: services.accountManagement.repository,
+                  pendingSubmissions: services.accountManagement.pendingSubmissions,
+                  sdk: services.security.sdk,
+                  networkId: services.networkProfile.id,
+                  onDowngraded: () => services.applicationSession?.retireSensitiveResults(),
+                  assertCurrent: () => {
+                    const session = services.applicationSession?.getSnapshot();
+                    if (!navigation.isFocused() || (session && (!session.foreground || session.locked || session.revision !== revision)))
+                      throw new Error('account-context-changed');
+                  },
+                }, account.id, passphrase, signal).then(() => {
+                  onAccountsChanged();
+                });
               }}
               onSend={() => onSend(account.id)}
               onManageAssets={() => onManageAssets(account.id)}

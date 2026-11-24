@@ -96,6 +96,23 @@ describe('AccountsScreen sort controls', () => {
     jest.restoreAllMocks();
   });
 
+  it('shows read-only access on the account list after downgrade refresh', () => {
+    const root = AccountsScreen({
+      accounts: [account('one')],
+      accessForAccount: () => 'read-only',
+      copyPublicText: jest.fn(async () => undefined),
+      onBack: jest.fn(),
+      onOpenAccount: jest.fn(),
+      onAddAccount: jest.fn(),
+      onMoveAccount: jest.fn(),
+    });
+    const labels: string[] = [];
+    visit(root, element => {
+      if (typeof element.props.children === 'string') labels.push(element.props.children);
+    });
+    expect(labels).toContain('accounts.downgrade.readOnly');
+  });
+
   it('keeps Accounts Back wired to onBack with its natural width and a flexible title', () => {
     const onBack = jest.fn();
     const onOpenAccount = jest.fn();

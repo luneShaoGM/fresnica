@@ -45,6 +45,7 @@ type Props = Readonly<{
   account: AccountRecord;
   accountCount: number;
   selectableAccounts: readonly AccountRecord[];
+  isReadOnlyAccount?: (accountId: string) => boolean;
   balanceDependencies: BalanceProductDependencies;
   friendbotDependencies: FriendbotDependencies;
   canSign: boolean;
@@ -75,6 +76,7 @@ export function HomeScreen({
   account,
   accountCount,
   selectableAccounts,
+  isReadOnlyAccount,
   balanceDependencies,
   friendbotDependencies,
   canSign,
@@ -353,6 +355,7 @@ export function HomeScreen({
       </View>
       <AccountPickerModal
         accounts={selectableAccounts}
+        isReadOnly={isReadOnlyAccount}
         onRequestClose={() => setAccountPickerVisible(false)}
         onSelectAccount={onSelectAccount}
         selectedAccountId={account.id}

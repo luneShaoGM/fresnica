@@ -10,13 +10,21 @@ import { createStyles } from './AccountPickerModal.styles';
 
 type Props = Readonly<{
   accounts: readonly AccountRecord[];
+  isReadOnly?: (accountId: string) => boolean;
   selectedAccountId: string;
   visible: boolean;
   onRequestClose: () => void;
   onSelectAccount: (accountId: string) => void | Promise<void>;
 }>;
 
-export function AccountPickerModal({ accounts, selectedAccountId, visible, onRequestClose, onSelectAccount }: Props) {
+export function AccountPickerModal({
+  accounts,
+  isReadOnly,
+  selectedAccountId,
+  visible,
+  onRequestClose,
+  onSelectAccount,
+}: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const [selectingAccountId, setSelectingAccountId] = useState<string | undefined>();
@@ -62,10 +70,11 @@ export function AccountPickerModal({ accounts, selectedAccountId, visible, onReq
       <ScrollView contentContainerStyle={styles.list} style={styles.scroll}>
         {accounts.map(account => {
           const selected = account.id === selectedAccountId;
+          const readOnly = isReadOnly?.(account.id) === true;
           const disabled = selectingAccountId !== undefined;
           return (
             <Pressable
-              accessibilityLabel={account.label || account.address}
+              accessibilityLabel={`${account.label || account.address}${readOnly ? `, ${t('accounts.downgrade.readOnly')}` : ''}`}
               accessibilityRole="radio"
               accessibilityState={{ disabled, selected }}
               disabled={disabled}
@@ -85,6 +94,7 @@ export function AccountPickerModal({ accounts, selectedAccountId, visible, onReq
                 <Text numberOfLines={1} style={styles.address}>
                   {account.address}
                 </Text>
+                {readOnly ? <Text style={styles.address}>{t('accounts.downgrade.readOnly')}</Text> : null}
               </View>
               {selected ? <Text style={styles.current}>{t('accounts.select.current')}</Text> : null}
             </Pressable>

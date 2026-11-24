@@ -132,6 +132,20 @@ test('old SDK output cannot escape across a background or lock transition', asyn
   expect(native).toHaveBeenCalledTimes(1);
 });
 
+test('a durable signer downgrade retires older signing results without locking browsing', async () => {
+  const f = fixture();
+  f.session.setForeground(true);
+  await f.session.unlock('fixture phrase');
+  let finish!: (value: string) => void;
+  const sdk = f.session.bindSensitive({ sign: () => new Promise<string>(resolve => { finish = resolve; }) });
+  const pending = sdk.sign();
+  const revision = f.session.getSnapshot().revision;
+  f.session.retireSensitiveResults();
+  expect(f.session.getSnapshot()).toMatchObject({ locked: false, revision: revision + 1 });
+  finish('stale-signature');
+  await expect(pending).rejects.toThrow('session-retired');
+});
+
 test('a retired review cannot begin signing after a later successful unlock', async () => {
   const f = fixture();
   f.session.setForeground(true);

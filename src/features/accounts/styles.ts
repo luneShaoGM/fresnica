@@ -1,6 +1,7 @@
 import { StyleSheet } from 'react-native';
 
 import type { AppTheme } from '@ui/theme';
+import { contrastText } from '@ui/theme/appearanceTheme';
 
 export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
@@ -90,5 +91,124 @@ export function createStyles(theme: AppTheme) {
     addButtonContainer: { marginHorizontal: 20, marginTop: 4 },
     addIcon: { fontSize: 20, lineHeight: 22, color: theme.colors.onActionPrimary, fontWeight: '600' },
     pressed: { opacity: 0.68 },
+  });
+}
+
+export function createAccountDetailsStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    header: {
+      minHeight: 58,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.border,
+    },
+    backButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
+    backGlyph: { fontSize: 36, lineHeight: 38, fontWeight: '300', color: theme.colors.surfaceStrong },
+    title: {
+      flex: 1,
+      textAlign: 'center',
+      paddingVertical: theme.spacing.sm,
+      fontSize: 18,
+      lineHeight: 22,
+      fontWeight: '800',
+      color: theme.colors.textPrimary,
+    },
+    headerSpacer: { width: 42 },
+    content: { paddingBottom: 34 },
+    identityBlock: { alignItems: 'center', paddingHorizontal: 24, paddingTop: 28, paddingBottom: 24, gap: 8 },
+    accountLabel: { fontSize: 20, lineHeight: 25, fontWeight: '800', color: theme.colors.textPrimary },
+    address: {
+      fontSize: 10,
+      lineHeight: 15,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+      fontVariant: ['tabular-nums'],
+    },
+    section: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
+    detailRow: {
+      minHeight: 55,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 18,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.border,
+      gap: 20,
+    },
+    detailLabel: {
+      maxWidth: '45%',
+      flexShrink: 1,
+      fontSize: 13,
+      lineHeight: 17,
+      color: theme.colors.textPrimary,
+      fontWeight: '600',
+    },
+    detailValue: { flex: 1, fontSize: 12, lineHeight: 16, color: theme.colors.textSecondary, textAlign: 'right' },
+    sectionLabel: {
+      paddingHorizontal: 18,
+      paddingTop: 24,
+      paddingBottom: 8,
+      fontSize: 11,
+      color: theme.colors.textTertiary,
+      fontWeight: '700',
+    },
+    actionRow: { paddingHorizontal: 18, gap: 10 },
+    primaryAction: {
+      minHeight: 52,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.actionPrimary,
+    },
+    primaryActionText: { fontSize: 15, color: theme.colors.onActionPrimary, fontWeight: '800' },
+    secondaryAction: {
+      minHeight: 52,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.surfaceMuted,
+    },
+    secondaryActionText: { fontSize: 15, color: theme.colors.surfaceStrong, fontWeight: '800' },
+    deleteAction: {
+      minHeight: 52,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: theme.colors.negative,
+    },
+    deleteActionText: { fontSize: 15, color: theme.colors.negative, fontWeight: '800' },
+    deleteConfirm: {
+      minHeight: 48,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.negative,
+    },
+    deleteConfirmText: {
+      textAlign: 'center',
+      fontSize: 15,
+      color: contrastText(theme.colors.negative),
+      fontWeight: '800',
+    },
+    lifecycleNote: { ...theme.typography.caption, color: theme.colors.textTertiary },
+    lifecycleError: { ...theme.typography.body, color: theme.colors.negative },
+    note: {
+      paddingHorizontal: 22,
+      paddingTop: 18,
+      fontSize: 10,
+      lineHeight: 15,
+      color: theme.colors.textTertiary,
+      textAlign: 'center',
+    },
+    renameContent: { gap: theme.spacing.md },
+    renameActions: { gap: theme.spacing.sm },
+    renameError: { ...theme.typography.body, color: theme.colors.negative },
+    pressed: { opacity: 0.68 },
+    disabled: { opacity: 0.45 },
   });
 }

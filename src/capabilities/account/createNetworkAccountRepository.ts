@@ -36,6 +36,7 @@ export function createNetworkAccountRepository(
     upgradeWatchOnlyAccountWithSigner: registration => records.upgradeWatchOnlyAccountWithSigner(registration),
     attachSigner: (accountId, signerId, createdAt) => records.attachSigner(accountId, signerId, createdAt),
     detachSigner: (accountId, signerId) => records.detachSigner(accountId, signerId),
+    downgradeToReadOnly: (accountId, signerId, revision) => records.downgradeToReadOnly(accountId, signerId, revision),
     deleteAccount: id => records.deleteAccount(id),
     getSigner: id => records.getSigner(id),
     listSigners: () => records.listSigners(),

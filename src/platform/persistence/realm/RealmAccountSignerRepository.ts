@@ -132,6 +132,19 @@ export class RealmAccountSignerRepository implements AccountSignerRepository {
     });
   }
 
+  downgradeToReadOnly(accountId: string, expectedSignerId: string, expectedEnvelopeRevision: string | undefined): void {
+    this.realm.write(() => {
+      if (!this.realm.objectForPrimaryKey(ACCOUNT_ENTITY, accountId)) throw new Error('account-context-changed');
+      const references = this.realm.objects(ACCOUNT_SIGNER_REFERENCE_ENTITY).filtered('accountId == $0', accountId);
+      const signer = this.getSigner(expectedSignerId);
+      if (references.length !== 1 || (references[0] as unknown as { signerId: string }).signerId !== expectedSignerId ||
+          signer?.kind !== 'protected-software' || signer.envelopeRevision !== expectedEnvelopeRevision ||
+          signer.backupState === 'pending') throw new Error('account-context-changed');
+      this.realm.delete(references);
+      this.deleteOrphanSigners();
+    });
+  }
+
   deleteAccount(accountId: string): void {
     this.realm.write(() => {
       const account = this.realm.objectForPrimaryKey(ACCOUNT_ENTITY, accountId);

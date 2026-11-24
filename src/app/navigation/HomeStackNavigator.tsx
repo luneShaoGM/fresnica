@@ -142,6 +142,7 @@ export function HomeStackNavigator({
               account={selectedAccount}
               accountCount={selectableAccounts.length}
               selectableAccounts={selectableAccounts}
+              isReadOnlyAccount={accountId => services.onboarding.repository.isWatchOnly(accountId)}
               balanceDependencies={services.balance}
               friendbotDependencies={services.friendbot}
               canSign={canSign}

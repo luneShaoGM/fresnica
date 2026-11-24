@@ -103,6 +103,24 @@ export function createApplicationSession(
       if (closed) return;
       publish();
     },
+    retireSensitiveResults() {
+      if (closed) return;
+      // This follows a durable signer detach: retirement must complete without
+      // turning a successful write into a retryable UI failure.
+      revision += 1;
+      try {
+        deps.sessionAuthentication?.cancel();
+      } catch {
+        // The revision already invalidates older sensitive results.
+      }
+      active?.abort();
+      active = undefined;
+      try {
+        publish();
+      } catch {
+        // An observer cannot undo the durable signer detach.
+      }
+    },
     lock() {
       if (closed || !requiresExistingAppPassphrase(deps.repository)) return;
       interrupt();

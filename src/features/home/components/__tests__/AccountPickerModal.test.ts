@@ -108,6 +108,23 @@ describe('AccountPickerModal', () => {
     expect(onRequestClose).toHaveBeenCalledTimes(1);
   });
 
+  it('marks a downgraded account as read-only after account refresh', () => {
+    const root = AccountPickerModal({
+      accounts: [account('one', 0), account('two', 1)],
+      isReadOnly: id => id === 'one',
+      selectedAccountId: 'one',
+      visible: true,
+      onRequestClose: jest.fn(),
+      onSelectAccount: jest.fn(),
+    });
+    const labels: string[] = [];
+    visit(root, element => {
+      if (typeof element.props.children === 'string') labels.push(element.props.children);
+    });
+    expect(labels).toContain('accounts.downgrade.readOnly');
+    expect(findByLabel(root, 'one, accounts.downgrade.readOnly')).toBeDefined();
+  });
+
   it('retries default persistence when the already-current account is selected explicitly', async () => {
     const onSelectAccount = jest.fn().mockRejectedValue(new Error('write-failed'));
     const onRequestClose = jest.fn();
