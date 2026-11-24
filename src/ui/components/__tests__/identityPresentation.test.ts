@@ -119,7 +119,7 @@ it('batches all identity cells into one local SVG path instead of native cell vi
   expect(path.props.d).toMatch(/^(M[0-4] [0-4]h1v1h-1Z)+$/);
 });
 
-it.each(['card', 'compact', 'selectable'] as const)('preserves the supplied user avatar in %s cards', presentation => {
+it.each(['card', 'compact', 'compact-card', 'selectable'] as const)('preserves the supplied user avatar in %s cards', presentation => {
   const avatar = React.createElement(AccountAvatarImage, { uri: 'data:image/png;base64,AAAA' });
   const root = AccountIdentityCard({
     address: 'GCOUNTERPARTY',
@@ -139,4 +139,17 @@ it('places the supplied card action indicator after the identity without making 
   });
   expect(nodes(root, Text).at(-1)).toBe(trailing);
   expect(nodes(root, Pressable)).toHaveLength(0);
+});
+
+
+it.each(['Alice', ''])('renders a compact detail card without duplicating the address or adding a nested action (%s)', name => {
+  const address = 'GCOUNTERPARTY';
+  const trailing = React.createElement(Text, {}, '⋯');
+  const root = AccountIdentityCard({ address, name, label: 'Recipient', secondary: 'Saved contact', presentation: 'compact-card', trailing });
+  expect(nodes(root, Text).map(node => node.props.children)).toEqual([
+    ...(name ? [name] : []), 'GCOU...ARTY', 'Recipient', 'Saved contact', '⋯',
+  ]);
+  expect(nodes(root, Text).at(-1)).toBe(trailing);
+  expect(nodes(root, Pressable)).toHaveLength(0);
+  expect(nodes(root, Text).some(node => node.props.selectable)).toBe(false);
 });

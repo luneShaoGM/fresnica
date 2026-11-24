@@ -19,6 +19,8 @@ export function createStyles(theme: AppTheme) {
     },
     pressed: { backgroundColor: theme.colors.surfaceMuted },
     compactIdentity: { minWidth: 0 },
+    compactRole: { maxWidth: '36%', flexShrink: 1, gap: theme.spacing.xs },
+    roleText: { textAlign: 'right' },
     identity: { flex: 1, minWidth: 0, gap: theme.spacing.xs },
     label: { ...theme.typography.caption, color: theme.colors.textSecondary },
     name: { ...theme.typography.label, color: theme.colors.textPrimary },

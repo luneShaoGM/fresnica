@@ -67,6 +67,8 @@ export function createStyles(theme: AppTheme) {
     address: { fontSize: 11, lineHeight: 15, color: theme.colors.textSecondary, fontVariant: ['tabular-nums'] },
     copyBlock: { alignSelf: 'stretch', maxWidth: '100%' },
     copyAddressRow: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
+    copyAddressRowEnd: { justifyContent: 'flex-end' },
+    copyFeedbackEnd: { textAlign: 'right' },
     copyAddressText: { flexShrink: 1, minWidth: 0 },
     copyButton: { width: 44, height: 44, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
     copyFeedback: { fontSize: 12, lineHeight: 16, color: theme.colors.textSecondary },

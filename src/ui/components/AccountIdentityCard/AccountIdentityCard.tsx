@@ -19,7 +19,7 @@ export function AccountIdentityCard({
   address: string;
   name: string;
   label: string;
-  presentation?: 'card' | 'compact' | 'selectable';
+  presentation?: 'card' | 'compact' | 'compact-card' | 'selectable';
   secondary?: string;
   avatar?: React.ReactNode;
   trailing?: React.ReactNode;
@@ -39,6 +39,28 @@ export function AccountIdentityCard({
             {secondary ?? label}
           </Text>
         </View>
+      </View>
+    );
+  }
+  if (presentation === 'compact-card') {
+    return (
+      <View style={styles.card}>
+        {avatar ?? <AccountAvatarImage />}
+        <View style={styles.identity}>
+          <Text numberOfLines={2} style={styles.name}>
+            {name.trim() || formatPublicAddress(address)}
+          </Text>
+          {name.trim() ? (
+            <Text accessibilityLabel={address} style={styles.address}>
+              {formatPublicAddress(address)}
+            </Text>
+          ) : null}
+        </View>
+        <View style={styles.compactRole}>
+          <Text style={[styles.label, styles.roleText]}>{label}</Text>
+          {secondary ? <Text style={[styles.label, styles.roleText]}>{secondary}</Text> : null}
+        </View>
+        {trailing}
       </View>
     );
   }

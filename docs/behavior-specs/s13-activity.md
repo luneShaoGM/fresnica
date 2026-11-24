@@ -372,3 +372,41 @@ cards show a decorative trailing ellipsis and localized more-actions accessibili
 hint; the whole existing card opens the same menu. No extra ledger action,
 identity lookup, secret exposure, or network request is introduced. Automated
 presentation checks and simulator/helper evidence do not imply native acceptance.
+
+
+## Compact operation details (owner request, 2026-11-24)
+
+S13, Stage 4; Phase 0 passed and existing theme/component foundations reused.
+Decision: Adapt / clean-room of the Activity detail role, driven by the owner's
+new layout decision, not a donor-source port. Feature presentation, existing
+shared UI and the App composition of the public clipboard port only.
+
+- Compact actionable participant cards place the name and shortened address next
+  to the avatar, with role/source and the existing action indicator on the right.
+  The original contact/identity lookup and action menu stay authoritative.
+- Transfer details display other exact participant identities; the currently
+  viewed exact identity and its roles remain available in a collapsed
+  participation disclosure instead of a redundant card. Another local account
+  is still a counterparty. Preserve distinct muxed identities even if they share
+  the viewed base account. Non-transfer operation evidence and roles stay visible;
+  the current account is shown as plain evidence rather than an actionable card.
+- Payment and both actual path legs retain exact amounts and asset codes, with
+  existing TokenAssetIcon (including current metadata consent/cache policy).
+  Sent/Received replace the longer labels. Expanding an amount exposes the full
+  selectable asset identity, including native-vs-issued XLM and same-code issuers.
+  No change to direction, quantity, history projection or cache contracts.
+- The recorded date/time (including seconds), operation type, any projected
+  recipient memo and exact explorer target remain visible. The transaction hash
+  uses the shared public-address shortening rule and a labeled copy action that
+  writes the complete original hash with accessible success/failure feedback.
+  No operation ID row is reintroduced. Fee is not projected by the current
+  History model; do not invent a value or introduce a ledger read in this slice.
+- Preserve exact operation/account/network association, fail-closed explorer,
+  cache/stale states and all unrelated family-specific evidence. No new ledger
+  write, navigation identity, permission, signing or persistence change.
+  This amendment supersedes the earlier always-expanded transfer asset identity
+  and always-visible transfer participant presentation only.
+
+Acceptance: automated rendering, copy success/failure, full identity disclosure,
+local-account/other/muxed/self roles and existing contact interactions; actual
+native small-screen/font-scale, theme and accessibility checks remain separate.

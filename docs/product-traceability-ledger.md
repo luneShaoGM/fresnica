@@ -1045,3 +1045,14 @@ handled-tap/keyboard-inset UI differs from the historical Android layout,
 so its old tap sequence is not acceptance of the new layout. Existing
 product/real-device limitations and the requirement for consolidated user
 review of the final exact HEAD remain unchanged.
+
+
+## S13 compact operation detail presentation — 2026-11-24 candidate
+
+Base main `74a4a4fc38a8608ae91b5e56d281d6ac5f721178`, after merged #232.
+Trace S13, Stage 4; Phase 0 passed, reuse 2a/2b/2c foundations; Adapt /
+clean-room Activity detail presentation. See the [compact detail amendment](behavior-specs/s13-activity.md#compact-operation-details-owner-request-2026-11-24).
+Existing strict Activity/Contacts/Accounts/UI/App scopes; History and local
+identity capabilities remain the authority. No donor code, dependency, schema,
+signature, transaction or recovery change. Native product-flow acceptance and
+exact-HEAD independent Work review remain pending; no maturity promotion.
