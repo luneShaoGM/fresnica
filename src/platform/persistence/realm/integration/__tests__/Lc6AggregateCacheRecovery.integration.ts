@@ -23,6 +23,8 @@ import { createNodeReadSession } from '../../../../../app/readModels/createNodeR
 import { startLedgerReadLifecycle } from '../../../../../app/readModels/startLedgerReadLifecycle';
 import { RealmAccountSignerRepository } from '../../RealmAccountSignerRepository';
 import { RealmBalanceCacheRepository } from '../../RealmBalanceCacheRepository';
+import { RealmClaimableCacheStore } from '../../RealmClaimableCacheStore';
+import { RealmDappPermissionStore } from '../../RealmDappPermissionStore';
 import { RealmHistoryCacheRepository } from '../../RealmHistoryCacheRepository';
 import { RealmPendingSubmissionRepository } from '../../RealmPendingSubmissionRepository';
 import { openWalletRealm } from '../../openWalletRealm';
@@ -231,6 +233,8 @@ it('clears both deleted-account caches while retaining the other account across 
         pendingSubmissions: new RealmPendingSubmissionRepository(realm),
         balanceCache: new RealmBalanceCacheRepository(realm),
         historyCache: new RealmHistoryCacheRepository(realm),
+        claimableCache: new RealmClaimableCacheStore(realm),
+        dappPermissions: new RealmDappPermissionStore(realm),
       },
       a.id,
     );

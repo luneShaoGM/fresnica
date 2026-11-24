@@ -88,6 +88,7 @@ jest.mock('../../../platform/persistence/realm', () => ({
     has: () => false,
     grant: jest.fn(),
     revoke: jest.fn(),
+    revokeAccount: jest.fn(),
     list: () => [],
     subscribe: () => () => undefined,
     getRevision: () => 0,

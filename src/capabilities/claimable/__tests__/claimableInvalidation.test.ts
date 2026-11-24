@@ -27,7 +27,10 @@ const claim = () =>
     account.address,
   );
 
-function fixture(page: ClaimableReadPort['page']) {
+function fixture(
+  page: ClaimableReadPort['page'],
+  options: { isAccountCurrent?: (target: AccountRecord) => boolean; byId?: ClaimableReadPort['byId'] } = {},
+) {
   const key = (network: string, address: string) => JSON.stringify([network, address]);
   const snapshots = new Map<string, ClaimableSnapshot>();
   const revisions = new Map<string, number>();
@@ -37,6 +40,7 @@ function fixture(page: ClaimableReadPort['page']) {
     replace,
     userSpam: () => undefined,
     setUserSpam: () => undefined,
+    clearPartition: (network, address) => { snapshots.delete(key(network, address)); },
   };
   const seed = (target = account) => {
     const snapshot: ClaimableSnapshot = {
@@ -52,9 +56,10 @@ function fixture(page: ClaimableReadPort['page']) {
   const product = createClaimableProduct({
     networkId,
     cache,
-    read: { page, byId: async () => undefined },
+    read: { page, byId: options.byId ?? (async () => undefined) },
     now: () => 2_000,
     getRevision: target => revisions.get(target.id) ?? 0,
+    isAccountCurrent: options.isAccountCurrent,
   });
   return { product, revisions, cache, replace, seed };
 }
@@ -137,5 +142,35 @@ describe('Claimable account-ledger invalidation', () => {
     await Promise.all([oldRejected, nextRejected]);
     expect(page).toHaveBeenCalledTimes(1);
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('rejects a delayed detail result and all old-account operations after deletion', async () => {
+    let live = true;
+    let finish!: (value: ReturnType<typeof claim>) => void;
+    const page = jest.fn(async () => ({ records: [claim()] }));
+    const byId = jest.fn(() => new Promise<ReturnType<typeof claim>>(resolve => { finish = resolve; }));
+    const { product, seed } = fixture(page, { isAccountCurrent: () => live, byId });
+    seed();
+    const detail = product.current(account, claim().id);
+    const rejected = expect(detail).rejects.toThrow('claimable-reader-retired');
+    live = false;
+    finish(claim());
+    await rejected;
+    expect(product.readCached(account)).toBeUndefined();
+    expect(product.userSpam(account, claim().id)).toBeUndefined();
+    expect(() => product.markSpam(account, claim().id, true)).toThrow('claimable-account-retired');
+    await expect(product.refresh(account)).rejects.toThrow('claimable-account-retired');
+    await expect(product.current(account, claim().id)).rejects.toThrow('claimable-account-retired');
+    expect(page).not.toHaveBeenCalled();
+    expect(byId).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed when the account owner cannot be read', async () => {
+    const page = jest.fn(async () => ({ records: [] }));
+    const { product, seed } = fixture(page, { isAccountCurrent: () => { throw new Error('realm-unavailable'); } });
+    seed();
+    expect(product.readCached(account)).toBeUndefined();
+    await expect(product.refresh(account)).rejects.toThrow('claimable-account-retired');
+    expect(page).not.toHaveBeenCalled();
   });
 });

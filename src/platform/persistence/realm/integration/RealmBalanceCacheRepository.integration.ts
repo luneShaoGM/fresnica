@@ -9,6 +9,8 @@ import {
 } from '../../__tests__/balanceCacheRepositoryContract';
 import { historySnapshot, payment } from '../../__tests__/historyCacheRepositoryContract';
 import { RealmBalanceCacheRepository } from '../RealmBalanceCacheRepository';
+import { RealmClaimableCacheStore } from '../RealmClaimableCacheStore';
+import { RealmDappPermissionStore } from '../RealmDappPermissionStore';
 import { RealmHistoryCacheRepository } from '../RealmHistoryCacheRepository';
 import { RealmAccountSignerRepository } from '../RealmAccountSignerRepository';
 import { RealmPendingSubmissionRepository } from '../RealmPendingSubmissionRepository';
@@ -149,6 +151,8 @@ describe('Realm Balance cache', () => {
         pendingSubmissions: new RealmPendingSubmissionRepository(realm),
         historyCache: new RealmHistoryCacheRepository(realm),
         balanceCache,
+        claimableCache: new RealmClaimableCacheStore(realm),
+        dappPermissions: new RealmDappPermissionStore(realm),
       },
       'old',
     );

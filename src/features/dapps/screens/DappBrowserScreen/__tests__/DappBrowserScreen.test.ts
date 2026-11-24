@@ -98,6 +98,13 @@ const permissions: DappPermissionStore = {
     permissionRevision += 1;
     for (const listener of permissionEvents) listener({ kind: 'revoked', scope });
   },
+  revokeAccount: accountId => {
+    for (const key of [...grantKeys]) {
+      if (JSON.parse(key)[1] === accountId) grantKeys.delete(key);
+    }
+    permissionRevision += 1;
+    for (const listener of permissionEvents) listener({ kind: 'account-revoked', accountId });
+  },
   list: () => [],
   subscribe: listener => {
     permissionEvents.add(listener);
@@ -485,6 +492,29 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     expect(replies).not.toHaveBeenCalled();
   });
 
+  it.each(['once', 'always'] as const)('retires a deleted account with %s consent and ignores other accounts', consent => {
+    render();
+    refs[1].current = { reply: replies };
+    const browser = find(render(), node => node.type === BrowserSurface);
+    const origin = 'https://demo.example.org';
+    browser?.props.onMessage?.(request('REQUEST_ACCESS', 101), origin);
+    const prompt = find(render(), node => node.type === DappConnectSheet);
+    if (consent === 'always') prompt?.props.onAllowAlways?.();
+    else prompt?.props.onAllowOnce?.();
+    for (const effect of effects.splice(0)) effect();
+    permissions.revokeAccount('other-account');
+    replies.mockClear();
+    browser?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 102), origin);
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 102, publicKey: selection.address }));
+    permissions.revokeAccount(selection.accountId);
+    replies.mockClear();
+    browser?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 103), origin);
+    prompt?.props.onAllowAlways?.();
+    expect(replies).not.toHaveBeenCalled();
+    expect(find(render(), node => node.type === BrowserSurface)).toBeUndefined();
+    expect(permissions.has({ origin, accountId: selection.accountId, networkId: selection.networkId })).toBe(false);
+  });
+
   it('resets message deduplication for a new same-URL document', () => {
     render();
     refs[1].current = { reply: replies };
@@ -708,7 +738,7 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
   });
 });
 
-it.each(['approve', 'base64', 'cancel', 'reload', 'document', 'late-result', 'missing-native-reply'] as const)(
+it.each(['approve', 'base64', 'cancel', 'reload', 'document', 'late-result', 'account-deleted', 'missing-native-reply'] as const)(
   'holds the exact SEP-53 message for passphrase review and handles %s',
   async action => {
     const signature = 'A'.repeat(86) + '==';
@@ -754,6 +784,10 @@ it.each(['approve', 'base64', 'cancel', 'reload', 'document', 'late-result', 'mi
     if (action === 'document') browser?.props.onDocumentStart?.(origin + '/new');
     sheet?.props.onConfirm?.('fresh passphrase');
     if (action === 'late-result') browser?.props.onDocumentStart?.(origin + '/new');
+    if (action === 'account-deleted') {
+      for (const effect of effects.splice(0)) effect();
+      permissions.revokeAccount(selection.accountId);
+    }
     complete?.(signature);
     await Promise.resolve();
     if (action === 'approve' || action === 'base64') {
@@ -766,7 +800,7 @@ it.each(['approve', 'base64', 'cancel', 'reload', 'document', 'late-result', 'mi
       );
     } else {
       expect(replies.mock.calls.some(([result]) => result.signedBlob)).toBe(false);
-      if (action !== 'late-result') expect(signer).not.toHaveBeenCalled();
+      if (action !== 'late-result' && action !== 'account-deleted') expect(signer).not.toHaveBeenCalled();
       if (action === 'cancel')
         expect(replies).toHaveBeenCalledWith(
           expect.objectContaining({ messagedId: 31, error: 'user-declined' }),

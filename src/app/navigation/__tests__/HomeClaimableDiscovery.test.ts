@@ -182,6 +182,7 @@ function fixture(seedEmpty = true) {
     replace,
     userSpam: () => undefined,
     setUserSpam: () => undefined,
+    clearPartition: () => { saved = undefined; },
   };
   const page = jest
     .fn<ReturnType<ClaimableReadPort['page']>, Parameters<ClaimableReadPort['page']>>()

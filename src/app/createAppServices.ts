@@ -388,11 +388,17 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
           .filter(account => account.networkId === network.id && account.address === address)
           .map(account => [account.id, ledgerReadInvalidation.getRevision(network.id, account.id)]),
       );
+    const claimableCache = new RealmClaimableCacheStore(realm);
     const claimables = createClaimableProduct({
       networkId: network.id,
-      cache: new RealmClaimableCacheStore(realm),
+      cache: claimableCache,
       now: () => Date.now(),
       getRevision: account => getAccountReadRevision(account.address),
+      isAccountCurrent: account => {
+        const current = repository.getAccount(account.id);
+        return current?.address === account.address && current.identityKind === 'classic' &&
+          current.networkId === network.id && !current.hidden;
+      },
       read: {
         page: (address, cursor) =>
           nodeReadSession.run((signal, endpoint) => claimableReads.page(endpoint, address, cursor, signal)),
@@ -632,6 +638,8 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         cacheNetworkIds: Object.keys(NETWORKS),
         historyCache,
         balanceCache,
+        claimableCache,
+        dappPermissions,
         onDeleted: () => {
           if (
             networkSettings?.getSnapshot().preferences.retainedTestnet &&

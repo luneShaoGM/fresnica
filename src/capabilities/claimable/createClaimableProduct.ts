@@ -13,6 +13,7 @@ export interface ClaimableCacheStore {
   replace(snapshot: ClaimableSnapshot): void;
   userSpam(networkId: string, accountAddress: string, id: string): boolean | undefined;
   setUserSpam(networkId: string, accountAddress: string, id: string, spam: boolean): void;
+  clearPartition(networkId: string, accountAddress: string): void;
 }
 
 export type ClaimableReadPort = Readonly<{
@@ -36,6 +37,7 @@ export function createClaimableProduct(
     cache: ClaimableCacheStore;
     now: () => number;
     getRevision?: (account: AccountRecord) => string | number;
+    isAccountCurrent?: (account: AccountRecord) => boolean;
   }>,
 ) {
   const pending = new Map<string, Readonly<{ revision: string | number; request: Promise<ClaimableState> }>>();
@@ -44,6 +46,13 @@ export function createClaimableProduct(
   let closed = false;
   let generation = 0;
   const revision = (account: AccountRecord) => input.getRevision?.(account) ?? 0;
+  const isAccountCurrent = (account: AccountRecord) => {
+    try {
+      return input.isAccountCurrent?.(account) ?? true;
+    } catch {
+      return false;
+    }
+  };
   function partition(account: AccountRecord): string {
     if (account.networkId !== input.networkId || account.identityKind !== 'classic' || account.hidden)
       throw new Error('claimable-account-network-mismatch');
@@ -51,6 +60,7 @@ export function createClaimableProduct(
   }
   function readCached(account: AccountRecord): ClaimableState | undefined {
     const key = partition(account);
+    if (closed || !isAccountCurrent(account)) return undefined;
     const snapshot = input.cache.read(input.networkId, account.address);
     if (!snapshot) return undefined;
     const age = input.now() - snapshot.savedAt;
@@ -68,6 +78,7 @@ export function createClaimableProduct(
   function refresh(account: AccountRecord, force = false): Promise<ClaimableState> {
     if (closed) return Promise.reject(new Error('claimable-reader-closed'));
     const key = partition(account);
+    if (!isAccountCurrent(account)) return Promise.reject(new Error('claimable-account-retired'));
     const requestRevision = revision(account);
     const existing = pending.get(key);
     if (existing) {
@@ -80,7 +91,8 @@ export function createClaimableProduct(
       );
     }
     const requestGeneration = generation;
-    const isCurrent = () => !closed && requestGeneration === generation && requestRevision === revision(account);
+    const isCurrent = () =>
+      !closed && requestGeneration === generation && requestRevision === revision(account) && isAccountCurrent(account);
     const current = readCached(account);
     const now = input.now();
     if (!force && current && !current.stale) return Promise.resolve(current);
@@ -148,18 +160,25 @@ export function createClaimableProduct(
     networkId: input.networkId,
     readCached,
     refresh,
-    current: (account: AccountRecord, id: string) => {
-      if (closed) return Promise.reject(new Error('claimable-reader-closed'));
+    current: async (account: AccountRecord, id: string) => {
+      if (closed) throw new Error('claimable-reader-closed');
       partition(account);
-      return input.read.byId(account.address, id);
+      if (!isAccountCurrent(account)) throw new Error('claimable-account-retired');
+      const requestGeneration = generation;
+      const result = await input.read.byId(account.address, id);
+      if (closed || requestGeneration !== generation || !isAccountCurrent(account))
+        throw new Error('claimable-reader-retired');
+      return result;
     },
     userSpam: (account: AccountRecord, id: string) => {
       partition(account);
+      if (closed || !isAccountCurrent(account)) return undefined;
       return input.cache.userSpam(input.networkId, account.address, id);
     },
     markSpam: (account: AccountRecord, id: string, spam: boolean) => {
       if (closed) throw new Error('claimable-reader-closed');
       partition(account);
+      if (!isAccountCurrent(account)) throw new Error('claimable-account-retired');
       input.cache.setUserSpam(input.networkId, account.address, id, spam);
     },
     close: () => {
