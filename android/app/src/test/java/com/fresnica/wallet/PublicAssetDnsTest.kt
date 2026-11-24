@@ -40,10 +40,21 @@ class PublicAssetDnsTest {
     try {
       mixed.lookup("cdn.example.org")
       fail("mixed public/private DNS answers must fail closed")
-    } catch (_: UnknownHostException) {
+    } catch (_: BlockedPublicAssetEndpoint) {
     }
     val public = PublicAssetDns(object : Dns { override fun lookup(hostname: String) = listOf(ip("8.8.8.8"), ip("2606:4700:4700::1111")) })
     assertEquals(2, public.lookup("cdn.example.org").size)
+  }
+
+  @Test fun distinguishesLookupUnavailabilityFromUnsafeDnsAnswers() {
+    val unavailable = PublicAssetDns(object : Dns { override fun lookup(hostname: String) = emptyList<InetAddress>() })
+    try {
+      unavailable.lookup("cdn.example.org")
+      fail("empty DNS results unexpectedly succeeded")
+    } catch (error: UnknownHostException) {
+      assertFalse(error is BlockedPublicAssetEndpoint)
+      assertEquals(PublicAssetDownloadErrors.TRANSIENT, PublicAssetDownloadErrors.fromException(error))
+    }
   }
 
   @Test fun aPublicLookingHostnameResolvingToLoopbackCannotStartAConnection() {

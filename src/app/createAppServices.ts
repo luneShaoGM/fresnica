@@ -53,6 +53,7 @@ import type { TokenIconPort } from '../capabilities/assets/TokenIcons';
 import { createNativeSafePublicTransport } from '../platform/assets/NativeSafePublicTransport';
 import { createTokenMetadataPort } from '../platform/assets/TokenMetadataResolver';
 import { createTokenIconPort } from '../platform/assets/TokenIconPort';
+import { createNativeTokenIconCache } from '../platform/assets/NativeTokenIconCache';
 import { RealmTokenMetadataRepository } from '../platform/persistence/realm/RealmTokenMetadataRepository';
 import { createHttpAssetCatalog } from '../platform/assets/HttpAssetCatalog';
 import { createCachedAssetCatalog } from '../platform/assets/CachedAssetCatalog';
@@ -572,8 +573,19 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       catalog: assetCatalog,
       transport: publicAssetTransport,
       initialEnabled: initialPreferences.externalTokenImagesEnabled !== false,
+      diskCache: createNativeTokenIconCache(operation => diagnostics.debug(`token-icon-cache-${operation}-failed`)),
+      onDiagnostic: event => diagnostics.debug(`token-icon-${event}`),
     });
-    closeTokenIcons = tokenIcons.close;
+    const syncTokenIconRuntime = () => {
+      const runtime = ledgerReadRuntime.getSnapshot();
+      tokenIcons.setReadable(runtime.foreground && runtime.connectivity !== 'offline');
+    };
+    syncTokenIconRuntime();
+    const stopTokenIconRuntime = ledgerReadRuntime.subscribe(syncTokenIconRuntime);
+    closeTokenIcons = () => {
+      stopTokenIconRuntime();
+      tokenIcons.close();
+    };
     const accountAvatars = createAccountAvatarPort({
       available: publicAssetTransport.available,
       initialEnabled: initialPreferences.externalAccountAvatarsEnabled === true,

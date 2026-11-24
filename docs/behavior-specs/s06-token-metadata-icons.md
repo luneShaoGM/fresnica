@@ -1,4 +1,4 @@
-# S06 Token metadata, safe public icons and ephemeral icon cache — Phase 2
+# S06 Token metadata, safe public icons and bounded icon cache — Phase 2
 
 Status: **implementation candidate**, pending remote exact-HEAD Work Review,
 required CI, and native iOS/Android product-flow/security acceptance. No
@@ -348,3 +348,69 @@ ordinary metadata/cache notifications do not repeatedly retry an unresolved
 or failed miss. Refresh failure retains the local fallback and existing
 candidate cooldown. Tests use the actual icon service clock at the 10-minute
 TTL boundary for successful and offline refresh; native acceptance is pending.
+
+## 2026-11-24 owner-approved public icon cache and recovery
+
+This narrow S06 / LC5-2 maintenance slice supersedes the earlier memory-only
+image cache, ten-minute expiry-to-fallback and all-failures-long-cooldown
+rules above. It does not promote product maturity. Decision: **Adapt**;
+Fresnica-owned implementation from this contract, no donor code or artwork.
+`TokenAssetIcon` remains a display-only consumer of the capability port;
+AppServices composes runtime/privacy signals and native storage mechanisms.
+The icon component/context join strict architecture enforcement.
+
+- No image proxy or fixed image-domain allowlist is added. Retain native
+  public HTTPS, validated/pinned public DNS addresses, certificate hostname
+  checks, no redirect/proxy bypass, request deadlines, PNG/JPEG-only decoding,
+  64 KiB image and 512 × 512 dimension limits. Arbitrary URLs never reach RN
+  Image, a WebView, or signing/transaction authority. Provider requests still
+  reveal normal connection information; the existing privacy switch controls
+  those requests. A displayed image is never evidence of asset legitimacy.
+- First hydrate the exact `(networkId, case-sensitive code, full issuer)`
+  binary cache, including while offline. Try the previous successful source
+  and already-known candidate URLs before awaiting directory/issuer discovery.
+  A successful known candidate becomes visible immediately; optional issuer
+  enrichment may finish afterward in the same cancellable shared operation.
+- Store only validated public icon bytes plus exact identity, successful
+  source URL, freshness timestamp and integrity metadata in the OS private
+  cache directory, excluded from backup. Never add image bytes to Realm or
+  store the user's account, signer or transaction context. One atomic bounded
+  entry per identity; maximum **20 MiB including metadata / 500 entries**, LRU
+  eviction. In-memory image working set remains bounded to 24 entries.
+- Successful image freshness is **7 days**. Read access updates LRU recency,
+  not freshness. A stale accepted image remains visible on offline startup or
+  failed refresh. Revalidate on consumer mount/activation and foreground or
+  connectivity recovery; no timer, portfolio scan or erase-on-render expiry.
+  Ordinary cache notifications do not restart loads, including when more
+  identities are mounted than fit in the memory working set.
+- Read-time native validation removes truncated, mismatched, oversized or
+  otherwise corrupt entries. OS cache purging/storage failure is a cache miss
+  and leaves the existing safe online/fallback path usable. Persistence is
+  best effort, not a promise that the OS will retain the image indefinitely.
+- Download failures retain safe categories only: transient, blocked, invalid,
+  cancelled. Transient failures use a short session cooldown (30 seconds),
+  cleared on runtime recovery; invalid/blocked candidates retain a one-hour
+  cooldown. Network failure must not write a 24-hour issuer-negative cache.
+  Invalid/missing issuer metadata keeps the existing 24-hour policy. Runtime
+  recovery can reset the directory's session failure cooldown but must retain
+  its successful 12-hour TTL and validation. Diagnostics contain no URL,
+  account, issuer, image bytes, raw native errors or credentials.
+- Concurrent consumers share one asset load; only the last cancellation
+  aborts it. Bound complete online loads to two and retain the existing native
+  request queue. Disk reads precede the online slot/readability gate. Existing
+  stale bytes are not erased on cancellation or offline/background changes.
+- Privacy OFF immediately hides and clears memory, aborts requests and
+  revokes native writer leases before clearing all disk entries across both
+  network partitions. Late opens/reads/downloads/writes cannot restore them.
+  Start with OFF persisted: clear any residual disk cache without networking.
+  Ordinary AppServices retirement revokes its lease and cancels requests but
+  preserves disk entries for later offline sessions. New sessions keep exact
+  network/code/issuer isolation.
+
+Required regression evidence: cached restart/offline use; freshness/stale
+refresh; successful-source priority and immediate known-candidate display;
+corruption and both LRU caps; exact identity isolation; shared cancellation;
+privacy OFF/ON and late native completion races; mounted recovery without
+polling or retry storms. JS tests, native cache fixtures, native compile and
+actual native product-flow acceptance must be reported separately. Stage 9
+iOS device System Auth cancellation/retry remains deferred and unrelated.

@@ -68,3 +68,13 @@ The only current exception is `ios/.xcode.env`:
 This is a path-and-content exception, not a general "template files are safe" rule. The Android debug keystore is deliberately not allowlisted; Fresnica generates its own debug key instead.
 
 Passing this automatic gate is **not** proof that a donor-informed implementation is clean-room. Behavior specifications, provenance records and human review of implementation structure remain mandatory. In particular, Home, Settings, MainTabBar and other presentation surfaces must not preserve donor-specific component structure merely because their bytes differ.
+
+## S06 bounded offline icon cache — 2026-11-24
+
+The owner-approved cache/recovery slice implements the dated contract in
+`docs/behavior-specs/s06-token-metadata-icons.md` using existing Fresnica
+capability/native-download boundaries and platform filesystem APIs. It adapts
+public-image fallback behavior without importing Stellar/Xaman implementation,
+tests, comments, artwork, proxy code or domain-whitelist policy. No new
+third-party dependency or direct-migration exception is introduced. The pinned
+donor baseline and collision allowlist above remain the provenance gate.

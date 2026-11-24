@@ -12,9 +12,12 @@ internal class PublicAssetDns(private val upstream: Dns = Dns.SYSTEM) : Dns {
     val addresses = upstream.lookup(hostname)
     // Match the existing DappTunnelProxy invariant: mixed public/private
     // answers fail closed instead of silently picking one address.
-    if (addresses.isEmpty() || addresses.any { !DappTunnelProxy.isPublicAddress(it) }) {
-      throw UnknownHostException("non-public asset endpoint")
-    }
+    if (addresses.isEmpty()) throw UnknownHostException("asset endpoint unavailable")
+    if (addresses.any { !DappTunnelProxy.isPublicAddress(it) }) throw BlockedPublicAssetEndpoint()
     return addresses
   }
 }
+
+// This type keeps unsafe DNS distinct from a temporary lookup failure without
+// exposing the hostname or resolved addresses across the JS bridge.
+internal class BlockedPublicAssetEndpoint : UnknownHostException("non-public asset endpoint")

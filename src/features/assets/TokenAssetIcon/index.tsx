@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet } from 'react-native';
+import { Image } from 'react-native';
 
-import type { TokenAssetIdentity } from '../../capabilities/assets/TokenMetadataCache';
-import { TokenFallbackAvatar } from '../../ui/components/TokenFallbackAvatar';
-import { useTokenIconContext } from './tokenIconContext';
+import type { TokenAssetIdentity } from '../../../capabilities/assets/TokenMetadataCache';
+import { TokenFallbackAvatar } from '../../../ui/components/TokenFallbackAvatar';
+import { useTokenIconContext } from '../tokenIconContext';
+import { styles } from './styles';
 
 export function TokenAssetIcon({
   asset,
@@ -27,12 +28,14 @@ export function TokenAssetIcon({
   // The shared cache is authoritative, including decode failures and recovery.
   const uri = active && credit && snapshot.enabled ? service?.readIcon({ kind: 'credit', code, issuer }) : undefined;
 
+  // Publishing a cached/stale icon must not cancel its own refresh. Only
+  // lifecycle recovery, identity changes and decode rejection request a retry.
   useEffect(() => {
-    if (!active || !credit || !service?.available || !snapshot.enabled || uri) return;
+    if (!active || !credit || !service?.available || !snapshot.enabled) return;
     const controller = new AbortController();
     service.loadIcon({ kind: 'credit', code, issuer }, controller.signal).catch(() => undefined);
     return () => controller.abort();
-  }, [active, code, credit, issuer, service, snapshot.enabled, retryRevision, uri]);
+  }, [active, code, credit, issuer, service, snapshot.enabled, snapshot.retryRevision, retryRevision]);
 
   if (!credit) {
     return (
@@ -41,7 +44,7 @@ export function TokenAssetIcon({
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
         resizeMode={resizeMode}
-        source={require('../../ui/assets/token/xlmSquare.png')}
+        source={require('../../../ui/assets/token/xlmSquare.png')}
         style={[styles.icon, small ? styles.small : undefined, dimensions]}
       />
     );
@@ -62,8 +65,3 @@ export function TokenAssetIcon({
     />
   );
 }
-
-const styles = StyleSheet.create({
-  icon: { width: 40, height: 40 },
-  small: { width: 16, height: 16 },
-});
