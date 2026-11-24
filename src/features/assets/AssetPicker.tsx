@@ -40,6 +40,18 @@ export function AssetPicker({
     }
   }, [disabled]);
   const selected = balances.find(line => assetSelectionKey(line.asset) === assetSelectionKey(selectedAsset));
+  const selectedAvailability =
+    purpose === 'send' && selectedAsset.kind === 'credit' ? sendAssetAvailability(selected) : undefined;
+  const selectedLabel = [
+    `${label}: ${selectedAsset.code}`,
+    selectedAsset.kind === 'credit' ? selectedAsset.issuer : t('assets.picker.native'),
+    `${t('assets.picker.balance')}: ${selected?.balance ?? '—'}`,
+    selectedAvailability
+      ? `${t('assets.availability.available')}: ${selectedAvailability.available ?? t('assets.availability.unknown')}`
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join(', ');
   const content = (asset: BalanceAsset, balance: string, line?: BalanceLine) => {
     const availability = purpose === 'send' && asset.kind === 'credit' ? sendAssetAvailability(line) : undefined;
     return (
@@ -67,7 +79,7 @@ export function AssetPicker({
     <>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${label}: ${selectedAsset.code}, ${selectedAsset.kind === 'credit' ? selectedAsset.issuer : t('assets.picker.native')}, ${t('assets.picker.balance')}: ${selected?.balance ?? '—'}`}
+        accessibilityLabel={selectedLabel}
         accessibilityState={{ disabled: disabled || balances.length < 2, expanded: open && !disabled }}
         disabled={disabled || balances.length < 2}
         onPress={() => setOpen(true)}

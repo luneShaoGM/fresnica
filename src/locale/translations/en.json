@@ -303,8 +303,6 @@
   "send.loading.balances": "Loading current Stellar balances…",
   "send.step.recipient": "Recipient",
   "send.step.summary": "Summary",
-  "send.step.indicatorDetails": "Step 1 of 3 · Asset and amount",
-  "send.step.indicatorRecipient": "Step 2 of 3 · Recipient and memo",
   "send.step.toRecipient": "Continue to recipient",
   "send.step.toSummary": "Review payment",
   "send.step.preparing": "Preparing…",

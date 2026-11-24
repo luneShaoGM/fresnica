@@ -237,20 +237,23 @@ describe('Send credit availability', () => {
     return match;
   }
 
-  it('shows exact available credit after selling liabilities and marks the picker as a Send consumer', () => {
+  it('delegates credit balance display to the Send picker and keeps valid credit available', () => {
     const { root } = renderForm(jest.fn(), false, 'details', {
       selectedAsset: asset,
       balances: [{ asset, balance: '10.0000001', sellingLiabilities: '10', isAuthorized: true }],
     });
     const texts: React.ReactNode[] = [];
-    let pickerPurpose: string | undefined;
+    let picker: React.ComponentProps<typeof AssetPicker> | undefined;
     visit(root, node => {
       if (node.type === Text) texts.push(node.props.children);
-      if (node.type === AssetPicker) pickerPurpose = (node.props as React.ComponentProps<typeof AssetPicker>).purpose;
+      if (node.type === AssetPicker) picker = node.props as React.ComponentProps<typeof AssetPicker>;
     });
-    expect(texts).toContainEqual(['0.0000001', ' ', 'USD']);
-    expect(texts).not.toContainEqual(['10.0000001', ' ', 'USD']);
-    expect(pickerPurpose).toBe('send');
+    expect(texts).not.toContain('assets.availability.available');
+    expect(picker).toMatchObject({
+      purpose: 'send',
+      selectedAsset: asset,
+      balances: [{ asset, balance: '10.0000001', sellingLiabilities: '10', isAuthorized: true }],
+    });
     expect(continueButton(root)?.props.disabled).toBe(false);
   });
 
@@ -267,6 +270,5 @@ describe('Send credit availability', () => {
     const text: React.ReactNode[] = [];
     visit(root, node => { if (node.type === Text) text.push(node.props.children); });
     expect(text).toContain('assets.availability.send.unknown');
-    if (step === 'details') expect(text).toContainEqual(['assets.availability.unknown', ' ', 'USD']);
   });
 });

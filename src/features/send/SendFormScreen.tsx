@@ -110,26 +110,18 @@ export function SendFormScreen({
           From {accountLabel}
         </Text>
 
-        <Text style={styles.stepIndicator}>
-          {t(step === 'details' ? 'send.step.indicatorDetails' : 'send.step.indicatorRecipient')}
-        </Text>
         {step === 'details' ? (
           <>
             <Text style={styles.sectionLabel}>ASSET</Text>
-            <AssetPicker
-              balances={balances}
-              selectedAsset={selectedAsset}
-              disabled={building || !active}
-              onSelect={onSelectAsset}
-              label={t('assets.picker.title')}
-              purpose="send"
-            />
-
-            <View style={styles.balanceLine}>
-              <Text style={styles.balanceLabel}>{t('assets.availability.available')}</Text>
-              <Text style={styles.balanceValue}>
-                {availability.available ?? t('assets.availability.unknown')} {selectedAsset.code}
-              </Text>
+            <View style={styles.assetPicker}>
+              <AssetPicker
+                balances={balances}
+                selectedAsset={selectedAsset}
+                disabled={building || !active}
+                onSelect={onSelectAsset}
+                label={t('assets.picker.title')}
+                purpose="send"
+              />
             </View>
 
             <Text style={styles.sectionLabel}>AMOUNT</Text>

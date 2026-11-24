@@ -303,8 +303,6 @@
   "send.loading.balances": "正在加载当前 Stellar 余额…",
   "send.step.recipient": "收款人",
   "send.step.summary": "复核",
-  "send.step.indicatorDetails": "第 1/3 步 · 资产和金额",
-  "send.step.indicatorRecipient": "第 2/3 步 · 收款人和备注",
   "send.step.toRecipient": "下一步：选择收款人",
   "send.step.toSummary": "复核付款",
   "send.step.preparing": "正在准备…",
