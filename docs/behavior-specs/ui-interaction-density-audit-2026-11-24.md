@@ -104,3 +104,14 @@
 | 完整发行方选项 | 需在遮挡状态下手动找回 | 在可见滚动区域上滑一次后 y = 333–527 px，可直接点选 |
 
 修复前后 PNG、XML 和数据/回调摘要保存在 [UI 交互证据目录](ui-interaction-density-evidence/)。[原始辅助摘要](ui-interaction-density-evidence/native-layout-summary.json) 记录源码基线、补丁文件哈希、复用 APK 哈希、完整采集清单及边界；目录内保留代表截图、相关 XML 与 [原始回调日志](ui-interaction-density-evidence/events.jsonl)，所保留文件的 SHA256 均与原始摘要一致。最终 PR HEAD 另在 PR 描述中固定。辅助场景不覆盖完整导航、真实账户权限、iOS、真机或读屏验收。
+
+### 独立审查后补修：区域设置影响搜索
+
+对 `0dd1b796d7a05f6b85b47b3c64584292d9c7be18` 的独立审查复现了一项 P3：在 `LANG=tr_TR.UTF-8 LC_ALL=tr_TR.UTF-8` 的测试进程中，默认区域设置会让 `toLocaleLowerCase()` 把发行方中的 `I` 转成无点的 `ı`，因此小写查询 `issuertwo` 匹配不到 `GISSUERTWO`。原有 SelectField 测试实际为 1 项失败、5 项通过。
+
+补修仅将查询与候选文字的搜索副本改用语言无关的 `toLowerCase()`；原始资产代码、完整发行方、选项 identity 与选择回调均不变。没有扩展选择状态机或原生布局。
+
+- 补修后，同一 `tr_TR` 命令下原有 SelectField suite 的 6 项测试全部通过。
+- 默认区域设置下，SelectField / RequestForm / ActivityFilters 的 3 suites / 19 项测试通过，定向 ESLint 与 `git diff --check` 通过。两次运行存在重叠，不相加计数。
+- 这是 repository 测试中的区域设置回归；本轮没有新增土耳其语 Android / iOS 原生观察，也没有重跑未受影响的布局 helper。
+- 新 remote HEAD 的 CI 和独立复审记录另见 PR；旧 HEAD 的审查结论不自动批准新提交。

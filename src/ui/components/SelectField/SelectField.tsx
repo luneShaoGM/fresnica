@@ -42,9 +42,10 @@ export function SelectField<Value extends string>({
   current.current = { value, options, onValueChange, disabled };
   const selected = options.find(option => option.value === value);
   const visible = expanded && !disabled;
-  const normalizedQuery = query.trim().toLocaleLowerCase();
+  // Identifier searches must not depend on the device's locale-specific casing rules.
+  const normalizedQuery = query.trim().toLowerCase();
   const matches = options.filter(
-    option => !search || `${option.label} ${option.description ?? ''}`.toLocaleLowerCase().includes(normalizedQuery),
+    option => !search || `${option.label} ${option.description ?? ''}`.toLowerCase().includes(normalizedQuery),
   );
   const close = () => {
     open.current = false;
