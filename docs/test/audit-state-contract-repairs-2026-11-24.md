@@ -125,13 +125,32 @@ Implementation commit: `a9738c7ca98d78e49ebab2d102045aca45eb8cea`.
 Route readiness, the capability matrix, current progress, information
 architecture and product traceability have been synchronized to the current
 merged baseline and this repair candidate. Historical platform evidence keeps
-its date and SHA. The final route-contract and integrated check results are
-recorded below after execution.
+its date and SHA. The route contract passed one targeted suite with six tests
+before commit `ce9ba612e2f71cdabd30b24ededa5976fdd804ac`.
+Execution log: `/tmp/fresnica-audit-stage7.log` on the Mac.
 
 ## Integrated candidate and independent review
 
-Pending actual `npm run check`, the relevant actual Realm integration checks,
-push, remote HEAD verification and consolidated independent review.
+Executed on the clean source commit
+`ce9ba612e2f71cdabd30b24ededa5976fdd804ac`:
+
+| Gate | Actual result |
+| --- | --- |
+| `npm run check` | Passed; all chained repository checks completed, including TypeScript, product-smoke script checks, format, lint, aliases, architecture, provenance, artwork, locales and native-patch consistency |
+| Complete Jest suite within `check` | 312 suites / 3,074 tests passed |
+| `npm run test:realm` | 18 actual Realm integration suites / 115 tests passed |
+| Working tree after execution | Clean |
+
+Execution log: `/tmp/fresnica-audit-integrated-check.log` on the Mac.
+The following validation-record commit changes documentation only; application
+and test source remains identical to that executed commit. The final remote
+HEAD and any CI run on it must be verified independently in the PR.
+
+Push, remote HEAD verification and consolidated independent review are the
+remaining delivery steps at the time this execution record is committed.
+The review report on the associated PR records its exact 40-character
+`reviewed_head_sha`, findings, checks, deferred items and next action. It must
+be compared to the then-current remote PR HEAD before treating it as approval.
 Phase test totals overlap and must not be added into a unique coverage total.
 The independent report belongs to the reviewed remote SHA, not to this
 developer-maintained execution record.
