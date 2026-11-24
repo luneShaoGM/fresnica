@@ -2,6 +2,7 @@ import React from 'react';
 import { InMemoryAccountSignerRepository } from '../../../platform/persistence/memory/InMemoryAccountSignerRepository';
 import type { AccountRecord } from '../../../capabilities/account/types';
 import type { SignerRecord } from '../../../capabilities/signer/types';
+import type { FresnicaSdkPort } from '../../../capabilities/ports/FresnicaSdkPort';
 import { AddAccountScreen } from '../../accounts/AddAccountScreen';
 import { createExistingWalletAccount } from '../../accounts/createExistingWalletAccount';
 import { importExistingWalletAccount } from '../../accounts/importExistingWalletAccount';
@@ -57,6 +58,46 @@ function fixture() {
   const created = { account: { account, signer }, backup: { mnemonic, language: 'english', index: 0 },
     systemAuthRegistration: 'not-configured' as const };
   return { repository, dependencies, reveal, persist, created };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+}
+
+function realCreateFixture(kind: 'first-run' | 'existing-wallet') {
+  const f = fixture();
+  const generated: Awaited<ReturnType<FresnicaSdkPort['generateMnemonic']>> = {
+    signer: { signerPublicKey: signer.publicKey, envelopeJson: signer.envelopeJson! },
+    mnemonic, language: 'english', index: 0,
+  };
+  const generation = deferred<typeof generated>();
+  const generate = jest.fn(() => generation.promise);
+  const verify = jest.fn().mockResolvedValue(true);
+  f.dependencies.sdk = {
+    ...f.dependencies.sdk,
+    generateMnemonic: generate,
+    verifyProtectedSignerPassphrase: verify,
+    parseAccount: async (address: string) => ({ kind: 'classic' as const, address, publicKey: address }),
+  };
+  let nextId = 0;
+  f.dependencies.createId = recordKind => `${recordKind}-${++nextId}`;
+  if (kind === 'existing-wallet') f.repository.createAccountWithSigner({
+    account: { ...account, id: 'existing-account', address: 'GEXISTING' },
+    signer: { ...signer, id: 'existing-signer', publicKey: 'GEXISTING', backupState: 'confirmed' },
+    attachedAt: now,
+  });
+  // Exercise the actual feature -> capability -> repository path. Only the
+  // native SDK ports and React lifecycle are controlled by this host test.
+  const existing = jest.requireActual<typeof import('../../accounts/createExistingWalletAccount')>(
+    '../../accounts/createExistingWalletAccount',
+  );
+  const onboarding = jest.requireActual<typeof import('../runOnboardingProvisioning')>('../runOnboardingProvisioning');
+  jest.mocked(createExistingWalletAccount).mockImplementation(existing.createExistingWalletAccount);
+  jest.mocked(runGeneratedMnemonicOnboarding).mockImplementation(onboarding.runGeneratedMnemonicOnboarding);
+  return { ...f, generated, generation, generate, verify };
 }
 
 function screenHarness(renderScreen: () => React.ReactElement) {
@@ -117,6 +158,110 @@ beforeEach(() => {
   lifecycle = appStatePort();
 });
 afterEach(() => { lifecycle.close(); jest.restoreAllMocks(); });
+
+it.each([
+  ['first-run', false], ['first-run', true],
+  ['existing-wallet', false], ['existing-wallet', true],
+] as const)('reconciles %s Create after a true unmount and fresh instance, replacement retry=%s', async (kind, retry) => {
+  const f = realCreateFixture(kind);
+  const oldComplete = jest.fn();
+  const nextComplete = jest.fn();
+  const mount = (complete: () => void) => screenHarness(() => kind === 'first-run'
+    ? OnboardingScreen({ dependencies: f.dependencies, onComplete: complete })
+    : AddAccountScreen({ dependencies: f.dependencies, onCreatedAccountReady: complete,
+      onAccountPersisted: jest.fn(), onWatchOnlyComplete: jest.fn(), onCancel: jest.fn() }));
+  const start = (h: ReturnType<typeof screenHarness>) => {
+    h.press(kind === 'first-run' ? 'Create new wallet' : 'accounts.add.create.title'); h.render();
+    h.field(kind === 'first-run' ? 'App passphrase' : 'accounts.add.currentPassphrase').type(passphrase);
+    if (kind === 'first-run') h.field('Confirm app passphrase').type(passphrase);
+    h.render();
+    h.press(kind === 'first-run' ? 'Continue' : 'accounts.add.create.action');
+  };
+  const first = mount(oldComplete);
+  start(first); await settle();
+  expect(f.generate).toHaveBeenCalledTimes(1);
+  first.close();
+  const retiredState = JSON.stringify(first.h.states);
+  const next = mount(nextComplete);
+  if (retry) start(next);
+  await settle();
+  expect(f.generate).toHaveBeenCalledTimes(1);
+  expect(f.repository.listSigners().filter(value => value.backupState === 'pending')).toHaveLength(0);
+  f.generation.resolve(f.generated); await settle();
+
+  expect(f.generate).toHaveBeenCalledTimes(1);
+  expect(f.repository.listAccounts()).toHaveLength(kind === 'first-run' ? 1 : 2);
+  expect(f.repository.listSigners().filter(value => value.backupState === 'pending')).toHaveLength(1);
+  const bootstrap = resolveOnboardingBootstrap(f.dependencies);
+  expect(bootstrap.kind).toBe('pending-mnemonic-backup');
+  const pending = next.render();
+  expect(pending.type).toBe(PendingMnemonicBackupScreen);
+  if (bootstrap.kind !== 'pending-mnemonic-backup') throw new Error('missing-pending-backup');
+  const pendingProps = pending.props as React.ComponentProps<typeof PendingMnemonicBackupScreen>;
+  expect(pendingProps).toMatchObject({ signerId: bootstrap.signerId, disabled: false });
+  expect(pendingProps.completionError).toBeUndefined();
+  expect(JSON.stringify(pending)).not.toContain(mnemonic);
+  expect(JSON.stringify(next.h.states)).not.toContain(mnemonic);
+  expect(JSON.stringify(first.h.states)).toBe(retiredState);
+  expect(oldComplete).not.toHaveBeenCalled();
+  expect(nextComplete).not.toHaveBeenCalled();
+  expect(f.reveal).not.toHaveBeenCalled();
+
+  const recovery = screenHarness(() => PendingMnemonicBackupScreen(pendingProps));
+  recovery.field('App passphrase').type('fresh replacement passphrase'); recovery.render();
+  await recovery.press('Reveal recovery phrase'); recovery.render();
+  expect(f.reveal).toHaveBeenCalledWith(expect.objectContaining({ freshAppPassphrase: 'fresh replacement passphrase' }));
+  const challenge = recovery.verifier();
+  expect(challenge.outputs().map(output => output.read())).toEqual(mnemonic.split(' '));
+  await challenge.verify();
+  expect(f.repository.getSigner(bootstrap.signerId)?.backupState).toBe('confirmed');
+  expect(nextComplete).toHaveBeenCalledTimes(1);
+  expect(oldComplete).not.toHaveBeenCalled();
+  challenge.close(); recovery.close(); next.close();
+});
+
+it.each(['first-run', 'existing-wallet'] as const)('releases a retired %s Create on failure and permits only an explicit replacement retry', async kind => {
+  const f = realCreateFixture(kind);
+  const oldComplete = jest.fn();
+  const nextComplete = jest.fn();
+  const mount = (complete: () => void) => screenHarness(() => kind === 'first-run'
+    ? OnboardingScreen({ dependencies: f.dependencies, onComplete: complete })
+    : AddAccountScreen({ dependencies: f.dependencies, onCreatedAccountReady: complete,
+      onAccountPersisted: jest.fn(), onWatchOnlyComplete: jest.fn(), onCancel: jest.fn() }));
+  const fill = (h: ReturnType<typeof screenHarness>) => {
+    h.field(kind === 'first-run' ? 'App passphrase' : 'accounts.add.currentPassphrase').type(passphrase);
+    if (kind === 'first-run') h.field('Confirm app passphrase').type(passphrase);
+    h.render();
+  };
+  const submit = kind === 'first-run' ? 'Continue' : 'accounts.add.create.action';
+  const choice = kind === 'first-run' ? 'Create new wallet' : 'accounts.add.create.title';
+  const first = mount(oldComplete);
+  first.press(choice); first.render(); fill(first); first.press(submit); await settle();
+  first.close();
+  const retiredState = JSON.stringify(first.h.states);
+  const next = mount(nextComplete);
+  next.press(choice); next.render(); fill(next); next.press(submit); await settle();
+  expect(f.generate).toHaveBeenCalledTimes(1);
+  f.generation.reject(new Error('native-generation-failed')); await settle(); next.render();
+  expect(f.generate).toHaveBeenCalledTimes(1);
+  expect(f.repository.listSigners().filter(value => value.backupState === 'pending')).toHaveLength(0);
+  expect(JSON.stringify(first.h.states)).toBe(retiredState);
+  expect(oldComplete).not.toHaveBeenCalled();
+  expect(nextComplete).not.toHaveBeenCalled();
+
+  f.generate.mockResolvedValueOnce(f.generated);
+  fill(next); next.press(submit); await settle(); next.render();
+  expect(f.generate).toHaveBeenCalledTimes(2);
+  expect(f.repository.listSigners().filter(value => value.backupState === 'pending')).toHaveLength(1);
+  // Settlement observers preserve the successful current owner's one-time
+  // phrase. Only a retired owner's phrase requires a new reveal.
+  const challenge = next.verifier();
+  expect(challenge.outputs().map(output => output.read())).toEqual(mnemonic.split(' '));
+  expect(f.reveal).not.toHaveBeenCalled();
+  expect(oldComplete).not.toHaveBeenCalled();
+  expect(nextComplete).not.toHaveBeenCalled();
+  challenge.close(); next.close();
+});
 
 it.each(['first-run', 'existing-wallet'] as const)('gates %s create behind actual three-word verification, consumes inputs before provisioning and rolls completion back on failure', async kind => {
   const f = fixture();

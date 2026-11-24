@@ -142,15 +142,62 @@ Executed on the clean source commit
 | Working tree after execution | Clean |
 
 Execution log: `/tmp/fresnica-audit-integrated-check.log` on the Mac.
-The following validation-record commit changes documentation only; application
-and test source remains identical to that executed commit. The final remote
-HEAD and any CI run on it must be verified independently in the PR.
+The first validation-record commit,
+`796f1b2c7a595686506087b337ca10793f1cc151`, changed documentation only;
+application and test source remained identical to that executed commit.
+Its GitHub CI also executed `npm run check` successfully with 312 suites /
+3,074 tests. Apple, Android and Realm heavy jobs were skipped; their successful
+summary jobs are not native build or Realm execution evidence.
 
-Push, remote HEAD verification and consolidated independent review are the
-remaining delivery steps at the time this execution record is committed.
-The review report on the associated PR records its exact 40-character
-`reviewed_head_sha`, findings, checks, deferred items and next action. It must
-be compared to the then-current remote PR HEAD before treating it as approval.
+### First consolidated independent review and follow-up
+
+[PR #232 review 6033519037](https://github.com/luneShaoGM/fresnica/pull/232#pullrequestreview-6033519037)
+reviewed exact HEAD `796f1b2c7a595686506087b337ca10793f1cc151` and returned
+**NEEDS_FIX: P1 0, P2 1, P3 1**. The reviewers independently checked GitHub
+diff/source identity and actual CI logs, executed 18 Realm suites / 115 tests,
+and reproduced the P2 using real provisioning/session/repository code with a
+controlled native SDK boundary. That helper demonstrated two pending signers
+after actual screen-instance replacement; it was not native gesture acceptance.
+
+The P2 was the component-local Create gate disappearing on actual unmount:
+a new screen could start another generation before the old one settled.
+The follow-up moves operation ownership into the repository-scoped Capability,
+guards the single pending-backup invariant before generation and persistence,
+and notifies current screens of settlement without sharing secrets/results.
+The P3 corrects the current S06 row to default-ON icons with persistent opt-out;
+dated historical opt-in evidence is retained.
+
+The review report on PR #232 records its exact 40-character
+`reviewed_head_sha`, findings, checks, deferred items and next action. A new
+HEAD requires a new independent review; the first NEEDS_FIX report is preserved
+as historical evidence and cannot approve the follow-up.
+
+### Follow-up targeted execution
+
+The follow-up was prepared against the reviewed `796f1b2c7a595686506087b337ca10793f1cc151`
+and executed in the same isolated Mac worktree. Seven directly affected suites /
+75 tests passed, followed by a passing `tsc --noEmit`. The changed source files
+were fingerprinted before the integrated check and are checked again before
+commit. Execution log: `/tmp/fresnica-audit-p2-targeted.log`.
+
+The follow-up integrated `npm run check` also passed: **312 suites / 3,088 tests**,
+with all chained repository gates completed. ESLint reported zero errors and
+74 warnings. Source fingerprints were unchanged after execution. Execution log:
+`/tmp/fresnica-audit-p2-check.log`. The subsequent execution-record edit is
+documentation only; the final committed source and remote HEAD still require
+independent verification and review in PR #232.
+
+The 14 added regressions include real first-run/existing-wallet feature and
+Capability calls with separate unmounted A and fresh B component instances,
+both with and without another Create click. They cover single generation and
+pending signer, public-only settlement notification, fresh-passphrase recovery,
+failure with explicit retry, delayed parse, pending-before-write checks,
+independent repository isolation, and observer removal/error isolation.
+These are automated/host tests with controlled native ports, not device
+navigation or backup-flow acceptance. No persistence adapter/schema or Realm
+integration test changed in this follow-up; the independent 18-suite / 115-test
+Realm record above keeps its original exact SHA and is not relabelled as a new run.
+
 Phase test totals overlap and must not be added into a unique coverage total.
 The independent report belongs to the reviewed remote SHA, not to this
 developer-maintained execution record.

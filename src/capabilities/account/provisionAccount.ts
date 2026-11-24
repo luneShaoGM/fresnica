@@ -61,6 +61,26 @@ export type GeneratedProvisionedAccount = ProvisionedAccount & {
   index: number;
 };
 
+// A route can disappear while native provisioning still runs. This gate is
+// owned by the wallet repository, and shares only settlement, never material.
+const mnemonicCreations = new WeakMap<AccountSignerRepository, Promise<void>>();
+const mnemonicCreationObservers = new WeakMap<AccountSignerRepository, Set<() => void>>();
+
+export function subscribeMnemonicAccountCreation(
+  repository: AccountSignerRepository,
+  onSettled: () => void,
+): () => void {
+  const observers = mnemonicCreationObservers.get(repository) ?? new Set<() => void>();
+  mnemonicCreationObservers.set(repository, observers);
+  observers.add(onSettled);
+  return () => {
+    observers.delete(onSettled);
+    if (!observers.size && mnemonicCreationObservers.get(repository) === observers) {
+      mnemonicCreationObservers.delete(repository);
+    }
+  };
+}
+
 export async function registerWatchOnlyAccount(
   dependencies: ProvisionAccountDependencies,
   input: WatchOnlyAccountInput,
@@ -127,27 +147,53 @@ export async function generateMnemonicAccount(
   dependencies: ProvisionAccountDependencies,
   input: GenerateMnemonicAccountInput,
 ): Promise<GeneratedProvisionedAccount> {
-  const generated = await dependencies.sdk.generateMnemonic({
-    language: input.language,
-    strength: input.strength,
-    mnemonicPassphrase: input.mnemonicPassphrase,
-    index: input.index,
-    appPassphrase: input.appPassphrase,
-  });
+  const { repository } = dependencies;
+  const active = mnemonicCreations.get(repository);
+  if (active) {
+    await active;
+    // A replacement screen reconciles the public pending identity after
+    // settlement. Failure requires an explicit retry, not a queued Create.
+    throw new Error('mnemonic-creation-in-progress');
+  }
+  assertNoPendingMnemonicBackup(repository);
+  let settle!: () => void;
+  const completion = new Promise<void>(resolve => { settle = resolve; });
+  mnemonicCreations.set(repository, completion);
 
-  const persisted = await persistProtectedSigner(dependencies, generated.signer, {
-    networkId: input.networkId,
-    label: input.label,
-    recoveryKind: 'mnemonic',
-    backupState: 'pending',
-  });
+  try {
+    const generated = await dependencies.sdk.generateMnemonic({
+      language: input.language,
+      strength: input.strength,
+      mnemonicPassphrase: input.mnemonicPassphrase,
+      index: input.index,
+      appPassphrase: input.appPassphrase,
+    });
 
-  return {
-    ...persisted,
-    mnemonic: generated.mnemonic,
-    language: generated.language,
-    index: generated.index,
-  };
+    const persisted = await persistProtectedSigner(dependencies, generated.signer, {
+      networkId: input.networkId,
+      label: input.label,
+      recoveryKind: 'mnemonic',
+      backupState: 'pending',
+    });
+
+    return {
+      ...persisted,
+      mnemonic: generated.mnemonic,
+      language: generated.language,
+      index: generated.index,
+    };
+  } finally {
+    mnemonicCreations.delete(repository);
+    settle();
+    for (const observer of [...(mnemonicCreationObservers.get(repository) ?? [])]) {
+      try {
+        observer();
+      } catch {
+        // Presentation observers cannot change a completed persistence result
+        // or strand another caller behind this operation's duplicate gate.
+      }
+    }
+  }
 }
 
 export async function deriveMnemonicAccount(
@@ -230,6 +276,12 @@ async function persistProtectedSigner(
     updatedAt: now,
   };
 
+  if (options.recoveryKind === 'mnemonic' && options.backupState === 'pending') {
+    // Recheck after the asynchronous SDK parse, immediately before the
+    // synchronous write, including changes made through another repo handle.
+    assertNoPendingMnemonicBackup(dependencies.repository);
+  }
+
   if (existingAccount) {
     try {
       dependencies.repository.upgradeWatchOnlyAccountWithSigner({
@@ -252,6 +304,13 @@ async function persistProtectedSigner(
   }
 
   return { account, signer };
+}
+
+function assertNoPendingMnemonicBackup(repository: AccountSignerRepository): void {
+  if (repository.listSigners().some(signer => signer.kind === 'protected-software'
+    && signer.recoveryKind === 'mnemonic' && signer.backupState === 'pending')) {
+    throw new Error('pending-mnemonic-backup-exists');
+  }
 }
 
 function requireNonEmpty(value: string, field: string): string {

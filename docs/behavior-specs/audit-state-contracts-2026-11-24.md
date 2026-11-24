@@ -91,6 +91,13 @@ up. Existing three-word challenge, correction of a wrong word, returning
 to the phrase, resampling and completion failure/retry remain unchanged.
 No additional reading timeout is introduced.
 
+Generated-account provisioning has a Capability-owned lifetime across actual
+route unmount/remount. At most one operation may generate per repository while
+unsettled, and a pending generated backup blocks another generation/persistence.
+The replacement screen observes settlement and reconciles public recovery
+identity even without another submit. Completion notification carries no secret
+or prior result; failed operations release the gate for explicit retry only.
+
 ### S05/S06 Classic credit-asset availability
 
 Preserve authorization flags and buying/selling liabilities through the

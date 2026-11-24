@@ -1,5 +1,5 @@
 import { NewPassphraseGuidance } from '../security/NewPassphraseGuidance/NewPassphraseGuidance';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Screen } from '@ui/components';
@@ -18,6 +18,7 @@ import { PendingMnemonicBackupScreen } from './PendingMnemonicBackupScreen';
 import { SensitiveTextInput, type SensitiveTextInputHandle, type SensitiveTextInputProps } from './SensitiveTextInput';
 import { useSensitiveFlowLifetime, type SensitiveFlowRequest } from './useSensitiveFlowLifetime';
 import { projectFeatureError } from '../featureError';
+import { subscribeMnemonicAccountCreation } from '../../capabilities/account/provisionAccount';
 import type { OnboardingMethod } from './onboardingState';
 import {
   runGeneratedMnemonicOnboarding,
@@ -56,7 +57,8 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
   const [passphraseAssessment, setPassphraseAssessment] = useState(() => assessNewProtectionPassphrase(''));
   const [passphraseConfirmationMatches, setPassphraseConfirmationMatches] = useState(false);
   const lifetime = useSensitiveFlowLifetime(clearOwnedMaterial, resumePersistedBackup, dependencies);
-  const { busy, owns } = lifetime;
+  const { busy, owns, resume } = lifetime;
+  useEffect(() => subscribeMnemonicAccountCreation(dependencies.repository, resume), [dependencies.repository, resume]);
   const attachVerifier = useCallback((input: MnemonicBackupVerificationHandle | null) => {
     verifier.current = input;
     if (!input) return;
@@ -100,6 +102,7 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
     try {
       const bootstrap = resolveOnboardingBootstrap(dependencies);
       if (bootstrap.kind === 'pending-mnemonic-backup') {
+        setError(undefined);
         setGeneratedBackup(current => current?.signerId === bootstrap.signerId
           ? current : { signerId: bootstrap.signerId, visible: false });
       } else {
@@ -179,7 +182,7 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
     } finally {
       const retired = !lifetime.isCurrent(owner);
       lifetime.finish(owner);
-      if (retired) lifetime.resume();
+      if (retired || method === 'generate-mnemonic') lifetime.resume();
     }
   }
 

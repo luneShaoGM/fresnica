@@ -6,10 +6,37 @@ import {
   importMnemonicAccount,
   importSecretAccount,
   registerWatchOnlyAccount,
+  subscribeMnemonicAccountCreation,
+  type GenerateMnemonicAccountInput,
   type ProvisionAccountDependencies,
 } from '../provisionAccount';
 
 const now = new Date('2026-08-28T00:00:00.000Z');
+const generateInput: GenerateMnemonicAccountInput = {
+  language: 'english',
+  strength: 128,
+  mnemonicPassphrase: '',
+  index: 0,
+  appPassphrase: 'a strong app passphrase',
+  networkId: 'stellar-testnet',
+};
+const generatedMaterial = {
+  signer: { signerPublicKey: 'GGENERATED', envelopeJson: '{generated-envelope}' },
+  mnemonic: 'alpha beta gamma',
+  language: 'english',
+  index: 0,
+};
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<T>((accept, fail) => { resolve = accept; reject = fail; });
+  return { promise, resolve, reject };
+}
+
+async function settleMicrotasks() {
+  for (let i = 0; i < 6; i += 1) await Promise.resolve();
+}
 
 function createDependencies() {
   const repository = new InMemoryAccountSignerRepository();
@@ -229,6 +256,156 @@ describe('account provisioning', () => {
     expect(result.signer.backupState).toBe('pending');
     expect(repository.getSigner(result.signer.id)?.envelopeJson).toBe('{generated-envelope}');
     expect(JSON.stringify(repository.getSigner(result.signer.id))).not.toContain('alpha beta gamma');
+  });
+
+  it('keeps one repository creation through SDK generation and delayed parsing without sharing or queuing its result', async () => {
+    const { dependencies, repository, sdk } = createDependencies();
+    const generation = deferred<typeof generatedMaterial>();
+    const parsing = deferred<AccountIdentity>();
+    sdk.generateMnemonic.mockReturnValueOnce(generation.promise);
+    sdk.parseAccount.mockReturnValueOnce(parsing.promise);
+
+    const first = generateMnemonicAccount(dependencies, generateInput);
+    const replacementSettled = jest.fn();
+    const replacement = generateMnemonicAccount({ ...dependencies }, generateInput).then(
+      value => replacementSettled({ value }),
+      error => replacementSettled({ error }),
+    );
+    expect(sdk.generateMnemonic).toHaveBeenCalledTimes(1);
+    expect(replacementSettled).not.toHaveBeenCalled();
+
+    generation.resolve(generatedMaterial);
+    await settleMicrotasks();
+    expect(sdk.parseAccount).toHaveBeenCalledTimes(1);
+    expect(repository.listSigners()).toEqual([]);
+    expect(replacementSettled).not.toHaveBeenCalled();
+
+    parsing.resolve({ kind: 'classic', address: 'GGENERATED', publicKey: 'GGENERATED' });
+    const result = await first;
+    await replacement;
+    expect(result.mnemonic).toBe(generatedMaterial.mnemonic);
+    expect(replacementSettled).toHaveBeenCalledWith({ error: new Error('mnemonic-creation-in-progress') });
+    expect(sdk.generateMnemonic).toHaveBeenCalledTimes(1);
+    expect(repository.listAccounts()).toEqual([result.account]);
+    expect(repository.listSigners()).toEqual([result.signer]);
+  });
+
+  it.each(['generation', 'parse', 'persistence'] as const)('releases the creation after %s failure for an explicit retry only', async phase => {
+    const { dependencies, repository, sdk } = createDependencies();
+    const generation = deferred<typeof generatedMaterial>();
+    const creationSettled = jest.fn();
+    const unsubscribe = subscribeMnemonicAccountCreation(repository, creationSettled);
+    sdk.generateMnemonic.mockReturnValueOnce(generation.promise);
+    if (phase === 'parse') sdk.parseAccount.mockRejectedValueOnce(new Error('parse-failed'));
+    if (phase === 'persistence') {
+      jest.spyOn(repository, 'createAccountWithSigner').mockImplementationOnce(() => { throw new Error('persistence-failed'); });
+    }
+
+    const first = generateMnemonicAccount(dependencies, generateInput);
+    const firstFailure = expect(first).rejects.toThrow(`${phase}-failed`);
+    const waiting = generateMnemonicAccount({ ...dependencies }, generateInput);
+    const waitingFailure = expect(waiting).rejects.toThrow('mnemonic-creation-in-progress');
+    if (phase === 'generation') generation.reject(new Error('generation-failed'));
+    else generation.resolve(generatedMaterial);
+    await Promise.all([firstFailure, waitingFailure]);
+    expect(repository.listAccounts()).toEqual([]);
+    expect(repository.listSigners()).toEqual([]);
+    expect(sdk.generateMnemonic).toHaveBeenCalledTimes(1);
+    expect(creationSettled.mock.calls).toEqual([[]]);
+
+    const retried = await generateMnemonicAccount({ ...dependencies }, generateInput);
+    expect(sdk.generateMnemonic).toHaveBeenCalledTimes(2);
+    expect(repository.listSigners()).toEqual([retried.signer]);
+    expect(creationSettled.mock.calls).toEqual([[], []]);
+    unsubscribe();
+  });
+
+  it('blocks a persisted pending backup across networks before SDK work and permits a new account after confirmation', async () => {
+    const { dependencies, repository, sdk } = createDependencies();
+    const first = await generateMnemonicAccount(dependencies, generateInput);
+
+    await expect(generateMnemonicAccount(dependencies, {
+      ...generateInput, networkId: 'stellar-mainnet',
+    })).rejects.toThrow('pending-mnemonic-backup-exists');
+    expect(sdk.generateMnemonic).toHaveBeenCalledTimes(1);
+    expect(repository.listSigners()).toEqual([first.signer]);
+
+    repository.setSignerBackupState(first.signer.id, 'confirmed', now);
+    sdk.generateMnemonic.mockResolvedValueOnce({
+      ...generatedMaterial, signer: { signerPublicKey: 'GNEXT', envelopeJson: '{next-envelope}' },
+    });
+    const next = await generateMnemonicAccount(dependencies, generateInput);
+    expect(sdk.generateMnemonic).toHaveBeenCalledTimes(2);
+    expect(repository.listSigners().filter(signer => signer.backupState === 'pending')).toEqual([next.signer]);
+    expect(repository.getSigner(first.signer.id)?.backupState).toBe('confirmed');
+  });
+
+  it('rechecks pending backup immediately before persistence even when another repository wrapper writes during parsing', async () => {
+    const { dependencies, repository, sdk } = createDependencies();
+    const parsing = deferred<AccountIdentity>();
+    sdk.parseAccount.mockReturnValueOnce(parsing.promise);
+    const first = generateMnemonicAccount(dependencies, generateInput);
+    const firstFailure = expect(first).rejects.toThrow('pending-mnemonic-backup-exists');
+    await settleMicrotasks();
+
+    // A second repository object can address the same underlying store; its
+    // separate operation gate cannot replace the persistence-time invariant.
+    const otherRepository = new Proxy(repository, {});
+    const second = await generateMnemonicAccount({
+      ...dependencies,
+      repository: otherRepository,
+      sdk: {
+        ...sdk,
+        parseAccount: async (address: string): Promise<AccountIdentity> => ({ kind: 'classic', address, publicKey: address }),
+        generateMnemonic: async () => ({
+          ...generatedMaterial, signer: { signerPublicKey: 'GOTHER', envelopeJson: '{other-envelope}' },
+        }),
+      } as unknown as FresnicaSdkPort,
+    }, generateInput);
+
+    parsing.resolve({ kind: 'classic', address: 'GGENERATED', publicKey: 'GGENERATED' });
+    await firstFailure;
+    expect(repository.listAccounts()).toEqual([second.account]);
+    expect(repository.listSigners()).toEqual([second.signer]);
+  });
+
+  it('does not block an independent repository or notify its observers', async () => {
+    const first = createDependencies();
+    const second = createDependencies();
+    const generation = deferred<typeof generatedMaterial>();
+    first.sdk.generateMnemonic.mockReturnValueOnce(generation.promise);
+    const firstSettled = jest.fn();
+    const unsubscribe = subscribeMnemonicAccountCreation(first.repository, firstSettled);
+
+    const waiting = generateMnemonicAccount(first.dependencies, generateInput);
+    const independent = await generateMnemonicAccount(second.dependencies, generateInput);
+    expect(second.repository.listSigners()).toEqual([independent.signer]);
+    expect(first.repository.listSigners()).toEqual([]);
+    expect(firstSettled).not.toHaveBeenCalled();
+
+    generation.resolve(generatedMaterial);
+    await waiting;
+    expect(firstSettled).toHaveBeenCalledTimes(1);
+    expect(firstSettled).toHaveBeenCalledWith();
+    unsubscribe();
+  });
+
+  it('isolates observer errors and removes retired subscriptions without publishing generated material', async () => {
+    const { dependencies, repository } = createDependencies();
+    const retired = jest.fn();
+    const unsubscribeRetired = subscribeMnemonicAccountCreation(repository, retired);
+    const unsubscribeThrowing = subscribeMnemonicAccountCreation(repository, () => { throw new Error('view-retired'); });
+    const current = jest.fn();
+    const unsubscribeCurrent = subscribeMnemonicAccountCreation(repository, current);
+    unsubscribeRetired();
+
+    const result = await generateMnemonicAccount(dependencies, generateInput);
+    expect(result.signer.backupState).toBe('pending');
+    expect(retired).not.toHaveBeenCalled();
+    expect(current).toHaveBeenCalledTimes(1);
+    expect(current).toHaveBeenCalledWith();
+    unsubscribeThrowing();
+    unsubscribeCurrent();
   });
 
   it('rejects a non-classic identity before persistence for software signer provisioning', async () => {

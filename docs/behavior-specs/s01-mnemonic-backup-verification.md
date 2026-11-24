@@ -50,6 +50,16 @@ on re-entry and after a retired operation settles, because persistence may
 occur after the initial clear. Do not start a replacement Create, delete the
 account or silently confirm its backup. No persistence schema changes.
 
+The generated-account operation belongs to the repository/Capability lifetime,
+not to a screen instance. Actually unmounting instance A and mounting instance B
+must not start a second native generation while A is unsettled. Before generation
+and again before persistence, the existing single pending generated-backup
+invariant remains authoritative. A replacement screen observes settlement and
+reconciles only public recovery identity, including when it has not submitted
+another Create. It never receives the previous screen's plaintext result. If the
+operation fails, the gate releases and retry is an explicit fresh operation;
+waiting callers must not automatically generate another account.
+
 ## Verification behavior
 
 Showing the phrase is not proof of backup. The product must not mark `backupState=confirmed` from a one-tap acknowledgement.
@@ -112,6 +122,9 @@ Tests must prove:
   and unmount cannot revive old plaintext or start a second unsettled Create;
 - a retired Create which later persists a pending signer exposes only the
   public recovery identity and requires fresh-passphrase reveal;
+- actual unmount/remount shares one unsettled generation gate and produces at
+  most one pending signer; the replacement screen observes late persistence
+  without inheriting secrets, and failure permits explicit retry;
 - all three backup entry points preserve completion-failure rollback/retry.
 
 Host component/native-port tests are automated behavior evidence, not native

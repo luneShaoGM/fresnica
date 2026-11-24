@@ -1,5 +1,5 @@
 import { NewPassphraseGuidance } from '../security/NewPassphraseGuidance/NewPassphraseGuidance';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import {
@@ -7,6 +7,7 @@ import {
   assessNewProtectionPassphrase,
 } from '@capabilities/application-security/newPassphrasePolicy';
 import { requiresExistingAppPassphrase } from '@capabilities/application-security/verifyExistingAppPassphrase';
+import { subscribeMnemonicAccountCreation } from '@capabilities/account/provisionAccount';
 import { Screen } from '@ui/components';
 import { useAppTheme, useThemedStyles, type AppTheme } from '@ui/theme';
 
@@ -80,7 +81,8 @@ export function AddAccountScreen({
   const [passphraseAssessment, setPassphraseAssessment] = useState(() => assessNewProtectionPassphrase(''));
   const [confirmationMatches, setConfirmationMatches] = useState(false);
   const lifetime = useSensitiveFlowLifetime(clearOwnedMaterial, resumePersistedBackup, dependencies);
-  const { busy, owns } = lifetime;
+  const { busy, owns, resume } = lifetime;
+  useEffect(() => subscribeMnemonicAccountCreation(dependencies.repository, resume), [dependencies.repository, resume]);
   const attachVerifier = useCallback((input: MnemonicBackupVerificationHandle | null) => {
     verifier.current = input;
     if (!input) return;
@@ -115,6 +117,7 @@ export function AddAccountScreen({
     try {
       const bootstrap = resolveOnboardingBootstrap(dependencies);
       if (bootstrap.kind === 'pending-mnemonic-backup') {
+        setError(undefined);
         setCreated(current => current?.signerId === bootstrap.signerId && current.accountId === bootstrap.accountId ? current : {
           accountId: bootstrap.accountId,
           signerId: bootstrap.signerId,
@@ -145,10 +148,10 @@ export function AddAccountScreen({
     };
   }
 
-  function finish(owner: NonNullable<ReturnType<typeof lifetime.begin>>) {
+  function finish(owner: NonNullable<ReturnType<typeof lifetime.begin>>, reconcileCreate = false) {
     const retired = !lifetime.isCurrent(owner);
     lifetime.finish(owner);
-    if (retired) lifetime.resume();
+    if (retired || reconcileCreate) lifetime.resume();
   }
 
   function resetImportMetadata() {
@@ -202,7 +205,7 @@ export function AddAccountScreen({
     } catch (caught) {
       if (lifetime.isCurrent(owner)) setError(readableError(caught, t('accounts.add.error')));
     } finally {
-      finish(owner);
+      finish(owner, true);
     }
   }
 
