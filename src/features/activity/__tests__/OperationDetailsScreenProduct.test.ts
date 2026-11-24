@@ -33,7 +33,9 @@ import { ParticipantCard } from '../../contacts/ParticipantCard';
 import type { ContactBook, ContactScanner } from '../../contacts/contactBook';
 import { StateView } from '../../../ui/components';
 import { defaultTheme } from '../../../ui/theme';
-import { OperationDetailsScreen, OperationExplorerAction } from '../OperationDetailsScreen';
+import { AssetAmount, OperationDetailsScreen, OperationExplorerAction } from '../OperationDetailsScreen';
+import { TokenAssetIcon } from '../../assets/TokenAssetIcon';
+import { CopyAddressButton } from '../../accounts/CopyAddressButton';
 
 jest.mock('react', () => {
   const actual = jest.requireActual('react') as typeof import('react');
@@ -164,6 +166,7 @@ function renderWithState(
     invalidationRevision: 0,
     onBack: jest.fn(),
     openExternalUrl,
+    copyPublicText: jest.fn(async () => undefined),
     projectExplorerUrl,
   });
 
@@ -469,10 +472,10 @@ it('shows signed exact path legs and only the two explicit muxed participant ide
   });
   expect(values).toEqual(
     expect.arrayContaining([
-      'Actually sent',
-      '−922,337,203,685.4775807 USD\nUSD:GSOURCEISSUER',
-      'Actually received',
-      '+0.0000001 EUR\nEUR:GDESTISSUER',
+      'Sent',
+      '−922,337,203,685.4775807 USD',
+      'Received',
+      '+0.0000001 EUR',
     ]),
   );
   for (const value of ['Direction', 'Outgoing', 'Sent asset issuer', 'Received asset issuer', 'Source account', 'Counterparty']) {
@@ -711,12 +714,9 @@ it('wraps complete conditions and detail values without truncating audit informa
   );
   expect((otherValue?.props as { numberOfLines?: number }).numberOfLines).toBeUndefined();
   const hash = renderDetail('Transaction hash');
-  const hashValue = findElement(
-    hash,
-    element => element.type === Text && element.props.children === entry.transactionHash,
-  );
-  expect(hashValue?.props.children).toBe(entry.transactionHash);
-  expect((hashValue?.props as { numberOfLines?: number }).numberOfLines).toBeUndefined();
+  const hashCopy = findElement(hash, element => element.type === CopyAddressButton);
+  expect(hashCopy?.props).toMatchObject({ address: entry.transactionHash, kind: 'transaction-hash' });
+  expect(hashCopy?.key).toBe(entry.transactionHash);
 });
 
 it.each(maintenanceTypes)('shows exact %s parameters and historical limits without monetary labels', type => {
@@ -935,6 +935,7 @@ it.each(['payment', 'create-account'] as const)(
         const props = element.props as { label?: string; children?: unknown };
         if (props.label) labels.push(props.label);
         if (element.type === Text) texts.push(props.children);
+        if (element.type === AssetAmount) texts.push((element.props as { value?: string }).value);
       });
       expect(texts.filter(text => text === sign + '0.0000001 ' + (kind === 'payment' ? 'USD' : 'XLM'))).toHaveLength(1);
       for (const label of ['Direction', 'Amount', 'Asset', 'Issuer', 'Source account', 'Counterparty', 'Starting balance']) {
@@ -986,10 +987,9 @@ it.each(assetIdentityCases)('retains the full payment asset identity for %j with
     kind: 'loaded', result: { status: 'ready', entry }, source: 'online',
     stale: false, refreshing: false, refreshFailed: false,
   });
-  const text = findElement(root, element => element.type === Text && element.props.children === identity);
-  expect(text).toBeDefined();
-  expect((text?.props as { selectable?: boolean }).selectable).toBe(true);
-  expect((text?.props as { numberOfLines?: number }).numberOfLines).toBeUndefined();
+  const amount = findElement(root, element => element.type === AssetAmount)!;
+  expect(amount.props).toMatchObject({ asset, value: '−0.0000001 ' + asset.code, active: true });
+  expectExpandableAsset(amount, asset, identity);
   const rows = findElement(root, element => 'participants' in element.props)!;
   expect((rows.props as unknown as { participants: unknown }).participants).toEqual(entry.participants);
   expect(findElement(root, element => element.type === ParticipantCard)).toBeUndefined();
@@ -1011,17 +1011,111 @@ it.each([
     kind: 'loaded', result: { status: 'ready', entry }, source: 'online',
     stale: false, refreshing: false, refreshFailed: false,
   });
-  for (const [label, value] of [
-    ['Actually sent', '−922,337,203,685.4775807 ' + sourceAsset.code + '\n' + sourceIdentity],
-    ['Actually received', '+0.0000001 ' + destinationAsset.code + '\n' + destinationIdentity],
-  ]) {
-    const row = findElement(root, element => (element.props as { label?: string }).label === label)!;
-    expect(row.props).toMatchObject({ value, fullValue: true });
-    const renderRow = row.type as (props: typeof row.props) => React.ReactNode;
-    const text = findElement(renderRow(row.props), element => element.type === Text && element.props.children === value);
-    expect((text?.props as { numberOfLines?: number }).numberOfLines).toBeUndefined();
+  for (const [label, value, asset, identity] of [
+    ['Sent', '−922,337,203,685.4775807 ' + sourceAsset.code, sourceAsset, sourceIdentity],
+    ['Received', '+0.0000001 ' + destinationAsset.code, destinationAsset, destinationIdentity],
+  ] as const) {
+    const row = findElement(root, element => element.type === AssetAmount && element.props.label === label)!;
+    expect(row.props).toMatchObject({ value, asset, active: true });
+    expectExpandableAsset(row, asset, identity);
   }
   const rows = findElement(root, element => 'participants' in element.props)!;
   expect((rows.props as unknown as { participants: unknown }).participants).toEqual(entry.participants);
   expect(findElement(root, element => element.type === ParticipantCard)).toBeUndefined();
+});
+
+function expectExpandableAsset(row: React.ReactElement<NodeProps>, asset: HistoryAsset, identity: string) {
+  const setExpanded = jest.fn();
+  const renderRow = row.type as (props: typeof row.props) => React.ReactNode;
+  mockedUseState.mockReturnValue([false, setExpanded]);
+  const collapsed = renderRow(row.props);
+  expect(findElement(collapsed, element => element.type === TokenAssetIcon)?.props).toMatchObject({ asset, active: true, size: 22 });
+  expect(findElement(collapsed, element => element.type === Text && element.props.children === row.props.value)).toBeDefined();
+  expect(findElement(collapsed, element => element.type === Text && element.props.children === identity)).toBeUndefined();
+  const button = findElement(collapsed, element => element.type === Pressable)!;
+  expect(button.props.accessibilityState).toEqual({ expanded: false });
+  (button.props as unknown as { onPress: () => void }).onPress();
+  expect(setExpanded).toHaveBeenCalledTimes(1);
+  mockedUseState.mockReturnValue([true, setExpanded]);
+  const expanded = renderRow(row.props);
+  const text = findElement(expanded, element => element.type === Text && element.props.children === identity);
+  expect(text).toBeDefined();
+  expect((text?.props as { selectable?: boolean }).selectable).toBe(true);
+  expect((text?.props as { numberOfLines?: number }).numberOfLines).toBeUndefined();
+}
+
+it.each(['outgoing', 'incoming', 'self', 'neutral'] as const)('shows only exact non-viewed payment participants: %s', direction => {
+  const other = { ...account, id: 'other', address: 'GOTHER', label: 'Other wallet' };
+  const sender = direction === 'incoming' || direction === 'neutral' ? other.address : account.address;
+  const recipient = direction === 'incoming' || direction === 'self' ? account.address : 'GDESTINATION';
+  const entry: HistoryEntry = {
+    ...unsupported(), kind: 'payment', direction, amount: '1', asset: { kind: 'native', code: 'XLM' },
+    counterparty: recipient, participants: [{ role: 'sender', identity: sender }, { role: 'recipient', identity: recipient }],
+  };
+  const contacts = {
+    network: { id: account.networkId }, isClassicAccountAddress: () => true,
+  } as unknown as ContactBook;
+  const { root } = renderWithState({
+    kind: 'loaded', result: { status: 'ready', entry }, source: 'online', stale: false, refreshing: false, refreshFailed: false,
+  }, 'idle', jest.fn(), jest.fn<string | undefined, [string]>(() => trustedUrl), contacts, [account, other]);
+  const rows = findElement(root, element => 'participants' in element.props)!;
+  const rendered = (rows.type as (props: typeof rows.props) => React.ReactNode)(rows.props);
+  const addresses: string[] = [];
+  visit(rendered, element => {
+    if (element.type === ParticipantCard) {
+      expect(element.props).toMatchObject({ compact: true, accounts: [account, other] });
+      addresses.push(element.props.address!);
+    }
+  });
+  expect(addresses).toEqual([sender, recipient].filter(address => address !== account.address));
+  const own = findElement(rendered, element => 'participants' in element.props);
+  const ownParticipants = entry.participants.filter(participant => participant.identity === account.address);
+  if (!ownParticipants.length) {
+    expect(own).toBeUndefined();
+  } else {
+    expect(own?.props).toMatchObject({ participants: ownParticipants });
+    mockedUseState.mockReturnValue([false, jest.fn()]);
+    const collapsed = (own!.type as (props: NodeProps) => React.ReactNode)(own!.props);
+    expect(findElement(collapsed, element => element.props.value === account.address)).toBeUndefined();
+    mockedUseState.mockReturnValue([true, jest.fn()]);
+    const expanded = (own!.type as (props: NodeProps) => React.ReactNode)(own!.props);
+    const roles: string[] = [];
+    visit(expanded, element => {
+      if (element.props.value === account.address) roles.push(element.props.label!);
+    });
+    expect(roles).toHaveLength(ownParticipants.length);
+  }
+});
+
+it('does not hide a distinct muxed identity that shares the viewed base account', () => {
+  const entry: HistoryEntry = {
+    ...unsupported(), kind: 'path-payment', successful: true, direction: 'self',
+    sourceAmount: '1', sourceAsset: { kind: 'native', code: 'XLM' },
+    destinationAmount: '2', destinationAsset: { kind: 'credit', code: 'USD', issuer: 'GISSUER' },
+    counterparty: 'MROUTED', participants: [
+      { role: 'sender', identity: account.address },
+      { role: 'recipient', identity: 'MROUTED', baseAccount: account.address },
+    ],
+  };
+  const { root } = renderWithState({
+    kind: 'loaded', result: { status: 'ready', entry }, source: 'online', stale: false, refreshing: false, refreshFailed: false,
+  });
+  const rows = findElement(root, element => 'participants' in element.props)!;
+  const rendered = (rows.type as (props: typeof rows.props) => React.ReactNode)(rows.props);
+  expect(findElement(rendered, element => element.props.value === 'MROUTED')).toBeDefined();
+  expect(findElement(rendered, element => element.type === ParticipantCard)).toBeUndefined();
+});
+
+it('keeps the recorded time and recipient memo visible without inferring a fee', () => {
+  const entry: HistoryEntry = {
+    ...unsupported(), kind: 'payment', direction: 'outgoing', amount: '1', asset: { kind: 'native', code: 'XLM' },
+    counterparty: 'GRECIPIENT', participants: [{ role: 'sender', identity: account.address }, { role: 'recipient', identity: 'GRECIPIENT' }],
+    recipientMemo: { recipient: 'GRECIPIENT', memo: { type: 'text', value: 'Invoice 42' } },
+  };
+  const { root } = renderWithState({
+    kind: 'loaded', result: { status: 'ready', entry }, source: 'online', stale: false, refreshing: false, refreshFailed: false,
+  });
+  const { t } = createLocalization('en');
+  expect(findElement(root, element => element.props.label === t('activity.detail.occurredAt'))?.props.value).toBeTruthy();
+  expect(findElement(root, element => element.props.label === t('contacts.memo'))?.props.value).toBe('Text: Invoice 42');
 });

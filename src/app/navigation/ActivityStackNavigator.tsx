@@ -74,6 +74,7 @@ export function ActivityStackNavigator({ accounts, selectedAccountId, services }
               invalidationRevision={invalidationRevision}
               onBack={() => navigation.goBack()}
               openExternalUrl={services.externalUrl.open}
+              copyPublicText={services.copyPublicText}
               projectExplorerUrl={transactionHash => transactionExplorerUrl(account.networkId, transactionHash)}
             />
           )}
