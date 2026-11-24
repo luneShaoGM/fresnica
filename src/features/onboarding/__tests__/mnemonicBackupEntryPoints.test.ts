@@ -100,6 +100,27 @@ function realCreateFixture(kind: 'first-run' | 'existing-wallet') {
   return { ...f, generated, generation, generate, verify };
 }
 
+function realFirstProtectionFixture(kind: 'first-run' | 'existing-wallet') {
+  const f = realCreateFixture('first-run');
+  if (kind === 'existing-wallet') f.repository.createAccount({
+    ...account, id: 'watch-only', address: 'GWATCH',
+  });
+  const imported: Awaited<ReturnType<FresnicaSdkPort['protectSecret']>> = {
+    signerPublicKey: 'GIMPORTED', envelopeJson: '{imported-envelope}',
+  };
+  const importing = deferred<typeof imported>();
+  const protectSecret = jest.fn(() => importing.promise);
+  const protectMnemonic = jest.fn(() => importing.promise);
+  f.dependencies.sdk = { ...f.dependencies.sdk, protectSecret, protectMnemonic };
+  const existing = jest.requireActual<typeof import('../../accounts/importExistingWalletAccount')>(
+    '../../accounts/importExistingWalletAccount',
+  );
+  const onboarding = jest.requireActual<typeof import('../runOnboardingProvisioning')>('../runOnboardingProvisioning');
+  jest.mocked(importExistingWalletAccount).mockImplementation(existing.importExistingWalletAccount);
+  jest.mocked(runSecretImportOnboarding).mockImplementation(onboarding.runSecretImportOnboarding);
+  return { ...f, imported, importing, protectSecret, protectMnemonic };
+}
+
 function screenHarness(renderScreen: () => React.ReactElement) {
   const h = new SensitiveFlowHarness();
   const fields = new Map<string, ReturnType<typeof sensitiveField>>();
@@ -149,7 +170,7 @@ function screenHarness(renderScreen: () => React.ReactElement) {
   };
 }
 
-async function settle() { for (let i = 0; i < 12; i += 1) await Promise.resolve(); }
+async function settle() { for (let i = 0; i < 24; i += 1) await Promise.resolve(); }
 
 let lifecycle: ReturnType<typeof appStatePort>;
 beforeEach(() => {
@@ -158,6 +179,113 @@ beforeEach(() => {
   lifecycle = appStatePort();
 });
 afterEach(() => { lifecycle.close(); jest.restoreAllMocks(); });
+
+type EntryKind = 'first-run' | 'existing-wallet';
+type ProtectedMethod = 'create' | 'secret' | 'mnemonic';
+
+function mountProtectedEntry(
+  kind: EntryKind,
+  dependencies: OnboardingProvisioningDependencies,
+  complete: () => void,
+  refresh = jest.fn(),
+) {
+  return screenHarness(() => kind === 'first-run'
+    ? OnboardingScreen({ dependencies, onComplete: complete })
+    : AddAccountScreen({ dependencies, onCreatedAccountReady: complete, onAccountPersisted: refresh,
+      onWatchOnlyComplete: jest.fn(), onCancel: jest.fn() }));
+}
+
+function startFirstProtection(
+  h: ReturnType<typeof screenHarness>, kind: EntryKind, method: ProtectedMethod, credential: string,
+) {
+  const firstRunChoices = { create: 'Create new wallet', secret: 'Import Stellar secret', mnemonic: 'Import recovery phrase' };
+  const existingChoices = { create: 'accounts.add.create.title', secret: 'accounts.add.importSecret.title', mnemonic: 'accounts.add.importMnemonic.title' };
+  h.press((kind === 'first-run' ? firstRunChoices : existingChoices)[method]); h.render();
+  if (method === 'secret') h.field(kind === 'first-run' ? 'Stellar secret' : 'accounts.add.import.secret').type('S-PRIVATE-IMPORT');
+  if (method === 'mnemonic') h.field(kind === 'first-run' ? 'Recovery phrase' : 'accounts.add.import.mnemonic').type(mnemonic);
+  h.field(kind === 'first-run' ? 'App passphrase' : 'accounts.add.newPassphrase').type(credential);
+  h.field(kind === 'first-run' ? 'Confirm app passphrase' : 'accounts.add.confirmPassphrase').type(credential);
+  h.render();
+  const existingActions = { create: 'accounts.add.create.action', secret: 'accounts.add.importSecret.action', mnemonic: 'accounts.add.importMnemonic.action' };
+  h.press(kind === 'first-run' ? 'Continue' : existingActions[method]);
+}
+
+it.each([
+  ['first-run', 'secret'], ['first-run', 'mnemonic'],
+  ['existing-wallet', 'secret'], ['existing-wallet', 'mnemonic'],
+] as const)('owns first protection across %s Create unmount and a replacement %s Import', async (kind, method) => {
+  const f = realFirstProtectionFixture(kind);
+  const oldComplete = jest.fn(), nextComplete = jest.fn(), nextRefresh = jest.fn();
+  const first = mountProtectedEntry(kind, f.dependencies, oldComplete);
+  startFirstProtection(first, kind, 'create', passphrase); await settle();
+  first.close();
+  const retiredState = JSON.stringify(first.h.states);
+  const next = mountProtectedEntry(kind, f.dependencies, nextComplete, nextRefresh);
+  startFirstProtection(next, kind, method, 'violet ocean above amber hills'); await settle();
+  expect(f.generate).toHaveBeenCalledTimes(1);
+  expect(f.protectSecret).not.toHaveBeenCalled();
+  expect(f.protectMnemonic).not.toHaveBeenCalled();
+  expect(f.verify).not.toHaveBeenCalled();
+
+  f.generation.resolve(f.generated); await settle();
+  const pending = next.render();
+  expect(pending.type).toBe(PendingMnemonicBackupScreen);
+  expect((pending.props as React.ComponentProps<typeof PendingMnemonicBackupScreen>).completionError).toBeUndefined();
+  expect(f.repository.listSigners()).toHaveLength(1);
+  expect(f.repository.listSigners()[0].backupState).toBe('pending');
+  expect(JSON.stringify(next.h.states)).not.toContain('violet ocean above amber hills');
+  expect(JSON.stringify(next.h.states)).not.toContain('S-PRIVATE-IMPORT');
+  expect(JSON.stringify(next.h.states)).not.toContain(mnemonic);
+  expect(JSON.stringify(first.h.states)).toBe(retiredState);
+  expect(oldComplete).not.toHaveBeenCalled();
+  expect(nextComplete).not.toHaveBeenCalled();
+  expect(nextRefresh).not.toHaveBeenCalled();
+  expect(f.protectSecret).not.toHaveBeenCalled();
+  expect(f.protectMnemonic).not.toHaveBeenCalled();
+  next.close();
+});
+
+it.each(['first-run', 'existing-wallet'] as const)('reconciles %s Import unmount before a replacement Create without repeating old navigation', async kind => {
+  const f = realFirstProtectionFixture(kind);
+  const oldComplete = jest.fn(), nextComplete = jest.fn(), nextRefresh = jest.fn();
+  const first = mountProtectedEntry(kind, f.dependencies, oldComplete);
+  startFirstProtection(first, kind, 'secret', passphrase); await settle();
+  first.close();
+  const next = mountProtectedEntry(kind, f.dependencies, nextComplete, nextRefresh);
+  startFirstProtection(next, kind, 'create', 'violet ocean above amber hills'); await settle();
+  expect(f.generate).not.toHaveBeenCalled();
+  f.importing.resolve(f.imported); await settle(); next.render();
+  expect(f.repository.listSigners()).toHaveLength(1);
+  expect(f.repository.listSigners()[0].backupState).toBe('not-required');
+  expect(f.generate).not.toHaveBeenCalled();
+  expect(oldComplete).not.toHaveBeenCalled();
+  expect(nextComplete).toHaveBeenCalledTimes(kind === 'first-run' ? 1 : 0);
+  expect(nextRefresh).toHaveBeenCalledTimes(kind === 'existing-wallet' ? 1 : 0);
+  next.close();
+});
+
+it.each([
+  ['first-run', false], ['first-run', true],
+  ['existing-wallet', false], ['existing-wallet', true],
+] as const)('publishes %s Import settlement once to its current owner or idle replacement, retired=%s', async (kind, retired) => {
+  const f = realFirstProtectionFixture(kind);
+  const firstComplete = jest.fn(), firstRefresh = jest.fn(), nextComplete = jest.fn(), nextRefresh = jest.fn();
+  const first = mountProtectedEntry(kind, f.dependencies, firstComplete, firstRefresh);
+  startFirstProtection(first, kind, 'secret', passphrase); await settle();
+  let next: ReturnType<typeof screenHarness> | undefined;
+  if (retired) {
+    first.close();
+    next = mountProtectedEntry(kind, f.dependencies, nextComplete, nextRefresh);
+  }
+  f.importing.resolve(f.imported); await settle();
+  expect(f.protectSecret).toHaveBeenCalledTimes(1);
+  expect(firstComplete).toHaveBeenCalledTimes(retired ? 0 : 1);
+  expect(firstRefresh).toHaveBeenCalledTimes(!retired && kind === 'existing-wallet' ? 1 : 0);
+  expect(nextComplete).toHaveBeenCalledTimes(retired && kind === 'first-run' ? 1 : 0);
+  expect(nextRefresh).toHaveBeenCalledTimes(retired && kind === 'existing-wallet' ? 1 : 0);
+  if (next) next.close();
+  else first.close();
+});
 
 it.each([
   ['first-run', false], ['first-run', true],

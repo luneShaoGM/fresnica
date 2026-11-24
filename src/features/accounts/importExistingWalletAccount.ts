@@ -41,7 +41,7 @@ export async function importExistingWalletAccount(
   dependencies: OnboardingProvisioningDependencies,
   input: ExistingWalletImportInput,
 ): Promise<ExistingWalletImportResult> {
-  await authorizeExistingWalletProtection(
+  const authorize = () => authorizeExistingWalletProtection(
     dependencies,
     input.appPassphrase,
     input.confirmAppPassphrase,
@@ -55,7 +55,7 @@ export async function importExistingWalletAccount(
           appPassphrase: input.appPassphrase,
           networkId: dependencies.networkId,
           label: input.label,
-        })
+        }, authorize)
       : await importMnemonicAccount(dependencies, {
           mnemonic: input.mnemonic,
           mnemonicPassphrase: input.mnemonicPassphrase,
@@ -64,7 +64,7 @@ export async function importExistingWalletAccount(
           appPassphrase: input.appPassphrase,
           networkId: dependencies.networkId,
           label: input.label,
-        });
+        }, authorize);
 
   const systemAuthRegistration = 'not-configured' as const;
 

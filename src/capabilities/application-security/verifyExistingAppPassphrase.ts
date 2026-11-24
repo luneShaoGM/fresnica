@@ -73,3 +73,10 @@ function protectedSignerVerificationTargets(repository: AccountSignerRepository)
 
   return targets;
 }
+
+export function protectedSignerVerificationIdentity(repository: AccountSignerRepository): string {
+  return JSON.stringify(protectedSignerVerificationTargets(repository)
+    .map(target => [target.signerPublicKey, target.envelopeJson])
+    .sort(([leftKey, leftEnvelope], [rightKey, rightEnvelope]) =>
+      leftKey.localeCompare(rightKey) || leftEnvelope.localeCompare(rightEnvelope)));
+}

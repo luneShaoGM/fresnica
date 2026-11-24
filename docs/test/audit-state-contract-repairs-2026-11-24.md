@@ -172,7 +172,7 @@ The review report on PR #232 records its exact 40-character
 HEAD requires a new independent review; the first NEEDS_FIX report is preserved
 as historical evidence and cannot approve the follow-up.
 
-### Follow-up targeted execution
+### First follow-up targeted execution
 
 The follow-up was prepared against the reviewed `796f1b2c7a595686506087b337ca10793f1cc151`
 and executed in the same isolated Mac worktree. Seven directly affected suites /
@@ -197,6 +197,62 @@ These are automated/host tests with controlled native ports, not device
 navigation or backup-flow acceptance. No persistence adapter/schema or Realm
 integration test changed in this follow-up; the independent 18-suite / 115-test
 Realm record above keeps its original exact SHA and is not relabelled as a new run.
+
+### Second independent review: Create/Import authorization ownership
+
+The first follow-up was committed and pushed as
+`4171f22e9a0c54c1b545a0c8241a621727027c77`. Independent
+[review 6033619731](https://github.com/luneShaoGM/fresnica/pull/232#pullrequestreview-6033619731)
+closed the original duplicate-Create P2 and icon-policy P3, but returned
+**NEEDS_FIX: P1 0, P2 1, P3 0** for the same owner's cross-method boundary.
+
+Starting from a watch-only wallet, a retired first protected Create and a new
+instance's Import could establish different passphrases before either observed
+the other's protected signer. The generation-only gate did not cover Import.
+Independent real-wrapper/session/repository helper execution produced two
+protected signers, one pending, and neither candidate passphrase could verify
+the complete inventory. This was a controlled native-port helper, not real
+cryptography or native product acceptance.
+
+That review independently verified the new CI's actual npm/check steps and
+312-suite / 3,088-test logs, reran five targeted suites / 65 tests, and confirmed
+unchanged persistence adapters and other repair modules. The next correction
+shares provisioning ownership before authorization across protected entry
+methods and checks current credential inventory before persistence. The new
+remote HEAD will require a fresh independent review; neither NEEDS_FIX report
+confers approval.
+
+### Shared provisioning-owner follow-up execution
+
+Prepared against `4171f22e9a0c54c1b545a0c8241a621727027c77` and executed in the
+isolated Mac worktree: **11 targeted suites / 140 tests passed**, followed by
+passing TypeScript. Execution log: `/tmp/fresnica-audit-crossmode-targeted.log`.
+
+The integrated `npm run check` passed all chained gates and **313 suites /
+3,125 tests**. ESLint reported zero errors / 82 warnings. All 13 changed source
+file fingerprints matched before and after execution. Execution log:
+`/tmp/fresnica-audit-crossmode-check.log`. The final execution-record update is
+documentation only; commit/push and independent review must verify the actual
+new remote HEAD rather than treating this record as approval.
+
+The change reuses one protected-provisioning owner for generation, Secret/
+Mnemonic Import and HD derivation. Create/Import policy callbacks execute only
+after ownership is acquired; first-run entry points use the same current
+inventory policy. The existing unique verification-target identity is captured
+before authorization and checked after authorization and before the synchronous
+write. It includes protected identity/envelope changes and excludes unrelated
+account presentation metadata. No extra authentication prompt is introduced.
+
+New regressions exercise actual feature, account/network repository, service/
+application session and credential-verification code with controlled SDK ports.
+They cover different proposed first passphrases, both Create/Import orders,
+Secret/Mnemonic Import, failure then explicit retry, changed protected targets,
+and current-inventory verification. True component unmount/remount cases also
+prove public account/recovery reconciliation, no old-instance completion, and
+exactly one current import completion. Existing Create-only regressions remain.
+No source, SDK result or secret is carried by the settlement signal. These tests
+are automated/helper evidence, not native navigation or real cryptographic
+acceptance. Unchanged Realm adapter evidence retains its earlier revision.
 
 Phase test totals overlap and must not be added into a unique coverage total.
 The independent report belongs to the reviewed remote SHA, not to this

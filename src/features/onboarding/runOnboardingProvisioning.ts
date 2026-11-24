@@ -1,4 +1,4 @@
-import { assertNewProtectionPassphrase } from '../../capabilities/application-security/newPassphrasePolicy';
+import { authorizeAccountProtection } from '../../capabilities/application-security/authorizeAccountProtection';
 import {
   generateMnemonicAccount,
   importMnemonicAccount,
@@ -47,11 +47,10 @@ export async function runSecretImportOnboarding(
   dependencies: OnboardingProvisioningDependencies,
   input: Omit<ImportSecretAccountInput, 'networkId'> & Readonly<{ shortPassphraseRiskAccepted?: boolean }>,
 ): Promise<Readonly<{ account: ProvisionedAccount; state: OnboardingState }>> {
-  assertNewProtectionPassphrase(input.appPassphrase, input.shortPassphraseRiskAccepted);
   const account = await importSecretAccount(dependencies, {
     ...input,
     networkId: dependencies.networkId,
-  });
+  }, () => authorizeAccountProtection(dependencies, input.appPassphrase, input.appPassphrase, input.shortPassphraseRiskAccepted));
 
   return {
     account,
@@ -63,11 +62,10 @@ export async function runMnemonicImportOnboarding(
   dependencies: OnboardingProvisioningDependencies,
   input: Omit<ImportMnemonicAccountInput, 'networkId'> & Readonly<{ shortPassphraseRiskAccepted?: boolean }>,
 ): Promise<Readonly<{ account: ProvisionedAccount; state: OnboardingState }>> {
-  assertNewProtectionPassphrase(input.appPassphrase, input.shortPassphraseRiskAccepted);
   const account = await importMnemonicAccount(dependencies, {
     ...input,
     networkId: dependencies.networkId,
-  });
+  }, () => authorizeAccountProtection(dependencies, input.appPassphrase, input.appPassphrase, input.shortPassphraseRiskAccepted));
 
   return {
     account,
@@ -79,11 +77,10 @@ export async function runGeneratedMnemonicOnboarding(
   dependencies: OnboardingProvisioningDependencies,
   input: Omit<GenerateMnemonicAccountInput, 'networkId'> & Readonly<{ shortPassphraseRiskAccepted?: boolean }>,
 ): Promise<GeneratedOnboardingResult> {
-  assertNewProtectionPassphrase(input.appPassphrase, input.shortPassphraseRiskAccepted);
   const generated = await generateMnemonicAccount(dependencies, {
     ...input,
     networkId: dependencies.networkId,
-  });
+  }, () => authorizeAccountProtection(dependencies, input.appPassphrase, input.appPassphrase, input.shortPassphraseRiskAccepted));
 
   return {
     account: {

@@ -7,7 +7,7 @@ import {
   assessNewProtectionPassphrase,
 } from '@capabilities/application-security/newPassphrasePolicy';
 import { requiresExistingAppPassphrase } from '@capabilities/application-security/verifyExistingAppPassphrase';
-import { subscribeMnemonicAccountCreation } from '@capabilities/account/provisionAccount';
+import { AccountProvisioningInProgressError, subscribeProtectedAccountProvisioning } from '@capabilities/account/provisionAccount';
 import { Screen } from '@ui/components';
 import { useAppTheme, useThemedStyles, type AppTheme } from '@ui/theme';
 
@@ -81,8 +81,8 @@ export function AddAccountScreen({
   const [passphraseAssessment, setPassphraseAssessment] = useState(() => assessNewProtectionPassphrase(''));
   const [confirmationMatches, setConfirmationMatches] = useState(false);
   const lifetime = useSensitiveFlowLifetime(clearOwnedMaterial, resumePersistedBackup, dependencies);
-  const { busy, owns, resume } = lifetime;
-  useEffect(() => subscribeMnemonicAccountCreation(dependencies.repository, resume), [dependencies.repository, resume]);
+  const { busy, owns, resumeWhenIdle } = lifetime;
+  useEffect(() => subscribeProtectedAccountProvisioning(dependencies.repository, resumeWhenIdle), [dependencies.repository, resumeWhenIdle]);
   const attachVerifier = useCallback((input: MnemonicBackupVerificationHandle | null) => {
     verifier.current = input;
     if (!input) return;
@@ -113,7 +113,7 @@ export function AddAccountScreen({
     }
   }
 
-  function resumePersistedBackup() {
+  function resumePersistedBackup(reason?: 'provisioning') {
     try {
       const bootstrap = resolveOnboardingBootstrap(dependencies);
       if (bootstrap.kind === 'pending-mnemonic-backup') {
@@ -126,7 +126,7 @@ export function AddAccountScreen({
         });
       } else {
         setCreated(undefined);
-        if (needsAccountRefresh.current) {
+        if (needsAccountRefresh.current || reason === 'provisioning') {
           needsAccountRefresh.current = false;
           // A retired import/derivation may have persisted. Refresh only the
           // public account list; do not navigate or change its default account.
@@ -148,10 +148,10 @@ export function AddAccountScreen({
     };
   }
 
-  function finish(owner: NonNullable<ReturnType<typeof lifetime.begin>>, reconcileCreate = false) {
+  function finish(owner: NonNullable<ReturnType<typeof lifetime.begin>>, reconcileProvisioning = false) {
     const retired = !lifetime.isCurrent(owner);
     lifetime.finish(owner);
-    if (retired || reconcileCreate) lifetime.resume();
+    if (retired || reconcileProvisioning) lifetime.resume(reconcileProvisioning ? 'provisioning' : undefined);
   }
 
   function resetImportMetadata() {
@@ -217,6 +217,7 @@ export function AddAccountScreen({
     const secret = secretInput.current?.consume() ?? '';
     const mnemonic = mnemonicInput.current?.consume() ?? '';
     const mnemonicPassphrase = mnemonicPassphraseInput.current?.consume() ?? '';
+    let reconcileProvisioning = false;
     setError(undefined);
     try {
       const result =
@@ -243,9 +244,10 @@ export function AddAccountScreen({
         needsAccountRefresh.current = true;
       }
     } catch (caught) {
+      reconcileProvisioning = caught instanceof AccountProvisioningInProgressError;
       if (lifetime.isCurrent(owner)) setError(readableImportError(caught, t));
     } finally {
-      finish(owner);
+      finish(owner, reconcileProvisioning);
     }
   }
 
@@ -254,6 +256,7 @@ export function AddAccountScreen({
     const owner = lifetime.begin();
     if (!owner) return;
     const appPassphrase = passphraseInput.current?.consume() ?? '';
+    let reconcileProvisioning = false;
     setError(undefined);
     try {
       const result = await deriveExistingWalletAccount(dependencies, {
@@ -269,9 +272,10 @@ export function AddAccountScreen({
         needsAccountRefresh.current = true;
       }
     } catch (caught) {
+      reconcileProvisioning = caught instanceof AccountProvisioningInProgressError;
       if (lifetime.isCurrent(owner)) setError(readableHdError(caught, t));
     } finally {
-      finish(owner);
+      finish(owner, reconcileProvisioning);
     }
   }
 

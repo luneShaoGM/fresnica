@@ -50,15 +50,21 @@ on re-entry and after a retired operation settles, because persistence may
 occur after the initial clear. Do not start a replacement Create, delete the
 account or silently confirm its backup. No persistence schema changes.
 
-The generated-account operation belongs to the repository/Capability lifetime,
-not to a screen instance. Actually unmounting instance A and mounting instance B
-must not start a second native generation while A is unsettled. Before generation
+Protected-account provisioning belongs to the repository/Capability lifetime,
+not to a screen instance. Create, Secret/Mnemonic Import and HD provisioning share
+ownership beginning before current-inventory authorization. Actually unmounting
+instance A and mounting instance B cannot start a competing protected operation
+under an obsolete first-passphrase decision while A is unsettled. Before generation
 and again before persistence, the existing single pending generated-backup
 invariant remains authoritative. A replacement screen observes settlement and
 reconciles only public recovery identity, including when it has not submitted
 another Create. It never receives the previous screen's plaintext result. If the
 operation fails, the gate releases and retry is an explicit fresh operation;
 waiting callers must not automatically generate another account.
+
+An idle replacement screen also refreshes public account inventory after a late
+Import, without performing the retired screen's selection/navigation. Settlement
+must not duplicate the current successful owner's completion callback.
 
 ## Verification behavior
 

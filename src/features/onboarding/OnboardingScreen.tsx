@@ -18,7 +18,7 @@ import { PendingMnemonicBackupScreen } from './PendingMnemonicBackupScreen';
 import { SensitiveTextInput, type SensitiveTextInputHandle, type SensitiveTextInputProps } from './SensitiveTextInput';
 import { useSensitiveFlowLifetime, type SensitiveFlowRequest } from './useSensitiveFlowLifetime';
 import { projectFeatureError } from '../featureError';
-import { subscribeMnemonicAccountCreation } from '../../capabilities/account/provisionAccount';
+import { AccountProvisioningInProgressError, subscribeProtectedAccountProvisioning } from '../../capabilities/account/provisionAccount';
 import type { OnboardingMethod } from './onboardingState';
 import {
   runGeneratedMnemonicOnboarding,
@@ -57,8 +57,8 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
   const [passphraseAssessment, setPassphraseAssessment] = useState(() => assessNewProtectionPassphrase(''));
   const [passphraseConfirmationMatches, setPassphraseConfirmationMatches] = useState(false);
   const lifetime = useSensitiveFlowLifetime(clearOwnedMaterial, resumePersistedBackup, dependencies);
-  const { busy, owns, resume } = lifetime;
-  useEffect(() => subscribeMnemonicAccountCreation(dependencies.repository, resume), [dependencies.repository, resume]);
+  const { busy, owns, resumeWhenIdle } = lifetime;
+  useEffect(() => subscribeProtectedAccountProvisioning(dependencies.repository, resumeWhenIdle), [dependencies.repository, resumeWhenIdle]);
   const attachVerifier = useCallback((input: MnemonicBackupVerificationHandle | null) => {
     verifier.current = input;
     if (!input) return;
@@ -127,6 +127,7 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
     const mnemonic = mnemonicInput.current?.consume() ?? '';
     const appPassphrase = passphraseInput.current?.consume() ?? '';
     const confirmPassphrase = confirmationInput.current?.consume() ?? '';
+    let reconcileProvisioning = false;
     setError(undefined);
 
     try {
@@ -178,11 +179,14 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
         setGeneratedBackup({ signerId: result.account.signer.id, visible: true });
       }
     } catch (caught) {
+      reconcileProvisioning = caught instanceof AccountProvisioningInProgressError;
       if (lifetime.isCurrent(owner)) setError(readableError(caught));
     } finally {
       const retired = !lifetime.isCurrent(owner);
       lifetime.finish(owner);
-      if (retired || method === 'generate-mnemonic') lifetime.resume();
+      if (retired || method === 'generate-mnemonic' || reconcileProvisioning) {
+        lifetime.resume(reconcileProvisioning ? 'provisioning' : undefined);
+      }
     }
   }
 

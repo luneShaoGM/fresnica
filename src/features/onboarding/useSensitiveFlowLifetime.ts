@@ -8,7 +8,7 @@ export type SensitiveFlowRequest = Readonly<{ epoch: number; owner: object; iden
 // persist an account. Keep its duplicate gate until settlement, even on blur.
 export function useSensitiveFlowLifetime(
   onRetire: (updateUi: boolean) => void,
-  onResume: () => void,
+  onResume: (reason?: 'provisioning') => void,
   owner: object,
   identity?: string,
 ) {
@@ -35,9 +35,14 @@ export function useSensitiveFlowLifetime(
   }, []);
   const owns = useCallback((candidate: SensitiveFlowRequest) => active() && candidate.epoch === epoch.current
     && candidate.owner === scope.current.owner && candidate.identity === scope.current.identity, [active]);
-  const resume = useCallback(() => {
-    if (active()) callbacks.current.onResume();
+  const resume = useCallback((reason?: 'provisioning') => {
+    if (active()) callbacks.current.onResume(reason);
   }, [active]);
+  const resumeWhenIdle = useCallback(() => {
+    // The current request still owns its completion/navigation. Other route
+    // instances reconcile only public persistence after this notification.
+    if (!request.current) resume('provisioning');
+  }, [resume]);
 
   useLayoutEffect(() => {
     if (committedScope.current.owner === owner && committedScope.current.identity === identity) return;
@@ -76,6 +81,7 @@ export function useSensitiveFlowLifetime(
     owns,
     retire,
     resume,
+    resumeWhenIdle,
     begin(): SensitiveFlowRequest | undefined {
       // Capture the caller's render, not the latest scope at click time. An
       // old button must not become usable after blur/return or a mode change.

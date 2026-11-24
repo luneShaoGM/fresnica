@@ -6,7 +6,7 @@ import {
   importMnemonicAccount,
   importSecretAccount,
   registerWatchOnlyAccount,
-  subscribeMnemonicAccountCreation,
+  subscribeProtectedAccountProvisioning,
   type GenerateMnemonicAccountInput,
   type ProvisionAccountDependencies,
 } from '../provisionAccount';
@@ -74,6 +74,21 @@ function createDependencies() {
   };
 
   return { dependencies, repository, sdk };
+}
+
+function seedProtectedAccount(repository: InMemoryAccountSignerRepository, id = 'existing') {
+  const account = {
+    id: `${id}-account`, address: `G${id.toUpperCase()}`, identityKind: 'classic' as const,
+    networkId: 'stellar-testnet', label: id, sortOrder: 0, hidden: false,
+    createdAt: now, updatedAt: now,
+  };
+  const signer = {
+    id: `${id}-signer`, publicKey: account.address, kind: 'protected-software' as const,
+    envelopeJson: `{${id}-envelope}`, recoveryKind: 'mnemonic' as const, backupState: 'not-required' as const,
+    createdAt: now, updatedAt: now,
+  };
+  repository.createAccountWithSigner({ account, signer, attachedAt: now });
+  return { account, signer };
 }
 
 describe('account provisioning', () => {
@@ -284,7 +299,7 @@ describe('account provisioning', () => {
     const result = await first;
     await replacement;
     expect(result.mnemonic).toBe(generatedMaterial.mnemonic);
-    expect(replacementSettled).toHaveBeenCalledWith({ error: new Error('mnemonic-creation-in-progress') });
+    expect(replacementSettled).toHaveBeenCalledWith({ error: new Error('account-provisioning-in-progress') });
     expect(sdk.generateMnemonic).toHaveBeenCalledTimes(1);
     expect(repository.listAccounts()).toEqual([result.account]);
     expect(repository.listSigners()).toEqual([result.signer]);
@@ -294,7 +309,7 @@ describe('account provisioning', () => {
     const { dependencies, repository, sdk } = createDependencies();
     const generation = deferred<typeof generatedMaterial>();
     const creationSettled = jest.fn();
-    const unsubscribe = subscribeMnemonicAccountCreation(repository, creationSettled);
+    const unsubscribe = subscribeProtectedAccountProvisioning(repository, creationSettled);
     sdk.generateMnemonic.mockReturnValueOnce(generation.promise);
     if (phase === 'parse') sdk.parseAccount.mockRejectedValueOnce(new Error('parse-failed'));
     if (phase === 'persistence') {
@@ -304,7 +319,7 @@ describe('account provisioning', () => {
     const first = generateMnemonicAccount(dependencies, generateInput);
     const firstFailure = expect(first).rejects.toThrow(`${phase}-failed`);
     const waiting = generateMnemonicAccount({ ...dependencies }, generateInput);
-    const waitingFailure = expect(waiting).rejects.toThrow('mnemonic-creation-in-progress');
+    const waitingFailure = expect(waiting).rejects.toThrow('account-provisioning-in-progress');
     if (phase === 'generation') generation.reject(new Error('generation-failed'));
     else generation.resolve(generatedMaterial);
     await Promise.all([firstFailure, waitingFailure]);
@@ -375,7 +390,7 @@ describe('account provisioning', () => {
     const generation = deferred<typeof generatedMaterial>();
     first.sdk.generateMnemonic.mockReturnValueOnce(generation.promise);
     const firstSettled = jest.fn();
-    const unsubscribe = subscribeMnemonicAccountCreation(first.repository, firstSettled);
+    const unsubscribe = subscribeProtectedAccountProvisioning(first.repository, firstSettled);
 
     const waiting = generateMnemonicAccount(first.dependencies, generateInput);
     const independent = await generateMnemonicAccount(second.dependencies, generateInput);
@@ -393,10 +408,10 @@ describe('account provisioning', () => {
   it('isolates observer errors and removes retired subscriptions without publishing generated material', async () => {
     const { dependencies, repository } = createDependencies();
     const retired = jest.fn();
-    const unsubscribeRetired = subscribeMnemonicAccountCreation(repository, retired);
-    const unsubscribeThrowing = subscribeMnemonicAccountCreation(repository, () => { throw new Error('view-retired'); });
+    const unsubscribeRetired = subscribeProtectedAccountProvisioning(repository, retired);
+    const unsubscribeThrowing = subscribeProtectedAccountProvisioning(repository, () => { throw new Error('view-retired'); });
     const current = jest.fn();
-    const unsubscribeCurrent = subscribeMnemonicAccountCreation(repository, current);
+    const unsubscribeCurrent = subscribeProtectedAccountProvisioning(repository, current);
     unsubscribeRetired();
 
     const result = await generateMnemonicAccount(dependencies, generateInput);
@@ -406,6 +421,107 @@ describe('account provisioning', () => {
     expect(current).toHaveBeenCalledWith();
     unsubscribeThrowing();
     unsubscribeCurrent();
+  });
+
+  it('owns credential authorization before a replacement import can authorize or protect a different secret', async () => {
+    const { dependencies, repository, sdk } = createDependencies();
+    const authorization = deferred<void>();
+    const authorizeCreate = jest.fn(() => authorization.promise);
+    const authorizeImport = jest.fn();
+    const first = generateMnemonicAccount(dependencies, generateInput, authorizeCreate);
+    const replacement = importSecretAccount({ ...dependencies }, {
+      secret: 'SREPLACEMENT', appPassphrase: 'another proposed app passphrase', networkId: 'stellar-testnet',
+    }, authorizeImport);
+    const replacementFailure = expect(replacement).rejects.toThrow('account-provisioning-in-progress');
+
+    expect(authorizeCreate).toHaveBeenCalledTimes(1);
+    expect(authorizeImport).not.toHaveBeenCalled();
+    expect(sdk.generateMnemonic).not.toHaveBeenCalled();
+    expect(sdk.protectSecret).not.toHaveBeenCalled();
+    authorization.resolve();
+    const result = await first;
+    await replacementFailure;
+
+    expect(authorizeCreate).toHaveBeenCalledTimes(1);
+    expect(authorizeImport).not.toHaveBeenCalled();
+    expect(sdk.generateMnemonic).toHaveBeenCalledTimes(1);
+    expect(sdk.protectSecret).not.toHaveBeenCalled();
+    expect(repository.listAccounts()).toEqual([result.account]);
+    expect(repository.listSigners()).toEqual([result.signer]);
+  });
+
+  it.each(['added', 'rotated'] as const)('rejects a protected target %s during authorization before calling the SDK', async change => {
+    const { dependencies, repository, sdk } = createDependencies();
+    const existing = seedProtectedAccount(repository);
+    const otherRepository = new Proxy(repository, {});
+    const authorization = deferred<void>();
+    const authorize = jest.fn(() => authorization.promise);
+    const pending = generateMnemonicAccount(dependencies, generateInput, authorize);
+    const failure = expect(pending).rejects.toThrow('account-protection-changed');
+
+    if (change === 'added') seedProtectedAccount(otherRepository, 'added');
+    else otherRepository.createSigner({ ...existing.signer, envelopeJson: '{rotated-envelope}' });
+    authorization.resolve();
+    await failure;
+
+    expect(authorize).toHaveBeenCalledTimes(1);
+    expect(sdk.generateMnemonic).not.toHaveBeenCalled();
+    expect(sdk.parseAccount).not.toHaveBeenCalled();
+    expect(repository.listAccounts()).toHaveLength(change === 'added' ? 2 : 1);
+    expect(repository.listSigners().every(signer => signer.backupState !== 'pending')).toBe(true);
+
+    // The failed inventory check also releases ownership for a fresh decision.
+    const freshAuthorization = jest.fn();
+    await generateMnemonicAccount(dependencies, generateInput, freshAuthorization);
+    expect(freshAuthorization).toHaveBeenCalledTimes(1);
+    expect(sdk.generateMnemonic).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['generation', 'parse'] as const)('rejects protection rotation during %s before persisting the generated signer', async phase => {
+    const { dependencies, repository, sdk } = createDependencies();
+    const existing = seedProtectedAccount(repository);
+    const otherRepository = new Proxy(repository, {});
+    const generation = deferred<typeof generatedMaterial>();
+    const parsing = deferred<AccountIdentity>();
+    if (phase === 'generation') sdk.generateMnemonic.mockReturnValueOnce(generation.promise);
+    else sdk.parseAccount.mockReturnValueOnce(parsing.promise);
+    const authorize = jest.fn();
+    const pending = generateMnemonicAccount(dependencies, generateInput, authorize);
+    const failure = expect(pending).rejects.toThrow('account-protection-changed');
+    await settleMicrotasks();
+
+    expect(sdk.generateMnemonic).toHaveBeenCalledTimes(1);
+    if (phase === 'parse') expect(sdk.parseAccount).toHaveBeenCalledTimes(1);
+    otherRepository.createSigner({ ...existing.signer, envelopeJson: '{rotated-envelope}' });
+    if (phase === 'generation') generation.resolve(generatedMaterial);
+    else parsing.resolve({ kind: 'classic', address: 'GGENERATED', publicKey: 'GGENERATED' });
+    await failure;
+
+    expect(authorize).toHaveBeenCalledTimes(1);
+    expect(repository.listAccounts()).toEqual([existing.account]);
+    expect(repository.listSigners()).toEqual([{ ...existing.signer, envelopeJson: '{rotated-envelope}' }]);
+  });
+
+  it('preserves an authorized operation across account labels and backup metadata changes', async () => {
+    const { dependencies, repository, sdk } = createDependencies();
+    const existing = seedProtectedAccount(repository);
+    const parsing = deferred<AccountIdentity>();
+    sdk.parseAccount.mockReturnValueOnce(parsing.promise);
+    const authorize = jest.fn();
+    const pending = generateMnemonicAccount(dependencies, generateInput, authorize);
+    await settleMicrotasks();
+
+    repository.setAccountLabel(existing.account.id, 'Renamed account', new Date('2026-11-24T01:00:00Z'));
+    repository.setSignerBackupState(existing.signer.id, 'confirmed', new Date('2026-11-24T01:00:00Z'));
+    parsing.resolve({ kind: 'classic', address: 'GGENERATED', publicKey: 'GGENERATED' });
+    const result = await pending;
+
+    expect(authorize).toHaveBeenCalledTimes(1);
+    expect(sdk.generateMnemonic).toHaveBeenCalledTimes(1);
+    expect(repository.listSigners()).toHaveLength(2);
+    expect(repository.getSigner(result.signer.id)?.backupState).toBe('pending');
+    expect(repository.getSigner(existing.signer.id)?.backupState).toBe('confirmed');
+    expect(repository.getAccount(existing.account.id)?.label).toBe('Renamed account');
   });
 
   it('rejects a non-classic identity before persistence for software signer provisioning', async () => {
