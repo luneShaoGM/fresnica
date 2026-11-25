@@ -1413,7 +1413,7 @@
   "send.result.rejected.title": "付款遭拒絕",
   "send.result.rejected.description": "網路拒絕了這筆付款。請核對結果後再嘗試。",
   "send.result.uncertain.title": "交易結果待確認",
-  "send.result.uncertain.description": "尚無法確認交易結果。請在交易紀錄中核對原交易雜湊，確認結果前不要重複傳送。",
+  "send.result.uncertain.description": "尚無法確認交易結果。請儲存本頁顯示的原始交易雜湊，並用它核對結果。確認結果前不要重複傳送。",
   "send.result.authorization-blocked.title": "無法授權",
   "send.result.authorization-blocked.description": "此帳戶目前的簽名設定無法授權這筆付款。",
   "send.result.unsupported-signer.title": "暫時無法簽名",

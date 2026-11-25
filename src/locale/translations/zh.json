@@ -1413,7 +1413,7 @@
   "send.result.rejected.title": "付款被拒绝",
   "send.result.rejected.description": "网络拒绝了这笔付款。请核对结果后再尝试。",
   "send.result.uncertain.title": "交易结果待确认",
-  "send.result.uncertain.description": "尚无法确认交易结果。请在交易记录中核对原交易哈希，确认结果前不要重复发送。",
+  "send.result.uncertain.description": "尚无法确认交易结果。请保存本页显示的原始交易哈希，并用它核对结果。确认结果前不要重复发送。",
   "send.result.authorization-blocked.title": "无法授权",
   "send.result.authorization-blocked.description": "此账户当前的签名配置无法授权这笔付款。",
   "send.result.unsupported-signer.title": "暂时无法签名",

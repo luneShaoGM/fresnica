@@ -1413,7 +1413,7 @@
   "send.result.rejected.title": "Payment rejected",
   "send.result.rejected.description": "The network rejected this payment. Check the result before trying again.",
   "send.result.uncertain.title": "Status uncertain",
-  "send.result.uncertain.description": "The outcome is not confirmed. Check the original transaction hash in Activity. Do not send the payment again until its status is resolved.",
+  "send.result.uncertain.description": "The outcome is not confirmed. Save the original transaction hash shown on this page and use it to verify the outcome. Do not send the payment again until its status is resolved.",
   "send.result.authorization-blocked.title": "Unable to authorize",
   "send.result.authorization-blocked.description": "This account cannot authorize the payment with its current signing setup.",
   "send.result.unsupported-signer.title": "Signing unavailable",
