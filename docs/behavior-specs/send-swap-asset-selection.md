@@ -8,3 +8,10 @@ Phase 2c remains partial; this is a bounded product presentation slice under §7
 - Selection is code + issuer identity, never code alone. One-asset Send has no active dropdown. Cancel preserves selection/amount. A closed picker clears search. Preparation disables selection; session/account/network retirement unmounts or closes the picker. No additional metadata source, transaction or persistence pipeline.
 
 Validation: automated search/identity, zero-balance filtering, cancellation/selection, Send reset and three-asset Swap exchange regressions. Native visual, keyboard, screen-reader and device acceptance must be reported separately. Stage 9 iOS System Auth cancel/retry remains deferred.
+
+## Send form presentation — 2026-11-24
+
+- Details and Recipient omit the instructional Step 1/Step 2 line; the existing flow order, screen titles, Back/Cancel and Continue actions remain.
+- The selected asset card uses the same 18-point horizontal inset as the Send amount/recipient fields. Page spacing belongs to the Send container; the shared picker and its sheet retain their existing spacing. Full credit issuer identity stays visible.
+- Send displays credit Available inside the selected asset card only. Its accessibility label includes the exact projected available balance or Unknown. Native XLM retains its existing Balance display; this presentation change does not introduce a reserve/fee calculation.
+- Credit availability and blocked reasons still guard Continue in both steps, including unknown facts. Existing selection, amount reset, cancellation and transaction authorization semantics remain unchanged.

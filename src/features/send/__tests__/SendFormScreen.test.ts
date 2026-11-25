@@ -3,6 +3,7 @@ import { ScrollView, Text, TextInput, View } from 'react-native';
 
 import { Screen } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
+import { SelectField } from '@ui/components/SelectField';
 import { defaultTheme } from '@ui/theme';
 
 import { SendEntryScreen, SendFormScreen } from '../SendFormScreen';
@@ -45,6 +46,8 @@ type NodeProps = Readonly<{
   onPress?: () => void;
   keyboardType?: string;
   value?: string;
+  options?: readonly { value: string; label: string }[];
+  onValueChange?: (value: string) => void;
   label?: string;
   disabled?: boolean;
   size?: string;
@@ -59,6 +62,12 @@ function visit(node: React.ReactNode, callback: (element: React.ReactElement<Nod
   if (!React.isValidElement<NodeProps>(node)) return;
   callback(node);
   React.Children.forEach(node.props.children, child => visit(child, callback));
+}
+
+function memoSelector(root: React.ReactNode) {
+  let found: React.ReactElement<NodeProps> | undefined;
+  visit(root, node => { if (node.type === SelectField) found = node; });
+  return found;
 }
 
 function renderForm(onSelectMemoType = jest.fn(), building = false, step: 'details' | 'recipient' = 'recipient',
@@ -91,7 +100,6 @@ describe('SendFormScreen memo families', () => {
     const onCancel = jest.fn();
     const root = SendEntryScreen({ onCancel, children: form });
     const styles = createSendFormStyles(defaultTheme);
-    expect(styles.memoTypeRow.flexWrap).toBe('wrap');
     expect(root.type).toBe(Screen);
     expect(root.props).toMatchObject({ scrollable: false, contentInset: 'none' });
 
@@ -146,85 +154,61 @@ describe('SendFormScreen memo families', () => {
       });
       return results;
     };
-    expect(strings(details)).toContain('ASSET');
-    expect(strings(details)).toContain('AMOUNT');
-    expect(strings(details)).not.toContain('RECIPIENT');
-    expect(strings(details)).not.toContain('MEMO');
-    expect(strings(recipient)).not.toContain('ASSET');
-    expect(strings(recipient)).not.toContain('AMOUNT');
-    expect(strings(recipient)).toContain('RECIPIENT');
-    expect(strings(recipient)).toContain('MEMO');
+    expect(strings(details)).toContain('send.form.asset');
+    expect(strings(details)).toContain('send.form.amount');
+    expect(strings(details)).not.toContain('send.step.recipient');
+    expect(memoSelector(details)).toBeUndefined();
+    expect(strings(recipient)).not.toContain('send.form.asset');
+    expect(strings(recipient)).not.toContain('send.form.amount');
+    expect(strings(recipient)).toContain('send.step.recipient');
+    expect(memoSelector(recipient)?.props.label).toBe('send.form.memo');
     expect(strings(SendEntryScreen({ children: recipient, onBack: jest.fn(), onCancel: jest.fn() }))).toContain(
       'send.step.recipient',
     );
   });
 
-  it('renders None/Text/ID/Hash/Return choices with ID selected and a numeric ID input', () => {
+  it('keeps all five memo families in the selected-value field and a numeric ID input', () => {
     const { root } = renderForm();
-    const memoChoices: Array<React.ReactElement<NodeProps>> = [];
+    const picker = memoSelector(root);
     let idInput: React.ReactElement<NodeProps> | undefined;
-
     visit(root, element => {
-      if (['None', 'Text', 'ID', 'Hash', 'Return'].includes(element.props.accessibilityLabel ?? '')) {
-        memoChoices.push(element);
-      }
-      if (element.type === TextInput && element.props.accessibilityLabel === 'ID memo') {
-        idInput = element;
-      }
+      if (element.type === TextInput && element.props.accessibilityLabel === 'ID memo') idInput = element;
     });
-
-    expect(memoChoices.map(element => element.props.accessibilityLabel)).toEqual([
-      'None',
-      'Text',
-      'ID',
-      'Hash',
-      'Return',
+    expect(picker?.props.value).toBe('id');
+    expect(picker?.props.options).toEqual([
+      { value: 'none', label: 'None' },
+      { value: 'text', label: 'Text' },
+      { value: 'id', label: 'ID' },
+      { value: 'hash', label: 'Hash' },
+      { value: 'return', label: 'Return' },
     ]);
-    expect(memoChoices.find(element => element.props.accessibilityLabel === 'ID')?.props.accessibilityState).toEqual({
-      selected: true,
-    });
     expect(idInput?.props.keyboardType).toBe('number-pad');
     expect(idInput?.props.value).toBe('0007');
   });
 
-  it('routes memo-family changes through the explicit selector callback', () => {
+  it.each(['hash', 'return'])('routes the distinct %s memo type through the existing callback', type => {
     const { root, onSelectMemoType } = renderForm();
-    let hashChoice: React.ReactElement<NodeProps> | undefined;
-    visit(root, element => {
-      if (element.props.accessibilityLabel === 'Hash') hashChoice = element;
-    });
-    hashChoice?.props.onPress?.();
-    expect(onSelectMemoType).toHaveBeenCalledWith('hash');
-  });
-
-  it('keeps Return separate from Hash in Recipient, but unavailable as a Details input', () => {
-    const onSelectMemoType = jest.fn();
-    const recipient = renderForm(onSelectMemoType, false, 'recipient').root;
-    const details = renderForm(onSelectMemoType, false, 'details').root;
-    let selected: React.ReactElement<NodeProps> | undefined;
-    let detailsChoice: React.ReactElement<NodeProps> | undefined;
-    visit(recipient, node => {
-      if (node.props.accessibilityLabel === 'Return') selected = node;
-    });
-    visit(details, node => {
-      if (node.props.accessibilityLabel === 'Return') detailsChoice = node;
-    });
-    expect(detailsChoice).toBeUndefined();
-    expect(selected?.props.accessibilityState).toEqual({ selected: false });
-    selected?.props.onPress?.();
+    memoSelector(root)?.props.onValueChange?.(type);
     expect(onSelectMemoType).toHaveBeenCalledTimes(1);
-    expect(onSelectMemoType).toHaveBeenCalledWith('return');
+    expect(onSelectMemoType).toHaveBeenCalledWith(type);
   });
 
-  it('does not re-select the active memo family', () => {
+  it('does not reset the value when selecting the same memo family', () => {
     const { root, onSelectMemoType } = renderForm();
-    let idChoice: React.ReactElement<NodeProps> | undefined;
-    visit(root, element => {
-      if (element.props.accessibilityLabel === 'ID') idChoice = element;
-    });
-    idChoice?.props.onPress?.();
+    memoSelector(root)?.props.onValueChange?.('id');
     expect(onSelectMemoType).not.toHaveBeenCalled();
   });
+
+  it.each([{ building: true, active: true }, { building: false, active: false }])(
+    'does not change memo while building=$building and active=$active',
+    ({ building, active }) => {
+      const { root, onSelectMemoType } = renderForm(jest.fn(), building, 'recipient', { active });
+      const picker = memoSelector(root);
+      expect(picker?.props.disabled).toBe(true);
+      picker?.props.onValueChange?.('return');
+      expect(onSelectMemoType).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe('Send credit availability', () => {
@@ -237,20 +221,23 @@ describe('Send credit availability', () => {
     return match;
   }
 
-  it('shows exact available credit after selling liabilities and marks the picker as a Send consumer', () => {
+  it('delegates credit balance display to the Send picker and keeps valid credit available', () => {
     const { root } = renderForm(jest.fn(), false, 'details', {
       selectedAsset: asset,
       balances: [{ asset, balance: '10.0000001', sellingLiabilities: '10', isAuthorized: true }],
     });
     const texts: React.ReactNode[] = [];
-    let pickerPurpose: string | undefined;
+    let picker: React.ComponentProps<typeof AssetPicker> | undefined;
     visit(root, node => {
       if (node.type === Text) texts.push(node.props.children);
-      if (node.type === AssetPicker) pickerPurpose = (node.props as React.ComponentProps<typeof AssetPicker>).purpose;
+      if (node.type === AssetPicker) picker = node.props as React.ComponentProps<typeof AssetPicker>;
     });
-    expect(texts).toContainEqual(['0.0000001', ' ', 'USD']);
-    expect(texts).not.toContainEqual(['10.0000001', ' ', 'USD']);
-    expect(pickerPurpose).toBe('send');
+    expect(texts).not.toContain('assets.availability.available');
+    expect(picker).toMatchObject({
+      purpose: 'send',
+      selectedAsset: asset,
+      balances: [{ asset, balance: '10.0000001', sellingLiabilities: '10', isAuthorized: true }],
+    });
     expect(continueButton(root)?.props.disabled).toBe(false);
   });
 
@@ -267,6 +254,5 @@ describe('Send credit availability', () => {
     const text: React.ReactNode[] = [];
     visit(root, node => { if (node.type === Text) text.push(node.props.children); });
     expect(text).toContain('assets.availability.send.unknown');
-    if (step === 'details') expect(text).toContainEqual(['assets.availability.unknown', ' ', 'USD']);
   });
 });

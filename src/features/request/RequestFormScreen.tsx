@@ -1,10 +1,10 @@
-import { formatPublicAddress as maskRequestIssuer } from '@ui/formatPublicAddress';
 import React from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { Screen } from '../../ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
+import { SelectField } from '@ui/components/SelectField';
 import { useAppTheme, useThemedStyles } from '../../ui/theme';
 import { useLocalization } from '../../locale';
 import type { StellarPaymentAsset, StellarPaymentMemo } from '../../capabilities/stellar/types';
@@ -47,7 +47,7 @@ export function RequestFormScreen(props: Props) {
   const styles = useThemedStyles(createRequestStyles);
   const actionsEnabled = props.canonicalUri !== undefined && !props.busy;
 
-  return (
+  const content = (
     <Screen scrollable={false} contentInset="none">
       <View style={styles.header}>
         <View style={styles.headerSide}>
@@ -73,43 +73,25 @@ export function RequestFormScreen(props: Props) {
           </Text>
         </View>
 
-        <Text style={styles.sectionLabel}>{t('request.asset')}</Text>
-        <ScrollView contentContainerStyle={styles.assetList} horizontal showsHorizontalScrollIndicator={false}>
-          {props.assets.map(asset => {
-            const selected = requestAssetKey(asset) === requestAssetKey(props.selectedAsset);
-            const label = asset.kind === 'native' ? 'XLM' : asset.code;
-            const accessibilityLabel =
-              asset.kind === 'native'
-                ? t('request.assetChoice', { asset: label })
-                : t('request.assetChoiceIssued', { code: asset.code, issuer: asset.issuer });
-            return (
-              <Pressable
-                accessibilityLabel={accessibilityLabel}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                disabled={props.busy}
-                key={requestAssetKey(asset)}
-                onPress={() => props.onSelectAsset(asset)}
-                style={({ pressed }) => [
-                  styles.assetButton,
-                  selected ? styles.assetButtonSelected : undefined,
-                  pressed ? styles.pressed : undefined,
-                ]}
-              >
-                <Text style={[styles.assetText, selected ? styles.assetTextSelected : undefined]}>{label}</Text>
-                {asset.kind === 'credit' ? (
-                  <Text
-                    accessibilityElementsHidden
-                    numberOfLines={1}
-                    style={[styles.assetIssuer, selected ? styles.assetIssuerSelected : undefined]}
-                  >
-                    {maskRequestIssuer(asset.issuer)}
-                  </Text>
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        <SelectField
+          label={t('request.asset')}
+          value={requestAssetKey(props.selectedAsset)}
+          options={props.assets.map(asset => ({
+            value: requestAssetKey(asset),
+            label: asset.kind === 'native' ? 'XLM' : asset.code,
+            description: asset.kind === 'native' ? t('assets.picker.native') : asset.issuer,
+            accessibilityLabel: asset.kind === 'native'
+              ? t('request.assetChoice', { asset: 'XLM' })
+              : t('request.assetChoiceIssued', { code: asset.code, issuer: asset.issuer }),
+          }))}
+          disabled={props.busy || props.assets.length < 2}
+          search={{ label: t('assets.picker.search'), emptyLabel: t('assets.picker.empty') }}
+          onValueChange={key => {
+            if (props.busy) return;
+            const asset = props.assets.find(candidate => requestAssetKey(candidate) === key);
+            if (asset && key !== requestAssetKey(props.selectedAsset)) props.onSelectAsset(asset);
+          }}
+        />
         {props.assetWarning ? <Text style={styles.warning}>{props.assetWarning}</Text> : null}
 
         <Text style={styles.sectionLabel}>{t('request.amount')}</Text>
@@ -151,33 +133,20 @@ export function RequestFormScreen(props: Props) {
             />
           </View>
         ) : null}
-        <Text style={styles.fieldHint}>{t('request.amount.hint')}</Text>
+        {props.amountEnabled ? <Text style={styles.fieldHint}>{t('request.amount.hint')}</Text> : null}
 
-        <Text style={styles.sectionLabel}>{t('request.memo')}</Text>
-        <View style={styles.optionRow}>
-          {(['none', 'text', 'id', 'hash', 'return'] as const).map(type => {
-            const selected = props.memoType === type;
-            return (
-              <Pressable
-                accessibilityLabel={t(`request.memo.type.${type}`)}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                disabled={props.busy}
-                key={type}
-                onPress={() => props.onSelectMemoType(type)}
-                style={({ pressed }) => [
-                  styles.optionButton,
-                  selected ? styles.optionButtonSelected : undefined,
-                  pressed ? styles.pressed : undefined,
-                ]}
-              >
-                <Text style={[styles.optionText, selected ? styles.optionTextSelected : undefined]}>
-                  {t(`request.memo.type.${type}`)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <SelectField
+          label={t('request.memo')}
+          value={props.memoType}
+          options={(['none', 'text', 'id', 'hash', 'return'] as const).map(type => ({
+            value: type,
+            label: t(`request.memo.type.${type}`),
+          }))}
+          disabled={props.busy}
+          onValueChange={type => {
+            if (!props.busy && type !== props.memoType) props.onSelectMemoType(type);
+          }}
+        />
         {props.memoType !== 'none' ? (
           <View style={styles.fieldBox}>
             <TextInput
@@ -263,12 +232,10 @@ export function RequestFormScreen(props: Props) {
               size={210}
               value={props.canonicalUri}
             />
-            <Text style={styles.qrText}>{props.canonicalUri}</Text>
           </View>
         ) : null}
 
         <Text style={styles.sectionLabel}>{t('request.ingress.section')}</Text>
-        <Text style={styles.fieldHint}>{t('request.ingress.helper')}</Text>
         <View style={styles.actions}>
           <RequestAction
             label={t('request.ingress.paste')}
@@ -286,6 +253,12 @@ export function RequestFormScreen(props: Props) {
         </View>
       </ScrollView>
     </Screen>
+  );
+
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardAvoiding}>
+      {content}
+    </KeyboardAvoidingView>
   );
 }
 

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Switch, Text } from 'react-native';
 import type { GeneralPreferences } from '@capabilities/preferences/generalPreferences';
 import { ListRow } from '@ui/components';
+import { SelectField } from '@ui/components/SelectField';
 import { useThemedStyles } from '@ui/theme';
 import { useLocalization } from '../../locale';
 import { SettingsSubpage } from './SettingsSubpage';
@@ -49,16 +50,13 @@ export function GeneralSettingsScreen({
         subtitle={locales.find(option => option.code === locale)?.localName ?? locale}
         onPress={onOpenLanguage}
       />
-      <Text style={styles.label}>{t('settings.currency')}</Text>
-      {(['USD', 'EUR', 'CNY'] as const).map(currency => (
-        <ListRow
-          key={currency}
-          title={currency}
-          selected={preferences.currency === currency}
-          disabled={!controller}
-          onPress={() => update({ currency })}
-        />
-      ))}
+      <SelectField
+        label={t('settings.currency')}
+        value={preferences.currency}
+        options={(['USD', 'EUR', 'CNY'] as const).map(currency => ({ value: currency, label: currency }))}
+        disabled={!controller}
+        onValueChange={currency => update({ currency })}
+      />
       <Text style={styles.helper}>{t('preferences.quoteNote')}</Text>
       <NativeFiatEstimate quotes={quotes} amount="1" currency={preferences.currency} active={active} />
       <ListRow

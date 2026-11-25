@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import { AccountIdentityCard, BottomSheet, Field, SectionedList } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
+import { SelectField } from '@ui/components/SelectField';
 import type { Contact } from '@capabilities/contacts/contacts';
 import { ContactEditor } from '../ContactEditor';
 import { ParticipantCard } from '../ParticipantCard';
@@ -63,6 +64,10 @@ type Props = {
   isCurrent?: () => boolean;
   presentation?: string;
   memoText?: string;
+  value?: string;
+  disabled?: boolean;
+  options?: readonly { value: string; label: string }[];
+  onValueChange?: (value: string) => void;
   secondary?: string;
   sections?: readonly { title: string; data: readonly Contact[] }[];
   renderItem?: (item: Contact) => React.ReactElement<Props>;
@@ -133,6 +138,23 @@ beforeEach(() => {
     output: { shareRequestUri: jest.fn(), copyRequestUri: jest.fn() },
     copyPublicText: jest.fn(),
   };
+});
+it('keeps the typed memo on same-family selection and clears it before choosing another family', () => {
+  const initial = { ...row, memo: { type: 'hash' as const, value: 'ab'.repeat(32) } };
+  const draw = () => render(() => ContactEditor({ book, initial, id: row.id, onClose: jest.fn() }));
+  let field = nodes(draw(), SelectField)[0];
+  expect(field.props.options?.map(option => option.value)).toEqual(['none', 'text', 'id', 'hash', 'return']);
+  field.props.onValueChange!('hash');
+  expect(values[3]).toBe(initial.memo.value);
+  field.props.onValueChange!('return');
+  expect(values[2]).toBe('return');
+  expect(values[3]).toBe('');
+  const root = draw();
+  field = nodes(root, SelectField)[0];
+  button(root, 'contacts.delete')();
+  field.props.onValueChange!('text');
+  expect(values[2]).toBe('return');
+  expect(nodes(draw(), SelectField)[0].props.disabled).toBe(true);
 });
 it('keeps failed saves open, retries without losing input, and blocks a duplicate late save after success', () => {
   const onClose = jest.fn();

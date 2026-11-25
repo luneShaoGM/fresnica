@@ -58,7 +58,6 @@ export function AccountsScreen({
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.description}>Accounts available on this device</Text>
         {moveError ? <Text style={styles.sortError}>{t('accounts.sort.error')}</Text> : null}
         {accounts.map((account, index) => (
           <View key={account.id} style={styles.accountGroup}>

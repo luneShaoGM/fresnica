@@ -129,21 +129,18 @@ beforeEach(() => {
 });
 
 describe('Swap Preview user-visible scope', () => {
-  it('shows the disabled-execution disclosure and only a quote action in the form', () => {
+  it('offers a quote action before transaction review', () => {
     render();
     stateSlots[0].current = [{ kind: 'native' }, issued];
     stateSlots[1].current = false;
     stateSlots[6].current = '5';
     const root = render();
     const buttons: string[] = [];
-    const texts: unknown[] = [];
     visit(root, node => {
       if (node.type === NativeButton) buttons.push(node.props.label ?? '');
-      if (node.type === Text) texts.push(node.props.children);
     });
     expect(buttons).toContain('swap.preview.getQuotes');
     expect(buttons).not.toContain('swap.preview.review');
-    expect(texts).toContain('swap.execution.safePreview');
   });
 
   it('shows exact reviewed XDR with explicit slide authorization and no tap-to-send button', () => {

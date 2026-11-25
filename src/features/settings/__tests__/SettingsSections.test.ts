@@ -1,9 +1,12 @@
 import React from 'react';
 import { DEFAULT_GENERAL_PREFERENCES } from '@capabilities/preferences/generalPreferences';
 import { ListRow } from '@ui/components';
+import { SelectField } from '@ui/components/SelectField';
 import { GeneralSettingsScreen } from '../GeneralSettingsScreen';
 import { AdvancedSettingsScreen } from '../AdvancedSettingsScreen';
 import { NetworkManagement } from '../NetworkManagement';
+
+const mockUpdate = jest.fn();
 
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
 jest.mock('@react-navigation/native', () => ({ useFocusEffect: jest.fn() }));
@@ -17,16 +20,27 @@ jest.mock('../../../ui/theme', () => {
 jest.mock('../generalPreferences', () => ({
   useGeneralPreferences: () => ({
     preferences: jest.requireActual('@capabilities/preferences/generalPreferences').DEFAULT_GENERAL_PREFERENCES,
-    controller: { update: jest.fn() },
+    controller: { update: mockUpdate },
   }),
 }));
 jest.mock('react', () => ({ ...jest.requireActual('react'), useState: (initial: unknown) => [initial, jest.fn()] }));
-type Props = { children?: React.ReactNode; title?: string; subtitle?: string; onPress?: () => void; section?: string };
+type Props = {
+  children?: React.ReactNode;
+  title?: string;
+  subtitle?: string;
+  label?: string;
+  value?: string;
+  options?: readonly { value: string; label: string }[];
+  onValueChange?: (value: string) => void;
+  onPress?: () => void;
+  section?: string;
+};
 function nodes(node: React.ReactNode): React.ReactElement<Props>[] {
   if (!React.isValidElement<Props>(node)) return [];
   return [node, ...React.Children.toArray(node.props.children).flatMap(nodes)];
 }
 it('General opens Language/Theme and exposes real persisted preference controls', () => {
+  mockUpdate.mockClear();
   const onOpenLanguage = jest.fn(),
     onOpenTheme = jest.fn();
   const all = nodes(GeneralSettingsScreen({ onBack: jest.fn(), onOpenLanguage, onOpenTheme }));
@@ -35,8 +49,12 @@ it('General opens Language/Theme and exposes real persisted preference controls'
   rows.find(n => n.props.title === 'Theme')?.props.onPress?.();
   expect(onOpenLanguage).toHaveBeenCalledTimes(1);
   expect(onOpenTheme).toHaveBeenCalledTimes(1);
-  for (const currency of ['USD', 'EUR', 'CNY'])
-    expect(rows.find(n => n.props.title === currency)?.props.onPress).toBeDefined();
+  const currency = all.find(n => n.type === SelectField);
+  expect(currency?.props.value).toBe(DEFAULT_GENERAL_PREFERENCES.currency);
+  expect(currency?.props.options?.map(option => option.value)).toEqual(['USD', 'EUR', 'CNY']);
+  expect(mockUpdate).not.toHaveBeenCalled();
+  currency?.props.onValueChange?.('EUR');
+  expect(mockUpdate).toHaveBeenCalledWith({ currency: 'EUR' });
   expect(DEFAULT_GENERAL_PREFERENCES.reserveDisplay).toBe(true);
 });
 it('Advanced always exposes Network and About, and shows no fictitious mode switch if management is unavailable', () => {
@@ -50,4 +68,5 @@ it('Advanced always exposes Network and About, and shows no fictitious mode swit
   expect(all.some(n => n.type === NetworkManagement)).toBe(false);
   for (const title of ['App version', 'Change log', 'Device identifier', 'Session logs'])
     expect(all.find(n => n.type === ListRow && n.props.title === title)?.props.onPress).toBeUndefined();
+  expect(all.some(n => n.props.title === 'Change log' || n.props.title === 'Session ID')).toBe(false);
 });

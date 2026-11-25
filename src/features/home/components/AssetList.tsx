@@ -7,6 +7,7 @@ import type { BalanceLine } from '../../../capabilities/balance/types';
 import type { NativeBalanceBreakdown } from '../../../capabilities/balance/nativeBalanceBreakdown';
 import { useAppTheme, useThemedStyles } from '@ui/theme';
 import { SmallLock } from '@ui/components/SmallIcons';
+import { useLocalization } from '../../../locale';
 import { maskAddress } from '../homeViewModel';
 import { createStyles } from '../styles';
 import { formatHomeAmount } from '../formatHomeAmount';
@@ -26,6 +27,7 @@ export function AssetList({
   onOpenAsset,
   formatAmount = formatHomeAmount,
 }: Props) {
+  const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const largeText = useWindowDimensions().fontScale > 1.5;
   const { service, snapshot } = useTokenIconContext();
@@ -33,7 +35,7 @@ export function AssetList({
   const hiddenPoolNotice =
     hiddenLiquidityPoolShareCount > 0 ? (
       <Text style={styles.hiddenAssetsText}>
-        {hiddenLiquidityPoolShareCount} liquidity-pool position(s) are not shown by the current Home balance contract.
+        {t('home.assets.poolPositionsNotListed', { count: hiddenLiquidityPoolShareCount })}
       </Text>
     ) : null;
 

@@ -41,6 +41,7 @@ type GeneratedBackupState = {
 
 export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) {
   const theme = useAppTheme();
+  const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
   const [method, setMethod] = useState<OnboardingMethod>();
   const [label, setLabel] = useState('');
@@ -261,35 +262,33 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
             <View style={styles.decorCircleSmall} />
             <Text style={styles.introEyebrow}>STELLAR WALLET</Text>
             <Text style={styles.introTitle}>Set up Fresnica</Text>
-            <Text style={styles.introBody}>
-              Create a new wallet, import an existing signer, or add a watch-only account.
-            </Text>
+            <Text style={styles.introBody}>{t('onboarding.chooseMethod')}</Text>
           </View>
 
           <View style={styles.methodSection}>
             <ChoiceButton
               glyph="+"
               title="Create new wallet"
-              subtitle="Generate a new recovery phrase with Fresnica Core"
+              subtitle={t('accounts.add.create.subtitle')}
               primary
               onPress={() => chooseMethod('generate-mnemonic')}
             />
             <ChoiceButton
               glyph="↘"
               title="Import recovery phrase"
-              subtitle="Protect an existing mnemonic locally"
+              subtitle={t('accounts.add.importMnemonic.subtitle')}
               onPress={() => chooseMethod('import-mnemonic')}
             />
             <ChoiceButton
               glyph="K"
               title="Import Stellar secret"
-              subtitle="Protect an existing S... secret locally"
+              subtitle={t('accounts.add.importSecret.subtitle')}
               onPress={() => chooseMethod('import-secret')}
             />
             <ChoiceButton
               glyph="◎"
               title="Watch-only account"
-              subtitle="Track an address without adding a local signer"
+              subtitle={t('accounts.add.watchOnly.subtitle')}
               onPress={() => chooseMethod('watch-only')}
             />
           </View>
@@ -301,7 +300,7 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
   return (
     <FlowShell title={methodTitle(method)} onBack={returnToMethodSelection}>
       <View style={styles.formContent}>
-        <Text style={styles.formIntro}>{methodDescription(method)}</Text>
+        <Text style={styles.formIntro}>{methodDescription(method, t)}</Text>
         <Field label="Account label" value={label} onChangeText={setLabel} placeholder="Primary account" />
 
         {method === 'watch-only' ? (
@@ -371,14 +370,6 @@ export function OnboardingScreen({ dependencies, onComplete, onCancel }: Props) 
               meetsMinimum={passphraseAssessment.meetsMinimum}
               confirmationMatches={passphraseConfirmationMatches}
             />
-            <View style={styles.infoBox}>
-              <Text allowFontScaling={false} accessible={false} style={styles.infoGlyph}>
-                i
-              </Text>
-              <Text style={styles.infoText}>
-                This passphrase protects local signing material. It is not stored in Realm.
-              </Text>
-            </View>
           </>
         ) : null}
 
@@ -488,29 +479,27 @@ function PassphraseRequirements({
   confirmationMatches: boolean;
 }>) {
   const styles = useThemedStyles(createStyles);
+  const { t } = useLocalization();
 
   return (
     <View style={styles.passphraseGuide}>
-      <Text style={styles.passphraseGuideTitle}>Use an app passphrase, not a PIN</Text>
-      <Text style={styles.passphraseGuideText}>
-        Use a long multi-word phrase or a password-manager generated password. Fresnica does not require forced
-        uppercase/lowercase/digit/symbol mixtures.
-      </Text>
       <View style={styles.requirementRow}>
         <Text style={meetsMinimum ? styles.requirementMet : styles.requirementPending}>{meetsMinimum ? '✓' : '○'}</Text>
         <Text style={styles.requirementText}>
-          {unicodeScalarCount}/{NEW_PROTECTION_PASSPHRASE_MIN_UNICODE_SCALARS} characters recommended
+          {t('onboarding.passphraseCount', {
+            count: unicodeScalarCount,
+            minimum: NEW_PROTECTION_PASSPHRASE_MIN_UNICODE_SCALARS,
+          })}
         </Text>
       </View>
       <View style={styles.requirementRow}>
         <Text style={confirmationMatches ? styles.requirementMet : styles.requirementPending}>
           {confirmationMatches ? '✓' : '○'}
         </Text>
-        <Text style={styles.requirementText}>Confirmation matches</Text>
+        <Text style={styles.requirementText}>{t('onboarding.confirmationMatches')}</Text>
       </View>
       <Text style={styles.passphrasePolicyText}>
-        Biometrics can unlock the app. Every transaction and message signature, key export, recovery, derivation, and
-        protection change requires your App Passphrase.
+        {t('security.policy.keys')}
       </Text>
     </View>
   );
@@ -596,16 +585,16 @@ function methodTitle(method: OnboardingMethod): string {
   }
 }
 
-function methodDescription(method: OnboardingMethod): string {
+function methodDescription(method: OnboardingMethod, t: ReturnType<typeof useLocalization>['t']): string {
   switch (method) {
     case 'generate-mnemonic':
-      return 'Create a new Stellar signer and protect it locally with your Fresnica app passphrase.';
+      return t('onboarding.createDescription');
     case 'import-mnemonic':
-      return 'Enter your recovery words exactly as they were backed up.';
+      return t('onboarding.importMnemonicDescription');
     case 'import-secret':
-      return 'Import an existing Stellar secret and protect it locally.';
+      return t('accounts.add.importSecret.subtitle');
     case 'watch-only':
-      return 'Add a Stellar address for monitoring without storing signing material.';
+      return t('accounts.add.watchOnly.subtitle');
   }
 }
 
@@ -756,13 +745,6 @@ function createStyles(theme: AppTheme) {
       padding: 12,
       gap: 7,
     },
-    passphraseGuideTitle: {
-      color: theme.colors.textPrimary,
-      fontSize: 13,
-      lineHeight: 17,
-      fontWeight: '800',
-    },
-    passphraseGuideText: { color: theme.colors.textSecondary, fontSize: 11, lineHeight: 17 },
     requirementRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     requirementMet: { color: theme.colors.positive, fontSize: 14, lineHeight: 18, fontWeight: '800' },
     requirementPending: { color: theme.colors.textTertiary, fontSize: 14, lineHeight: 18, fontWeight: '800' },
@@ -773,26 +755,6 @@ function createStyles(theme: AppTheme) {
       lineHeight: 15,
       marginTop: 2,
     },
-    infoBox: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: 10,
-      backgroundColor: theme.colors.surfaceMuted,
-      borderRadius: 10,
-      padding: 12,
-    },
-    infoGlyph: {
-      width: 20,
-      height: 20,
-      borderRadius: 10,
-      textAlign: 'center',
-      backgroundColor: theme.colors.surfaceStrong,
-      color: theme.colors.onSurfaceStrong,
-      fontSize: 12,
-      lineHeight: 20,
-      fontWeight: '800',
-    },
-    infoText: { flex: 1, color: theme.colors.textSecondary, fontSize: 12, lineHeight: 18 },
     footer: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 6 },
     primaryButton: {
       minHeight: 50,

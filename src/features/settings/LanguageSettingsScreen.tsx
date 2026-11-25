@@ -24,7 +24,9 @@ export function LanguageSettingsScreen({onBack}: Props) {
       <CenteredPageHeader title={t('language.title')} backLabel={t('common.back')} onBack={onBack} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.note}>{t('language.fallbackNote')}</Text>
+        {locales.find(option => option.code === locale)?.translated === false ? (
+          <Text style={styles.note}>{t('language.fallbackNote')}</Text>
+        ) : null}
         {sortedLocales.map(option => {
           const selected = option.code === locale;
           return (

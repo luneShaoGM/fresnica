@@ -21,6 +21,7 @@ jest.mock('../../../ui/theme', () => {
 type NodeProps = Readonly<{
   children?: React.ReactNode;
   label?: string;
+  value?: string;
   onPress?: () => void;
   size?: string;
   variant?: string;
@@ -32,22 +33,22 @@ type NodeProps = Readonly<{
 const terminalResults: ReadonlyArray<{ result: SendTerminalResult; title: string }> = [
   {
     result: { status: 'submitted', authorization: 'system-auth', hash: 'submitted-hash', ledger: 123 },
-    title: 'Payment sent',
+    title: 'send.result.submitted.title',
   },
   {
     result: { status: 'rejected', transactionHash: 'rejected-hash', resultCode: 'tx_bad_seq' },
-    title: 'Payment rejected',
+    title: 'send.result.rejected.title',
   },
   {
     result: { status: 'uncertain', transactionHash: 'uncertain-hash', reason: 'pending-reconciliation' },
-    title: 'Status uncertain',
+    title: 'send.result.uncertain.title',
   },
-  { result: { status: 'watch-only' }, title: 'Watch-only account' },
-  { result: { status: 'unsupported-account-signers' }, title: 'Multiple signers not yet supported' },
-  { result: { status: 'unsupported-signer' }, title: 'Signer unsupported' },
+  { result: { status: 'watch-only' }, title: 'send.result.watch-only.title' },
+  { result: { status: 'unsupported-account-signers' }, title: 'send.result.unsupported-account-signers.title' },
+  { result: { status: 'unsupported-signer' }, title: 'send.result.unsupported-signer.title' },
   {
     result: { status: 'authorization-blocked', reason: 'insufficient-weight', requiredWeight: 2, availableWeight: 1 },
-    title: 'Authorization unavailable',
+    title: 'send.result.authorization-blocked.title',
   },
 ];
 
@@ -76,6 +77,12 @@ describe('SendResultScreen terminal exit', () => {
     expect(scrolls).toHaveLength(1);
     expect(scrolls[0]?.props.showsVerticalScrollIndicator).toBe(false);
     expect(titles).toContain(title);
+    expect(titles).toContain(`send.result.${result.status}.description`);
+    const details: string[] = [];
+    visit(root, node => { if (node.props.value) details.push(node.props.value); });
+    if ('hash' in result) expect(details).toContain(result.hash);
+    if ('transactionHash' in result) expect(details).toContain(result.transactionHash);
+    if (result.status === 'rejected' && result.resultCode) expect(details).toContain(result.resultCode);
     expect(buttons).toHaveLength(1);
     expect(buttons[0]?.props).toMatchObject({
       label: 'localized:done',

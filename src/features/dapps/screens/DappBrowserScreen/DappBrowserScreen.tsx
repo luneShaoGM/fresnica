@@ -622,7 +622,6 @@ export function DappBrowserScreen({
           </Text>
           <ToolButton glyph="×" label={t('dapps.browser.close')} onPress={close} styles={styles} />
         </View>
-        <Text style={styles.notice}>{t('dapps.browser.noSigning')}</Text>
         {messageExpired ? <Text style={styles.error}>{t('dapps.signMessage.expired')}</Text> : null}
         {pendingNotification ? (
           <View style={styles.permission}>

@@ -96,23 +96,25 @@ export function ChangePassphraseScreen({
           { ref: next, label: 'recovery.new' },
           { ref: confirmation, label: 'recovery.confirm' },
         ].map((field, index) => (
-          <PassphraseInput
-            key={field.label}
-            ref={field.ref}
-            label={t(field.label)}
-            hint={t('recovery.fresh')}
-            disabled={status === 'busy'}
-            style={styles.input}
-            onTextChange={
-              index === 1
-                ? value => {
-                    setAssessment(assessNewProtectionPassphrase(value));
-                    setShortRiskAccepted(false);
-                  }
-                : undefined
-            }
-            onPresenceChange={value => setPresence(previous => previous.map((p, i) => (i === index ? value : p)))}
-          />
+          <View key={field.label} style={styles.field}>
+            <Text style={styles.label}>{t(field.label)}</Text>
+            <PassphraseInput
+              ref={field.ref}
+              label={t(field.label)}
+              hint={t('recovery.fresh')}
+              disabled={status === 'busy'}
+              style={styles.input}
+              onTextChange={
+                index === 1
+                  ? value => {
+                      setAssessment(assessNewProtectionPassphrase(value));
+                      setShortRiskAccepted(false);
+                    }
+                  : undefined
+              }
+              onPresenceChange={value => setPresence(previous => previous.map((p, i) => (i === index ? value : p)))}
+            />
+          </View>
         ))}
         <NewPassphraseGuidance
           assessment={assessment}

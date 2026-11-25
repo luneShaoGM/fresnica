@@ -181,9 +181,6 @@ export function AccountDetailsScreen({
           </Pressable>
         </View>
 
-        <Text style={styles.note}>
-          Signer access is derived from Fresnica Account-Signer relationships. Ledger balances and trustlines remain network state and are not stored as account identity truth.
-        </Text>
       </ScrollView>
 
       <AppModal
@@ -316,7 +313,6 @@ function createStyles(theme: AppTheme) {
   deleteConfirmText: {textAlign: 'center', fontSize: 15, color: contrastText(theme.colors.negative), fontWeight: '800'},
   lifecycleNote: {...theme.typography.caption, color: theme.colors.textTertiary},
   lifecycleError: {...theme.typography.body, color: theme.colors.negative},
-  note: {paddingHorizontal: 22, paddingTop: 18, fontSize: 10, lineHeight: 15, color: theme.colors.textTertiary, textAlign: 'center'},
   renameContent: {gap: theme.spacing.md},
   renameActions: {gap: theme.spacing.sm},
   renameError: {...theme.typography.body, color: theme.colors.negative},

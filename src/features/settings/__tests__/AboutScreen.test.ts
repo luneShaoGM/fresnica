@@ -104,7 +104,7 @@ describe('About Settings native Back control', () => {
     ).toBe(true);
   });
 
-  it('preserves supplied names, static info rows, compatibility notice and semantic layout dimensions', () => {
+  it('preserves supplied names and current network without internal runtime explanations', () => {
     const root = AboutScreen({
       onBack: jest.fn(),
       appName: 'App Display Name',
@@ -117,16 +117,14 @@ describe('About Settings native Back control', () => {
     expect(rows).toEqual([
       ['Project', 'Project Display Name'],
       ['Network', 'Stellar Testnet'],
-      ['Runtime', 'React Native 0.87'],
-      ['Security', 'Fresnica Native SDK'],
     ]);
 
     const text = findAll(root, element => element.type === Text).flatMap(element =>
       React.Children.toArray(element.props.children).filter(child => typeof child === 'string'),
     );
     expect(text).toContain('App Display Name');
-    expect(text).toContain('Compatibility');
-    expect(text.join(' ')).toContain('Native SDK and adapter compatibility');
+    expect(text).toContain('Stellar wallet');
+    expect(text.join(' ')).not.toMatch(/Compatibility|Native SDK|React Native/);
 
     const styles = createStyles(defaultTheme);
     expect(styles.header.minHeight).toBe(58);

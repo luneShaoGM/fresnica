@@ -27,7 +27,6 @@ export function createAssetDetailsSheetStyles(theme: AppTheme) {
       backgroundColor: theme.colors.surfaceMuted,
     },
     closeText: { ...theme.typography.caption, color: theme.colors.textPrimary, fontWeight: '700' },
-    explanation: { ...theme.typography.caption, color: theme.colors.textSecondary, textAlign: 'center' },
     body: { flex: 1 },
     bodyContent: { gap: theme.spacing.md, paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.lg },
     balanceBlock: { alignItems: 'center', gap: theme.spacing.xs, paddingVertical: theme.spacing.md },

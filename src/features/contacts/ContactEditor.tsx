@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { SelectField } from '@ui/components/SelectField';
 import { ScrollView, Text, View } from 'react-native';
 import { saveContact, type ContactDraft } from '@capabilities/contacts/contacts';
 import type { StellarPaymentMemo } from '@capabilities/stellar/types';
@@ -156,23 +157,21 @@ export function ContactEditor({ book, initial, id, onClose, isCurrent = () => tr
         <NativeButton label={t('contacts.scan.open')} variant="quiet" onPress={() => void beginScan()} />
       ) : null}
       <Text style={styles.hint}>{t('contacts.classicOnly')}</Text>
-      <Text style={styles.title}>{t('contacts.memo')}</Text>
-      <View style={styles.types}>
-        {(['none', 'text', 'id', 'hash', 'return'] as const).map(type => (
-          <NativeButton
-            key={type}
-            label={t(`send.memo.type.${type}`)}
-            variant={memoType === type ? 'primary' : 'quiet'}
-            size="sm"
-            onPress={() => {
-              if (type === memoType) return;
-              setMemoType(type);
-              setMemoValue('');
-              setError(undefined);
-            }}
-          />
-        ))}
-      </View>
+      <SelectField
+        label={t('contacts.memo')}
+        value={memoType}
+        options={(['none', 'text', 'id', 'hash', 'return'] as const).map(type => ({
+          value: type,
+          label: t(`send.memo.type.${type}`),
+        }))}
+        disabled={!editorActionAvailable() || deleting.current}
+        onValueChange={type => {
+          if (!editorActionAvailable() || deleting.current || type === memoType) return;
+          setMemoType(type);
+          setMemoValue('');
+          setError(undefined);
+        }}
+      />
       {memoType !== 'none' ? (
         <Field
           label={t(`send.memo.input.${memoType}`)}

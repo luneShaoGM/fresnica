@@ -32,7 +32,7 @@ function find<P>(root: React.ReactNode, type: unknown): React.ReactElement<P> {
   if (!match) throw new Error('missing component');
   return match;
 }
-function harness(sourceBalances = balances, purpose?: 'send') {
+function harness(sourceBalances = balances, purpose?: 'send', selectedAsset: BalanceLine['asset'] = native) {
   const slots: unknown[] = [];
   let cursor = 0;
   jest.mocked(useState).mockImplementation((initial?: unknown) => {
@@ -50,7 +50,7 @@ function harness(sourceBalances = balances, purpose?: 'send') {
     onSelect,
     draw: (disabled = false) => {
       cursor = 0;
-      return AssetPicker({ balances: sourceBalances, selectedAsset: native, label: 'Assets', disabled, onSelect, purpose });
+      return AssetPicker({ balances: sourceBalances, selectedAsset, label: 'Assets', disabled, onSelect, purpose });
     },
   };
 }
@@ -118,4 +118,16 @@ it('cancel preserves selection and disabling hides an open picker', () => {
   expect(find<React.ComponentProps<typeof Pressable>>(root, Pressable).props.disabled).toBe(true);
   jest.mocked(useEffect).mock.lastCall?.[0]();
   expect(find<React.ComponentProps<typeof BottomSheet>>(h.draw(), BottomSheet).props.visible).toBe(false);
+});
+
+it.each([
+  [{ sellingLiabilities: '10', isAuthorized: true }, '0.0000001'],
+  [{}, 'assets.availability.unknown'],
+] as const)('includes the selected credit available balance in its Send accessibility label', (fields, available) => {
+  const credit: BalanceLine = { asset: usd, balance: '10.0000001', ...fields };
+  const h = harness([balances[0], credit], 'send', usd);
+  const button = find<React.ComponentProps<typeof Pressable>>(h.draw(), Pressable);
+  expect(button.props.accessibilityLabel).toBe(
+    `Assets: USD, GISSUER, assets.picker.balance: 10.0000001, assets.availability.available: ${available}`,
+  );
 });

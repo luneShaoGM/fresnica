@@ -49,15 +49,5 @@ export function createStyles(theme: AppTheme) {
     },
     infoLabel: { fontSize: 13, lineHeight: 17, color: theme.colors.textPrimary, fontWeight: '600' },
     infoValue: { flex: 1, fontSize: 12, lineHeight: 16, color: theme.colors.textSecondary, textAlign: 'right' },
-    note: {
-      marginHorizontal: 18,
-      marginTop: 24,
-      padding: 15,
-      borderRadius: 12,
-      backgroundColor: theme.colors.surfaceMuted,
-      gap: 6,
-    },
-    noteTitle: { fontSize: 13, lineHeight: 17, fontWeight: '800', color: theme.colors.secondary },
-    noteText: { fontSize: 11, lineHeight: 16, color: theme.colors.textSecondary },
   });
 }

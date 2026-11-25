@@ -86,6 +86,11 @@ Pool types, exact full-identity assets present in loaded entries, amount <=/>=
 10/25/50/100/250/500/1000. Each group is single choice and deselectable; groups
 combine. Comparison and quantity must both be selected to restrict amounts.
 Labels explicitly include equality. Active chips remove each field independently.
+The 2026-11-24 [UI density pass](ui-interaction-density-audit-2026-11-24.md)
+uses expandable fields for type, asset and quantity, with explicit All / Any
+choices to clear them. Reselecting the current value only closes the field.
+Direction and comparison retain their compact, deselectable chips; manual
+asset visibility stays a separate expandable multi-select section.
 Assets are loaded-history scoped, not a claim that the list contains all held
 assets. Search remains AND with filters as an explicit Fresnica preservation.
 

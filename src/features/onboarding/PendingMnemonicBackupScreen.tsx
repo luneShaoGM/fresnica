@@ -145,9 +145,7 @@ export function PendingMnemonicBackupScreen({ dependencies, signerId, securityDe
           </View>
           <Text style={styles.title}>Finish recovery phrase backup</Text>
           <Text style={styles.body}>
-            {backupVisible
-              ? 'Write these words down in order and store them offline. They are shown only for this explicit backup step.'
-              : 'Fresnica did not store the plaintext phrase. Enter your app passphrase to reveal it again through Fresnica Core and finish the interrupted backup.'}
+            {t(backupVisible ? 'onboarding.backupStoreOffline' : 'onboarding.resumeBackup')}
           </Text>
         </View>
 
@@ -168,14 +166,6 @@ export function PendingMnemonicBackupScreen({ dependencies, signerId, securityDe
               selectionColor={theme.colors.actionPrimary}
               style={styles.input}
             />
-            <View style={styles.infoRow}>
-              <Text allowFontScaling={false} accessible={false} style={styles.infoGlyph}>
-                i
-              </Text>
-              <Text style={styles.infoText}>
-                The passphrase is used only to recover the pending backup through Fresnica Core.
-              </Text>
-            </View>
           </View>
         )}
 
@@ -269,19 +259,6 @@ function createStyles(theme: AppTheme) {
       fontSize: 15,
       paddingHorizontal: 13,
     },
-    infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 4 },
-    infoGlyph: {
-      width: 18,
-      height: 18,
-      borderRadius: 9,
-      textAlign: 'center',
-      backgroundColor: theme.colors.surfaceStrong,
-      color: theme.colors.onSurfaceStrong,
-      fontSize: 11,
-      lineHeight: 18,
-      fontWeight: '800',
-    },
-    infoText: { flex: 1, color: theme.colors.textSecondary, fontSize: 11, lineHeight: 17 },
     noticeBox: {
       marginHorizontal: 20,
       marginTop: 14,
