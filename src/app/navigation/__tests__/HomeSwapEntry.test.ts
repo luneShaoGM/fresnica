@@ -17,6 +17,7 @@ jest.mock('@features/home/AssetDetailsScreen', () => ({ AssetDetailsScreen: () =
 jest.mock('@features/home/HomeScreen', () => ({ HomeScreen: () => null }));
 jest.mock('@features/send/SendFlowScreen', () => ({ SendFlowScreen: () => null }));
 jest.mock('@features/request/RequestFlowScreen', () => ({ RequestFlowScreen: () => null }));
+jest.mock('@features/request/ReceiveSheet', () => ({ ReceiveSheet: () => null }));
 jest.mock('@features/trustlines/ManageAssetsScreen', () => ({ ManageAssetsScreen: () => null }));
 jest.mock('@features/swap/SwapPreviewScreen', () => ({
   SwapPreviewScreen: () => null,
@@ -81,7 +82,10 @@ function renderHomeEntry(
     onboarding: { repository: { isWatchOnly: () => watchOnly } },
     ledgerReadRuntime: { subscribe: jest.fn(), getSnapshot: () => ({ foreground: true }) },
     ledgerReadInvalidation: { subscribe: jest.fn(), getRevision: () => 0 },
-    request: { network: { id: selectedAccount.networkId, networkPassphrase: 'test' } },
+    request: {
+      network: { id: selectedAccount.networkId, networkPassphrase: 'test' },
+      gateway: { isClassicAccountAddress: (address: string) => address.startsWith('G') },
+    },
     send: { network: { id: selectedAccount.networkId, networkPassphrase: 'test' } },
     swapPreview: { network: { id: selectedAccount.networkId, networkPassphrase: 'test' } },
     swapExecution: {},

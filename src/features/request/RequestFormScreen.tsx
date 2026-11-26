@@ -25,7 +25,6 @@ type Props = Readonly<{
   canonicalUri?: string;
   error?: string;
   status?: string;
-  qrVisible: boolean;
   busy: boolean;
   onSelectAsset: (asset: StellarPaymentAsset) => void;
   onSetAmountEnabled: (enabled: boolean) => void;
@@ -35,11 +34,13 @@ type Props = Readonly<{
   onChangeMessage: (value: string) => void;
   onCopy: () => void;
   onShare: () => void;
-  onToggleQr: () => void;
   onPasteRequest: () => void;
   onScanRequest: () => void;
   onCancel: () => void;
 }>;
+
+// The canonical URI is ASCII. Version 40 at correction level L holds 2,953 bytes in byte mode.
+const MAX_REQUEST_QR_BYTES = 2953;
 
 export function RequestFormScreen(props: Props) {
   const { t } = useLocalization();
@@ -208,31 +209,24 @@ export function RequestFormScreen(props: Props) {
             onPress={props.onShare}
             styles={styles}
           />
-          <RequestAction
-            label={props.qrVisible ? t('request.qr.hide') : t('request.qr.show')}
-            disabled={!actionsEnabled}
-            onPress={props.onToggleQr}
-            secondary
-            styles={styles}
-          />
         </View>
 
-        {props.qrVisible && props.canonicalUri ? (
-          <View
-            accessible
-            accessibilityLabel={t('request.qr.accessibility', {
-              address: props.accountAddress,
-              uri: props.canonicalUri,
-            })}
-            style={styles.qrPanel}
-          >
-            <QRCode
-              backgroundColor={theme.colors.surface}
-              color={theme.colors.textPrimary}
-              size={210}
-              value={props.canonicalUri}
-            />
-          </View>
+        {props.canonicalUri ? (
+          props.canonicalUri.length <= MAX_REQUEST_QR_BYTES ? (
+            <View
+              accessible
+              accessibilityLabel={t('request.qr.accessibility', {
+                address: props.accountAddress,
+                uri: props.canonicalUri,
+              })}
+              accessibilityRole="image"
+              style={styles.qrPanel}
+            >
+              <QRCode size={210} quietZone={28} ecl="L" value={props.canonicalUri} />
+            </View>
+          ) : (
+            <Text style={styles.fieldHint}>{t('request.qr.tooLong')}</Text>
+          )
         ) : null}
 
         <Text style={styles.sectionLabel}>{t('request.ingress.section')}</Text>

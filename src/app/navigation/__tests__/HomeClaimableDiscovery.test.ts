@@ -9,6 +9,7 @@ import {
 import { mapClaimableRecord, type ClaimableSnapshot } from '../../../capabilities/claimable/records';
 import { HomeScreen } from '../../../features/home/HomeScreen';
 import { AssetCategoryDialog } from '../../../features/home/components/AssetCategoryDialog';
+import { ReceiveSheet } from '../../../features/request/ReceiveSheet';
 import type { AppServices } from '../../createAppServices';
 import { createLedgerReadInvalidationStore } from '../../readModels/LedgerReadInvalidationStore';
 import { HomeStackNavigator } from '../HomeStackNavigator';
@@ -94,6 +95,7 @@ jest.mock('@features/home/HomeScreen', () => ({ HomeScreen: () => null }));
 jest.mock('@features/home/components/AssetCategoryDialog', () => ({ AssetCategoryDialog: () => null }));
 jest.mock('@features/send/SendFlowScreen', () => ({ SendFlowScreen: () => null }));
 jest.mock('@features/request/RequestFlowScreen', () => ({ RequestFlowScreen: () => null }));
+jest.mock('@features/request/ReceiveSheet', () => ({ ReceiveSheet: () => null }));
 jest.mock('@features/swap/SwapPreviewScreen', () => ({
   SwapPreviewScreen: () => null,
   SwapUnavailableScreen: () => null,
@@ -168,7 +170,7 @@ function child<P>(tree: Tree, component: unknown): React.ReactElement<P> {
   return found;
 }
 
-function fixture(seedEmpty = true) {
+function fixture(seedEmpty = true, watchOnly = false) {
   const clock = Date.now();
   const invalidation = createLedgerReadInvalidationStore();
   let saved: ClaimableSnapshot | undefined = seedEmpty
@@ -196,14 +198,18 @@ function fixture(seedEmpty = true) {
       getRevision: target => invalidation.getRevision(target.networkId, target.id),
     });
   const product = createProduct();
+  let selectionRevision = 1;
+  const copyPublicText = jest.fn().mockResolvedValue(undefined);
   const services = {
-    onboarding: { repository: { isWatchOnly: () => false } },
+    onboarding: { repository: { isWatchOnly: () => watchOnly } },
     ledgerReadRuntime: { subscribe: jest.fn(), getSnapshot: () => ({ foreground: true }) },
     ledgerReadInvalidation: invalidation,
     networkSettings: { getSnapshot: () => ({ preferences: { developerMode: false } }) },
     transactionRecovery: { reconcile: jest.fn() },
     claimables: product,
     claimableTransaction: {},
+    copyPublicText,
+    request: { network, gateway: { isClassicAccountAddress: (address: string) => address === account.address } },
     send: { network },
     trustline: { network },
   };
@@ -216,7 +222,7 @@ function fixture(seedEmpty = true) {
     onAccountsChanged: jest.fn(),
     onCreatedAccountReady: jest.fn(),
     onSelectAccount: jest.fn(),
-    getCurrentSwapSelection: () => ({ selectedAccountId: account.id, selectionRevision: 1, accounts, network }),
+    getCurrentSwapSelection: () => ({ selectedAccountId: account.id, selectionRevision, accounts, network }),
     subscribeToSwapSelection: () => () => undefined,
   };
   const navigation = { isFocused: () => true, navigate: jest.fn() };
@@ -231,9 +237,13 @@ function fixture(seedEmpty = true) {
     const wrapper = React.Children.toArray(route.props.children).find(React.isValidElement) as React.ReactElement;
     const renderWrapper = wrapper.type as (input: unknown) => Tree;
     const tree = render(homeHost, () => renderWrapper(wrapper.props));
+    const receive = React.Children.toArray(tree.props.children).find(
+      item => React.isValidElement(item) && item.type === ReceiveSheet,
+    );
     return {
       home: child<React.ComponentProps<typeof HomeScreen>>(tree, HomeScreen).props,
       categories: child<React.ComponentProps<typeof AssetCategoryDialog>>(tree, AssetCategoryDialog).props,
+      receive: React.isValidElement<React.ComponentProps<typeof ReceiveSheet>>(receive) ? receive.props : undefined,
     };
   }
   return {
@@ -242,6 +252,11 @@ function fixture(seedEmpty = true) {
     replace,
     createProduct,
     renderHome,
+    copyPublicText,
+    navigate: navigation.navigate,
+    replaceSelection: () => {
+      selectionRevision += 1;
+    },
     replaceProduct: (next: ClaimableProduct) => {
       services.claimables = next;
     },
@@ -254,6 +269,39 @@ afterEach(() => {
     current.mounted = false;
     current.slots.forEach(slot => slot.cleanup?.());
   }
+});
+
+describe('Home Receive navigation', () => {
+  it('opens the watch-only account sheet before navigating with the selected account', async () => {
+    const f = fixture(true, true);
+    const initial = f.renderHome();
+    expect(initial.receive).toBeUndefined();
+    expect(initial.home.canSign).toBe(false);
+    expect(initial.home.onReceive).toBeDefined();
+    initial.home.onReceive?.();
+    const { receive } = f.renderHome();
+    expect(receive).toMatchObject({ address: account.address, networkId: account.networkId });
+    expect(f.navigate).not.toHaveBeenCalled();
+    await receive?.copyPublicText(account.address);
+    expect(f.copyPublicText).toHaveBeenCalledWith(account.address);
+    receive?.onClose();
+    receive?.onCreateRequestLink();
+    expect(f.navigate).toHaveBeenCalledWith('request', { accountId: account.id });
+    expect(f.renderHome().receive).toBeUndefined();
+  });
+
+  it('rejects actions from a sheet whose account selection has changed', async () => {
+    const f = fixture();
+    f.renderHome().home.onReceive?.();
+    const { receive } = f.renderHome();
+    if (!receive) throw new Error('missing Receive sheet');
+    f.replaceSelection();
+    await expect(receive.copyPublicText(account.address)).rejects.toThrow('receive-account-unavailable');
+    receive.onCreateRequestLink();
+    expect(f.navigate).not.toHaveBeenCalled();
+    expect(f.copyPublicText).not.toHaveBeenCalled();
+    expect(f.renderHome().receive).toBeUndefined();
+  });
 });
 
 describe('Home first Claimable discovery from ledger invalidation', () => {

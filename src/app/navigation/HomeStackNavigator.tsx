@@ -35,6 +35,8 @@ import { CLAIMABLE_TTL_MS, displayedClaimable } from '@capabilities/claimable/re
 import type { ClaimableState } from '@capabilities/claimable/createClaimableProduct';
 import { SendFlowScreen } from '@features/send/SendFlowScreen';
 import { RequestFlowScreen } from '@features/request/RequestFlowScreen';
+import { ReceiveSheet } from '@features/request/ReceiveSheet';
+import { requestAvailableForAccount } from '@features/request/requestProductFlow';
 import { ManageAssetsScreen } from '@features/trustlines/ManageAssetsScreen';
 import type { StellarPaymentAsset } from '../../capabilities/stellar/types';
 import { ActionsSwapEntry } from '@features/swap/ActionsSwapEntry';
@@ -80,6 +82,9 @@ export function HomeStackNavigator({
   const closeNetworkSwitch = useCallback(() => setNetworkSwitchVisible(false), []);
   const selectedAccount = resolveVisibleAccount(accounts, selectedAccountId);
   const canSign = !services.onboarding.repository.isWatchOnly(selectedAccount.id);
+  const canReceive =
+    requestAvailableForAccount(selectedAccount, services.request.network.id) &&
+    services.request.gateway.isClassicAccountAddress(selectedAccount.address);
   const marketSelectionRevision = useSyncExternalStore(
     subscribeToSwapSelection,
     () => getCurrentSwapSelection()?.selectionRevision ?? 0,
@@ -155,9 +160,19 @@ export function HomeStackNavigator({
               }
               onSend={() => navigation.navigate('send-form', { accountId: selectedAccount.id })}
               onSwap={swapEnabled ? () => navigation.navigate('swap', { accountId: selectedAccount.id }) : undefined}
-              onRequest={
-                selectedAccount.identityKind === 'classic'
-                  ? () => navigation.navigate('request', { accountId: selectedAccount.id })
+              receive={
+                canReceive
+                  ? {
+                      copyPublicText: services.copyPublicText,
+                      captureSession: () =>
+                        captureAccountSelectionSession({
+                          account: selectedAccount,
+                          network: services.request.network,
+                          getCurrentSelection: getCurrentSwapSelection,
+                          isCurrentFocusEpoch: () =>
+                            navigation.isFocused() && services.ledgerReadRuntime.getSnapshot().foreground,
+                        }),
+                    }
                   : undefined
               }
               onManualRefresh={() => services.transactionRecovery.reconcile('manual-refresh')}
@@ -611,8 +626,9 @@ function HomeWithAssetSheets({
   isSelectedAccount,
   onRecover,
   developerMode,
+  receive,
   ...props
-}: Omit<React.ComponentProps<typeof HomeScreen>, 'active' | 'onManageAssets' | 'onOpenAsset'> & {
+}: Omit<React.ComponentProps<typeof HomeScreen>, 'active' | 'onManageAssets' | 'onOpenAsset' | 'onReceive'> & {
   foreground: boolean;
   navigation: NativeStackNavigationProp<HomeStackParamList, 'home'>;
   catalog: AppServices['assetCatalog'];
@@ -624,6 +640,10 @@ function HomeWithAssetSheets({
   isSelectedAccount: () => boolean;
   onRecover: () => Promise<unknown>;
   developerMode: boolean;
+  receive?: Readonly<{
+    copyPublicText: AppServices['copyPublicText'];
+    captureSession: () => () => boolean;
+  }>;
 }) {
   const focused = useIsFocused();
   const active = focused && foreground;
@@ -691,8 +711,11 @@ function HomeWithAssetSheets({
           return shown.risk === 'SAFE' && shown.availability === 'claimable';
         }).length
       : 0;
-  const [sheet, setSheet] = useState<'add'>();
+  const [sheet, setSheet] = useState<{ kind: 'add' } | { kind: 'receive'; isCurrent: () => boolean }>();
   useFocusEffect(useCallback(() => () => setSheet(undefined), []));
+  useEffect(() => {
+    if (!active) setSheet(current => (current?.kind === 'receive' ? undefined : current));
+  }, [active]);
   const manage = (action: 'add' | 'remove', asset: { code: string; issuer: string }) => {
     if (!active || !props.canSign) return;
     setSheet(undefined);
@@ -746,7 +769,15 @@ function HomeWithAssetSheets({
             />
           ) : undefined
         }
-        onManageAssets={() => setSheet('add')}
+        onManageAssets={() => setSheet({ kind: 'add' })}
+        onReceive={
+          receive
+            ? () => {
+                const isCurrent = receive.captureSession();
+                if (isCurrent()) setSheet({ kind: 'receive', isCurrent });
+              }
+            : undefined
+        }
         onOpenAsset={asset => {
           if (active && isSelectedAccount())
             navigation.navigate('asset-details', {
@@ -764,7 +795,7 @@ function HomeWithAssetSheets({
         onClose={() => setCategoryPickerVisible(false)}
         onSelect={chooseCategory}
       />
-      {active && sheet === 'add' ? (
+      {active && sheet?.kind === 'add' ? (
         <AddAssetSheet
           account={props.account}
           balanceDependencies={props.balanceDependencies}
@@ -774,6 +805,20 @@ function HomeWithAssetSheets({
           visible={active}
           onClose={() => setSheet(undefined)}
           onAddAndSign={asset => manage('add', asset)}
+        />
+      ) : null}
+      {active && sheet?.kind === 'receive' && sheet.isCurrent() && receive ? (
+        <ReceiveSheet
+          address={props.account.address}
+          networkId={props.account.networkId}
+          copyPublicText={async text => {
+            if (!sheet.isCurrent()) throw new Error('receive-account-unavailable');
+            await receive.copyPublicText(text);
+          }}
+          onClose={() => setSheet(undefined)}
+          onCreateRequestLink={() => {
+            if (sheet.isCurrent()) navigation.navigate('request', { accountId: props.account.id });
+          }}
         />
       ) : null}
     </>
