@@ -36,6 +36,8 @@ const strictPresentationScopes = [
   'src/features/assets/AssetPicker',
   'src/features/assets/assetPickerStyles',
   'src/features/assets/assetSelection',
+  'src/features/assets/TokenAssetIcon',
+  'src/features/assets/tokenIconContext',
   'src/features/activity/',
   'src/features/contacts/',
   'src/features/dapps/',

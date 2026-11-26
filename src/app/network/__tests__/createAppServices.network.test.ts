@@ -276,23 +276,44 @@ describe('production network composition and retirement', () => {
   it('wires default-on external icons to wallet-wide privacy preference across service restart', async () => {
     const modules = NativeModules as Record<string, unknown>;
     const original = modules.SecureAssetFetch;
-    modules.SecureAssetFetch = { fetch: jest.fn(), cancel: jest.fn() };
+    const openIconCache = jest.fn(async () => 'lease');
+    const closeIconCache = jest.fn(async () => {
+      throw new Error('failed cache purge');
+    });
+    modules.SecureAssetFetch = {
+      fetch: jest.fn(),
+      cancel: jest.fn(),
+      openIconCache,
+      closeIconCache,
+      readIconCache: jest.fn(),
+      writeIconCache: jest.fn(),
+      removeIconCache: jest.fn(),
+    };
+    const settleCache = () => new Promise<void>(resolve => setImmediate(resolve));
     try {
       const first = await createAppServices();
       expect(first.tokenIcons.available).toBe(true);
       expect(first.tokenIcons.getSnapshot().enabled).toBe(true);
       const settings = first.networkSettings;
       expect(settings).toBeDefined();
+      await settleCache();
+      expect(openIconCache).toHaveBeenCalledWith('0');
       await settings?.setExternalTokenImagesEnabled(false);
       expect(first.tokenIcons.getSnapshot().enabled).toBe(false);
-      expect(mockSave).toHaveBeenCalledWith(expect.objectContaining({ externalTokenImagesEnabled: false }));
+      expect(mockSave).toHaveBeenCalledWith(
+        expect.objectContaining({ externalTokenImagesEnabled: false, tokenIconCacheEpoch: 1 }),
+      );
+      await settleCache();
+      expect(closeIconCache).toHaveBeenCalledWith('lease', true);
+      await settings?.setExternalTokenImagesEnabled(true);
       first.close();
 
+      openIconCache.mockClear();
       const restarted = await createAppServices();
       expect(restarted.tokenIcons.available).toBe(true);
-      expect(restarted.tokenIcons.getSnapshot().enabled).toBe(false);
-      await restarted.networkSettings?.setExternalTokenImagesEnabled(true);
       expect(restarted.tokenIcons.getSnapshot().enabled).toBe(true);
+      await settleCache();
+      expect(openIconCache.mock.calls).toEqual([['1']]);
       restarted.close();
     } finally {
       if (original === undefined) delete modules.SecureAssetFetch;

@@ -59,6 +59,9 @@ export function createCachedAssetCatalog(dependencies: {
   }
 
   return {
+    retryFailedSources() {
+      if (!closed) failureUntil.clear();
+    },
     readCachedSource(requestedNetwork, sourceId) {
       if (closed || requestedNetwork !== networkId || !curatedSourceFor(networkId, sourceId)) return undefined;
       try {

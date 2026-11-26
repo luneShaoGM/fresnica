@@ -49,16 +49,27 @@ describe('confirmed node and network settings', () => {
     const s = setup(false);
     expect(s.settings.getSnapshot().preferences.externalTokenImagesEnabled).toBe(true);
     await s.settings.setExternalTokenImagesEnabled(false);
-    expect(s.saved().externalTokenImagesEnabled).toBe(false);
+    expect(s.saved()).toMatchObject({ externalTokenImagesEnabled: false, tokenIconCacheEpoch: 1 });
     expect(s.restart).not.toHaveBeenCalled();
     const restored = setup(false, s.saved());
-    expect(restored.settings.getSnapshot().preferences.externalTokenImagesEnabled).toBe(false);
+    expect(restored.settings.getSnapshot().preferences).toMatchObject({
+      externalTokenImagesEnabled: false,
+      tokenIconCacheEpoch: 1,
+    });
     await s.settings.selectNode(main, NETWORKS[main].horizonUrl);
     expect(s.saved().externalTokenImagesEnabled).toBe(false);
-    await s.settings.setExternalTokenImagesEnabled(true);
-    expect(s.saved().externalTokenImagesEnabled).toBe(true);
+    await restored.settings.setExternalTokenImagesEnabled(true);
+    expect(restored.saved()).toMatchObject({ externalTokenImagesEnabled: true, tokenIconCacheEpoch: 1 });
+    await restored.settings.setExternalTokenImagesEnabled(false);
+    expect(restored.saved()).toMatchObject({ externalTokenImagesEnabled: false, tokenIconCacheEpoch: 2 });
     restored.settings.close();
     s.settings.close();
+  });
+
+  it('starts a new disk cache epoch when re-enabling a legacy opt-out', async () => {
+    const s = setup(false, { ...DEFAULT_NETWORK_PREFERENCES, externalTokenImagesEnabled: false });
+    await s.settings.setExternalTokenImagesEnabled(true);
+    expect(s.saved()).toMatchObject({ externalTokenImagesEnabled: true, tokenIconCacheEpoch: 1 });
   });
 
   it('preserves icon privacy on preference write failure or background cancellation', async () => {
@@ -68,6 +79,7 @@ describe('confirmed node and network settings', () => {
     });
     await expect(s.settings.setExternalTokenImagesEnabled(false)).rejects.toThrow('disk-full');
     expect(s.settings.getSnapshot().preferences.externalTokenImagesEnabled).toBe(true);
+    expect(s.settings.getSnapshot().preferences.tokenIconCacheEpoch).toBeUndefined();
     expect(s.saved().externalTokenImagesEnabled).toBe(true);
     await s.settings.setExternalTokenImagesEnabled(false);
     expect(s.settings.getSnapshot().preferences.externalTokenImagesEnabled).toBe(false);

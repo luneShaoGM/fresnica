@@ -149,7 +149,19 @@ export function createNetworkSettings(
     setExternalTokenImagesEnabled(value: boolean) {
       if (typeof value !== 'boolean') return Promise.reject(new Error('invalid-token-image-preference'));
       return run(async signal => {
-        save({ ...snapshot.preferences, externalTokenImagesEnabled: value }, signal, false);
+        const current = snapshot.preferences;
+        const wasEnabled = current.externalTokenImagesEnabled !== false;
+        // A legacy OFF preference may have been saved before disk cleanup could finish.
+        const rotate = wasEnabled ? !value : value && current.tokenIconCacheEpoch === undefined;
+        save(
+          {
+            ...current,
+            externalTokenImagesEnabled: value,
+            ...(rotate ? { tokenIconCacheEpoch: (current.tokenIconCacheEpoch ?? 0) + 1 } : {}),
+          },
+          signal,
+          false,
+        );
       });
     },
     enableDeveloperMode() {

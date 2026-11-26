@@ -1,5 +1,4 @@
 import Foundation
-import ImageIO
 import React
 import Network
 import Security
@@ -8,6 +7,12 @@ import Security
 final class SecureAssetFetch: NSObject {
   private var active: [String: SecureAssetFetchRequest] = [:]
   private var retired = false
+  private let cacheOwner = UUID().uuidString
+  private static let cacheQueue = DispatchQueue(label: "fresnica.token-icon-cache", qos: .utility)
+  private static let iconCache: TokenIconDiskCache? = FileManager.default
+    .urls(for: .cachesDirectory, in: .userDomainMask).first.map {
+      TokenIconDiskCache(directory: $0.appendingPathComponent("public-token-icons-v1", isDirectory: true))
+    }
 
   @objc static func requiresMainQueueSetup() -> Bool { true }
   @objc var methodQueue: DispatchQueue { .main }
@@ -20,13 +25,17 @@ final class SecureAssetFetch: NSObject {
     resolver resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
-    guard !retired, active.count < 2,
+    guard !retired,
       kind == "icon" || kind == "avatar" || kind == "text",
       requestId.range(of: "^[A-Za-z0-9-]{1,48}$", options: .regularExpression) != nil,
       active[requestId] == nil,
-      let url = Self.safeURL(rawURL)
+      let url = PublicAssetValidation.safeURL(rawURL)
     else {
-      reject("asset-download-unavailable", "asset-download-unavailable", nil)
+      reject("asset-download-blocked", "asset-download-blocked", nil)
+      return
+    }
+    guard active.count < 2 else {
+      reject("asset-download-transient", "asset-download-transient", nil)
       return
     }
 
@@ -35,7 +44,9 @@ final class SecureAssetFetch: NSObject {
         guard let self, self.active.removeValue(forKey: requestId) != nil else { return }
         switch result {
         case .success(let payload): resolve(payload)
-        case .failure: reject("asset-download-unavailable", "asset-download-unavailable", nil)
+        case .failure(let error):
+          let code = (error as? PublicAssetFetchFailure)?.rawValue ?? "asset-download-unavailable"
+          reject(code, code, nil)
         }
       }
     }
@@ -48,35 +59,78 @@ final class SecureAssetFetch: NSObject {
     active[requestId]?.cancel()
   }
 
+  @objc(openIconCache:resolver:rejecter:)
+  func openIconCache(_ epoch: String, resolver resolve: @escaping RCTPromiseResolveBlock,
+                     rejecter reject: @escaping RCTPromiseRejectBlock) {
+    let owner = cacheOwner
+    performCache(resolve, reject) { try $0.open(owner: owner, epoch: epoch) }
+  }
+
+  @objc(readIconCache:key:resolver:rejecter:)
+  func readIconCache(_ session: String, key: String,
+                     resolver resolve: @escaping RCTPromiseResolveBlock,
+                     rejecter reject: @escaping RCTPromiseRejectBlock) {
+    performCache(resolve, reject) { try $0.read(session: session, key: key)?.bridgeValue }
+  }
+
+  @objc(writeIconCache:key:sourceUrl:base64:resolver:rejecter:)
+  func writeIconCache(_ session: String, key: String, sourceUrl: String, base64: String,
+                      resolver resolve: @escaping RCTPromiseResolveBlock,
+                      rejecter reject: @escaping RCTPromiseRejectBlock) {
+    performCache(resolve, reject) {
+      try $0.write(session: session, key: key, sourceUrl: sourceUrl, base64: base64)
+      return nil
+    }
+  }
+
+  @objc(removeIconCache:key:resolver:rejecter:)
+  func removeIconCache(_ session: String, key: String,
+                       resolver resolve: @escaping RCTPromiseResolveBlock,
+                       rejecter reject: @escaping RCTPromiseRejectBlock) {
+    performCache(resolve, reject) {
+      try $0.remove(session: session, key: key)
+      return nil
+    }
+  }
+
+  @objc(closeIconCache:clearAll:resolver:rejecter:)
+  func closeIconCache(_ session: String, clearAll: Bool,
+                      resolver resolve: @escaping RCTPromiseResolveBlock,
+                      rejecter reject: @escaping RCTPromiseRejectBlock) {
+    performCache(resolve, reject) {
+      try $0.close(session: session, clearAll: clearAll)
+      return nil
+    }
+  }
+
+  private func performCache(_ resolve: @escaping RCTPromiseResolveBlock,
+                            _ reject: @escaping RCTPromiseRejectBlock,
+                            _ operation: @escaping (TokenIconDiskCache) throws -> Any?) {
+    guard !retired else { reject("asset-cache-unavailable", "asset-cache-unavailable", nil); return }
+    Self.cacheQueue.async {
+      do {
+        guard let cache = Self.iconCache else { throw TokenIconDiskCache.Failure.unavailable }
+        resolve(try operation(cache))
+      } catch {
+        reject("asset-cache-unavailable", "asset-cache-unavailable", nil)
+      }
+    }
+  }
+
   @objc func invalidate() {
     retired = true
     Array(active.values).forEach { $0.cancel() }
+    let owner = cacheOwner
+    Self.cacheQueue.async { Self.iconCache?.closeOwner(owner) }
   }
+}
 
-  private static func safeURL(_ value: String) -> URL? {
-    guard value.count >= 12 && value.count <= 2048,
-      let components = URLComponents(string: value),
-      components.scheme?.lowercased() == "https",
-      components.user == nil, components.password == nil,
-      components.fragment == nil,
-      components.port == nil || components.port == 443,
-      let host = components.host?.lowercased(),
-      host.count >= 4, host.count <= 253, host.contains("."),
-      !host.contains(":"), host != "localhost",
-      !host.hasSuffix(".local"), !host.hasSuffix(".internal"),
-      !host.hasSuffix(".test"), !host.hasSuffix(".invalid"),
-      !host.hasSuffix(".localhost"),
-      !host.allSatisfy({ $0.isNumber || $0 == "." })
-    else { return nil }
-    let labels = host.split(separator: ".", omittingEmptySubsequences: false)
-    guard labels.allSatisfy({ label in
-      label.count >= 1 && label.count <= 63 &&
-        label.first != "-" && label.last != "-" &&
-        label.allSatisfy({ ("a"..."z").contains(String($0)) || ("0"..."9").contains(String($0)) || $0 == "-" })
-    }), let suffix = labels.last, suffix.contains(where: { !$0.isNumber })
-    else { return nil }
-    return components.url
-  }
+private enum PublicAssetFetchFailure: String, Error {
+  case transient = "asset-download-transient"
+  case blocked = "asset-download-blocked"
+  case invalid = "asset-download-invalid"
+  case cancelled = "asset-download-cancelled"
+  case unavailable = "asset-download-unavailable"
 }
 
 private final class SecureAssetFetchRequest {
@@ -111,25 +165,28 @@ private final class SecureAssetFetchRequest {
     queue.async {
       let timer = DispatchSource.makeTimerSource(queue: self.queue)
       timer.schedule(deadline: .now() + 8)
-      timer.setEventHandler { [weak self] in self?.fail() }
+      timer.setEventHandler { [weak self] in self?.fail(.transient) }
       self.deadline = timer
       timer.resume()
       guard let hostname = self.url.host else { self.fail(); return }
       // getaddrinfo may block. Resolve off the request queue so the absolute
       // deadline/cancel path can complete even while DNS is unresponsive.
       DispatchQueue.global(qos: .utility).async { [weak self] in
-        let pinned = PublicAssetAddress.resolve(hostname: hostname)
+        let resolution = PublicAssetAddress.resolve(hostname: hostname)
         self?.queue.async { [weak self] in
           guard let self, !self.finished else { return }
-          guard let pinned else { self.fail(); return }
-          self.connect(to: pinned, certificateHost: hostname)
+          switch resolution {
+          case .pinned(let host): self.connect(to: host, certificateHost: hostname)
+          case .unavailable: self.fail(.unavailable)
+          case .blocked: self.fail(.blocked)
+          }
         }
       }
     }
   }
 
   func cancel() {
-    queue.async { [weak self] in self?.fail() }
+    queue.async { [weak self] in self?.fail(.cancelled) }
   }
 
   private func connect(to address: NWEndpoint.Host, certificateHost hostname: String) {
@@ -156,7 +213,9 @@ private final class SecureAssetFetchRequest {
       guard let self, !self.finished else { return }
       switch state {
       case .ready: self.sendRequest()
-      case .failed, .cancelled: self.fail()
+      case .failed(let error):
+        if case .tls = error { self.fail(.blocked) } else { self.fail(.transient) }
+      case .cancelled: self.fail(.cancelled)
       default: break
       }
     }
@@ -179,7 +238,7 @@ private final class SecureAssetFetchRequest {
     connection.send(content: payload, completion: .contentProcessed { [weak self] error in
       self?.queue.async { [weak self] in
         guard let self, !self.finished else { return }
-        if error != nil { self.fail() } else { self.receive() }
+        if error != nil { self.fail(.transient) } else { self.receive() }
       }
     })
   }
@@ -189,7 +248,7 @@ private final class SecureAssetFetchRequest {
     connection.receive(minimumIncompleteLength: 1, maximumLength: 4096) { [weak self] data, _, isComplete, error in
       self?.queue.async { [weak self] in
         guard let self, !self.finished else { return }
-        if error != nil { self.fail(); return }
+        if error != nil { self.fail(.transient); return }
         if let data, !data.isEmpty {
           // Bound all unparsed bytes as well as the decoded body. Truncated
           // or maliciously framed responses never grow an unbounded buffer.
@@ -199,7 +258,7 @@ private final class SecureAssetFetchRequest {
         if !self.hasHeaders {
           guard self.readHeaders() else { self.fail(); return }
           if !self.hasHeaders {
-            if isComplete { self.fail() } else { self.receive() }
+            if isComplete { self.fail(.transient) } else { self.receive() }
             return
           }
         }
@@ -207,7 +266,7 @@ private final class SecureAssetFetchRequest {
         if self.finished { return }
         if isComplete {
           if case .untilClose = self.framing { self.completeBody() }
-          else { self.fail() }
+          else { self.fail(.transient) }
         } else {
           self.receive()
         }
@@ -231,7 +290,13 @@ private final class SecureAssetFetchRequest {
     let status = lines.removeFirst().split(separator: " ")
     guard status.count >= 2,
       (status[0] == "HTTP/1.1" || status[0] == "HTTP/1.0"),
-      status[1] == "200" else { return false }
+      status[1].utf8.count == 3, status[1].utf8.allSatisfy({ (48...57).contains($0) }),
+      let statusCode = Int(status[1]) else { return false }
+    if statusCode == 429 || (500...599).contains(statusCode) {
+      fail(.transient)
+      return false
+    }
+    guard statusCode == 200 else { return false }
 
     var headers: [String: String] = [:]
     for line in lines {
@@ -310,25 +375,15 @@ private final class SecureAssetFetchRequest {
       finish(.success(["text": text]))
       return
     }
-    let signature: [UInt8] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
-    let png = bytes.count >= 24 && Array(bytes.prefix(8)) == signature
-    let jpeg = bytes.count >= 4 && Array(bytes.prefix(3)) == [0xff, 0xd8, 0xff]
-    guard png || jpeg,
-      let source = CGImageSourceCreateWithData(bytes as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
-      let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
-      let width = properties[kCGImagePropertyPixelWidth] as? Int,
-      let height = properties[kCGImagePropertyPixelHeight] as? Int,
-      width >= 1 && width <= 512 && height >= 1 && height <= 512,
-      CGImageSourceCreateImageAtIndex(source, 0, [kCGImageSourceShouldCache: false] as CFDictionary) != nil
-    else { fail(); return }
+    guard let mimeType = PublicAssetValidation.imageMime(bytes) else { fail(); return }
     finish(.success([
-      "mimeType": png ? "image/png" : "image/jpeg",
+      "mimeType": mimeType,
       "base64": bytes.base64EncodedString()
     ]))
   }
 
-  private func fail() {
-    finish(.failure(NSError(domain: "asset-download-unavailable", code: 1)))
+  private func fail(_ error: PublicAssetFetchFailure = .invalid) {
+    finish(.failure(error))
   }
 
   private func finish(_ result: Result<[String: String], Error>) {

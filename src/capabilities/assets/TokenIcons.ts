@@ -1,12 +1,13 @@
 import type { TokenAssetIdentity } from './TokenMetadataCache';
 
-export type TokenIconState = Readonly<{ enabled: boolean; revision: number }>;
+export type TokenIconState = Readonly<{ enabled: boolean; revision: number; retryRevision: number }>;
 
 export interface TokenIconPort {
   readonly available: boolean;
   getSnapshot(): TokenIconState;
   subscribe(callback: () => void): () => void;
   setEnabled(value: boolean): void;
+  setReadable(value: boolean): void;
   readIcon(asset: TokenAssetIdentity): string | undefined;
   readDomain(asset: TokenAssetIdentity): string | undefined;
   rejectIcon(asset: TokenAssetIdentity, uri: string): void;

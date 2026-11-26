@@ -17,7 +17,9 @@ import {
 } from '../../capabilities/assets/TokenMetadataCache';
 import { parseManualAssetDocument } from '../../capabilities/trustline/curatedAssetCatalog';
 import { safePublicHttpsUrl } from '../../capabilities/assets/safePublicHttpsUrl';
-import type { SafePublicTransport } from './NativeSafePublicTransport';
+import { PublicAssetError, type SafePublicTransport } from './NativeSafePublicTransport';
+
+export const TOKEN_METADATA_TRANSIENT_COOLDOWN_MS = 30_000;
 
 export type TokenMetadataResult = Readonly<{
   metadata?: TokenDisplayMetadata;
@@ -29,6 +31,7 @@ export type TokenMetadataResult = Readonly<{
 export interface TokenMetadataPort {
   peek(asset: TokenAssetIdentity): TokenDisplayMetadata | undefined;
   resolve(asset: TokenAssetIdentity, signal: AbortSignal, forceRefresh?: boolean): Promise<TokenMetadataResult>;
+  retryTransientFailures?(): void;
   close(): void;
 }
 
@@ -45,6 +48,7 @@ export function createTokenMetadataPort(
 ): TokenMetadataPort {
   const now = input.now ?? Date.now;
   const latest = new Map<string, number>();
+  const transientUntil = new Map<string, number>();
   const controllers = new Set<AbortController>();
   let revision = 0;
   let closed = false;
@@ -108,6 +112,7 @@ export function createTokenMetadataPort(
       }
       const previous = read(asset);
       const timestamp = now();
+      const key = JSON.stringify([input.networkId, asset.code, asset.issuer]);
       if (
         !forceRefresh &&
         previous?.metadata?.source === 'issuer-toml' &&
@@ -121,7 +126,9 @@ export function createTokenMetadataPort(
           stale: false,
           refreshFailed: false,
         };
-      if (!forceRefresh && (previous?.retryAfterUnixMs ?? 0) > timestamp) {
+      if (!forceRefresh && (
+        (previous?.retryAfterUnixMs ?? 0) > timestamp || (transientUntil.get(key) ?? 0) > timestamp
+      )) {
         return {
           metadata: withCuratedCandidates(curated(asset), previous?.metadata),
           fromCache: true,
@@ -129,7 +136,6 @@ export function createTokenMetadataPort(
           refreshFailed: true,
         };
       }
-      const key = JSON.stringify([input.networkId, asset.code, asset.issuer]);
       const request = ++revision;
       latest.set(key, request);
       const controller = new AbortController();
@@ -142,7 +148,12 @@ export function createTokenMetadataPort(
         let fromToml: CuratedAsset | undefined;
         try {
           fromToml = await issuerToml(asset, controller.signal);
-        } catch {
+        } catch (error) {
+          // A network outage or cancellation says nothing about issuer
+          // authority. It must not become a persisted 24-hour negative result.
+          if (error instanceof PublicAssetError && (error.kind === 'transient' || error.kind === 'cancelled')) {
+            throw error;
+          }
           // Invalid issuer metadata never erases valid curated data.
         }
         if (closed || signal.aborted || controller.signal.aborted || latest.get(key) !== request) {
@@ -152,6 +163,7 @@ export function createTokenMetadataPort(
         // metadata refreshed successfully. Keep the fallback while retrying
         // issuer enrichment after the 24-hour failure cooldown.
         const issuerRefreshed = fromToml !== undefined;
+        transientUntil.delete(key);
         const metadata = issuerRefreshed
           ? buildMetadata(fromCatalog, fromToml)
           : withCuratedCandidates(fromCatalog, previous?.metadata);
@@ -184,6 +196,16 @@ export function createTokenMetadataPort(
       } catch (error) {
         if (closed || signal.aborted || controller.signal.aborted || latest.get(key) !== request) throw error;
         const fallback = withCuratedCandidates(curated(asset), previous?.metadata);
+        if (error instanceof PublicAssetError) {
+          if (error.kind === 'cancelled') throw error;
+          if (error.kind === 'transient') {
+            transientUntil.delete(key);
+            transientUntil.set(key, now() + TOKEN_METADATA_TRANSIENT_COOLDOWN_MS);
+            while (transientUntil.size > 500) transientUntil.delete(transientUntil.keys().next().value!);
+            return { metadata: fallback, fromCache: !!fallback, stale: true, refreshFailed: true };
+          }
+        }
+        transientUntil.delete(key);
         const snapshot = validateTokenMetadataSnapshot(
           {
             schemaVersion: TOKEN_METADATA_SCHEMA_VERSION,
@@ -210,11 +232,15 @@ export function createTokenMetadataPort(
         controllers.delete(controller);
       }
     },
+    retryTransientFailures() {
+      transientUntil.clear();
+    },
     close() {
       if (closed) return;
       closed = true;
       for (const controller of controllers) controller.abort();
       controllers.clear();
+      transientUntil.clear();
     },
   };
 }

@@ -1056,3 +1056,20 @@ Existing strict Activity/Contacts/Accounts/UI/App scopes; History and local
 identity capabilities remain the authority. No donor code, dependency, schema,
 signature, transaction or recovery change. Native product-flow acceptance and
 exact-HEAD independent Work review remain pending; no maturity promotion.
+
+### S06 / LC5-2 bounded offline public token icons — 2026-11-24 candidate
+
+Owner-approved maintenance from main `d156fa6d6581b45cef0c9184f7270b2809ce5a86`.
+Decision **Adapt**, Fresnica clean-room implementation; see the dated policy in
+[the S06 behavior specification](behavior-specs/s06-token-metadata-icons.md).
+Known/successful image candidates render before issuer enrichment. Android/iOS
+private binary caches add seven-day freshness, stale/offline reuse across
+sessions, 20 MiB / 500-entry LRU bounds, integrity/decoding checks and native
+lease revocation on privacy OFF. Account/network session close preserves
+network/code/issuer-partitioned public bytes. Runtime recovery retries mounted
+consumers with short transient cooldowns; invalid issuer data keeps existing
+negative-cache policy. No image proxy, new domain allowlist, Realm image data,
+donor source or new external dependency. TokenAssetIcon/context are now strict
+presentation scopes. Repository tests and native cache fixtures/compile are
+separate evidence; exact-HEAD Work Review and real native product acceptance
+are not implied. No S06/LC5 maturity promotion or Stage 9 auth acceptance.

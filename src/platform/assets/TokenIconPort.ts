@@ -1,34 +1,36 @@
 import { validTokenAsset, type TokenAssetIdentity } from '../../capabilities/assets/TokenMetadataCache';
+import type { TokenIconPort, TokenIconState } from '../../capabilities/assets/TokenIcons';
 import { CURATED_ASSET_SOURCES, type AssetCatalogPort } from '../../capabilities/trustline/curatedAssetCatalog';
-import type { SafePublicTransport } from './NativeSafePublicTransport';
+import { publicAssetFailure, type PublicAssetFailure, type SafePublicTransport } from './NativeSafePublicTransport';
+import type { CachedTokenIcon, TokenIconDiskCache } from './NativeTokenIconCache';
 import type { TokenMetadataPort } from './TokenMetadataResolver';
 
-import type { TokenIconPort, TokenIconState } from '../../capabilities/assets/TokenIcons';
-
-const ICON_MEMORY_TTL_MS = 10 * 60 * 1000;
+export const TOKEN_ICON_FRESHNESS_MS = 7 * 24 * 60 * 60 * 1000;
 const FAILED_CANDIDATE_TTL_MS = 60 * 60 * 1000;
+const TRANSIENT_FAILURE_TTL_MS = 30 * 1000;
 const MAX_CONCURRENT_ICON_LOADS = 2;
+type IconDiagnostic = 'cache-hit' | 'downloaded' | `download-${PublicAssetFailure}`;
 
-// No wallet account address, signer, raw image bytes or credentials are persisted.
-// Public imagery is enabled by the user's persisted wallet-wide privacy preference.
-// No image request runs without an active asset consumer. Turning it off clears session images.
+// Public display bytes have no account/signing authority. Only mounted asset
+// consumers start loads; privacy OFF revokes memory and native cache leases.
 export function createTokenIconPort(
   input: Readonly<{
     networkId: string;
     metadata: TokenMetadataPort;
     catalog?: AssetCatalogPort;
     transport: SafePublicTransport;
+    diskCache?: TokenIconDiskCache;
     initialEnabled?: boolean;
     now?: () => number;
+    onDiagnostic?: (event: IconDiagnostic) => void;
   }>,
 ): TokenIconPort {
   const now = input.now ?? Date.now;
   const available =
     (input.networkId === 'stellar-mainnet' || input.networkId === 'stellar-testnet') && input.transport.available;
   const listeners = new Set<() => void>();
-  const images = new Map<string, { uri: string; sourceUrl: string; expires: number }>();
-  const failed = new Map<string, number>();
-  const controllers = new Set<AbortController>();
+  const images = new Map<string, CachedTokenIcon>();
+  const failed = new Map<string, { until: number; kind: PublicAssetFailure }>();
   const loads = new Map<
     string,
     {
@@ -37,32 +39,75 @@ export function createTokenIconPort(
       consumers: number;
     }
   >();
-  let state: TokenIconState = Object.freeze({ enabled: available && input.initialEnabled === true, revision: 0 });
+  let state: TokenIconState = Object.freeze({
+    enabled: available && input.initialEnabled === true,
+    revision: 0,
+    retryRevision: 0,
+  });
+  let consent = input.initialEnabled === true;
   let closed = false;
+  let readable = true;
   let catalogRefresh: Promise<void> | undefined;
   let catalogController: AbortController | undefined;
   let activeIconLoads = 0;
   const waitingIconLoads: Array<() => void> = [];
+  // An unsupported network/older bridge is not a user privacy opt-out.
+  input.diskCache?.setEnabled(consent);
 
-  // Metadata and image downloads share the same native transport (two active,
-  // 16 queued). Bound the *whole* load to avoid turning local queue saturation
-  // into a persisted 24-hour issuer failure when many assets mount together.
+  const keyFor = (asset: TokenAssetIdentity) => JSON.stringify([input.networkId, asset.code, asset.issuer]);
+  const fresh = (image: CachedTokenIcon | undefined) =>
+    image !== undefined && image.savedAtUnixMs <= now() && now() - image.savedAtUnixMs < TOKEN_ICON_FRESHNESS_MS;
+  const emit = (enabled = state.enabled, retry = false) => {
+    state = Object.freeze({
+      enabled,
+      revision: state.revision + 1,
+      retryRevision: state.retryRevision + Number(retry),
+    });
+    for (const listener of listeners) listener();
+  };
+  function remember(key: string, image: CachedTokenIcon): void {
+    images.delete(key);
+    images.set(key, image);
+    while (images.size > 24) images.delete(images.keys().next().value!);
+    emit();
+  }
+  function markFailed(url: string, kind: PublicAssetFailure): void {
+    if (kind === 'cancelled') return;
+    failed.delete(url);
+    failed.set(url, {
+      kind,
+      until: now() + (kind === 'transient' ? TRANSIENT_FAILURE_TTL_MS : FAILED_CANDIDATE_TTL_MS),
+    });
+    while (failed.size > 120) failed.delete(failed.keys().next().value!);
+  }
+  function cancelCatalog(): void {
+    catalogController?.abort();
+    catalogController = undefined;
+    catalogRefresh = undefined;
+  }
+  function cancelLoads(): void {
+    cancelCatalog();
+    for (const load of [...loads.values()]) load.controller.abort();
+    loads.clear();
+  }
+
+  // Bound whole online operations so a list mount cannot exhaust the native
+  // queue and turn local backpressure into an issuer-metadata failure.
   function releaseIconSlot(): void {
     activeIconLoads -= 1;
     while (activeIconLoads < MAX_CONCURRENT_ICON_LOADS && waitingIconLoads.length > 0) {
       waitingIconLoads.shift()?.();
     }
   }
-
   function acquireIconSlot(signal: AbortSignal): Promise<boolean> {
     return new Promise(resolve => {
-      if (closed || !state.enabled || signal.aborted) {
+      if (closed || !state.enabled || !readable || signal.aborted) {
         resolve(false);
         return;
       }
       const start = () => {
         signal.removeEventListener('abort', onAbort);
-        if (closed || !state.enabled || signal.aborted) {
+        if (closed || !state.enabled || !readable || signal.aborted) {
           resolve(false);
           return;
         }
@@ -76,9 +121,8 @@ export function createTokenIconPort(
         signal.removeEventListener('abort', onAbort);
         resolve(false);
       };
-      if (activeIconLoads < MAX_CONCURRENT_ICON_LOADS && waitingIconLoads.length === 0) {
-        start();
-      } else {
+      if (activeIconLoads < MAX_CONCURRENT_ICON_LOADS && waitingIconLoads.length === 0) start();
+      else {
         waitingIconLoads.push(start);
         signal.addEventListener('abort', onAbort);
         if (signal.aborted) onAbort();
@@ -86,10 +130,8 @@ export function createTokenIconPort(
     });
   }
 
-  // Share only in-flight Mainnet directory loads across mounted consumers.
-  // The cached catalog owns its 12-hour TTL and 30-second failure cooldown,
-  // so a later consumer can retry after the network recovers. Testnet uses
-  // issuer TOML only; Mainnet candidates never cross the network boundary.
+  // Only an in-flight directory read is shared; CachedAssetCatalog owns the
+  // 12-hour successful TTL and short session failure cooldown. Never poll.
   function refreshCuratedCatalog(): Promise<void> {
     if (input.networkId !== 'stellar-mainnet' || !input.catalog?.loadSource) return Promise.resolve();
     if (!catalogRefresh) {
@@ -99,7 +141,6 @@ export function createTokenIconPort(
       const current = Promise.allSettled(
         CURATED_ASSET_SOURCES.map(source => loader(input.networkId, source.id, signal)),
       ).then(() => {
-        // An old aborted request must not clear a newer session's loader.
         if (catalogRefresh === current) {
           catalogRefresh = undefined;
           catalogController = undefined;
@@ -110,69 +151,77 @@ export function createTokenIconPort(
     return catalogRefresh;
   }
 
-  const keyFor = (asset: TokenAssetIdentity) => JSON.stringify([input.networkId, asset.code, asset.issuer]);
-  const emit = (enabled = state.enabled) => {
-    state = Object.freeze({ enabled, revision: state.revision + 1 });
-    for (const listener of listeners) listener();
-  };
-
   async function loadIcon(asset: TokenAssetIdentity, signal: AbortSignal): Promise<string | undefined> {
-    if (closed || !state.enabled || !available || signal.aborted || !validTokenAsset(asset, input.networkId)) {
-      return;
-    }
     const key = keyFor(asset);
-    const existing = images.get(key);
-    if (existing && existing.expires > now()) return existing.uri;
-    const controller = new AbortController();
-    controllers.add(controller);
-    const abort = () => controller.abort();
-    signal.addEventListener('abort', abort);
-    if (signal.aborted) controller.abort();
+    const usable = () => !closed && state.enabled && !signal.aborted;
+    const online = () => usable() && readable;
     let acquired = false;
     try {
-      acquired = await acquireIconSlot(controller.signal);
-      if (!acquired || closed || controller.signal.aborted || !state.enabled) return;
-      const queuedCache = images.get(key);
-      if (queuedCache && queuedCache.expires > now()) return queuedCache.uri;
-      await refreshCuratedCatalog();
-      if (closed || controller.signal.aborted || !state.enabled) return;
-      // Metadata cache must actually be populated and revalidated on opt-in:
-      // peeking only at curated rows would bypass the 7-day metadata TTL.
-      // Multiple mounted UI consumers may request the same asset. A
-      // superseded or offline metadata refresh must not discard a valid
-      // last-good candidate already available from the public cache.
-      let metadata = input.metadata.peek(asset);
-      try {
-        metadata = (await input.metadata.resolve(asset, controller.signal)).metadata ?? metadata;
-      } catch {
-        if (closed || controller.signal.aborted) return;
-      }
-      if (closed || !state.enabled || controller.signal.aborted) return;
-      // Subtitles must update even when metadata has no usable image.
-      emit();
-      for (const url of metadata?.icons ?? []) {
-        if (closed || !state.enabled || controller.signal.aborted) return;
-        const failedUntil = failed.get(url) ?? 0;
-        if (failedUntil > now()) continue;
-        try {
-          const result = await input.transport.readIcon(url, controller.signal);
-          if (closed || !state.enabled || controller.signal.aborted) return;
-          images.delete(key);
-          images.set(key, { uri: result.dataUri, sourceUrl: url, expires: now() + ICON_MEMORY_TTL_MS });
-          while (images.size > 24) images.delete(images.keys().next().value as string);
-          emit();
-          return result.dataUri;
-        } catch {
-          if (controller.signal.aborted || closed) return;
-          failed.set(url, now() + FAILED_CANDIDATE_TTL_MS);
-          if (failed.size > 120) failed.delete(failed.keys().next().value as string);
+      // Disk hydration is independent of connectivity and never waits behind
+      // slow network requests. Freshness is separate from display validity.
+      if (!images.has(key)) {
+        const stored = await input.diskCache?.read(key).catch(() => undefined);
+        if (!usable()) return;
+        if (stored) {
+          remember(key, stored);
+          input.onDiagnostic?.('cache-hit');
         }
       }
-      return;
+      if (!usable()) return;
+      if (fresh(images.get(key)) || !readable) return images.get(key)?.dataUri;
+      acquired = await acquireIconSlot(signal);
+      if (!acquired || !online()) return;
+      if (fresh(images.get(key))) return images.get(key)?.dataUri;
+      const attempted = new Set<string>();
+      async function tryCandidates(candidates: readonly string[]): Promise<string | undefined> {
+        for (const url of candidates) {
+          if (!online()) return;
+          if (attempted.has(url)) continue;
+          attempted.add(url);
+          if ((failed.get(url)?.until ?? 0) > now()) continue;
+          try {
+            const result = await input.transport.readIcon(url, signal);
+            if (!online()) return;
+            failed.delete(url);
+            remember(key, { ...result, sourceUrl: url, savedAtUnixMs: Math.floor(now()) });
+            input.onDiagnostic?.('downloaded');
+            // Publication precedes best-effort disk IO and optional enrichment.
+            // Native lease revocation prevents a late write after privacy OFF.
+            await input.diskCache?.write(key, url, result).catch(() => undefined);
+            return result.dataUri;
+          } catch (error) {
+            if (!online()) return;
+            const kind = publicAssetFailure(error);
+            markFailed(url, kind);
+            input.onDiagnostic?.(`download-${kind}`);
+          }
+        }
+        return;
+      }
+      const previous = images.get(key);
+      const known = [...(previous ? [previous.sourceUrl] : []), ...(input.metadata.peek(asset)?.icons ?? [])];
+      let result = await tryCandidates(known);
+      if (!online()) return;
+      if (!result) {
+        await refreshCuratedCatalog();
+        if (!online()) return;
+        result = await tryCandidates(input.metadata.peek(asset)?.icons ?? []);
+      }
+      if (!online()) return;
+      // An existing candidate already rendered above. Issuer lookup enriches
+      // display metadata without delaying that image or establishing trust.
+      let enriched;
+      try {
+        enriched = (await input.metadata.resolve(asset, signal)).metadata;
+      } catch {
+        if (!online()) return;
+      }
+      if (!online()) return;
+      emit();
+      if (!result) result = await tryCandidates(enriched?.icons ?? []);
+      return usable() ? (result ?? images.get(key)?.dataUri) : undefined;
     } finally {
       if (acquired) releaseIconSlot();
-      signal.removeEventListener('abort', abort);
-      controllers.delete(controller);
     }
   }
 
@@ -184,28 +233,40 @@ export function createTokenIconPort(
       return () => listeners.delete(callback);
     },
     setEnabled(value) {
-      if (closed || !available || value === state.enabled) return;
+      if (closed || value === consent) return;
+      consent = value;
       if (!value) {
-        catalogController?.abort();
-        catalogController = undefined;
-        catalogRefresh = undefined;
-        for (const load of loads.values()) load.controller.abort();
-        loads.clear();
-        for (const controller of controllers) controller.abort();
+        cancelLoads();
         images.clear();
         failed.clear();
       }
-      emit(value);
+      input.diskCache?.setEnabled(value);
+      emit(available && value, value);
+    },
+    setReadable(value) {
+      if (closed || readable === value) return;
+      readable = value;
+      if (!value) {
+        cancelLoads();
+        // NetInfo may resolve unknown -> offline during initial disk IO.
+        // Mounted consumers must be able to rehydrate with networking paused.
+        emit(state.enabled, true);
+      } else {
+        for (const [url, failure] of failed) if (failure.kind === 'transient') failed.delete(url);
+        input.metadata.retryTransientFailures?.();
+        input.catalog?.retryFailedSources?.();
+        emit(state.enabled, true);
+      }
     },
     readIcon(asset) {
       if (closed || !state.enabled || !available || !validTokenAsset(asset, input.networkId)) return;
-      const stored = images.get(keyFor(asset));
+      const key = keyFor(asset);
+      const stored = images.get(key);
       if (!stored) return;
-      if (stored.expires <= now()) {
-        images.delete(keyFor(asset));
-        return;
-      }
-      return stored.uri;
+      // Touch memory LRU without extending freshness or erasing stale bytes.
+      images.delete(key);
+      images.set(key, stored);
+      return stored.dataUri;
     },
     readDomain(asset) {
       if (closed || !state.enabled || !available || !validTokenAsset(asset, input.networkId)) return;
@@ -219,17 +280,18 @@ export function createTokenIconPort(
       if (closed || !state.enabled || !validTokenAsset(asset, input.networkId)) return;
       const key = keyFor(asset);
       const current = images.get(key);
-      if (!current || current.uri !== uri) return;
+      if (!current || current.dataUri !== uri) return;
       images.delete(key);
-      failed.set(current.sourceUrl, now() + FAILED_CANDIDATE_TTL_MS);
-      if (failed.size > 120) failed.delete(failed.keys().next().value as string);
+      markFailed(current.sourceUrl, 'invalid');
+      loads.get(key)?.controller.abort();
+      input.diskCache?.remove(key).catch(() => undefined);
       emit();
     },
     async loadIcon(asset, signal) {
       if (closed || !state.enabled || !available || signal.aborted || !validTokenAsset(asset, input.networkId)) return;
       const key = keyFor(asset);
       const cached = images.get(key);
-      if (cached && cached.expires > now()) return cached.uri;
+      if (fresh(cached)) return cached?.dataUri;
       let load = loads.get(key);
       if (!load) {
         const controller = new AbortController();
@@ -253,6 +315,7 @@ export function createTokenIconPort(
           if (current.consumers === 0) {
             if (loads.get(key) === current) loads.delete(key);
             current.controller.abort();
+            if (loads.size === 0) cancelCatalog();
           }
           if (error !== undefined) reject(error);
           else resolve(value);
@@ -270,15 +333,10 @@ export function createTokenIconPort(
     close() {
       if (closed) return;
       closed = true;
-      catalogController?.abort();
-      catalogController = undefined;
-      catalogRefresh = undefined;
-      for (const controller of controllers) controller.abort();
-      for (const load of loads.values()) load.controller.abort();
-      loads.clear();
+      cancelLoads();
+      input.diskCache?.close();
       input.transport.close();
       input.metadata.close();
-      controllers.clear();
       listeners.clear();
       images.clear();
       failed.clear();

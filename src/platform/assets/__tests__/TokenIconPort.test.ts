@@ -1,4 +1,4 @@
-import { createTokenIconPort } from '../TokenIconPort';
+import { createTokenIconPort, TOKEN_ICON_FRESHNESS_MS } from '../TokenIconPort';
 import { createCachedAssetCatalog } from '../CachedAssetCatalog';
 import {
   CURATED_CACHE_FAILURE_COOLDOWN_MS,
@@ -6,7 +6,7 @@ import {
   type CuratedSourceSnapshot,
 } from '../../../capabilities/trustline/curatedSourceCache';
 import type { TokenMetadataPort } from '../TokenMetadataResolver';
-import type { SafePublicTransport } from '../NativeSafePublicTransport';
+import { PublicAssetError, type SafePublicTransport } from '../NativeSafePublicTransport';
 
 const issuer = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
 const asset = { kind: 'credit' as const, code: 'Usd', issuer };
@@ -17,7 +17,7 @@ const dataUri = 'data:image/png;base64,iVBORw0KGgo=';
 function setup(networkId = 'stellar-mainnet', isNativeAvailable = true) {
   let now = 1000;
   const readIcon = jest.fn(async (url: string) => {
-    if (url === first) throw new Error('bad-image');
+    if (url === first) throw new PublicAssetError('invalid');
     return { mimeType: 'image/png' as const, dataUri };
   });
   const metadata: TokenMetadataPort = {
@@ -90,6 +90,7 @@ describe('S06 token icon opt-in, fallback and lifecycle', () => {
 
   it('does not publish a late metadata completion after privacy is disabled', async () => {
     const { icons, metadata, readIcon } = setup();
+    jest.mocked(metadata.peek).mockReturnValue(undefined);
     let finish!: (value: Awaited<ReturnType<TokenMetadataPort['resolve']>>) => void;
     jest.mocked(metadata.resolve).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
     icons.setEnabled(true);
@@ -185,7 +186,7 @@ describe('S06 token icon opt-in, fallback and lifecycle', () => {
     icons.close();
   });
 
-  it('loads Mainnet public sources once per opt-in even for concurrent assets', async () => {
+  it('shares Mainnet source discovery for concurrent assets without known candidates', async () => {
     const { icons: unused } = setup();
     unused.close();
     const sourceLoads: string[] = [];
@@ -197,7 +198,7 @@ describe('S06 token icon opt-in, fallback and lifecycle', () => {
       }),
     };
     const metadata: TokenMetadataPort = {
-      peek: jest.fn(() => ({ source: 'curated' as const, icons: [second] })),
+      peek: jest.fn(() => undefined),
       resolve: jest.fn(async () => ({
         metadata: { source: 'curated' as const, icons: [second] },
         fromCache: true,
@@ -315,7 +316,7 @@ describe('S06 token icon opt-in, fallback and lifecycle', () => {
     icons.close();
   });
 
-  it('tries the next curated candidate and caches only local data URIs for ten minutes', async () => {
+  it('tries the next candidate and refreshes stale data URIs from the last successful source', async () => {
     const { icons, readIcon, metadata, advance } = setup();
     const callback = jest.fn();
     const unsubscribe = icons.subscribe(callback);
@@ -327,10 +328,10 @@ describe('S06 token icon opt-in, fallback and lifecycle', () => {
     expect(icons.readIcon(asset)).toBe(dataUri);
     expect(await icons.loadIcon(asset, new AbortController().signal)).toBe(dataUri);
     expect(readIcon).toHaveBeenCalledTimes(2);
-    advance(10 * 60 * 1000);
-    expect(icons.readIcon(asset)).toBeUndefined();
+    advance(TOKEN_ICON_FRESHNESS_MS);
+    expect(icons.readIcon(asset)).toBe(dataUri);
     expect(await icons.loadIcon(asset, new AbortController().signal)).toBe(dataUri);
-    // The first candidate is in the 60-minute failure cooldown.
+    // Its old failure cooldown expired, but the successful source goes first.
     expect(readIcon).toHaveBeenCalledTimes(3);
     expect(callback).toHaveBeenCalled();
     unsubscribe();

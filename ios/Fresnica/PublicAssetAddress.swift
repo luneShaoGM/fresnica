@@ -6,6 +6,12 @@ import Darwin
 // loopback, multicast, link-local and transition ranges *before* NWConnection
 // creation. NWConnection is only ever given this vetted numeric endpoint.
 enum PublicAssetAddress {
+  enum Resolution {
+    case pinned(NWEndpoint.Host)
+    case unavailable
+    case blocked
+  }
+
   static func isGlobal(_ bytes: [UInt8]) -> Bool {
     if bytes.count == 4 {
       let a = Int(bytes[0]), b = Int(bytes[1]), c = Int(bytes[2])
@@ -47,21 +53,22 @@ enum PublicAssetAddress {
     return nil
   }
 
-  static func vettedHost(resolvedAddresses: [String]) -> NWEndpoint.Host? {
-    guard !resolvedAddresses.isEmpty, resolvedAddresses.count <= 32 else { return nil }
+  // Resolve once. Never hand the hostname to Network.framework for a second
+  // DNS lookup. IPv4/IPv6 socket targets are selected from this approved set.
+  static func resolve(hostname: String, lookup: (String) -> [String]? = numericAddresses) -> Resolution {
+    guard let resolvedAddresses = lookup(hostname), !resolvedAddresses.isEmpty else { return .unavailable }
+    guard resolvedAddresses.count <= 32 else { return .blocked }
     var first: NWEndpoint.Host?
     for numeric in resolvedAddresses {
       // Match the existing Android tunnel rule: a mixed public/private DNS
       // result is rejected as a whole, even when its first A/AAAA is public.
-      guard let candidate = pinnedHost(numeric: numeric) else { return nil }
+      guard let candidate = pinnedHost(numeric: numeric) else { return .blocked }
       if first == nil { first = candidate }
     }
-    return first
+    return first.map(Resolution.pinned) ?? .unavailable
   }
 
-  // Resolve once. Never hand the hostname to Network.framework for a second
-  // DNS lookup. IPv4/IPv6 socket targets are selected from this approved set.
-  static func resolve(hostname: String) -> NWEndpoint.Host? {
+  private static func numericAddresses(_ hostname: String) -> [String]? {
     var hints = addrinfo()
     hints.ai_family = AF_UNSPEC
     hints.ai_socktype = SOCK_STREAM
@@ -81,6 +88,6 @@ enum PublicAssetAddress {
       }
       current = entry.ai_next
     }
-    return vettedHost(resolvedAddresses: addresses)
+    return addresses
   }
 }

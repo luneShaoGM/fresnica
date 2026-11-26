@@ -1,6 +1,6 @@
 import { Image } from 'react-native';
 import type { TokenIconPort } from '../../../capabilities/assets/TokenIcons';
-import { createTokenIconPort } from '../../../platform/assets/TokenIconPort';
+import { createTokenIconPort, TOKEN_ICON_FRESHNESS_MS } from '../../../platform/assets/TokenIconPort';
 import { TokenFallbackAvatar } from '../../../ui/components/TokenFallbackAvatar';
 import { TokenAssetIcon } from '../TokenAssetIcon';
 
@@ -87,12 +87,13 @@ describe('S06 shared icon cache recovery across mounted UI consumers', () => {
     const loadIcon = jest.fn(() => new Promise<string | undefined>(() => undefined));
     mockRuntime.service = {
       available: true,
-      getSnapshot: () => ({ enabled, revision }),
+      getSnapshot: () => ({ enabled, revision, retryRevision: 0 }),
       subscribe: () => () => undefined,
       readIcon,
       readDomain: jest.fn(),
       loadIcon,
       rejectIcon: jest.fn(),
+      setReadable: jest.fn(),
       setEnabled: value => {
         enabled = value;
         revision += 1;
@@ -135,7 +136,7 @@ it('recovers identical bytes restored after a decode failure and follows shared 
   let cached: string | undefined = dataUri;
   mockRuntime.service = {
     available: true,
-    getSnapshot: () => ({ enabled: true, revision }),
+    getSnapshot: () => ({ enabled: true, revision, retryRevision: 0 }),
     subscribe: () => () => undefined,
     readIcon: () => cached,
     readDomain: jest.fn(),
@@ -144,6 +145,7 @@ it('recovers identical bytes restored after a decode failure and follows shared 
       cached = undefined;
       revision += 1;
     },
+    setReadable: jest.fn(),
     setEnabled: jest.fn(),
     close: jest.fn(),
   };
@@ -177,7 +179,7 @@ it('recovers identical bytes restored after a decode failure and follows shared 
   mockRuntime.service = undefined;
 });
 
-it.each([true, false])('reloads an expired cache entry while still mounted (refresh succeeds: %s)', async succeeds => {
+it.each([true, false])('keeps stale bytes visible while mounted and refreshes on runtime recovery (succeeds: %s)', async succeeds => {
   mockRuntime.states = [];
   mockRuntime.refs = [];
   mockRuntime.effects = [];
@@ -208,22 +210,144 @@ it.each([true, false])('reloads an expired cache entry while still mounted (refr
   expect(readIcon).toHaveBeenCalledTimes(1);
   const revisionBeforeExpiry = service.getSnapshot().revision;
   if (!succeeds) readIcon.mockRejectedValueOnce(new Error('offline'));
-  now += 10 * 60 * 1000;
-  // A parent re-render sees expiry without a snapshot revision or remount.
-  expect(render().type).toBe(TokenFallbackAvatar);
+  now += TOKEN_ICON_FRESHNESS_MS;
+  // Expiry does not erase accepted bytes or start a polling/re-render loop.
+  expect(render().type).toBe(Image);
   expect(service.getSnapshot().revision).toBe(revisionBeforeExpiry);
+  expect(load).toHaveBeenCalledTimes(baselineLoads);
+  service.setReadable(false);
+  service.setReadable(true);
+  expect(render().type).toBe(Image);
   expect(load).toHaveBeenCalledTimes(baselineLoads + 1);
   render();
   render();
   expect(load).toHaveBeenCalledTimes(baselineLoads + 1);
   await new Promise<void>(resolve => setImmediate(resolve));
   expect(readIcon).toHaveBeenCalledTimes(2);
-  expect(render().type).toBe(succeeds ? Image : TokenFallbackAvatar);
+  expect(render().type).toBe(Image);
   render();
   render();
   // Success and failure both settle without a retry loop on cache revisions.
   expect(load).toHaveBeenCalledTimes(baselineLoads + 1);
   expect(readIcon).toHaveBeenCalledTimes(2);
+  for (const effect of mockRuntime.effects) effect.cleanup?.();
+  service.close();
+  mockRuntime.service = undefined;
+});
+
+it('does not cancel enrichment when the known image becomes visible', async () => {
+  mockRuntime.states = [];
+  mockRuntime.refs = [];
+  mockRuntime.effects = [];
+  let enrichmentSignal!: AbortSignal;
+  let finish!: () => void;
+  const service = createTokenIconPort({
+    networkId: 'stellar-testnet',
+    initialEnabled: true,
+    metadata: {
+      peek: () => ({ source: 'curated', icons: ['https://example.org/icon.png'] }),
+      resolve: (_identity, signal) => {
+        enrichmentSignal = signal;
+        return new Promise(resolve => { finish = () => resolve({ fromCache: false, stale: false, refreshFailed: false }); });
+      },
+      close: jest.fn(),
+    },
+    transport: {
+      available: true,
+      readIcon: jest.fn(async () => ({ mimeType: 'image/png' as const, dataUri })),
+      readText: jest.fn(), close: jest.fn(),
+    },
+  });
+  mockRuntime.service = service;
+  const render = () => {
+    mockRuntime.resetRender();
+    const element = TokenAssetIcon({ asset });
+    mockRuntime.runEffects();
+    return element;
+  };
+  expect(render().type).toBe(TokenFallbackAvatar);
+  await new Promise<void>(resolve => setImmediate(resolve));
+  expect(render().type).toBe(Image);
+  expect(enrichmentSignal.aborted).toBe(false);
+  finish();
+  await new Promise<void>(resolve => setImmediate(resolve));
+  for (const effect of mockRuntime.effects) effect.cleanup?.();
+  service.close();
+  mockRuntime.service = undefined;
+});
+
+it('does not start an eviction/reload loop when more than 24 identities are mounted', async () => {
+  mockRuntime.states = [];
+  mockRuntime.refs = [];
+  mockRuntime.effects = [];
+  const readIcon = jest.fn(async () => ({ mimeType: 'image/png' as const, dataUri }));
+  const service = createTokenIconPort({
+    networkId: 'stellar-testnet', initialEnabled: true,
+    metadata: {
+      peek: () => ({ source: 'curated', icons: ['https://example.org/icon.png'] }),
+      resolve: jest.fn(async () => ({ fromCache: true, stale: false, refreshFailed: false })),
+      close: jest.fn(),
+    },
+    transport: { available: true, readIcon, readText: jest.fn(), close: jest.fn() },
+  });
+  mockRuntime.service = service;
+  const render = () => {
+    mockRuntime.resetRender();
+    const element = TokenAssetIcon({ asset });
+    mockRuntime.runEffects();
+    return element;
+  };
+  render();
+  await new Promise<void>(resolve => setImmediate(resolve));
+  expect(render().type).toBe(Image);
+  await Promise.all(Array.from({ length: 24 }, (_, index) => service.loadIcon({ ...asset, code: 'T' + index }, new AbortController().signal)));
+  expect(render().type).toBe(TokenFallbackAvatar);
+  render();
+  render();
+  await new Promise<void>(resolve => setImmediate(resolve));
+  expect(readIcon).toHaveBeenCalledTimes(25);
+  for (const effect of mockRuntime.effects) effect.cleanup?.();
+  service.close();
+  mockRuntime.service = undefined;
+});
+
+it('hydrates a mounted icon when offline detection interrupts the initial disk read', async () => {
+  mockRuntime.states = [];
+  mockRuntime.refs = [];
+  mockRuntime.effects = [];
+  const cached = { mimeType: 'image/png' as const, dataUri, sourceUrl: 'https://example.org/icon.png', savedAtUnixMs: Date.now() };
+  let finishOld!: (value: typeof cached) => void;
+  const diskRead = jest.fn(async () => cached);
+  diskRead.mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve; }));
+  const readIcon = jest.fn();
+  const service = createTokenIconPort({
+    networkId: 'stellar-testnet', initialEnabled: true,
+    diskCache: { setEnabled: jest.fn(), read: diskRead, write: jest.fn(), remove: jest.fn(), close: jest.fn() },
+    metadata: {
+      peek: () => undefined,
+      resolve: jest.fn(async () => ({ fromCache: false, stale: true, refreshFailed: true })),
+      close: jest.fn(),
+    },
+    transport: { available: true, readIcon, readText: jest.fn(), close: jest.fn() },
+  });
+  mockRuntime.service = service;
+  const render = () => {
+    mockRuntime.resetRender();
+    const element = TokenAssetIcon({ asset });
+    mockRuntime.runEffects();
+    return element;
+  };
+  expect(render().type).toBe(TokenFallbackAvatar);
+  await new Promise<void>(resolve => setImmediate(resolve));
+  service.setReadable(false);
+  render();
+  await new Promise<void>(resolve => setImmediate(resolve));
+  expect(render().type).toBe(Image);
+  finishOld({ ...cached, dataUri: 'data:image/png;base64,b2xk' });
+  await new Promise<void>(resolve => setImmediate(resolve));
+  expect(render().props.source.uri).toBe(dataUri);
+  expect(diskRead).toHaveBeenCalledTimes(2);
+  expect(readIcon).not.toHaveBeenCalled();
   for (const effect of mockRuntime.effects) effect.cleanup?.();
   service.close();
   mockRuntime.service = undefined;

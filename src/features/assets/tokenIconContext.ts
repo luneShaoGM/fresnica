@@ -5,7 +5,7 @@ import type { TokenIconPort } from '../../capabilities/assets/TokenIcons';
 // Navigation provides the session port without importing presentation widgets.
 export const TokenIconContext = createContext<TokenIconPort | undefined>(undefined);
 
-const EMPTY = Object.freeze({ enabled: false, revision: 0 });
+const EMPTY = Object.freeze({ enabled: false, revision: 0, retryRevision: 0 });
 const noopSubscribe = () => () => {};
 
 export function useTokenIconContext() {

@@ -5,8 +5,8 @@ import {
   type TokenMetadataSnapshot,
 } from '../../../capabilities/assets/TokenMetadataCache';
 import type { AssetCatalogPort } from '../../../capabilities/trustline/curatedAssetCatalog';
-import { createTokenMetadataPort } from '../TokenMetadataResolver';
-import type { SafePublicTransport } from '../NativeSafePublicTransport';
+import { createTokenMetadataPort, TOKEN_METADATA_TRANSIENT_COOLDOWN_MS } from '../TokenMetadataResolver';
+import { PublicAssetError, type SafePublicTransport } from '../NativeSafePublicTransport';
 
 const issuer = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
 const asset = { kind: 'credit' as const, code: 'Usd', issuer };
@@ -143,12 +143,15 @@ describe('S06 token metadata resolver', () => {
     });
     expect((await service.resolve(asset, new AbortController().signal)).metadata?.icons).toEqual([candidate]);
     expect(readText).toHaveBeenCalledTimes(1);
+    service.retryTransientFailures?.();
+    await service.resolve(asset, new AbortController().signal);
+    expect(readText).toHaveBeenCalledTimes(1);
     service.close();
   });
 
-  it('retries issuer enrichment after 24 hours even when curated imagery was cached successfully', async () => {
+  it('keeps the 24-hour invalid-issuer cooldown even when curated imagery was cached successfully', async () => {
     let now = 50_000;
-    let offline = true;
+    let invalidIssuer = true;
     const store = cache();
     const catalog: AssetCatalogPort = {
       read: jest.fn(),
@@ -160,7 +163,7 @@ describe('S06 token metadata resolver', () => {
       }),
     };
     const readText = jest.fn(async (url: string) => {
-      if (offline) throw new Error('issuer-unavailable');
+      if (invalidIssuer) throw new PublicAssetError('invalid');
       if (url === horizon) return JSON.stringify({ network_passphrase: networkPassphrase });
       if (url.includes('/accounts/')) return JSON.stringify({ account_id: issuer, home_domain: 'issuer.example.org' });
       return `[[CURRENCIES]]\ncode="Usd"\nissuer="${issuer}"\nname="Recovered issuer"\nimage="${issuerImage}"`;
@@ -182,7 +185,7 @@ describe('S06 token metadata resolver', () => {
     expect(record?.metadata?.source).toBe('curated');
     expect(record?.retryAfterUnixMs).toBe(now + TOKEN_METADATA_FAILURE_COOLDOWN_MS);
 
-    offline = false;
+    invalidIssuer = false;
     now += TOKEN_METADATA_FAILURE_COOLDOWN_MS - 1;
     const cooled = await service.resolve(asset, new AbortController().signal);
     expect(cooled.metadata?.icons).toEqual([candidate]);
@@ -202,13 +205,80 @@ describe('S06 token metadata resolver', () => {
     service.close();
   });
 
-  it('preserves last verified issuer metadata during a later outage and retries it after the cooldown', async () => {
+  it('uses a session-only network cooldown and retries on restart or a readable recovery event', async () => {
+    let offline = true;
+    const store = cache();
+    const readText = jest.fn(async (url: string) => {
+      if (offline) throw new PublicAssetError('transient');
+      if (url === horizon) return JSON.stringify({ network_passphrase: networkPassphrase });
+      if (url.includes('/accounts/')) return JSON.stringify({ account_id: issuer, home_domain: 'issuer.example.org' });
+      return `[[CURRENCIES]]\ncode="Usd"\nissuer="${issuer}"\nimage="${issuerImage}"`;
+    });
+    const create = () => createTokenMetadataPort({
+      networkId: 'stellar-mainnet',
+      networkPassphrase,
+      horizonUrl: horizon,
+      catalog: {
+        read: jest.fn(),
+        readCachedSource: () => ({
+          assets: [{ code: asset.code, issuer, icon: candidate }],
+          fromCache: true,
+          stale: false,
+          refreshFailed: false,
+        }),
+      },
+      cache: store.repository,
+      transport: { available: true, readText, readIcon: jest.fn(), close: jest.fn() },
+      now: () => 50_000,
+    });
+    const first = create();
+    expect((await first.resolve(asset, new AbortController().signal)).metadata?.icons).toEqual([candidate]);
+    await first.resolve(asset, new AbortController().signal);
+    expect(readText).toHaveBeenCalledTimes(1);
+    expect(store.records.size).toBe(0);
+    first.close();
+
+    const restarted = create();
+    await restarted.resolve(asset, new AbortController().signal);
+    expect(readText).toHaveBeenCalledTimes(2);
+    expect(store.records.size).toBe(0);
+    offline = false;
+    await restarted.resolve(asset, new AbortController().signal);
+    expect(readText).toHaveBeenCalledTimes(2);
+    restarted.retryTransientFailures?.();
+    expect((await restarted.resolve(asset, new AbortController().signal)).metadata?.icons).toEqual([
+      candidate, issuerImage,
+    ]);
+    expect(readText).toHaveBeenCalledTimes(5);
+    expect(store.repository.read('stellar-mainnet', asset.code, issuer)?.retryAfterUnixMs).toBeUndefined();
+    restarted.close();
+  });
+
+  it('does not persist or cool down cancelled metadata requests', async () => {
+    const store = cache();
+    const readText = jest.fn(async () => { throw new PublicAssetError('cancelled'); });
+    const service = createTokenMetadataPort({
+      networkId: 'stellar-mainnet',
+      networkPassphrase,
+      horizonUrl: horizon,
+      catalog: { read: jest.fn() },
+      cache: store.repository,
+      transport: { available: true, readText, readIcon: jest.fn(), close: jest.fn() },
+    });
+    await expect(service.resolve(asset, new AbortController().signal)).rejects.toMatchObject({ kind: 'cancelled' });
+    await expect(service.resolve(asset, new AbortController().signal)).rejects.toMatchObject({ kind: 'cancelled' });
+    expect(readText).toHaveBeenCalledTimes(2);
+    expect(store.records.size).toBe(0);
+    service.close();
+  });
+
+  it('preserves last verified issuer metadata during an outage without extending its freshness or persisting failure', async () => {
     let now = 1_000_000;
     let offline = false;
     let issuerName = 'First Issuer';
     const store = cache();
     const readText = jest.fn(async (url: string) => {
-      if (offline) throw new Error('offline');
+      if (offline) throw new PublicAssetError('transient');
       if (url === horizon) return JSON.stringify({ network_passphrase: networkPassphrase });
       if (url.includes('/accounts/')) return JSON.stringify({ account_id: issuer, home_domain: 'issuer.example.org' });
       return `[[CURRENCIES]]\ncode="Usd"\nissuer="${issuer}"\nname="${issuerName}"\nimage="${issuerImage}"`;
@@ -224,15 +294,15 @@ describe('S06 token metadata resolver', () => {
     });
 
     expect((await service.resolve(asset, new AbortController().signal)).metadata?.name).toBe('First Issuer');
+    const saved = store.repository.read('stellar-mainnet', asset.code, issuer);
     now += TOKEN_METADATA_TTL_MS + 1;
     offline = true;
     const stale = await service.resolve(asset, new AbortController().signal);
     expect(stale).toMatchObject({ stale: true, refreshFailed: true, metadata: { name: 'First Issuer' } });
-    expect(store.records.get(JSON.stringify(['stellar-mainnet', asset.code, issuer]))?.retryAfterUnixMs).toBe(
-      now + TOKEN_METADATA_FAILURE_COOLDOWN_MS,
-    );
+    expect(store.repository.read('stellar-mainnet', asset.code, issuer)).toEqual(saved);
+    expect(store.repository.replace).toHaveBeenCalledTimes(1);
     const callsAfterFailure = readText.mock.calls.length;
-    now += TOKEN_METADATA_FAILURE_COOLDOWN_MS - 1;
+    now += TOKEN_METADATA_TRANSIENT_COOLDOWN_MS - 1;
     await service.resolve(asset, new AbortController().signal);
     expect(readText).toHaveBeenCalledTimes(callsAfterFailure);
 
@@ -308,11 +378,11 @@ image="${issuerImage}"`;
     service.close();
   });
 
-  it('maintains seven-day metadata and 24-hour negative retry cooldown without cross-network access', async () => {
+  it('maintains seven-day metadata and a 24-hour invalid-content cooldown without cross-network access', async () => {
     let now = 10_000;
     const store = cache();
     const readText = jest.fn(async () => {
-      throw new Error('offline');
+      return 'not valid JSON';
     });
     const catalog: AssetCatalogPort = { read: jest.fn(), readCachedSource: () => undefined };
     const service = createTokenMetadataPort({

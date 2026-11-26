@@ -185,4 +185,5 @@ export interface AssetCatalogPort {
     forceRefresh?: boolean,
   ): Promise<CuratedSourceLoad>;
   readCachedSource?(networkId: string, sourceId: CuratedAssetSourceId): CuratedSourceLoad | undefined;
+  retryFailedSources?(): void;
 }
