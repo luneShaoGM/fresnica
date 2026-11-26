@@ -13,8 +13,8 @@ export function accountIdenticon(seed: string): string | undefined {
     clip: false,
   })
     .toString()
-    .replace(/<metadata\b[^>]*>[\s\S]*?<\/metadata>/, '')
-    .replace(/\s+shape-rendering=(["'])crispEdges\1/, '');
+    .replace(/<metadata\b[^>]*>[\s\S]*?<\/metadata>/g, '')
+    .replace(/\s+shape-rendering=(["'])crispEdges\1/g, '');
   cache.set(seed, xml);
   if (cache.size > 128) cache.delete(cache.keys().next().value!);
   return xml;

@@ -601,12 +601,21 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       available: publicAssetTransport.available,
       initialEnabled: initialPreferences.externalAccountAvatarsEnabled === true,
       initialOnlineAccountIds: initialPreferences.onlineAccountAvatarIds,
-      resolveAccountId: address => {
-        const classic = embeddedClassicAddress(address) ?? address;
-        return repository
-          .listAccounts()
-          .find(account => account.address === classic && account.networkId === network.id)?.id;
-      },
+      resolveAccountId: (() => {
+        // Memoize the pure checksum-decode; account membership stays live below.
+        const classicByAddress = new Map<string, string>();
+        return (address: string) => {
+          let classic = classicByAddress.get(address);
+          if (classic === undefined) {
+            classic = embeddedClassicAddress(address) ?? address;
+            classicByAddress.set(address, classic);
+            if (classicByAddress.size > 256) classicByAddress.delete(classicByAddress.keys().next().value!);
+          }
+          return repository
+            .listAccounts()
+            .find(account => account.address === classic && account.networkId === network.id)?.id;
+        };
+      })(),
       loadImage: async (url, signal) => (await publicAssetTransport.readAvatar(url, signal)).dataUri,
     });
     const syncAvatarRuntime = () => {
