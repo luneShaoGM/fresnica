@@ -399,8 +399,12 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       },
       isAccountCurrent: account => {
         const current = repository.getAccount(account.id);
-        return current?.address === account.address && current.identityKind === 'classic' &&
-          current.networkId === network.id && !current.hidden;
+        return (
+          current?.address === account.address &&
+          current.identityKind === 'classic' &&
+          current.networkId === network.id &&
+          !current.hidden
+        );
       },
       read: {
         page: (address, cursor) =>
@@ -531,6 +535,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const directory = createFchainCatalog({
       cache: new RealmDappCatalogRepository(realm),
       networkId: networkProfile.id,
+      trustLiveDirectory: true,
     });
     const publicMedia = createFchainDappPublicMedia({
       cache: new RealmDappDetailCacheRepository(realm),
@@ -541,6 +546,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const dappCatalog: DappCatalogPort = {
       load: directory.load,
       readCached: directory.readCached,
+      isTrustedLiveEntry: entry => directory.isTrustedLiveEntry?.(entry) === true,
       publicMedia,
     };
     closeDappCatalog = () => {

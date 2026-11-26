@@ -1,5 +1,13 @@
 # Fresnica Mobile Product Traceability Ledger
 
+## 2026-11-26 S15–S18 candidate: read-only FChain directory connection
+
+The dedicated branch implements the owner-approved first connection for a
+user-opened, live validated FChain directory entry. Manual URLs still need
+explicit consent. This candidate does not expand signing or notification
+authority. See [launch behavior and trust boundary](behavior-specs/s15-trusted-catalog-launch.md).
+Merge, independent exact-HEAD review and native product-flow acceptance are not claimed.
+
 ## Current implementation index — 2026-11-24
 
 Current merged baseline: `main@6ed7b7c9d4c1ccf93e19dfc4265ec37d8a8b3f7d`, including #231 UI, #230 SEP-53 reply repair and #228 Android foreground dApp local notifications. GitHub/current code governs implementation status; the dated evidence below keeps its original SHA and scope. This refresh corrects obsolete scaffolding/blocker descriptions and does **not** promote any row to L4 or assign old native evidence to a new HEAD.

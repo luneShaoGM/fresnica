@@ -157,9 +157,9 @@ export function DappBrowserScreen({
             token,
             initial: selection,
             current: () => (live.current ? currentSelection() : undefined),
-            persistedAllowed: () =>
-              (trustedInitialOrigin && curatedDocumentActive.current && documentOrigin.current === target.origin) ||
-              hasSavedGrant(),
+            persistedAllowed: hasSavedGrant,
+            catalogReadAllowed: () =>
+              trustedInitialOrigin && curatedDocumentActive.current && documentOrigin.current === target.origin,
             persistedNotificationAllowed: hasSavedGrant,
             notificationNow,
           }),

@@ -13,27 +13,19 @@ const MAX_BODY_LENGTH = 1_000_000;
 const MAX_ENTRIES = 500;
 const LIVE_TRUST_TTL_MS = 5 * 60 * 1000;
 
-// Explicitly code-reviewed entries, never inferred from a public API listing.
-// App composition supplies none until the operator's editorial policy and each
-// network-specific launch URL have been independently approved.
-type ReviewedCatalogLaunch = Readonly<{ networkId: string; id: string; websiteUrl: string }>;
-
 export function createFchainCatalog(dependencies: {
   cache: DappCatalogCacheRepository;
   networkId: string;
   fetchImpl?: typeof fetch;
   now?: () => number;
-  reviewedLaunches?: readonly ReviewedCatalogLaunch[];
+  trustLiveDirectory?: boolean;
 }): DappCatalogPort & Readonly<{ readCached: () => DappCatalogLoadResult; close: () => void }> {
   const { networkId, cache } = dependencies;
   const fetchImpl = dependencies.fetchImpl ?? fetch;
   const now = dependencies.now ?? Date.now;
   const supported = networkId === 'stellar-mainnet' || networkId === 'stellar-testnet';
-  const reviewedUrls = new Map(
-    (dependencies.reviewedLaunches ?? [])
-      .filter(launch => launch.networkId === networkId)
-      .map(launch => [launch.id, launch.websiteUrl]),
-  );
+  // Composition explicitly opts this pinned directory into address-only launch trust.
+  const trustLiveDirectory = dependencies.trustLiveDirectory === true;
   let pending: Promise<DappCatalogLoadResult> | undefined;
   let controller: AbortController | undefined;
   let closed = false;
@@ -41,8 +33,12 @@ export function createFchainCatalog(dependencies: {
   // listed origin for a short-lived read-only browser launch.
   let liveEntries = new Map<string, string>();
   let verifiedAt: number | undefined;
-  const onVerified = (entries: readonly DappCatalogEntry[]) => {
-    liveEntries = new Map(entries.map(entry => [entry.id, entry.websiteUrl]));
+  // HTTP validators can only revalidate the same previously verified response
+  // for authorization. Persistent cache remains a display fallback.
+  let liveSnapshot: DappCatalogCacheSnapshot | undefined;
+  const onVerified = (snapshot: DappCatalogCacheSnapshot) => {
+    liveSnapshot = snapshot;
+    liveEntries = new Map(snapshot.entries.map(entry => [entry.id, entry.websiteUrl]));
     verifiedAt = now();
   };
   const assertOpen = () => {
@@ -68,15 +64,13 @@ export function createFchainCatalog(dependencies: {
     isTrustedLiveEntry: entry => {
       const age = verifiedAt === undefined ? Infinity : now() - verifiedAt;
       return (
+        trustLiveDirectory &&
         supported &&
         !closed &&
         !pending &&
         age >= 0 &&
         age <= LIVE_TRUST_TTL_MS &&
-        liveEntries.get(entry.id) === entry.websiteUrl &&
-        // Fresh HTTPS responses prove only schema/freshness, not editorial
-        // review. No injected approved entries means default-deny.
-        reviewedUrls.get(entry.id) === entry.websiteUrl
+        liveEntries.get(entry.id) === entry.websiteUrl
       );
     },
     load: () => {
@@ -89,7 +83,16 @@ export function createFchainCatalog(dependencies: {
       verifiedAt = undefined;
       const active = new AbortController();
       controller = active;
-      pending = refresh(cache, networkId, fetchImpl, now, active, assertOpen, onVerified).finally(() => {
+      pending = refresh(
+        cache,
+        networkId,
+        fetchImpl,
+        now,
+        active,
+        assertOpen,
+        onVerified,
+        trustLiveDirectory ? { previous: liveSnapshot } : undefined,
+      ).finally(() => {
         if (controller === active) controller = undefined;
         pending = undefined;
       });
@@ -99,6 +102,7 @@ export function createFchainCatalog(dependencies: {
       closed = true;
       liveEntries.clear();
       verifiedAt = undefined;
+      liveSnapshot = undefined;
       controller?.abort();
       controller = undefined;
     },
@@ -112,16 +116,20 @@ async function refresh(
   now: () => number,
   controller: AbortController,
   assertOpen: () => void,
-  onVerified: (entries: readonly DappCatalogEntry[]) => void,
+  onVerified: (snapshot: DappCatalogCacheSnapshot) => void,
+  trust?: Readonly<{ previous: DappCatalogCacheSnapshot | undefined }>,
 ): Promise<DappCatalogLoadResult> {
   assertOpen();
   const candidate = cache.read(networkId);
   const previous = candidate?.networkId === networkId ? candidate : undefined;
+  const conditional = trust ? trust.previous : previous;
   const headers: Record<string, string> = { Accept: 'application/json' };
-  // Legacy snapshots discarded featured data, so a 304 cannot fill that missing field.
-  if (previous?.featured !== undefined) {
-    if (previous.etag) headers['If-None-Match'] = previous.etag;
-    if (previous.lastModified) headers['If-Modified-Since'] = previous.lastModified;
+  if (trust) headers['Cache-Control'] = 'no-cache';
+  // Legacy display snapshots discarded featured data. A live response already
+  // knows whether featured data was present and can revalidate either shape.
+  if (conditional && (trust || conditional.featured !== undefined)) {
+    if (conditional.etag) headers['If-None-Match'] = conditional.etag;
+    if (conditional.lastModified) headers['If-Modified-Since'] = conditional.lastModified;
   }
 
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -134,12 +142,12 @@ async function refresh(
     });
     assertOpen();
     if (response.url && response.url !== CATALOG_URL) throw new Error('dapp-catalog-redirect');
-    if (response.status === 304 && previous && (headers['If-None-Match'] || headers['If-Modified-Since'])) {
-      onVerified(previous.entries);
+    if (response.status === 304 && conditional && (headers['If-None-Match'] || headers['If-Modified-Since'])) {
+      onVerified(conditional);
       return {
         kind: 'ready',
-        entries: previous.entries,
-        ...(previous.featured ? { featured: previous.featured } : {}),
+        entries: conditional.entries,
+        ...(conditional.featured ? { featured: conditional.featured } : {}),
       };
     }
     if (response.status !== 200) throw new Error('dapp-catalog-http');
@@ -151,7 +159,6 @@ async function refresh(
     if (body.length === 0 || body.length > MAX_BODY_LENGTH) throw new Error('dapp-catalog-size');
 
     const catalog = catalogFromFchain(JSON.parse(body), networkId);
-    const { entries } = catalog;
     const snapshot: DappCatalogCacheSnapshot = {
       schemaVersion: DAPP_CATALOG_CACHE_VERSION,
       networkId,
@@ -162,7 +169,7 @@ async function refresh(
     };
     assertOpen();
     cache.replace(snapshot);
-    onVerified(entries);
+    onVerified(snapshot);
     return { kind: 'ready', ...catalog };
   } catch {
     assertOpen();
