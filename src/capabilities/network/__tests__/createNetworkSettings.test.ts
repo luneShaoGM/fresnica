@@ -30,6 +30,7 @@ function setup(developerMode = true, initial?: NetworkPreferences) {
     assertCanSwitch,
     restart,
     isForeground: () => foreground,
+    hasAvatarAccount: id => id === 'first' || id === 'second',
   });
   return {
     settings,
@@ -311,5 +312,31 @@ it('requires a fresh disclosure before first enable and does not write on cancel
   await s.settings.setExternalAccountAvatarsEnabled(false);
   await s.settings.setExternalAccountAvatarsEnabled(true);
   expect(s.saved().externalAccountAvatarsEnabled).toBe(true);
+  s.settings.close();
+});
+
+it('persists only explicit per-account selections, requires consent and resets them on global revoke', async () => {
+  const s = setup(false);
+  await expect(s.settings.setAccountAvatarOnline('first', true)).rejects.toThrow('account-avatar-consent-required');
+  await s.settings.setExternalAccountAvatarsEnabled(true, true);
+  expect(s.saved().onlineAccountAvatarIds).toBeUndefined();
+  await expect(s.settings.setAccountAvatarOnline('missing', true)).rejects.toThrow('invalid-account-avatar-preference');
+  await s.settings.setAccountAvatarOnline('first', true);
+  expect(s.saved().onlineAccountAvatarIds).toEqual(['first']);
+  const restored = setup(false, s.saved());
+  expect(restored.settings.getSnapshot().preferences.onlineAccountAvatarIds).toEqual(['first']);
+  restored.store.save.mockImplementationOnce(() => {
+    throw new Error('disk-full');
+  });
+  await expect(restored.settings.setAccountAvatarOnline('first', false)).rejects.toThrow('disk-full');
+  expect(restored.settings.getSnapshot().preferences.onlineAccountAvatarIds).toEqual(['first']);
+  await restored.settings.setAccountAvatarOnline('second', true);
+  await restored.settings.setAccountAvatarOnline('first', false);
+  expect(restored.saved().onlineAccountAvatarIds).toEqual(['second']);
+  await restored.settings.setExternalAccountAvatarsEnabled(false);
+  await restored.settings.setExternalAccountAvatarsEnabled(true);
+  expect(restored.saved().onlineAccountAvatarIds).toBeUndefined();
+  expect(restored.restart).not.toHaveBeenCalled();
+  restored.settings.close();
   s.settings.close();
 });

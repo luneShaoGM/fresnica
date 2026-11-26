@@ -126,7 +126,7 @@ export function SettingsStackNavigator({
       </Stack.Screen>
       <Stack.Screen name="accounts-settings">
         {({ navigation }) => (
-          <AccountsScreen
+          <AccountsRoute
             accounts={orderedAccountList}
             copyPublicText={services.copyPublicText}
             onBack={() => navigation.goBack()}
@@ -145,6 +145,7 @@ export function SettingsStackNavigator({
           return (
             <AccountDetailsRoute
               account={account}
+              avatarSettings={services.networkSettings}
               copyPublicText={services.copyPublicText}
               canHide={account.hidden || visibleAccountCount > 1}
               onOpenRecovery={services.recoveryManagement ? () => navigation.navigate('recovery-material', { accountId: account.id }) : undefined}
@@ -242,6 +243,11 @@ export function SettingsStackNavigator({
       </Stack.Screen>
     </Stack.Navigator>
   );
+}
+
+function AccountsRoute(props: React.ComponentProps<typeof AccountsScreen>) {
+  const active = useIsFocused();
+  return <AccountsScreen {...props} active={active} />;
 }
 
 function AccountDetailsRoute(props: React.ComponentProps<typeof AccountDetailsScreen>) {

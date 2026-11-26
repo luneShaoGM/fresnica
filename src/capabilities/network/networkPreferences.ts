@@ -27,6 +27,7 @@ export type NetworkPreferences = Readonly<{
   tokenIconCacheEpoch?: number;
   externalAccountAvatarsEnabled?: boolean;
   externalAccountAvatarsConsentVersion?: 1;
+  onlineAccountAvatarIds?: readonly string[];
   networkId: NetworkId;
   endpoints: Readonly<Record<NetworkId, string>>;
   customNodes: Readonly<Record<NetworkId, readonly string[]>>;
@@ -61,6 +62,14 @@ export function validateNetworkPreferences(value: unknown): NetworkPreferences {
   if (!value || typeof value !== 'object') return fail();
   const v = value as Record<string, unknown>;
   const tokenIconCacheEpoch = v.tokenIconCacheEpoch;
+  const avatarIds = v.onlineAccountAvatarIds;
+  if (
+    avatarIds !== undefined &&
+    (!Array.isArray(avatarIds) ||
+      avatarIds.some(id => typeof id !== 'string' || !id || id.length > 256) ||
+      new Set(avatarIds).size !== avatarIds.length)
+  )
+    return fail();
   if (
     (v.retainedTestnet !== undefined && typeof v.retainedTestnet !== 'boolean') ||
     (v.externalAccountAvatarsConsentVersion !== undefined && v.externalAccountAvatarsConsentVersion !== 1) ||
@@ -114,6 +123,11 @@ export function validateNetworkPreferences(value: unknown): NetworkPreferences {
     externalAccountAvatarsEnabled:
       v.externalAccountAvatarsConsentVersion === 1 && v.externalAccountAvatarsEnabled === true,
     ...(v.externalAccountAvatarsConsentVersion === 1 ? { externalAccountAvatarsConsentVersion: 1 as const } : {}),
+    ...(Array.isArray(avatarIds) &&
+    v.externalAccountAvatarsConsentVersion === 1 &&
+    v.externalAccountAvatarsEnabled === true
+      ? { onlineAccountAvatarIds: Object.freeze([...avatarIds] as string[]) }
+      : {}),
     networkId: v.networkId,
     endpoints: Object.freeze(endpoints),
     customNodes: Object.freeze(customNodes),

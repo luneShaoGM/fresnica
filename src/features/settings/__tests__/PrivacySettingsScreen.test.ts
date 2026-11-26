@@ -114,7 +114,9 @@ it('requires independent persisted address-avatar consent and explains full addr
     .map(element => String(element.props.children))
     .join(' ');
   expect(text).toContain('horizon.stellarcn.org');
-  expect(text).toContain('displayed wallet');
+  expect(text).toContain('full displayed counterparty public addresses');
+  expect(text).toContain('wallet addresses explicitly selected for online avatars');
+  expect(text).toContain('local identicons');
   elements(render(), Switch)[1].props.onValueChange?.(true);
   expect(write).not.toHaveBeenCalled();
   const prompt = elements(render(), AppModal)[0];

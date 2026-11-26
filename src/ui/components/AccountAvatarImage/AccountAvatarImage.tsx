@@ -1,14 +1,16 @@
 import React from 'react';
 import { Image, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Path, SvgXml } from 'react-native-svg';
+import { accountIdenticon } from './accountIdenticon';
 import { useAppTheme, useThemedStyles } from '@ui/theme';
 import { createStyles } from './styles';
 
 export function AccountAvatarImage({
   uri,
+  seed,
   size = 40,
   onError,
-}: Readonly<{ uri?: string; size?: number; onError?: () => void }>) {
+}: Readonly<{ uri?: string; seed?: string; size?: number; onError?: () => void }>) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
   const frame = [styles.frame, { width: size, height: size, borderRadius: (size * 11) / 40 }];
@@ -18,6 +20,13 @@ export function AccountAvatarImage({
     importantForAccessibility: 'no-hide-descendants' as const,
   };
   if (uri) return <Image {...accessibility} source={{ uri }} resizeMode="cover" style={frame} onError={onError} />;
+  const xml = seed ? accountIdenticon(seed) : undefined;
+  if (xml)
+    return (
+      <View {...accessibility} style={frame}>
+        <SvgXml xml={xml} width={size} height={size} accessible={false} />
+      </View>
+    );
   return (
     <View {...accessibility} style={frame}>
       <Svg width={size / 2} height={size / 2} viewBox="0 0 24 24" fill="none" accessible={false}>

@@ -506,6 +506,10 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       networkSettings = createNetworkSettings({
         store: preferences,
         initial: initialPreferences,
+        hasAvatarAccount: id => {
+          const account = repository.getAccount(id);
+          return account?.identityKind === 'classic' && account.networkId === network.id;
+        },
         probe: publicReads.probe,
         isForeground: () => ledgerReadRuntime.getSnapshot().foreground,
         assertCanSwitch: target => {
@@ -595,6 +599,9 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const accountAvatars = createAccountAvatarPort({
       available: publicAssetTransport.available,
       initialEnabled: initialPreferences.externalAccountAvatarsEnabled === true,
+      initialOnlineAccountIds: initialPreferences.onlineAccountAvatarIds,
+      resolveAccountId: address => repository.listAccounts().find(account =>
+        account.address === address && account.networkId === network.id)?.id,
       loadImage: async (url, signal) => (await publicAssetTransport.readAvatar(url, signal)).dataUri,
     });
     const syncAvatarRuntime = () => {
@@ -610,7 +617,9 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     if (networkSettings) {
       const settings = networkSettings;
       stopIconPrivacySync = settings.subscribe(() => {
-        accountAvatars.setEnabled(settings.getSnapshot().preferences.externalAccountAvatarsEnabled === true);
+        const avatarPreferences = settings.getSnapshot().preferences;
+        accountAvatars.setEnabled(avatarPreferences.externalAccountAvatarsEnabled === true);
+        accountAvatars.setOnlineAccountIds(avatarPreferences.onlineAccountAvatarIds ?? []);
         tokenIcons.setEnabled(settings.getSnapshot().preferences.externalTokenImagesEnabled !== false);
       });
     }

@@ -740,3 +740,36 @@ it.each(['protected-software', 'watch-only', 'external-only'])(
     services.close();
   },
 );
+
+it('composes saved account-specific avatar policy without changing account or token authority', async () => {
+  const original = NativeModules.SecureAssetFetch;
+  const fetch = jest.fn();
+  NativeModules.SecureAssetFetch = { fetch, cancel: jest.fn() };
+  const account: AccountRecord = {
+    id: 'avatar-first', address: 'G' + 'A'.repeat(55), identityKind: 'classic',
+    networkId: 'stellar-mainnet', label: 'First', sortOrder: 0, hidden: false,
+    createdAt: new Date(0), updatedAt: new Date(0),
+  };
+  const second: AccountRecord = { ...account, id: 'avatar-second', address: 'G' + 'B'.repeat(55) };
+  mockAccounts = [account, second];
+  mockPreferences = { ...DEFAULT_NETWORK_PREFERENCES, externalAccountAvatarsEnabled: true, externalAccountAvatarsConsentVersion: 1 };
+  try {
+    const first = await createAppServices();
+    expect(first.accountAvatars?.allowsOnline(account.address)).toBe(false);
+    expect(first.accountAvatars?.allowsOnline(second.address)).toBe(false);
+    await first.networkSettings?.setAccountAvatarOnline(account.id, true);
+    expect(first.accountAvatars?.allowsOnline(account.address)).toBe(true);
+    expect(first.accountAvatars?.allowsOnline(second.address)).toBe(false);
+    expect(first.tokenIcons.getSnapshot().enabled).toBe(true);
+    first.close();
+    const restored = await createAppServices();
+    expect(restored.accountAvatars?.allowsOnline(account.address)).toBe(true);
+    await restored.networkSettings?.setExternalAccountAvatarsEnabled(false);
+    expect(restored.accountAvatars?.allowsOnline(account.address)).toBe(false);
+    restored.close();
+    expect(fetch).not.toHaveBeenCalled();
+  } finally {
+    if (original === undefined) delete NativeModules.SecureAssetFetch;
+    else NativeModules.SecureAssetFetch = original;
+  }
+});

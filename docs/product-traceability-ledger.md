@@ -1073,3 +1073,10 @@ donor source or new external dependency. TokenAssetIcon/context are now strict
 presentation scopes. Repository tests and native cache fixtures/compile are
 separate evidence; exact-HEAD Work Review and real native product acceptance
 are not implied. No S06/LC5 maturity promotion or Stage 9 auth acceptance.
+
+### 2026-11-26 S04/S13/S22 local address Identicon (candidate)
+
+Owner-approved [avatar follow-up](behavior-specs/s13-avatar-alignment.md), Adapt;
+DiceBear 9.4.3 MIT packages, CC0 1.0 Identicon design, no donor code. Local default,
+per-account online selection under existing global consent, shared presentation.
+No maturity promotion or native acceptance implied.

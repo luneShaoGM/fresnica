@@ -1,5 +1,7 @@
 import { Image, StyleSheet, View } from 'react-native';
 import { AccountAvatarImage } from '../AccountAvatarImage';
+import { accountIdenticon } from '../AccountAvatarImage/accountIdenticon';
+import { SvgXml } from 'react-native-svg';
 
 jest.mock('../../theme', () => {
   const actual = jest.requireActual('../../theme');
@@ -33,4 +35,23 @@ it('scales image and fallback together for account detail without choosing a dif
   const fallback = AccountAvatarImage({ size: 68 });
   expect(image.props.style).toEqual(fallback.props.style);
   expect(StyleSheet.flatten(image.props.style)).toMatchObject({ width: 68, height: 68, borderRadius: (68 * 11) / 40 });
+});
+
+it('generates fixed local artwork from the complete address, independent of frame size', () => {
+  const first = 'G' + 'A'.repeat(55);
+  const second = first.slice(0, -1) + 'B';
+  const xml = accountIdenticon(first);
+  expect(xml).toContain('viewBox="0 0 5 5"');
+  expect(xml).toContain('<path');
+  expect(xml).not.toContain('<metadata');
+  expect(accountIdenticon(first)).toBe(xml);
+  expect(accountIdenticon(second)).not.toBe(xml);
+  const small = AccountAvatarImage({ seed: first });
+  const large = AccountAvatarImage({ seed: first, size: 68 });
+  expect(small.props.children.type).toBe(SvgXml);
+  expect(small.props.children.props.xml).toBe(xml);
+  expect(large.props.children.props.xml).toBe(xml);
+  expect(AccountAvatarImage({ seed: first, uri: 'data:image/png;base64,AAAA' }).type).toBe(Image);
+  for (const invalid of ['G', 'S' + 'A'.repeat(55), 'https://example.com', first.toLowerCase()])
+    expect(accountIdenticon(invalid)).toBeUndefined();
 });

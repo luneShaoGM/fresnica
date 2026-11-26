@@ -241,6 +241,8 @@ export function HomeScreen({
           </View>
 
           <AccountSummary
+            address={account.address}
+            active={active}
             accountKindLabel={viewModel.accountKindLabel}
             isReadOnly={viewModel.isReadOnly}
             label={viewModel.accountLabel}
@@ -351,6 +353,7 @@ export function HomeScreen({
         {!largeText ? freshnessNotice : null}
       </View>
       <AccountPickerSheet
+        active={active}
         accounts={selectableAccounts}
         isWatchOnlyAccount={isWatchOnlyAccount}
         onAddAccount={onAddAccount}
