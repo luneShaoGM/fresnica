@@ -34,11 +34,14 @@ OS permissions, native transports, schema, credentials or signing methods.
    the operator is a trust dependency for public-address disclosure.
 3. Reuse the existing 30-second single-use App-memory launch proof. Keep it
    bound to the selected account and network revision and exact launch URL.
-   It applies only to the first verified top-level document on the matching
-   HTTPS origin; reload, full navigation or redirect retires it. Close,
-   revocation and account/network changes retire permission. Public-address
-   and public network reads require a site request. Automatic read access
-   does not send a user-configured Horizon endpoint or create a durable grant.
+   It applies only after the native WebView confirms the first nonredirected
+   top-level document committed at the exact launch URL. Reload, full
+   navigation or redirect retires it. If native confirmation is unavailable,
+   ordinary consent applies. Close, revocation and account/network changes
+   retire permission. Public-address and public network reads require a site
+   request. Their replies use the native channel of that request and are
+   dropped when its document retires. Automatic read access does not send
+   a user-configured Horizon endpoint or create a durable grant.
 4. Manual URL, Recent, cache-only directory, external-browser fallback and
    unverified origin still need ordinary S17 consent. Existing Allow Always
    grants remain scoped to origin, account and network.

@@ -145,9 +145,33 @@ it('uses only native iOS deadline metadata and withholds an incomplete reply han
   });
   const nativeEvent = { data, sourceOrigin: 'https://example.org', isMainFrame: true, sep53ReplyId: replyId };
   tree.props.onMessage({ nativeEvent });
-  expect(onMessage).toHaveBeenLastCalledWith(data, 'https://example.org', undefined, undefined);
+  expect(onMessage).not.toHaveBeenCalled();
   tree.props.onMessage({ nativeEvent: { ...nativeEvent, sep53ReplyExpiresAt: 1_800_000_000_000 } });
   expect(onMessage).toHaveBeenLastCalledWith(data, 'https://example.org', replyId, 1_800_000_000_000);
+});
+
+it('forwards first-document confirmation only from the verified native event', () => {
+  Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
+  const onMessage = jest.fn();
+  const tree = transport.render({ ...props, onMessage }, null) as React.ReactElement<{
+    onMessage: (event: { nativeEvent: Record<string, unknown> }) => void;
+  }>;
+  const origin = 'https://example.org';
+  const url = origin + '/start';
+  const replyId = '74f3db5b-10b8-4abd-8198-cfc869980742';
+  const deadline = 1_800_000_000_000;
+  const data = JSON.stringify({ type: 'REQUEST_PUBLIC_KEY', firstCommittedDocumentUrl: url });
+  const nativeEvent = {
+    data,
+    sourceOrigin: origin,
+    isMainFrame: true,
+    sep53ReplyId: replyId,
+    sep53ReplyExpiresAt: deadline,
+  };
+  tree.props.onMessage({ nativeEvent });
+  expect(onMessage).toHaveBeenLastCalledWith(data, origin, replyId, deadline);
+  tree.props.onMessage({ nativeEvent: { ...nativeEvent, firstCommittedDocumentUrl: url } });
+  expect(onMessage).toHaveBeenLastCalledWith(data, origin, replyId, deadline, url);
 });
 
 describe('native SEP-53 reply expiry events', () => {
@@ -212,7 +236,6 @@ describe('native SEP-53 reply expiry events', () => {
     receive({ data, sep53ReplyExpired: undefined });
     receive({ data, sep53ReplyExpired: 'true' });
     expect(onReplyExpired).not.toHaveBeenCalled();
-    expect(onMessage).toHaveBeenCalledTimes(2);
-    expect(onMessage).toHaveBeenLastCalledWith(data, origin, undefined, undefined);
+    expect(onMessage).not.toHaveBeenCalled();
   });
 });

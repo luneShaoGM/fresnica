@@ -312,15 +312,48 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     refs[1].current = { reply: replies };
     const webview = find(render(true, signer, origin), node => node.type === BrowserSurface);
     webview?.props.onDocumentStart?.(origin + '/start');
-    webview?.props.onMessage?.(request('REQUEST_ALLOWED_STATUS', 81), origin + '/start');
-    webview?.props.onMessage?.(request('REQUEST_ACCESS', 82), origin + '/start');
-    webview?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 83), origin + '/start');
-    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 81, isAllowed: true }));
-    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 82, publicKey: 'GSOURCE' }));
-    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 83, publicKey: 'GSOURCE' }));
+    const target = { replyId: '74f3db5b-10b8-4abd-8198-cfc869980742' };
+    const url = origin + '/start';
+    webview?.props.onMessage?.(request('REQUEST_ALLOWED_STATUS', 81), origin, target.replyId, undefined, url);
+    webview?.props.onMessage?.(request('REQUEST_ACCESS', 82), origin, target.replyId, undefined, url);
+    webview?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 83), origin, target.replyId, undefined, url);
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 81, isAllowed: true }), target);
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 82, publicKey: 'GSOURCE' }), target);
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 83, publicKey: 'GSOURCE' }), target);
     expect(find(render(true, signer, origin), node => node.type === DappConnectSheet)).toBeUndefined();
     expect(hasDappReadGrant(origin, 'wallet1', 'stellar-testnet')).toBe(false);
     expect(signer).not.toHaveBeenCalled();
+  });
+
+  it('waits for the native first-document commit and rejects a same-origin URL mismatch', () => {
+    const origin = 'https://demo.example.org';
+    const url = origin + '/start';
+    render(true, undefined, origin);
+    refs[1].current = { reply: replies };
+    const webview = find(render(true, undefined, origin), node => node.type === BrowserSurface);
+    const replyId = '74f3db5b-10b8-4abd-8198-cfc869980742';
+    webview?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 73), origin, replyId);
+    webview?.props.onDocumentStart?.(url);
+    webview?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 74), origin, replyId);
+    webview?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 75), origin, replyId, undefined, origin + '/redirect');
+    webview?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 77), origin, replyId, undefined, url);
+    for (const messagedId of [73, 74, 75, 77]) {
+      expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId, error: 'not-authorized' }), {
+        replyId,
+      });
+    }
+  });
+
+  it('replies to explicit read consent on the requesting document channel', () => {
+    const origin = 'https://demo.example.org';
+    render();
+    refs[1].current = { reply: replies };
+    const webview = find(render(), node => node.type === BrowserSurface);
+    const target = { replyId: '74f3db5b-10b8-4abd-8198-cfc869980742' };
+    webview?.props.onMessage?.(request('REQUEST_ACCESS', 76), origin, target.replyId);
+    const consent = find(render(), node => node.type === DappConnectSheet);
+    consent?.props.onAllowOnce?.();
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 76, publicKey: 'GSOURCE' }), target);
   });
 
   it('rejects forged trusted subdomains and permanently drops implicit access after changing origin and returning', () => {
@@ -371,11 +404,11 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     refs[1].current = { reply: replies };
     const webview = find(render(true, undefined, origin), node => node.type === BrowserSurface);
     webview?.props.onDocumentStart?.(origin + '/start');
-    webview?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 87), origin + '/start');
+    webview?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 87), origin, undefined, undefined, origin + '/start');
     expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 87, publicKey: 'GSOURCE' }));
     replies.mockClear();
     webview?.props.onDocumentStart?.(origin + '/start');
-    webview?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 88), origin + '/start');
+    webview?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 88), origin, undefined, undefined, origin + '/start');
     expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 88, error: 'not-authorized' }));
     expect(hasDappReadGrant(origin, 'wallet1', 'stellar-testnet')).toBe(false);
   });
@@ -396,6 +429,9 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
         transactionXdr: 'AAAA',
       }),
       origin + '/start',
+      undefined,
+      undefined,
+      origin + '/start',
     );
     await Promise.resolve();
     await Promise.resolve();
@@ -409,12 +445,12 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     render(true, undefined, origin);
     refs[1].current = { reply: replies };
     const webview = find(render(true, undefined, origin), node => node.type === BrowserSurface);
-    webview?.props.onMessage?.(request('REQUEST_ACCESS', 90), origin + '/start');
+    webview?.props.onMessage?.(request('REQUEST_ACCESS', 90), origin, undefined, undefined, origin + '/start');
     expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 90, publicKey: 'GSOURCE' }));
     for (const effect of effects.splice(0)) effect();
     permissions.revoke({ origin, accountId: 'wallet1', networkId: 'stellar-testnet' });
     replies.mockClear();
-    webview?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 91), origin + '/start');
+    webview?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 91), origin, undefined, undefined, origin + '/start');
     expect(replies).not.toHaveBeenCalled();
     expect(find(render(true, undefined, origin), node => node.type === BrowserSurface)).toBeUndefined();
   });

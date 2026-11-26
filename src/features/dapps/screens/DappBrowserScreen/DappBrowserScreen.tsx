@@ -99,6 +99,7 @@ export function DappBrowserScreen({
   >(undefined);
   const [stale, setStale] = useState(false);
   const [pendingOrigin, setPendingOrigin] = useState<string>();
+  const permissionReplyTarget = useRef<DappMessageReplyTarget | undefined>(undefined);
   const [page, setPage] = useState({ origin: '', canGoBack: false, canGoForward: false });
   type NotificationRequest = Extract<BridgeDecision, { kind: 'notification' }> & {
     origin: string;
@@ -122,8 +123,8 @@ export function DappBrowserScreen({
   const documentOrigin = useRef<string | undefined>(undefined);
   const signGeneration = useRef(0);
   const signing = useRef(false);
-  const curatedDocumentActive = useRef(true);
-  const documentStarts = useRef(0);
+  const curatedDocument = useRef<'unconfirmed' | 'confirmed' | 'retired'>('unconfirmed');
+  const hasDocumentStarted = useRef(false);
   const [signError, setSignError] = useState(false);
   const [permissionStorageError, setPermissionStorageError] = useState(false);
   const currentSession = () => live.current && !stale && current?.session.isLive() === true;
@@ -159,7 +160,7 @@ export function DappBrowserScreen({
             current: () => (live.current ? currentSelection() : undefined),
             persistedAllowed: hasSavedGrant,
             catalogReadAllowed: () =>
-              trustedInitialOrigin && curatedDocumentActive.current && documentOrigin.current === target.origin,
+              trustedInitialOrigin && curatedDocument.current === 'confirmed' && documentOrigin.current === target.origin,
             persistedNotificationAllowed: hasSavedGrant,
             notificationNow,
           }),
@@ -200,6 +201,7 @@ export function DappBrowserScreen({
       ) {
         current.session.revoke();
         signGeneration.current += 1;
+        permissionReplyTarget.current = undefined;
         setPendingOrigin(undefined);
         setPendingSign(undefined);
         setPendingMessage(undefined);
@@ -241,8 +243,15 @@ export function DappBrowserScreen({
   );
 
   const handleReplyExpired = (replyId: string, origin: string) => {
+    if (!currentSession() || documentOrigin.current !== origin) return;
+    if (permissionReplyTarget.current?.replyId === replyId) {
+      permissionReplyTarget.current = undefined;
+      current?.session.resolvePermission(false);
+      setPendingOrigin(undefined);
+      return;
+    }
     const target = messageReplyTarget.current;
-    if (!currentSession() || !target || target.replyId !== replyId || documentOrigin.current !== origin) return;
+    if (!target || target.replyId !== replyId) return;
     // The request and expiry may arrive before React commits pendingMessage.
     // These refs bind the native event to the current request synchronously.
     expireMessage({ generation: signGeneration.current, target });
@@ -257,8 +266,19 @@ export function DappBrowserScreen({
     return () => clearTimeout(timer);
   }, [pendingMessage, expireMessage]);
 
-  const handleMessage = (raw: string, messageUrl: string, replyId?: string, replyExpiresAt?: number) => {
+  const handleMessage = (
+    raw: string,
+    messageUrl: string,
+    replyId?: string,
+    replyExpiresAt?: number,
+    firstCommittedDocumentUrl?: string,
+  ) => {
     if (!current || !active || stale) return;
+    if (curatedDocument.current !== 'retired') {
+      const verified = firstCommittedDocumentUrl && readPublicDappNavigation(firstCommittedDocumentUrl);
+      if (!verified) curatedDocument.current = 'unconfirmed';
+      else curatedDocument.current = verified.url === current.url ? 'confirmed' : 'retired';
+    }
     const decision = current.session.receive(raw, messageUrl);
     const target = replyId
       ? { replyId, ...(replyExpiresAt === undefined ? {} : { expiresAt: replyExpiresAt }) }
@@ -280,7 +300,10 @@ export function DappBrowserScreen({
       }
     }
     if (decision.kind === 'respond') reply(decision.response, target);
-    if (decision.kind === 'permission') setPendingOrigin(decision.origin);
+    if (decision.kind === 'permission') {
+      permissionReplyTarget.current = target;
+      setPendingOrigin(decision.origin);
+    }
     if (decision.kind === 'sign-message') {
       if (!target || !signMessage) {
         const failed = current.session.finishSign({ status: 'failed', error: 'unsupported-signer' });
@@ -470,6 +493,7 @@ export function DappBrowserScreen({
   };
 
   const navigateBrowser = (action: 'goBack' | 'goForward' | 'reload') => {
+    curatedDocument.current = 'retired';
     clearNotification();
     if (current?.session.hasPendingMessage()) rejectSignature();
     surface.current?.[action]();
@@ -477,9 +501,13 @@ export function DappBrowserScreen({
 
   const choosePermission = (decision: 'once' | 'always' | 'reject') => {
     const grantedOrigin = pendingOrigin;
+    const target = permissionReplyTarget.current;
+    permissionReplyTarget.current = undefined;
     setPendingOrigin(undefined);
     if (!current || !currentSession()) return;
-    const result = current.session.resolvePermission(decision !== 'reject');
+    const expired = target?.expiresAt !== undefined && Date.now() >= target.expiresAt;
+    const result = current.session.resolvePermission(!expired && decision !== 'reject');
+    if (expired) return;
     if (result?.kind !== 'respond') return;
     if (decision === 'always' && grantedOrigin && !result.response.error && currentSession()) {
       const scope: DappGrantScope = {
@@ -491,18 +519,21 @@ export function DappBrowserScreen({
         // Only persist after the current session resolves its consent.
         permissions.grant(scope);
       } catch {
-        reply({
-          source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
-          messagedId: result.response.messagedId,
-          error: 'permission-storage-failed',
-        });
+        reply(
+          {
+            source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
+            messagedId: result.response.messagedId,
+            error: 'permission-storage-failed',
+          },
+          target,
+        );
         current.session.revoke();
         setPermissionStorageError(true);
         setStale(true);
         return;
       }
     }
-    reply(result.response);
+    reply(result.response, target);
   };
 
   const shouldLoad = (candidate: string) => {
@@ -516,6 +547,7 @@ export function DappBrowserScreen({
     // the bridge. Do not keep showing the previous, trusted address.
     current?.session.revoke();
     clearNotification();
+    permissionReplyTarget.current = undefined;
     messageReplyTarget.current = undefined;
     documentEpoch.current += 1;
     signGeneration.current += 1;
@@ -529,6 +561,7 @@ export function DappBrowserScreen({
   const onDocumentStart = (nextUrl: string) => {
     if (!current || !currentSession()) return;
     if (nextUrl === 'about:blank') {
+      if (hasDocumentStarted.current || curatedDocument.current === 'confirmed') curatedDocument.current = 'retired';
       if (current.session.hasPendingMessage()) rejectSignature();
       return;
     }
@@ -541,9 +574,12 @@ export function DappBrowserScreen({
     // a different path or a redirect drops implicit access forever, including
     // after navigating to another origin and back. SPA history is not a new
     // document and does not retire the first-document proof.
-    if (documentStarts.current > 0 || target.url !== current.url) curatedDocumentActive.current = false;
-    documentStarts.current += 1;
+    if (curatedDocument.current !== 'retired') {
+      curatedDocument.current = hasDocumentStarted.current || target.url !== current.url ? 'retired' : 'unconfirmed';
+    }
+    hasDocumentStarted.current = true;
     clearNotification();
+    permissionReplyTarget.current = undefined;
     messageReplyTarget.current = undefined;
     documentEpoch.current += 1;
     documentOrigin.current = target.origin;
@@ -568,7 +604,7 @@ export function DappBrowserScreen({
     // before document-start. Even that path must retire curated read access.
     if (target.origin !== documentOrigin.current) clearNotification();
     if (target.origin !== documentOrigin.current && current.session.hasPendingMessage()) rejectSignature();
-    if (target.origin !== current.origin) curatedDocumentActive.current = false;
+    if (target.origin !== current.origin) curatedDocument.current = 'retired';
     setPage({ origin: target.origin, canGoBack: next.canGoBack, canGoForward: next.canGoForward });
   };
 
