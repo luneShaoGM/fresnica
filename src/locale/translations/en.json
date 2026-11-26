@@ -6,6 +6,8 @@
   "lock.blocked": "Use biometrics to unlock this app, or enter your App Passphrase. Unlocking never authorizes a signature or recovery export.",
   "nav.home": "Home",
   "nav.activity": "Activity",
+  "nav.fex": "fex",
+  "settings.activityFexShortcut": "Use Activity tab as FEX shortcut",
   "nav.dapps": "dApps",
   "nav.settings": "Settings",
   "nav.actions": "Actions",

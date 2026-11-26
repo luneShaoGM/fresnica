@@ -9,6 +9,8 @@ import type { MainTabBarProps } from '../MainTabBar';
 const mockEffects: Array<() => void> = [];
 let mockRecentSessionRef: { current: unknown } = { current: undefined };
 let mockActiveOverlayId: string | undefined;
+let mockLocale = 'en';
+let mockFexPreference: boolean | undefined;
 jest.mock('react', () => {
   const actual = jest.requireActual('react') as typeof import('react');
   return {
@@ -33,7 +35,11 @@ jest.mock('../../OverlayHost', () => ({
   }),
 }));
 jest.mock('../../../locale', () => ({
-  useLocalization: () => ({ t: (key: string) => key }),
+  useLocalization: () => ({
+    t: (key: string) => key,
+    locale: mockLocale,
+    displayPreferences: { activityFexShortcut: mockFexPreference },
+  }),
 }));
 jest.mock('../../../ui/theme', () => {
   const actual = jest.requireActual('../../../ui/theme') as typeof import('../../../ui/theme');
@@ -78,7 +84,7 @@ function renderSwap(
   node: Partial<
     Pick<
       MainTabBarProps,
-      'nodePhase' | 'nodeFailure' | 'onRetryNode' | 'selectedAccountId' | 'recentHistory' | 'catalog'
+      'nodePhase' | 'nodeFailure' | 'onRetryNode' | 'selectedAccountId' | 'recentHistory' | 'catalog' | 'foreground'
     >
   > = {},
   actionState?: MainTabBarProps['actionState'],
@@ -238,6 +244,8 @@ describe('Swap action uses the current account route', () => {
     mockEffects.length = 0;
     mockRecentSessionRef = { current: undefined };
     mockActiveOverlayId = undefined;
+    mockLocale = 'en';
+    mockFexPreference = undefined;
   });
 
   it('places the two flat shortcuts side by side in one row', () => {
@@ -456,4 +464,75 @@ it('does not insert a notice during ordinary node checks', () => {
   const { root } = renderSwap(true, 'polling', { nodePhase: 'checking' });
   expect(textValues(root)).not.toContain('node.read.checking');
   expect(textValues(root)).not.toContain('account.sync.polling');
+});
+
+describe('Chinese FEX shortcut', () => {
+  beforeEach(() => {
+    mockLocale = 'zh';
+    mockFexPreference = undefined;
+    mockPresentOverlay.mockClear();
+    mockDismissOverlay.mockClear();
+    mockActiveOverlayId = undefined;
+    mockRecentSessionRef = { current: undefined };
+  });
+  afterEach(() => {
+    mockLocale = 'en';
+    mockFexPreference = undefined;
+    mockActiveOverlayId = undefined;
+    mockDismissOverlay();
+  });
+  it.each(['zh', 'zh-TW'])('opens the existing untrusted URL route instead of selecting Activity (%s)', locale => {
+    mockLocale = locale;
+    const { root, navigate } = renderSwap(true, undefined, {}, undefined, false);
+    expect(findPressable(root, 'nav.activity')).toBeUndefined();
+    findPressable(root, 'nav.fex')?.props.onPress?.();
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith('dapps', {
+      screen: 'dapps',
+      params: { scannedUrl: 'https://fex.fresnica.com' },
+    });
+  });
+  it('provides Activity even when Swap is unavailable, and retires the overlay callback on dismissal', () => {
+    const { root, overlay, navigate } = renderSwap(false, undefined, {}, 'read-only');
+    expect(findPressable(root, 'nav.fex')).toBeDefined();
+    const activity = findPressable(overlay, 'nav.activity');
+    expect(activity).toBeDefined();
+    expect(activity?.props.disabled).not.toBe(true);
+    activity?.props.onPress?.();
+    activity?.props.onPress?.();
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith('activity', { screen: 'activity' });
+  });
+  it('keeps Activity in the bottom bar if the preference is off or no selectable account exists', () => {
+    mockFexPreference = false;
+    const off = renderSwap(true);
+    expect(findPressable(off.root, 'nav.fex')).toBeUndefined();
+    expect(findPressable(off.root, 'nav.activity')).toBeDefined();
+    expect(findPressable(off.overlay, 'nav.activity')).toBeUndefined();
+    mockFexPreference = true;
+    mockActiveOverlayId = undefined;
+    const empty = renderSwap(false, undefined, { selectedAccountId: undefined }, undefined, false);
+    expect(findPressable(empty.root, 'nav.fex')).toBeUndefined();
+    expect(findPressable(empty.root, 'nav.activity')).toBeDefined();
+  });
+  it('rejects obsolete shortcut and overlay callbacks after switching language', () => {
+    const old = renderSwap(true, undefined, {}, undefined, false);
+    const oldActions = renderSwap(true);
+    const activity = findPressable(oldActions.overlay, 'nav.activity');
+    expect(activity).toBeDefined();
+    mockLocale = 'en';
+    mockActiveOverlayId = undefined;
+    const next = renderSwap(true, undefined, {}, undefined, false);
+    expect(findPressable(next.root, 'nav.activity')).toBeDefined();
+    expect(findPressable(next.root, 'nav.fex')).toBeUndefined();
+    findPressable(old.root, 'nav.fex')?.props.onPress?.();
+    activity?.props.onPress?.();
+    expect(old.navigate).not.toHaveBeenCalled();
+    expect(oldActions.navigate).not.toHaveBeenCalled();
+  });
+  it('does not navigate from the background', () => {
+    const { root, navigate } = renderSwap(true, undefined, { foreground: false }, undefined, false);
+    findPressable(root, 'nav.fex')?.props.onPress?.();
+    expect(navigate).not.toHaveBeenCalled();
+  });
 });

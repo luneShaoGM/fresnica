@@ -1,10 +1,13 @@
 jest.mock('@fresnica/ui-native', () => ({ Button: () => null }));
 import React from 'react';
+import { GeneralSettingsScreen } from '../GeneralSettingsScreen';
 import { ThemeSettingsScreen } from '../ThemeSettingsScreen/ThemeSettingsScreen';
 import { SessionLogsScreen } from '../SessionLogsScreen/SessionLogsScreen';
 import type { NetworkSettings } from '@capabilities/network/createNetworkSettings';
 let mockCleanup: (() => void) | undefined;
 const mockUpdate = jest.fn();
+let mockLocale = 'en';
+let mockFexPreference: boolean | undefined;
 jest.mock('react', () => ({
   ...jest.requireActual('react'),
   useState: (value: unknown) => [value, jest.fn()],
@@ -17,11 +20,16 @@ jest.mock('react', () => ({
 jest.mock('../generalPreferences', () => ({
   useGeneralPreferences: () => ({
     controller: { update: mockUpdate },
-    preferences: jest.requireActual('@capabilities/preferences/generalPreferences').DEFAULT_GENERAL_PREFERENCES,
+    preferences: {
+      ...jest.requireActual('@capabilities/preferences/generalPreferences').DEFAULT_GENERAL_PREFERENCES,
+      activityFexShortcut: mockFexPreference,
+    },
   }),
 }));
 jest.mock('@ui/components', () => ({ Button: () => null, ListRow: () => null }));
-jest.mock('../../../locale', () => ({ useLocalization: () => ({ t: (key: string) => key }) }));
+jest.mock('../../../locale', () => ({
+  useLocalization: () => ({ t: (key: string) => key, locale: mockLocale, locales: [] }),
+}));
 jest.mock('@ui/theme', () => {
   const actual = jest.requireActual('@ui/theme');
   return { ...actual, useThemedStyles: (factory: (theme: unknown) => unknown) => factory(actual.defaultTheme) };
@@ -38,6 +46,8 @@ function find(root: React.ReactNode, label: string): (() => Promise<void>) | und
 beforeEach(() => {
   mockUpdate.mockClear();
   mockCleanup = undefined;
+  mockLocale = 'en';
+  mockFexPreference = undefined;
 });
 it('starts a service-owned picker that survives gate unmount, but cancels on explicit back or blur', async () => {
   const selection = {
@@ -84,4 +94,30 @@ it('exports only an explicit developer-mode session snapshot and gates disabled 
   });
   expect(find(disabled, 'preferences.export')).toBeUndefined();
   mockCleanup?.();
+});
+
+type SwitchProps = { value: boolean; onValueChange: (value: boolean) => void };
+function findFexSwitch(root: React.ReactNode): React.ReactElement<SwitchProps> | undefined {
+  if (!React.isValidElement<{ title?: string; trailing?: React.ReactNode; children?: React.ReactNode }>(root)) return;
+  if (root.props.title === 'settings.activityFexShortcut' && React.isValidElement<SwitchProps>(root.props.trailing))
+    return root.props.trailing;
+  for (const child of React.Children.toArray(root.props.children)) {
+    const hit = findFexSwitch(child);
+    if (hit) return hit;
+  }
+}
+it.each(['zh', 'zh-TW'])('exposes a persisted FEX setting only for Chinese UI: %s', locale => {
+  mockLocale = locale;
+  const props = { onBack: jest.fn(), onOpenLanguage: jest.fn() };
+  const initial = findFexSwitch(GeneralSettingsScreen(props));
+  expect(initial?.props.value).toBe(true);
+  initial?.props.onValueChange(false);
+  expect(mockUpdate).toHaveBeenCalledWith({ activityFexShortcut: false });
+  mockFexPreference = false;
+  const off = findFexSwitch(GeneralSettingsScreen(props));
+  expect(off?.props.value).toBe(false);
+  off?.props.onValueChange(true);
+  expect(mockUpdate).toHaveBeenLastCalledWith({ activityFexShortcut: true });
+  mockLocale = 'en';
+  expect(findFexSwitch(GeneralSettingsScreen(props))).toBeUndefined();
 });
