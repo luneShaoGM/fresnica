@@ -22,6 +22,7 @@ import { ActivityStackNavigator } from './ActivityStackNavigator';
 import { TokenIconContext } from '../../features/assets/tokenIconContext';
 import { DAppsStackNavigator } from './DAppsStackNavigator';
 import { createDappMessageSigner } from '../../capabilities/dapp-interaction/dappMessageSigner';
+import { createDappAssetRequest } from './createDappAssetRequest';
 import { createDappTransactionSigner } from './createDappTransactionSigner';
 import type { DappPublicSelection } from '../../capabilities/dapp-interaction/freighterSession';
 import { HomeStackNavigator } from './HomeStackNavigator';
@@ -309,6 +310,7 @@ function MainTabsWithSelection({
     });
   }, [swapSelectionStore, services.networkProfile.horizonUrl]);
 
+  const addDappAsset = useMemo(() => createDappAssetRequest(services.trustline), [services.trustline]);
   const renderDApps = useCallback(
     () => (
       <DAppsStackNavigator
@@ -320,6 +322,7 @@ function MainTabsWithSelection({
         subscribeSelection={swapSelectionStore.subscribe}
         signTransaction={dappSigner}
         signMessage={dappMessageSigner}
+        addAsset={addDappAsset}
         permissions={services.dappPermissions}
       />
     ),
@@ -332,6 +335,7 @@ function MainTabsWithSelection({
       swapSelectionStore,
       dappSigner,
       dappMessageSigner,
+      addDappAsset,
       services.dappPermissions,
     ],
   );

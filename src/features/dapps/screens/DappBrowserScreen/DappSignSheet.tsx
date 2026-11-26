@@ -15,6 +15,8 @@ type Props = Readonly<{
   passphraseRequired: boolean;
   failed: boolean;
   busy?: boolean;
+  submitsAsset?: boolean;
+  network?: string;
   expiresAt?: number;
   onExpired?: () => void;
   onConfirm: (appPassphrase: string) => void;
@@ -66,7 +68,9 @@ export function DappSignSheet(props: Props) {
         </Text>
         {intent ? (
           <>
-            <Text style={styles.message}>{t('dapps.sign.message')}</Text>
+            <Text style={styles.message}>
+              {t(props.submitsAsset ? 'dapps.sign.addAssetNotice' : 'dapps.sign.message')}
+            </Text>
             <View style={styles.card}>
               <Text style={styles.cardLabel}>{t('dapps.sign.source')}</Text>
               <Text selectable style={styles.cardValue}>
@@ -106,14 +110,32 @@ export function DappSignSheet(props: Props) {
             {intent.operations.map((operation, index) => (
               <View key={index} style={styles.sheet}>
                 <Text style={styles.title}>
-                  {t('dapps.sign.payment')} {index + 1}
+                  {t(
+                    operation.type === 'change-trust'
+                      ? 'dapps.sign.addTrustline'
+                      : operation.type === 'create-account'
+                        ? 'dapps.sign.createAccount'
+                        : 'dapps.sign.payment',
+                  )}{' '}
+                  {index + 1}
                 </Text>
-                <Text selectable style={styles.cardValue}>
-                  {t('dapps.sign.destination')}: {operation.destination}
-                </Text>
-                <Text selectable style={styles.cardValue}>
-                  {t('dapps.sign.amount')}: {operation.amount}
-                </Text>
+                {operation.type === 'change-trust' ? (
+                  <>
+                    <Text style={styles.hint}>{t('dapps.sign.trustlineReserve')}</Text>
+                    <Text selectable style={styles.cardValue}>
+                      {t('dapps.sign.trustlineLimit')}: {operation.limit}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text selectable style={styles.cardValue}>
+                      {t('dapps.sign.destination')}: {operation.destination}
+                    </Text>
+                    <Text selectable style={styles.cardValue}>
+                      {t('dapps.sign.amount')}: {operation.amount}
+                    </Text>
+                  </>
+                )}
                 <Text selectable style={styles.cardValue}>
                   {t('dapps.sign.asset')}: {operation.assetCode}
                 </Text>

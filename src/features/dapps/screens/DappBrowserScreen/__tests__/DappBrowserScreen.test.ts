@@ -1,3 +1,4 @@
+import type { DappAssetRequest } from '../../../../../capabilities/dapp-interaction/dappAssetRequest';
 import React from 'react';
 
 import type {
@@ -132,6 +133,7 @@ function render(
   trustedCatalogOrigin?: string,
   showNotification?: (origin: string, title: string, body: string, expiresAt: number) => boolean,
   signMessage?: DappMessageSigner,
+  addAsset?: DappAssetRequest,
 ) {
   si = 0;
   ri = 0;
@@ -150,6 +152,7 @@ function render(
     createNonce: () => token,
     signTransaction,
     signMessage,
+    addAsset,
     permissions,
     trustedCatalogOrigin,
     showNotification,
@@ -362,7 +365,7 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
       canGoForward: false,
     });
     webview?.props.onMessage?.(request('REQUEST_ALLOWED_STATUS', 92), origin + '/start');
-    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 92, isAllowed: false }));
+    expect(replies).not.toHaveBeenCalled();
   });
 
   it('retires the implicit read permission on a same-origin reload, without a durable grant', () => {
@@ -495,28 +498,31 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     expect(replies).not.toHaveBeenCalled();
   });
 
-  it.each(['once', 'always'] as const)('retires a deleted account with %s consent and ignores other accounts', consent => {
-    render();
-    refs[1].current = { reply: replies };
-    const browser = find(render(), node => node.type === BrowserSurface);
-    const origin = 'https://demo.example.org';
-    browser?.props.onMessage?.(request('REQUEST_ACCESS', 101), origin);
-    const prompt = find(render(), node => node.type === DappConnectSheet);
-    if (consent === 'always') prompt?.props.onAllowAlways?.();
-    else prompt?.props.onAllowOnce?.();
-    for (const effect of effects.splice(0)) effect();
-    permissions.revokeAccount('other-account');
-    replies.mockClear();
-    browser?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 102), origin);
-    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 102, publicKey: selection.address }));
-    permissions.revokeAccount(selection.accountId);
-    replies.mockClear();
-    browser?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 103), origin);
-    prompt?.props.onAllowAlways?.();
-    expect(replies).not.toHaveBeenCalled();
-    expect(find(render(), node => node.type === BrowserSurface)).toBeUndefined();
-    expect(permissions.has({ origin, accountId: selection.accountId, networkId: selection.networkId })).toBe(false);
-  });
+  it.each(['once', 'always'] as const)(
+    'retires a deleted account with %s consent and ignores other accounts',
+    consent => {
+      render();
+      refs[1].current = { reply: replies };
+      const browser = find(render(), node => node.type === BrowserSurface);
+      const origin = 'https://demo.example.org';
+      browser?.props.onMessage?.(request('REQUEST_ACCESS', 101), origin);
+      const prompt = find(render(), node => node.type === DappConnectSheet);
+      if (consent === 'always') prompt?.props.onAllowAlways?.();
+      else prompt?.props.onAllowOnce?.();
+      for (const effect of effects.splice(0)) effect();
+      permissions.revokeAccount('other-account');
+      replies.mockClear();
+      browser?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 102), origin);
+      expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 102, publicKey: selection.address }));
+      permissions.revokeAccount(selection.accountId);
+      replies.mockClear();
+      browser?.props.onMessage?.(request('REQUEST_PUBLIC_KEY', 103), origin);
+      prompt?.props.onAllowAlways?.();
+      expect(replies).not.toHaveBeenCalled();
+      expect(find(render(), node => node.type === BrowserSurface)).toBeUndefined();
+      expect(permissions.has({ origin, accountId: selection.accountId, networkId: selection.networkId })).toBe(false);
+    },
+  );
 
   it('resets message deduplication for a new same-URL document', () => {
     render();
@@ -561,6 +567,7 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
         transactionXdr: 'AAAA',
       }),
       'https://demo.example.org/start',
+      '74f3db5b-10b8-4abd-8198-cfc869980742',
     );
     await Promise.resolve();
     await Promise.resolve();
@@ -581,6 +588,7 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     );
     expect(replies).toHaveBeenCalledWith(
       expect.objectContaining({ signedTransaction: 'BBBB', signerAddress: 'GSOURCE', messagedId: 4 }),
+      { replyId: '74f3db5b-10b8-4abd-8198-cfc869980742' },
     );
   });
 
@@ -663,6 +671,7 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
           transactionXdr: 'AAAA',
         }),
         'https://demo.example.org/start',
+        '74f3db5b-10b8-4abd-8198-cfc869980742',
       );
     submit(4);
     await Promise.resolve();
@@ -670,7 +679,9 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     find(render(true, signTransaction), node => node.type === DappSignSheet)?.props.onConfirm?.('');
     await Promise.resolve();
     await Promise.resolve();
-    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ error: 'user-declined', messagedId: 4 }));
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ error: 'user-declined', messagedId: 4 }), {
+      replyId: '74f3db5b-10b8-4abd-8198-cfc869980742',
+    });
     expect(find(render(true, signTransaction), node => node.type === DappSignSheet)).toBeUndefined();
     submit(5);
     await Promise.resolve();
@@ -711,6 +722,7 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
         transactionXdr: 'AAAA',
       }),
       'https://demo.example.org/start',
+      '74f3db5b-10b8-4abd-8198-cfc869980742',
     );
     await Promise.resolve();
     await Promise.resolve();
@@ -721,7 +733,9 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     find(render(true, signTransaction), node => node.type === DappSignSheet)?.props.onConfirm?.('');
     await Promise.resolve();
     await Promise.resolve();
-    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 4, signedTransaction: 'BBBB' }));
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 4, signedTransaction: 'BBBB' }), {
+      replyId: '74f3db5b-10b8-4abd-8198-cfc869980742',
+    });
   });
 
   it('unmounts the WebView and invalidates permission on any App account revision', () => {
@@ -1000,77 +1014,80 @@ const demoNotificationModule = process.env.FRESNICA_DEMO_NOTIFICATION_MODULE;
   });
 });
 
-it.each(['approve', 'base64', 'cancel', 'reload', 'document', 'late-result', 'account-deleted', 'missing-native-reply'] as const)(
-  'holds the exact SEP-53 message for passphrase review and handles %s',
-  async action => {
-    const signature = 'A'.repeat(86) + '==';
-    let complete: ((value: string) => void) | undefined;
-    const signer = jest.fn<ReturnType<DappMessageSigner>, Parameters<DappMessageSigner>>(
-      () =>
-        new Promise(resolve => {
-          complete = resolve;
-        }),
-    );
-    const draw = () => render(true, undefined, undefined, undefined, signer);
-    const origin = 'https://demo.example.org';
-    const replyId = '74f3db5b-10b8-4abd-8198-cfc869980742';
-    const target = { replyId };
-    const browser = find(draw(), node => node.type === BrowserSurface);
-    refs[1].current = { reply: replies, reload };
-    browser?.props.onMessage?.(request('REQUEST_ACCESS', 30), origin);
-    find(draw(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
-    const blob = '  café\nAuthorize demo  ';
-    browser?.props.onMessage?.(
-      JSON.stringify({
-        source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
-        type: 'SUBMIT_BLOB',
-        messageId: 31,
-        apiVersion: '6.0.1',
-        blob: action === 'base64' ? Buffer.from(blob, 'utf8').toString('base64') : blob,
-        ...(action === 'base64' ? { blobEncoding: 'base64' } : {}),
+it.each([
+  'approve',
+  'base64',
+  'cancel',
+  'reload',
+  'document',
+  'late-result',
+  'account-deleted',
+  'missing-native-reply',
+] as const)('holds the exact SEP-53 message for passphrase review and handles %s', async action => {
+  const signature = 'A'.repeat(86) + '==';
+  let complete: ((value: string) => void) | undefined;
+  const signer = jest.fn<ReturnType<DappMessageSigner>, Parameters<DappMessageSigner>>(
+    () =>
+      new Promise(resolve => {
+        complete = resolve;
       }),
-      origin,
-      action === 'missing-native-reply' ? undefined : replyId,
-    );
-    const sheet = find(draw(), node => node.type === DappSignSheet);
-    if (action === 'missing-native-reply') {
-      expect(sheet).toBeUndefined();
-      expect(signer).not.toHaveBeenCalled();
-      return;
-    }
-    expect(sheet?.props).toMatchObject({ message: blob, origin, passphraseRequired: true });
-    sheet?.props.onConfirm?.('');
+  );
+  const draw = () => render(true, undefined, undefined, undefined, signer);
+  const origin = 'https://demo.example.org';
+  const replyId = '74f3db5b-10b8-4abd-8198-cfc869980742';
+  const target = { replyId };
+  const browser = find(draw(), node => node.type === BrowserSurface);
+  refs[1].current = { reply: replies, reload };
+  browser?.props.onMessage?.(request('REQUEST_ACCESS', 30), origin);
+  find(draw(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
+  const blob = '  café\nAuthorize demo  ';
+  browser?.props.onMessage?.(
+    JSON.stringify({
+      source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
+      type: 'SUBMIT_BLOB',
+      messageId: 31,
+      apiVersion: '6.0.1',
+      blob: action === 'base64' ? Buffer.from(blob, 'utf8').toString('base64') : blob,
+      ...(action === 'base64' ? { blobEncoding: 'base64' } : {}),
+    }),
+    origin,
+    action === 'missing-native-reply' ? undefined : replyId,
+  );
+  const sheet = find(draw(), node => node.type === DappSignSheet);
+  if (action === 'missing-native-reply') {
+    expect(sheet).toBeUndefined();
     expect(signer).not.toHaveBeenCalled();
-    if (action === 'cancel') find(draw(), node => node.type === DappSignSheet)?.props.onReject?.();
-    if (action === 'reload') find(draw(), node => node.props.label === 'dapps.browser.reload')?.props.onPress?.();
-    if (action === 'document') browser?.props.onDocumentStart?.(origin + '/new');
-    sheet?.props.onConfirm?.('fresh passphrase');
-    if (action === 'late-result') browser?.props.onDocumentStart?.(origin + '/new');
-    if (action === 'account-deleted') {
-      for (const effect of effects.splice(0)) effect();
-      permissions.revokeAccount(selection.accountId);
-    }
-    complete?.(signature);
-    await Promise.resolve();
-    if (action === 'approve' || action === 'base64') {
-      expect(signer).toHaveBeenCalledWith(
-        expect.objectContaining({ message: blob, appPassphrase: 'fresh passphrase', encoding: 'base64' }),
-      );
-      expect(replies).toHaveBeenCalledWith(
-        expect.objectContaining({ messagedId: 31, signedBlob: signature, signerAddress: selection.address }),
-        target,
-      );
-    } else {
-      expect(replies.mock.calls.some(([result]) => result.signedBlob)).toBe(false);
-      if (action !== 'late-result' && action !== 'account-deleted') expect(signer).not.toHaveBeenCalled();
-      if (action === 'cancel')
-        expect(replies).toHaveBeenCalledWith(
-          expect.objectContaining({ messagedId: 31, error: 'user-declined' }),
-          target,
-        );
-    }
-  },
-);
+    return;
+  }
+  expect(sheet?.props).toMatchObject({ message: blob, origin, passphraseRequired: true });
+  sheet?.props.onConfirm?.('');
+  expect(signer).not.toHaveBeenCalled();
+  if (action === 'cancel') find(draw(), node => node.type === DappSignSheet)?.props.onReject?.();
+  if (action === 'reload') find(draw(), node => node.props.label === 'dapps.browser.reload')?.props.onPress?.();
+  if (action === 'document') browser?.props.onDocumentStart?.(origin + '/new');
+  sheet?.props.onConfirm?.('fresh passphrase');
+  if (action === 'late-result') browser?.props.onDocumentStart?.(origin + '/new');
+  if (action === 'account-deleted') {
+    for (const effect of effects.splice(0)) effect();
+    permissions.revokeAccount(selection.accountId);
+  }
+  complete?.(signature);
+  await Promise.resolve();
+  if (action === 'approve' || action === 'base64') {
+    expect(signer).toHaveBeenCalledWith(
+      expect.objectContaining({ message: blob, appPassphrase: 'fresh passphrase', encoding: 'base64' }),
+    );
+    expect(replies).toHaveBeenCalledWith(
+      expect.objectContaining({ messagedId: 31, signedBlob: signature, signerAddress: selection.address }),
+      target,
+    );
+  } else {
+    expect(replies.mock.calls.some(([result]) => result.signedBlob)).toBe(false);
+    if (action !== 'late-result' && action !== 'account-deleted') expect(signer).not.toHaveBeenCalled();
+    if (action === 'cancel')
+      expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 31, error: 'user-declined' }), target);
+  }
+});
 
 it.each(['approve', 'reload', 'signature-expiry'] as const)(
   'keeps notification consent and the native SEP-53 reply independent: %s',
@@ -1430,5 +1447,56 @@ describe('native SEP-53 reply deadline', () => {
     expect(onConfirm).not.toHaveBeenCalled();
     expect(onExpired).toHaveBeenCalledTimes(state === 'expired' ? 1 : 0);
     expect(clear).toHaveBeenCalledTimes(state === 'expired' ? 1 : 0);
+  });
+
+  it('requires a native document handle and a fresh approval before submitting a Classic asset', async () => {
+    const origin = 'https://demo.example.org';
+    const submit = jest.fn(async () => 'added' as const);
+    const addAsset = jest.fn(async () => ({
+      intent: { hash: 'hash', source: 'GSOURCE', sequence: '7', fee: '100', memo: null, operations: [] },
+      contractId: 'USD:GISSUER',
+      submit,
+    }));
+    const show = () => render(true, undefined, undefined, undefined, undefined, addAsset);
+    show();
+    refs[1].current = { reply: replies };
+    const browser = find(show(), node => node.type === BrowserSurface);
+    browser?.props.onMessage?.(request('REQUEST_ACCESS', 70), origin);
+    find(show(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
+    const tokenRequest = (messageId: number) =>
+      JSON.stringify({
+        source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
+        token,
+        type: 'SUBMIT_TOKEN',
+        issuer: 'GISSUER',
+        assetCode: 'USD',
+        messageId,
+      });
+    browser?.props.onMessage?.(tokenRequest(71), origin);
+    expect(addAsset).not.toHaveBeenCalled();
+    browser?.props.onMessage?.(tokenRequest(72), origin, 'asset-document-1');
+    await Promise.resolve();
+    await Promise.resolve();
+    const review = find(show(), node => node.type === DappSignSheet);
+    expect(review).toBeDefined();
+    expect(submit).not.toHaveBeenCalled();
+    const oldApproval = review?.props.onConfirm;
+    browser?.props.onNavigation?.({ url: 'https://other.example.org/', canGoBack: true, canGoForward: false });
+    oldApproval?.('test passphrase');
+    expect(submit).not.toHaveBeenCalled();
+
+    browser?.props.onDocumentStart?.(origin + '/new-document');
+    browser?.props.onMessage?.(request('REQUEST_ACCESS', 73), origin);
+    find(show(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
+    browser?.props.onMessage?.(tokenRequest(74), origin, 'asset-document-2');
+    await Promise.resolve();
+    await Promise.resolve();
+    find(show(), node => node.type === DappSignSheet)?.props.onConfirm?.('test passphrase');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(submit).toHaveBeenCalledTimes(1);
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 74, contractId: 'USD:GISSUER' }), {
+      replyId: 'asset-document-2',
+    });
   });
 });

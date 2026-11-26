@@ -12,6 +12,7 @@ import { createDappBridgeNonce } from '../../platform/dapp-browser/secureNonce';
 import type { DappPublicSelection } from '../../capabilities/dapp-interaction/freighterSession';
 import type { DappPermissionStore } from '../../capabilities/dapp-interaction/dappPermissionStore';
 import type { DappMessageSigner } from '../../capabilities/dapp-interaction/dappMessageSigner';
+import type { DappAssetRequest } from '../../capabilities/dapp-interaction/dappAssetRequest';
 import type { DappTransactionSigner } from '../../capabilities/dapp-interaction/dappTransactionSigner';
 import type { DappRecentHistory } from '../../capabilities/dapp-interaction/dappRecentHistory';
 import type { DappCatalogEntry, DappCatalogPort } from '@capabilities/dapp-catalog/catalog';
@@ -31,6 +32,7 @@ export function DAppsStackNavigator({
   subscribeSelection,
   signTransaction,
   signMessage,
+  addAsset,
   permissions,
 }: Readonly<{
   catalog: DappCatalogPort;
@@ -41,6 +43,7 @@ export function DAppsStackNavigator({
   subscribeSelection: (listener: () => void) => () => void;
   signTransaction: DappTransactionSigner;
   signMessage?: DappMessageSigner;
+  addAsset?: DappAssetRequest;
   permissions: DappPermissionStore;
 }>) {
   const reads = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot, runtime.getSnapshot);
@@ -74,6 +77,7 @@ export function DAppsStackNavigator({
               subscribeSelection={subscribeSelection}
               signTransaction={signTransaction}
               signMessage={signMessage}
+              addAsset={addAsset}
               permissions={permissions}
               foreground={reads.foreground}
               onClose={() => navigation.goBack()}
@@ -156,6 +160,7 @@ function DappBrowserRoute({
   subscribeSelection,
   signTransaction,
   signMessage,
+  addAsset,
   permissions,
   foreground,
   onClose,
@@ -167,6 +172,7 @@ function DappBrowserRoute({
   subscribeSelection: (listener: () => void) => () => void;
   signTransaction: DappTransactionSigner;
   signMessage?: DappMessageSigner;
+  addAsset?: DappAssetRequest;
   permissions: DappPermissionStore;
   foreground: boolean;
   onClose: () => void;
@@ -195,6 +201,7 @@ function DappBrowserRoute({
       subscribeSelection={subscribeSelection}
       signTransaction={signTransaction}
       signMessage={signMessage}
+      addAsset={addAsset}
       permissions={permissions}
       trustedCatalogOrigin={proofRef.current.origin}
       createNonce={createDappBridgeNonce}

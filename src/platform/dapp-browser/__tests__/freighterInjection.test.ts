@@ -193,3 +193,18 @@ it.each([undefined, null, 0, -1, NaN, Infinity, '1800000000000', Number.MAX_SAFE
 it('keeps a native reply deadline without rounding it', () => {
   expect(readSep53ReplyExpiresAt(1_800_000_000_000.5)).toBe(1_800_000_000_000.5);
 });
+
+it('does not inject a signed transaction or asset completion into a later document', () => {
+  const base = { source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE', messagedId: 91 } as const;
+  const target = { replyId: '74f3db5b-10b8-4abd-8198-cfc869980742' };
+  for (const response of [
+    { ...base, signedTransaction: 'AAAA' },
+    { ...base, contractId: 'USD:GISSUER' },
+  ]) {
+    expect(buildFreighterReply(response)).toBeUndefined();
+    expect(buildFreighterReply(response, target)).toHaveProperty(
+      'nativeCommand',
+      'fresnica-sep53:' + target.replyId + ':' + JSON.stringify(response),
+    );
+  }
+});

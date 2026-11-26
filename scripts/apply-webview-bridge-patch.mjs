@@ -365,6 +365,12 @@ static NSString *FresnicaVerifiedHttpsOrigin(NSURL *url) {
   },
   {
     file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java',
+    applied: 'command.length() <= 16384',
+    from: 'command.length() <= 2048',
+    to: 'command.length() <= 16384',
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java',
     applied: 'sep53Replies.put(replyId, replyProxy)',
     from: '                RNCWebView.this.onVerifiedMessage(payload, origin);',
     to: `                if (payload.startsWith(SEP53_PREFIX)) {
@@ -513,6 +519,12 @@ static NSString *const FresnicaSep53Prefix = @"fresnica-sep53:";
     return;
   }
   NSDictionary *eventInitDict = @{@"data": message};`,
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
+    applied: 'message.length <= 16384',
+    from: 'message.length <= 2048',
+    to: 'message.length <= 16384',
   },
   {
     file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
