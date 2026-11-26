@@ -44,7 +44,10 @@ OS permissions, native transports, schema, credentials or signing methods.
    a user-configured Horizon endpoint or create a durable grant.
 4. Manual URL, Recent, cache-only directory, external-browser fallback and
    unverified origin still need ordinary S17 consent. Existing Allow Always
-   grants remain scoped to origin, account and network.
+   grants remain scoped to origin, account and network. A pending consent
+   belongs to the requesting document. Cross-origin navigation retires it as
+   soon as it is reported, even before the next document starts. A retired
+   request cannot persist a grant.
 5. No signature, submission, notification or asset write is authorized by
    the directory. For supported requests the wallet still displays the exact
    transaction or SEP-53 message for independent review, requires a fresh

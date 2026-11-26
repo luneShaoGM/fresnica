@@ -496,6 +496,55 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     expect(hasDappReadGrant('https://demo.example.org', 'wallet1', 'stellar-testnet')).toBe(false);
   });
 
+  it('retires manual consent as soon as cross-origin navigation is reported', () => {
+    render();
+    refs[1].current = { reply: replies };
+    const webview = find(render(), node => node.type === BrowserSurface);
+    const original = 'https://demo.example.org';
+    const next = 'https://next.example.org';
+    webview?.props.onMessage?.(request('REQUEST_ACCESS', 42), original, '74f3db5b-10b8-4abd-8198-cfc869980742');
+    const oldApprove = find(render(), node => node.type === DappConnectSheet)?.props.onAllowAlways;
+    expect(oldApprove).toBeDefined();
+
+    webview?.props.onNavigation?.({ url: next + '/', canGoBack: true, canGoForward: false });
+    oldApprove?.();
+    webview?.props.onMessage?.(request('REQUEST_ACCESS', 43), original, '74f3db5b-10b8-4abd-8198-cfc869980743');
+    expect(find(render(), node => node.type === DappConnectSheet)).toBeUndefined();
+    expect(hasDappReadGrant(original, selection.accountId, selection.networkId)).toBe(false);
+    expect(replies).not.toHaveBeenCalled();
+
+    webview?.props.onDocumentStart?.(next + '/');
+    const nextReplyId = '74f3db5b-10b8-4abd-8198-cfc869980744';
+    webview?.props.onMessage?.(request('REQUEST_ACCESS', 44), next, nextReplyId);
+    const newApprove = find(render(), node => node.type === DappConnectSheet)?.props.onAllowAlways;
+    expect(newApprove).toBeDefined();
+    oldApprove?.();
+    expect(hasDappReadGrant(original, selection.accountId, selection.networkId)).toBe(false);
+    expect(hasDappReadGrant(next, selection.accountId, selection.networkId)).toBe(false);
+    newApprove?.();
+    expect(hasDappReadGrant(next, selection.accountId, selection.networkId)).toBe(true);
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 44, publicKey: 'GSOURCE' }), {
+      replyId: nextReplyId,
+    });
+  });
+
+  it('invalidates the old consent prompt when the user reloads the same URL', () => {
+    render();
+    refs[1].current = { reply: replies, reload };
+    const webview = find(render(), node => node.type === BrowserSurface);
+    const origin = 'https://demo.example.org';
+    webview?.props.onMessage?.(request('REQUEST_ACCESS', 45), origin);
+    const oldApprove = find(render(), node => node.type === DappConnectSheet)?.props.onAllowAlways;
+    expect(oldApprove).toBeDefined();
+
+    find(render(), node => node.props.label === 'dapps.browser.reload')?.props.onPress?.();
+    expect(reload).toHaveBeenCalledTimes(1);
+    oldApprove?.();
+    expect(hasDappReadGrant(origin, selection.accountId, selection.networkId)).toBe(false);
+    expect(find(render(), node => node.type === DappConnectSheet)).toBeUndefined();
+    expect(replies).not.toHaveBeenCalled();
+  });
+
   it('immediately retires the active browser and blocks stale requests after a revoke', () => {
     render();
     refs[1].current = { reply: replies };
