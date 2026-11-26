@@ -73,7 +73,6 @@ function selectField(root: React.ReactNode, label: string) {
 function renderForm(overrides: Partial<React.ComponentProps<typeof RequestFormScreen>> = {}) {
   const onCopy = jest.fn();
   const onShare = jest.fn();
-  const onToggleQr = jest.fn();
   const onPasteRequest = jest.fn();
   const onScanRequest = jest.fn();
   const canonicalUri = 'web+stellar:pay?destination=GDESTINATION&amount=1';
@@ -88,7 +87,6 @@ function renderForm(overrides: Partial<React.ComponentProps<typeof RequestFormSc
     memoValue: '7',
     message: 'Invoice',
     canonicalUri,
-    qrVisible: true,
     busy: false,
     onSelectAsset: jest.fn(),
     onSetAmountEnabled: jest.fn(),
@@ -98,14 +96,13 @@ function renderForm(overrides: Partial<React.ComponentProps<typeof RequestFormSc
     onChangeMessage: jest.fn(),
     onCopy,
     onShare,
-    onToggleQr,
     onPasteRequest,
     onScanRequest,
     onCancel: jest.fn(),
     ...overrides,
   });
   const root = layout.props.children as React.ReactElement<React.ComponentProps<typeof Screen>>;
-  return { root, onCopy, onShare, onToggleQr, onPasteRequest, onScanRequest, canonicalUri };
+  return { root, onCopy, onShare, onPasteRequest, onScanRequest, canonicalUri };
 }
 
 describe('RequestFormScreen', () => {
@@ -225,20 +222,19 @@ describe('RequestFormScreen', () => {
     expect(onSelectMemoType).not.toHaveBeenCalled();
   });
 
-  it('routes Copy, Share and QR actions without rebuilding request semantics', () => {
-    const { root, onCopy, onShare, onToggleQr } = renderForm();
+  it('routes Copy and Share without a QR visibility control', () => {
+    const { root, onCopy, onShare } = renderForm();
     const actions = new Map<string, React.ReactElement<NodeProps>>();
     visit(root, element => {
-      if (['request.copy', 'request.share', 'request.qr.hide'].includes(element.props.label ?? '')) {
+      if (element.props.label?.startsWith('request.')) {
         actions.set(element.props.label ?? '', element);
       }
     });
     actions.get('request.copy')?.props.onPress?.();
     actions.get('request.share')?.props.onPress?.();
-    actions.get('request.qr.hide')?.props.onPress?.();
+    expect([...actions.keys()].filter(label => label.startsWith('request.qr.'))).toEqual([]);
     expect(onCopy).toHaveBeenCalledTimes(1);
     expect(onShare).toHaveBeenCalledTimes(1);
-    expect(onToggleQr).toHaveBeenCalledTimes(1);
   });
 
   it('keeps paste and scan as explicit user actions', () => {
@@ -258,27 +254,47 @@ describe('RequestFormScreen', () => {
     expect(onScanRequest).toHaveBeenCalledTimes(1);
   });
 
-  it('feeds the exact canonical URI to QR and exposes a textual accessibility alternative', () => {
-    const { root, canonicalUri } = renderForm();
-    let qr: React.ReactElement<{ value?: string }> | undefined;
-    let qrContainer: React.ReactElement<NodeProps> | undefined;
-    visit(root, element => {
-      if (element.type === QRCode) qr = element as React.ReactElement<{ value?: string }>;
-      if (element.props.accessibilityLabel?.startsWith('qr:')) qrContainer = element;
-    });
-    expect(qr?.props.value).toBe(canonicalUri);
-    expect(qrContainer?.props.accessibilityLabel).toContain('GDESTINATION');
-    expect(qrContainer?.props.accessibilityLabel).toContain(canonicalUri);
+  it('displays the current canonical URI automatically and replaces the code as the draft changes', () => {
+    for (const canonicalUri of [
+      'web+stellar:pay?destination=GDESTINATION',
+      'web+stellar:pay?destination=GDESTINATION&amount=4&memo=7&memo_type=MEMO_ID&msg=Invoice',
+    ]) {
+      const { root } = renderForm({ canonicalUri });
+      let qr: React.ReactElement<NodeProps> | undefined;
+      let label: string | undefined;
+      visit(root, element => {
+        if (element.type === QRCode) qr = element;
+        if (element.props.accessibilityLabel?.startsWith('qr:')) label = element.props.accessibilityLabel;
+      });
+      expect(qr?.props.value).toBe(canonicalUri);
+      expect(label).toBe(`qr:GDESTINATION:${canonicalUri}`);
+    }
   });
 
-  it('disables outbound actions when the canonical draft is invalid', () => {
-    const { root } = renderForm({ canonicalUri: undefined, error: 'request.error.amount', qrVisible: false });
+  it('clears the QR and disables outbound actions when the canonical draft is invalid', () => {
+    const { root } = renderForm({ canonicalUri: undefined, error: 'request.error.amount' });
     const states: Array<{ disabled?: boolean }> = [];
     visit(root, element => {
-      if (['request.copy', 'request.share', 'request.qr.show'].includes(element.props.label ?? '')) {
+      expect(element.type).not.toBe(QRCode);
+      if (['request.copy', 'request.share'].includes(element.props.label ?? '')) {
         states.push({ disabled: element.props.disabled });
       }
     });
-    expect(states).toEqual([{ disabled: true }, { disabled: true }, { disabled: true }]);
+    expect(states).toEqual([{ disabled: true }, { disabled: true }]);
+  });
+
+  it('preserves Copy and Share when a valid link is too long to render safely', () => {
+    const canonicalUri = 'web+stellar:pay?destination=GDESTINATION&msg=' + '%F0%9F%99%82'.repeat(300);
+    const { root } = renderForm({ canonicalUri });
+    const labels: string[] = [];
+    visit(root, element => {
+      expect(element.type).not.toBe(QRCode);
+      if (element.type === Text && typeof element.props.children === 'string') labels.push(element.props.children);
+      if (['request.copy', 'request.share'].includes(element.props.label ?? '')) {
+        expect(element.props.disabled).toBe(false);
+      }
+    });
+    expect(labels).toContain(canonicalUri);
+    expect(labels).toContain('request.qr.tooLong');
   });
 });

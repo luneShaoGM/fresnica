@@ -66,7 +66,7 @@ type Props = Readonly<{
   invalidationRevision: number;
   onSwitchNetwork?: () => void;
   onSwap?: () => void;
-  onRequest?: () => void;
+  onReceive?: () => void;
   active: boolean;
 }>;
 
@@ -96,7 +96,7 @@ export function HomeScreen({
   invalidationRevision,
   onSwitchNetwork,
   onSwap,
-  onRequest,
+  onReceive,
   active,
 }: Props) {
   const theme = useAppTheme();
@@ -178,10 +178,10 @@ export function HomeScreen({
     () =>
       createHomeViewModel(account, canSign, balanceState, {
         swap: typeof onSwap === 'function',
-        request: typeof onRequest === 'function',
+        request: typeof onReceive === 'function',
         friendbot: friendbotAvailable,
       }),
-    [account, balanceState, canSign, friendbotAvailable, onRequest, onSwap],
+    [account, balanceState, canSign, friendbotAvailable, onReceive, onSwap],
   );
 
   const nativeLine =
@@ -252,7 +252,7 @@ export function HomeScreen({
           <View style={styles.actionsRow}>
             <HomeAction enabled={viewModel.canSend} label="Send" onPress={onSend} />
             <HomeAction enabled={viewModel.canSwap} label="Swap" onPress={onSwap} />
-            <HomeAction enabled={viewModel.canRequest} label="Request" onPress={onRequest} />
+            <HomeAction enabled={viewModel.canRequest} label={t('receive.title')} onPress={onReceive} />
           </View>
 
           <View style={styles.sectionHeader}>

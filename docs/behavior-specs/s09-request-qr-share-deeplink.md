@@ -44,6 +44,12 @@ Contract accounts and any identity kind outside the current Classic account cont
 
 Request must not synthesize or expose a muxed `M...` receiving identity. Muxed identity support remains S08 work.
 
+## Home Receive
+
+Home opens Receive in the shared bottom sheet for the active visible Classic account, including watch-only and inactive accounts. The sheet identifies the network, displays the full public address and copies that exact address on demand. Its QR encodes the same raw address. **Create request link** closes the sheet and opens the existing Request form for that account. Dismissal and account or network changes retire the sheet's actions.
+
+This adapts the address, QR and request-link roles of Stellar's ShareAccount overlay using Fresnica components, the existing account-selection guard and the public clipboard port.
+
 ## Canonical outbound SEP-7 pay request
 
 The canonical outbound URI uses `web+stellar:pay` and contains only fields owned by this product slice.
@@ -102,7 +108,7 @@ A request message is not a transaction memo and is never placed on-chain by Requ
 
 Copy, system Share and QR render the exact same canonical URI string produced by the Request builder.
 
-The plain public address may be displayed separately for human verification, but the copy/share/QR Request actions must not silently switch between address-only and SEP-7 forms.
+The Request form shows the QR automatically whenever the current draft yields a displayable canonical URI. Draft changes replace it immediately. Invalid drafts remove it. Very long links beyond QR byte-mode capacity still support Copy and Share, with a localized explanation in place of the code. The address QR and clipboard action belong to the separate Receive sheet.
 
 System share cancellation is not an error. A platform share failure remains on Request, preserves the generated URI and shows a localized retryable failure. React Native's Android system Share contract always reports `sharedAction` after the chooser returns, including after dismissal, so that result is **unconfirmed**: the Request screen must not announce successful delivery or show a share error, and the user can share again. iOS retains the explicit shared/dismissed outcomes. Unrecognized platform outcomes are also unconfirmed, not successes.
 

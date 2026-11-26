@@ -64,7 +64,6 @@ export function RequestFlowScreen({
   const [memoType, setMemoType] = useState<'none' | StellarPaymentMemo['type']>('none');
   const [memoValue, setMemoValue] = useState('');
   const [message, setMessage] = useState('');
-  const [qrVisible, setQrVisible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [outputError, setOutputError] = useState<string>();
   const [status, setStatus] = useState<string>();
@@ -450,8 +449,6 @@ export function RequestFlowScreen({
         clearOutputFeedback();
       }}
       onShare={() => runOutput('share')}
-      onToggleQr={() => setQrVisible(current => !current)}
-      qrVisible={qrVisible}
       selectedAsset={selectedAsset}
       status={status}
     />
