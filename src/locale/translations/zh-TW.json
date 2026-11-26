@@ -160,6 +160,8 @@
   "accounts.select.title": "選擇帳戶",
   "accounts.select.description": "選擇要在目前網路使用的帳戶。",
   "accounts.select.current": "目前",
+  "accounts.select.kind.classic": "經典帳戶",
+  "accounts.select.kind.contract": "合約帳戶",
   "accounts.select.error": "無法儲存預設帳戶。目前帳戶未變更。",
   "accounts.add.title": "新增帳戶",
   "accounts.add.intro": "選擇如何向目前錢包新增另一個帳戶。",

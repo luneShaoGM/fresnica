@@ -149,6 +149,7 @@ describe('content-sized Actions sheet', () => {
     expect(close).not.toHaveBeenCalled();
     gesture.onPanResponderRelease?.({} as never, { dy: 120, vy: 0.2 } as never);
     expect(close).toHaveBeenCalledTimes(1);
+    expect(springStart).toHaveBeenCalledTimes(3);
 
     mockEffects.length = 0;
     const reset = jest.spyOn(mockOffset, 'setValue');

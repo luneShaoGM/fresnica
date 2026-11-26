@@ -140,8 +140,8 @@ export function HomeStackNavigator({
               developerMode={services.networkSettings?.getSnapshot().preferences.developerMode ?? false}
               foreground={readRuntime.foreground}
               account={selectedAccount}
-              accountCount={selectableAccounts.length}
               selectableAccounts={selectableAccounts}
+              isWatchOnlyAccount={accountId => services.onboarding.repository.isWatchOnly(accountId)}
               balanceDependencies={services.balance}
               friendbotDependencies={services.friendbot}
               canSign={canSign}

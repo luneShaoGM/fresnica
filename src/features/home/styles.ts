@@ -138,23 +138,6 @@ export function createStyles(theme: AppTheme) {
       color: theme.colors.textSecondary,
       fontVariant: ['tabular-nums'],
     },
-    accountMetaRow: {
-      minHeight: 36,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'flex-end',
-      gap: theme.spacing.sm,
-      paddingHorizontal: theme.spacing.xs,
-    },
-    addAccountButton: {
-      paddingVertical: theme.spacing.xs,
-      paddingHorizontal: theme.spacing.xs,
-    },
-    addAccountText: {
-      ...theme.typography.caption,
-      color: theme.colors.textPrimary,
-      fontWeight: '700',
-    },
     actionsRow: {
       flexDirection: 'row',
       gap: theme.spacing.sm,

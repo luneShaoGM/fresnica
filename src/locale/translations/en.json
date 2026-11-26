@@ -160,6 +160,8 @@
   "accounts.select.title": "Select account",
   "accounts.select.description": "Choose the account to use on this network.",
   "accounts.select.current": "Current",
+  "accounts.select.kind.classic": "Classic account",
+  "accounts.select.kind.contract": "Contract account",
   "accounts.select.error": "Unable to save the default account. Your current account was not changed.",
   "accounts.add.title": "Add account",
   "accounts.add.intro": "Choose how to add another account to this wallet.",
