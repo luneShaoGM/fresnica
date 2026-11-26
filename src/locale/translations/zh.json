@@ -160,6 +160,8 @@
   "accounts.select.title": "选择账户",
   "accounts.select.description": "选择要在当前网络使用的账户。",
   "accounts.select.current": "当前",
+  "accounts.select.kind.classic": "经典账户",
+  "accounts.select.kind.contract": "合约账户",
   "accounts.select.error": "无法保存默认账户。当前账户未更改。",
   "accounts.add.title": "添加账户",
   "accounts.add.intro": "选择如何向当前钱包添加另一个账户。",

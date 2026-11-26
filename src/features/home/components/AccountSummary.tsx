@@ -1,7 +1,8 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { useThemedStyles } from '@ui/theme';
+import { SmallChevron } from '@ui/components/SmallIcons';
+import { useAppTheme, useThemedStyles } from '@ui/theme';
 
 import { createStyles } from '../styles';
 
@@ -10,9 +11,8 @@ type Props = Readonly<{
   maskedAddress: string;
   accountKindLabel: string;
   isReadOnly: boolean;
-  accountCount: number;
+  pickerVisible: boolean;
   onOpenAccountPicker: () => void;
-  onAddAccount: () => void;
 }>;
 
 export function AccountSummary({
@@ -20,46 +20,34 @@ export function AccountSummary({
   maskedAddress,
   accountKindLabel,
   isReadOnly,
-  accountCount,
+  pickerVisible,
   onOpenAccountPicker,
-  onAddAccount,
 }: Props) {
   const styles = useThemedStyles(createStyles);
+  const theme = useAppTheme();
   return (
-    <>
-      <Pressable
-        accessibilityHint="Switch to another configured account"
-        accessibilityLabel={`Current account ${label}, ${accountKindLabel}`}
-        accessibilityRole="button"
-        onPress={onOpenAccountPicker}
-        style={({ pressed }) => [styles.accountSwitchContainer, pressed ? styles.pressed : undefined]}
-      >
-        <View style={styles.accountTextBlock}>
-          <Text numberOfLines={1} style={styles.accountLabel}>
-            {label}
-          </Text>
-          <Text numberOfLines={1} selectable style={styles.accountAddress}>
-            {maskedAddress}
-          </Text>
-        </View>
-        {isReadOnly ? (
-          <Text accessibilityLabel={accountKindLabel} style={styles.accountKindBadge}>
-            {accountKindLabel === 'Contract account' ? 'Contract' : 'Read-only'}
-          </Text>
-        ) : null}
-      </Pressable>
-
-      <View style={styles.accountMetaRow}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onAddAccount}
-          style={({ pressed }) => [styles.addAccountButton, pressed ? styles.pressed : undefined]}
-        >
-          <Text style={styles.addAccountText}>
-            {accountCount === 1 ? '+ Add account' : `${accountCount} accounts · Add`}
-          </Text>
-        </Pressable>
+    <Pressable
+      accessibilityHint="Switch to another configured account"
+      accessibilityLabel={`Current account ${label}, ${accountKindLabel}`}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: pickerVisible }}
+      onPress={onOpenAccountPicker}
+      style={({ pressed }) => [styles.accountSwitchContainer, pressed ? styles.pressed : undefined]}
+    >
+      <View style={styles.accountTextBlock}>
+        <Text numberOfLines={1} style={styles.accountLabel}>
+          {label}
+        </Text>
+        <Text numberOfLines={1} selectable style={styles.accountAddress}>
+          {maskedAddress}
+        </Text>
       </View>
-    </>
+      {isReadOnly ? (
+        <Text accessibilityLabel={accountKindLabel} style={styles.accountKindBadge}>
+          {accountKindLabel === 'Contract account' ? 'Contract' : 'Read-only'}
+        </Text>
+      ) : null}
+      <SmallChevron color={theme.colors.textSecondary} up={pickerVisible} />
+    </Pressable>
   );
 }

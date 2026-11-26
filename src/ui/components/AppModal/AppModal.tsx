@@ -79,10 +79,10 @@ export function AppModal({
         onMoveShouldSetPanResponder: (_, gesture) => draggable && shouldStartSheetSwipe(gesture.dy, gesture.dx),
         onPanResponderMove: (_, gesture) => offsetY.setValue(Math.max(0, gesture.dy)),
         onPanResponderRelease: (_, gesture) => {
+          // The caller can keep the sheet open while an action is pending.
+          Animated.spring(offsetY, { toValue: 0, useNativeDriver: true }).start();
           if (shouldDismissSheetSwipe(gesture.dy, gesture.vy)) {
             onRequestClose();
-          } else {
-            Animated.spring(offsetY, { toValue: 0, useNativeDriver: true }).start();
           }
         },
         onPanResponderTerminate: () => {

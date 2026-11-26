@@ -4,8 +4,29 @@ import type { AppTheme } from '@ui/theme';
 
 export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
-    scroll: {
-      maxHeight: 360,
+    content: {
+      flex: 1,
+      gap: theme.spacing.md,
+      paddingHorizontal: theme.spacing.lg,
+    },
+    header: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: theme.spacing.sm,
+    },
+    heading: {
+      flexShrink: 1,
+      gap: theme.spacing.xs,
+    },
+    title: {
+      ...theme.typography.sectionTitle,
+      color: theme.colors.textPrimary,
+    },
+    description: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
     },
     list: {
       gap: theme.spacing.sm,
@@ -43,6 +64,17 @@ export function createStyles(theme: AppTheme) {
     address: {
       ...theme.typography.caption,
       color: theme.colors.textSecondary,
+    },
+    kind: {
+      ...theme.typography.caption,
+      color: theme.colors.textPrimary,
+      fontWeight: '700',
+      alignSelf: 'flex-start',
+      backgroundColor: theme.colors.surfaceMuted,
+      borderRadius: theme.radii.sm,
+      paddingHorizontal: theme.spacing.xs,
+      paddingVertical: theme.spacing.xs,
+      overflow: 'hidden',
     },
     current: {
       ...theme.typography.caption,

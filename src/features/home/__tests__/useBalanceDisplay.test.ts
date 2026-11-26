@@ -277,8 +277,8 @@ function homeFrame(current: ReturnType<typeof setup>, revision = 0) {
   const fundAccount = jest.fn();
   const root = HomeScreen({
     account: accountA,
-    accountCount: 1,
     selectableAccounts: [accountA],
+    isWatchOnlyAccount: () => false,
     balanceDependencies: current.deps,
     friendbotDependencies: { networkId: 'stellar-testnet', gateway: { fundAccount } },
     canSign: true,

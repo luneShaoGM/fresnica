@@ -29,7 +29,7 @@ import {
   type FriendbotDependencies,
 } from '../../capabilities/network/fundTestnetAccountWithFriendbot';
 import { useLocalization } from '../../locale';
-import { AccountPickerModal } from './components/AccountPickerModal';
+import { AccountPickerSheet } from './components/AccountPickerSheet';
 import { AccountSummary } from './components/AccountSummary';
 import { AssetList, PinnedNativeAssetRow } from './components/AssetList';
 import { matchingNativeBalance, useNativeBalanceBreakdown } from './useNativeBalanceBreakdown';
@@ -43,8 +43,8 @@ import { createStyles } from './styles';
 type Props = Readonly<{
   xlmQuotes?: XlmQuotePort;
   account: AccountRecord;
-  accountCount: number;
   selectableAccounts: readonly AccountRecord[];
+  isWatchOnlyAccount: (accountId: string) => boolean;
   balanceDependencies: BalanceProductDependencies;
   friendbotDependencies: FriendbotDependencies;
   canSign: boolean;
@@ -73,8 +73,8 @@ type Props = Readonly<{
 export function HomeScreen({
   xlmQuotes,
   account,
-  accountCount,
   selectableAccounts,
+  isWatchOnlyAccount,
   balanceDependencies,
   friendbotDependencies,
   canSign,
@@ -241,12 +241,11 @@ export function HomeScreen({
           </View>
 
           <AccountSummary
-            accountCount={accountCount}
             accountKindLabel={viewModel.accountKindLabel}
             isReadOnly={viewModel.isReadOnly}
             label={viewModel.accountLabel}
             maskedAddress={viewModel.maskedAddress}
-            onAddAccount={onAddAccount}
+            pickerVisible={accountPickerVisible}
             onOpenAccountPicker={() => setAccountPickerVisible(true)}
           />
 
@@ -351,8 +350,10 @@ export function HomeScreen({
         </ScrollView>
         {!largeText ? freshnessNotice : null}
       </View>
-      <AccountPickerModal
+      <AccountPickerSheet
         accounts={selectableAccounts}
+        isWatchOnlyAccount={isWatchOnlyAccount}
+        onAddAccount={onAddAccount}
         onRequestClose={() => setAccountPickerVisible(false)}
         onSelectAccount={onSelectAccount}
         selectedAccountId={account.id}

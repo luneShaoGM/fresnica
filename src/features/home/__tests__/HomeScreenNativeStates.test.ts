@@ -17,6 +17,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { AppBrandMark } from '@ui/components/AppBrandMark';
 import { InactiveAccountPanel } from '../components/InactiveAccountPanel';
 import { AccountSummary } from '../components/AccountSummary';
+import { AccountPickerSheet } from '../components/AccountPickerSheet';
 let mockFontScale = 1;
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
   __esModule: true,
@@ -132,6 +133,8 @@ function renderHome(
 ) {
   const setBalanceState = jest.fn();
   const onSelectAccount = jest.fn();
+  const onAddAccount = jest.fn();
+  const setAccountPickerVisible = jest.fn();
   const onManualRefresh = jest.fn(async () => undefined);
   const onSend = jest.fn();
   const onOpenAsset = jest.fn();
@@ -141,19 +144,20 @@ function renderHome(
     const index = stateIndex;
     stateIndex += 1;
     if (index === 0) return [state, setBalanceState];
-    if (index === 1 || index === 2) return [false, jest.fn()];
+    if (index === 1) return [false, setAccountPickerVisible];
+    if (index === 2) return [false, jest.fn()];
     return [{}, jest.fn()];
   });
 
   const root = HomeScreen({
     account: currentAccount,
-    accountCount: 1,
     selectableAccounts: [currentAccount],
+    isWatchOnlyAccount: () => false,
     balanceDependencies,
     friendbotDependencies,
     canSign: currentAccount.identityKind === 'classic',
     onSelectAccount,
-    onAddAccount: jest.fn(),
+    onAddAccount,
     onSend,
     onSwitchNetwork,
     onManageAssets: jest.fn(),
@@ -163,7 +167,17 @@ function renderHome(
     active: true,
     ...categoryOptions,
   });
-  return { root, setBalanceState, onSelectAccount, onManualRefresh, onSend, onOpenAsset, onSwitchNetwork };
+  return {
+    root,
+    setBalanceState,
+    setAccountPickerVisible,
+    onSelectAccount,
+    onAddAccount,
+    onManualRefresh,
+    onSend,
+    onOpenAsset,
+    onSwitchNetwork,
+  };
 }
 
 describe('Home native balance-state presentation', () => {
@@ -176,9 +190,8 @@ describe('Home native balance-state presentation', () => {
     const root = AccountSummary({
       label: 'Account A',
       maskedAddress: 'GACC...NT-A',
-      accountCount: 1,
+      pickerVisible: false,
       onOpenAccountPicker,
-      onAddAccount: jest.fn(),
       ...status,
     });
     const button = findElement(root, node => node.type === Pressable);
@@ -188,6 +201,18 @@ describe('Home native balance-state presentation', () => {
     });
     button?.props.onPress?.();
     expect(onOpenAccountPicker).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the account sheet from the summary and exposes Add account through the sheet', () => {
+    const { root, onAddAccount, onSelectAccount, setAccountPickerVisible } = renderHome({ kind: 'loading' });
+    const summary = findElement(root, node => node.type === AccountSummary);
+    const sheet = findElement(root, node => node.type === AccountPickerSheet);
+    expect(summary?.props).not.toHaveProperty('onAddAccount');
+    expect(summary?.props).not.toHaveProperty('accountCount');
+    expect(sheet?.props).toMatchObject({ onAddAccount, onSelectAccount, accounts: [account], visible: false });
+    const props = summary?.props as React.ComponentProps<typeof AccountSummary>;
+    props.onOpenAccountPicker();
+    expect(setAccountPickerVisible).toHaveBeenCalledWith(true);
   });
 
   it('keeps read-only status inside the account card and leaves bottom safe-area inset to the tab bar', () => {
