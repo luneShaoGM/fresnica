@@ -21,7 +21,7 @@ function deferred<T>() {
 function nativeCache() {
   let nextLease = 0;
   return {
-    openIconCache: jest.fn(async () => `lease-${++nextLease}`),
+    openIconCache: jest.fn<Promise<string>, [string]>(async () => `lease-${++nextLease}`),
     readIconCache: jest.fn<Promise<unknown>, [string, string]>(async () => entry),
     writeIconCache: jest.fn<Promise<void>, [string, string, string, string]>(async () => undefined),
     removeIconCache: jest.fn<Promise<void>, [string, string]>(async () => undefined),
@@ -175,9 +175,11 @@ describe('Native token icon cache adapter', () => {
       await clearing.promise;
       order.push('clear-finished');
     });
-    const cache = createNativeTokenIconCache(undefined, native);
+    let epoch = 0;
+    const cache = createNativeTokenIconCache(undefined, native, () => epoch);
     cache.setEnabled(true);
     await cache.read(key);
+    epoch = 1;
     cache.setEnabled(false);
     cache.setEnabled(true);
     const read = cache.read(key);
@@ -187,6 +189,7 @@ describe('Native token icon cache adapter', () => {
     clearing.resolve();
     expect(await read).toEqual({ ...image, sourceUrl, savedAtUnixMs: entry.savedAtUnixMs });
     expect(order).toEqual(['open-1', 'close-lease-1-true', 'clear-finished', 'open-2']);
+    expect(native.openIconCache.mock.calls).toEqual([['0'], ['1']]);
     expect(native.readIconCache).toHaveBeenLastCalledWith('lease-2', key);
     cache.close();
   });

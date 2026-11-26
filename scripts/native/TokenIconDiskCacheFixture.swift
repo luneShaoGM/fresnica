@@ -102,7 +102,16 @@ struct TokenIconDiskCacheFixture {
     try expectFailure { try cache.close(session: session, clearAll: true) }
     try expectFailure { _ = try cache.open(owner: "before-repair") }
     try expectFailure { _ = try cache.read(session: session, key: asset) }
+    expect(try files(in: directory).count == 1, "old bytes survived the failed purge")
+
+    // The new instance has no pendingClear flag. The persisted settings epoch
+    // still bars cached bytes left by the preceding consent.
+    let restarted = TokenIconDiskCache(directory: directory, fileManager: fileManager)
+    try expectFailure { _ = try restarted.open(owner: "restarted-before-repair", epoch: "1") }
     fileManager.failDeletion = false
+    let restartedLease = try restarted.open(owner: "restarted-after-repair", epoch: "1")
+    expect(try restarted.read(session: restartedLease, key: asset) == nil, "no old image after restart")
+    expect(try files(in: directory).isEmpty, "old epoch removed before issuing a lease")
     let repaired = try cache.open(owner: "after-repair")
     expect(try cache.read(session: repaired, key: asset) == nil, "failed purge retries before re-enable")
   }

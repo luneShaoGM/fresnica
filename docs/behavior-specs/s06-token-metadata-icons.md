@@ -390,7 +390,9 @@ The icon component/context join strict architecture enforcement.
 - Download failures retain safe categories only: transient, blocked, invalid,
   cancelled. Transient failures use a short session cooldown (30 seconds),
   cleared on runtime recovery; invalid/blocked candidates retain a one-hour
-  cooldown. Network failure must not write a 24-hour issuer-negative cache.
+  cooldown. A failed or empty DNS lookup is retryable, while rejected DNS
+  addresses are blocked before connection, including mixed public/private
+  answers. Network failure must not write a 24-hour issuer-negative cache.
   Invalid/missing issuer metadata keeps the existing 24-hour policy. Runtime
   recovery can reset the directory's session failure cooldown but must retain
   its successful 12-hour TTL and validation. Diagnostics contain no URL,
@@ -403,6 +405,9 @@ The icon component/context join strict architecture enforcement.
   revokes native writer leases before clearing all disk entries across both
   network partitions. Late opens/reads/downloads/writes cannot restore them.
   Start with OFF persisted: clear any residual disk cache without networking.
+  The persisted opt-out advances the disk cache generation. After re-enable
+  or restart, native storage must discard entries from earlier generations
+  before issuing a lease. If cleanup still fails, disk access stays closed.
   Ordinary AppServices retirement revokes its lease and cancels requests but
   preserves disk entries for later offline sessions. New sessions keep exact
   network/code/issuer isolation.

@@ -19,12 +19,18 @@ struct PublicAssetAddressFixture {
       precondition(PublicAssetAddress.pinnedHost(numeric: ip) != nil,
                    "Public endpoint was rejected: \(ip)")
     }
-    // Injection-style native resolver fixture: DNS returning only private,
-    // mixed, or a rebinding candidate never produces an NWConnection target.
-    precondition(PublicAssetAddress.vettedHost(resolvedAddresses: ["127.0.0.1"]) == nil)
-    precondition(PublicAssetAddress.vettedHost(resolvedAddresses: ["8.8.8.8", "127.0.0.1"]) == nil)
-    precondition(PublicAssetAddress.vettedHost(resolvedAddresses: ["10.0.0.1", "8.8.8.8"]) == nil)
-    precondition(PublicAssetAddress.vettedHost(resolvedAddresses: ["8.8.8.8", "1.1.1.1"]) != nil)
-    print("PASS public socket address fixture: \(blocked.count) blocked, 3 public")
+    for answers in [["127.0.0.1"], ["8.8.8.8", "127.0.0.1"], ["10.0.0.1", "8.8.8.8"],
+                    Array(repeating: "8.8.8.8", count: 33)] {
+      guard case .blocked = PublicAssetAddress.resolve(hostname: "cdn.example.org", lookup: { _ in answers })
+      else { preconditionFailure("Rejected DNS answer must be classified as blocked") }
+    }
+    for answers: [String]? in [nil, []] {
+      guard case .unavailable = PublicAssetAddress.resolve(hostname: "cdn.example.org", lookup: { _ in answers })
+      else { preconditionFailure("Lookup failure or no answers must be retryable") }
+    }
+    let publicAnswers = PublicAssetAddress.resolve(hostname: "cdn.example.org", lookup: { _ in ["8.8.8.8", "1.1.1.1"] })
+    guard case .pinned(let host) = publicAnswers, host == PublicAssetAddress.pinnedHost(numeric: "8.8.8.8")
+    else { preconditionFailure("Public answers must pin the first numeric target") }
+    print("PASS public socket address fixture: numeric filtering, DNS outcomes, and public address pinning")
   }
 }

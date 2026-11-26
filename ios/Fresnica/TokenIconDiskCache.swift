@@ -40,6 +40,7 @@ final class TokenIconDiskCache {
   private let entryCountLimit: Int
   private var sessions: [String: String] = [:]
   private var pendingClear = false
+  private var epoch = "0"
 
   init(directory: URL, fileManager: FileManager = .default,
        now: @escaping () -> Date = Date.init,
@@ -52,10 +53,16 @@ final class TokenIconDiskCache {
     self.entryCountLimit = max(0, entryCountLimit)
   }
 
-  func open(owner: String) throws -> String {
+  func open(owner: String, epoch: String = "0") throws -> String {
+    guard epoch.range(of: "^(0|[1-9][0-9]{0,15})\\z", options: .regularExpression) != nil
+    else { throw Failure.unavailable }
     // A failed privacy deletion cannot turn into a hit after OFF -> ON.
     // Retry the purge before issuing any new lease; otherwise stay closed.
     if pendingClear { try finishClear() }
+    if self.epoch != epoch {
+      sessions.removeAll()
+      self.epoch = epoch
+    }
     try prepareDirectory()
     try prune()
     let session = UUID().uuidString
@@ -163,7 +170,7 @@ final class TokenIconDiskCache {
       parts[2].range(of: "^G[A-Z2-7]{55}$", options: .regularExpression) != nil,
       let canonical = try? JSONSerialization.data(withJSONObject: parts), canonical == data
     else { return nil }
-    return directory.appendingPathComponent(Self.digest(data) + ".fic", isDirectory: false)
+    return directory.appendingPathComponent(epoch + "-" + Self.digest(data) + ".fic", isDirectory: false)
   }
 
   private func prepareDirectory() throws {
@@ -181,9 +188,10 @@ final class TokenIconDiskCache {
     let files = try fileManager.contentsOfDirectory(at: directory,
       includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey])
     var entries: [(url: URL, size: Int, accessed: Date)] = []
+    let entryPattern = "^\(epoch)-[a-f0-9]{64}\\.fic\\z"
     for url in files {
       let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey])
-      guard url.lastPathComponent.range(of: "^[a-f0-9]{64}\\.fic$", options: .regularExpression) != nil,
+      guard url.lastPathComponent.range(of: entryPattern, options: .regularExpression) != nil,
         values.isRegularFile == true, values.isSymbolicLink != true,
         let size = values.fileSize, size >= 37 && size <= Self.entryLimit
       else {

@@ -59,10 +59,11 @@ final class SecureAssetFetch: NSObject {
     active[requestId]?.cancel()
   }
 
-  @objc(openIconCache:rejecter:)
-  func openIconCache(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+  @objc(openIconCache:resolver:rejecter:)
+  func openIconCache(_ epoch: String, resolver resolve: @escaping RCTPromiseResolveBlock,
+                     rejecter reject: @escaping RCTPromiseRejectBlock) {
     let owner = cacheOwner
-    performCache(resolve, reject) { try $0.open(owner: owner) }
+    performCache(resolve, reject) { try $0.open(owner: owner, epoch: epoch) }
   }
 
   @objc(readIconCache:key:resolver:rejecter:)
@@ -171,11 +172,14 @@ private final class SecureAssetFetchRequest {
       // getaddrinfo may block. Resolve off the request queue so the absolute
       // deadline/cancel path can complete even while DNS is unresponsive.
       DispatchQueue.global(qos: .utility).async { [weak self] in
-        let pinned = PublicAssetAddress.resolve(hostname: hostname)
+        let resolution = PublicAssetAddress.resolve(hostname: hostname)
         self?.queue.async { [weak self] in
           guard let self, !self.finished else { return }
-          guard let pinned else { self.fail(.unavailable); return }
-          self.connect(to: pinned, certificateHost: hostname)
+          switch resolution {
+          case .pinned(let host): self.connect(to: host, certificateHost: hostname)
+          case .unavailable: self.fail(.unavailable)
+          case .blocked: self.fail(.blocked)
+          }
         }
       }
     }

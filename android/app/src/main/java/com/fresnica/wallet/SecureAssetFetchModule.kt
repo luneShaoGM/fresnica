@@ -134,11 +134,11 @@ class SecureAssetFetchModule(context: ReactApplicationContext) : ReactContextBas
   }
 
   @ReactMethod
-  fun openIconCache(promise: Promise) {
+  fun openIconCache(epoch: String, promise: Promise) {
     try {
       check(!retired)
       val generation = iconCache.openGeneration()
-      cacheTask(promise) { iconCache.open(generation) }
+      cacheTask(promise) { iconCache.open(generation, epoch) }
     } catch (_: Exception) {
       promise.reject(CACHE_FAIL, CACHE_FAIL)
     }

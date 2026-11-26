@@ -32,6 +32,7 @@ internal class TokenIconDiskCache(
     val sessions = mutableSetOf<String>()
     var generation = 0L
     var clearRequired = false
+    var epoch = "0"
   }
 
   private val state = states.computeIfAbsent(directory.absoluteFile.normalize().path) { State() }
@@ -45,9 +46,14 @@ internal class TokenIconDiskCache(
     state.generation
   }
 
-  fun open(generation: Long = openGeneration()): String = synchronized(state.ioLock) {
+  fun open(generation: Long = openGeneration(), epoch: String = "0"): String = synchronized(state.ioLock) {
+    require(EPOCH.matches(epoch))
     synchronized(state.lock) { check(!retired && generation == state.generation) }
     if (synchronized(state.lock) { state.clearRequired }) clear()
+    if (state.epoch != epoch) {
+      synchronized(state.lock) { state.sessions.clear() }
+      state.epoch = epoch
+    }
     prepareDirectory()
     trim(0, 0)
     synchronized(state.lock) {
@@ -201,8 +207,9 @@ internal class TokenIconDiskCache(
 
   private fun trim(reservedBytes: Long, reservedEntries: Int, preserveName: String? = null) {
     val files = mutableListOf<File>()
+    val prefix = "${state.epoch}-"
     for (file in directory.listFiles() ?: throw IOException("cache unavailable")) {
-      if (!ENTRY_NAME.matches(file.name) ||
+      if (!file.name.startsWith(prefix) || !ENTRY_NAME.matches(file.name.removePrefix(prefix)) ||
           !Files.isRegularFile(file.toPath(), LinkOption.NOFOLLOW_LINKS) ||
           file.length() !in 1..MAX_ENTRY_BYTES.toLong()) {
         Files.deleteIfExists(file.toPath())
@@ -227,7 +234,7 @@ internal class TokenIconDiskCache(
   }
 
   private fun fileFor(identity: ByteArray): File =
-    File(directory, identity.joinToString("") { "%02x".format(it) } + ".icon")
+    File(directory, "${state.epoch}-" + identity.joinToString("") { "%02x".format(it) } + ".icon")
 
   private fun requireSession(sessionId: String) = synchronized(state.lock) { requireSessionLocked(sessionId) }
 
@@ -244,6 +251,7 @@ internal class TokenIconDiskCache(
     private const val MAX_SOURCE_BYTES = 8192
     private const val MAX_ENTRY_BYTES = MAX_IMAGE_BYTES + MAX_SOURCE_BYTES + 84
     private const val MAGIC = 0x46494331
+    private val EPOCH = Regex("0|[1-9][0-9]{0,15}")
     private val ENTRY_NAME = Regex("[a-f0-9]{64}\\.icon")
     private val KEY = Regex("""^\["(stellar-mainnet|stellar-testnet)","[A-Za-z0-9]{1,12}","G[A-Z2-7]{55}"\]$""")
     private val states = ConcurrentHashMap<String, State>()

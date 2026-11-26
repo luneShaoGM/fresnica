@@ -14,7 +14,7 @@ export interface TokenIconDiskCache {
 }
 
 type NativeCache = Readonly<{
-  openIconCache(): Promise<string>;
+  openIconCache(epoch: string): Promise<string>;
   readIconCache(sessionId: string, key: string): Promise<unknown>;
   writeIconCache(sessionId: string, key: string, sourceUrl: string, base64: string): Promise<void>;
   removeIconCache(sessionId: string, key: string): Promise<void>;
@@ -29,6 +29,7 @@ type CacheOperation = 'open' | 'read' | 'write' | 'remove' | 'close' | 'clear';
 export function createNativeTokenIconCache(
   onError?: (operation: CacheOperation) => void,
   native: NativeCache | undefined = NativeModules.SecureAssetFetch as NativeCache | undefined,
+  getEpoch: () => number = () => 0,
 ): TokenIconDiskCache {
   const available =
     native &&
@@ -81,7 +82,7 @@ export function createNativeTokenIconCache(
         if (previous || !value) await closeLease(previous ?? '', !value);
         if (!value || closed || generation !== current) return;
         try {
-          const opened = await native!.openIconCache();
+          const opened = await native!.openIconCache(String(getEpoch()));
           if (typeof opened !== 'string' || opened.length === 0 || opened.length > 128) return;
           if (closed || !enabled || generation !== current) {
             await closeLease(opened, false);

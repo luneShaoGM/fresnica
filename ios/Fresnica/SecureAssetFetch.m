@@ -10,7 +10,8 @@ RCT_EXTERN_METHOD(fetch:(NSString *)url
 
 RCT_EXTERN_METHOD(cancel:(NSString *)requestId)
 
-RCT_EXTERN_METHOD(openIconCache:(RCTPromiseResolveBlock)resolve
+RCT_EXTERN_METHOD(openIconCache:(NSString *)epoch
+                  resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(readIconCache:(NSString *)session

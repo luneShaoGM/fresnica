@@ -573,7 +573,13 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       catalog: assetCatalog,
       transport: publicAssetTransport,
       initialEnabled: initialPreferences.externalTokenImagesEnabled !== false,
-      diskCache: createNativeTokenIconCache(operation => diagnostics.debug(`token-icon-cache-${operation}-failed`)),
+      diskCache:
+        networkSettings &&
+        createNativeTokenIconCache(
+          operation => diagnostics.debug(`token-icon-cache-${operation}-failed`),
+          undefined,
+          () => networkSettings?.getSnapshot().preferences.tokenIconCacheEpoch ?? 0,
+        ),
       onDiagnostic: event => diagnostics.debug(`token-icon-${event}`),
     });
     const syncTokenIconRuntime = () => {

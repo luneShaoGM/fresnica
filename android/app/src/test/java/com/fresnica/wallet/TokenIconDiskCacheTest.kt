@@ -41,7 +41,7 @@ class TokenIconDiskCacheTest {
 
   private fun file(directory: File, key: String): File {
     val hash = MessageDigest.getInstance("SHA-256").digest(key.toByteArray(Charsets.UTF_8))
-    return File(directory, hash.joinToString("") { "%02x".format(it) } + ".icon")
+    return File(directory, "0-" + hash.joinToString("") { "%02x".format(it) } + ".icon")
   }
 
   private fun rejected(block: () -> Unit) {
@@ -258,6 +258,27 @@ class TokenIconDiskCacheTest {
     anotherModule.write(newLease, key(), source, png)
     store.clear() // The original queued clear has already been satisfied.
     assertNotNull(anotherModule.read(newLease, key()))
+  }
+
+  @Test fun newProcessStatePurgesPriorEpochEvenIfPrivacyClearFailed() {
+    val directory = temporary.newFolder("cache")
+    val store = cache(directory)
+    val lease = store.open()
+    store.write(lease, key(), source, png)
+    val restartedDirectory = File(temporary.root, "restarted-cache")
+    assertTrue(directory.renameTo(restartedDirectory))
+    Files.createSymbolicLink(directory.toPath(), restartedDirectory.toPath())
+    store.revoke(lease, true)
+    rejected { store.clear() }
+    assertTrue(file(restartedDirectory, key()).exists())
+
+    // A different state-map key simulates a new process over the same bytes.
+    val restarted = cache(restartedDirectory)
+    val freshLease = restarted.open(epoch = "1")
+    assertNull(restarted.read(freshLease, key()))
+    assertFalse(file(restartedDirectory, key()).exists())
+    restarted.write(freshLease, key(), source, png)
+    assertArrayEquals(png, restarted.read(freshLease, key())!!.bytes)
   }
 
   @Test fun privacyRevocationStopsAWriteAlreadyValidatingItsImage() {

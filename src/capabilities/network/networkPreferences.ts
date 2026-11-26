@@ -24,6 +24,7 @@ export type NetworkPreferences = Readonly<{
   selectionConfirmed: boolean;
   retainedTestnet?: boolean;
   externalTokenImagesEnabled?: boolean;
+  tokenIconCacheEpoch?: number;
   externalAccountAvatarsEnabled?: boolean;
   externalAccountAvatarsConsentVersion?: 1;
   networkId: NetworkId;
@@ -59,11 +60,16 @@ export function validateNetworkPreferences(value: unknown): NetworkPreferences {
   };
   if (!value || typeof value !== 'object') return fail();
   const v = value as Record<string, unknown>;
+  const tokenIconCacheEpoch = v.tokenIconCacheEpoch;
   if (
     (v.retainedTestnet !== undefined && typeof v.retainedTestnet !== 'boolean') ||
     (v.externalAccountAvatarsConsentVersion !== undefined && v.externalAccountAvatarsConsentVersion !== 1) ||
     (v.externalAccountAvatarsEnabled !== undefined && typeof v.externalAccountAvatarsEnabled !== 'boolean') ||
     (v.externalTokenImagesEnabled !== undefined && typeof v.externalTokenImagesEnabled !== 'boolean') ||
+    (tokenIconCacheEpoch !== undefined &&
+      (typeof tokenIconCacheEpoch !== 'number' ||
+        !Number.isSafeInteger(tokenIconCacheEpoch) ||
+        tokenIconCacheEpoch < 0)) ||
     typeof v.selectionConfirmed !== 'boolean' ||
     typeof v.developerMode !== 'boolean' ||
     (v.networkId !== 'stellar-mainnet' && v.networkId !== 'stellar-testnet')
@@ -104,6 +110,7 @@ export function validateNetworkPreferences(value: unknown): NetworkPreferences {
     developerMode: v.developerMode,
     selectionConfirmed: v.selectionConfirmed,
     externalTokenImagesEnabled: v.externalTokenImagesEnabled !== false,
+    ...(typeof tokenIconCacheEpoch === 'number' ? { tokenIconCacheEpoch } : {}),
     externalAccountAvatarsEnabled:
       v.externalAccountAvatarsConsentVersion === 1 && v.externalAccountAvatarsEnabled === true,
     ...(v.externalAccountAvatarsConsentVersion === 1 ? { externalAccountAvatarsConsentVersion: 1 as const } : {}),
