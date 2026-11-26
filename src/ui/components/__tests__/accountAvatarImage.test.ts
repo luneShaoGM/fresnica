@@ -44,13 +44,14 @@ it('generates fixed local artwork from the complete address, independent of fram
   expect(xml).toContain('viewBox="0 0 5 5"');
   expect(xml).toContain('<path');
   expect(xml).not.toContain('<metadata');
+  expect(xml).not.toContain('shape-rendering');
   expect(accountIdenticon(first)).toBe(xml);
   expect(accountIdenticon(second)).not.toBe(xml);
   const small = AccountAvatarImage({ seed: first });
   const large = AccountAvatarImage({ seed: first, size: 68 });
   expect(small.props.children.type).toBe(SvgXml);
-  expect(small.props.children.props.xml).toBe(xml);
-  expect(large.props.children.props.xml).toBe(xml);
+  expect(small.props.children.props).toMatchObject({ xml, width: 38, height: 38 });
+  expect(large.props.children.props).toMatchObject({ xml, width: 66, height: 66 });
   expect(AccountAvatarImage({ seed: first, uri: 'data:image/png;base64,AAAA' }).type).toBe(Image);
   for (const invalid of ['G', 'S' + 'A'.repeat(55), 'https://example.com', first.toLowerCase()])
     expect(accountIdenticon(invalid)).toBeUndefined();

@@ -3,7 +3,7 @@ import { Image, View } from 'react-native';
 import Svg, { Circle, Path, SvgXml } from 'react-native-svg';
 import { accountIdenticon } from './accountIdenticon';
 import { useAppTheme, useThemedStyles } from '@ui/theme';
-import { createStyles } from './styles';
+import { accountAvatarFrameBorderWidth, createStyles } from './styles';
 
 export function AccountAvatarImage({
   uri,
@@ -21,12 +21,14 @@ export function AccountAvatarImage({
   };
   if (uri) return <Image {...accessibility} source={{ uri }} resizeMode="cover" style={frame} onError={onError} />;
   const xml = seed ? accountIdenticon(seed) : undefined;
-  if (xml)
+  if (xml) {
+    const artwork = Math.max(0, size - accountAvatarFrameBorderWidth * 2);
     return (
       <View {...accessibility} style={frame}>
-        <SvgXml xml={xml} width={size} height={size} accessible={false} />
+        <SvgXml xml={xml} width={artwork} height={artwork} accessible={false} />
       </View>
     );
+  }
   return (
     <View {...accessibility} style={frame}>
       <Svg width={size / 2} height={size / 2} viewBox="0 0 24 24" fill="none" accessible={false}>

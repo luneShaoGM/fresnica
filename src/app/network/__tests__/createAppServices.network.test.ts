@@ -1,3 +1,4 @@
+import { Account, MuxedAccount, StrKey } from '@stellar/stellar-sdk/axios';
 import { leaseSessionServices } from '../../leaseSessionServices';
 import { NativeModules } from 'react-native';
 import { createAppServices } from '../../createAppServices';
@@ -767,6 +768,50 @@ it('composes saved account-specific avatar policy without changing account or to
     await restored.networkSettings?.setExternalAccountAvatarsEnabled(false);
     expect(restored.accountAvatars?.allowsOnline(account.address)).toBe(false);
     restored.close();
+    expect(fetch).not.toHaveBeenCalled();
+  } finally {
+    if (original === undefined) delete NativeModules.SecureAssetFetch;
+    else NativeModules.SecureAssetFetch = original;
+  }
+});
+
+it('keeps a muxed form of an unselected classic account local and still allows an external muxed address', async () => {
+  const original = NativeModules.SecureAssetFetch;
+  const fetch = jest.fn();
+  NativeModules.SecureAssetFetch = { fetch, cancel: jest.fn() };
+  const address = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(4));
+  const muxed = new MuxedAccount(new Account(address, '0'), '9').accountId();
+  const foreign = new MuxedAccount(
+    new Account(StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(5)), '0'),
+    '1',
+  ).accountId();
+  const account: AccountRecord = {
+    id: 'avatar-muxed',
+    address,
+    identityKind: 'classic',
+    networkId: 'stellar-mainnet',
+    label: 'Muxed',
+    sortOrder: 0,
+    hidden: false,
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+  };
+  mockAccounts = [account];
+  mockPreferences = {
+    ...DEFAULT_NETWORK_PREFERENCES,
+    externalAccountAvatarsEnabled: true,
+    externalAccountAvatarsConsentVersion: 1,
+  };
+  try {
+    const services = await createAppServices();
+    expect(services.accountAvatars?.allowsOnline(muxed)).toBe(false);
+    expect(await services.accountAvatars?.load(muxed, new AbortController().signal)).toBeUndefined();
+    expect(services.accountAvatars?.allowsOnline(foreign)).toBe(true);
+    expect(services.accountAvatars?.allowsOnline('M' + 'B'.repeat(68))).toBe(true);
+    await services.networkSettings?.setAccountAvatarOnline(account.id, true);
+    expect(services.accountAvatars?.allowsOnline(muxed)).toBe(true);
+    expect(services.accountAvatars?.allowsOnline(address)).toBe(true);
+    services.close();
     expect(fetch).not.toHaveBeenCalled();
   } finally {
     if (original === undefined) delete NativeModules.SecureAssetFetch;

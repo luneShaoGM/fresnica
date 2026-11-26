@@ -1,6 +1,7 @@
 import { createDappRecentHistory, type DappRecentHistory } from '../capabilities/dapp-interaction/dappRecentHistory';
 import { RealmDappRecentRepository } from '../platform/persistence/realm/RealmDappRecentRepository';
 import { createMarkets, type Markets } from '../capabilities/markets/createMarkets';
+import { embeddedClassicAddress } from '../platform/stellar/embeddedClassicAddress';
 import { StellarMarketGateway } from '../platform/stellar/StellarMarketGateway';
 import { horizonReadJson } from '../platform/stellar/horizonReadHttp';
 import { createSecuritySettings, type SecuritySettings } from '@capabilities/application-security/securitySettings';
@@ -600,8 +601,12 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       available: publicAssetTransport.available,
       initialEnabled: initialPreferences.externalAccountAvatarsEnabled === true,
       initialOnlineAccountIds: initialPreferences.onlineAccountAvatarIds,
-      resolveAccountId: address => repository.listAccounts().find(account =>
-        account.address === address && account.networkId === network.id)?.id,
+      resolveAccountId: address => {
+        const classic = embeddedClassicAddress(address) ?? address;
+        return repository
+          .listAccounts()
+          .find(account => account.address === classic && account.networkId === network.id)?.id;
+      },
       loadImage: async (url, signal) => (await publicAssetTransport.readAvatar(url, signal)).dataUri,
     });
     const syncAvatarRuntime = () => {

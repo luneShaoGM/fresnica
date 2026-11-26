@@ -22,7 +22,10 @@ not unique or identity proofs.
 Existing wallet-wide informed online permission remains default OFF. A stored
 Classic account defaults to local even if prior wallet-wide consent was granted;
 only a deliberate per-account selection while global permission is on allows
-the owned address to be requested on any avatar surface. Counterparty addresses
+the owned address to be requested on any avatar surface. A displayed muxed
+address follows the stored Classic account embedded in it, and stays local
+unless that account was explicitly selected. Muxed addresses that do not embed
+a stored account remain counterparties. Counterparty addresses
 retain the existing global opt-in behavior. Account ID preference is durable in
 the existing validated preferences JSON; Classic identity is shared across
 network contexts by the existing repository contract, not by new network
