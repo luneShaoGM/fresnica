@@ -7,8 +7,18 @@ export type DappPaymentIntent = Readonly<{
   assetIssuer?: string;
 }>;
 
+export type DappSorobanIntent = Readonly<{
+  type: 'soroban-transfer' | 'soroban-supply-collateral';
+  contract: string;
+  destination: string;
+  amount: string;
+  assetCode: 'XLM';
+  assetIssuer?: never;
+}>;
+
 export type DappOperationIntent =
   | DappPaymentIntent
+  | DappSorobanIntent
   | Readonly<{ type: 'create-account'; destination: string; amount: string; assetCode: 'XLM'; assetIssuer?: never }>
   | Readonly<{ type: 'change-trust'; assetCode: string; assetIssuer: string; limit: string }>;
 

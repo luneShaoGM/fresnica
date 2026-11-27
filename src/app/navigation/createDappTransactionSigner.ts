@@ -21,7 +21,11 @@ export function createDappTransactionSigner(dependencies: {
     const intent = readReviewableDappTransaction(input.transactionXdrBase64, input.networkPassphrase, account.address);
     if (!intent) return { status: 'invalid' };
     if (input.phase === 'inspect') return { status: 'ready', intent };
-    if (input.reviewedHash !== intent.hash || !current(input.isCurrent)) return { status: 'invalid' };
+    const expiresAt = intent.operations.some(operation => 'contract' in operation)
+      ? Number(intent.timeBounds?.maxTime) * 1000
+      : undefined;
+    const isCurrent = () => current(input.isCurrent) && (expiresAt === undefined || Date.now() < expiresAt);
+    if (input.reviewedHash !== intent.hash || !isCurrent()) return { status: 'invalid' };
 
     const signed = await signPreparedDappTransaction({
       sdk: dependencies.sdk,
@@ -29,7 +33,7 @@ export function createDappTransactionSigner(dependencies: {
       accountAddress: account.address,
       networkPassphrase: input.networkPassphrase,
       appPassphrase: input.appPassphrase,
-      isCurrent: input.isCurrent,
+      isCurrent,
       review: {
         transactionXdrBase64: input.transactionXdrBase64,
         networkId: input.networkId,
@@ -41,6 +45,7 @@ export function createDappTransactionSigner(dependencies: {
       },
     });
     if (signed.status === 'signed') {
+      if (!isCurrent()) return { status: 'invalid' };
       return {
         status: 'signed',
         signedTransaction: signed.signedTransactionXdrBase64,
