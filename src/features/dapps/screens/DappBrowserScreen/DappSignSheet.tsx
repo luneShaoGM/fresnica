@@ -119,10 +119,19 @@ export function DappSignSheet(props: Props) {
                       ? 'dapps.sign.addTrustline'
                       : operation.type === 'create-account'
                         ? 'dapps.sign.createAccount'
-                        : 'dapps.sign.payment',
+                        : operation.type === 'soroban-supply-collateral'
+                          ? 'dapps.sign.supplyCollateral'
+                          : operation.type === 'soroban-transfer'
+                            ? 'dapps.sign.contractTransfer'
+                            : 'dapps.sign.payment',
                   )}{' '}
                   {index + 1}
                 </Text>
+                {'contract' in operation ? (
+                  <Text selectable style={styles.cardValue}>
+                    {t('dapps.sign.contract')}: {operation.contract}
+                  </Text>
+                ) : null}
                 {operation.type === 'change-trust' ? (
                   <>
                     <Text style={styles.hint}>{t('dapps.sign.trustlineReserve')}</Text>

@@ -67,8 +67,8 @@ jobs:
       - name: Checkout Fresnica adapter source
         uses: actions/checkout@v4
         with:
-          repository: manran/fresnica
-          ref: c5eae08e84b197d534a05f02ae1a230a1e245f28
+          repository: Fresnica/fresnica
+          ref: 2750d3cb44f58f3c09198fbfe1585dfb7d9aad48
           path: .fresnica-upstream
 
       - name: Set up Node

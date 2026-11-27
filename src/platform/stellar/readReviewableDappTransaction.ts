@@ -1,11 +1,10 @@
-import { Asset, Transaction, xdr } from '@stellar/stellar-sdk';
+import { Asset, Networks, Transaction, xdr } from '@stellar/stellar-sdk';
 
-// Only explicitly reviewable Classic operations are accepted. Reject fee bumps, Soroban,
-// contract calls, unsupported preconditions and every other operation type.
 import type {
   DappOperationIntent,
   DappTransactionIntent,
 } from '../../capabilities/dapp-interaction/dappTransactionIntent';
+import { readReviewableSorobanOperation } from './readReviewableSorobanOperation';
 
 export function readReviewableDappTransaction(
   transactionXdrBase64: string,
@@ -16,8 +15,8 @@ export function readReviewableDappTransaction(
     // Deliberately do not unwrap fee-bump envelopes: an inner transaction
     // summary does not describe the fee source or the entire signed envelope.
     const envelope = xdr.TransactionEnvelope.fromXDR(transactionXdrBase64, 'base64');
-    if (envelope.type === 'envelopeTypeTx' && envelope.v1.tx.ext.type !== 'v0') return undefined;
     if (envelope.type !== 'envelopeTypeTx' && envelope.type !== 'envelopeTypeTxV0') return undefined;
+    const soroban = envelope.type === 'envelopeTypeTx' && envelope.v1.tx.ext.type === 'sorobanData';
     const transaction = new Transaction(envelope, networkPassphrase);
     if (
       transaction.source !== expectedSource ||
@@ -39,6 +38,23 @@ export function readReviewableDappTransaction(
     if (memo.type !== 'none' && memo.type !== 'text') return undefined;
     const operations: DappOperationIntent[] = [];
     for (const operation of transaction.operations) {
+      if (soroban) {
+        const expires = Number(transaction.timeBounds?.maxTime);
+        if (
+          networkPassphrase !== Networks.TESTNET ||
+          transaction.operations.length !== 1 ||
+          operation.source !== undefined ||
+          memo.type !== 'none' ||
+          !Number.isSafeInteger(expires) ||
+          expires <= Math.floor(Date.now() / 1000)
+        ) {
+          return undefined;
+        }
+        const review = readReviewableSorobanOperation(envelope.v1.tx.operations[0], expectedSource);
+        if (!review) return undefined;
+        operations.push(review);
+        continue;
+      }
       if (operation.source !== undefined && operation.source !== expectedSource) return undefined;
       if (operation.type === 'createAccount') {
         if (

@@ -328,7 +328,7 @@ export function createFreighterSession(
       source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
       messagedId: request.messageId,
       ...fields,
-      ...(request.type === 'SUBMIT_BLOB' && fields.error ? messageError(fields.error) : {}),
+      ...(fields.error ? freighterError(fields.error) : {}),
     };
     return { kind: 'respond', response: reply };
   }
@@ -476,7 +476,7 @@ export function createFreighterSession(
     }
   }
 
-  function messageError(error: string): Pick<BridgeResponse, 'error' | 'apiError'> {
+  function freighterError(error: string): Pick<BridgeResponse, 'error' | 'apiError'> {
     const declined = error === 'user-declined';
     const code = declined ? -2 : -1;
     return { error, apiError: { code, apiCode: code, message: declined ? 'User declined the request' : error } };
@@ -567,14 +567,14 @@ export function createFreighterSession(
       return {
         source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
         messagedId: request.messageId,
-        ...('encoding' in request ? messageError('user-declined') : { error: 'user-declined' }),
+        ...freighterError('user-declined'),
       };
     }
     if (result.status === 'failed') {
       return {
         source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
         messagedId: request.messageId,
-        ...('encoding' in request ? messageError(result.error) : { error: result.error }),
+        ...freighterError(result.error),
       };
     }
     if ('encoding' in request) {
@@ -595,7 +595,7 @@ export function createFreighterSession(
         : {
             source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
             messagedId: request.messageId,
-            ...messageError('invalid-message'),
+            ...freighterError('invalid-message'),
           };
     }
     if ('asset' in request) {
@@ -612,7 +612,7 @@ export function createFreighterSession(
       return {
         source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
         messagedId: request.messageId,
-        error: 'invalid-transaction',
+        ...freighterError('invalid-transaction'),
       };
     }
     return {
