@@ -42,8 +42,8 @@ OS permissions, native transports, schema, credentials or signing methods.
    request. Their replies use the native channel of that request and are
    dropped when its document retires. Automatic read access does not send
    a user-configured Horizon endpoint or create a durable grant.
-4. Manual URL, Recent, cache-only directory, external-browser fallback and
-   unverified origin still need ordinary S17 consent. Existing Allow Always
+4. Manual URL, Recent, cache-only directory and unverified in-app origins
+   still need ordinary S17 consent. Existing Allow Always
    grants remain scoped to origin, account and network. A pending consent
    belongs to the requesting document. Cross-origin navigation retires it as
    soon as it is reported, even before the next document starts. A retired
@@ -58,10 +58,12 @@ OS permissions, native transports, schema, credentials or signing methods.
 ## Platforms and evidence
 
 Android in-app WebView is already gated by the **merged** S16 native
-public-address HTTPS proxy/POST/redirect protection. iOS uses the existing
-embedded surface. A missing native Android guard keeps the existing
-external-browser fallback; this PR does not install or weaken native
-network enforcement.
+public-address HTTPS proxy/POST/redirect protection. Embedded Android browsing
+also requires the native navigation callback used to confirm same-document
+toolbar Back and Forward before reopening manual consent. If any required
+capability is unavailable, offer the existing external-browser fallback.
+The fallback does not expose the embedded wallet bridge. iOS uses the existing
+embedded surface.
 
 Automated tests cover default-off even for a fresh live200/conditional304,
 independently reviewed tuple matching, cross-network/wrong URL denial and

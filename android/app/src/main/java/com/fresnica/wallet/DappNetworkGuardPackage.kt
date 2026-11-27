@@ -24,12 +24,15 @@ class DappNetworkGuardPackage : ReactPackage {
 class DappNetworkGuardModule(context: ReactApplicationContext) : ReactContextBaseJavaModule(context) {
   override fun getName() = "DappNetworkGuard"
 
-  override fun getConstants(): Map<String, Any> = mapOf("available" to supported())
+  override fun getConstants(): Map<String, Any> = mapOf(
+      "available" to supportsNetworkGuard(),
+      "sameDocumentNavigation" to supportsSameDocumentNavigation(),
+  )
 
   @ReactMethod
   fun prepare(promise: Promise) {
     UiThreadUtil.runOnUiThread {
-      if (!supported()) {
+      if (!supportsNetworkGuard() || !supportsSameDocumentNavigation()) {
         promise.reject("dapp-guard-unavailable", "Update Android System WebView to use the dApp browser.")
       } else if (ready) {
         promise.resolve(null)
@@ -70,9 +73,15 @@ class DappNetworkGuardModule(context: ReactApplicationContext) : ReactContextBas
     private var ready = false
     private val waiting = mutableListOf<Promise>()
 
-    private fun supported(): Boolean = try {
+    private fun supportsNetworkGuard(): Boolean = try {
       WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE) &&
           WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)
+    } catch (unavailable: RuntimeException) {
+      false
+    }
+
+    private fun supportsSameDocumentNavigation(): Boolean = try {
+      WebViewFeature.isFeatureSupported(WebViewFeature.NAVIGATION_CALLBACK_BASIC)
     } catch (unavailable: RuntimeException) {
       false
     }

@@ -64,11 +64,26 @@ describe('Android native network readiness boundary', () => {
     expect(transport.render(props, null)).toBeNull();
   });
 
+  it.each([false, undefined])('blocks a network-ready Android WebView with navigation support %s', async support => {
+    Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+    const prepare = jest.fn(async () => undefined);
+    NativeModules.DappNetworkGuard = { available: true, sameDocumentNavigation: support, prepare };
+    const onUnavailable = jest.fn();
+    expect(canMountDappWebView()).toBe(false);
+    expect(transport.render({ ...props, onUnavailable }, null)).toBeNull();
+    effect?.();
+    await drain();
+    expect(prepare).not.toHaveBeenCalled();
+    expect(onUnavailable).toHaveBeenCalledTimes(1);
+    expect(transport.render(props, null)).toBeNull();
+  });
+
   it('waits for the native proxy acknowledgement before the first request', async () => {
     Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
     let acknowledge: () => void = () => undefined;
     NativeModules.DappNetworkGuard = {
       available: true,
+      sameDocumentNavigation: true,
       prepare: () =>
         new Promise<void>(resolve => {
           acknowledge = resolve;
@@ -90,6 +105,7 @@ describe('Android native network readiness boundary', () => {
     Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
     NativeModules.DappNetworkGuard = {
       available: true,
+      sameDocumentNavigation: true,
       prepare: async () => {
         throw new Error('failed');
       },
@@ -107,6 +123,7 @@ describe('Android native network readiness boundary', () => {
     let acknowledge: () => void = () => undefined;
     NativeModules.DappNetworkGuard = {
       available: true,
+      sameDocumentNavigation: true,
       prepare: () =>
         new Promise<void>(resolve => {
           acknowledge = resolve;
@@ -131,7 +148,7 @@ describe('Android native network readiness boundary', () => {
 
 it('forwards only explicit Android native same-document history confirmation', () => {
   Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
-  NativeModules.DappNetworkGuard = { available: true, prepare: async () => undefined };
+  NativeModules.DappNetworkGuard = { available: true, sameDocumentNavigation: true, prepare: async () => undefined };
   ready = true;
   const onNavigation = jest.fn();
   const onDocumentStart = jest.fn();
@@ -208,7 +225,7 @@ describe('native SEP-53 reply expiry events', () => {
 
   function mount(os: 'ios' | 'android' = 'ios') {
     Object.defineProperty(Platform, 'OS', { value: os, configurable: true });
-    NativeModules.DappNetworkGuard = { available: true, prepare: async () => undefined };
+    NativeModules.DappNetworkGuard = { available: true, sameDocumentNavigation: true, prepare: async () => undefined };
     ready = true;
     const onMessage = jest.fn();
     const onReplyExpired = jest.fn();
