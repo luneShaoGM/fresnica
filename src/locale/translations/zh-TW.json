@@ -707,6 +707,8 @@
   "dapps.browser.shareOrigin": "分享網站地址",
   "dapps.browser.shareFailed": "無法開啟分享。",
   "dapps.browser.noSigning": "簽名前 Fresnica 會再次詢問。簽名結果交回網站，應用程式不會代為提交。",
+  "dapps.browser.resumeNotListed": "這個 dApp 在目前網路沒有入口。",
+  "dapps.browser.resumeUnavailable": "暫時無法核對這個 dApp 在目前網路的入口。請下拉重新整理目錄。",
   "dapps.browser.androidUnavailable": "Android 內嵌瀏覽器暫時停用：網站可能在導覽檢查前發出不安全的 POST 請求。請使用系統瀏覽器；系統瀏覽器不提供錢包連接或簽名。",
   "dapps.browser.unavailable": "網站的目前錢包工作階段已失效。請返回並重新開啟。",
   "dapps.connected.summary": "管理網站帳戶存取權限",

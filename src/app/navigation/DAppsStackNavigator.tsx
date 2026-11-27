@@ -24,6 +24,7 @@ import type { DappCatalogEntry, DappCatalogPort } from '@capabilities/dapp-catal
 import { createCuratedSessionLaunch } from '../../capabilities/dapp-interaction/curatedSessionLaunch';
 import { DAppsScreen } from '@features/dapps/screens/DAppsScreen';
 
+import type { DappNetworkNavigation } from './dappNetworkResume';
 import type { DAppsStackParamList } from './navigationTypes';
 
 type CatalogDisplayLaunch = { revision: number; entry: DappCatalogEntry };
@@ -46,6 +47,7 @@ export function DAppsStackNavigator({
   browserAccounts,
   chooseBrowserAccount,
   browserNetworks,
+  dappNetworkNavigation,
 }: Readonly<{
   catalog: DappCatalogPort;
   recentHistory?: DappRecentHistory;
@@ -61,6 +63,7 @@ export function DAppsStackNavigator({
   browserAccounts?: readonly AccountRecord[];
   chooseBrowserAccount?: (id: string) => Promise<void>;
   browserNetworks?: NetworkSettings;
+  dappNetworkNavigation?: DappNetworkNavigation;
 }>) {
   const reads = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot, runtime.getSnapshot);
   const launchRef = useRef<ReturnType<typeof createCuratedSessionLaunch> | undefined>(undefined);
@@ -74,12 +77,14 @@ export function DAppsStackNavigator({
           <DAppsRoute
             scannedUrl={route?.params?.scannedUrl}
             clearScannedUrl={() => navigation?.setParams?.({ scannedUrl: undefined })}
+            dappNetworkNavigation={dappNetworkNavigation}
             catalog={catalog}
             recentHistory={recentHistory}
             openExternalUrl={openExternalUrl}
             foreground={reads.foreground}
             online={reads.connectivity !== 'offline'}
             currentSelection={currentSelection}
+            subscribeSelection={subscribeSelection}
             trustedLaunch={trustedLaunch}
             catalogDisplay={catalogDisplay}
           />
@@ -101,6 +106,7 @@ export function DAppsStackNavigator({
               browserAccounts={browserAccounts}
               chooseBrowserAccount={chooseBrowserAccount}
               browserNetworks={browserNetworks}
+              dappNetworkNavigation={dappNetworkNavigation}
               foreground={reads.foreground}
               onClose={() => navigation.goBack()}
               trustedLaunch={trustedLaunch}
@@ -116,6 +122,7 @@ export function DAppsStackNavigator({
 }
 
 function DAppsRoute({
+  dappNetworkNavigation,
   scannedUrl,
   clearScannedUrl,
   catalog,
@@ -124,9 +131,11 @@ function DAppsRoute({
   foreground,
   online,
   currentSelection,
+  subscribeSelection,
   trustedLaunch,
   catalogDisplay,
 }: Readonly<{
+  dappNetworkNavigation?: DappNetworkNavigation;
   scannedUrl?: string;
   clearScannedUrl: () => void;
   catalog: DappCatalogPort;
@@ -135,21 +144,38 @@ function DAppsRoute({
   foreground: boolean;
   online: boolean;
   currentSelection: () => DappPublicSelection | undefined;
+  subscribeSelection: (listener: () => void) => () => void;
   trustedLaunch: ReturnType<typeof createCuratedSessionLaunch>;
   catalogDisplay: CatalogDisplayRef;
 }>) {
   const focused = useIsFocused();
   const navigation = useNavigation<NavigationProp<DAppsStackParamList>>();
+  const hasClassicSelection = useCallback(() => {
+    try {
+      return currentSelection() !== undefined;
+    } catch {
+      return false;
+    }
+  }, [currentSelection]);
+  const resume = dappNetworkNavigation?.resume;
+  const consumeResume = dappNetworkNavigation?.consume;
+  const finishResume = useCallback(() => {
+    if (resume) consumeResume?.(resume);
+  }, [resume, consumeResume]);
+  const canOpenInApp = useSyncExternalStore(subscribeSelection, hasClassicSelection) && canMountDappWebView();
   return (
     <DAppsScreen
+      resumeCatalogId={resume?.catalogId}
+      onResumeHandled={finishResume}
       scannedUrl={scannedUrl}
       clearScannedUrl={clearScannedUrl}
       catalog={catalog}
       recentHistory={recentHistory}
       openExternalUrl={openExternalUrl}
       openInApp={
-        canMountDappWebView()
+        canOpenInApp
           ? url => {
+              if (!hasClassicSelection()) return false;
               // Even a manual URL identical to a curated entry has no proof.
               trustedLaunch.clear();
               catalogDisplay.current = undefined;
@@ -167,6 +193,11 @@ function DAppsRoute({
                 verified = fresh && online && catalog.isTrustedLiveEntry?.(entry) === true;
               } catch {
                 // A closed/throwing selection/catalog adapter never mints trust.
+              }
+              if (!selected) {
+                trustedLaunch.clear();
+                catalogDisplay.current = undefined;
+                return false;
               }
               trustedLaunch.prepare(entry.websiteUrl, selected, verified);
               catalogDisplay.current = { entry, revision: trustedLaunch.revision() };
@@ -195,6 +226,7 @@ function DappBrowserRoute({
   browserAccounts,
   chooseBrowserAccount,
   browserNetworks,
+  dappNetworkNavigation,
   foreground,
   onClose,
   trustedLaunch,
@@ -214,6 +246,7 @@ function DappBrowserRoute({
   browserAccounts?: readonly AccountRecord[];
   chooseBrowserAccount?: (id: string) => Promise<void>;
   browserNetworks?: NetworkSettings;
+  dappNetworkNavigation?: DappNetworkNavigation;
   foreground: boolean;
   onClose: () => void;
   trustedLaunch: ReturnType<typeof createCuratedSessionLaunch>;
@@ -223,12 +256,9 @@ function DappBrowserRoute({
 }>) {
   const focused = useIsFocused();
   const [reopened, setReopened] = useState<{ origin: string; revision: number }>();
-  const [networkPicker, setNetworkPicker] = useState(false);
-  const closeRoute = useRef(onClose);
-  closeRoute.current = onClose;
+  const [networkPicker, setNetworkPicker] = useState<{ catalogId?: string }>();
   const closeNetworkPicker = useCallback(() => {
-    setNetworkPicker(false);
-    closeRoute.current();
+    setNetworkPicker(undefined);
   }, []);
   const proofRef = useRef<{ url: string; revision: number; origin?: string; entry?: DappCatalogEntry } | undefined>(
     undefined,
@@ -265,7 +295,7 @@ function DappBrowserRoute({
               }
             : undefined
         }
-        onSwitchNetwork={browserNetworks ? () => setNetworkPicker(true) : undefined}
+        onSwitchNetwork={browserNetworks ? catalogId => setNetworkPicker({ catalogId }) : undefined}
         active={focused && foreground}
         onClose={onClose}
         onVisit={onVisit}
@@ -285,7 +315,16 @@ function DappBrowserRoute({
         BrowserSurface={SecureDappWebView}
       />
       {networkPicker && browserNetworks ? (
-        <NetworkSwitchModal settings={browserNetworks} onClose={closeNetworkPicker} />
+        <NetworkSwitchModal
+          settings={browserNetworks}
+          onClose={closeNetworkPicker}
+          onSelectNode={(networkId, endpoint) => {
+            const select = () => browserNetworks.selectNode(networkId, endpoint);
+            return networkPicker.catalogId && dappNetworkNavigation
+              ? dappNetworkNavigation.select({ catalogId: networkPicker.catalogId, networkId }, select)
+              : select();
+          }}
+        />
       ) : null}
     </>
   );

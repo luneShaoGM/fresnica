@@ -1868,6 +1868,21 @@ describe('Soroban tracking requests', () => {
     });
   });
 
+  it('refuses contract review until the next document becomes active after toolbar reload', () => {
+    const track = jest.fn(async () => true);
+    testTracking = { canReview: () => true, track };
+    const { web, approve } = openAssetReview();
+    refs[1].current = { reply: replies, reload };
+    find(render(), node => node.props.label === 'dapps.browser.reload')?.props.onPress?.();
+    approve?.();
+    web?.props.onMessage?.(payload, origin, 'next-request');
+    expect(find(render(), node => node.props.label === 'dapps.contract.confirm')).toBeUndefined();
+    expect(track).not.toHaveBeenCalled();
+    web?.props.onDocumentStart?.(origin);
+    web?.props.onMessage?.(payload, origin, 'new-document-request');
+    expect(find(render(), node => node.props.label === 'dapps.contract.confirm')).toBeDefined();
+  });
+
   it('aborts an approved read after expiry and never replies late', async () => {
     let finish: (() => void) | undefined;
     const track = jest.fn(

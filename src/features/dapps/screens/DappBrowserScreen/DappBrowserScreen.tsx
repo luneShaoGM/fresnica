@@ -48,7 +48,7 @@ type Props = Readonly<{
   onVisit?: (url: string) => void;
   accountChoices?: readonly AccountRecord[];
   onSwitchAccount?: (id: string, origin: string) => Promise<void>;
-  onSwitchNetwork?: () => void;
+  onSwitchNetwork?: (catalogId?: string) => void;
   catalogEntry?: DappCatalogEntry;
   catalogMedia?: DappCatalogPort['publicMedia'];
   online?: boolean;
@@ -445,7 +445,11 @@ export function DappBrowserScreen({
       else setPendingMessage(request);
     }
     if (decision.kind === 'track-contract') {
-      if (!target || !trackContract?.canReview(current.selection, decision.contractId)) {
+      if (
+        !permissionDocumentActive.current ||
+        !target ||
+        !trackContract?.canReview(current.selection, decision.contractId)
+      ) {
         const failed = current.session.finishSign({ status: 'failed', error: 'asset-failed' });
         if (failed && target) reply(failed, target);
         return;
@@ -595,6 +599,7 @@ export function DappBrowserScreen({
 
   const confirmContract = async (request: PendingContract) => {
     const isCurrent = () =>
+      permissionDocumentActive.current &&
       currentSession() &&
       !originChanging.current &&
       request.generation === signGeneration.current &&
@@ -1098,8 +1103,8 @@ export function DappBrowserScreen({
                 label={t('dapps.browser.switchNetwork')}
                 onPress={() => {
                   if (!ownsPanel() || signing.current || contractAbort.current) return;
-                  retireInvalidNavigation();
-                  onSwitchNetwork();
+                  setShowConnection(false);
+                  onSwitchNetwork(launchedCatalog?.id);
                 }}
                 variant="quiet"
               />

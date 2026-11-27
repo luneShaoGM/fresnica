@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import type { DappRecentHistory } from '@capabilities/dapp-interaction/dappRecentHistory';
@@ -33,6 +33,8 @@ type CatalogState =
 type Section = 'home' | 'recent';
 
 export function DAppsScreen({
+  resumeCatalogId,
+  onResumeHandled,
   scannedUrl,
   clearScannedUrl,
   catalog,
@@ -46,6 +48,8 @@ export function DAppsScreen({
   online = true,
   focused = active,
 }: Readonly<{
+  resumeCatalogId?: string;
+  onResumeHandled?: () => void;
   scannedUrl?: string;
   clearScannedUrl?: () => void;
   catalog: DappCatalogPort;
@@ -55,8 +59,8 @@ export function DAppsScreen({
   focused?: boolean;
   showInterfaceSample?: boolean;
   openExternalUrl: (url: string) => Promise<void>;
-  openInApp?: (url: string) => void;
-  openCatalogInApp?: (entry: DappCatalogEntry, fresh: boolean) => void;
+  openInApp?: (url: string) => boolean | void;
+  openCatalogInApp?: (entry: DappCatalogEntry, fresh: boolean) => boolean | void;
   inAppUnavailable?: boolean;
 }>) {
   const { t } = useLocalization();
@@ -70,6 +74,8 @@ export function DAppsScreen({
   const [refreshingCatalog, setRefreshingCatalog] = useState(false);
   const catalogLoadPending = useRef(false);
   const [state, setState] = useState<CatalogState>({ kind: online ? 'loading' : 'offline' });
+  const [resumeNotice, setResumeNotice] = useState<'notListed' | 'unavailable'>();
+  const handledResume = useRef<string | undefined>(undefined);
   const [websiteInput, setWebsiteInput] = useState('');
   const [urlSheetOpen, setUrlSheetOpen] = useState(false);
   const [preparedWebsite, setPreparedWebsite] = useState<UntrustedDappUrl>();
@@ -198,16 +204,9 @@ export function DAppsScreen({
     [focused],
   );
 
-  useEffect(() => {
-    if (!scannedUrl || !active || !focused || !mountedRef.current || openingRef.current) return;
-    // A QR is never a trusted catalog item. Reuse the custom URL confirmation.
-    prepareWebsite(scannedUrl);
-    clearScannedUrl?.();
-  }, [scannedUrl, active, focused, clearScannedUrl]);
-
   const urlSheetSession = urlSheetSessionRef.current;
 
-  const prepareWebsite = (value: string) => {
+  const prepareWebsite = useCallback((value: string) => {
     if (!mountedRef.current || !activeRef.current || openingRef.current) return;
     try {
       const verified = normalizeUntrustedDappUrl(value);
@@ -218,7 +217,14 @@ export function DAppsScreen({
       setPreparedWebsite(undefined);
       setWebsiteError('invalid');
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!scannedUrl || !active || !focused || !mountedRef.current || openingRef.current) return;
+    // A QR is never a trusted catalog item. Reuse the custom URL confirmation.
+    prepareWebsite(scannedUrl);
+    clearScannedUrl?.();
+  }, [scannedUrl, active, focused, clearScannedUrl, prepareWebsite]);
 
   const closeUrlSheet = () => {
     if (!urlSheetActiveRef.current || urlSheetSessionRef.current !== urlSheetSession || openingRef.current) return;
@@ -305,29 +311,51 @@ export function DAppsScreen({
     }
   };
 
-  const openCatalogEntry = (entry: DappCatalogEntry) => {
-    const current = liveCatalogRows.current;
-    if (
-      !mountedRef.current ||
-      !activeRef.current ||
-      !focusedRef.current ||
-      openingRef.current ||
-      current.catalog !== catalog ||
-      current.section !== 'home' ||
-      current.state.kind !== 'ready' ||
-      !current.state.entries.includes(entry)
-    )
-      return;
-    if (openCatalogInApp) {
-      if (launchedCatalogRow.current === entry) return;
-      launchedCatalogRow.current = entry;
-      openCatalogInApp(entry, !current.state.stale && current.online);
-    } else {
-      // Unsupported in-app platforms retain the deliberate untrusted URL
-      // review before handing public site URLs to the system browser.
+  const openCatalogEntry = useCallback(
+    (entry: DappCatalogEntry) => {
+      const current = liveCatalogRows.current;
+      if (
+        !mountedRef.current ||
+        !activeRef.current ||
+        !focusedRef.current ||
+        openingRef.current ||
+        current.catalog !== catalog ||
+        current.section !== 'home' ||
+        current.state.kind !== 'ready' ||
+        !current.state.entries.includes(entry)
+      )
+        return;
+      if (openCatalogInApp) {
+        if (launchedCatalogRow.current === entry) return;
+        if (openCatalogInApp(entry, !current.state.stale && current.online) !== false) {
+          launchedCatalogRow.current = entry;
+          return;
+        }
+      }
+      // Without a usable embedded wallet session, keep the deliberate public URL handoff.
       prepareWebsite(entry.websiteUrl);
+    },
+    [catalog, openCatalogInApp, prepareWebsite],
+  );
+
+  useEffect(() => {
+    if (!resumeCatalogId) {
+      handledResume.current = undefined;
+      return;
     }
-  };
+    if (!active || !focused || state.kind === 'loading' || handledResume.current === resumeCatalogId) return;
+    handledResume.current = resumeCatalogId;
+    onResumeHandled?.();
+    // A destination cache can still be browsed normally, but is not proof
+    // that this app is currently listed on the new network.
+    if (!online || state.kind !== 'ready' || state.stale) {
+      setResumeNotice('unavailable');
+      return;
+    }
+    const entry = state.entries.find(item => item.id === resumeCatalogId);
+    if (entry) openCatalogEntry(entry);
+    else setResumeNotice('notListed');
+  }, [active, focused, online, openCatalogEntry, resumeCatalogId, onResumeHandled, state]);
 
   const categories = useMemo(() => (state.kind === 'ready' ? catalogCategories(state.entries) : []), [state]);
   const selectedCategory = category !== undefined && categories.includes(category) ? category : undefined;
@@ -410,6 +438,11 @@ export function DAppsScreen({
             </Pressable>
           </View>
 
+          {resumeNotice ? (
+            <Text accessibilityRole="alert" style={styles.websiteDetail}>
+              {t(resumeNotice === 'notListed' ? 'dapps.browser.resumeNotListed' : 'dapps.browser.resumeUnavailable')}
+            </Text>
+          ) : null}
           {recent.unavailable && recentHistory && section !== 'recent' ? (
             <Text accessibilityLiveRegion="polite" style={styles.websiteDetail}>
               {t('dapps.website.recentUnavailable')}
@@ -662,10 +695,10 @@ export function DAppsScreen({
                       proposalRef.current.epoch !== websiteEpoch.current
                     )
                       return;
+                    if (openInApp(preparedWebsite.url) === false) return;
                     websiteEpoch.current += 1;
                     handoffEpoch.current += 1;
                     setPreparedWebsite(undefined);
-                    openInApp(preparedWebsite.url);
                   }}
                   variant="secondary"
                 />

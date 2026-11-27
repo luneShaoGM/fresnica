@@ -53,6 +53,7 @@ let effectCursor = 0;
 
 const react = jest.requireActual<typeof import('react')>('react');
 jest.spyOn(react, 'useContext').mockReturnValue(undefined);
+jest.spyOn(react, 'useCallback').mockImplementation(((callback: unknown) => callback) as typeof react.useCallback);
 
 jest.spyOn(react, 'useState').mockImplementation(((initial: unknown) => {
   const index = stateCursor;
@@ -1056,4 +1057,59 @@ describe('catalog and browser lifecycle', () => {
       ?.props.onPress?.();
     expect(elements(await renderCatalog(catalog)).some(node => node.props.label === 'https://example.org')).toBe(true);
   });
+});
+
+it.each(['destination', 'missing', 'stale'] as const)(
+  'resumes by app ID using only the new catalog (%s)',
+  async mode => {
+    resetHarness();
+    const destination = { ...entry, websiteUrl: 'https://testnet.example.org/new-path' };
+    const openCatalogInApp = jest.fn();
+    const handled = jest.fn();
+    const catalog: DappCatalogPort = {
+      load: async () => ({ kind: 'ready', entries: mode === 'missing' ? [] : [destination], stale: mode === 'stale' }),
+    };
+    const props = { catalog, openExternalUrl, openCatalogInApp, resumeCatalogId: entry.id, onResumeHandled: handled };
+    beginRender();
+    DAppsScreen(props);
+    await settle();
+    beginRender();
+    DAppsScreen(props);
+    await settle();
+    beginRender();
+    const tree = DAppsScreen(props);
+    await settle();
+    expect(handled).toHaveBeenCalledTimes(1);
+    if (mode === 'destination') expect(openCatalogInApp.mock.calls).toEqual([[destination, true]]);
+    else {
+      expect(openCatalogInApp).not.toHaveBeenCalled();
+      const notice = mode === 'missing' ? 'dapps.browser.resumeNotListed' : 'dapps.browser.resumeUnavailable';
+      let shown = false;
+      walk(tree, element => {
+        if (element.props.children === notice) shown = true;
+      });
+      expect(shown).toBe(true);
+    }
+  },
+);
+
+it('uses the explicit system browser handoff when a directory row cannot start an embedded wallet session', async () => {
+  resetHarness();
+  openExternalUrl.mockClear();
+  const publicEntry = { ...entry, websiteUrl: 'https://demo.example.org/app' };
+  const catalog: DappCatalogPort = { load: async () => ({ kind: 'ready', entries: [publicEntry] }) };
+  const openCatalogInApp = jest.fn(() => false);
+  const props = { catalog, openExternalUrl, openCatalogInApp };
+  await renderCatalog(catalog);
+  beginRender();
+  const before = elements(DAppsScreen(props));
+  before.find(node => node.props.accessibilityLabel === 'dapps.website.openInApp: Demo Exchange')?.props.onPress?.();
+  beginRender();
+  const after = elements(DAppsScreen(props));
+  expect(openCatalogInApp).toHaveBeenCalledWith(publicEntry, true);
+  expect(after.some(node => node.props.children === 'dapps.website.unreviewed')).toBe(true);
+  expect(openExternalUrl).not.toHaveBeenCalled();
+  after.find(node => node.props.label === 'dapps.website.confirm')?.props.onPress?.();
+  await settle();
+  expect(openExternalUrl).toHaveBeenCalledWith(publicEntry.websiteUrl);
 });

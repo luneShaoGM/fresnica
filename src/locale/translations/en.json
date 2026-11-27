@@ -707,6 +707,8 @@
   "dapps.browser.shareOrigin": "Share website address",
   "dapps.browser.shareFailed": "Could not open sharing.",
   "dapps.browser.noSigning": "Fresnica asks before signing. The signed transaction is returned to the website and is not submitted by the app.",
+  "dapps.browser.resumeNotListed": "This dApp has no entry on the selected network.",
+  "dapps.browser.resumeUnavailable": "Could not check this dApp on the selected network. Refresh the directory and choose the dApp again.",
   "dapps.browser.androidUnavailable": "Android's embedded browser is temporarily disabled because a website could send an unsafe POST before navigation is checked. Use the device browser; wallet connections and signing are unavailable there.",
   "dapps.browser.unavailable": "This website is no longer available in the active wallet session. Go back and open it again.",
   "dapps.connected.summary": "Manage website account access",

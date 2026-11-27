@@ -707,6 +707,8 @@
   "dapps.browser.shareOrigin": "分享网站地址",
   "dapps.browser.shareFailed": "无法打开分享。",
   "dapps.browser.noSigning": "签名前 Fresnica 会再次询问。签名结果交回网站，应用不会代为提交。",
+  "dapps.browser.resumeNotListed": "这个 dApp 在当前网络没有入口。",
+  "dapps.browser.resumeUnavailable": "暂时无法核对这个 dApp 在当前网络的入口。请下拉刷新目录。",
   "dapps.browser.androidUnavailable": "Android 内嵌浏览器暂时停用：网站可能在导航检查前发出不安全的 POST 请求。请使用系统浏览器；系统浏览器不提供钱包连接或签名。",
   "dapps.browser.unavailable": "网站当前钱包会话已失效。请返回并重新打开。",
   "dapps.connected.summary": "管理网站账户访问权限",

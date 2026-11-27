@@ -23,10 +23,12 @@ export function NetworkSwitchModal({
   settings,
   monitor,
   onClose,
+  onSelectNode,
 }: Readonly<{
   settings: NetworkSettings;
   monitor?: NodeHealthMonitor;
   onClose: () => void;
+  onSelectNode?: NetworkSettings['selectNode'];
   onOpenDeveloperMode?: () => void;
 }>) {
   const { preferences, busy, interruption, tests } = useSyncExternalStore(settings.subscribe, settings.getSnapshot);
@@ -88,7 +90,7 @@ export function NetworkSwitchModal({
         () => setPrompt(undefined),
       );
     } else {
-      await run(() => settings.selectNode(id, endpoint), onClose);
+      await run(() => (onSelectNode ?? settings.selectNode)(id, endpoint), onClose);
     }
   };
   const add = async (id: NetworkId) => {
