@@ -89,6 +89,27 @@ describe('S15/S18 Freighter in-WebView read-only wallet bridge', () => {
     });
   });
 
+  it('directory authorization shares address and public network metadata but not a custom endpoint or notification permission', () => {
+    const selected = { ...selection, networkUrl: 'https://custom.example.org/horizon' };
+    const session = createFreighterSession({
+      origin,
+      token,
+      initial: selected,
+      current: () => selected,
+      catalogReadAllowed: () => true,
+    });
+    expect(session.receive(request('REQUEST_ACCESS'), origin)).toMatchObject({
+      kind: 'respond',
+      response: { publicKey: 'GABC' },
+    });
+    expect(session.receive(request('REQUEST_NETWORK_DETAILS', 2), origin)).toMatchObject({
+      kind: 'respond',
+      response: { networkDetails: { networkUrl: selection.networkUrl } },
+    });
+    expect(session.notificationAllowed()).toBe(false);
+    expect(session.finishSign({ status: 'declined' })).toBeNull();
+  });
+
   it('does not authorize when the user cancels; old decisions cannot grant later requests', () => {
     const { session } = harness();
     expect(session.receive(request('REQUEST_ACCESS'), origin).kind).toBe('permission');

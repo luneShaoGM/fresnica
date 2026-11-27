@@ -66,6 +66,12 @@ type PendingMessage = Extract<BridgeDecision, { kind: 'sign-message' }> & {
   target: DappMessageReplyTarget;
 };
 
+type PendingPermission = Readonly<{
+  origin: string;
+  documentEpoch: number;
+  target?: DappMessageReplyTarget;
+}>;
+
 export function DappBrowserScreen({
   url,
   active,
@@ -98,7 +104,10 @@ export function DappBrowserScreen({
     | undefined
   >(undefined);
   const [stale, setStale] = useState(false);
-  const [pendingOrigin, setPendingOrigin] = useState<string>();
+  const [pendingPermission, setPendingPermission] = useState<PendingPermission>();
+  const permissionRequest = useRef<PendingPermission | undefined>(undefined);
+  const permissionDocumentActive = useRef(true);
+  const permissionHistoryPending = useRef(false);
   const [page, setPage] = useState({ origin: '', canGoBack: false, canGoForward: false });
   type NotificationRequest = Extract<BridgeDecision, { kind: 'notification' }> & {
     origin: string;
@@ -122,8 +131,8 @@ export function DappBrowserScreen({
   const documentOrigin = useRef<string | undefined>(undefined);
   const signGeneration = useRef(0);
   const signing = useRef(false);
-  const curatedDocumentActive = useRef(true);
-  const documentStarts = useRef(0);
+  const curatedDocument = useRef<'unconfirmed' | 'confirmed' | 'retired'>('unconfirmed');
+  const hasDocumentStarted = useRef(false);
   const [signError, setSignError] = useState(false);
   const [permissionStorageError, setPermissionStorageError] = useState(false);
   const currentSession = () => live.current && !stale && current?.session.isLive() === true;
@@ -157,9 +166,9 @@ export function DappBrowserScreen({
             token,
             initial: selection,
             current: () => (live.current ? currentSelection() : undefined),
-            persistedAllowed: () =>
-              (trustedInitialOrigin && curatedDocumentActive.current && documentOrigin.current === target.origin) ||
-              hasSavedGrant(),
+            persistedAllowed: hasSavedGrant,
+            catalogReadAllowed: () =>
+              trustedInitialOrigin && curatedDocument.current === 'confirmed' && documentOrigin.current === target.origin,
             persistedNotificationAllowed: hasSavedGrant,
             notificationNow,
           }),
@@ -170,6 +179,21 @@ export function DappBrowserScreen({
     }
   }
   const current = initial.current;
+  const settlePermission = useCallback(
+    (approve = false) => {
+      permissionRequest.current = undefined;
+      setPendingPermission(undefined);
+      return current?.session.resolvePermission(approve);
+    },
+    [current],
+  );
+
+  const retirePermissionDocument = () => {
+    // An early navigation event retires consent before a new document starts.
+    permissionDocumentActive.current = false;
+    permissionHistoryPending.current = false;
+    settlePermission();
+  };
 
   useEffect(() => {
     if (!current) return;
@@ -200,13 +224,13 @@ export function DappBrowserScreen({
       ) {
         current.session.revoke();
         signGeneration.current += 1;
-        setPendingOrigin(undefined);
+        settlePermission();
         setPendingSign(undefined);
         setPendingMessage(undefined);
         setStale(true);
       }
     });
-  }, [current, permissions]);
+  }, [current, permissions, settlePermission]);
 
   useEffect(() => {
     if (!active && current) {
@@ -241,8 +265,13 @@ export function DappBrowserScreen({
   );
 
   const handleReplyExpired = (replyId: string, origin: string) => {
+    if (!currentSession() || documentOrigin.current !== origin) return;
+    if (permissionRequest.current?.target?.replyId === replyId) {
+      settlePermission();
+      return;
+    }
     const target = messageReplyTarget.current;
-    if (!currentSession() || !target || target.replyId !== replyId || documentOrigin.current !== origin) return;
+    if (!target || target.replyId !== replyId) return;
     // The request and expiry may arrive before React commits pendingMessage.
     // These refs bind the native event to the current request synchronously.
     expireMessage({ generation: signGeneration.current, target });
@@ -257,8 +286,19 @@ export function DappBrowserScreen({
     return () => clearTimeout(timer);
   }, [pendingMessage, expireMessage]);
 
-  const handleMessage = (raw: string, messageUrl: string, replyId?: string, replyExpiresAt?: number) => {
+  const handleMessage = (
+    raw: string,
+    messageUrl: string,
+    replyId?: string,
+    replyExpiresAt?: number,
+    firstCommittedDocumentUrl?: string,
+  ) => {
     if (!current || !active || stale) return;
+    if (curatedDocument.current !== 'retired') {
+      const verified = firstCommittedDocumentUrl && readPublicDappNavigation(firstCommittedDocumentUrl);
+      if (!verified) curatedDocument.current = 'unconfirmed';
+      else curatedDocument.current = verified.url === current.url ? 'confirmed' : 'retired';
+    }
     const decision = current.session.receive(raw, messageUrl);
     const target = replyId
       ? { replyId, ...(replyExpiresAt === undefined ? {} : { expiresAt: replyExpiresAt }) }
@@ -280,7 +320,15 @@ export function DappBrowserScreen({
       }
     }
     if (decision.kind === 'respond') reply(decision.response, target);
-    if (decision.kind === 'permission') setPendingOrigin(decision.origin);
+    if (decision.kind === 'permission') {
+      if (!permissionDocumentActive.current) {
+        settlePermission();
+        return;
+      }
+      const request = { origin: decision.origin, documentEpoch: documentEpoch.current, target };
+      permissionRequest.current = request;
+      setPendingPermission(request);
+    }
     if (decision.kind === 'sign-message') {
       if (!target || !signMessage) {
         const failed = current.session.finishSign({ status: 'failed', error: 'unsupported-signer' });
@@ -470,39 +518,55 @@ export function DappBrowserScreen({
   };
 
   const navigateBrowser = (action: 'goBack' | 'goForward' | 'reload') => {
+    curatedDocument.current = 'retired';
+    const historyPending =
+      action !== 'reload' && (permissionDocumentActive.current || permissionHistoryPending.current);
+    retirePermissionDocument();
+    permissionHistoryPending.current = historyPending;
     clearNotification();
     if (current?.session.hasPendingMessage()) rejectSignature();
     surface.current?.[action]();
   };
 
-  const choosePermission = (decision: 'once' | 'always' | 'reject') => {
-    const grantedOrigin = pendingOrigin;
-    setPendingOrigin(undefined);
-    if (!current || !currentSession()) return;
-    const result = current.session.resolvePermission(decision !== 'reject');
+  const choosePermission = (request: PendingPermission, decision: 'once' | 'always' | 'reject') => {
+    if (!current || permissionRequest.current !== request) return;
+    const { origin, target } = request;
+    const isCurrentDocument = () =>
+      permissionDocumentActive.current &&
+      request.documentEpoch === documentEpoch.current &&
+      origin === documentOrigin.current &&
+      currentSession();
+    if (!isCurrentDocument() || (target?.expiresAt !== undefined && Date.now() >= target.expiresAt)) {
+      settlePermission();
+      return;
+    }
+    const result = settlePermission(decision !== 'reject');
     if (result?.kind !== 'respond') return;
-    if (decision === 'always' && grantedOrigin && !result.response.error && currentSession()) {
+    if (!isCurrentDocument()) return;
+    if (decision === 'always' && !result.response.error) {
       const scope: DappGrantScope = {
-        origin: grantedOrigin,
+        origin,
         accountId: current.selection.accountId,
         networkId: current.selection.networkId,
       };
       try {
-        // Only persist after the current session resolves its consent.
         permissions.grant(scope);
       } catch {
-        reply({
-          source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
-          messagedId: result.response.messagedId,
-          error: 'permission-storage-failed',
-        });
+        reply(
+          {
+            source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
+            messagedId: result.response.messagedId,
+            error: 'permission-storage-failed',
+          },
+          target,
+        );
         current.session.revoke();
         setPermissionStorageError(true);
         setStale(true);
         return;
       }
     }
-    reply(result.response);
+    reply(result.response, target);
   };
 
   const shouldLoad = (candidate: string) => {
@@ -516,10 +580,10 @@ export function DappBrowserScreen({
     // the bridge. Do not keep showing the previous, trusted address.
     current?.session.revoke();
     clearNotification();
+    retirePermissionDocument();
     messageReplyTarget.current = undefined;
     documentEpoch.current += 1;
     signGeneration.current += 1;
-    setPendingOrigin(undefined);
     setPendingSign(undefined);
     setPendingMessage(undefined);
     setSignError(false);
@@ -529,6 +593,8 @@ export function DappBrowserScreen({
   const onDocumentStart = (nextUrl: string) => {
     if (!current || !currentSession()) return;
     if (nextUrl === 'about:blank') {
+      retirePermissionDocument();
+      if (hasDocumentStarted.current || curatedDocument.current === 'confirmed') curatedDocument.current = 'retired';
       if (current.session.hasPendingMessage()) rejectSignature();
       return;
     }
@@ -541,16 +607,20 @@ export function DappBrowserScreen({
     // a different path or a redirect drops implicit access forever, including
     // after navigating to another origin and back. SPA history is not a new
     // document and does not retire the first-document proof.
-    if (documentStarts.current > 0 || target.url !== current.url) curatedDocumentActive.current = false;
-    documentStarts.current += 1;
+    if (curatedDocument.current !== 'retired') {
+      curatedDocument.current = hasDocumentStarted.current || target.url !== current.url ? 'retired' : 'unconfirmed';
+    }
+    hasDocumentStarted.current = true;
     clearNotification();
+    settlePermission();
     messageReplyTarget.current = undefined;
     documentEpoch.current += 1;
     documentOrigin.current = target.origin;
     current.session.activateDocument(target.origin);
+    permissionHistoryPending.current = false;
+    permissionDocumentActive.current = true;
     if (currentSession()) onVisit?.(target.origin);
     signGeneration.current += 1;
-    setPendingOrigin(undefined);
     setPendingSign(undefined);
     setPendingMessage(undefined);
     setSignError(false);
@@ -558,22 +628,34 @@ export function DappBrowserScreen({
   };
 
   const onNavigation = (next: DappBrowserNavigation) => {
-    if (!current || !active || stale || next.url === 'about:blank') return;
+    if (!current || !active || stale) return;
+    if (next.url === 'about:blank') {
+      retirePermissionDocument();
+      return;
+    }
     const target = readPublicDappNavigation(next.url);
     if (!target) {
       retireInvalidNavigation();
       return;
     }
-    // Some WebView platforms can report a completed cross-origin navigation
-    // before document-start. Even that path must retire curated read access.
-    if (target.origin !== documentOrigin.current) clearNotification();
-    if (target.origin !== documentOrigin.current && current.session.hasPendingMessage()) rejectSignature();
-    if (target.origin !== current.origin) curatedDocumentActive.current = false;
+    // Cross-origin navigation can arrive before the document-start event.
+    if (target.origin !== documentOrigin.current) {
+      retirePermissionDocument();
+      clearNotification();
+      if (current.session.hasPendingMessage()) rejectSignature();
+    } else if (permissionHistoryPending.current && next.sameDocumentHistory === true) {
+      // Do not revive the retired approval or the directory's automatic access.
+      // Only a native committed same-document history event can reopen manual consent.
+      permissionHistoryPending.current = false;
+      permissionDocumentActive.current = true;
+    }
+    if (target.origin !== current.origin) curatedDocument.current = 'retired';
     setPage({ origin: target.origin, canGoBack: next.canGoBack, canGoForward: next.canGoForward });
   };
 
   const close = () => {
     current?.session.revoke();
+    retirePermissionDocument();
     clearNotification();
     onClose();
   };
@@ -653,14 +735,14 @@ export function DappBrowserScreen({
             shouldLoad={shouldLoad}
           />
         </View>
-        {pendingOrigin ? (
+        {pendingPermission ? (
           <DappConnectSheet
             address={current.selection.address}
             networkLabel={networkLabel(current.selection.networkId)}
-            onAllowAlways={() => choosePermission('always')}
-            onAllowOnce={() => choosePermission('once')}
-            onReject={() => choosePermission('reject')}
-            origin={pendingOrigin}
+            onAllowAlways={() => choosePermission(pendingPermission, 'always')}
+            onAllowOnce={() => choosePermission(pendingPermission, 'once')}
+            onReject={() => choosePermission(pendingPermission, 'reject')}
+            origin={pendingPermission.origin}
             visible
           />
         ) : null}

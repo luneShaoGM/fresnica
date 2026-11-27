@@ -174,6 +174,7 @@ public final class DappBrowserNetworkTest extends Instrumentation {
         test("fabric-sep53-handle-fail-closed", transport::handlesFailClosed);
         test("fabric-sep53-new-document-expires-old-reply", transport::newDocumentExpiresOldReply);
         test("fabric-sep53-history-retains-current-document", transport::historyRetainsCurrentDocument);
+        test("fabric-toolbar-history-confirms-same-document", transport::toolbarHistoryConfirmsSameDocument);
       } finally {
         runOnMainSync(() -> activity.setContentView(webview));
       }

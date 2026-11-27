@@ -26,6 +26,7 @@ for FRESNICA_BROWSER_CASE in \
   fabric-sep53-success-original-document \
   fabric-sep53-handle-fail-closed \
   fabric-sep53-new-document-expires-old-reply \
-  fabric-sep53-history-retains-current-document; do
+  fabric-sep53-history-retains-current-document \
+  fabric-toolbar-history-confirms-same-document; do
   grep -Fq "PASS $FRESNICA_BROWSER_CASE" test-results/dapp-browser-native.log
 done

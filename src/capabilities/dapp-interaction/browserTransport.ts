@@ -5,6 +5,8 @@ export type DappBrowserNavigation = Readonly<{
   url: string;
   canGoBack: boolean;
   canGoForward: boolean;
+  // Native confirmation of a committed, same-document toolbar history move.
+  sameDocumentHistory?: true;
 }>;
 
 export type DappMessageReplyTarget = Readonly<{ replyId: string; expiresAt?: number }>;
@@ -13,7 +15,13 @@ export type DappBrowserSurfaceProps = Readonly<{
   url: string;
   nonce: string;
   shouldLoad: (url: string) => boolean;
-  onMessage: (data: string, messageUrl: string, replyId?: string, replyExpiresAt?: number) => void;
+  onMessage: (
+    data: string,
+    messageUrl: string,
+    replyId?: string,
+    replyExpiresAt?: number,
+    firstCommittedDocumentUrl?: string,
+  ) => void;
   onReplyExpired?: (replyId: string, origin: string) => void;
   onNavigation: (navigation: DappBrowserNavigation) => void;
   onDocumentStart: (url: string) => void;
