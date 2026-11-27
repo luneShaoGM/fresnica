@@ -19,9 +19,13 @@ let mockUnresolved: unknown[] = [];
 let mockSigners: { id: string; publicKey: string; kind: string; envelopeJson?: string; backupState?: string }[] = [
   { id: 's', publicKey: 'GS', kind: 'protected-software', envelopeJson: '{encrypted}', backupState: 'confirmed' },
 ];
-let mockAccounts: { networkId: string; id?: string }[] = [];
+let mockAccounts: (Pick<AccountRecord, 'networkId'> & Partial<AccountRecord>)[] = [];
 const mockRepository = {
   listAccounts: () => mockAccounts,
+  findAccountIdByAddress: (address: string, networkId: string) =>
+    mockAccounts.find(account =>
+      account.address === address && (account.identityKind === 'classic' || account.networkId === networkId),
+    )?.id,
   listSigners: () => mockSigners,
   getAccount: (id: string) => mockAccounts.find(account => account.id === id),
   deleteAccount: (id: string) => {

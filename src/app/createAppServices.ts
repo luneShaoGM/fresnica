@@ -611,9 +611,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
             classicByAddress.set(address, classic);
             if (classicByAddress.size > 256) classicByAddress.delete(classicByAddress.keys().next().value!);
           }
-          return repository
-            .listAccounts()
-            .find(account => account.address === classic && account.networkId === network.id)?.id;
+          return storedAccounts.findAccountIdByAddress(classic, network.id);
         };
       })(),
       loadImage: async (url, signal) => (await publicAssetTransport.readAvatar(url, signal)).dataUri,
