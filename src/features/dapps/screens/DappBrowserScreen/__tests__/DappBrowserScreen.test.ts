@@ -303,6 +303,7 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
       source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
       messagedId: 63,
       error: 'unsupported',
+      apiError: { code: -1, apiCode: -1, message: 'unsupported' },
     });
     expect(signer).not.toHaveBeenCalled();
     expect(find(render(true, signer), node => node.type === DappConnectSheet)).toBeUndefined();
@@ -1733,6 +1734,7 @@ describe('Classic dApp transaction review', () => {
           source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
           messagedId: 76,
           error: expired ? 'request-expired' : 'submission-uncertain',
+          apiError: { code: -1, apiCode: -1, message: expired ? 'request-expired' : 'submission-uncertain' },
         },
         { replyId },
       ],
@@ -1741,6 +1743,7 @@ describe('Classic dApp transaction review', () => {
           source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
           messagedId: 77,
           error: 'submission-uncertain',
+          apiError: { code: -1, apiCode: -1, message: 'submission-uncertain' },
         },
         { replyId: secondReplyId },
       ],

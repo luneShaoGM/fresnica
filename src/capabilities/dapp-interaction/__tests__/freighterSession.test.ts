@@ -264,6 +264,7 @@ describe('S15/S18 Freighter in-WebView read-only wallet bridge', () => {
         source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
         messagedId: 42,
         error: 'unsupported',
+        apiError: { code: -1, apiCode: -1, message: 'unsupported' },
       },
     });
     expect(JSON.stringify(received)).not.toMatch(/signedTransaction|signerAddress|publicKey|secret/);
@@ -331,7 +332,7 @@ describe('S15/S18 Freighter in-WebView read-only wallet bridge', () => {
       session.receive(request('SUBMIT_TRANSACTION', 5, { transactionXdr: 'AAAA', network: 'PUBLIC' }), origin),
     ).toMatchObject({
       kind: 'respond',
-      response: { error: 'wrong-network', messagedId: 5 },
+      response: { error: 'wrong-network', messagedId: 5, apiError: { apiCode: -1, message: 'wrong-network' } },
     });
     expect(
       session.receive(request('SUBMIT_TRANSACTION', 6, { transactionXdr: 'AAAA', accountToSign: 'GOTHER' }), origin),
@@ -352,7 +353,11 @@ describe('S15/S18 Freighter in-WebView read-only wallet bridge', () => {
     });
     const again = session.receive(request('SUBMIT_TRANSACTION', 9, { transactionXdr: 'AAAA' }), origin);
     expect(again.kind).toBe('sign-transaction');
-    expect(session.finishSign({ status: 'declined' })).toMatchObject({ error: 'user-declined', messagedId: 9 });
+    expect(session.finishSign({ status: 'declined' })).toMatchObject({
+      error: 'user-declined',
+      messagedId: 9,
+      apiError: { code: -2, apiCode: -2, message: 'User declined the request' },
+    });
     expect(session.finishSign({ status: 'signed', signedTransaction: 'BBBB', signerAddress: 'GABC' })).toBeNull();
   });
 
