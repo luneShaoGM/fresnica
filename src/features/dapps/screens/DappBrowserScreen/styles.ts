@@ -34,6 +34,7 @@ export function createStyles(theme: AppTheme) {
       borderTopWidth: 1,
       borderTopColor: theme.colors.border,
     },
+    recoveryValue: { color: theme.colors.textPrimary, fontSize: 13 },
     error: { color: theme.colors.textSecondary, padding: 18 },
   });
 }

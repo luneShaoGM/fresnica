@@ -51,7 +51,11 @@ function transaction(issuer = request.issuer) {
 
 beforeEach(() => jest.resetAllMocks());
 
-it('submits only the already reviewed exact trustline through the existing product path', async () => {
+const transactionHash = 'a'.repeat(64);
+it.each([
+  [{ status: 'submitted', hash: transactionHash, authorization: 'passphrase' }, { status: 'added' }],
+  [{ status: 'uncertain', transactionHash }, { status: 'submission-uncertain', transactionHash }],
+] as const)('preserves the result of submitting the exact reviewed trustline (%j)', async (result, expected) => {
   const deps = dependencies();
   const review = {
     transactionXdrBase64: transaction(),
@@ -63,7 +67,7 @@ it('submits only the already reviewed exact trustline through the existing produ
     limit: '4.0000000',
   };
   prepare.mockResolvedValue(review);
-  submit.mockResolvedValue({ status: 'submitted', hash: 'hash', authorization: 'passphrase' });
+  submit.mockResolvedValue(result);
   const staged = await createDappAssetRequest(deps)(selection, request);
   expect(staged?.intent.operations[0]).toMatchObject({
     type: 'change-trust',
@@ -71,10 +75,10 @@ it('submits only the already reviewed exact trustline through the existing produ
     limit: '4.0000000',
   });
   expect(submit).not.toHaveBeenCalled();
-  expect(await staged?.submit('passphrase', () => false)).toBe('asset-failed');
+  expect(await staged?.submit('passphrase', () => false)).toEqual({ status: 'asset-failed' });
   expect(submit).not.toHaveBeenCalled();
   const current = () => true;
-  await expect(staged?.submit('passphrase', current)).resolves.toBe('added');
+  await expect(staged?.submit('passphrase', current)).resolves.toEqual(expected);
   expect(submit).toHaveBeenCalledWith(deps, account, review, '', 'passphrase', current);
 });
 

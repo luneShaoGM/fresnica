@@ -725,7 +725,7 @@
   "dapps.sign.payment": "Payment",
   "dapps.sign.createAccount": "Create account",
   "dapps.sign.addTrustline": "Add or update trustline",
-  "dapps.sign.assetUncertain": "Trustline submission is not confirmed. Do not resubmit; check the wallet’s pending transaction.",
+  "dapps.sign.assetUncertain": "Trustline submission is unconfirmed. Copy the original transaction hash to check its status before submitting again.",
   "dapps.sign.addAssetNotice": "Fresnica will submit this trustline transaction if you approve.",
   "dapps.sign.trustlineLimit": "Trustline limit",
   "dapps.sign.trustlineReserve": "A new trustline can increase your locked XLM reserve. The limit is not a payment amount.",

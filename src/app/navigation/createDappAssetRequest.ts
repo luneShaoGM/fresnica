@@ -57,17 +57,17 @@ export function createDappAssetRequest(deps: TrustlineProductDependencies): Dapp
       intent,
       contractId,
       submit: async (passphrase, isCurrent) => {
-        if (!passphrase || !isCurrent()) return 'asset-failed';
+        if (!passphrase || !isCurrent()) return { status: 'asset-failed' };
         const result = await submitTrustlineProductReview(deps, account, review, '', passphrase, isCurrent);
         switch (result.status) {
           case 'submitted':
-            return 'added';
+            return { status: 'added' };
           case 'passphrase-required':
-            return 'passphrase-required';
+            return { status: 'passphrase-required' };
           case 'uncertain':
-            return 'submission-uncertain';
+            return { status: 'submission-uncertain', transactionHash: result.transactionHash };
           default:
-            return 'asset-failed';
+            return { status: 'asset-failed' };
         }
       },
     };

@@ -141,7 +141,7 @@ export function DappBrowserScreen({
   const curatedDocument = useRef<'unconfirmed' | 'confirmed' | 'retired'>('unconfirmed');
   const hasDocumentStarted = useRef(false);
   const [signError, setSignError] = useState(false);
-  const [assetSubmissionUncertain, setAssetSubmissionUncertain] = useState(false);
+  const [uncertainAssetHash, setUncertainAssetHash] = useState<string>();
   const [permissionStorageError, setPermissionStorageError] = useState(false);
   const currentSession = () => live.current && !stale && current?.session.isLive() === true;
 
@@ -542,17 +542,17 @@ export function DappBrowserScreen({
         if (!appPassphrase) return;
         const result = await request.asset.submit(appPassphrase, isCurrent);
         // A broadcast can outlive the website's reply, but still needs wallet recovery.
-        if (result === 'submission-uncertain') setAssetSubmissionUncertain(true);
+        if (result.status === 'submission-uncertain') setUncertainAssetHash(result.transactionHash);
         if (!isCurrent()) return;
-        if (result === 'passphrase-required') {
+        if (result.status === 'passphrase-required') {
           setSignError(true);
           return;
         }
         transactionTarget.current = undefined;
         const completed = current.session.finishSign(
-          result === 'added'
+          result.status === 'added'
             ? { status: 'asset-added', contractId: request.asset.contractId }
-            : { status: 'failed', error: result },
+            : { status: 'failed', error: result.status },
         );
         setPendingSign(undefined);
         if (completed) reply(completed, request.target);
@@ -841,10 +841,19 @@ export function DappBrowserScreen({
           </Text>
           <ToolButton glyph="×" label={t('dapps.browser.close')} onPress={close} styles={styles} />
         </View>
-        {assetSubmissionUncertain ? (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {t('dapps.sign.assetUncertain')}
-          </Text>
+        {uncertainAssetHash !== undefined ? (
+          <View style={styles.permission}>
+            <Text accessibilityRole="alert" style={styles.heading}>
+              {t('dapps.sign.assetUncertain')}
+            </Text>
+            <Text style={styles.recoveryValue}>
+              {t('dapps.permission.network')}: {networkLabel(current.selection.networkId)}
+            </Text>
+            <Text style={styles.recoveryValue}>{t('dapps.sign.hash')}</Text>
+            <Text selectable style={styles.recoveryValue}>
+              {uncertainAssetHash}
+            </Text>
+          </View>
         ) : null}
         {messageExpired ? <Text style={styles.error}>{t('dapps.signMessage.expired')}</Text> : null}
         {pendingNotification ? (

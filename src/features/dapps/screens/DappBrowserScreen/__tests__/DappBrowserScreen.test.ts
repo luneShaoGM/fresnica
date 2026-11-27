@@ -163,6 +163,7 @@ function render(
 type NodeProps = Readonly<{
   children?: React.ReactNode;
   label?: string;
+  selectable?: boolean;
   onPress?: () => void;
   onAllowOnce?: () => void;
   onAllowAlways?: () => void;
@@ -1589,7 +1590,7 @@ describe('native SEP-53 reply deadline', () => {
 
   it('requires a native document handle and a fresh approval before submitting a Classic asset', async () => {
     const origin = 'https://demo.example.org';
-    const submit = jest.fn(async () => 'added' as const);
+    const submit = jest.fn(async () => ({ status: 'added' as const }));
     const addAsset = jest.fn(async () => ({
       intent: { hash: 'hash', source: 'GSOURCE', sequence: '7', fee: '100', memo: null, operations: [] },
       contractId: 'USD:GISSUER',
@@ -1659,11 +1660,12 @@ describe('Classic dApp transaction review', () => {
     expect(find(tree, node => node.props.children === network)).toBeDefined();
   });
 
-  it('keeps the wallet warning when asset submission becomes uncertain after native reply expiry', async () => {
+  it.each([false, true])('keeps the uncertain asset hash in the wallet (expired=%s)', async expired => {
     const origin = 'https://demo.example.org';
     const replyId = 'asset-document';
-    let finishSubmission!: (result: 'submission-uncertain') => void;
-    const submission = new Promise<'submission-uncertain'>(resolve => {
+    const result = { status: 'submission-uncertain', transactionHash: 'a'.repeat(64) } as const;
+    let finishSubmission!: (value: typeof result) => void;
+    const submission = new Promise<typeof result>(resolve => {
       finishSubmission = resolve;
     });
     const submit = jest.fn((_passphrase: string, _isCurrent: () => boolean) => submission);
@@ -1698,17 +1700,27 @@ describe('Classic dApp transaction review', () => {
     const [, isCurrent] = submit.mock.calls[0];
     expect(isCurrent()).toBe(true);
 
-    browser?.props.onReplyExpired?.(replyId, origin);
-    expect(isCurrent()).toBe(false);
-    expect(find(show(), node => node.type === DappSignSheet)).toBeUndefined();
-    expect(replies.mock.calls).toEqual([
-      [expect.objectContaining({ messagedId: 76, error: 'request-expired' }), { replyId }],
-    ]);
-
-    finishSubmission('submission-uncertain');
+    if (expired) {
+      browser?.props.onReplyExpired?.(replyId, origin);
+      expect(isCurrent()).toBe(false);
+      expect(find(show(), node => node.type === DappSignSheet)).toBeUndefined();
+    }
+    finishSubmission(result);
     await submission;
 
-    expect(find(show(), node => node.props.children === 'dapps.sign.assetUncertain')).toBeDefined();
-    expect(replies).toHaveBeenCalledTimes(1);
+    const tree = show();
+    expect(find(tree, node => node.props.children === 'dapps.sign.assetUncertain')).toBeDefined();
+    expect(find(tree, node => node.props.children === result.transactionHash)?.props.selectable).toBe(true);
+    expect(find(tree, node => node.type === DappSignSheet)).toBeUndefined();
+    expect(replies.mock.calls).toEqual([
+      [
+        {
+          source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
+          messagedId: 76,
+          error: expired ? 'request-expired' : 'submission-uncertain',
+        },
+        { replyId },
+      ],
+    ]);
   });
 });

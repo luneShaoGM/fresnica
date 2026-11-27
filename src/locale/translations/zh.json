@@ -725,7 +725,7 @@
   "dapps.sign.payment": "付款",
   "dapps.sign.createAccount": "创建账户",
   "dapps.sign.addTrustline": "添加或更新信任线",
-  "dapps.sign.assetUncertain": "信任线提交尚未确认。请勿重发，先查看钱包中的待确认交易。",
+  "dapps.sign.assetUncertain": "信任线提交尚未确认。请复制原始交易哈希，核对状态后再提交。",
   "dapps.sign.addAssetNotice": "确认后，Fresnica 将提交这笔信任线交易。",
   "dapps.sign.trustlineLimit": "信任线上限",
   "dapps.sign.trustlineReserve": "新增信任线可能增加锁定的 XLM 储备。上限不是付款金额。",
