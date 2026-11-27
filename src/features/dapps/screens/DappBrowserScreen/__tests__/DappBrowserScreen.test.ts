@@ -1660,7 +1660,7 @@ describe('Classic dApp transaction review', () => {
     expect(find(tree, node => node.props.children === network)).toBeDefined();
   });
 
-  it.each([false, true])('keeps the uncertain asset hash in the wallet (expired=%s)', async expired => {
+  it.each([false, true])('keeps both uncertain asset hashes in the wallet (expired=%s)', async expired => {
     const origin = 'https://demo.example.org';
     const replyId = 'asset-document';
     const result = { status: 'submission-uncertain', transactionHash: 'a'.repeat(64) } as const;
@@ -1668,7 +1668,11 @@ describe('Classic dApp transaction review', () => {
     const submission = new Promise<typeof result>(resolve => {
       finishSubmission = resolve;
     });
-    const submit = jest.fn((_passphrase: string, _isCurrent: () => boolean) => submission);
+    const nextResult: typeof result = { ...result, transactionHash: 'b'.repeat(64) };
+    const submit = jest
+      .fn((_passphrase: string, _isCurrent: () => boolean) => submission)
+      .mockImplementationOnce(() => submission)
+      .mockResolvedValueOnce(nextResult);
     const addAsset: DappAssetRequest = async () => ({
       intent: { hash: 'hash', source: 'GSOURCE', sequence: '7', fee: '100', memo: null, operations: [] },
       contractId: 'USD:GISSUER',
@@ -1680,18 +1684,20 @@ describe('Classic dApp transaction review', () => {
     browser?.props.onMessage?.(request('REQUEST_ACCESS', 75), origin);
     find(show(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
     replies.mockClear();
-    browser?.props.onMessage?.(
-      JSON.stringify({
-        source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
-        token,
-        type: 'SUBMIT_TOKEN',
-        issuer: 'GISSUER',
-        assetCode: 'USD',
-        messageId: 76,
-      }),
-      origin,
-      replyId,
-    );
+    const requestAsset = (messageId: number, assetCode: string, handle: string) =>
+      browser?.props.onMessage?.(
+        JSON.stringify({
+          source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
+          token,
+          type: 'SUBMIT_TOKEN',
+          issuer: 'GISSUER',
+          assetCode,
+          messageId,
+        }),
+        origin,
+        handle,
+      );
+    requestAsset(76, 'USD', replyId);
     await Promise.resolve();
     await Promise.resolve();
 
@@ -1708,9 +1714,18 @@ describe('Classic dApp transaction review', () => {
     finishSubmission(result);
     await submission;
 
+    const secondReplyId = 'asset-document-2';
+    requestAsset(77, 'EUR', secondReplyId);
+    await Promise.resolve();
+    await Promise.resolve();
+    find(show(), node => node.type === DappSignSheet)?.props.onConfirm?.('test passphrase');
+    expect(submit).toHaveBeenCalledTimes(2);
+    await submit.mock.results[1].value;
+
     const tree = show();
     expect(find(tree, node => node.props.children === 'dapps.sign.assetUncertain')).toBeDefined();
     expect(find(tree, node => node.props.children === result.transactionHash)?.props.selectable).toBe(true);
+    expect(find(tree, node => node.props.children === nextResult.transactionHash)?.props.selectable).toBe(true);
     expect(find(tree, node => node.type === DappSignSheet)).toBeUndefined();
     expect(replies.mock.calls).toEqual([
       [
@@ -1720,6 +1735,14 @@ describe('Classic dApp transaction review', () => {
           error: expired ? 'request-expired' : 'submission-uncertain',
         },
         { replyId },
+      ],
+      [
+        {
+          source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
+          messagedId: 77,
+          error: 'submission-uncertain',
+        },
+        { replyId: secondReplyId },
       ],
     ]);
   });

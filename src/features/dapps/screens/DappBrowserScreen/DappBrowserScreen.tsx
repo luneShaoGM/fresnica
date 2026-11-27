@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState, type ComponentType, type RefAttributes } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import type {
   DappBrowserNavigation,
@@ -141,7 +141,7 @@ export function DappBrowserScreen({
   const curatedDocument = useRef<'unconfirmed' | 'confirmed' | 'retired'>('unconfirmed');
   const hasDocumentStarted = useRef(false);
   const [signError, setSignError] = useState(false);
-  const [uncertainAssetHash, setUncertainAssetHash] = useState<string>();
+  const [uncertainAssetHashes, setUncertainAssetHashes] = useState<string[]>([]);
   const [permissionStorageError, setPermissionStorageError] = useState(false);
   const currentSession = () => live.current && !stale && current?.session.isLive() === true;
 
@@ -542,7 +542,10 @@ export function DappBrowserScreen({
         if (!appPassphrase) return;
         const result = await request.asset.submit(appPassphrase, isCurrent);
         // A broadcast can outlive the website's reply, but still needs wallet recovery.
-        if (result.status === 'submission-uncertain') setUncertainAssetHash(result.transactionHash);
+        if (result.status === 'submission-uncertain') {
+          const { transactionHash } = result;
+          setUncertainAssetHashes(hashes => (hashes.includes(transactionHash) ? hashes : [...hashes, transactionHash]));
+        }
         if (!isCurrent()) return;
         if (result.status === 'passphrase-required') {
           setSignError(true);
@@ -841,8 +844,8 @@ export function DappBrowserScreen({
           </Text>
           <ToolButton glyph="×" label={t('dapps.browser.close')} onPress={close} styles={styles} />
         </View>
-        {uncertainAssetHash !== undefined ? (
-          <View style={styles.permission}>
+        {uncertainAssetHashes.length > 0 ? (
+          <ScrollView style={styles.recovery} contentContainerStyle={styles.permission}>
             <Text accessibilityRole="alert" style={styles.heading}>
               {t('dapps.sign.assetUncertain')}
             </Text>
@@ -850,10 +853,12 @@ export function DappBrowserScreen({
               {t('dapps.permission.network')}: {networkLabel(current.selection.networkId)}
             </Text>
             <Text style={styles.recoveryValue}>{t('dapps.sign.hash')}</Text>
-            <Text selectable style={styles.recoveryValue}>
-              {uncertainAssetHash}
-            </Text>
-          </View>
+            {uncertainAssetHashes.map(hash => (
+              <Text key={hash} selectable style={styles.recoveryValue}>
+                {hash}
+              </Text>
+            ))}
+          </ScrollView>
         ) : null}
         {messageExpired ? <Text style={styles.error}>{t('dapps.signMessage.expired')}</Text> : null}
         {pendingNotification ? (
