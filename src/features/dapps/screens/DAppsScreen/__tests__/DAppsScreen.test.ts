@@ -175,6 +175,7 @@ type NodeProps = Readonly<{
   autoCorrect?: boolean;
   secureTextEntry?: boolean;
   onPress?: () => void;
+  refreshControl?: React.ReactElement<{ refreshing: boolean; onRefresh: () => void }>;
   onChangeText?: (value: string) => void;
   onSubmitEditing?: () => void;
   disabled?: boolean;
@@ -214,6 +215,62 @@ function openUrlSheetFrom(nodes: ReturnType<typeof elements>) {
 }
 
 afterAll(() => jest.restoreAllMocks());
+
+describe('dApp catalog pull to refresh', () => {
+  beforeEach(resetHarness);
+
+  it('keeps existing entries during a pull, coalesces repeated pulls, and displays fresh results', async () => {
+    let resolveRefresh: ((value: Awaited<ReturnType<DappCatalogPort['load']>>) => void) | undefined;
+    const load = jest.fn()
+      .mockResolvedValueOnce({ kind: 'ready', entries: [entry] })
+      .mockImplementationOnce(() => new Promise(resolve => { resolveRefresh = resolve; }));
+    const catalog: DappCatalogPort = { load };
+    const selectRefresh = (tree: React.ReactNode) =>
+      elements(tree).find(node => node.props.refreshControl)?.props.refreshControl;
+    const first = selectRefresh(await renderCatalog(catalog));
+    expect(first?.props.refreshing).toBe(false);
+    first?.props.onRefresh();
+    first?.props.onRefresh();
+    const waiting = await renderCatalog(catalog);
+    expect(selectRefresh(waiting)?.props.refreshing).toBe(true);
+    expect(elements(waiting).some(node => node.props.accessibilityLabel === 'dapps.details.open: Demo Exchange')).toBe(true);
+    expect(load).toHaveBeenCalledTimes(2);
+    resolveRefresh?.({ kind: 'ready', entries: [{ ...entry, title: 'Updated directory entry' }] });
+    const done = await renderCatalog(catalog);
+    expect(selectRefresh(done)?.props.refreshing).toBe(false);
+    expect(elements(done).some(node => node.props.accessibilityLabel === 'dapps.details.open: Updated directory entry')).toBe(true);
+  });
+
+  it('ends the spinner and retains the catalog as stale when a refresh fails', async () => {
+    const load = jest.fn()
+      .mockResolvedValueOnce({ kind: 'ready', entries: [entry] })
+      .mockRejectedValueOnce(new Error('network unavailable'));
+    const catalog: DappCatalogPort = { load };
+    const control = (tree: React.ReactNode) =>
+      elements(tree).find(node => node.props.refreshControl)?.props.refreshControl;
+    control(await renderCatalog(catalog))?.props.onRefresh();
+    const done = await renderCatalog(catalog);
+    expect(control(done)?.props.refreshing).toBe(false);
+    const nodes = elements(done);
+    expect(nodes.some(node => node.props.children === 'dapps.catalog.stale')).toBe(true);
+    expect(nodes.some(node => node.props.accessibilityLabel === 'dapps.details.open: Demo Exchange')).toBe(true);
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not expose pull to refresh on Recent or while offline', async () => {
+    const load = jest.fn().mockResolvedValue({ kind: 'ready', entries: [entry] });
+    const catalog: DappCatalogPort = { load };
+    const initial = elements(await renderCatalog(catalog));
+    initial.filter(node => node.props.accessibilityState?.selected !== undefined)[1]?.props.onPress?.();
+    const recentNodes = elements(await renderCatalog(catalog));
+    expect(recentNodes.some(node => node.props.title === 'dapps.website.recentEmpty')).toBe(true);
+    expect(recentNodes.some(node => node.props.refreshControl)).toBe(false);
+    resetHarness();
+    const offlineNodes = elements(await renderCatalog(catalog, false, true, false));
+    expect(offlineNodes.some(node => node.props.refreshControl)).toBe(false);
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('DAppsScreen native field and retry', () => {
   it('uses the Tab Bar bottom inset and a compact catalog scroll ending', async () => {

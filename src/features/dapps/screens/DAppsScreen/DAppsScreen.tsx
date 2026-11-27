@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import type { DappRecentHistory } from '@capabilities/dapp-interaction/dappRecentHistory';
 import { useDappRecent } from '../../useDappRecent';
@@ -10,7 +10,6 @@ import { BottomSheet, Screen } from '@ui/components';
 import { SelectableChip } from '@ui/components/SelectableChip';
 import { NativeButton } from '@ui/components/NativeButton';
 import { NativeField } from '@ui/components/NativeField';
-import { NativeScreen } from '@ui/components/NativeScreen';
 import { NativeStateView } from '@ui/components/NativeStateView';
 import { useThemedStyles } from '@ui/theme';
 
@@ -63,6 +62,8 @@ export function DAppsScreen({
   const [sampleQuery, setSampleQuery] = useState('');
   const [sampleCategory, setSampleCategory] = useState<string>();
   const [retryCount, setRetryCount] = useState(0);
+  const [refreshingCatalog, setRefreshingCatalog] = useState(false);
+  const catalogLoadPending = useRef(false);
   const [state, setState] = useState<CatalogState>({ kind: online ? 'loading' : 'offline' });
   const [websiteInput, setWebsiteInput] = useState('');
   const [urlSheetOpen, setUrlSheetOpen] = useState(false);
@@ -115,6 +116,8 @@ export function DAppsScreen({
       setSelectedDetail(undefined);
     }
     if (!active || !online) {
+      catalogLoadPending.current = false;
+      setRefreshingCatalog(false);
       let cached: DappCatalogLoadResult | undefined;
       if (!online) {
         try {
@@ -132,6 +135,7 @@ export function DAppsScreen({
       return;
     }
     let current = true;
+    catalogLoadPending.current = true;
     setState(previous =>
       !changedCatalog && previous.kind === 'ready' ? { ...previous, stale: true } : { kind: 'loading' },
     );
@@ -150,6 +154,12 @@ export function DAppsScreen({
           setState(previous =>
             previous.kind === 'ready' ? { ...previous, refreshFailed: true, stale: true } : { kind: 'error' },
           );
+      })
+      .finally(() => {
+        if (current) {
+          catalogLoadPending.current = false;
+          setRefreshingCatalog(false);
+        }
       });
     return () => {
       current = false;
@@ -347,7 +357,24 @@ export function DAppsScreen({
 
   return (
     <Screen scrollable={false} contentInset="none" safeAreaEdges={['top', 'right', 'left']}>
-      <NativeScreen padded={false} scroll>
+      <ScrollView
+        style={styles.safeArea}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          section === 'home' && active && focused && online ? (
+            <RefreshControl
+              refreshing={refreshingCatalog}
+              onRefresh={() => {
+                if (catalogLoadPending.current) return;
+                catalogLoadPending.current = true;
+                setRefreshingCatalog(true);
+                setRetryCount(value => value + 1);
+              }}
+            />
+          ) : undefined
+        }
+      >
         <View style={styles.content}>
           <View style={styles.header}>
             <Text style={styles.title}>{t('nav.dapps')}</Text>
@@ -658,7 +685,7 @@ export function DAppsScreen({
             </Text>
           ) : null}
         </View>
-      </NativeScreen>
+      </ScrollView>
     </Screen>
   );
 }

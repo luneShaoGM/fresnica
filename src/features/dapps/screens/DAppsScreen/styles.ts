@@ -8,6 +8,7 @@ export function createStyles(theme: AppTheme) {
       flex: 1,
       backgroundColor: theme.colors.background,
     },
+    scrollContent: { flexGrow: 1 },
     content: {
       paddingHorizontal: 18,
       paddingTop: 8,
