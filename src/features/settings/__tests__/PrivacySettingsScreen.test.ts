@@ -114,8 +114,8 @@ it('requires independent persisted address-avatar consent and explains full addr
     .map(element => String(element.props.children))
     .join(' ');
   expect(text).toContain('horizon.stellarcn.org');
-  expect(text).toContain('full displayed counterparty public addresses');
-  expect(text).toContain('wallet addresses explicitly selected for online avatars');
+  expect(text).toContain('complete public address of any displayed account');
+  expect(text).toContain('cached on this device for up to seven days');
   expect(text).toContain('local identicons');
   elements(render(), Switch)[1].props.onValueChange?.(true);
   expect(write).not.toHaveBeenCalled();
@@ -128,7 +128,7 @@ it('requires independent persisted address-avatar consent and explains full addr
   expect(write).toHaveBeenCalledWith(
     expect.objectContaining({
       externalAccountAvatarsEnabled: true,
-      externalAccountAvatarsConsentVersion: 1,
+      externalAccountAvatarsConsentVersion: 2,
       externalTokenImagesEnabled: true,
     }),
   );

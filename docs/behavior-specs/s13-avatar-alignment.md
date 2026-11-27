@@ -19,27 +19,24 @@ secret, network, or theme participates in the seed. Unknown/non-address and
 contract/document symbols keep generic fallback. Identicons are decorative,
 not unique or identity proofs.
 
-Existing wallet-wide informed online permission remains default OFF. A stored
-Classic account defaults to local even if prior wallet-wide consent was granted;
-only a deliberate per-account selection while global permission is on allows
-the owned address to be requested on any avatar surface. A displayed muxed
-address follows the stored Classic account embedded in it, and stays local
-unless that account was explicitly selected. Muxed addresses that do not embed
-a stored account remain counterparties. Counterparty addresses
-retain the existing global opt-in behavior. Account ID preference is durable in
-the existing validated preferences JSON; Classic identity is shared across
-network contexts by the existing repository contract, not by new network
-authority. Global opt-out clears all per-account online choices; consent history
-is retained. Failed persistence leaves prior selection. Online loading/failure,
-expiry, rejection, and offline cache miss display local Identicon. Local selection
-retires in-flight loads and prevents late publication. No Token permission or
-signer/account lifecycle changes; M-address payment support remains paused.
+The unified account-avatar setting in Settings > Privacy applies to every
+displayed full public G/M address. It applies equally to saved wallet accounts,
+contacts and other participants, while different full addresses keep separate
+image identities. Account Details no longer has a separate source preference.
+Review the updated [S04 consent](s04-account-avatar-consent.md) before enabling
+the broader permission. Global OFF uses local identicons and clears the image
+cache. No Token permission, signer/account lifecycle or M-address payment
+support changes.
 
-Settings > Accounts > Account details selects the source after enabling the
-existing Settings > Privacy online permission. Home, account picker, account
-list/detail, Wallet Ready, Activity, contacts/destination picker, Send review and
-Swap share AccountAvatar. Existing shared image frame, safe transport and bounded
-online cache remain. Native visuals and device acceptance require separate proof.
+Home, account picker, account list/detail, Wallet Ready, Activity,
+contacts/destination picker, Send review and Swap share AccountAvatar. The
+shared memory cache remains capped at 64 images with a 10-minute lifetime.
+Native disk cache is checked before downloading. It is scoped by network and
+exact full address, limited to 128 images, 16 MiB total and 256 KiB per image,
+and expires seven days after download. Cache hits work offline after restart.
+Concurrent consumers of an address share one request and cancel independently.
+A disk miss, expired or rejected image, and unavailable transport fall back to
+the local identicon. Native visual/device acceptance remains separate.
 
 ## Presentation (historical baseline, superseded where stated above)
 
@@ -121,8 +118,8 @@ only bounded inline PNG/JPEG data URIs, never external URLs. At most two active
 account image loads, bounded waiting, six-second per-consumer budget; cancel on
 consumer leave, background/offline, OFF, retirement. Independent caller aborts
 must not cancel another consumer; duplicate queued identities reuse completed
-memory images. At most64 memory-only images,10-minuteTTL, no persistent image or
-address log. OFF/close clear memory; late results cannot repopulate it. Readability
+memory images. The current cache limits and disk behavior are specified above. No address logs.
+OFF and close clear memory; late results cannot repopulate it. Readability
 changes invalidate waiting work and cause mounted active rows to retry on resume.
 Cache identity is exact trimmed address within the network-service lifetime;
 network retirement clears it. Decode failure retires that image and stays generic

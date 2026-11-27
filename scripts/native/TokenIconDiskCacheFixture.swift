@@ -85,6 +85,22 @@ struct TokenIconDiskCacheFixture {
     try expectFailure { try reopened.write(session: enabledAgain, key: asset, sourceUrl: sourceUrl, base64: png.base64EncodedString()) }
     try reopened.close(session: "", clearAll: true)
 
+    let avatarDirectory = root.appendingPathComponent("avatars")
+    let avatarKey = "[\"stellar-mainnet\",\"\(issuer)\"]"
+    let avatarSource = "https://horizon.stellarcn.org/avatar/v2/\(issuer)?size=256"
+    let avatars = TokenIconDiskCache(directory: avatarDirectory, now: { date }, avatar: true)
+    let avatarSession = try avatars.open(owner: "avatar-owner")
+    try avatars.write(session: avatarSession, key: avatarKey, sourceUrl: avatarSource, base64: png.base64EncodedString())
+    try expectFailure { try avatars.write(session: avatarSession, key: avatarKey, sourceUrl: sourceUrl, base64: png.base64EncodedString()) }
+    try avatars.close(session: avatarSession, clearAll: false)
+    let reopenedAvatars = TokenIconDiskCache(directory: avatarDirectory, now: { date }, avatar: true)
+    let renewed = try reopenedAvatars.open(owner: "avatar-restart")
+    expect(try reopenedAvatars.read(session: renewed, key: avatarKey)?.bytes == png, "avatar restart cache hit")
+    expect(try reopenedAvatars.read(session: renewed, key: avatarKey.replacingOccurrences(of: "mainnet", with: "testnet")) == nil, "avatar network isolation")
+    date = date.addingTimeInterval(7 * 24 * 60 * 60)
+    expect(try reopenedAvatars.read(session: renewed, key: avatarKey) == nil, "avatar expiry")
+    print("PASS avatar native cache: restart, source binding, network isolation and expiry")
+
     try verifyFailedPurge(root.appendingPathComponent("failed-purge"), bytes: png)
     try verifyFailedEviction(root.appendingPathComponent("failed-eviction"), bytes: png)
     try verifyLRU(root.appendingPathComponent("lru"), bytes: png)

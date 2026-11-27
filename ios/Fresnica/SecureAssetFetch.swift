@@ -14,6 +14,11 @@ final class SecureAssetFetch: NSObject {
       TokenIconDiskCache(directory: $0.appendingPathComponent("public-token-icons-v1", isDirectory: true))
     }
 
+  private static let avatarCache: TokenIconDiskCache? = FileManager.default
+    .urls(for: .cachesDirectory, in: .userDomainMask).first.map {
+      TokenIconDiskCache(directory: $0.appendingPathComponent("public-account-avatars-v1", isDirectory: true), avatar: true)
+    }
+
   @objc static func requiresMainQueueSetup() -> Bool { true }
   @objc var methodQueue: DispatchQueue { .main }
 
@@ -103,13 +108,58 @@ final class SecureAssetFetch: NSObject {
     }
   }
 
+  @objc(openAvatarCache:resolver:rejecter:)
+  func openAvatarCache(_ epoch: String, resolver resolve: @escaping RCTPromiseResolveBlock,
+                     rejecter reject: @escaping RCTPromiseRejectBlock) {
+    let owner = cacheOwner
+    performCache(resolve, reject, cache: Self.avatarCache) { try $0.open(owner: owner, epoch: epoch) }
+  }
+
+  @objc(readAvatarCache:key:resolver:rejecter:)
+  func readAvatarCache(_ session: String, key: String,
+                     resolver resolve: @escaping RCTPromiseResolveBlock,
+                     rejecter reject: @escaping RCTPromiseRejectBlock) {
+    performCache(resolve, reject, cache: Self.avatarCache) { try $0.read(session: session, key: key)?.bridgeValue }
+  }
+
+  @objc(writeAvatarCache:key:sourceUrl:base64:resolver:rejecter:)
+  func writeAvatarCache(_ session: String, key: String, sourceUrl: String, base64: String,
+                      resolver resolve: @escaping RCTPromiseResolveBlock,
+                      rejecter reject: @escaping RCTPromiseRejectBlock) {
+    performCache(resolve, reject, cache: Self.avatarCache) {
+      try $0.write(session: session, key: key, sourceUrl: sourceUrl, base64: base64)
+      return nil
+    }
+  }
+
+  @objc(removeAvatarCache:key:resolver:rejecter:)
+  func removeAvatarCache(_ session: String, key: String,
+                       resolver resolve: @escaping RCTPromiseResolveBlock,
+                       rejecter reject: @escaping RCTPromiseRejectBlock) {
+    performCache(resolve, reject, cache: Self.avatarCache) {
+      try $0.remove(session: session, key: key)
+      return nil
+    }
+  }
+
+  @objc(closeAvatarCache:clearAll:resolver:rejecter:)
+  func closeAvatarCache(_ session: String, clearAll: Bool,
+                      resolver resolve: @escaping RCTPromiseResolveBlock,
+                      rejecter reject: @escaping RCTPromiseRejectBlock) {
+    performCache(resolve, reject, cache: Self.avatarCache) {
+      try $0.close(session: session, clearAll: clearAll)
+      return nil
+    }
+  }
+
   private func performCache(_ resolve: @escaping RCTPromiseResolveBlock,
                             _ reject: @escaping RCTPromiseRejectBlock,
+                            cache: TokenIconDiskCache? = SecureAssetFetch.iconCache,
                             _ operation: @escaping (TokenIconDiskCache) throws -> Any?) {
     guard !retired else { reject("asset-cache-unavailable", "asset-cache-unavailable", nil); return }
     Self.cacheQueue.async {
       do {
-        guard let cache = Self.iconCache else { throw TokenIconDiskCache.Failure.unavailable }
+        guard let cache else { throw TokenIconDiskCache.Failure.unavailable }
         resolve(try operation(cache))
       } catch {
         reject("asset-cache-unavailable", "asset-cache-unavailable", nil)
@@ -121,7 +171,10 @@ final class SecureAssetFetch: NSObject {
     retired = true
     Array(active.values).forEach { $0.cancel() }
     let owner = cacheOwner
-    Self.cacheQueue.async { Self.iconCache?.closeOwner(owner) }
+    Self.cacheQueue.async {
+      Self.iconCache?.closeOwner(owner)
+      Self.avatarCache?.closeOwner(owner)
+    }
   }
 }
 

@@ -25,7 +25,6 @@ export function createNetworkSettings(
     assertCanSwitch: (target: NetworkId) => void;
     restart: () => void;
     isForeground: () => boolean;
-    hasAvatarAccount?: (id: string) => boolean;
   }>,
 ) {
   let snapshot: NetworkSettingsSnapshot = Object.freeze({
@@ -134,29 +133,21 @@ export function createNetworkSettings(
     setExternalAccountAvatarsEnabled(value: boolean, disclosureAccepted = false) {
       if (typeof value !== 'boolean') return Promise.reject(new Error('invalid-account-avatar-preference'));
       return run(async signal => {
-        if (value && snapshot.preferences.externalAccountAvatarsConsentVersion !== 1 && !disclosureAccepted)
+        const current = snapshot.preferences;
+        if (value && current.externalAccountAvatarsConsentVersion !== 2 && !disclosureAccepted)
           throw new Error('account-avatar-consent-required');
         save(
           {
-            ...snapshot.preferences,
+            ...current,
             externalAccountAvatarsEnabled: value,
-            ...(value ? { externalAccountAvatarsConsentVersion: 1 as const } : { onlineAccountAvatarIds: [] }),
+            ...(value ? { externalAccountAvatarsConsentVersion: 2 as const } : {}),
+            ...(!value && current.externalAccountAvatarsEnabled
+              ? { accountAvatarCacheEpoch: (current.accountAvatarCacheEpoch ?? 0) + 1 }
+              : {}),
           },
           signal,
           false,
         );
-      });
-    },
-    setAccountAvatarOnline(accountId: string, online: boolean) {
-      return run(async signal => {
-        if (typeof online !== 'boolean' || !deps.hasAvatarAccount?.(accountId))
-          throw new Error('invalid-account-avatar-preference');
-        const current = snapshot.preferences;
-        if (online && !current.externalAccountAvatarsEnabled) throw new Error('account-avatar-consent-required');
-        const ids = new Set(current.onlineAccountAvatarIds ?? []);
-        if (online) ids.add(accountId);
-        else ids.delete(accountId);
-        save({ ...current, onlineAccountAvatarIds: [...ids] }, signal, false);
       });
     },
     setExternalTokenImagesEnabled(value: boolean) {

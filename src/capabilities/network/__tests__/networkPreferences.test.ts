@@ -98,7 +98,7 @@ it('keeps legacy account avatars OFF without coupling Token image permission', (
         ...DEFAULT_NETWORK_PREFERENCES,
         externalTokenImagesEnabled: token,
         externalAccountAvatarsEnabled: true,
-        externalAccountAvatarsConsentVersion: 1,
+        externalAccountAvatarsConsentVersion: 2,
       }).externalAccountAvatarsEnabled,
     ).toBe(true);
   }
@@ -116,22 +116,19 @@ it('migrates legacy default-on and explicit-on without disclosure to OFF', () =>
     validateNetworkPreferences({
       ...DEFAULT_NETWORK_PREFERENCES,
       externalAccountAvatarsEnabled: false,
-      externalAccountAvatarsConsentVersion: 1,
+      externalAccountAvatarsConsentVersion: 2,
     }).externalAccountAvatarsEnabled,
   ).toBe(false);
   expect(() =>
-    validateNetworkPreferences({ ...DEFAULT_NETWORK_PREFERENCES, externalAccountAvatarsConsentVersion: 2 }),
+    validateNetworkPreferences({ ...DEFAULT_NETWORK_PREFERENCES, externalAccountAvatarsConsentVersion: 3 }),
   ).toThrow('invalid-network-preferences');
 });
 
-it('normalizes per-account avatar selections only with durable global consent', () => {
-  const base = { ...DEFAULT_NETWORK_PREFERENCES, onlineAccountAvatarIds: ['one'] };
-  expect(validateNetworkPreferences(base).onlineAccountAvatarIds).toBeUndefined();
-  const consent = { ...base, externalAccountAvatarsEnabled: true, externalAccountAvatarsConsentVersion: 1 };
-  expect(validateNetworkPreferences(consent).onlineAccountAvatarIds).toEqual(['one']);
-  expect(Object.isFrozen(validateNetworkPreferences(consent).onlineAccountAvatarIds)).toBe(true);
-  for (const invalid of [true, [''], [1], ['one', 'one']])
-    expect(() => validateNetworkPreferences({ ...consent, onlineAccountAvatarIds: invalid })).toThrow(
-      'invalid-network-preferences',
-    );
+it('requires new consent before expanding an existing avatar opt-in', () => {
+  expect(validateNetworkPreferences({
+    ...DEFAULT_NETWORK_PREFERENCES,
+    externalAccountAvatarsEnabled: true,
+    externalAccountAvatarsConsentVersion: 1,
+    onlineAccountAvatarIds: ['one'],
+  })).toEqual(DEFAULT_NETWORK_PREFERENCES);
 });

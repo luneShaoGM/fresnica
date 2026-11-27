@@ -145,7 +145,6 @@ export function SettingsStackNavigator({
           return (
             <AccountDetailsRoute
               account={account}
-              avatarSettings={services.networkSettings}
               copyPublicText={services.copyPublicText}
               canHide={account.hidden || visibleAccountCount > 1}
               onOpenRecovery={services.recoveryManagement ? () => navigation.navigate('recovery-material', { accountId: account.id }) : undefined}

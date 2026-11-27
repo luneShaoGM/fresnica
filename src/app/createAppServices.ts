@@ -4,7 +4,6 @@ import { RealmContractAssetStore } from '@platform/persistence/realm/RealmContra
 import { createDappRecentHistory, type DappRecentHistory } from '../capabilities/dapp-interaction/dappRecentHistory';
 import { RealmDappRecentRepository } from '../platform/persistence/realm/RealmDappRecentRepository';
 import { createMarkets, type Markets } from '../capabilities/markets/createMarkets';
-import { embeddedClassicAddress } from '../platform/stellar/embeddedClassicAddress';
 import { StellarMarketGateway } from '../platform/stellar/StellarMarketGateway';
 import { horizonReadJson } from '../platform/stellar/horizonReadHttp';
 import { createSecuritySettings, type SecuritySettings } from '@capabilities/application-security/securitySettings';
@@ -57,7 +56,7 @@ import type { TokenIconPort } from '../capabilities/assets/TokenIcons';
 import { createNativeSafePublicTransport } from '../platform/assets/NativeSafePublicTransport';
 import { createTokenMetadataPort } from '../platform/assets/TokenMetadataResolver';
 import { createTokenIconPort } from '../platform/assets/TokenIconPort';
-import { createNativeTokenIconCache } from '../platform/assets/NativeTokenIconCache';
+import { createNativeAccountAvatarCache, createNativeTokenIconCache } from '../platform/assets/NativeTokenIconCache';
 import { RealmTokenMetadataRepository } from '../platform/persistence/realm/RealmTokenMetadataRepository';
 import { createHttpAssetCatalog } from '../platform/assets/HttpAssetCatalog';
 import { createCachedAssetCatalog } from '../platform/assets/CachedAssetCatalog';
@@ -523,10 +522,6 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       networkSettings = createNetworkSettings({
         store: preferences,
         initial: initialPreferences,
-        hasAvatarAccount: id => {
-          const account = repository.getAccount(id);
-          return account?.identityKind === 'classic' && account.networkId === network.id;
-        },
         probe: publicReads.probe,
         isForeground: () => ledgerReadRuntime.getSnapshot().foreground,
         assertCanSwitch: target => {
@@ -618,25 +613,17 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const accountAvatars = createAccountAvatarPort({
       available: publicAssetTransport.available,
       initialEnabled: initialPreferences.externalAccountAvatarsEnabled === true,
-      initialOnlineAccountIds: initialPreferences.onlineAccountAvatarIds,
-      resolveAccountId: (() => {
-        // Memoize the pure checksum-decode; account membership stays live below.
-        const classicByAddress = new Map<string, string>();
-        return (address: string) => {
-          let classic = classicByAddress.get(address);
-          if (classic === undefined) {
-            classic = embeddedClassicAddress(address) ?? address;
-            classicByAddress.set(address, classic);
-            if (classicByAddress.size > 256) classicByAddress.delete(classicByAddress.keys().next().value!);
-          }
-          return storedAccounts.findAccountIdByAddress(classic, network.id);
-        };
-      })(),
+      diskCache:
+        networkSettings &&
+        createNativeAccountAvatarCache(
+          network.id,
+          () => networkSettings?.getSnapshot().preferences.accountAvatarCacheEpoch ?? 0,
+        ),
       loadImage: async (url, signal) => (await publicAssetTransport.readAvatar(url, signal)).dataUri,
     });
     const syncAvatarRuntime = () => {
       const runtime = ledgerReadRuntime.getSnapshot();
-      accountAvatars.setReadable(runtime.foreground && runtime.connectivity !== 'offline');
+      accountAvatars.setReadable(runtime.foreground && runtime.connectivity !== 'offline', runtime.foreground);
     };
     syncAvatarRuntime();
     const stopAvatarRuntime = ledgerReadRuntime.subscribe(syncAvatarRuntime);
@@ -649,7 +636,6 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       stopIconPrivacySync = settings.subscribe(() => {
         const avatarPreferences = settings.getSnapshot().preferences;
         accountAvatars.setEnabled(avatarPreferences.externalAccountAvatarsEnabled === true);
-        accountAvatars.setOnlineAccountIds(avatarPreferences.onlineAccountAvatarIds ?? []);
         tokenIcons.setEnabled(settings.getSnapshot().preferences.externalTokenImagesEnabled !== false);
       });
     }

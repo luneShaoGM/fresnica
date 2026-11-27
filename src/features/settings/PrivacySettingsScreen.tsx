@@ -59,7 +59,7 @@ export function PrivacySettingsScreen({
   };
   const setAccountAvatars = (value: boolean) => {
     if (!settings || saving || snapshot.busy || avatarFlight.current) return;
-    if (value && snapshot.preferences.externalAccountAvatarsConsentVersion !== 1) {
+    if (value && snapshot.preferences.externalAccountAvatarsConsentVersion !== 2) {
       setSaveFailed(false);
       setAvatarPrompt(true);
     } else persistAccountAvatars(value);

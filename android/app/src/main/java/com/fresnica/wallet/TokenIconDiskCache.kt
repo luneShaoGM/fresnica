@@ -23,6 +23,7 @@ internal class TokenIconDiskCache(
   private val directory: File,
   private val now: () -> Long = System::currentTimeMillis,
   private val imageMime: (ByteArray) -> String? = PublicAssetValidation::checkedImageMime,
+  private val avatar: Boolean = false,
 ) {
   data class Entry(val mimeType: String, val bytes: ByteArray, val sourceUrl: String, val savedAtUnixMs: Long)
 
@@ -35,6 +36,10 @@ internal class TokenIconDiskCache(
     var epoch = "0"
   }
 
+  private val imageLimit = if (avatar) MAX_AVATAR_IMAGE_BYTES else MAX_IMAGE_BYTES
+  private val entryLimit = imageLimit + MAX_SOURCE_BYTES + 84
+  private val byteLimit = if (avatar) 16L * 1024 * 1024 else MAX_BYTES
+  private val countLimit = if (avatar) 128 else MAX_ENTRIES
   private val state = states.computeIfAbsent(directory.absoluteFile.normalize().path) { State() }
   private val ownedSessions = mutableSetOf<String>()
   private var retired = false
@@ -90,19 +95,19 @@ internal class TokenIconDiskCache(
     val entry = try {
       check(Files.isRegularFile(file.toPath(), LinkOption.NOFOLLOW_LINKS))
       val length = file.length()
-      check(length in 1..MAX_ENTRY_BYTES.toLong())
+      check(length in 1..entryLimit.toLong())
       val envelope = ByteArray(length.toInt())
       DataInputStream(file.inputStream()).use { input ->
         input.readFully(envelope)
         check(input.read() == -1)
       }
-      check(envelope.size in 84..MAX_ENTRY_BYTES)
+      check(envelope.size in 84..entryLimit)
       val payload = envelope.copyOfRange(0, envelope.size - 32)
       check(MessageDigest.isEqual(hash(payload), envelope.copyOfRange(payload.size, envelope.size)))
       DataInputStream(ByteArrayInputStream(payload)).use { input ->
         check(input.readInt() == MAGIC)
         val savedAt = input.readLong()
-        check(savedAt > 0)
+        check(savedAt > 0 && (!avatar || fresh(savedAt)))
         val savedIdentity = ByteArray(32).also(input::readFully)
         check(MessageDigest.isEqual(identity, savedIdentity))
         val sourceSize = input.readInt()
@@ -111,9 +116,9 @@ internal class TokenIconDiskCache(
           .onMalformedInput(CodingErrorAction.REPORT)
           .onUnmappableCharacter(CodingErrorAction.REPORT)
           .decode(ByteBuffer.wrap(ByteArray(sourceSize).also(input::readFully))).toString()
-        check(PublicAssetValidation.safeAssetUrl(source) != null)
+        check(validSource(key, source))
         val imageSize = input.readInt()
-        check(imageSize in 1..MAX_IMAGE_BYTES)
+        check(imageSize in 1..imageLimit)
         val bytes = ByteArray(imageSize).also(input::readFully)
         check(input.read() == -1)
         val mime = imageMime(bytes) ?: error("invalid image")
@@ -125,7 +130,7 @@ internal class TokenIconDiskCache(
     }
     synchronized(state.lock) {
       requireSessionLocked(sessionId)
-      if (entry != null) file.setLastModified(now())
+      if (entry != null && !avatar) file.setLastModified(now())
       entry
     }
   }
@@ -133,8 +138,8 @@ internal class TokenIconDiskCache(
   fun write(sessionId: String, key: String, sourceUrl: String, bytes: ByteArray): Unit = synchronized(state.ioLock) {
     requireSession(sessionId)
     val identity = identityHash(key)
-    check(PublicAssetValidation.safeAssetUrl(sourceUrl) != null)
-    check(bytes.size in 1..MAX_IMAGE_BYTES && imageMime(bytes) != null)
+    check(validSource(key, sourceUrl))
+    check(bytes.size in 1..imageLimit && imageMime(bytes) != null)
     val source = sourceUrl.toByteArray(Charsets.UTF_8)
     check(source.size in 1..MAX_SOURCE_BYTES)
     val savedAt = now()
@@ -211,26 +216,37 @@ internal class TokenIconDiskCache(
     for (file in directory.listFiles() ?: throw IOException("cache unavailable")) {
       if (!file.name.startsWith(prefix) || !ENTRY_NAME.matches(file.name.removePrefix(prefix)) ||
           !Files.isRegularFile(file.toPath(), LinkOption.NOFOLLOW_LINKS) ||
-          file.length() !in 1..MAX_ENTRY_BYTES.toLong()) {
+          file.length() !in 1..entryLimit.toLong() || (avatar && !fresh(file.lastModified()))) {
         Files.deleteIfExists(file.toPath())
       } else files.add(file)
     }
     var size = files.sumOf { it.length() } + reservedBytes
     var count = files.size + reservedEntries
     for (file in files.sortedWith(compareBy<File> { it.lastModified() }.thenBy { it.name })) {
-      if (size <= MAX_BYTES && count <= MAX_ENTRIES) break
+      if (size <= byteLimit && count <= countLimit) break
       if (file.name == preserveName) continue
       val length = file.length()
       Files.delete(file.toPath())
       size -= length
       count -= 1
     }
-    check(size <= MAX_BYTES && count <= MAX_ENTRIES)
+    check(size <= byteLimit && count <= countLimit)
   }
 
   private fun identityHash(key: String): ByteArray {
-    require(KEY.matches(key))
+    require((if (avatar) AVATAR_KEY else KEY).matches(key))
     return hash(key.toByteArray(Charsets.UTF_8))
+  }
+
+  private fun fresh(savedAt: Long): Boolean {
+    val time = now()
+    return savedAt > 0 && savedAt <= time && time - savedAt < 7L * 24 * 60 * 60 * 1000
+  }
+
+  private fun validSource(key: String, source: String): Boolean {
+    if (!avatar) return PublicAssetValidation.safeAssetUrl(source) != null
+    val address = AVATAR_KEY.matchEntire(key)?.groupValues?.get(2) ?: return false
+    return source == "https://horizon.stellarcn.org/avatar/v2/$address?size=256"
   }
 
   private fun fileFor(identity: ByteArray): File =
@@ -249,11 +265,12 @@ internal class TokenIconDiskCache(
     const val MAX_ENTRIES = 500
     const val MAX_IMAGE_BYTES = 65_536
     private const val MAX_SOURCE_BYTES = 8192
-    private const val MAX_ENTRY_BYTES = MAX_IMAGE_BYTES + MAX_SOURCE_BYTES + 84
+    const val MAX_AVATAR_IMAGE_BYTES = 262_144
     private const val MAGIC = 0x46494331
     private val EPOCH = Regex("0|[1-9][0-9]{0,15}")
     private val ENTRY_NAME = Regex("[a-f0-9]{64}\\.icon")
     private val KEY = Regex("""^\["(stellar-mainnet|stellar-testnet)","[A-Za-z0-9]{1,12}","G[A-Z2-7]{55}"\]$""")
+    private val AVATAR_KEY = Regex("""^\["(stellar-mainnet|stellar-testnet)","(G[A-Z2-7]{55}|M[A-Z2-7]{68})"\]$""")
     private val states = ConcurrentHashMap<String, State>()
   }
 }
