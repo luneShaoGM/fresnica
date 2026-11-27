@@ -107,6 +107,7 @@ export function DappBrowserScreen({
   const [pendingPermission, setPendingPermission] = useState<PendingPermission>();
   const permissionRequest = useRef<PendingPermission | undefined>(undefined);
   const permissionDocumentActive = useRef(true);
+  const permissionHistoryPending = useRef(false);
   const [page, setPage] = useState({ origin: '', canGoBack: false, canGoForward: false });
   type NotificationRequest = Extract<BridgeDecision, { kind: 'notification' }> & {
     origin: string;
@@ -190,6 +191,7 @@ export function DappBrowserScreen({
   const retirePermissionDocument = () => {
     // An early navigation event retires consent before a new document starts.
     permissionDocumentActive.current = false;
+    permissionHistoryPending.current = false;
     settlePermission();
   };
 
@@ -517,7 +519,10 @@ export function DappBrowserScreen({
 
   const navigateBrowser = (action: 'goBack' | 'goForward' | 'reload') => {
     curatedDocument.current = 'retired';
+    const historyPending =
+      action !== 'reload' && (permissionDocumentActive.current || permissionHistoryPending.current);
     retirePermissionDocument();
+    permissionHistoryPending.current = historyPending;
     clearNotification();
     if (current?.session.hasPendingMessage()) rejectSignature();
     surface.current?.[action]();
@@ -612,6 +617,7 @@ export function DappBrowserScreen({
     documentEpoch.current += 1;
     documentOrigin.current = target.origin;
     current.session.activateDocument(target.origin);
+    permissionHistoryPending.current = false;
     permissionDocumentActive.current = true;
     if (currentSession()) onVisit?.(target.origin);
     signGeneration.current += 1;
@@ -637,6 +643,11 @@ export function DappBrowserScreen({
       retirePermissionDocument();
       clearNotification();
       if (current.session.hasPendingMessage()) rejectSignature();
+    } else if (permissionHistoryPending.current && next.sameDocumentHistory === true) {
+      // Do not revive the retired approval or the directory's automatic access.
+      // Only a native committed same-document history event can reopen manual consent.
+      permissionHistoryPending.current = false;
+      permissionDocumentActive.current = true;
     }
     if (target.origin !== current.origin) curatedDocument.current = 'retired';
     setPage({ origin: target.origin, canGoBack: next.canGoBack, canGoForward: next.canGoForward });

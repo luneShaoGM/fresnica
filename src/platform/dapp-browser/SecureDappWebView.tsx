@@ -102,13 +102,17 @@ export const SecureDappWebView = forwardRef<DappBrowserSurfaceHandle, DappBrowse
           const nativeEvent = event.nativeEvent as typeof event.nativeEvent & { isDocumentStart?: boolean };
           if (nativeEvent.isDocumentStart !== false) onDocumentStart(nativeEvent.url);
         }}
-        onNavigationStateChange={event =>
+        onNavigationStateChange={event => {
+          const nativeEvent = event as typeof event & { sameDocumentHistory?: unknown };
           onNavigation({
             url: event.url,
             canGoBack: event.canGoBack,
             canGoForward: event.canGoForward,
-          })
-        }
+            ...(Platform.OS === 'android' && nativeEvent.sameDocumentHistory === true
+              ? { sameDocumentHistory: true as const }
+              : {}),
+          });
+        }}
         allowsBackForwardNavigationGestures
         onMessage={event => {
           const nativeEvent = event.nativeEvent as typeof event.nativeEvent & {

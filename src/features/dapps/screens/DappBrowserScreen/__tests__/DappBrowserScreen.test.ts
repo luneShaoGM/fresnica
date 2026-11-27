@@ -528,6 +528,58 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     });
   });
 
+  it.each(['back', 'forward'] as const)('reopens manual consent only after confirmed same-document toolbar %s', action => {
+    render();
+    refs[1].current = { reply: replies, goBack, goForward, reload };
+    const webview = find(render(), node => node.type === BrowserSurface);
+    const origin = 'https://demo.example.org';
+    const navigation = { url: origin + '/next', canGoBack: true, canGoForward: true };
+    webview?.props.onDocumentStart?.(origin + '/start');
+    webview?.props.onNavigation?.(navigation);
+    webview?.props.onMessage?.(request('REQUEST_ACCESS', 80), origin);
+    const oldApprove = find(render(), node => node.type === DappConnectSheet)?.props.onAllowAlways;
+    expect(oldApprove).toBeDefined();
+
+    find(render(), node => node.props.label === `dapps.browser.${action}`)?.props.onPress?.();
+    expect(action === 'back' ? goBack : goForward).toHaveBeenCalledTimes(1);
+    oldApprove?.();
+    webview?.props.onNavigation?.(navigation);
+    webview?.props.onMessage?.(request('REQUEST_ACCESS', 81), origin);
+    expect(find(render(), node => node.type === DappConnectSheet)).toBeUndefined();
+    expect(hasDappReadGrant(origin, selection.accountId, selection.networkId)).toBe(false);
+
+    webview?.props.onNavigation?.({ ...navigation, sameDocumentHistory: true });
+    const replyId = '74f3db5b-10b8-4abd-8198-cfc869980745';
+    webview?.props.onMessage?.(request('REQUEST_ACCESS', 82), origin, replyId);
+    const newApprove = find(render(), node => node.type === DappConnectSheet)?.props.onAllowAlways;
+    expect(newApprove).toBeDefined();
+    oldApprove?.();
+    expect(hasDappReadGrant(origin, selection.accountId, selection.networkId)).toBe(false);
+    newApprove?.();
+    expect(hasDappReadGrant(origin, selection.accountId, selection.networkId)).toBe(true);
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 82, publicKey: 'GSOURCE' }), { replyId });
+  });
+
+  it.each(['reload', 'cross-origin'] as const)('does not reopen retired consent from a history event after %s', action => {
+    render();
+    refs[1].current = { reply: replies, goBack, goForward, reload };
+    const webview = find(render(), node => node.type === BrowserSurface);
+    const origin = 'https://demo.example.org';
+    const navigation = { url: origin + '/next', canGoBack: true, canGoForward: true };
+    webview?.props.onDocumentStart?.(origin + '/start');
+    webview?.props.onNavigation?.(navigation);
+    find(render(), node => node.props.label === 'dapps.browser.back')?.props.onPress?.();
+    if (action === 'reload') find(render(), node => node.props.label === 'dapps.browser.reload')?.props.onPress?.();
+    else webview?.props.onNavigation?.({ ...navigation, url: 'https://next.example.org/' });
+    webview?.props.onNavigation?.({ ...navigation, sameDocumentHistory: true });
+    webview?.props.onMessage?.(request('REQUEST_ACCESS', 83), origin);
+    expect(find(render(), node => node.type === DappConnectSheet)).toBeUndefined();
+    expect(hasDappReadGrant(origin, selection.accountId, selection.networkId)).toBe(false);
+    webview?.props.onDocumentStart?.(origin + '/new');
+    webview?.props.onMessage?.(request('REQUEST_ACCESS', 84), origin);
+    expect(find(render(), node => node.type === DappConnectSheet)).toBeDefined();
+  });
+
   it('invalidates the old consent prompt when the user reloads the same URL', () => {
     render();
     refs[1].current = { reply: replies, reload };

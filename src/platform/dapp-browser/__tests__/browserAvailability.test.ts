@@ -129,6 +129,27 @@ describe('Android native network readiness boundary', () => {
   });
 });
 
+it('forwards only explicit Android native same-document history confirmation', () => {
+  Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+  NativeModules.DappNetworkGuard = { available: true, prepare: async () => undefined };
+  ready = true;
+  const onNavigation = jest.fn();
+  const onDocumentStart = jest.fn();
+  const tree = transport.render({ ...props, onNavigation, onDocumentStart }, null) as React.ReactElement<{
+    onNavigationStateChange: (event: Record<string, unknown>) => void;
+    onLoadStart: (event: { nativeEvent: Record<string, unknown> }) => void;
+  }>;
+  const navigation = { url: props.url, canGoBack: true, canGoForward: false };
+  tree.props.onLoadStart({ nativeEvent: { ...navigation, isDocumentStart: false } });
+  tree.props.onNavigationStateChange({ ...navigation, isDocumentStart: false });
+  expect(onDocumentStart).not.toHaveBeenCalled();
+  expect(onNavigation).toHaveBeenLastCalledWith(navigation);
+  tree.props.onNavigationStateChange({ ...navigation, sameDocumentHistory: 'true' });
+  expect(onNavigation).toHaveBeenLastCalledWith(navigation);
+  tree.props.onNavigationStateChange({ ...navigation, isDocumentStart: false, sameDocumentHistory: true });
+  expect(onNavigation).toHaveBeenLastCalledWith({ ...navigation, sameDocumentHistory: true });
+});
+
 it('uses only native iOS deadline metadata and withholds an incomplete reply handle', () => {
   Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
   const onMessage = jest.fn();

@@ -672,6 +672,34 @@ export type WebViewOpenWindowEvent`,
         installFresnicaNavigationTracking();`,
   },
   {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java',
+    applied: 'mRNCWebViewClient.emitFresnicaSameDocumentHistory',
+    from: `            @Override public void onNavigationCompleted(@NonNull androidx.webkit.Navigation navigation) {
+                if (!navigation.equals(fresnicaLaunchNavigation)) return;`,
+    to: `            @Override public void onNavigationCompleted(@NonNull androidx.webkit.Navigation navigation) {
+                // A generic visited-history event is not proof of a same-document traversal.
+                if (navigation.isSameDocument() && navigation.isHistory() &&
+                    !navigation.wasInitiatedByPage() && navigation.didCommit() &&
+                    !navigation.didCommitErrorPage() && mRNCWebViewClient != null && getUrl() != null) {
+                    mRNCWebViewClient.emitFresnicaSameDocumentHistory(RNCWebView.this, getUrl());
+                }
+                if (!navigation.equals(fresnicaLaunchNavigation)) return;`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java',
+    applied: 'void emitFresnicaSameDocumentHistory',
+    from: '    protected WritableMap createWebViewEvent(WebView webView, String url) {',
+    to: `    void emitFresnicaSameDocumentHistory(RNCWebView webView, String url) {
+      WritableMap event = createWebViewEvent(webView, url);
+      event.putBoolean("isDocumentStart", false);
+      event.putBoolean("sameDocumentHistory", true);
+      webView.dispatchEvent(webView, new TopLoadingStartEvent(
+        RNCWebViewWrapper.getReactTagFromWebView(webView), event));
+    }
+
+    protected WritableMap createWebViewEvent(WebView webView, String url) {`,
+  },
+  {
     file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java',
     applied: 'confirmFresnicaDocumentUrl(url)',
     from: '    public void onPageFinished(WebView webView, String url) {',
