@@ -22,6 +22,7 @@ import {
 } from './swapCurrentSession';
 import { AddAccountScreen } from '@features/accounts/AddAccountScreen';
 import { AddAssetSheet } from '@features/trustlines/AddAssetSheet';
+import { ContractAssetsPanel } from '@features/assets/ContractAssetsPanel';
 import { AssetDetailsSheet } from '@features/home/AssetDetailsSheet';
 import { HomeScreen } from '@features/home/HomeScreen';
 import { ClaimableScreen } from '@features/claimable/ClaimableScreen';
@@ -100,6 +101,16 @@ export function HomeStackNavigator({
         })
       : () => false;
 
+  const captureContractSession = (isCurrentFocusEpoch: () => boolean) =>
+    services.contractAssets
+      ? captureAccountSelectionSession({
+          account: selectedAccount,
+          network: services.contractAssets.network,
+          getCurrentSelection: getCurrentSwapSelection,
+          isCurrentFocusEpoch,
+        })
+      : () => false;
+
   // Async Continue callbacks must read the latest account selection, not their render's captured value.
   const selectionRef = useRef({ selectedAccountId, accounts });
   selectionRef.current = { selectedAccountId, accounts };
@@ -124,6 +135,8 @@ export function HomeStackNavigator({
               key={JSON.stringify([selectedAccount.id, selectedAccount.networkId])}
               navigation={navigation}
               catalog={services.assetCatalog}
+              contractAssets={services.contractAssets}
+              captureContractSession={captureContractSession}
               markets={services.markets}
               marketSelectionRevision={marketSelectionRevision}
               captureMarketSession={captureMarketSession}
@@ -618,6 +631,8 @@ function HomeWithAssetSheets({
   foreground,
   navigation,
   catalog,
+  contractAssets,
+  captureContractSession,
   claimables,
   markets,
   marketSelectionRevision,
@@ -632,6 +647,8 @@ function HomeWithAssetSheets({
   foreground: boolean;
   navigation: NativeStackNavigationProp<HomeStackParamList, 'home'>;
   catalog: AppServices['assetCatalog'];
+  contractAssets?: AppServices['contractAssets'];
+  captureContractSession: (isCurrentFocusEpoch: () => boolean) => () => boolean;
   markets?: AppServices['markets'];
   marketSelectionRevision: number;
   captureMarketSession: (isCurrentFocusEpoch: () => boolean) => () => boolean;
@@ -654,6 +671,16 @@ function HomeWithAssetSheets({
   const categoryRef = useRef(categorySelection);
   const assetCategory = categorySelection.value;
   const renderedCategoryEpoch = categorySelection.epoch;
+  const contractFocusEpoch = useRef(0);
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        contractFocusEpoch.current += 1;
+      },
+      [],
+    ),
+  );
+  const renderedContractFocusEpoch = contractFocusEpoch.current;
   const [categoryPickerVisible, setCategoryPickerVisible] = useState(false);
   const [refreshSignal, setRefreshSignal] = useState(0);
   const [claimableState, setClaimableState] = useState<ClaimableState>();
@@ -690,6 +717,7 @@ function HomeWithAssetSheets({
   const chooseCategory = (next: HomeAssetCategory) => {
     if (next === 'pools' && (!markets || props.account.identityKind !== 'classic')) return;
     if (next === 'claimable' && !showClaimable) return;
+    if (next === 'contracts' && (!contractAssets || props.account.identityKind !== 'classic')) return;
     // Advance the non-revivable session epoch synchronously. A fast
     // Claimable -> Assets -> Claimable sequence must never revive an
     // authorization launched by the first Claimable selection.
@@ -731,6 +759,24 @@ function HomeWithAssetSheets({
         onOpenAssetCategory={() => setCategoryPickerVisible(true)}
         onShowClaimable={showClaimable ? () => chooseCategory('claimable') : undefined}
         onClaimablePullRefresh={() => setRefreshSignal(value => value + 1)}
+        contractsContent={
+          assetCategory === 'contracts' && contractAssets && props.account.identityKind === 'classic' ? (
+            <ContractAssetsPanel
+              account={props.account}
+              product={contractAssets}
+              active={active}
+              isCurrent={captureContractSession(
+                () =>
+                  active &&
+                  contractFocusEpoch.current === renderedContractFocusEpoch &&
+                  categoryRef.current.value === 'contracts' &&
+                  categoryRef.current.epoch === renderedCategoryEpoch &&
+                  navigation.isFocused() &&
+                  isSelectedAccount(),
+              )}
+            />
+          ) : undefined
+        }
         poolsContent={
           assetCategory === 'pools' && markets ? (
             <MarketsScreen
@@ -791,6 +837,7 @@ function HomeWithAssetSheets({
         visible={active && categoryPickerVisible}
         current={assetCategory}
         showPools={!!markets && props.account.identityKind === 'classic'}
+        showContracts={!!contractAssets && props.account.identityKind === 'classic'}
         showClaimable={showClaimable}
         onClose={() => setCategoryPickerVisible(false)}
         onSelect={chooseCategory}

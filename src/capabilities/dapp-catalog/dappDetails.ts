@@ -9,7 +9,16 @@ export const DAPP_ICON_WINNER_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const DAPP_ICON_FAILURE_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_SNAPSHOT_BYTES = 8_192;
 
-export type PublicDappDetail = DappCatalogEntry & Readonly<{ longDescription: string; developerName: string }>;
+export type PublicDappDetail = DappCatalogEntry &
+  Readonly<{
+    longDescription: string;
+    developerName: string;
+    developerWebsite?: string;
+    termsUrl?: string;
+    privacyUrl?: string;
+    supportUrl?: string;
+    supportedNetworks?: readonly ('stellar-mainnet' | 'stellar-testnet')[];
+  }>;
 
 export type DappIconPreference = Readonly<{
   winner?: string;
@@ -96,6 +105,19 @@ export function normalizePublicDappDetail(
     ...(iconUrl ? { iconUrl } : {}),
     longDescription: raw.longDescription,
     developerName: raw.developerName,
+    ...Object.fromEntries(
+      ['developerWebsite', 'termsUrl', 'privacyUrl', 'supportUrl'].flatMap(key => {
+        const url = safePublicHttpsUrl(raw[key]);
+        return url ? [[key, url]] : [];
+      }),
+    ),
+    ...(Array.isArray(raw.supportedNetworks)
+      ? {
+          supportedNetworks: (['stellar-mainnet', 'stellar-testnet'] as const).filter(
+            id => raw.supportedNetworks instanceof Array && raw.supportedNetworks.includes(id),
+          ),
+        }
+      : {}),
   });
 }
 

@@ -5,6 +5,8 @@ import {
 } from '../../../capabilities/dapp-interaction/dappRecentHistory';
 import { NativeModules, Platform } from 'react-native';
 
+import type { NetworkSettings } from '@capabilities/network/createNetworkSettings';
+import type { DappNetworkNavigation } from '../dappNetworkResume';
 import type { DappCatalogEntry, DappCatalogPort } from '../../../capabilities/dapp-catalog/catalog';
 import type { DappPublicSelection } from '../../../capabilities/dapp-interaction/freighterSession';
 import type { LedgerReadRuntime } from '../../readModels/LedgerReadRuntime';
@@ -27,7 +29,26 @@ const react = jest.requireActual<typeof import('react')>('react');
 jest
   .spyOn(react, 'useSyncExternalStore')
   .mockImplementation(((_subscribe: unknown, get: () => unknown) => get()) as typeof react.useSyncExternalStore);
-jest.spyOn(react, 'useRef').mockImplementation(((initial: unknown) => ({ current: initial })) as typeof react.useRef);
+jest.spyOn(react, 'useCallback').mockImplementation(((callback: unknown) => callback) as typeof react.useCallback);
+let routeState: unknown[] = [];
+let stateIndex = 0;
+jest.spyOn(react, 'useState').mockImplementation(((initial: unknown) => {
+  const i = stateIndex++;
+  if (!(i in routeState)) routeState[i] = initial;
+  return [
+    routeState[i],
+    (next: unknown) => {
+      routeState[i] = typeof next === 'function' ? (next as (old: unknown) => unknown)(routeState[i]) : next;
+    },
+  ];
+}) as typeof react.useState);
+let renderRefs: Array<{ current: unknown }> | undefined;
+let refIndex = 0;
+jest.spyOn(react, 'useRef').mockImplementation(((initial: unknown) => {
+  if (!renderRefs) return { current: initial };
+  const i = refIndex++;
+  return (renderRefs[i] ??= { current: initial });
+}) as typeof react.useRef);
 
 const { DAppsStackNavigator } = require('../DAppsStackNavigator') as typeof import('../DAppsStackNavigator');
 
@@ -51,7 +72,10 @@ function catalogRoute(
   verified: boolean,
   getSelection: () => DappPublicSelection | undefined = () => selectedWallet,
   recentHistory?: DappRecentHistory,
+  chooseBrowserAccount?: (id: string) => Promise<void>,
+  network?: { settings: NetworkSettings; navigation: DappNetworkNavigation },
 ) {
+  routeState = [];
   const catalog: DappCatalogPort = {
     load: async () => ({ kind: 'ready', entries: [liveEntry] }),
     isTrustedLiveEntry: () => verified,
@@ -59,6 +83,9 @@ function catalogRoute(
   const stack = DAppsStackNavigator({
     catalog,
     recentHistory,
+    chooseBrowserAccount,
+    browserNetworks: network?.settings,
+    dappNetworkNavigation: network?.navigation,
     openExternalUrl: async () => undefined,
     runtime: {
       subscribe: () => () => undefined,
@@ -92,19 +119,38 @@ function catalogRoute(
       recentHistory?: DappRecentHistory;
     }>
   )(listingRoute.props as Record<string, unknown>);
+  const closeBrowser = jest.fn();
   const browserRoute = browser.props.children({
     route: { params: { url: liveEntry.websiteUrl } },
-    navigation: { goBack: jest.fn() },
+    navigation: { goBack: closeBrowser },
   });
-  const browserSurface = () =>
-    (
+  type BrowserProps = {
+    trustedCatalogOrigin?: string;
+    catalogEntry?: DappCatalogEntry;
+    requireFreshConnection?: boolean;
+    onVisit?: (url: string) => void;
+    onSwitchNetwork?: (catalogId?: string) => void;
+    onSwitchAccount?: (id: string, origin: string) => Promise<void>;
+    url: string;
+  };
+  const browserRefs: Array<{ current: unknown }> = [];
+  const browserChildren = () => {
+    stateIndex = refIndex = 0;
+    renderRefs = browserRefs;
+    const fragment = (
       browserRoute.type as (props: Record<string, unknown>) => React.ReactElement<{
-        trustedCatalogOrigin?: string;
-        onVisit?: (url: string) => void;
-        url: string;
+        children: React.ReactNode;
       }>
     )(browserRoute.props as Record<string, unknown>);
-  return { listingSurface, browserSurface };
+    renderRefs = undefined;
+    return React.Children.toArray(fragment.props.children);
+  };
+  const browserSurface = () => {
+    const child = browserChildren().find(React.isValidElement<BrowserProps>);
+    if (!child) throw new Error('browser-surface-unavailable');
+    return child;
+  };
+  return { listingSurface, browserSurface, browserChildren, closeBrowser };
 }
 
 const originalOS = Platform.OS;
@@ -186,6 +232,7 @@ describe('dApps navigation availability by platform', () => {
     const browser = browserSurface();
     expect(browser.props.url).toBe(liveEntry.websiteUrl);
     expect(browser.props.trustedCatalogOrigin).toBe('https://dex.example.org');
+    expect(browser.props.catalogEntry).toBe(liveEntry);
     expect(mockNavigate.mock.calls[0][1]).toEqual({ url: liveEntry.websiteUrl });
   });
 
@@ -202,6 +249,7 @@ describe('dApps navigation availability by platform', () => {
     const manual = catalogRoute(true);
     manual.listingSurface.props.openInApp?.(liveEntry.websiteUrl);
     expect(manual.browserSurface().props.trustedCatalogOrigin).toBeUndefined();
+    expect(manual.browserSurface().props.catalogEntry).toBeUndefined();
 
     const superseded = catalogRoute(true);
     superseded.listingSurface.props.openCatalogInApp?.(liveEntry, true);
@@ -231,4 +279,60 @@ it('wires one shared history to directory and real browser visits without confer
   expect(browser.props.trustedCatalogOrigin).toBeUndefined();
   browser.props.onVisit?.(liveEntry.websiteUrl);
   expect(history.getSnapshot().origins).toEqual(['https://dex.example.org']);
+});
+
+it('opens a new browser instance with no carried consent after an account change', async () => {
+  Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
+  const choose = jest.fn(async (_id: string) => undefined);
+  const { listingSurface, browserSurface } = catalogRoute(true, () => selectedWallet, undefined, choose);
+  listingSurface.props.openCatalogInApp?.(liveEntry, true);
+  const original = browserSurface();
+  expect(original.props.trustedCatalogOrigin).toBe('https://dex.example.org');
+  await original.props.onSwitchAccount?.('wallet-B', 'https://dex.example.org');
+  const restarted = browserSurface();
+  expect(choose).toHaveBeenCalledWith('wallet-B');
+  expect(restarted.key).not.toBe(original.key);
+  expect(restarted.props).toMatchObject({
+    url: 'https://dex.example.org',
+    requireFreshConnection: true,
+    trustedCatalogOrigin: undefined,
+  });
+});
+
+it('never enters an unusable wallet browser from a public row if Classic selection is unavailable', () => {
+  Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
+  const { listingSurface } = catalogRoute(true, () => undefined);
+  expect(listingSurface.props.openInApp).toBeUndefined();
+  expect(listingSurface.props.openCatalogInApp?.(liveEntry, true)).toBe(false);
+  expect(mockNavigate).not.toHaveBeenCalled();
+});
+
+it('keeps the current browser when the network picker is dismissed and stages only a confirmed selection', async () => {
+  Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
+  const selectNode = jest.fn(async () => undefined);
+  const select = jest.fn(
+    async (_request: Parameters<DappNetworkNavigation['select']>[0], action: () => Promise<void>) => action(),
+  );
+  const route = catalogRoute(true, () => selectedWallet, undefined, undefined, {
+    settings: { selectNode } as unknown as NetworkSettings,
+    navigation: { select, consume: jest.fn() },
+  });
+  const picker = () => {
+    const child = route.browserChildren()[1];
+    if (!React.isValidElement<{ onClose: () => void; onSelectNode: NetworkSettings['selectNode'] }>(child))
+      throw new Error('missing-picker');
+    return child.props;
+  };
+  route.listingSurface.props.openCatalogInApp?.(liveEntry, true);
+  const original = route.browserSurface();
+  original.props.onSwitchNetwork?.(liveEntry.id);
+  picker().onClose();
+  expect(route.browserChildren()).toHaveLength(1);
+  expect(route.browserSurface().key).toBe(original.key);
+  expect(route.closeBrowser).not.toHaveBeenCalled();
+  expect(selectNode).not.toHaveBeenCalled();
+  original.props.onSwitchNetwork?.(liveEntry.id);
+  await picker().onSelectNode('stellar-mainnet', 'https://horizon.stellar.org');
+  expect(select).toHaveBeenCalledWith({ catalogId: liveEntry.id, networkId: 'stellar-mainnet' }, expect.any(Function));
+  expect(selectNode).toHaveBeenCalledWith('stellar-mainnet', 'https://horizon.stellar.org');
 });

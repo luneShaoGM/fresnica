@@ -6,6 +6,7 @@ import { createAppServices } from '../createAppServices';
 import { resolveAppBootstrap } from '../resolveBootstrap';
 import { parseRequestDeepLink, resolveRequestDeepLink } from '../requestDeepLinkRouting';
 import { reactNativeRequestDeepLink } from '../../platform/system/requestDeepLink';
+import type { DappNetworkNavigation } from '../navigation/dappNetworkResume';
 import { AppNavigator } from '../navigation/AppNavigator';
 
 jest.mock('../../platform/system/networkConnectivity', () => ({
@@ -306,3 +307,45 @@ it('wires the full device region into number formatting only while system separa
   await flush();
   expect(numberLocale).toBe('de-CH');
 });
+
+it.each(['committed', 'rejected', 'wrong-network'] as const)(
+  'passes only a committed public dApp network intent across service rebuild (%s)',
+  async mode => {
+    const originalAppState = AppState.currentState;
+    AppState.currentState = 'active';
+    try {
+      const request = { catalogId: 'demo', networkId: 'stellar-testnet' } as const;
+      services = {
+        ...services,
+        networkSettings: {
+          getSnapshot: () => ({
+            preferences: { networkId: mode === 'wrong-network' ? 'stellar-mainnet' : request.networkId },
+          }),
+        },
+      } as unknown as AppServices;
+      jest.mocked(createAppServices).mockResolvedValue(services);
+      const before = await flush();
+      const navigation = before.dappNetworkNavigation as DappNetworkNavigation;
+      const options = jest.mocked(createAppServices).mock.calls[0][0];
+      const continuation = { resume: () => 0, isValid: () => true, cancel: jest.fn() };
+      if (mode === 'rejected') {
+        await expect(
+          navigation.select(request, async () => {
+            throw new Error('node-unavailable');
+          }),
+        ).rejects.toThrow('node-unavailable');
+        options?.onNetworkChanged?.(continuation);
+      } else {
+        await navigation.select(request, async () => {
+          options?.onNetworkChanged?.(continuation);
+        });
+      }
+      const next = (await flush()).dappNetworkNavigation as DappNetworkNavigation;
+      expect(next.resume).toEqual(mode === 'committed' ? request : undefined);
+      if (next.resume) next.consume(next.resume);
+      expect(((await flush()).dappNetworkNavigation as DappNetworkNavigation).resume).toBeUndefined();
+    } finally {
+      AppState.currentState = originalAppState;
+    }
+  },
+);

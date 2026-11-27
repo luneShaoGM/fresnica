@@ -1,3 +1,6 @@
+import type { DappContractTracking } from '@capabilities/dapp-interaction/dappContractTracking';
+import type { DappCatalogEntry } from '@capabilities/dapp-catalog/catalog';
+import type { AccountRecord } from '@capabilities/account/types';
 import type { DappAssetRequest } from '../../../../../capabilities/dapp-interaction/dappAssetRequest';
 import React from 'react';
 
@@ -125,6 +128,11 @@ const goForward = jest.fn();
 const reload = jest.fn();
 const navigateClose = jest.fn();
 const onVisit = jest.fn();
+let testCatalogEntry: DappCatalogEntry | undefined;
+let testTracking: DappContractTracking | undefined;
+let testSwitch: ((id: string, origin: string) => Promise<void>) | undefined;
+let testAccounts: readonly AccountRecord[] | undefined;
+const shareWebsite = jest.fn(async (_origin: string) => undefined);
 let subscriber: (() => void) | undefined;
 
 function render(
@@ -142,6 +150,11 @@ function render(
     active,
     onClose: navigateClose,
     onVisit,
+    shareWebsite,
+    trackContract: testTracking,
+    catalogEntry: testCatalogEntry,
+    onSwitchAccount: testSwitch,
+    accountChoices: testAccounts,
     currentSelection: () => selection,
     subscribeSelection: callback => {
       subscriber = callback;
@@ -198,6 +211,10 @@ function find(
   return undefined;
 }
 beforeEach(() => {
+  testTracking = undefined;
+  testCatalogEntry = undefined;
+  testSwitch = undefined;
+  testAccounts = undefined;
   slots.length = 0;
   refs.length = 0;
   effects.length = 0;
@@ -207,6 +224,7 @@ beforeEach(() => {
   reload.mockClear();
   navigateClose.mockClear();
   onVisit.mockClear();
+  shareWebsite.mockClear();
   subscriber = undefined;
   grantKeys.clear();
   permissionEvents.clear();
@@ -1749,4 +1767,191 @@ describe('Classic dApp transaction review', () => {
       ],
     ]);
   });
+});
+
+describe('browser connection controls', () => {
+  const origin = 'https://demo.example.org';
+  const other = { origin, accountId: 'other-wallet', networkId: selection.networkId };
+  const scope = { origin, accountId: selection.accountId, networkId: selection.networkId };
+
+  const openControls = () => {
+    const tree = render();
+    find(tree, node => node.props.label === 'dapps.browser.connection')?.props.onPress?.();
+    return render();
+  };
+
+  it('shows the authorized public address and revokes only the active site/account/network', () => {
+    permissions.grant(scope);
+    permissions.grant(other);
+    const tree = openControls();
+    const web = find(tree, node => node.type === BrowserSurface);
+    expect(find(tree, node => node.props.children === 'dapps.browser.connectedRead')).toBeDefined();
+    expect(find(tree, node => node.props.children === selection.address)).toBeDefined();
+    find(tree, node => node.props.label === 'dapps.browser.disconnect')?.props.onPress?.();
+    expect(navigateClose).toHaveBeenCalledTimes(1);
+    expect(permissions.has(scope)).toBe(false);
+    expect(permissions.has(other)).toBe(true);
+    web?.props.onMessage?.(request('REQUEST_ACCESS', 91), origin);
+    expect(replies).not.toHaveBeenCalled();
+    expect(find(render(), node => node.type === BrowserSurface)).toBeUndefined();
+  });
+
+  it('stops the session but does not claim that a failed revocation was saved', () => {
+    permissions.grant(scope);
+    const revoke = jest.spyOn(permissions, 'revoke').mockImplementationOnce(() => {
+      throw new Error('realm-write-failed');
+    });
+    try {
+      const tree = openControls();
+      find(tree, node => node.props.label === 'dapps.browser.disconnect')?.props.onPress?.();
+      expect(navigateClose).not.toHaveBeenCalled();
+      expect(permissions.has(scope)).toBe(true);
+      const closed = render();
+      expect(find(closed, node => node.type === BrowserSurface)).toBeUndefined();
+      expect(find(closed, node => node.props.children === 'dapps.browser.revokeFailed')).toBeDefined();
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+
+  it('shares only the current site origin and ignores stale controls after navigation', () => {
+    const start = render();
+    const web = find(start, node => node.type === BrowserSurface);
+    const url = origin + '/review?private=fixture#fragment';
+    web?.props.onDocumentStart?.(url);
+    web?.props.onNavigation?.({ url, canGoBack: false, canGoForward: false });
+    const tree = openControls();
+    expect(find(tree, node => node.props.children === 'dapps.browser.disconnected')).toBeDefined();
+    expect(find(tree, node => node.props.children === selection.address)).toBeUndefined();
+    const share = find(tree, node => node.props.label === 'dapps.browser.shareOrigin');
+    share?.props.onPress?.();
+    expect(shareWebsite).toHaveBeenCalledWith(origin);
+    web?.props.onDocumentStart?.('https://other.example.org/path');
+    share?.props.onPress?.();
+    expect(shareWebsite).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Soroban tracking requests', () => {
+  const origin = 'https://demo.example.org';
+  const id = 'C' + 'A'.repeat(55);
+  const target = 'contract-request';
+  const payload = JSON.stringify({
+    source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
+    type: 'SUBMIT_TOKEN',
+    messageId: 404,
+    contractId: id,
+    networkPassphrase: selection.networkPassphrase,
+  });
+
+  function openAssetReview() {
+    permissions.grant({ origin, accountId: selection.accountId, networkId: selection.networkId });
+    render();
+    refs[1].current = { reply: replies };
+    const web = find(render(), node => node.type === BrowserSurface);
+    web?.props.onMessage?.(payload, origin, target);
+    const approve = find(render(), node => node.props.label === 'dapps.contract.confirm')?.props.onPress;
+    expect(approve).toBeDefined();
+    return { web, approve };
+  }
+
+  it('does not read or write before wallet confirmation and returns only to its document', async () => {
+    const track = jest.fn(
+      async (_selection: DappPublicSelection, _id: string, _signal: AbortSignal, isCurrent: () => boolean) =>
+        isCurrent(),
+    );
+    testTracking = { canReview: () => true, track };
+    const { approve } = openAssetReview();
+    expect(track).not.toHaveBeenCalled();
+    approve?.();
+    await Promise.resolve();
+    expect(track).toHaveBeenCalledTimes(1);
+    expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 404, contractId: id }), {
+      replyId: target,
+    });
+  });
+
+  it('refuses contract review until the next document becomes active after toolbar reload', () => {
+    const track = jest.fn(async () => true);
+    testTracking = { canReview: () => true, track };
+    const { web, approve } = openAssetReview();
+    refs[1].current = { reply: replies, reload };
+    find(render(), node => node.props.label === 'dapps.browser.reload')?.props.onPress?.();
+    approve?.();
+    web?.props.onMessage?.(payload, origin, 'next-request');
+    expect(find(render(), node => node.props.label === 'dapps.contract.confirm')).toBeUndefined();
+    expect(track).not.toHaveBeenCalled();
+    web?.props.onDocumentStart?.(origin);
+    web?.props.onMessage?.(payload, origin, 'new-document-request');
+    expect(find(render(), node => node.props.label === 'dapps.contract.confirm')).toBeDefined();
+  });
+
+  it('aborts an approved read after expiry and never replies late', async () => {
+    let finish: (() => void) | undefined;
+    const track = jest.fn(
+      (_selection: DappPublicSelection, _id: string, signal: AbortSignal, isCurrent: () => boolean) =>
+        new Promise<boolean>(resolve => {
+          finish = () => resolve(!signal.aborted && isCurrent());
+        }),
+    );
+    testTracking = { canReview: () => true, track };
+    const { web, approve } = openAssetReview();
+    approve?.();
+    web?.props.onReplyExpired?.(target, origin);
+    finish?.();
+    await Promise.resolve();
+    expect(track.mock.calls[0]?.[2].aborted).toBe(true);
+    expect(replies).toHaveBeenCalledTimes(1);
+    expect(replies).not.toHaveBeenCalledWith(expect.objectContaining({ contractId: id }), expect.anything());
+  });
+});
+
+it('retires the original bridge before handing an account switch to wallet navigation', () => {
+  const next = { id: 'wallet2', networkId: selection.networkId, address: 'GSECOND' } as AccountRecord;
+  testAccounts = [next];
+  testSwitch = jest.fn(async () => undefined);
+  const tree = render();
+  const web = find(tree, node => node.type === BrowserSurface);
+  refs[1].current = { reply: replies };
+  find(tree, node => node.props.label === 'dapps.browser.connection')?.props.onPress?.();
+  find(render(), node => node.props.label === 'dapps.browser.switchAccount')?.props.onPress?.();
+  find(render(), node => node.props.label === 'GSECOND')?.props.onPress?.();
+  expect(testSwitch).toHaveBeenCalledWith('wallet2', 'https://demo.example.org');
+  web?.props.onMessage?.(request('REQUEST_ACCESS', 500), 'https://demo.example.org');
+  expect(replies).not.toHaveBeenCalled();
+  expect(find(render(), node => node.type === BrowserSurface)).toBeUndefined();
+});
+
+it('puts catalog details behind the browser menu and removes identity on an origin change', () => {
+  testCatalogEntry = {
+    id: 'demo',
+    title: 'Catalog identity',
+    description: 'Directory summary',
+    category: 'Tools',
+    websiteUrl: 'https://demo.example.org/start',
+  };
+  const initial = render();
+  const web = find(initial, node => node.type === BrowserSurface);
+  expect(find(initial, node => node.props.children === 'Catalog identity')).toBeDefined();
+  expect(find(initial, node => node.props.label === 'dapps.browser.about')).toBeUndefined();
+  web?.props.onNavigation?.({
+    url: 'https://demo.example.org/start',
+    title: 'Page title',
+    canGoBack: false,
+    canGoForward: false,
+  });
+  const browser = render();
+  expect(find(browser, node => node.props.children === 'Page title')).toBeDefined();
+  expect(find(browser, node => node.props.children === 'https://demo.example.org')).toBeDefined();
+  find(browser, node => node.props.label === 'dapps.browser.connection')?.props.onPress?.();
+  const menu = render();
+  find(menu, node => node.props.label === 'dapps.browser.about')?.props.onPress?.();
+  const { DappDetailSheet } = require('../../../DappDetailSheet') as typeof import('../../../DappDetailSheet');
+  expect(find(render(), node => node.type === DappDetailSheet)).toBeDefined();
+  web?.props.onDocumentStart?.('https://other.example.org');
+  expect(find(render(), node => node.type === DappDetailSheet)).toBeUndefined();
+  expect(find(render(), node => node.props.children === 'Catalog identity')).toBeUndefined();
+  web?.props.onNavigation?.({ url: 'https://other.example.org', title: 'Other', canGoBack: true, canGoForward: false });
+  expect(find(render(), node => node.type === DappDetailSheet)).toBeUndefined();
+  expect(find(render(), node => node.props.children === 'Catalog identity')).toBeUndefined();
 });

@@ -25,7 +25,13 @@ const remote = {
   name: 'Demo',
   shortDescription: 'Brief',
   description: 'The detailed directory description',
-  developer: { name: 'Developer' },
+  developer: {
+    name: 'Developer',
+    websiteUrl: 'https://project.example.org/',
+    termsUrl: 'https://project.example.org/terms',
+    privacyUrl: 'http://127.0.0.1/private',
+    supportUrl: 'https://project.example.org/support',
+  },
   primaryCategory: 'Tools',
   iconUrl: alternate,
   launchUrls: { mainnet: 'https://demo.example.org/app', testnet: 'https://demo.example.org/test' },
@@ -61,6 +67,13 @@ describe('LC5 S14 dApp detail and icon candidate consumer', () => {
       'https://dapp.fchain.io/v1/dapps/demo.app',
       expect.any(AbortSignal),
     );
+    expect(first.detail).toMatchObject({
+      developerWebsite: remote.developer.websiteUrl,
+      termsUrl: remote.developer.termsUrl,
+      supportUrl: remote.developer.supportUrl,
+      supportedNetworks: ['stellar-mainnet', 'stellar-testnet'],
+    });
+    expect(first.detail.privacyUrl).toBeUndefined();
     expect(service.readCachedDetail('demo.app')?.detail.longDescription).toBe(remote.description);
     now += DAPP_DETAIL_TTL_MS - 1;
     expect(await service.loadDetail('demo.app', new AbortController().signal)).toMatchObject({

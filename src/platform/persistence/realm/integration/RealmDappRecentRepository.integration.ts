@@ -88,7 +88,7 @@ describe('Recent origins on disk', () => {
       );
       realm.close();
       realm = await openWalletRealm({ path });
-      expect(realm.schemaVersion).toBe(14);
+      expect(realm.schemaVersion).toBe(15);
       const repository = new RealmDappRecentRepository(realm);
       const history = createDappRecentHistory(repository, 'stellar-testnet');
       history.record('https://dex.example.org/app?secret=private-value');
