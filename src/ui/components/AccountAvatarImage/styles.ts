@@ -1,5 +1,8 @@
 import { StyleSheet } from 'react-native';
 import type { AppTheme } from '@ui/theme';
+
+export const accountAvatarFrameBorderWidth = 1;
+
 export function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     frame: {
@@ -8,7 +11,7 @@ export function createStyles(theme: AppTheme) {
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: theme.colors.surfaceMuted,
-      borderWidth: 1,
+      borderWidth: accountAvatarFrameBorderWidth,
       borderColor: theme.colors.border,
     },
   });

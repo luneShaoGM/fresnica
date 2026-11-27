@@ -122,30 +122,12 @@ describe('S14 FChain public catalog', () => {
     expect(cache.snapshot('stellar-mainnet')).toBeUndefined();
   });
 
-  it('never grants read access from public directory inclusion without a separately reviewed launch', async () => {
+  it('requires composition to opt the pinned directory into automatic read access', async () => {
     const row = catalogEntriesFromFchain(payload, 'stellar-testnet')[0];
-    const cases = [
-      undefined,
-      [{ networkId: 'stellar-mainnet', id: 'demo', websiteUrl: row.websiteUrl }],
-      [{ networkId: 'stellar-testnet', id: 'demo', websiteUrl: 'https://other.example.org/app' }],
-      [{ networkId: 'stellar-testnet', id: 'other-app', websiteUrl: row.websiteUrl }],
-    ];
-    for (const reviewedLaunches of cases) {
-      const fetchImpl = jest
-        .fn()
-        .mockResolvedValueOnce(new Response(JSON.stringify(payload), { status: 200, headers: { etag: '"rev"' } }))
-        .mockResolvedValueOnce(new Response(null, { status: 304 }));
-      const catalog = createFchainCatalog({
-        cache: memoryCache(),
-        networkId: 'stellar-testnet',
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-        reviewedLaunches,
-      });
-      await catalog.load();
-      expect(catalog.isTrustedLiveEntry?.(row)).toBe(false);
-      await catalog.load();
-      expect(catalog.isTrustedLiveEntry?.(row)).toBe(false);
-    }
+    const fetchImpl = jest.fn().mockResolvedValue(new Response(JSON.stringify(payload), { status: 200 }));
+    const catalog = createFchainCatalog({ cache: memoryCache(), networkId: 'stellar-testnet', fetchImpl });
+    await catalog.load();
+    expect(catalog.isTrustedLiveEntry?.(row)).toBe(false);
   });
 
   it('attests only a fresh validated live FChain row with exact id and network URL', async () => {
@@ -157,7 +139,7 @@ describe('S14 FChain public catalog', () => {
       networkId: 'stellar-testnet',
       fetchImpl: fetchImpl as unknown as typeof fetch,
       now: () => now,
-      reviewedLaunches: [{ networkId: 'stellar-testnet', id: 'demo', websiteUrl: 'https://demo.example.org/app' }],
+      trustLiveDirectory: true,
     });
     const row = catalogEntriesFromFchain(payload, 'stellar-testnet')[0];
 
@@ -203,7 +185,7 @@ describe('S14 FChain public catalog', () => {
       networkId: 'stellar-testnet',
       fetchImpl: fetchImpl as unknown as typeof fetch,
       now: () => now,
-      reviewedLaunches: [{ networkId: 'stellar-testnet', id: 'demo', websiteUrl: 'https://demo.example.org/app' }],
+      trustLiveDirectory: true,
     });
     const row = catalogEntriesFromFchain(payload, 'stellar-testnet')[0];
     await catalog.load();
@@ -221,21 +203,28 @@ describe('S14 FChain public catalog', () => {
     expect(catalog.isTrustedLiveEntry?.(row)).toBe(false);
   });
 
-  it('cannot authorize a cached 304 that was not conditional on a validated ETag/date', async () => {
+  it('does not send a persisted validator or trust a cold-session 304, then trusts a fresh 200', async () => {
     const cache = memoryCache();
+    const response = () => new Response(JSON.stringify(payload), { status: 200, headers: { etag: '"rev"' } });
+    const seed = createFchainCatalog({ cache, networkId: 'stellar-testnet', fetchImpl: async () => response() });
+    await seed.load();
     const fetchImpl = jest
       .fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify(payload), { status: 200 }))
-      .mockResolvedValueOnce(new Response(null, { status: 304 }));
+      .mockResolvedValueOnce(new Response(null, { status: 304 }))
+      .mockResolvedValueOnce(response());
     const catalog = createFchainCatalog({
       cache,
       networkId: 'stellar-testnet',
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      fetchImpl,
+      trustLiveDirectory: true,
     });
     const row = catalogEntriesFromFchain(payload, 'stellar-testnet')[0];
-    await catalog.load();
+    expect(catalog.readCached?.()).toMatchObject({ kind: 'ready', stale: true });
     await expect(catalog.load()).resolves.toMatchObject({ kind: 'ready', stale: true });
+    expect(fetchImpl.mock.calls[0][1].headers).toEqual({ Accept: 'application/json', 'Cache-Control': 'no-cache' });
     expect(catalog.isTrustedLiveEntry?.(row)).toBe(false);
+    await expect(catalog.load()).resolves.toMatchObject({ kind: 'ready' });
+    expect(catalog.isTrustedLiveEntry?.(row)).toBe(true);
   });
 
   it('uses 304 as validated fresh cache, without stale warning', async () => {

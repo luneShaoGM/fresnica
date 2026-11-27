@@ -22,9 +22,18 @@ export function buildFreighterReply(
 ): { nativeCommand: string } | { script: string } | undefined {
   const payload = JSON.stringify(response);
   if (target) return { nativeCommand: SEP53_PREFIX + target.replyId + ':' + payload };
-  if ('signedBlob' in response && response.signedBlob !== undefined) return undefined;
-  if ('signedTransaction' in response && response.signedTransaction !== undefined) return undefined;
-  if ('contractId' in response && response.contractId !== undefined) return undefined;
+  if (
+    'signedBlob' in response ||
+    'signedTransaction' in response ||
+    'contractId' in response ||
+    'publicKey' in response ||
+    'userInfo' in response ||
+    'network' in response ||
+    'networkDetails' in response ||
+    'isAllowed' in response ||
+    'isConnected' in response
+  )
+    return undefined;
   return { script: 'window.postMessage(' + payload + ', window.location.origin);true;' };
 }
 
@@ -38,9 +47,11 @@ export function buildFreighterInjectionScript(): string {
     '  var nativeBridge = window.ReactNativeWebView;',
     '  if (!nativeBridge || typeof nativeBridge.postMessage !== "function") return true;',
     '  window.__fresnicaBridge = true;',
+    '  var document = window.document;',
     '  var iosSep53 = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.FresnicaSep53;',
     '  var forwardReply = function(data) {',
     '    try {',
+    '      if (window.document !== document) return;',
     '      var reply = JSON.parse(data);',
     '      if (reply && reply.source === "FREIGHTER_EXTERNAL_MSG_RESPONSE") window.postMessage(reply, window.location.origin);',
     '    } catch (_error) {}',
@@ -64,7 +75,7 @@ export function buildFreighterInjectionScript(): string {
     '      if (!payload || (payload.source !== "FREIGHTER_EXTERNAL_MSG_REQUEST" && payload.source !== "FRESNICA_DAPP_MSG_REQUEST")) return;',
     '      var serialized = JSON.stringify(payload);',
     '      if (!serialized || serialized.length > ' + String(MAX_BRIDGE_MESSAGE_LENGTH) + ') return;',
-    '      if (payload.type === "SUBMIT_BLOB" || payload.type === "SUBMIT_TRANSACTION" || payload.type === "SUBMIT_TOKEN") {',
+    '      if (payload.source === "FREIGHTER_EXTERNAL_MSG_REQUEST") {',
     '        var requestId = payload.messageId;',
     '        if (iosSep53) iosSep53.postMessage(serialized).then(forwardReply, function() {',
     '          forwardReply(JSON.stringify({ source: "FREIGHTER_EXTERNAL_MSG_RESPONSE", messagedId: requestId,',

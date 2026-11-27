@@ -1,3 +1,4 @@
+import { AccountAvatar } from '../contacts/AccountAvatar';
 import React, { useState } from 'react';
 import { AccessibilityInfo, Pressable, ScrollView, Text, View } from 'react-native';
 
@@ -13,6 +14,7 @@ import { useThemedStyles } from '@ui/theme';
 
 type Props = Readonly<{
   accounts: readonly AccountRecord[];
+  active?: boolean;
   onOpenAccount: (accountId: string) => void;
   onAddAccount: () => void;
   onMoveAccount: (accountId: string, direction: AccountMoveDirection) => void | Promise<void>;
@@ -22,6 +24,7 @@ type Props = Readonly<{
 
 export function AccountsScreen({
   accounts,
+  active = true,
   onOpenAccount,
   onAddAccount,
   onMoveAccount,
@@ -68,6 +71,7 @@ export function AccountsScreen({
                 style={({ pressed }) => [styles.accountOpen, pressed ? styles.pressed : undefined]}
               >
                 <View style={styles.accountTopRow}>
+                  <AccountAvatar address={account.address} active={active} />
                   <View style={styles.accountIdentity}>
                     <Text numberOfLines={1} style={styles.accountLabel}>
                       {account.label || 'Stellar account'}

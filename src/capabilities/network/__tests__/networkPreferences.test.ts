@@ -123,3 +123,15 @@ it('migrates legacy default-on and explicit-on without disclosure to OFF', () =>
     validateNetworkPreferences({ ...DEFAULT_NETWORK_PREFERENCES, externalAccountAvatarsConsentVersion: 2 }),
   ).toThrow('invalid-network-preferences');
 });
+
+it('normalizes per-account avatar selections only with durable global consent', () => {
+  const base = { ...DEFAULT_NETWORK_PREFERENCES, onlineAccountAvatarIds: ['one'] };
+  expect(validateNetworkPreferences(base).onlineAccountAvatarIds).toBeUndefined();
+  const consent = { ...base, externalAccountAvatarsEnabled: true, externalAccountAvatarsConsentVersion: 1 };
+  expect(validateNetworkPreferences(consent).onlineAccountAvatarIds).toEqual(['one']);
+  expect(Object.isFrozen(validateNetworkPreferences(consent).onlineAccountAvatarIds)).toBe(true);
+  for (const invalid of [true, [''], [1], ['one', 'one']])
+    expect(() => validateNetworkPreferences({ ...consent, onlineAccountAvatarIds: invalid })).toThrow(
+      'invalid-network-preferences',
+    );
+});

@@ -21,7 +21,7 @@ describe('injected in-app Freighter bridge', () => {
     const windowMock: Record<string, unknown> = {
       location: { protocol: 'https:', origin: 'https://demo.example.org' },
       FresnicaNotificationClock: { now: () => 123_456 },
-      ReactNativeWebView: { postMessage: (data: string) => posts.push(data) },
+      ReactNativeWebView: { postMessage: (data: string) => posts.push(data), addEventListener: jest.fn() },
       addEventListener: (
         _name: string,
         handler: (event: { source: unknown; origin: string; data: unknown }) => void,
@@ -45,7 +45,7 @@ describe('injected in-app Freighter bridge', () => {
       type: 'REQUEST_PUBLIC_KEY',
     };
     listeners[0]?.({ source: windowMock, origin: 'https://demo.example.org', data: request });
-    expect(JSON.parse(posts[0])).toEqual(request);
+    expect(posts[0]).toBe('fresnica-sep53:' + JSON.stringify(request));
     listeners[0]?.({
       source: {},
       origin: 'https://demo.example.org',
@@ -81,56 +81,89 @@ describe('injected in-app Freighter bridge', () => {
   });
 });
 
-it.each(['android', 'ios'] as const)('returns SEP-53 only through the native %s request channel', async platform => {
-  const origin = 'https://demo.example.org';
-  const request = { source: 'FREIGHTER_EXTERNAL_MSG_REQUEST', type: 'SUBMIT_BLOB', messageId: 31, blob: 'abc' };
-  const response = { source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE', messagedId: 31, signedBlob: 'signature' } as const;
-  const makeDocument = () => {
-    const outbound = jest.fn();
-    const toNative = jest.fn();
-    const listeners = jest.fn();
-    const nativeListeners = jest.fn();
-    const postMessage = jest.fn();
-    const window = {
-      location: { protocol: 'https:', origin },
-      ReactNativeWebView: { postMessage: outbound, addEventListener: nativeListeners },
-      webkit: platform === 'ios' ? { messageHandlers: { FresnicaSep53: { postMessage: toNative } } } : undefined,
-      addEventListener: listeners,
-      postMessage,
+it.each([
+  ['android', 'REQUEST_PUBLIC_KEY'],
+  ['android', 'SUBMIT_BLOB'],
+  ['android', 'SUBMIT_TRANSACTION'],
+  ['android', 'SUBMIT_TOKEN'],
+  ['ios', 'REQUEST_PUBLIC_KEY'],
+  ['ios', 'SUBMIT_BLOB'],
+  ['ios', 'SUBMIT_TRANSACTION'],
+  ['ios', 'SUBMIT_TOKEN'],
+] as const)(
+  'returns %s %s replies only through the original native request channel',
+  async (platform, type) => {
+    const origin = 'https://demo.example.org';
+    const request = {
+      source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
+      messageId: 31,
+      type,
     };
-    Object.assign(window, { top: window, self: window });
-    install(window);
-    return { outbound, toNative, listeners, nativeListeners, window, postMessage };
-  };
-  const original = makeDocument();
-  const replacement = makeDocument();
-  let resolveReply: ((payload: string) => void) | undefined;
-  original.toNative.mockReturnValue(
-    new Promise<string>(resolve => {
-      resolveReply = resolve;
-    }),
-  );
-  original.listeners.mock.calls[0][1]({ source: original.window, origin, data: request });
-  const wire = JSON.stringify(response);
-  if (platform === 'android') {
-    expect(original.outbound).toHaveBeenCalledWith('fresnica-sep53:' + JSON.stringify(request));
-    original.nativeListeners.mock.calls[0][1]({ data: wire });
-  } else {
-    expect(original.toNative).toHaveBeenCalledWith(JSON.stringify(request));
-    expect(original.outbound).not.toHaveBeenCalled();
-    resolveReply?.(wire);
-    await Promise.resolve();
-  }
-  expect(original.postMessage).toHaveBeenCalledWith(response, origin);
-  expect(replacement.postMessage).not.toHaveBeenCalled();
-  const replyId = '74f3db5b-10b8-4abd-8198-cfc869980742';
-  expect(readSep53ReplyId(replyId)).toBe(replyId);
-  expect(readSep53ReplyId('page-selected-id')).toBeUndefined();
-  expect(buildFreighterReply(response)).toBeUndefined();
-  expect(buildFreighterReply(response, { replyId })).toEqual({
-    nativeCommand: 'fresnica-sep53:' + replyId + ':' + wire,
-  });
-});
+    const data = {
+      REQUEST_PUBLIC_KEY: { publicKey: 'dummy-public-address' },
+      SUBMIT_BLOB: { signedBlob: 'signature' },
+      SUBMIT_TRANSACTION: { signedTransaction: 'AAAA' },
+      SUBMIT_TOKEN: { contractId: 'USD:issuer' },
+    }[type];
+    const response = {
+      source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
+      messagedId: 31,
+      ...data,
+    } as const;
+    const makeDocument = () => {
+      const outbound = jest.fn();
+      const toNative = jest.fn();
+      const listeners = jest.fn();
+      const nativeListeners = jest.fn();
+      const postMessage = jest.fn();
+      const window = {
+        document: {},
+        location: { protocol: 'https:', origin },
+        ReactNativeWebView: { postMessage: outbound, addEventListener: nativeListeners },
+        webkit: platform === 'ios' ? { messageHandlers: { FresnicaSep53: { postMessage: toNative } } } : undefined,
+        addEventListener: listeners,
+        postMessage,
+      };
+      Object.assign(window, { top: window, self: window });
+      install(window);
+      return { outbound, toNative, listeners, nativeListeners, window, postMessage };
+    };
+    const original = makeDocument();
+    const replacement = makeDocument();
+    let resolveReply: ((payload: string) => void) | undefined;
+    original.toNative.mockReturnValue(
+      new Promise<string>(resolve => {
+        resolveReply = resolve;
+      }),
+    );
+    original.listeners.mock.calls[0][1]({ source: original.window, origin, data: request });
+    const wire = JSON.stringify(response);
+    if (platform === 'android') {
+      expect(original.outbound).toHaveBeenCalledWith('fresnica-sep53:' + JSON.stringify(request));
+      original.nativeListeners.mock.calls[0][1]({ data: wire });
+    } else {
+      expect(original.toNative).toHaveBeenCalledWith(JSON.stringify(request));
+      expect(original.outbound).not.toHaveBeenCalled();
+      resolveReply?.(wire);
+      await Promise.resolve();
+    }
+    expect(original.postMessage).toHaveBeenCalledWith(response, origin);
+    expect(replacement.postMessage).not.toHaveBeenCalled();
+    if (platform === 'android') {
+      original.postMessage.mockClear();
+      original.window.document = replacement.window.document;
+      original.nativeListeners.mock.calls[0][1]({ data: wire });
+      expect(original.postMessage).not.toHaveBeenCalled();
+    }
+    const replyId = '74f3db5b-10b8-4abd-8198-cfc869980742';
+    expect(readSep53ReplyId(replyId)).toBe(replyId);
+    expect(readSep53ReplyId('page-selected-id')).toBeUndefined();
+    expect(buildFreighterReply(response)).toBeUndefined();
+    expect(buildFreighterReply(response, { replyId })).toEqual({
+      nativeCommand: 'fresnica-sep53:' + replyId + ':' + wire,
+    });
+  },
+);
 
 it('supports notification replies without creating a signature injection fallback', () => {
   const notification = { source: 'FRESNICA_DAPP_MSG_RESPONSE', messagedId: 41, shown: true } as const;

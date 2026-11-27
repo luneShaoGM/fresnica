@@ -1,5 +1,13 @@
 # Fresnica Mobile Product Traceability Ledger
 
+## 2026-11-26 S15–S18 candidate: read-only FChain directory connection
+
+The dedicated branch implements the owner-approved first connection for a
+user-opened, live validated FChain directory entry. Manual URLs still need
+explicit consent. This candidate does not expand signing or notification
+authority. See [launch behavior and trust boundary](behavior-specs/s15-trusted-catalog-launch.md).
+Merge, independent exact-HEAD review and native product-flow acceptance are not claimed.
+
 ## Current implementation index — 2026-11-24
 
 Current merged baseline: `main@6ed7b7c9d4c1ccf93e19dfc4265ec37d8a8b3f7d`, including #231 UI, #230 SEP-53 reply repair and #228 Android foreground dApp local notifications. GitHub/current code governs implementation status; the dated evidence below keeps its original SHA and scope. This refresh corrects obsolete scaffolding/blocker descriptions and does **not** promote any row to L4 or assign old native evidence to a new HEAD.
@@ -7,6 +15,10 @@ Current merged baseline: `main@6ed7b7c9d4c1ccf93e19dfc4265ec37d8a8b3f7d`, includ
 The `fix/audit-state-contracts-2026-11-24` changes for S30 review lifetime, S11 cache invalidation/discovery, S02 associated-data cleanup, S01 sensitive input/backup lifetime and S05/S06 credit availability remain **repair candidates pending unified exact-HEAD Review**. See [behavior scope](behavior-specs/audit-state-contracts-2026-11-24.md) and [current progress / final evidence register](fresnica-mobile-current-progress-and-next-plan.md). This index adds no new product ID or global registry.
 
 Actions A1–A5 are merged. #228 Android foreground dApp local notifications is merged with one-time consent; iOS delivery is unsupported and native product acceptance remains pending. #78 automation stays paused. WalletConnect remains off, M addresses remain owner-paused, and Terms content/version/acceptance policy still needs owner input. Soroban contract assets/auth-entry, hardware/full multisig, full notifications and release remain later scope. Stage 9 real-iPhone System Auth cancellation/retry is still deferred; current signing policy requires fresh App Passphrase and does not inherit authorization from biometric App access.
+
+## 2026-11-26 Activity / FEX shortcut — implementation candidate
+
+Owner-approved clean-room Adapt: Phase 2b, S05/S13/S15/S23; [behavior specification](behavior-specs/activity-fex-shortcut.md). No maturity/native acceptance promotion. Existing untrusted website confirmation, Activity and preferences remain authoritative.
 
 ## 2026-11-20 Actions alignment — A1–A5 merged; native acceptance pending
 
@@ -1073,3 +1085,10 @@ donor source or new external dependency. TokenAssetIcon/context are now strict
 presentation scopes. Repository tests and native cache fixtures/compile are
 separate evidence; exact-HEAD Work Review and real native product acceptance
 are not implied. No S06/LC5 maturity promotion or Stage 9 auth acceptance.
+
+### 2026-11-26 S04/S13/S22 local address Identicon (candidate)
+
+Owner-approved [avatar follow-up](behavior-specs/s13-avatar-alignment.md), Adapt;
+DiceBear 9.4.3 MIT packages, CC0 1.0 Identicon design, no donor code. Local default,
+per-account online selection under existing global consent, shared presentation.
+No maturity promotion or native acceptance implied.

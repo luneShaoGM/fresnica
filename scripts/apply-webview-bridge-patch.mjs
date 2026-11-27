@@ -365,12 +365,6 @@ static NSString *FresnicaVerifiedHttpsOrigin(NSURL *url) {
   },
   {
     file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java',
-    applied: 'command.length() <= 16384',
-    from: 'command.length() <= 2048',
-    to: 'command.length() <= 16384',
-  },
-  {
-    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java',
     applied: 'sep53Replies.put(replyId, replyProxy)',
     from: '                RNCWebView.this.onVerifiedMessage(payload, origin);',
     to: `                if (payload.startsWith(SEP53_PREFIX)) {
@@ -522,12 +516,6 @@ static NSString *const FresnicaSep53Prefix = @"fresnica-sep53:";
   },
   {
     file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
-    applied: 'message.length <= 16384',
-    from: 'message.length <= 2048',
-    to: 'message.length <= 16384',
-  },
-  {
-    file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
     applied: 'addScriptMessageHandlerWithReply:handler',
     from: '- (void)resetupScripts:(WKWebViewConfiguration *)wkWebViewConfig {',
     to: `- (void)resetupScripts:(WKWebViewConfiguration *)wkWebViewConfig {
@@ -622,6 +610,218 @@ export type WebViewOpenWindowEvent`,
     from: '.sep53ReplyExpiresAt = [[dictionary valueForKey:@"sep53ReplyExpiresAt"] doubleValue]',
     to: `.sep53ReplyExpiresAt = [[dictionary valueForKey:@"sep53ReplyExpiresAt"] doubleValue],
                     .sep53ReplyExpired = static_cast<bool>([[dictionary valueForKey:@"sep53ReplyExpired"] boolValue])`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java',
+    applied: 'private void installFresnicaNavigationTracking()',
+    from: '    protected void createRNCWebViewBridge(RNCWebView webView) {',
+    to: `    private boolean fresnicaNavigationTrackingInstalled;
+    private boolean fresnicaLaunchStarted;
+    private boolean fresnicaLaunchCommitted;
+    @Nullable private androidx.webkit.Navigation fresnicaLaunchNavigation;
+    @Nullable private String fresnicaLaunchDocumentUrl;
+
+    private void retireFresnicaLaunchDocument() {
+        fresnicaLaunchNavigation = null;
+        fresnicaLaunchDocumentUrl = null;
+        fresnicaLaunchCommitted = false;
+    }
+
+    @androidx.annotation.OptIn(markerClass = androidx.webkit.WebNavigationClient.ExperimentalNavigationCallback.class)
+    private void installFresnicaNavigationTracking() {
+        if (fresnicaNavigationTrackingInstalled ||
+            !WebViewFeature.isFeatureSupported(WebViewFeature.NAVIGATION_CALLBACK_BASIC)) return;
+        fresnicaNavigationTrackingInstalled = true;
+        WebViewCompat.setWebNavigationClient(this, new androidx.webkit.WebNavigationClient() {
+            @Override public void onNavigationStarted(@NonNull androidx.webkit.Navigation navigation) {
+                if (navigation.isSameDocument()) return;
+                clearFresnicaSep53Replies();
+                retireFresnicaLaunchDocument();
+                if (!fresnicaLaunchStarted && !navigation.wasInitiatedByPage() &&
+                    !navigation.isReload() && !navigation.isHistory()) {
+                    fresnicaLaunchNavigation = navigation;
+                }
+                fresnicaLaunchStarted = true;
+            }
+            @Override public void onNavigationRedirected(@NonNull androidx.webkit.Navigation navigation) {
+                if (navigation.equals(fresnicaLaunchNavigation)) retireFresnicaLaunchDocument();
+            }
+            @Override public void onNavigationCompleted(@NonNull androidx.webkit.Navigation navigation) {
+                if (!navigation.equals(fresnicaLaunchNavigation)) return;
+                if (navigation.didCommit() && !navigation.didCommitErrorPage()) {
+                    fresnicaLaunchCommitted = true;
+                } else {
+                    retireFresnicaLaunchDocument();
+                }
+            }
+            @Override public void onPageDeleted(@NonNull androidx.webkit.Page page) {}
+            @Override public void onPageLoadEventFired(@NonNull androidx.webkit.Page page) {}
+            @Override public void onPageDomContentLoadedEventFired(@NonNull androidx.webkit.Page page) {}
+            @Override public void onFirstContentfulPaint(@NonNull androidx.webkit.Page page) {}
+        });
+    }
+
+    void confirmFresnicaDocumentUrl(String url) {
+        if (fresnicaLaunchNavigation != null && fresnicaLaunchDocumentUrl == null &&
+            verifiedHttpsOrigin(Uri.parse(url)) != null) {
+            fresnicaLaunchDocumentUrl = url;
+        }
+    }
+
+    protected void createRNCWebViewBridge(RNCWebView webView) {
+        installFresnicaNavigationTracking();`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java',
+    applied: 'mRNCWebViewClient.emitFresnicaSameDocumentHistory',
+    from: `            @Override public void onNavigationCompleted(@NonNull androidx.webkit.Navigation navigation) {
+                if (!navigation.equals(fresnicaLaunchNavigation)) return;`,
+    to: `            @Override public void onNavigationCompleted(@NonNull androidx.webkit.Navigation navigation) {
+                // A generic visited-history event is not proof of a same-document traversal.
+                if (navigation.isSameDocument() && navigation.isHistory() &&
+                    !navigation.wasInitiatedByPage() && navigation.didCommit() &&
+                    !navigation.didCommitErrorPage() && mRNCWebViewClient != null && getUrl() != null) {
+                    mRNCWebViewClient.emitFresnicaSameDocumentHistory(RNCWebView.this, getUrl());
+                }
+                if (!navigation.equals(fresnicaLaunchNavigation)) return;`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java',
+    applied: 'void emitFresnicaSameDocumentHistory',
+    from: '    protected WritableMap createWebViewEvent(WebView webView, String url) {',
+    to: `    void emitFresnicaSameDocumentHistory(RNCWebView webView, String url) {
+      WritableMap event = createWebViewEvent(webView, url);
+      event.putBoolean("isDocumentStart", false);
+      event.putBoolean("sameDocumentHistory", true);
+      webView.dispatchEvent(webView, new TopLoadingStartEvent(
+        RNCWebViewWrapper.getReactTagFromWebView(webView), event));
+    }
+
+    protected WritableMap createWebViewEvent(WebView webView, String url) {`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java',
+    applied: 'confirmFresnicaDocumentUrl(url)',
+    from: '    public void onPageFinished(WebView webView, String url) {',
+    to: `    public void onPageCommitVisible(WebView webView, String url) {
+        super.onPageCommitVisible(webView, url);
+        ((RNCWebView) webView).confirmFresnicaDocumentUrl(url);
+    }
+
+    @Override
+    public void onPageFinished(WebView webView, String url) {`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java',
+    applied: 'data.putString("firstCommittedDocumentUrl", launchDocumentUrl)',
+    from: '                    if (sep53ReplyId != null) data.putString("sep53ReplyId", sep53ReplyId);',
+    to: `                    if (sep53ReplyId != null) data.putString("sep53ReplyId", sep53ReplyId);
+                    if (launchDocumentUrl != null) data.putString("firstCommittedDocumentUrl", launchDocumentUrl);`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java',
+    applied: 'final String launchDocumentUrl = mainFrame && fresnicaLaunchCommitted',
+    from: '        @Nullable String sep53ReplyId) {',
+    to: `        @Nullable String sep53ReplyId) {
+        final String launchDocumentUrl = mainFrame && fresnicaLaunchCommitted ? fresnicaLaunchDocumentUrl : null;`,
+  },
+  {
+    file: 'node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java',
+    applied: 'command.length() <= MAX_BRIDGE_MESSAGE_LENGTH',
+    from: 'command.length() <= 2048',
+    to: 'command.length() <= MAX_BRIDGE_MESSAGE_LENGTH',
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
+    applied: '*fresnicaLaunchDocumentUrl;',
+    from: '@property (nonatomic, strong) WKUserScript *postMessageScript;',
+    to: `@property (nonatomic, strong) WKUserScript *postMessageScript;
+@property (nonatomic, assign) BOOL fresnicaLaunchStarted;
+@property (nonatomic, strong) WKNavigation *fresnicaLaunchNavigation;
+@property (nonatomic, copy) NSString *fresnicaLaunchDocumentUrl;`,
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
+    applied: 'self.fresnicaLaunchNavigation == navigation',
+    from: '- (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView\n{',
+    to: `- (void)webView:(WKWebView *)webView didStartProvisionalNavigation:(WKNavigation *)navigation
+{
+  self.fresnicaLaunchNavigation = self.fresnicaLaunchStarted ? nil : navigation;
+  self.fresnicaLaunchStarted = YES;
+  self.fresnicaLaunchDocumentUrl = nil;
+  [self fresnicaRetireDocumentReplies];
+}
+
+- (void)webView:(WKWebView *)webView didReceiveServerRedirectForProvisionalNavigation:(WKNavigation *)navigation
+{
+  self.fresnicaLaunchNavigation = nil;
+  self.fresnicaLaunchDocumentUrl = nil;
+}
+
+- (void)webView:(WKWebView *)webView didCommitNavigation:(WKNavigation *)navigation
+{
+  if (navigation && self.fresnicaLaunchNavigation == navigation) {
+    self.fresnicaLaunchDocumentUrl = webView.URL.absoluteString;
+    self.fresnicaLaunchNavigation = nil;
+  }
+}
+
+- (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView
+{
+  self.fresnicaLaunchStarted = YES;
+  self.fresnicaLaunchNavigation = nil;
+  self.fresnicaLaunchDocumentUrl = nil;
+  [self fresnicaRetireDocumentReplies];`,
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
+    applied: '- (void)fresnicaRetireDocumentReplies',
+    from: '- (void)fresnicaReceiveSep53:(WKScriptMessage *)message',
+    to: `- (void)fresnicaRetireDocumentReplies
+{
+  NSArray<FresnicaSep53Reply> *replies = self.fresnicaSep53Replies.allValues;
+  [self.fresnicaSep53Replies removeAllObjects];
+  for (FresnicaSep53Reply reply in replies) reply(nil, @"Wallet unavailable");
+}
+
+- (void)fresnicaReceiveSep53:(WKScriptMessage *)message`,
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
+    applied: 'event[@"firstCommittedDocumentUrl"] = self.fresnicaLaunchDocumentUrl;',
+    from: '  _onMessage(event);\n}\n\n- (void)postMessage:(NSString *)message',
+    to: `  event[@"firstCommittedDocumentUrl"] = self.fresnicaLaunchDocumentUrl;
+  _onMessage(event);
+}
+
+- (void)postMessage:(NSString *)message`,
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
+    applied: 'event[@"firstCommittedDocumentUrl"] = self.fresnicaLaunchDocumentUrl;\n      _onMessage(event)',
+    from: '      [event addEntriesFromDictionary: @{@"sourceOrigin": origin, @"isMainFrame": @YES}];\n      _onMessage(event);',
+    to: `      [event addEntriesFromDictionary: @{@"sourceOrigin": origin, @"isMainFrame": @YES}];
+      event[@"firstCommittedDocumentUrl"] = self.fresnicaLaunchDocumentUrl;
+      _onMessage(event);`,
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebViewImpl.m',
+    applied: 'if (message.length <= 262144)',
+    from: 'if (message.length <= 2048)',
+    to: 'if (message.length <= 262144)',
+  },
+  {
+    file: 'node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts',
+    applied: 'firstCommittedDocumentUrl: string;',
+    from: '  sep53ReplyExpired: boolean;',
+    to: '  sep53ReplyExpired: boolean;\n  firstCommittedDocumentUrl: string;',
+  },
+  {
+    file: 'node_modules/react-native-webview/apple/RNCWebView.mm',
+    applied: '.firstCommittedDocumentUrl = nullSafeString',
+    from: '.sep53ReplyExpired = static_cast<bool>([[dictionary valueForKey:@"sep53ReplyExpired"] boolValue])',
+    to: `.sep53ReplyExpired = static_cast<bool>([[dictionary valueForKey:@"sep53ReplyExpired"] boolValue]),
+                    .firstCommittedDocumentUrl = nullSafeString([dictionary valueForKey:@"firstCommittedDocumentUrl"])`,
   },
 ];
 

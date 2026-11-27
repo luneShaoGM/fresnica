@@ -1,6 +1,7 @@
 import { createDappRecentHistory, type DappRecentHistory } from '../capabilities/dapp-interaction/dappRecentHistory';
 import { RealmDappRecentRepository } from '../platform/persistence/realm/RealmDappRecentRepository';
 import { createMarkets, type Markets } from '../capabilities/markets/createMarkets';
+import { embeddedClassicAddress } from '../platform/stellar/embeddedClassicAddress';
 import { StellarMarketGateway } from '../platform/stellar/StellarMarketGateway';
 import { horizonReadJson } from '../platform/stellar/horizonReadHttp';
 import { createSecuritySettings, type SecuritySettings } from '@capabilities/application-security/securitySettings';
@@ -399,8 +400,12 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       },
       isAccountCurrent: account => {
         const current = repository.getAccount(account.id);
-        return current?.address === account.address && current.identityKind === 'classic' &&
-          current.networkId === network.id && !current.hidden;
+        return (
+          current?.address === account.address &&
+          current.identityKind === 'classic' &&
+          current.networkId === network.id &&
+          !current.hidden
+        );
       },
       read: {
         page: (address, cursor) =>
@@ -506,6 +511,10 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       networkSettings = createNetworkSettings({
         store: preferences,
         initial: initialPreferences,
+        hasAvatarAccount: id => {
+          const account = repository.getAccount(id);
+          return account?.identityKind === 'classic' && account.networkId === network.id;
+        },
         probe: publicReads.probe,
         isForeground: () => ledgerReadRuntime.getSnapshot().foreground,
         assertCanSwitch: target => {
@@ -531,6 +540,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const directory = createFchainCatalog({
       cache: new RealmDappCatalogRepository(realm),
       networkId: networkProfile.id,
+      trustLiveDirectory: true,
     });
     const publicMedia = createFchainDappPublicMedia({
       cache: new RealmDappDetailCacheRepository(realm),
@@ -541,6 +551,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const dappCatalog: DappCatalogPort = {
       load: directory.load,
       readCached: directory.readCached,
+      isTrustedLiveEntry: entry => directory.isTrustedLiveEntry?.(entry) === true,
       publicMedia,
     };
     closeDappCatalog = () => {
@@ -595,6 +606,20 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     const accountAvatars = createAccountAvatarPort({
       available: publicAssetTransport.available,
       initialEnabled: initialPreferences.externalAccountAvatarsEnabled === true,
+      initialOnlineAccountIds: initialPreferences.onlineAccountAvatarIds,
+      resolveAccountId: (() => {
+        // Memoize the pure checksum-decode; account membership stays live below.
+        const classicByAddress = new Map<string, string>();
+        return (address: string) => {
+          let classic = classicByAddress.get(address);
+          if (classic === undefined) {
+            classic = embeddedClassicAddress(address) ?? address;
+            classicByAddress.set(address, classic);
+            if (classicByAddress.size > 256) classicByAddress.delete(classicByAddress.keys().next().value!);
+          }
+          return storedAccounts.findAccountIdByAddress(classic, network.id);
+        };
+      })(),
       loadImage: async (url, signal) => (await publicAssetTransport.readAvatar(url, signal)).dataUri,
     });
     const syncAvatarRuntime = () => {
@@ -610,7 +635,9 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
     if (networkSettings) {
       const settings = networkSettings;
       stopIconPrivacySync = settings.subscribe(() => {
-        accountAvatars.setEnabled(settings.getSnapshot().preferences.externalAccountAvatarsEnabled === true);
+        const avatarPreferences = settings.getSnapshot().preferences;
+        accountAvatars.setEnabled(avatarPreferences.externalAccountAvatarsEnabled === true);
+        accountAvatars.setOnlineAccountIds(avatarPreferences.onlineAccountAvatarIds ?? []);
         tokenIcons.setEnabled(settings.getSnapshot().preferences.externalTokenImagesEnabled !== false);
       });
     }

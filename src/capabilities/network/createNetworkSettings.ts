@@ -25,6 +25,7 @@ export function createNetworkSettings(
     assertCanSwitch: (target: NetworkId) => void;
     restart: () => void;
     isForeground: () => boolean;
+    hasAvatarAccount?: (id: string) => boolean;
   }>,
 ) {
   let snapshot: NetworkSettingsSnapshot = Object.freeze({
@@ -139,11 +140,23 @@ export function createNetworkSettings(
           {
             ...snapshot.preferences,
             externalAccountAvatarsEnabled: value,
-            ...(value ? { externalAccountAvatarsConsentVersion: 1 as const } : {}),
+            ...(value ? { externalAccountAvatarsConsentVersion: 1 as const } : { onlineAccountAvatarIds: [] }),
           },
           signal,
           false,
         );
+      });
+    },
+    setAccountAvatarOnline(accountId: string, online: boolean) {
+      return run(async signal => {
+        if (typeof online !== 'boolean' || !deps.hasAvatarAccount?.(accountId))
+          throw new Error('invalid-account-avatar-preference');
+        const current = snapshot.preferences;
+        if (online && !current.externalAccountAvatarsEnabled) throw new Error('account-avatar-consent-required');
+        const ids = new Set(current.onlineAccountAvatarIds ?? []);
+        if (online) ids.add(accountId);
+        else ids.delete(accountId);
+        save({ ...current, onlineAccountAvatarIds: [...ids] }, signal, false);
       });
     },
     setExternalTokenImagesEnabled(value: boolean) {

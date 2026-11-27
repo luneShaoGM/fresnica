@@ -268,6 +268,7 @@ export function createFreighterSession(
     initial: DappPublicSelection;
     current: () => DappPublicSelection | undefined;
     persistedAllowed?: () => boolean;
+    catalogReadAllowed?: () => boolean;
     persistedNotificationAllowed?: () => boolean;
     notificationNow?: () => number;
   }>,
@@ -292,8 +293,12 @@ export function createFreighterSession(
     }
   }
 
-  function connected(): boolean {
+  function explicitlyConnected(): boolean {
     return allowed || remembered(input.persistedAllowed);
+  }
+
+  function connected(): boolean {
+    return explicitlyConnected() || remembered(input.catalogReadAllowed);
   }
 
   function notificationAllowed(): boolean {
@@ -420,7 +425,13 @@ export function createFreighterSession(
         const details = freighterNetwork(initial);
         if (!details) return response(json, { error: 'unsupported-network' });
         if (json.type === 'REQUEST_NETWORK') return response(json, { network: details.network });
-        return response(json, { networkDetails: details });
+        if (explicitlyConnected()) return response(json, { networkDetails: details });
+        // Directory trust shares public network metadata, not a user's
+        // configured Horizon endpoint. Transaction review still uses the
+        // verified active account and network rather than these hints.
+        const networkUrl =
+          details.network === 'PUBLIC' ? 'https://horizon.stellar.org' : 'https://horizon-testnet.stellar.org';
+        return response(json, { networkDetails: { ...details, networkUrl } });
       }
       case 'SUBMIT_TOKEN':
         if (json.assetType === 'soroban' || !json.issuer || !json.assetCode) {

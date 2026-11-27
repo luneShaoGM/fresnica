@@ -2,6 +2,8 @@ package com.fresnica.wallet;
 
 import android.app.Activity;
 import android.app.Instrumentation;
+import android.os.SystemClock;
+import android.view.MotionEvent;
 import android.view.View;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -48,6 +50,7 @@ final class DappSep53TransportFixture implements AutoCloseable {
   private volatile CountDownLatch historyUpdated;
   private volatile String expectedUrl;
   private volatile String expectedHistoryUrl;
+  private volatile boolean requireConfirmedHistory;
   private volatile boolean loadFailed;
 
   DappSep53TransportFixture(Instrumentation instrumentation, Activity activity, String origin) {
@@ -91,7 +94,9 @@ final class DappSep53TransportFixture implements AutoCloseable {
         requests.offer(new NativeRequest(data));
       } else if ("topLoadingStart".equals(name) && data.hasKey("isDocumentStart") &&
           !data.getBoolean("isDocumentStart") && data.hasKey("url") &&
-          data.getString("url").equals(expectedHistoryUrl) && historyUpdated != null) {
+          data.getString("url").equals(expectedHistoryUrl) && historyUpdated != null &&
+          (!requireConfirmedHistory || (data.hasKey("sameDocumentHistory") &&
+              data.getBoolean("sameDocumentHistory")))) {
         historyUpdated.countDown();
       }
     }
@@ -166,6 +171,52 @@ final class DappSep53TransportFixture implements AutoCloseable {
     assertNoGlobalReply();
     expectedHistoryUrl = null;
     historyUpdated = null;
+  }
+
+  void toolbarHistoryConfirmsSameDocument() throws Exception {
+    load("/sep53/toolbar-original");
+    NativeRequest request = request("toolbar");
+    // Chromium skips scripted history entries that are created without a user gesture.
+    int[] tap = new int[2];
+    instrumentation.runOnMainSync(() -> {
+      webview.getLocationOnScreen(tap);
+      tap[0] += webview.getWidth() / 2;
+      tap[1] += webview.getHeight() / 2;
+    });
+    long downTime = SystemClock.uptimeMillis();
+    for (int action : new int[] { MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP }) {
+      MotionEvent touch = MotionEvent.obtain(
+          downTime, SystemClock.uptimeMillis(), action, tap[0], tap[1], 0);
+      try {
+        instrumentation.sendPointerSync(touch);
+      } finally {
+        touch.recycle();
+      }
+    }
+    awaitBoolean("navigator.userActivation.hasBeenActive", "toolbar-history-page-not-activated");
+    String nextPath = "/sep53/toolbar-next";
+    expectedHistoryUrl = origin + nextPath;
+    historyUpdated = new CountDownLatch(1);
+    javascript("history.pushState({}, '', " + JSONObject.quote(nextPath) + ")");
+    check(historyUpdated.await(5, TimeUnit.SECONDS), "toolbar-history-entry-not-created");
+
+    requireConfirmedHistory = true;
+    try {
+      expectedHistoryUrl = origin + "/sep53/toolbar-original";
+      historyUpdated = new CountDownLatch(1);
+      instrumentation.runOnMainSync(() -> manager.goBack(wrapper));
+      check(historyUpdated.await(5, TimeUnit.SECONDS), "toolbar-back-not-confirmed");
+
+      expectedHistoryUrl = origin + nextPath;
+      historyUpdated = new CountDownLatch(1);
+      instrumentation.runOnMainSync(() -> manager.goForward(wrapper));
+      check(historyUpdated.await(5, TimeUnit.SECONDS), "toolbar-forward-not-confirmed");
+      check(hasNativeReply(request.replyId), "toolbar-history-retired-native-document");
+    } finally {
+      requireConfirmedHistory = false;
+      expectedHistoryUrl = null;
+      historyUpdated = null;
+    }
   }
 
   private void load(String path) throws Exception {

@@ -135,9 +135,10 @@ function screens() {
       getRevision: () => 0,
     },
   });
-  return React.Children.toArray(stack.props.children)
-    .filter(React.isValidElement)
-    .map(child => (child as React.ReactElement<{ name: string }>).props.name);
+  return React.Children.toArray(stack.props.children).filter(React.isValidElement) as React.ReactElement<{
+    name: string;
+    children: (input: unknown) => React.ReactElement;
+  }>[];
 }
 
 describe('dApps navigation availability by platform', () => {
@@ -145,15 +146,35 @@ describe('dApps navigation availability by platform', () => {
     Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
     const original = NativeModules.DappNetworkGuard;
     NativeModules.DappNetworkGuard = undefined;
-    expect(screens()).toEqual(['dapps']);
+    expect(screens().map(screen => screen.props.name)).toEqual(['dapps']);
     NativeModules.DappNetworkGuard = original;
   });
 
-  it('registers the Android browser only with native protection', () => {
+  it('keeps only the listing route when Android cannot confirm same-document navigation', () => {
     Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
     const original = NativeModules.DappNetworkGuard;
-    NativeModules.DappNetworkGuard = { available: true };
-    expect(screens()).toEqual(['dapps', 'dapp-browser']);
+    NativeModules.DappNetworkGuard = { available: true, sameDocumentNavigation: false };
+    try {
+      const pages = screens();
+      expect(pages.map(screen => screen.props.name)).toEqual(['dapps']);
+      const listing = pages[0].props.children({});
+      const surface = (listing.type as (props: unknown) => React.ReactElement)(listing.props);
+      expect(surface.props).toMatchObject({
+        inAppUnavailable: true,
+        openInApp: undefined,
+        openCatalogInApp: undefined,
+        openExternalUrl: expect.any(Function),
+      });
+    } finally {
+      NativeModules.DappNetworkGuard = original;
+    }
+  });
+
+  it('registers the Android browser with native protection and navigation support', () => {
+    Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+    const original = NativeModules.DappNetworkGuard;
+    NativeModules.DappNetworkGuard = { available: true, sameDocumentNavigation: true };
+    expect(screens().map(screen => screen.props.name)).toEqual(['dapps', 'dapp-browser']);
     NativeModules.DappNetworkGuard = original;
   });
 
@@ -195,7 +216,7 @@ describe('dApps navigation availability by platform', () => {
   });
   it('keeps the iOS browser route', () => {
     Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
-    expect(screens()).toEqual(['dapps', 'dapp-browser']);
+    expect(screens().map(screen => screen.props.name)).toEqual(['dapps', 'dapp-browser']);
   });
 });
 

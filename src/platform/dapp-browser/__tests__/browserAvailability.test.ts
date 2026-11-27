@@ -64,11 +64,26 @@ describe('Android native network readiness boundary', () => {
     expect(transport.render(props, null)).toBeNull();
   });
 
+  it.each([false, undefined])('blocks a network-ready Android WebView with navigation support %s', async support => {
+    Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+    const prepare = jest.fn(async () => undefined);
+    NativeModules.DappNetworkGuard = { available: true, sameDocumentNavigation: support, prepare };
+    const onUnavailable = jest.fn();
+    expect(canMountDappWebView()).toBe(false);
+    expect(transport.render({ ...props, onUnavailable }, null)).toBeNull();
+    effect?.();
+    await drain();
+    expect(prepare).not.toHaveBeenCalled();
+    expect(onUnavailable).toHaveBeenCalledTimes(1);
+    expect(transport.render(props, null)).toBeNull();
+  });
+
   it('waits for the native proxy acknowledgement before the first request', async () => {
     Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
     let acknowledge: () => void = () => undefined;
     NativeModules.DappNetworkGuard = {
       available: true,
+      sameDocumentNavigation: true,
       prepare: () =>
         new Promise<void>(resolve => {
           acknowledge = resolve;
@@ -90,6 +105,7 @@ describe('Android native network readiness boundary', () => {
     Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
     NativeModules.DappNetworkGuard = {
       available: true,
+      sameDocumentNavigation: true,
       prepare: async () => {
         throw new Error('failed');
       },
@@ -107,6 +123,7 @@ describe('Android native network readiness boundary', () => {
     let acknowledge: () => void = () => undefined;
     NativeModules.DappNetworkGuard = {
       available: true,
+      sameDocumentNavigation: true,
       prepare: () =>
         new Promise<void>(resolve => {
           acknowledge = resolve;
@@ -129,6 +146,27 @@ describe('Android native network readiness boundary', () => {
   });
 });
 
+it('forwards only explicit Android native same-document history confirmation', () => {
+  Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+  NativeModules.DappNetworkGuard = { available: true, sameDocumentNavigation: true, prepare: async () => undefined };
+  ready = true;
+  const onNavigation = jest.fn();
+  const onDocumentStart = jest.fn();
+  const tree = transport.render({ ...props, onNavigation, onDocumentStart }, null) as React.ReactElement<{
+    onNavigationStateChange: (event: Record<string, unknown>) => void;
+    onLoadStart: (event: { nativeEvent: Record<string, unknown> }) => void;
+  }>;
+  const navigation = { url: props.url, canGoBack: true, canGoForward: false };
+  tree.props.onLoadStart({ nativeEvent: { ...navigation, isDocumentStart: false } });
+  tree.props.onNavigationStateChange({ ...navigation, isDocumentStart: false });
+  expect(onDocumentStart).not.toHaveBeenCalled();
+  expect(onNavigation).toHaveBeenLastCalledWith(navigation);
+  tree.props.onNavigationStateChange({ ...navigation, sameDocumentHistory: 'true' });
+  expect(onNavigation).toHaveBeenLastCalledWith(navigation);
+  tree.props.onNavigationStateChange({ ...navigation, isDocumentStart: false, sameDocumentHistory: true });
+  expect(onNavigation).toHaveBeenLastCalledWith({ ...navigation, sameDocumentHistory: true });
+});
+
 it('uses only native iOS deadline metadata and withholds an incomplete reply handle', () => {
   Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
   const onMessage = jest.fn();
@@ -145,9 +183,33 @@ it('uses only native iOS deadline metadata and withholds an incomplete reply han
   });
   const nativeEvent = { data, sourceOrigin: 'https://example.org', isMainFrame: true, sep53ReplyId: replyId };
   tree.props.onMessage({ nativeEvent });
-  expect(onMessage).toHaveBeenLastCalledWith(data, 'https://example.org', undefined, undefined);
+  expect(onMessage).not.toHaveBeenCalled();
   tree.props.onMessage({ nativeEvent: { ...nativeEvent, sep53ReplyExpiresAt: 1_800_000_000_000 } });
   expect(onMessage).toHaveBeenLastCalledWith(data, 'https://example.org', replyId, 1_800_000_000_000);
+});
+
+it('forwards first-document confirmation only from the verified native event', () => {
+  Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
+  const onMessage = jest.fn();
+  const tree = transport.render({ ...props, onMessage }, null) as React.ReactElement<{
+    onMessage: (event: { nativeEvent: Record<string, unknown> }) => void;
+  }>;
+  const origin = 'https://example.org';
+  const url = origin + '/start';
+  const replyId = '74f3db5b-10b8-4abd-8198-cfc869980742';
+  const deadline = 1_800_000_000_000;
+  const data = JSON.stringify({ type: 'REQUEST_PUBLIC_KEY', firstCommittedDocumentUrl: url });
+  const nativeEvent = {
+    data,
+    sourceOrigin: origin,
+    isMainFrame: true,
+    sep53ReplyId: replyId,
+    sep53ReplyExpiresAt: deadline,
+  };
+  tree.props.onMessage({ nativeEvent });
+  expect(onMessage).toHaveBeenLastCalledWith(data, origin, replyId, deadline);
+  tree.props.onMessage({ nativeEvent: { ...nativeEvent, firstCommittedDocumentUrl: url } });
+  expect(onMessage).toHaveBeenLastCalledWith(data, origin, replyId, deadline, url);
 });
 
 describe('native SEP-53 reply expiry events', () => {
@@ -163,7 +225,7 @@ describe('native SEP-53 reply expiry events', () => {
 
   function mount(os: 'ios' | 'android' = 'ios') {
     Object.defineProperty(Platform, 'OS', { value: os, configurable: true });
-    NativeModules.DappNetworkGuard = { available: true, prepare: async () => undefined };
+    NativeModules.DappNetworkGuard = { available: true, sameDocumentNavigation: true, prepare: async () => undefined };
     ready = true;
     const onMessage = jest.fn();
     const onReplyExpired = jest.fn();
@@ -212,7 +274,6 @@ describe('native SEP-53 reply expiry events', () => {
     receive({ data, sep53ReplyExpired: undefined });
     receive({ data, sep53ReplyExpired: 'true' });
     expect(onReplyExpired).not.toHaveBeenCalled();
-    expect(onMessage).toHaveBeenCalledTimes(2);
-    expect(onMessage).toHaveBeenLastCalledWith(data, origin, undefined, undefined);
+    expect(onMessage).not.toHaveBeenCalled();
   });
 });

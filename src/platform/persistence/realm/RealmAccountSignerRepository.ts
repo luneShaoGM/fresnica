@@ -23,6 +23,8 @@ import {
 import type {PersistedAccount, PersistedSigner} from './types';
 
 export class RealmAccountSignerRepository implements AccountSignerRepository {
+  private accountIdsByAddress?: { networkId: string; ids: Map<string, string> };
+
   constructor(private readonly realm: Realm) {}
 
   replaceProtection(expected: readonly SignerRecord[], updates: readonly ProtectionUpdate[], now: Date): void {
@@ -47,6 +49,7 @@ export class RealmAccountSignerRepository implements AccountSignerRepository {
     this.realm.write(() => {
       this.assertAccountIdentityAvailable(account);
       this.realm.create(ACCOUNT_ENTITY, account);
+      this.accountIdsByAddress = undefined;
     });
   }
 
@@ -70,6 +73,7 @@ export class RealmAccountSignerRepository implements AccountSignerRepository {
         signerId: signer.id,
         createdAt: attachedAt,
       });
+      this.accountIdsByAddress = undefined;
     });
   }
 
@@ -144,6 +148,7 @@ export class RealmAccountSignerRepository implements AccountSignerRepository {
       }
       this.realm.delete(references);
       this.deleteOrphanSigners();
+      this.accountIdsByAddress = undefined;
     });
   }
 
@@ -165,6 +170,20 @@ export class RealmAccountSignerRepository implements AccountSignerRepository {
     return Array.from(this.realm.objects(ACCOUNT_ENTITY)).map(record =>
       mapAccountFromRealm(record as unknown as PersistedAccount),
     );
+  }
+
+  findAccountIdByAddress(address: string, networkId: string): string | undefined {
+    if (this.accountIdsByAddress?.networkId !== networkId) {
+      const ids = new Map<string, string>();
+      for (const account of this.listAccounts()) {
+        // Classic accounts are shared across network contexts. Keep the first legacy duplicate.
+        if ((account.identityKind === 'classic' || account.networkId === networkId) && !ids.has(account.address)) {
+          ids.set(account.address, account.id);
+        }
+      }
+      this.accountIdsByAddress = { networkId, ids };
+    }
+    return this.accountIdsByAddress.ids.get(address);
   }
 
   listSigners(): SignerRecord[] {

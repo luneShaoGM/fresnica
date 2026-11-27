@@ -1,19 +1,27 @@
 import { NativeModules, Platform } from 'react-native';
 
-type NetworkGuard = Readonly<{ available: boolean; prepare: () => Promise<void> }>;
+type NetworkGuard = Readonly<{
+  available: boolean;
+  sameDocumentNavigation: boolean;
+  prepare: () => Promise<void>;
+}>;
 
 function nativeGuard(): NetworkGuard | undefined {
   return NativeModules.DappNetworkGuard as NetworkGuard | undefined;
 }
 
+function canPrepareGuard(guard: NetworkGuard | undefined): guard is NetworkGuard {
+  return guard?.available === true && guard.sameDocumentNavigation === true;
+}
+
 export function hasAndroidNetworkGuard(): boolean {
-  return nativeGuard()?.available === true;
+  return canPrepareGuard(nativeGuard());
 }
 
 export async function prepareDappNetworkGuard(): Promise<void> {
   if (Platform.OS !== 'android') return;
   const guard = nativeGuard();
-  if (!guard?.available) throw new Error('dapp-guard-unavailable');
+  if (!canPrepareGuard(guard)) throw new Error('dapp-guard-unavailable');
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
     await Promise.race([
