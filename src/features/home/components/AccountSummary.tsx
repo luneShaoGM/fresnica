@@ -1,4 +1,5 @@
 import React from 'react';
+import { AccountAvatar } from '../../contacts/AccountAvatar';
 import { Pressable, Text, View } from 'react-native';
 
 import { SmallChevron } from '@ui/components/SmallIcons';
@@ -9,6 +10,8 @@ import { createStyles } from '../styles';
 type Props = Readonly<{
   label: string;
   maskedAddress: string;
+  address?: string;
+  active?: boolean;
   accountKindLabel: string;
   isReadOnly: boolean;
   pickerVisible: boolean;
@@ -18,6 +21,8 @@ type Props = Readonly<{
 export function AccountSummary({
   label,
   maskedAddress,
+  address,
+  active = true,
   accountKindLabel,
   isReadOnly,
   pickerVisible,
@@ -34,6 +39,7 @@ export function AccountSummary({
       onPress={onOpenAccountPicker}
       style={({ pressed }) => [styles.accountSwitchContainer, pressed ? styles.pressed : undefined]}
     >
+      {address ? <AccountAvatar address={address} active={active} /> : null}
       <View style={styles.accountTextBlock}>
         <Text numberOfLines={1} style={styles.accountLabel}>
           {label}

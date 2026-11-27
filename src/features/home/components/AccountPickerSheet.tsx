@@ -1,3 +1,4 @@
+import { AccountAvatar } from '../../contacts/AccountAvatar';
 import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Pressable, ScrollView, Text, View } from 'react-native';
 
@@ -13,6 +14,7 @@ type Props = Readonly<{
   accounts: readonly AccountRecord[];
   selectedAccountId: string;
   visible: boolean;
+  active?: boolean;
   isWatchOnlyAccount: (accountId: string) => boolean;
   onAddAccount: () => void;
   onRequestClose: () => void;
@@ -23,6 +25,7 @@ export function AccountPickerSheet({
   accounts,
   selectedAccountId,
   visible,
+  active = true,
   isWatchOnlyAccount,
   onAddAccount,
   onRequestClose,
@@ -112,6 +115,7 @@ export function AccountPickerSheet({
                       pressed && !selecting ? styles.rowPressed : undefined,
                     ]}
                   >
+                    <AccountAvatar address={account.address} active={active && visible} />
                     <View style={styles.identity}>
                       <Text numberOfLines={1} style={styles.label}>
                         {label}

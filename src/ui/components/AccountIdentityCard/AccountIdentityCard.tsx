@@ -30,7 +30,7 @@ export function AccountIdentityCard({
   if (presentation === 'compact') {
     return (
       <View style={styles.compact}>
-        {avatar ?? <AccountAvatarImage />}
+        {avatar ?? <AccountAvatarImage seed={address} />}
         <View style={[styles.identity, styles.compactIdentity]}>
           <Text numberOfLines={1} ellipsizeMode="middle" style={styles.name}>
             {name.trim() || formatPublicAddress(address)}
@@ -45,7 +45,7 @@ export function AccountIdentityCard({
   if (presentation === 'compact-card') {
     return (
       <View style={styles.card}>
-        {avatar ?? <AccountAvatarImage />}
+        {avatar ?? <AccountAvatarImage seed={address} />}
         <View style={styles.identity}>
           <Text numberOfLines={2} style={styles.name}>
             {name.trim() || formatPublicAddress(address)}
@@ -67,7 +67,7 @@ export function AccountIdentityCard({
   if (presentation === 'selectable') {
     const content = (
       <>
-        {avatar ?? <AccountAvatarImage />}
+        {avatar ?? <AccountAvatarImage seed={address} />}
         <View style={styles.identity}>
           <Text numberOfLines={1} style={styles.name}>
             {name.trim() || formatPublicAddress(address)}
@@ -104,7 +104,7 @@ export function AccountIdentityCard({
   }
   return (
     <View style={styles.card}>
-      {avatar ?? <AccountAvatarImage />}
+      {avatar ?? <AccountAvatarImage seed={address} />}
       <View style={styles.identity}>
         <Text style={styles.label}>{label}</Text>
         <Text style={styles.name}>{name.trim() || address}</Text>

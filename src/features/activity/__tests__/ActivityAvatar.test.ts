@@ -95,8 +95,8 @@ afterEach(() => {
   mockRuntime.service?.close();
   mockRuntime.service = undefined;
 });
-it('renders a generic profile without service, consent, or an active valid public identity', async () => {
-  expect(render().props.uri).toBeUndefined();
+it('passes a full public seed for local artwork without service or consent and never requests invalid identities', async () => {
+  expect(render().props).toMatchObject({ uri: undefined, seed: address });
   const loadImage = jest.fn(async () => uri);
   const port = createAccountAvatarPort({ available: true, initialEnabled: false, loadImage });
   port.setReadable(true);
@@ -104,7 +104,7 @@ it('renders a generic profile without service, consent, or an active valid publi
   expect(render().props.uri).toBeUndefined();
   port.setEnabled(true);
   expect(render(address, false).props.uri).toBeUndefined();
-  expect(render('invalid').props.uri).toBeUndefined();
+  expect(render('invalid').props).toMatchObject({ uri: undefined, seed: undefined });
   await flush();
   expect(loadImage).not.toHaveBeenCalled();
 });
@@ -302,4 +302,27 @@ it('aborts an in-flight avatar on blur and retries on refocus without accepting 
   await flush();
   expect(render().props.uri).toBe(uri);
   expect(loadImage).toHaveBeenCalledTimes(2);
+});
+
+it('keeps a locally selected owned address offline on all shared avatar renders', async () => {
+  const loadImage = jest.fn(async () => uri);
+  const port = createAccountAvatarPort({
+    available: true,
+    initialEnabled: true,
+    loadImage,
+    resolveAccountId: key => (key === address ? 'own' : undefined),
+  });
+  port.setReadable(true);
+  mockRuntime.service = port;
+  expect(render().props).toMatchObject({ seed: address, uri: undefined });
+  await flush();
+  expect(loadImage).not.toHaveBeenCalled();
+  port.setOnlineAccountIds(['own']);
+  render();
+  await flush();
+  expect(render().props.uri).toBe(uri);
+  port.setOnlineAccountIds([]);
+  expect(render().props).toMatchObject({ seed: address, uri: undefined });
+  await flush();
+  expect(loadImage).toHaveBeenCalledTimes(1);
 });

@@ -215,3 +215,39 @@ it('automatic refresh only reloads a retained expired entry, never a capacity mi
   expect(loadImage).toHaveBeenCalledTimes(66);
   port.close();
 });
+
+it('defaults each owned account to local despite legacy global consent, and fences a revoked in-flight request', async () => {
+  const second = 'G' + 'B'.repeat(55);
+  const pending = deferred<string>();
+  const loadImage = jest.fn(() => pending.promise);
+  const port = createAccountAvatarPort({
+    available: true,
+    initialEnabled: true,
+    loadImage,
+    resolveAccountId: raw => (raw === address ? 'first' : raw === second ? 'second' : undefined),
+  });
+  port.setReadable(true);
+  const signal = new AbortController().signal;
+  expect(port.allowsOnline(address)).toBe(false);
+  expect(port.allowsOnline(muxed)).toBe(true);
+  expect(await port.load(address, signal)).toBeUndefined();
+  expect(loadImage).not.toHaveBeenCalled();
+  port.setOnlineAccountIds(['first']);
+  expect(port.allowsOnline(address)).toBe(true);
+  expect(port.allowsOnline(second)).toBe(false);
+  const inFlight = port.load(address, signal);
+  await Promise.resolve();
+  expect(loadImage).toHaveBeenCalledTimes(1);
+  port.setOnlineAccountIds(['second']);
+  expect(await inFlight).toBeUndefined();
+  pending.resolve(uri);
+  await Promise.resolve();
+  expect(port.read(address)).toBeUndefined();
+  expect(await port.load(address, signal)).toBeUndefined();
+  expect(loadImage).toHaveBeenCalledTimes(1);
+  expect(await port.load(second, signal)).toBe(uri);
+  port.setEnabled(false);
+  expect(port.read(second)).toBeUndefined();
+  expect(port.allowsOnline(second)).toBe(false);
+  port.close();
+});

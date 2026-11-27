@@ -84,6 +84,27 @@ describe('RealmAccountSignerRepository contract', () => {
     rmSync(directory, { recursive: true, force: true });
   });
 
+  it('reuses address membership and refreshes it immediately after account creation or deletion', () => {
+    if (!repository) throw new Error('realm-repository-not-open');
+    const mainnet = 'stellar-mainnet';
+    const owned = account('owned');
+    const list = jest.spyOn(repository, 'listAccounts');
+
+    expect(repository.findAccountIdByAddress(owned.address, mainnet)).toBeUndefined();
+    expect(repository.findAccountIdByAddress(owned.address, mainnet)).toBeUndefined();
+    expect(list).toHaveBeenCalledTimes(1);
+
+    repository.createAccount(owned);
+    expect(repository.findAccountIdByAddress(owned.address, mainnet)).toBe(owned.id);
+    repository.setAccountLabel(owned.id, 'renamed', now);
+    expect(repository.findAccountIdByAddress(owned.address, mainnet)).toBe(owned.id);
+    expect(list).toHaveBeenCalledTimes(2);
+
+    repository.deleteAccount(owned.id);
+    expect(repository.findAccountIdByAddress(owned.address, mainnet)).toBeUndefined();
+    expect(list).toHaveBeenCalledTimes(3);
+  });
+
   runAccountSignerRepositoryContract(() => {
     if (!repository) {
       throw new Error('realm-repository-not-open');

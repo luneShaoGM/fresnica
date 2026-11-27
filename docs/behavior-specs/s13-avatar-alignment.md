@@ -7,7 +7,41 @@ new linked PR. Behavior inputs: independent pinned reference audit
 [s13-avatar-reference-audit-2026-11-10.md](s13-avatar-reference-audit-2026-11-10.md),
 Stellar bd0f4540b2496a57314e4e29bc6fcf8ff691b60f. No donor source/test/art copied.
 
-## Presentation
+## Owner-approved local Identicon follow-up (2026-11-26)
+
+This section supersedes the generic-person fallback for valid G/M-shaped public
+addresses and the historical prohibition on local identicons below. S04/S13/S22
+Adapt; no new product authority. The exact trimmed full public address seeds
+pinned DiceBear core/identicon 9.4.3 (MIT code; Identicon design CC0 1.0).
+Local SVG is rendered by existing react-native-svg, with a fixed artwork palette,
+no network API, and at most 128 cached SVG strings in memory. No name, Memo,
+secret, network, or theme participates in the seed. Unknown/non-address and
+contract/document symbols keep generic fallback. Identicons are decorative,
+not unique or identity proofs.
+
+Existing wallet-wide informed online permission remains default OFF. A stored
+Classic account defaults to local even if prior wallet-wide consent was granted;
+only a deliberate per-account selection while global permission is on allows
+the owned address to be requested on any avatar surface. A displayed muxed
+address follows the stored Classic account embedded in it, and stays local
+unless that account was explicitly selected. Muxed addresses that do not embed
+a stored account remain counterparties. Counterparty addresses
+retain the existing global opt-in behavior. Account ID preference is durable in
+the existing validated preferences JSON; Classic identity is shared across
+network contexts by the existing repository contract, not by new network
+authority. Global opt-out clears all per-account online choices; consent history
+is retained. Failed persistence leaves prior selection. Online loading/failure,
+expiry, rejection, and offline cache miss display local Identicon. Local selection
+retires in-flight loads and prevents late publication. No Token permission or
+signer/account lifecycle changes; M-address payment support remains paused.
+
+Settings > Accounts > Account details selects the source after enabling the
+existing Settings > Privacy online permission. Home, account picker, account
+list/detail, Wallet Ready, Activity, contacts/destination picker, Send review and
+Swap share AccountAvatar. Existing shared image frame, safe transport and bounded
+online cache remain. Native visuals and device acceptance require separate proof.
+
+## Presentation (historical baseline, superseded where stated above)
 
 Activity account subjects use a 40-unit rounded square (radius11) address image,
 not local green identicons, contact branding or initials. If remote avatars are

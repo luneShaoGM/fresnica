@@ -20,10 +20,11 @@ export function AccountAvatar({
   );
   const key = accountAvatarAddress(address);
   // Keep cached media during navigation transitions; active only gates new loads.
-  const uri = snapshot.enabled && key ? service?.read(key) : undefined;
+  const online = !!key && service?.allowsOnline(key) === true;
+  const uri = online && key ? service?.read(key) : undefined;
   const scope = useRef<Readonly<{ key: string; service: AccountAvatarPort; revision: number }> | undefined>(undefined);
   useEffect(() => {
-    if (!active || !key || !service || !snapshot.enabled) {
+    if (!active || !key || !service || !online) {
       scope.current = undefined;
       return;
     }
@@ -34,16 +35,15 @@ export function AccountAvatar({
     // Only an observed image can become an automatic expiry refresh.
     // Initial loads stay retryable when React replays mount effects.
     const onlyExpired =
-      scope.current?.key === key &&
-      scope.current?.service === service &&
-      scope.current?.revision === snapshot.revision;
+      scope.current?.key === key && scope.current?.service === service && scope.current?.revision === snapshot.revision;
     const owner = new AbortController();
     service.load(key, owner.signal, { onlyExpired }).catch(() => undefined);
     return () => owner.abort();
-  }, [active, key, service, snapshot.enabled, snapshot.revision, uri]);
+  }, [active, key, service, online, snapshot.revision, uri]);
   return (
     <AccountAvatarImage
       uri={uri}
+      seed={key}
       size={size}
       onError={() => {
         if (key && uri) service?.reject(key, uri);

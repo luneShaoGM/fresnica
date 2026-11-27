@@ -5,8 +5,14 @@ export interface AccountAvatarPort {
   subscribe(listener: () => void): () => void;
   setEnabled(enabled: boolean): void;
   setReadable(readable: boolean): void;
+  setOnlineAccountIds(ids: readonly string[]): void;
+  allowsOnline(address: string): boolean;
   read(address: string): string | undefined;
-  load(address: string, signal: AbortSignal, options?: Readonly<{ onlyExpired?: boolean }>): Promise<string | undefined>;
+  load(
+    address: string,
+    signal: AbortSignal,
+    options?: Readonly<{ onlyExpired?: boolean }>,
+  ): Promise<string | undefined>;
   reject(address: string, uri: string): void;
   close(): void;
 }
@@ -20,6 +26,8 @@ export function createAccountAvatarPort(
   input: Readonly<{
     available: boolean;
     initialEnabled: boolean;
+    initialOnlineAccountIds?: readonly string[];
+    resolveAccountId?: (address: string) => string | undefined;
     loadImage: (url: string, signal: AbortSignal) => Promise<string>;
     now?: () => number;
   }>,
@@ -30,6 +38,7 @@ export function createAccountAvatarPort(
   const listeners = new Set<() => void>();
   const controllers = new Set<AbortController>();
   const waiting = new Set<() => void>();
+  let onlineAccountIds = new Set(input.initialOnlineAccountIds ?? []);
   let active = 0;
   let closed = false;
   let state: AccountAvatarSnapshot = Object.freeze({
@@ -44,10 +53,16 @@ export function createAccountAvatarPort(
   const cancel = () => {
     for (const controller of controllers) controller.abort();
   };
+  const allowsOnline = (raw: string) => {
+    const address = accountAvatarAddress(raw);
+    if (!address || closed || !state.enabled) return false;
+    const id = input.resolveAccountId?.(address);
+    return id === undefined || onlineAccountIds.has(id);
+  };
   const read = (raw: string) => {
     const address = accountAvatarAddress(raw);
     const image = address ? images.get(address) : undefined;
-    return !closed && state.enabled && image && image.expires > now() ? image.uri : undefined;
+    return address && allowsOnline(address) && image && image.expires > now() ? image.uri : undefined;
   };
   function acquire(signal: AbortSignal): Promise<boolean> {
     if (closed || !state.enabled || !state.readable || signal.aborted || waiting.size >= 64)
@@ -105,6 +120,15 @@ export function createAccountAvatarPort(
       else rejected.clear();
       publish({ ...state, readable });
     },
+    allowsOnline,
+    setOnlineAccountIds(ids) {
+      if (closed || (ids.length === onlineAccountIds.size && ids.every(id => onlineAccountIds.has(id)))) return;
+      onlineAccountIds = new Set(ids);
+      images.clear();
+      rejected.clear();
+      cancel();
+      publish(state);
+    },
     read,
     reject(raw, uri) {
       const address = accountAvatarAddress(raw);
@@ -117,7 +141,7 @@ export function createAccountAvatarPort(
     },
     async load(raw, signal, options) {
       const address = accountAvatarAddress(raw);
-      if (!address || closed || !state.enabled || signal.aborted || rejected.has(address)) return undefined;
+      if (!address || !allowsOnline(address) || signal.aborted || rejected.has(address)) return undefined;
       // Capacity eviction must not make mounted consumers reclaim each other's slots.
       const image = images.get(address);
       if (options?.onlyExpired && !image) return undefined;
@@ -136,6 +160,7 @@ export function createAccountAvatarPort(
       const work = async () => {
         if (!(await acquire(owner.signal))) return undefined;
         try {
+          if (!allowsOnline(address) || owner.signal.aborted || state.revision !== revision) return undefined;
           const duplicate = read(address);
           if (duplicate) return duplicate;
           const uri = await input.loadImage(
@@ -145,7 +170,7 @@ export function createAccountAvatarPort(
           if (
             closed ||
             owner.signal.aborted ||
-            !state.enabled ||
+            !allowsOnline(address) ||
             !state.readable ||
             state.revision !== revision ||
             uri.length > 349_554 ||

@@ -9,6 +9,6 @@ module.exports = {
   watchPathIgnorePatterns: ['<rootDir>/origin/', '<rootDir>/vendor/'],
   moduleNameMapper: createJestModuleNameMapper(),
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@fresnica/ui-native|@stellar/(stellar-sdk|js-xdr)|@exodus/bytes|@noble/(ed25519|hashes)|uint8array-extras|smol-toml|feaxios|eventsource)/)',
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@fresnica/ui-native|@dicebear/(core|identicon)|@stellar/(stellar-sdk|js-xdr)|@exodus/bytes|@noble/(ed25519|hashes)|uint8array-extras|smol-toml|feaxios|eventsource)/)',
   ],
 };

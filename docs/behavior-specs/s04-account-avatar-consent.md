@@ -7,3 +7,5 @@ New installations and legacy preferences without disclosure version 1 are OFF, i
 Tests cover defaults/legacy normalization, missing/invalid consent marker, confirmation/cancel, persistence failure, reopen, independent Token setting and runtime wiring. Native interaction/accessibility/network observation not implied. No maturity or release promotion.
 
 Implementation validation: complete current-tree Jest 264 suites / 2450 tests PASS; focused privacy/network suites 4 / 48 PASS; real Realm preferences close/reopen/rollback integration 1 suite / 4 tests PASS; TypeScript, targeted lint, architecture, aliases, provenance and locales PASS. Native interaction and independent Work review remain pending.
+
+2026-11-26: the [S13 local Identicon follow-up](s13-avatar-alignment.md) supersedes generic fallback for valid addresses and narrows existing global permission for owned accounts to explicit per-account online selection. Turning off clears those selections; existing informed consent and fail-closed persistence remain.
