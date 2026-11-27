@@ -1,3 +1,7 @@
+import type { DappCatalogEntry, DappCatalogPort } from '@capabilities/dapp-catalog/catalog';
+import { DappCatalogIcon } from '../../DappCatalogIcon';
+import { DappDetailSheet } from '../../DappDetailSheet';
+import { createStyles as createDetailStyles } from '../DAppsScreen/styles';
 import type { DappContractTracking } from '@capabilities/dapp-interaction/dappContractTracking';
 import React, { useCallback, useEffect, useRef, useState, type ComponentType, type RefAttributes } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -45,6 +49,9 @@ type Props = Readonly<{
   accountChoices?: readonly AccountRecord[];
   onSwitchAccount?: (id: string, origin: string) => Promise<void>;
   onSwitchNetwork?: () => void;
+  catalogEntry?: DappCatalogEntry;
+  catalogMedia?: DappCatalogPort['publicMedia'];
+  online?: boolean;
   shareWebsite?: (origin: string) => Promise<unknown>;
   notificationNow?: () => number;
   showNotification?: (origin: string, title: string, body: string, expiresAt: number) => boolean;
@@ -97,6 +104,9 @@ export function DappBrowserScreen({
   onClose,
   onVisit,
   shareWebsite,
+  catalogEntry,
+  catalogMedia,
+  online = true,
   accountChoices,
   onSwitchAccount,
   onSwitchNetwork,
@@ -116,6 +126,7 @@ export function DappBrowserScreen({
 }: Props) {
   const { t } = useLocalization();
   const styles = useThemedStyles(createStyles);
+  const detailStyles = useThemedStyles(createDetailStyles);
   const live = useRef(active);
   live.current = active;
   const surface = useRef<DappBrowserSurfaceHandle>(null);
@@ -134,12 +145,17 @@ export function DappBrowserScreen({
   const permissionRequest = useRef<PendingPermission | undefined>(undefined);
   const permissionDocumentActive = useRef(true);
   const permissionHistoryPending = useRef(false);
+  const [showAbout, setShowAbout] = useState(false);
   const [showConnection, setShowConnection] = useState(false);
   const [showAccounts, setShowAccounts] = useState(false);
   const [switchFailed, setSwitchFailed] = useState(false);
   const [shareFailed, setShareFailed] = useState(false);
   const [, setConnectionRevision] = useState(0);
-  const [page, setPage] = useState({ origin: '', canGoBack: false, canGoForward: false });
+  const [page, setPage] = useState<{ origin: string; title?: string; canGoBack: boolean; canGoForward: boolean }>({
+    origin: '',
+    canGoBack: false,
+    canGoForward: false,
+  });
   type NotificationRequest = Extract<BridgeDecision, { kind: 'notification' }> & {
     origin: string;
     epoch: number;
@@ -748,6 +764,7 @@ export function DappBrowserScreen({
 
   const navigateBrowser = (action: 'goBack' | 'goForward' | 'reload') => {
     setShowConnection(false);
+    setShowAbout(false);
     setShareFailed(false);
     curatedDocument.current = 'retired';
     const historyPending =
@@ -828,6 +845,7 @@ export function DappBrowserScreen({
     if (nextUrl === 'about:blank') {
       originChanging.current = true;
       setShowConnection(false);
+      setShowAbout(false);
       setShareFailed(false);
       retirePermissionDocument();
       if (hasDocumentStarted.current || curatedDocument.current === 'confirmed') curatedDocument.current = 'retired';
@@ -840,6 +858,7 @@ export function DappBrowserScreen({
       return;
     }
     setShowConnection(false);
+    setShowAbout(false);
     setShareFailed(false);
     // A curated launch proves only its first exact main document. A reload,
     // a different path or a redirect drops implicit access forever, including
@@ -857,6 +876,7 @@ export function DappBrowserScreen({
     documentEpoch.current += 1;
     originChanging.current = false;
     documentOrigin.current = target.origin;
+    setPage(previous => ({ ...previous, origin: target.origin, title: undefined }));
     current.session.activateDocument(target.origin);
     permissionHistoryPending.current = false;
     permissionDocumentActive.current = true;
@@ -883,6 +903,7 @@ export function DappBrowserScreen({
     if (target.origin !== documentOrigin.current) {
       originChanging.current = true;
       setShowConnection(false);
+      setShowAbout(false);
       setShareFailed(false);
       retirePermissionDocument();
       clearNotification();
@@ -894,7 +915,11 @@ export function DappBrowserScreen({
       permissionDocumentActive.current = true;
     }
     if (target.origin !== current.origin) curatedDocument.current = 'retired';
-    setPage({ origin: target.origin, canGoBack: next.canGoBack, canGoForward: next.canGoForward });
+    const title = next.title
+      ?.replace(/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g, '')
+      .trim()
+      .slice(0, 120);
+    setPage({ origin: target.origin, title, canGoBack: next.canGoBack, canGoForward: next.canGoForward });
   };
 
   const close = () => {
@@ -925,6 +950,11 @@ export function DappBrowserScreen({
   }
 
   const shownOrigin = page.origin || current.origin;
+  const launchedCatalog =
+    catalogEntry && readPublicDappNavigation(catalogEntry.websiteUrl)?.origin === shownOrigin
+      ? catalogEntry
+      : undefined;
+  const siteTitle = page.title || launchedCatalog?.title || shownOrigin;
 
   const panelEpoch = documentEpoch.current;
   const ownsPanel = () =>
@@ -965,6 +995,21 @@ export function DappBrowserScreen({
     <Screen contentInset="none" scrollable={false}>
       <View style={styles.root}>
         <View style={styles.header}>
+          <View style={styles.identity}>
+            {launchedCatalog ? (
+              <DappCatalogIcon entry={launchedCatalog} media={catalogMedia} styles={detailStyles} />
+            ) : null}
+            <View style={styles.identityText}>
+              <Text numberOfLines={1} style={styles.title}>
+                {siteTitle}
+              </Text>
+              {siteTitle !== shownOrigin ? (
+                <Text selectable numberOfLines={1} style={styles.origin}>
+                  {shownOrigin}
+                </Text>
+              ) : null}
+            </View>
+          </View>
           <View style={styles.tools}>
             <ToolButton
               disabled={!page.canGoBack}
@@ -987,11 +1032,9 @@ export function DappBrowserScreen({
               styles={styles}
             />
           </View>
-          <Text selectable numberOfLines={1} style={styles.origin}>
-            {shownOrigin}
-          </Text>
           <ToolButton
-            glyph="ⓘ"
+            glyph="···"
+            networkDot={current.selection.networkId === 'stellar-testnet' ? 'testnet' : 'mainnet'}
             label={t('dapps.browser.connection')}
             onPress={() => {
               setShowAccounts(false);
@@ -1061,6 +1104,17 @@ export function DappBrowserScreen({
                 variant="quiet"
               />
             ) : null}
+            {launchedCatalog ? (
+              <NativeButton
+                label={t('dapps.browser.about')}
+                onPress={() => {
+                  if (!ownsPanel()) return;
+                  setShowConnection(false);
+                  setShowAbout(true);
+                }}
+                variant="quiet"
+              />
+            ) : null}
             {shareWebsite ? (
               <NativeButton
                 label={t('dapps.browser.shareOrigin')}
@@ -1076,6 +1130,25 @@ export function DappBrowserScreen({
               </Text>
             ) : null}
           </ScrollView>
+        ) : null}
+        {showAbout && launchedCatalog && ownsPanel() ? (
+          <DappDetailSheet
+            entry={launchedCatalog}
+            media={catalogMedia}
+            styles={detailStyles}
+            active={active}
+            online={online}
+            siteOrigin={shownOrigin}
+            networkLabel={networkLabel(current.selection.networkId)}
+            onClose={() => setShowAbout(false)}
+            onShare={
+              shareWebsite
+                ? () => {
+                    void shareOrigin();
+                  }
+                : undefined
+            }
+          />
         ) : null}
         {uncertainAssetHashes.length > 0 ? (
           <ScrollView style={styles.recovery} contentContainerStyle={styles.permission}>
@@ -1227,12 +1300,14 @@ export function DappBrowserScreen({
 
 function ToolButton({
   disabled,
+  networkDot,
   glyph,
   label,
   onPress,
   styles,
 }: Readonly<{
   disabled?: boolean;
+  networkDot?: 'testnet' | 'mainnet';
   glyph: string;
   label: string;
   onPress: () => void;
@@ -1245,8 +1320,11 @@ function ToolButton({
       accessibilityState={{ disabled: disabled === true }}
       disabled={disabled}
       onPress={onPress}
-      style={[styles.tool, disabled ? styles.toolDisabled : undefined]}
+      style={[styles.tool, networkDot ? styles.networkTool : undefined, disabled ? styles.toolDisabled : undefined]}
     >
+      {networkDot ? (
+        <View style={[styles.networkDot, networkDot === 'testnet' ? styles.testnetDot : styles.mainnetDot]} />
+      ) : null}
       <Text allowFontScaling={false} style={styles.toolGlyph}>
         {glyph}
       </Text>

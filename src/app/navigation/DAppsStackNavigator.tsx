@@ -26,6 +26,9 @@ import { DAppsScreen } from '@features/dapps/screens/DAppsScreen';
 
 import type { DAppsStackParamList } from './navigationTypes';
 
+type CatalogDisplayLaunch = { revision: number; entry: DappCatalogEntry };
+type CatalogDisplayRef = React.RefObject<CatalogDisplayLaunch | undefined>;
+
 const Stack = createNativeStackNavigator<DAppsStackParamList>();
 
 export function DAppsStackNavigator({
@@ -63,6 +66,7 @@ export function DAppsStackNavigator({
   const launchRef = useRef<ReturnType<typeof createCuratedSessionLaunch> | undefined>(undefined);
   if (!launchRef.current) launchRef.current = createCuratedSessionLaunch();
   const trustedLaunch = launchRef.current;
+  const catalogDisplay = useRef<CatalogDisplayLaunch | undefined>(undefined);
   return (
     <Stack.Navigator initialRouteName="dapps" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="dapps">
@@ -77,6 +81,7 @@ export function DAppsStackNavigator({
             online={reads.connectivity !== 'offline'}
             currentSelection={currentSelection}
             trustedLaunch={trustedLaunch}
+            catalogDisplay={catalogDisplay}
           />
         )}
       </Stack.Screen>
@@ -99,6 +104,9 @@ export function DAppsStackNavigator({
               foreground={reads.foreground}
               onClose={() => navigation.goBack()}
               trustedLaunch={trustedLaunch}
+              catalogDisplay={catalogDisplay}
+              catalogMedia={catalog.publicMedia}
+              online={reads.connectivity !== 'offline'}
             />
           )}
         </Stack.Screen>
@@ -117,6 +125,7 @@ function DAppsRoute({
   online,
   currentSelection,
   trustedLaunch,
+  catalogDisplay,
 }: Readonly<{
   scannedUrl?: string;
   clearScannedUrl: () => void;
@@ -127,6 +136,7 @@ function DAppsRoute({
   online: boolean;
   currentSelection: () => DappPublicSelection | undefined;
   trustedLaunch: ReturnType<typeof createCuratedSessionLaunch>;
+  catalogDisplay: CatalogDisplayRef;
 }>) {
   const focused = useIsFocused();
   const navigation = useNavigation<NavigationProp<DAppsStackParamList>>();
@@ -142,6 +152,7 @@ function DAppsRoute({
           ? url => {
               // Even a manual URL identical to a curated entry has no proof.
               trustedLaunch.clear();
+              catalogDisplay.current = undefined;
               navigation.navigate('dapp-browser', { url });
             }
           : undefined
@@ -158,6 +169,7 @@ function DAppsRoute({
                 // A closed/throwing selection/catalog adapter never mints trust.
               }
               trustedLaunch.prepare(entry.websiteUrl, selected, verified);
+              catalogDisplay.current = { entry, revision: trustedLaunch.revision() };
               navigation.navigate('dapp-browser', { url: entry.websiteUrl });
             }
           : undefined
@@ -186,6 +198,9 @@ function DappBrowserRoute({
   foreground,
   onClose,
   trustedLaunch,
+  catalogDisplay,
+  catalogMedia,
+  online,
 }: Readonly<{
   url: string;
   onVisit?: (url: string) => void;
@@ -202,6 +217,9 @@ function DappBrowserRoute({
   foreground: boolean;
   onClose: () => void;
   trustedLaunch: ReturnType<typeof createCuratedSessionLaunch>;
+  catalogDisplay: CatalogDisplayRef;
+  catalogMedia?: DappCatalogPort['publicMedia'];
+  online: boolean;
 }>) {
   const focused = useIsFocused();
   const [reopened, setReopened] = useState<{ origin: string; revision: number }>();
@@ -212,7 +230,9 @@ function DappBrowserRoute({
     setNetworkPicker(false);
     closeRoute.current();
   }, []);
-  const proofRef = useRef<{ url: string; revision: number; origin?: string } | undefined>(undefined);
+  const proofRef = useRef<{ url: string; revision: number; origin?: string; entry?: DappCatalogEntry } | undefined>(
+    undefined,
+  );
   if (!proofRef.current || proofRef.current.url !== url || proofRef.current.revision !== trustedLaunch.revision()) {
     let selected: DappPublicSelection | undefined;
     try {
@@ -220,8 +240,12 @@ function DappBrowserRoute({
     } catch {
       // A missing account fails closed, including before first route render.
     }
+    const display = catalogDisplay.current;
+    const entry =
+      display?.revision === trustedLaunch.revision() && display.entry.websiteUrl === url ? display.entry : undefined;
+    catalogDisplay.current = undefined;
     const origin = trustedLaunch.consume(url, selected);
-    proofRef.current = { url, revision: trustedLaunch.revision(), origin };
+    proofRef.current = { url, revision: trustedLaunch.revision(), origin, entry };
   }
   const choices = browserAccounts?.filter(account => account.identityKind === 'classic' && !account.hidden);
   return (
@@ -229,6 +253,9 @@ function DappBrowserRoute({
       <DappBrowserScreen
         key={reopened ? 'switched:' + reopened.origin + ':' + reopened.revision : url + ':' + proofRef.current.revision}
         url={reopened?.origin ?? url}
+        catalogEntry={proofRef.current.entry}
+        catalogMedia={catalogMedia}
+        online={online}
         accountChoices={choices}
         onSwitchAccount={
           chooseBrowserAccount

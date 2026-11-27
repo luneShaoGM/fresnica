@@ -3,6 +3,7 @@ import type { BridgeResponse, DappNotificationResponse } from './freighterSessio
 // Platform owns WebView machinery; the Feature owns browsing/permission policy.
 export type DappBrowserNavigation = Readonly<{
   url: string;
+  title?: string;
   canGoBack: boolean;
   canGoForward: boolean;
   // Native confirmation of a committed, same-document toolbar history move.

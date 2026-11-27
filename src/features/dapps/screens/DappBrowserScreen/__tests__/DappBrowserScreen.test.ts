@@ -1,4 +1,5 @@
 import type { DappContractTracking } from '@capabilities/dapp-interaction/dappContractTracking';
+import type { DappCatalogEntry } from '@capabilities/dapp-catalog/catalog';
 import type { AccountRecord } from '@capabilities/account/types';
 import type { DappAssetRequest } from '../../../../../capabilities/dapp-interaction/dappAssetRequest';
 import React from 'react';
@@ -127,6 +128,7 @@ const goForward = jest.fn();
 const reload = jest.fn();
 const navigateClose = jest.fn();
 const onVisit = jest.fn();
+let testCatalogEntry: DappCatalogEntry | undefined;
 let testTracking: DappContractTracking | undefined;
 let testSwitch: ((id: string, origin: string) => Promise<void>) | undefined;
 let testAccounts: readonly AccountRecord[] | undefined;
@@ -150,6 +152,7 @@ function render(
     onVisit,
     shareWebsite,
     trackContract: testTracking,
+    catalogEntry: testCatalogEntry,
     onSwitchAccount: testSwitch,
     accountChoices: testAccounts,
     currentSelection: () => selection,
@@ -209,6 +212,7 @@ function find(
 }
 beforeEach(() => {
   testTracking = undefined;
+  testCatalogEntry = undefined;
   testSwitch = undefined;
   testAccounts = undefined;
   slots.length = 0;
@@ -1898,4 +1902,38 @@ it('retires the original bridge before handing an account switch to wallet navig
   web?.props.onMessage?.(request('REQUEST_ACCESS', 500), 'https://demo.example.org');
   expect(replies).not.toHaveBeenCalled();
   expect(find(render(), node => node.type === BrowserSurface)).toBeUndefined();
+});
+
+it('puts catalog details behind the browser menu and removes identity on an origin change', () => {
+  testCatalogEntry = {
+    id: 'demo',
+    title: 'Catalog identity',
+    description: 'Directory summary',
+    category: 'Tools',
+    websiteUrl: 'https://demo.example.org/start',
+  };
+  const initial = render();
+  const web = find(initial, node => node.type === BrowserSurface);
+  expect(find(initial, node => node.props.children === 'Catalog identity')).toBeDefined();
+  expect(find(initial, node => node.props.label === 'dapps.browser.about')).toBeUndefined();
+  web?.props.onNavigation?.({
+    url: 'https://demo.example.org/start',
+    title: 'Page title',
+    canGoBack: false,
+    canGoForward: false,
+  });
+  const browser = render();
+  expect(find(browser, node => node.props.children === 'Page title')).toBeDefined();
+  expect(find(browser, node => node.props.children === 'https://demo.example.org')).toBeDefined();
+  find(browser, node => node.props.label === 'dapps.browser.connection')?.props.onPress?.();
+  const menu = render();
+  find(menu, node => node.props.label === 'dapps.browser.about')?.props.onPress?.();
+  const { DappDetailSheet } = require('../../../DappDetailSheet') as typeof import('../../../DappDetailSheet');
+  expect(find(render(), node => node.type === DappDetailSheet)).toBeDefined();
+  web?.props.onDocumentStart?.('https://other.example.org');
+  expect(find(render(), node => node.type === DappDetailSheet)).toBeUndefined();
+  expect(find(render(), node => node.props.children === 'Catalog identity')).toBeUndefined();
+  web?.props.onNavigation?.({ url: 'https://other.example.org', title: 'Other', canGoBack: true, canGoForward: false });
+  expect(find(render(), node => node.type === DappDetailSheet)).toBeUndefined();
+  expect(find(render(), node => node.props.children === 'Catalog identity')).toBeUndefined();
 });

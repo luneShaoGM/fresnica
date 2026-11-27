@@ -16,7 +16,6 @@ import { useThemedStyles } from '@ui/theme';
 import { useLocalization } from '../../../../locale';
 import { createStyles } from './styles';
 import { DappCatalogIcon, DappPublicIconToggle } from '../../DappCatalogIcon';
-import { DappDetailSheet } from '../../DappDetailSheet';
 
 type CatalogState =
   | Readonly<{ kind: 'loading' }>
@@ -78,10 +77,7 @@ export function DAppsScreen({
   const recentOrigins = recent.origins;
   const [websiteError, setWebsiteError] = useState<'invalid' | 'openFailed'>();
   const [opening, setOpening] = useState(false);
-  const [selectedDetail, setSelectedDetail] = useState<DappCatalogEntry>();
-  // Retire late Open callbacks when the detail sheet closes or another
-  // catalog/route/focus session replaces it.
-  const detailEpoch = useRef(0);
+  const launchedCatalogRow = useRef<DappCatalogEntry | undefined>(undefined);
   const openingRef = useRef(false);
   const activeRef = useRef(active);
   activeRef.current = active;
@@ -94,6 +90,8 @@ export function DAppsScreen({
   const proposalRef = useRef<Readonly<{ value: UntrustedDappUrl; epoch: number }> | undefined>(undefined);
   const mountedRef = useRef(false);
   const previousCatalog = useRef(catalog);
+  const liveCatalogRows = useRef({ catalog, state, section, online });
+  liveCatalogRows.current = { catalog, state, section, online };
   const interfaceSamples = useMemo<readonly DappCatalogEntry[]>(
     () => [
       {
@@ -117,10 +115,6 @@ export function DAppsScreen({
   useEffect(() => {
     const changedCatalog = previousCatalog.current !== catalog;
     previousCatalog.current = catalog;
-    if (changedCatalog) {
-      detailEpoch.current += 1;
-      setSelectedDetail(undefined);
-    }
     if (!active || !online) {
       catalogLoadPending.current = false;
       setRefreshingCatalog(false);
@@ -198,17 +192,11 @@ export function DAppsScreen({
 
   useEffect(
     () => () => {
+      launchedCatalogRow.current = undefined;
       handoffEpoch.current += 1;
     },
     [focused],
   );
-
-  useEffect(() => {
-    if (!active || !focused) {
-      detailEpoch.current += 1;
-      setSelectedDetail(undefined);
-    }
-  }, [active, focused]);
 
   useEffect(() => {
     if (!scannedUrl || !active || !focused || !mountedRef.current || openingRef.current) return;
@@ -268,8 +256,6 @@ export function DAppsScreen({
   };
 
   const changeSection = (next: Section) => {
-    detailEpoch.current += 1;
-    setSelectedDetail(undefined);
     // A browser handoff cannot be reversed, but its late completion must
     // not attach a Recent origin to an unrelated screen after navigation.
     websiteEpoch.current += 1;
@@ -319,18 +305,23 @@ export function DAppsScreen({
     }
   };
 
-  const openCatalogEntry = (entry: DappCatalogEntry, detailAligned: boolean) => {
+  const openCatalogEntry = (entry: DappCatalogEntry) => {
+    const current = liveCatalogRows.current;
     if (
       !mountedRef.current ||
       !activeRef.current ||
       !focusedRef.current ||
       openingRef.current ||
-      state.kind !== 'ready' ||
-      !state.entries.includes(entry)
+      current.catalog !== catalog ||
+      current.section !== 'home' ||
+      current.state.kind !== 'ready' ||
+      !current.state.entries.includes(entry)
     )
       return;
     if (openCatalogInApp) {
-      openCatalogInApp(entry, detailAligned && !state.stale && online);
+      if (launchedCatalogRow.current === entry) return;
+      launchedCatalogRow.current = entry;
+      openCatalogInApp(entry, !current.state.stale && current.online);
     } else {
       // Unsupported in-app platforms retain the deliberate untrusted URL
       // review before handing public site URLs to the system browser.
@@ -338,22 +329,6 @@ export function DAppsScreen({
     }
   };
 
-  const detailSession = detailEpoch.current;
-  let implicitReadOnly = false;
-  try {
-    implicitReadOnly =
-      selectedDetail !== undefined &&
-      openCatalogInApp !== undefined &&
-      active &&
-      focused &&
-      online &&
-      state.kind === 'ready' &&
-      !state.stale &&
-      state.entries.includes(selectedDetail) &&
-      catalog.isTrustedLiveEntry?.(selectedDetail) === true;
-  } catch {
-    // A faulty/closed provider cannot assert read-only automatic connection.
-  }
   const categories = useMemo(() => (state.kind === 'ready' ? catalogCategories(state.entries) : []), [state]);
   const selectedCategory = category !== undefined && categories.includes(category) ? category : undefined;
   const visibleEntries = useMemo(
@@ -391,11 +366,6 @@ export function DAppsScreen({
     }
     return result;
   }, [state]);
-  const openDetails = (entry: DappCatalogEntry) => {
-    detailEpoch.current += 1;
-    setSelectedDetail(entry);
-  };
-
   return (
     <Screen scrollable={false} contentInset="none" safeAreaEdges={['top', 'right', 'left']}>
       <ScrollView
@@ -542,8 +512,8 @@ export function DAppsScreen({
                           entry={entry}
                           styles={styles}
                           media={catalog.publicMedia}
-                          onSelect={() => openDetails(entry)}
-                          detailsLabel={t('dapps.details.open')}
+                          onSelect={() => openCatalogEntry(entry)}
+                          openLabel={t('dapps.website.openInApp')}
                         />
                       ))}
                       <Text accessibilityRole="header" style={styles.appTitle}>
@@ -558,8 +528,8 @@ export function DAppsScreen({
                         entry={entry}
                         styles={styles}
                         media={catalog.publicMedia}
-                        onSelect={() => openDetails(entry)}
-                        detailsLabel={t('dapps.details.open')}
+                        onSelect={() => openCatalogEntry(entry)}
+                        openLabel={t('dapps.website.openInApp')}
                       />
                     ))
                   ) : (
@@ -608,30 +578,6 @@ export function DAppsScreen({
               )}
             </>
           )}
-          <DappDetailSheet
-            entry={selectedDetail}
-            media={catalog.publicMedia}
-            styles={styles}
-            active={active && focused}
-            online={online}
-            onClose={() => {
-              detailEpoch.current += 1;
-              setSelectedDetail(undefined);
-            }}
-            inAppAvailable={openCatalogInApp !== undefined}
-            implicitReadOnly={implicitReadOnly}
-            onOpen={
-              selectedDetail
-                ? (detailAligned: boolean) => {
-                    if (detailEpoch.current !== detailSession) return;
-                    detailEpoch.current += 1;
-                    const entry = selectedDetail;
-                    setSelectedDetail(undefined);
-                    openCatalogEntry(entry, detailAligned);
-                  }
-                : undefined
-            }
-          />
           <BottomSheet
             avoidAndroidKeyboard
             closeLabel={t('dapps.website.cancel')}
@@ -773,13 +719,13 @@ function AppRow({
   styles,
   media,
   onSelect,
-  detailsLabel,
+  openLabel,
 }: Readonly<{
   entry: DappCatalogEntry;
   styles: Styles;
   media?: DappCatalogPort['publicMedia'];
   onSelect?: () => void;
-  detailsLabel?: string;
+  openLabel?: string;
 }>) {
   const content = (
     <>
@@ -795,7 +741,7 @@ function AppRow({
   return onSelect ? (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${detailsLabel ?? 'Details'}: ${entry.title}`}
+      accessibilityLabel={`${openLabel ?? 'Open'}: ${entry.title}`}
       onPress={onSelect}
       style={styles.appRow}
     >

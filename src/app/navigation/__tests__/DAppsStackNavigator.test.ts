@@ -114,6 +114,7 @@ function catalogRoute(
   });
   type BrowserProps = {
     trustedCatalogOrigin?: string;
+    catalogEntry?: DappCatalogEntry;
     requireFreshConnection?: boolean;
     onVisit?: (url: string) => void;
     onSwitchAccount?: (id: string, origin: string) => Promise<void>;
@@ -212,6 +213,7 @@ describe('dApps navigation availability by platform', () => {
     const browser = browserSurface();
     expect(browser.props.url).toBe(liveEntry.websiteUrl);
     expect(browser.props.trustedCatalogOrigin).toBe('https://dex.example.org');
+    expect(browser.props.catalogEntry).toBe(liveEntry);
     expect(mockNavigate.mock.calls[0][1]).toEqual({ url: liveEntry.websiteUrl });
   });
 
@@ -228,6 +230,7 @@ describe('dApps navigation availability by platform', () => {
     const manual = catalogRoute(true);
     manual.listingSurface.props.openInApp?.(liveEntry.websiteUrl);
     expect(manual.browserSurface().props.trustedCatalogOrigin).toBeUndefined();
+    expect(manual.browserSurface().props.catalogEntry).toBeUndefined();
 
     const superseded = catalogRoute(true);
     superseded.listingSurface.props.openCatalogInApp?.(liveEntry, true);
