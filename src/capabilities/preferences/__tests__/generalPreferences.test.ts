@@ -2,6 +2,8 @@ import {
   createGeneralPreferences,
   DEFAULT_GENERAL_PREFERENCES,
   paletteFromSamples,
+  prefersActivityFexShortcut,
+  supportsActivityFexShortcut,
   validateGeneralPreferences,
 } from '../generalPreferences';
 it('persists validated preferences, publishes after save, and restores them', () => {
@@ -61,4 +63,41 @@ it('keeps only the local palette, never image paths or data', () => {
     }),
   ).not.toHaveProperty('path');
   expect(() => paletteFromSamples(['file:///private/photo.jpg'])).toThrow();
+});
+
+it.each(['zh', 'zh-TW'])('defaults to FEX only for supported Chinese locales: %s', locale => {
+  expect(supportsActivityFexShortcut(locale)).toBe(true);
+  expect(prefersActivityFexShortcut(locale)).toBe(true);
+  expect(prefersActivityFexShortcut(locale, true)).toBe(true);
+  expect(prefersActivityFexShortcut(locale, false)).toBe(false);
+});
+it.each(['en', 'en-AU', 'ja', 'fr', 'tr'])('keeps Activity in other locales even with an override: %s', locale => {
+  expect(supportsActivityFexShortcut(locale)).toBe(false);
+  expect(prefersActivityFexShortcut(locale)).toBe(false);
+  expect(prefersActivityFexShortcut(locale, true)).toBe(false);
+});
+it('preserves old preferences and persists the explicit FEX choice without overwriting other settings', () => {
+  let stored: unknown = { ...DEFAULT_GENERAL_PREFERENCES, currency: 'CNY', haptics: false };
+  const store = {
+    load: () => stored,
+    save: (value: unknown) => {
+      stored = value;
+    },
+  };
+  const preferences = createGeneralPreferences(store);
+  expect(preferences.getSnapshot().activityFexShortcut).toBeUndefined();
+  preferences.update({ activityFexShortcut: false });
+  preferences.update({ theme: 'dark' });
+  const restored = createGeneralPreferences(store);
+  expect(restored.getSnapshot()).toMatchObject({
+    activityFexShortcut: false,
+    currency: 'CNY',
+    haptics: false,
+    theme: 'dark',
+  });
+  expect(prefersActivityFexShortcut('en', restored.getSnapshot().activityFexShortcut)).toBe(false);
+  expect(prefersActivityFexShortcut('zh-TW', restored.getSnapshot().activityFexShortcut)).toBe(false);
+  restored.update({ activityFexShortcut: true });
+  expect(createGeneralPreferences(store).getSnapshot().activityFexShortcut).toBe(true);
+  expect(() => validateGeneralPreferences({ ...DEFAULT_GENERAL_PREFERENCES, activityFexShortcut: 'true' })).toThrow();
 });

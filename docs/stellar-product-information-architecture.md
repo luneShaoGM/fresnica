@@ -194,6 +194,7 @@ Home | Activity | Actions | dApps | Settings
 
 - `Home`、`Activity`、`dApps`、`Settings` 是真正的目的地。
 - `Actions` 是中间触发器。它打开操作 overlay，不得变成被选中的 Tab。
+- 2026-11-26 owner 决策：中文默认将 Activity 底栏位置替换为 fex 快捷操作，可在 General Settings 关闭；非中文保持 Activity。保留 Activity 路由并在 Actions 提供条件入口；复用不受信任网站确认，不新增 Tab。见 [行为规格](behavior-specs/activity-fex-shortcut.md)。
 - 产品生命周期包含 bootstrap、onboarding/setup、App access 锁定和 main；真实锁屏由导航外的 `SessionGate` 呈现。
 - `SessionGate` 使用真实 App access 生命周期；OS 生物识别/口令回退与每次签名授权分开。旧 `locked` route 占位不能作为应用锁未实现的依据。
 

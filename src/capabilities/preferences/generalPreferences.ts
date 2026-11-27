@@ -7,6 +7,7 @@ export type GeneralPreferences = Readonly<{
   haptics: boolean;
   systemSeparators: boolean;
   reserveDisplay: boolean;
+  activityFexShortcut?: boolean;
 }>;
 export const DEFAULT_GENERAL_PREFERENCES: GeneralPreferences = Object.freeze({
   theme: 'system',
@@ -15,6 +16,14 @@ export const DEFAULT_GENERAL_PREFERENCES: GeneralPreferences = Object.freeze({
   systemSeparators: true,
   reserveDisplay: true,
 });
+export function supportsActivityFexShortcut(locale: string): boolean {
+  return locale === 'zh' || locale === 'zh-TW';
+}
+
+export function prefersActivityFexShortcut(locale: string, preference?: boolean): boolean {
+  return supportsActivityFexShortcut(locale) && (preference ?? true);
+}
+
 export interface GeneralPreferenceStore {
   load(): unknown;
   save(value: GeneralPreferences): void;
@@ -31,6 +40,8 @@ export function validateGeneralPreferences(raw: unknown): GeneralPreferences {
     typeof value.systemSeparators !== 'boolean' ||
     typeof value.reserveDisplay !== 'boolean'
   )
+    throw new Error('invalid-preferences');
+  if (value.activityFexShortcut !== undefined && typeof value.activityFexShortcut !== 'boolean')
     throw new Error('invalid-preferences');
   let imagePalette: ImagePalette | undefined;
   if (value.imagePalette !== undefined) {
@@ -56,6 +67,7 @@ export function validateGeneralPreferences(raw: unknown): GeneralPreferences {
     systemSeparators: value.systemSeparators,
     reserveDisplay: value.reserveDisplay as boolean,
     ...(imagePalette ? { imagePalette } : {}),
+    ...(typeof value.activityFexShortcut === 'boolean' ? { activityFexShortcut: value.activityFexShortcut } : {}),
   });
 }
 export function paletteFromSamples(raw: unknown): ImagePalette {

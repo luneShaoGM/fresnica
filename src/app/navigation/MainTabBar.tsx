@@ -1,4 +1,5 @@
 import type { DappCatalogPort } from '@capabilities/dapp-catalog/catalog';
+import { prefersActivityFexShortcut } from '@capabilities/preferences/generalPreferences';
 import { ActionsFeatured } from '@features/dapps/ActionsFeatured/ActionsFeatured';
 import type { DappRecentHistory } from '@capabilities/dapp-interaction/dappRecentHistory';
 import { useDappRecent } from '@features/dapps/useDappRecent';
@@ -34,6 +35,7 @@ const ROOT_ROUTE_BY_TAB: Readonly<Record<MainTab, string>> = {
 };
 
 const ACTIONS_OVERLAY_ID = 'actions';
+const FEX_WEBSITE = 'https://fex.fresnica.com';
 
 export type MainTabBarProps = BottomTabBarProps &
   Readonly<{
@@ -65,7 +67,8 @@ export function MainTabBar({
   nodeFailure,
   onRetryNode,
 }: MainTabBarProps) {
-  const { t } = useLocalization();
+  const { t, locale, displayPreferences } = useLocalization();
+  const showFex = !!selectedAccountId && prefersActivityFexShortcut(locale, displayPreferences?.activityFexShortcut);
   const recent = useDappRecent(recentHistory);
   const recentSession = useRef<
     | {
@@ -75,6 +78,8 @@ export function MainTabBar({
         swapAvailable: boolean;
         foreground: boolean;
         actionsOpen: boolean;
+        showFex: boolean;
+        routeKey: string;
       }
     | undefined
   >(undefined);
@@ -94,6 +99,8 @@ export function MainTabBar({
     swapAvailable: actionAvailability.swap,
     foreground,
     actionsOpen: activeOverlayId === ACTIONS_OVERLAY_ID,
+    showFex,
+    routeKey: state.routes[state.index].key,
   };
 
   const activeRoute = state.routes[state.index];
@@ -106,7 +113,34 @@ export function MainTabBar({
     const focused = state.index === index;
     const options = descriptors[route.key].options;
 
+    if (tab === 'activity' && showFex) {
+      return (
+        <Pressable
+          accessibilityLabel={t('nav.fex')}
+          accessibilityRole="button"
+          key="fex-shortcut"
+          onPress={() => {
+            const current = recentSession.current;
+            if (
+              !current?.showFex ||
+              !current.foreground ||
+              current.actionsOpen ||
+              current.accountId !== selectedAccountId ||
+              current.catalog !== catalog ||
+              current.routeKey !== activeRoute.key
+            )
+              return;
+            navigation.navigate('dapps', { screen: 'dapps', params: { scannedUrl: FEX_WEBSITE } });
+          }}
+          style={({ pressed }) => [styles.tab, pressed ? styles.pressed : undefined]}
+        >
+          <Text style={styles.tabText}>{t('nav.fex')}</Text>
+        </Pressable>
+      );
+    }
+
     const onPress = () => {
+      if (tab === 'activity' && recentSession.current?.showFex) return;
       const event = navigation.emit({
         type: 'tabPress',
         target: route.key,
@@ -276,6 +310,30 @@ export function MainTabBar({
               </Pressable>
             );
           })}
+          {showFex ? (
+            <Pressable
+              accessibilityLabel={t('nav.activity')}
+              accessibilityRole="button"
+              onPress={() => {
+                const current = recentSession.current;
+                if (
+                  !currentPresentation ||
+                  !current?.showFex ||
+                  !current.foreground ||
+                  !current.actionsOpen ||
+                  current.accountId !== selectedAccountId ||
+                  current.catalog !== catalog
+                )
+                  return;
+                recentSession.current = { ...current, actionsOpen: false };
+                dismiss();
+                navigation.navigate('activity', { screen: 'activity' });
+              }}
+              style={({ pressed }) => [styles.actionItem, pressed ? styles.pressed : undefined]}
+            >
+              <Text style={styles.actionLabel}>{t('nav.activity')}</Text>
+            </Pressable>
+          ) : null}
           <Pressable
             accessibilityLabel={t('actions.scan')}
             accessibilityRole="button"
@@ -317,6 +375,7 @@ export function MainTabBar({
     catalog,
     foreground,
     online,
+    showFex,
   ]);
 
   useEffect(() => {

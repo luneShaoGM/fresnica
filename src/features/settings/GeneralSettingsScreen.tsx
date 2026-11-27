@@ -2,7 +2,11 @@ import type { XlmQuotePort } from '@capabilities/valuation/xlmQuote';
 import { NativeFiatEstimate } from '@features/valuation/NativeFiatEstimate';
 import React, { useState } from 'react';
 import { Switch, Text } from 'react-native';
-import type { GeneralPreferences } from '@capabilities/preferences/generalPreferences';
+import {
+  prefersActivityFexShortcut,
+  supportsActivityFexShortcut,
+  type GeneralPreferences,
+} from '@capabilities/preferences/generalPreferences';
 import { ListRow } from '@ui/components';
 import { SelectField } from '@ui/components/SelectField';
 import { useThemedStyles } from '@ui/theme';
@@ -59,6 +63,19 @@ export function GeneralSettingsScreen({
       />
       <Text style={styles.helper}>{t('preferences.quoteNote')}</Text>
       <NativeFiatEstimate quotes={quotes} amount="1" currency={preferences.currency} active={active} />
+      {supportsActivityFexShortcut(locale) ? (
+        <ListRow
+          title={t('settings.activityFexShortcut')}
+          trailing={
+            <Switch
+              accessibilityLabel={t('settings.activityFexShortcut')}
+              disabled={!controller}
+              value={prefersActivityFexShortcut(locale, preferences.activityFexShortcut)}
+              onValueChange={activityFexShortcut => update({ activityFexShortcut })}
+            />
+          }
+        />
+      ) : null}
       <ListRow
         title={t('settings.haptic')}
         trailing={

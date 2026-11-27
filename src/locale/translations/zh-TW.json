@@ -6,6 +6,8 @@
   "lock.blocked": "使用生物辨識解鎖應用程式，也可輸入 App Passphrase。解鎖不會授予簽名或復原資料匯出權限。",
   "nav.home": "首頁",
   "nav.activity": "活動",
+  "nav.fex": "fex",
+  "settings.activityFexShortcut": "將活動入口替換為 FEX",
   "nav.dapps": "dApps",
   "nav.settings": "設定",
   "nav.actions": "操作",
