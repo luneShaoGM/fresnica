@@ -180,4 +180,40 @@ describe('createDappTransactionSigner', () => {
     ).resolves.toEqual({ status: 'invalid' });
     expect(sdk.hasSignerSystemAuth).not.toHaveBeenCalled();
   });
+
+  it('separately reviews account creation and positive Classic trustline limits', async () => {
+    const sdk = { signWithPassphrase: jest.fn() } as unknown as FresnicaSdkPort;
+    const repository = {
+      getAccount: () => account,
+      listSignersForAccount: () => [signer],
+    } as unknown as AccountSignerRepository;
+    const sign = createDappTransactionSigner({ sdk, repository });
+    const builder = () => new TransactionBuilder(new Account(address, '7'), { fee: '100', networkPassphrase });
+    const inspection = (transactionXdrBase64: string) =>
+      sign({
+        phase: 'inspect',
+        accountId: account.id,
+        accountAddress: address,
+        networkId: account.networkId,
+        networkPassphrase,
+        transactionXdrBase64,
+      });
+    const create = Operation.createAccount({ destination, startingBalance: '5' });
+    const line = (limit: string) => Operation.changeTrust({ asset: new Asset('USD', destination), limit });
+    await expect(inspection(builder().addOperation(create).setTimeout(30).build().toXDR())).resolves.toMatchObject({
+      status: 'ready',
+      intent: { operations: [{ type: 'create-account', destination, amount: '5.0000000' }] },
+    });
+    await expect(inspection(builder().addOperation(line('4')).setTimeout(30).build().toXDR())).resolves.toMatchObject({
+      status: 'ready',
+      intent: { operations: [{ type: 'change-trust', assetIssuer: destination, limit: '4.0000000' }] },
+    });
+    await expect(inspection(builder().addOperation(line('0')).setTimeout(30).build().toXDR())).resolves.toEqual({
+      status: 'invalid',
+    });
+    await expect(
+      inspection(builder().addOperation(line('4')).addOperation(create).setTimeout(30).build().toXDR()),
+    ).resolves.toEqual({ status: 'invalid' });
+    expect(sdk.signWithPassphrase).not.toHaveBeenCalled();
+  });
 });

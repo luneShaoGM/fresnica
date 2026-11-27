@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState, type ComponentType, type RefAttributes } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import type {
   DappBrowserNavigation,
@@ -11,6 +11,7 @@ import {
   normalizeUntrustedDappUrl,
   readPublicDappNavigation,
 } from '../../../../capabilities/dapp-interaction/externalDappUrl';
+import type { DappAssetRequest, ReviewedDappAsset } from '../../../../capabilities/dapp-interaction/dappAssetRequest';
 import type { DappTransactionIntent } from '../../../../capabilities/dapp-interaction/dappTransactionIntent';
 import type { DappMessageSigner } from '../../../../capabilities/dapp-interaction/dappMessageSigner';
 import type { DappTransactionSigner } from '../../../../capabilities/dapp-interaction/dappTransactionSigner';
@@ -46,6 +47,7 @@ type Props = Readonly<{
   createNonce: () => string;
   signTransaction: DappTransactionSigner;
   signMessage?: DappMessageSigner;
+  addAsset?: DappAssetRequest;
   permissions: DappPermissionStore;
   // One-use proof consumed by App composition; not a route param or grant.
   trustedCatalogOrigin?: string;
@@ -56,7 +58,10 @@ type PendingSignature = Readonly<{
   transactionXdrBase64: string;
   origin: string;
   intent: DappTransactionIntent;
+  target?: DappMessageReplyTarget;
+  asset?: ReviewedDappAsset;
   documentEpoch: number;
+  generation: number;
   passphraseRequired: boolean;
 }>;
 
@@ -84,6 +89,7 @@ export function DappBrowserScreen({
   createNonce,
   signTransaction,
   signMessage,
+  addAsset,
   permissions,
   trustedCatalogOrigin,
   BrowserSurface,
@@ -127,6 +133,7 @@ export function DappBrowserScreen({
   const [messageExpired, setMessageExpired] = useState(false);
   const [signingNow, setSigningNow] = useState(false);
   const messageReplyTarget = useRef<DappMessageReplyTarget | undefined>(undefined);
+  const originChanging = useRef(false);
   const documentEpoch = useRef(0);
   const documentOrigin = useRef<string | undefined>(undefined);
   const signGeneration = useRef(0);
@@ -134,6 +141,7 @@ export function DappBrowserScreen({
   const curatedDocument = useRef<'unconfirmed' | 'confirmed' | 'retired'>('unconfirmed');
   const hasDocumentStarted = useRef(false);
   const [signError, setSignError] = useState(false);
+  const [uncertainAssetHashes, setUncertainAssetHashes] = useState<string[]>([]);
   const [permissionStorageError, setPermissionStorageError] = useState(false);
   const currentSession = () => live.current && !stale && current?.session.isLive() === true;
 
@@ -264,10 +272,31 @@ export function DappBrowserScreen({
     [current],
   );
 
+  const transactionTarget = useRef<DappMessageReplyTarget | undefined>(undefined);
+  const transactionDeadline = useRef(0);
+  const transactionExpired = (target: DappMessageReplyTarget) =>
+    performance.now() >= transactionDeadline.current ||
+    (target.expiresAt !== undefined && Date.now() >= target.expiresAt);
+
+  const expireTransaction = (target: DappMessageReplyTarget) => {
+    if (!currentSession() || transactionTarget.current?.replyId !== target.replyId) return;
+    transactionTarget.current = undefined;
+    signGeneration.current += 1;
+    setPendingSign(undefined);
+    setSignError(false);
+    const expired = current?.session.finishSign({ status: 'failed', error: 'request-expired' });
+    if (expired) reply(expired, target);
+  };
+
   const handleReplyExpired = (replyId: string, origin: string) => {
     if (!currentSession() || documentOrigin.current !== origin) return;
     if (permissionRequest.current?.target?.replyId === replyId) {
       settlePermission();
+      return;
+    }
+    const transaction = transactionTarget.current;
+    if (transaction?.replyId === replyId) {
+      expireTransaction(transaction);
       return;
     }
     const target = messageReplyTarget.current;
@@ -286,6 +315,17 @@ export function DappBrowserScreen({
     return () => clearTimeout(timer);
   }, [pendingMessage, expireMessage]);
 
+  useEffect(() => {
+    const target = pendingSign?.target;
+    if (!target) return;
+    const remaining = Math.min(
+      transactionDeadline.current - performance.now(),
+      target.expiresAt === undefined ? Infinity : target.expiresAt - Date.now(),
+    );
+    const timer = setTimeout(() => expireTransaction(target), Math.max(0, remaining));
+    return () => clearTimeout(timer);
+  });
+
   const handleMessage = (
     raw: string,
     messageUrl: string,
@@ -293,7 +333,7 @@ export function DappBrowserScreen({
     replyExpiresAt?: number,
     firstCommittedDocumentUrl?: string,
   ) => {
-    if (!current || !active || stale) return;
+    if (!current || !active || stale || originChanging.current) return;
     if (curatedDocument.current !== 'retired') {
       const verified = firstCommittedDocumentUrl && readPublicDappNavigation(firstCommittedDocumentUrl);
       if (!verified) curatedDocument.current = 'unconfirmed';
@@ -343,10 +383,57 @@ export function DappBrowserScreen({
       if (target.expiresAt !== undefined && Date.now() >= target.expiresAt) expireMessage(request);
       else setPendingMessage(request);
     }
+    if (decision.kind === 'add-asset') {
+      const generation = ++signGeneration.current;
+      const epoch = documentEpoch.current;
+      if (!target || !addAsset) {
+        const failed = current.session.finishSign({ status: 'failed', error: 'asset-failed' });
+        if (failed && target) reply(failed, target);
+        return;
+      }
+      transactionTarget.current = target;
+      transactionDeadline.current = performance.now() + 120_000;
+      if (transactionExpired(target)) {
+        expireTransaction(target);
+        return;
+      }
+      void (async () => {
+        let asset: ReviewedDappAsset | undefined;
+        try {
+          asset = await addAsset(current.selection, decision);
+        } catch {
+          // Do not expose wallet or upstream errors to the page.
+        }
+        if (!currentSession() || generation !== signGeneration.current || epoch !== documentEpoch.current) return;
+        if (transactionExpired(target)) {
+          expireTransaction(target);
+          return;
+        }
+        if (!asset) {
+          transactionTarget.current = undefined;
+          const failed = current.session.finishSign({ status: 'failed', error: 'asset-failed' });
+          if (failed) reply(failed, target);
+          return;
+        }
+        setSignError(false);
+        setPendingSign({
+          origin: decision.origin,
+          intent: asset.intent,
+          transactionXdrBase64: '',
+          documentEpoch: epoch,
+          generation,
+          passphraseRequired: true,
+          target,
+          asset,
+        });
+      })();
+    }
     if (decision.kind === 'sign-transaction') {
+      transactionTarget.current = target;
+      transactionDeadline.current = performance.now() + 120_000;
       const generation = signGeneration.current + 1;
       signGeneration.current = generation;
-      inspectSignature(decision, generation).catch(() => undefined);
+      inspectSignature(decision, generation, target).catch(() => undefined);
     }
   };
 
@@ -370,6 +457,7 @@ export function DappBrowserScreen({
   const inspectSignature = async (
     decision: Extract<BridgeDecision, { kind: 'sign-transaction' }>,
     generation: number,
+    target?: DappMessageReplyTarget,
   ) => {
     if (!current) return;
     let inspected: Awaited<ReturnType<DappTransactionSigner>>;
@@ -386,19 +474,30 @@ export function DappBrowserScreen({
       inspected = { status: 'invalid' };
     }
     if (!current || generation !== signGeneration.current || !currentSession()) return;
+    if (target && transactionExpired(target)) {
+      expireTransaction(target);
+      return;
+    }
+    if (inspected.status === 'ready' && !target) {
+      current.session.finishSign({ status: 'failed', error: 'invalid-transaction' });
+      return;
+    }
     if (inspected.status !== 'ready') {
+      transactionTarget.current = undefined;
       const failed = current.session.finishSign({
         status: 'failed',
         error: inspected.status === 'unsupported-signer' ? 'unsupported-signer' : 'invalid-transaction',
       });
-      if (failed) reply(failed);
+      if (failed) reply(failed, target);
       return;
     }
     setPendingSign({
       transactionXdrBase64: decision.transactionXdrBase64,
       origin: decision.origin,
       intent: inspected.intent,
+      ...(target === undefined ? {} : { target }),
       documentEpoch: documentEpoch.current,
+      generation,
       passphraseRequired: true,
     });
   };
@@ -410,7 +509,8 @@ export function DappBrowserScreen({
     setSignError(false);
     setMessageExpired(false);
     if (!current || !active || stale) return;
-    const target = current.session.hasPendingMessage() ? messageReplyTarget.current : undefined;
+    const target = current.session.hasPendingMessage() ? messageReplyTarget.current : transactionTarget.current;
+    transactionTarget.current = undefined;
     messageReplyTarget.current = undefined;
     const declined = current.session.finishSign({ status: 'declined' });
     if (declined) reply(declined, target);
@@ -420,14 +520,47 @@ export function DappBrowserScreen({
     if (!current || !pendingSign || signing.current || !currentSession()) return;
     const request = pendingSign;
     if (request.documentEpoch !== documentEpoch.current) return;
-    const generation = signGeneration.current;
+    if (request.target && transactionExpired(request.target)) {
+      expireTransaction(request.target);
+      return;
+    }
+    const generation = request.generation;
     const isCurrent = () =>
-      currentSession() && generation === signGeneration.current && request.documentEpoch === documentEpoch.current;
+      transactionTarget.current === request.target &&
+      !originChanging.current &&
+      currentSession() &&
+      generation === signGeneration.current &&
+      request.documentEpoch === documentEpoch.current &&
+      request.target !== undefined &&
+      !transactionExpired(request.target);
     signing.current = true;
     setSigningNow(true);
     setSignError(false);
     try {
       if (!isCurrent()) return;
+      if (request.asset) {
+        if (!appPassphrase) return;
+        const result = await request.asset.submit(appPassphrase, isCurrent);
+        // A broadcast can outlive the website's reply, but still needs wallet recovery.
+        if (result.status === 'submission-uncertain') {
+          const { transactionHash } = result;
+          setUncertainAssetHashes(hashes => (hashes.includes(transactionHash) ? hashes : [...hashes, transactionHash]));
+        }
+        if (!isCurrent()) return;
+        if (result.status === 'passphrase-required') {
+          setSignError(true);
+          return;
+        }
+        transactionTarget.current = undefined;
+        const completed = current.session.finishSign(
+          result.status === 'added'
+            ? { status: 'asset-added', contractId: request.asset.contractId }
+            : { status: 'failed', error: result.status },
+        );
+        setPendingSign(undefined);
+        if (completed) reply(completed, request.target);
+        return;
+      }
       const signed = await signTransaction({
         phase: 'sign',
         accountId: current.selection.accountId,
@@ -452,14 +585,16 @@ export function DappBrowserScreen({
               error: signed.status === 'unsupported-signer' ? 'unsupported-signer' : 'invalid-transaction',
             },
       );
+      transactionTarget.current = undefined;
       setPendingSign(undefined);
-      if (completed) reply(completed);
+      if (completed) reply(completed, request.target);
     } catch (error) {
       if (!isCurrent()) return;
       if (error !== null && typeof error === 'object' && 'code' in error && error.code === 'user-cancel') {
         const declined = current.session.finishSign({ status: 'declined' });
+        transactionTarget.current = undefined;
         setPendingSign(undefined);
-        if (declined) reply(declined);
+        if (declined) reply(declined, request.target);
       } else {
         setSignError(true);
       }
@@ -524,7 +659,7 @@ export function DappBrowserScreen({
     retirePermissionDocument();
     permissionHistoryPending.current = historyPending;
     clearNotification();
-    if (current?.session.hasPendingMessage()) rejectSignature();
+    if (current?.session.hasPendingMessage() || pendingSign || transactionTarget.current) rejectSignature();
     surface.current?.[action]();
   };
 
@@ -582,6 +717,7 @@ export function DappBrowserScreen({
     clearNotification();
     retirePermissionDocument();
     messageReplyTarget.current = undefined;
+    transactionTarget.current = undefined;
     documentEpoch.current += 1;
     signGeneration.current += 1;
     setPendingSign(undefined);
@@ -593,9 +729,10 @@ export function DappBrowserScreen({
   const onDocumentStart = (nextUrl: string) => {
     if (!current || !currentSession()) return;
     if (nextUrl === 'about:blank') {
+      originChanging.current = true;
       retirePermissionDocument();
       if (hasDocumentStarted.current || curatedDocument.current === 'confirmed') curatedDocument.current = 'retired';
-      if (current.session.hasPendingMessage()) rejectSignature();
+      if (current.session.hasPendingMessage() || transactionTarget.current || pendingSign) rejectSignature();
       return;
     }
     const target = readPublicDappNavigation(nextUrl);
@@ -614,7 +751,9 @@ export function DappBrowserScreen({
     clearNotification();
     settlePermission();
     messageReplyTarget.current = undefined;
+    transactionTarget.current = undefined;
     documentEpoch.current += 1;
+    originChanging.current = false;
     documentOrigin.current = target.origin;
     current.session.activateDocument(target.origin);
     permissionHistoryPending.current = false;
@@ -640,9 +779,10 @@ export function DappBrowserScreen({
     }
     // Cross-origin navigation can arrive before the document-start event.
     if (target.origin !== documentOrigin.current) {
+      originChanging.current = true;
       retirePermissionDocument();
       clearNotification();
-      if (current.session.hasPendingMessage()) rejectSignature();
+      if (current.session.hasPendingMessage() || transactionTarget.current || pendingSign) rejectSignature();
     } else if (permissionHistoryPending.current && next.sameDocumentHistory === true) {
       // Do not revive the retired approval or the directory's automatic access.
       // Only a native committed same-document history event can reopen manual consent.
@@ -704,6 +844,22 @@ export function DappBrowserScreen({
           </Text>
           <ToolButton glyph="×" label={t('dapps.browser.close')} onPress={close} styles={styles} />
         </View>
+        {uncertainAssetHashes.length > 0 ? (
+          <ScrollView style={styles.recovery} contentContainerStyle={styles.permission}>
+            <Text accessibilityRole="alert" style={styles.heading}>
+              {t('dapps.sign.assetUncertain')}
+            </Text>
+            <Text style={styles.recoveryValue}>
+              {t('dapps.permission.network')}: {networkLabel(current.selection.networkId)}
+            </Text>
+            <Text style={styles.recoveryValue}>{t('dapps.sign.hash')}</Text>
+            {uncertainAssetHashes.map(hash => (
+              <Text key={hash} selectable style={styles.recoveryValue}>
+                {hash}
+              </Text>
+            ))}
+          </ScrollView>
+        ) : null}
         {messageExpired ? <Text style={styles.error}>{t('dapps.signMessage.expired')}</Text> : null}
         {pendingNotification ? (
           <View style={styles.permission}>
@@ -770,12 +926,20 @@ export function DappBrowserScreen({
         {pendingSign ? (
           <DappSignSheet
             intent={pendingSign.intent}
+            submitsAsset={pendingSign.asset !== undefined}
+            network={networkLabel(current.selection.networkId)}
+            expiresAt={pendingSign.target?.expiresAt}
+            onExpired={() => {
+              if (pendingSign.target) expireTransaction(pendingSign.target);
+            }}
             busy={signingNow}
             onConfirm={passphrase => {
               confirmSignature(passphrase);
             }}
             failed={signError}
-            onReject={rejectSignature}
+            onReject={() => {
+              if (pendingSign.generation === signGeneration.current) rejectSignature();
+            }}
             origin={pendingSign.origin}
             passphraseRequired={pendingSign.passphraseRequired}
             visible

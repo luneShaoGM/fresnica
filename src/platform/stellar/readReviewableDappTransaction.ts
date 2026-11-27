@@ -1,9 +1,9 @@
-import { Transaction } from '@stellar/stellar-sdk';
+import { Asset, Transaction, xdr } from '@stellar/stellar-sdk';
 
-// Only plain payments are currently reviewable. Reject fee bumps, Soroban,
+// Only explicitly reviewable Classic operations are accepted. Reject fee bumps, Soroban,
 // contract calls, unsupported preconditions and every other operation type.
 import type {
-  DappPaymentIntent,
+  DappOperationIntent,
   DappTransactionIntent,
 } from '../../capabilities/dapp-interaction/dappTransactionIntent';
 
@@ -15,7 +15,10 @@ export function readReviewableDappTransaction(
   try {
     // Deliberately do not unwrap fee-bump envelopes: an inner transaction
     // summary does not describe the fee source or the entire signed envelope.
-    const transaction = new Transaction(transactionXdrBase64, networkPassphrase);
+    const envelope = xdr.TransactionEnvelope.fromXDR(transactionXdrBase64, 'base64');
+    if (envelope.type === 'envelopeTypeTx' && envelope.v1.tx.ext.type !== 'v0') return undefined;
+    if (envelope.type !== 'envelopeTypeTx' && envelope.type !== 'envelopeTypeTxV0') return undefined;
+    const transaction = new Transaction(envelope, networkPassphrase);
     if (
       transaction.source !== expectedSource ||
       transaction.operations.length === 0 ||
@@ -34,11 +37,47 @@ export function readReviewableDappTransaction(
     // displayed; never silently omit transaction-level intent.
     const memo = transaction.memo;
     if (memo.type !== 'none' && memo.type !== 'text') return undefined;
-    const operations: DappPaymentIntent[] = [];
+    const operations: DappOperationIntent[] = [];
     for (const operation of transaction.operations) {
-      if (operation.type !== 'payment' || (operation.source !== undefined && operation.source !== expectedSource)) {
-        return undefined;
+      if (operation.source !== undefined && operation.source !== expectedSource) return undefined;
+      if (operation.type === 'createAccount') {
+        if (
+          transaction.operations.length !== 1 ||
+          !/^(?!0(?:\.0+)?$)\d+(?:\.\d{1,7})?$/.test(operation.startingBalance)
+        ) {
+          return undefined;
+        }
+        operations.push(
+          Object.freeze({
+            type: 'create-account',
+            destination: operation.destination,
+            amount: operation.startingBalance,
+            assetCode: 'XLM',
+          }),
+        );
+        continue;
       }
+      if (operation.type === 'changeTrust') {
+        if (
+          transaction.operations.length !== 1 ||
+          !(operation.line instanceof Asset) ||
+          operation.line.isNative() ||
+          !/^(?!0(?:\.0+)?$)\d+(?:\.\d{1,7})?$/.test(operation.limit)
+        )
+          return undefined;
+        const assetIssuer = operation.line.getIssuer();
+        if (!assetIssuer || assetIssuer === expectedSource) return undefined;
+        operations.push(
+          Object.freeze({
+            type: 'change-trust',
+            assetCode: operation.line.getCode(),
+            assetIssuer,
+            limit: operation.limit,
+          }),
+        );
+        continue;
+      }
+      if (operation.type !== 'payment') return undefined;
       const assetCode = operation.asset.isNative() ? 'XLM' : operation.asset.getCode();
       const assetIssuer = operation.asset.isNative() ? undefined : operation.asset.getIssuer();
       if (!assetCode || (!operation.asset.isNative() && !assetIssuer)) return undefined;

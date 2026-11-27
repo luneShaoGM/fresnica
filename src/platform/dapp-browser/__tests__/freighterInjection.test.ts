@@ -82,23 +82,33 @@ describe('injected in-app Freighter bridge', () => {
 });
 
 it.each([
-  ['android', false],
-  ['android', true],
-  ['ios', false],
-  ['ios', true],
+  ['android', 'REQUEST_PUBLIC_KEY'],
+  ['android', 'SUBMIT_BLOB'],
+  ['android', 'SUBMIT_TRANSACTION'],
+  ['android', 'SUBMIT_TOKEN'],
+  ['ios', 'REQUEST_PUBLIC_KEY'],
+  ['ios', 'SUBMIT_BLOB'],
+  ['ios', 'SUBMIT_TRANSACTION'],
+  ['ios', 'SUBMIT_TOKEN'],
 ] as const)(
-  'returns Freighter replies only through the native %s request channel (SEP-53: %s)',
-  async (platform, sep53) => {
+  'returns %s %s replies only through the original native request channel',
+  async (platform, type) => {
     const origin = 'https://demo.example.org';
     const request = {
       source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
       messageId: 31,
-      ...(sep53 ? { type: 'SUBMIT_BLOB', blob: 'abc' } : { type: 'REQUEST_PUBLIC_KEY' }),
+      type,
     };
+    const data = {
+      REQUEST_PUBLIC_KEY: { publicKey: 'dummy-public-address' },
+      SUBMIT_BLOB: { signedBlob: 'signature' },
+      SUBMIT_TRANSACTION: { signedTransaction: 'AAAA' },
+      SUBMIT_TOKEN: { contractId: 'USD:issuer' },
+    }[type];
     const response = {
       source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
       messagedId: 31,
-      ...(sep53 ? { signedBlob: 'signature' } : { publicKey: 'dummy-public-address' }),
+      ...data,
     } as const;
     const makeDocument = () => {
       const outbound = jest.fn();
@@ -215,4 +225,19 @@ it.each([undefined, null, 0, -1, NaN, Infinity, '1800000000000', Number.MAX_SAFE
 );
 it('keeps a native reply deadline without rounding it', () => {
   expect(readSep53ReplyExpiresAt(1_800_000_000_000.5)).toBe(1_800_000_000_000.5);
+});
+
+it('does not inject a signed transaction or asset completion into a later document', () => {
+  const base = { source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE', messagedId: 91 } as const;
+  const target = { replyId: '74f3db5b-10b8-4abd-8198-cfc869980742' };
+  for (const response of [
+    { ...base, signedTransaction: 'AAAA' },
+    { ...base, contractId: 'USD:GISSUER' },
+  ]) {
+    expect(buildFreighterReply(response)).toBeUndefined();
+    expect(buildFreighterReply(response, target)).toHaveProperty(
+      'nativeCommand',
+      'fresnica-sep53:' + target.replyId + ':' + JSON.stringify(response),
+    );
+  }
 });

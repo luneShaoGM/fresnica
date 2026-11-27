@@ -3,7 +3,7 @@ import { utf8fromString, utf8toString } from '@exodus/bytes/utf8.js';
 
 // Clean-room Freighter request policy. Read calls stay permission-gated.
 // SUBMIT_TRANSACTION opens an exact-XDR review and returns the signature to
-// the page. Auth-entry and token requests stay unsupported.
+// the page. Classic token requests use a separate wallet review.
 export type DappPublicSelection = Readonly<{
   accountId: string;
   address: string;
@@ -23,6 +23,10 @@ type BridgeRequest = Readonly<{
   networkPassphrase?: string;
   network?: string;
   transactionXdr?: string;
+  contractId?: string;
+  issuer?: string;
+  assetCode?: string;
+  assetType?: 'classic' | 'soroban';
   blob?: string;
   blobEncoding?: 'utf8' | 'base64';
   apiVersion?: string;
@@ -46,6 +50,7 @@ export type BridgeResponse = Readonly<{
   networkDetails?: FreighterNetworkDetails;
   userInfo?: Readonly<{ publicKey: string }>;
   signedTransaction?: string;
+  contractId?: string;
   signedBlob?: string;
   signerAddress?: string;
   error?: string;
@@ -70,6 +75,7 @@ export type BridgeDecision =
       networkPassphrase: string;
       accountAddress: string;
     }>
+  | Readonly<{ kind: 'add-asset'; origin: string; contractId?: string; code: string; issuer: string }>
   | Readonly<{ kind: 'sign-message'; origin: string; message: string; encoding: 'base64' | 'hex' }>
   | Readonly<{ kind: 'respond'; response: BridgeResponse }>;
 
@@ -77,8 +83,15 @@ export type DappSignCompletion =
   | Readonly<{ status: 'declined' }>
   | Readonly<{
       status: 'failed';
-      error: 'invalid-transaction' | 'invalid-message' | 'unsupported-signer' | 'request-expired';
+      error:
+        | 'invalid-transaction'
+        | 'invalid-message'
+        | 'unsupported-signer'
+        | 'request-expired'
+        | 'asset-failed'
+        | 'submission-uncertain';
     }>
+  | Readonly<{ status: 'asset-added'; contractId: string }>
   | Readonly<{ status: 'message-signed'; signedBlob: string; signerAddress: string }>
   | Readonly<{ status: 'signed'; signedTransaction: string; signerAddress: string }>;
 
@@ -141,7 +154,12 @@ function isRequest(value: unknown): value is BridgeRequest {
     if (key === 'transactionXdr' && !isPaddedBase64(field)) return false;
   }
   if (record.type === 'SUBMIT_TRANSACTION' && typeof record.transactionXdr !== 'string') return false;
-  if (record.type === 'SUBMIT_TOKEN' && typeof record.contractId !== 'string') return false;
+  if (
+    record.type === 'SUBMIT_TOKEN' &&
+    typeof record.contractId !== 'string' &&
+    !(typeof record.issuer === 'string' && typeof record.assetCode === 'string')
+  )
+    return false;
   if (record.type === 'SUBMIT_BLOB' && (typeof record.blob !== 'string' || typeof record.apiVersion !== 'string'))
     return false;
   if (
@@ -155,7 +173,6 @@ function isRequest(value: unknown): value is BridgeRequest {
 function requiredField(type: string, key: string): boolean {
   return (
     (type === 'SUBMIT_TRANSACTION' && key === 'transactionXdr') ||
-    (type === 'SUBMIT_TOKEN' && key === 'contractId') ||
     (type === 'SUBMIT_BLOB' && (key === 'blob' || key === 'apiVersion')) ||
     (type === 'SUBMIT_AUTH_ENTRY' && (key === 'entryXdr' || key === 'apiVersion'))
   );
@@ -263,6 +280,7 @@ export function createFreighterSession(
   let pending: BridgeRequest | undefined;
   let pendingSign:
     | Readonly<{ messageId: string | number; transactionXdrBase64: string; accountAddress: string }>
+    | Readonly<{ messageId: string | number; asset: true }>
     | Readonly<{ messageId: string | number; encoding: 'base64' | 'hex'; accountAddress: string }>
     | undefined;
   let closed = false;
@@ -415,6 +433,26 @@ export function createFreighterSession(
           details.network === 'PUBLIC' ? 'https://horizon.stellar.org' : 'https://horizon-testnet.stellar.org';
         return response(json, { networkDetails: { ...details, networkUrl } });
       }
+      case 'SUBMIT_TOKEN':
+        if (json.assetType === 'soroban' || !json.issuer || !json.assetCode) {
+          return response(json, { error: 'unsupported' });
+        }
+        if (!connected()) return response(json, { error: 'not-authorized' });
+        if (pendingSign) return response(json, { error: 'sign-pending' });
+        if (json.networkPassphrase !== undefined && json.networkPassphrase !== initial.networkPassphrase) {
+          return response(json, { error: 'wrong-network' });
+        }
+        if ([json.address, json.accountToSign].some(address => address !== undefined && address !== initial.address)) {
+          return response(json, { error: 'wrong-account' });
+        }
+        pendingSign = { asset: true, messageId: json.messageId };
+        return {
+          kind: 'add-asset',
+          origin: documentOrigin,
+          code: json.assetCode,
+          issuer: json.issuer,
+          ...(json.contractId ? { contractId: json.contractId } : {}),
+        };
       case 'SUBMIT_TRANSACTION':
         return reviewTransaction(json);
       case 'SUBMIT_BLOB':
@@ -545,6 +583,11 @@ export function createFreighterSession(
             messagedId: request.messageId,
             ...messageError('invalid-message'),
           };
+    }
+    if ('asset' in request) {
+      return connected() && result.status === 'asset-added'
+        ? { source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE', messagedId: request.messageId, contractId: result.contractId }
+        : null;
     }
     if (result.status !== 'signed') return null;
     if (

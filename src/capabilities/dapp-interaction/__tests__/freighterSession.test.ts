@@ -246,10 +246,8 @@ describe('S15/S18 Freighter in-WebView read-only wallet bridge', () => {
     [
       'SUBMIT_TOKEN',
       {
-        contractId: 'USDC:GISSUER',
-        assetType: 'classic',
-        assetCode: 'USDC',
-        issuer: 'GISSUER',
+        contractId: 'C123',
+        assetType: 'soroban',
         symbol: 'USDC',
         decimals: 7,
         iconUrl: 'https://assets.example.org/usdc.png',
@@ -274,7 +272,7 @@ describe('S15/S18 Freighter in-WebView read-only wallet bridge', () => {
 
   it('keeps recognized unsupported methods fail-closed for malformed and oversized payloads', () => {
     const cases: Array<[string, Record<string, unknown>]> = [
-      ['SUBMIT_TOKEN', { assetCode: 'USD', issuer: 'GISSUER' }],
+      ['SUBMIT_TOKEN', { assetCode: 'USD' }],
       ['SUBMIT_TOKEN', { contractId: 'C123', decimals: 19 }],
       ['SUBMIT_TOKEN', { contractId: 'C123', decimals: 2.5 }],
       ['SUBMIT_TOKEN', { contractId: 'C123', decimals: '7' }],
@@ -519,4 +517,44 @@ it('binds SEP-53 to approved origin, selected signer, network and request versio
     signedBlob: 'ab'.repeat(64),
     signerAddress: selection.address,
   });
+});
+
+it('opens a separate approval for a connected Classic asset request and binds its response', () => {
+  const { session } = harness();
+  const asset = { issuer: 'GISSUER', assetCode: 'USD', assetType: 'classic' };
+  expect(session.receive(request('SUBMIT_TOKEN', 10, asset), origin)).toMatchObject({
+    kind: 'respond',
+    response: { error: 'not-authorized' },
+  });
+  session.receive(request('REQUEST_ACCESS', 11), origin);
+  session.resolvePermission(true);
+  expect(session.receive(request('SUBMIT_TOKEN', 12, { ...asset, networkPassphrase: 'wrong' }), origin)).toMatchObject({
+    kind: 'respond',
+    response: { error: 'wrong-network' },
+  });
+  expect(session.receive(request('SUBMIT_TOKEN', 13, { ...asset, address: 'GOTHER' }), origin)).toMatchObject({
+    kind: 'respond',
+    response: { error: 'wrong-account' },
+  });
+  expect(session.receive(request('SUBMIT_TOKEN', 14, asset), origin)).toEqual({
+    kind: 'add-asset',
+    origin,
+    code: 'USD',
+    issuer: 'GISSUER',
+  });
+  expect(session.receive(request('SUBMIT_TOKEN', 15, asset), origin)).toMatchObject({
+    kind: 'respond',
+    response: { error: 'sign-pending' },
+  });
+  expect(session.finishSign({ status: 'asset-added', contractId: 'USD:GISSUER' })).toMatchObject({
+    messagedId: 14,
+    contractId: 'USD:GISSUER',
+  });
+  expect(session.receive(request('SUBMIT_TOKEN', 16, { ...asset, assetType: 'soroban' }), origin)).toMatchObject({
+    kind: 'respond',
+    response: { error: 'unsupported' },
+  });
+  expect(session.receive(request('SUBMIT_TOKEN', 17, asset), origin)).toMatchObject({ kind: 'add-asset' });
+  session.activateDocument(origin);
+  expect(session.finishSign({ status: 'asset-added', contractId: 'USD:GISSUER' })).toBeNull();
 });

@@ -24,6 +24,8 @@ export function buildFreighterReply(
   if (target) return { nativeCommand: SEP53_PREFIX + target.replyId + ':' + payload };
   if (
     'signedBlob' in response ||
+    'signedTransaction' in response ||
+    'contractId' in response ||
     'publicKey' in response ||
     'userInfo' in response ||
     'network' in response ||
@@ -73,7 +75,7 @@ export function buildFreighterInjectionScript(): string {
     '      if (!payload || (payload.source !== "FREIGHTER_EXTERNAL_MSG_REQUEST" && payload.source !== "FRESNICA_DAPP_MSG_REQUEST")) return;',
     '      var serialized = JSON.stringify(payload);',
     '      if (!serialized || serialized.length > ' + String(MAX_BRIDGE_MESSAGE_LENGTH) + ') return;',
-    '      if (payload.source === "FREIGHTER_EXTERNAL_MSG_REQUEST" && payload.type !== "SUBMIT_TRANSACTION") {',
+    '      if (payload.source === "FREIGHTER_EXTERNAL_MSG_REQUEST") {',
     '        var requestId = payload.messageId;',
     '        if (iosSep53) iosSep53.postMessage(serialized).then(forwardReply, function() {',
     '          forwardReply(JSON.stringify({ source: "FREIGHTER_EXTERNAL_MSG_RESPONSE", messagedId: requestId,',
