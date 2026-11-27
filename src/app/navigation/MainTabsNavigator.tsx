@@ -1,3 +1,4 @@
+import { createDappContractTracking } from './createDappContractTracking';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createBottomTabNavigator, type BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
@@ -311,6 +312,11 @@ function MainTabsWithSelection({
   }, [swapSelectionStore, services.networkProfile.horizonUrl]);
 
   const addDappAsset = useMemo(() => createDappAssetRequest(services.trustline), [services.trustline]);
+  const trackDappContract = useMemo(
+    () =>
+      services.contractAssets && createDappContractTracking(services.contractAssets, services.onboarding.repository),
+    [services.contractAssets, services.onboarding.repository],
+  );
   const renderDApps = useCallback(
     () => (
       <DAppsStackNavigator
@@ -323,7 +329,11 @@ function MainTabsWithSelection({
         signTransaction={dappSigner}
         signMessage={dappMessageSigner}
         addAsset={addDappAsset}
+        trackContract={trackDappContract}
         permissions={services.dappPermissions}
+        browserAccounts={selectableAccounts}
+        chooseBrowserAccount={selectAccount}
+        browserNetworks={services.networkSettings}
       />
     ),
     [
@@ -336,7 +346,11 @@ function MainTabsWithSelection({
       dappSigner,
       dappMessageSigner,
       addDappAsset,
+      trackDappContract,
       services.dappPermissions,
+      selectableAccounts,
+      selectAccount,
+      services.networkSettings,
     ],
   );
 

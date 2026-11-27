@@ -98,3 +98,18 @@ describe('Stellar-style Home asset category chooser', () => {
     expect(onSelect).toHaveBeenCalledWith('tokens');
   });
 });
+
+it('exposes contract assets only when the network-bound product is available', () => {
+  const onSelect = jest.fn();
+  const root = AssetCategoryDialog({
+    visible: true, current: 'contracts', showClaimable: false, showContracts: true,
+    onClose: jest.fn(), onSelect,
+  });
+  const nodes = React.Children.toArray(root.props.children).filter(
+    child => React.isValidElement<{ accessibilityRole?: string }>(child) && child.props.accessibilityRole === 'radio',
+  ) as Option[];
+  expect(nodes.map(node => node.props.accessibilityLabel)).toEqual(['claimable.category.assets', 'assets.contract.category']);
+  expect(nodes[1].props.accessibilityState.selected).toBe(true);
+  nodes[1].props.onPress();
+  expect(onSelect).toHaveBeenCalledWith('contracts');
+});

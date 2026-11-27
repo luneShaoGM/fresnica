@@ -52,8 +52,9 @@ type Props = Readonly<{
   onAddAccount: () => void;
   onSend: () => void;
   onManageAssets: () => void;
-  assetCategory?: 'tokens' | 'claimable' | 'pools';
+  assetCategory?: 'tokens' | 'claimable' | 'pools' | 'contracts';
   poolsContent?: React.ReactNode;
+  contractsContent?: React.ReactNode;
   onOrders?: () => void;
   onOpenAssetCategory?: () => void;
   onShowClaimable?: () => void;
@@ -87,6 +88,7 @@ export function HomeScreen({
   onShowClaimable,
   claimableContent,
   poolsContent,
+  contractsContent,
   onOrders,
   onClaimablePullRefresh,
   claimableNowCount = 0,
@@ -271,7 +273,9 @@ export function HomeScreen({
                     ? t('market.pools')
                     : assetCategory === 'claimable'
                       ? t('claimable.category.claimable')
-                      : t('claimable.category.assets')}
+                      : assetCategory === 'contracts'
+                        ? t('assets.contract.category')
+                        : t('claimable.category.assets')}
                 </Text>
                 <SmallChevron color={theme.colors.textSecondary} />
               </Pressable>
@@ -311,7 +315,7 @@ export function HomeScreen({
         <ScrollView
           style={styles.tokenScroll}
           contentContainerStyle={styles.tokenContent}
-          refreshControl={
+          refreshControl={assetCategory === 'contracts' ? undefined : (
             <RefreshControl
               onRefresh={() => {
                 if (assetCategory !== 'tokens') {
@@ -327,7 +331,7 @@ export function HomeScreen({
               refreshing={manualRefreshing}
               tintColor={theme.colors.actionPrimary}
             />
-          }
+          )}
           showsVerticalScrollIndicator={false}
         >
           {largeText ? freshnessNotice : null}
@@ -336,7 +340,9 @@ export function HomeScreen({
             ? poolsContent
             : assetCategory === 'claimable'
               ? claimableContent
-              : renderPortfolio(
+              : assetCategory === 'contracts'
+                ? contractsContent
+                : renderPortfolio(
                   balanceState,
                   viewModel.accountAddress,
                   friendbotAvailable,

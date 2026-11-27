@@ -11,6 +11,7 @@ import {
 import { historySnapshot, payment } from '../../__tests__/historyCacheRepositoryContract';
 import { RealmBalanceCacheRepository } from '../RealmBalanceCacheRepository';
 import { RealmClaimableCacheStore } from '../RealmClaimableCacheStore';
+import { RealmContractAssetStore } from '../RealmContractAssetStore';
 import { RealmDappPermissionStore } from '../RealmDappPermissionStore';
 import { RealmHistoryCacheRepository } from '../RealmHistoryCacheRepository';
 import { RealmAccountSignerRepository } from '../RealmAccountSignerRepository';
@@ -145,7 +146,7 @@ describe('Realm Balance cache', () => {
     realm.close();
     realm = await openWalletRealm({ path });
     const migrated = new RealmAccountSignerRepository(realm);
-    expect(realm.schemaVersion).toBe(14);
+    expect(realm.schemaVersion).toBe(15);
     expect(migrated.getAccount('old')).toEqual(account);
     expect(migrated.getSigner('signer')).toEqual(signer);
     expect(migrated.listSignersForAccount('old')).toEqual([signer]);
@@ -165,6 +166,7 @@ describe('Realm Balance cache', () => {
         historyCache: new RealmHistoryCacheRepository(realm),
         balanceCache,
         claimableCache: new RealmClaimableCacheStore(realm),
+        contractAssets: new RealmContractAssetStore(realm),
         dappPermissions: new RealmDappPermissionStore(realm),
       },
       'old',

@@ -1,3 +1,6 @@
+import { createContractAssets, type ContractAssets } from '@capabilities/assets/contractAssets';
+import { createStellarContractTokenReader } from '@platform/stellar/StellarContractTokenReader';
+import { RealmContractAssetStore } from '@platform/persistence/realm/RealmContractAssetStore';
 import { createDappRecentHistory, type DappRecentHistory } from '../capabilities/dapp-interaction/dappRecentHistory';
 import { RealmDappRecentRepository } from '../platform/persistence/realm/RealmDappRecentRepository';
 import { createMarkets, type Markets } from '../capabilities/markets/createMarkets';
@@ -135,6 +138,7 @@ export type AppServices = Readonly<{
   securitySettings?: SecuritySettings;
   themeImageSelection?: ThemeImageSelection;
   xlmQuotes?: XlmQuotePort;
+  contractAssets?: ContractAssets;
   applicationSession?: ApplicationSession;
   networkProfile: NetworkProfile;
   networkSettings?: NetworkSettings;
@@ -388,6 +392,14 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         .listAccounts()
         .filter(account => account.networkId === network.id && account.address === address)
         .map(account => [account.id, ledgerReadInvalidation.getRevision(network.id, account.id)] as const);
+    const contractAssetStore = new RealmContractAssetStore(realm);
+    const contractAssets = createContractAssets({
+      reader: session.bind(createStellarContractTokenReader(network)),
+      store: contractAssetStore,
+      repository,
+      assertOpen: session.assertOpen,
+      now: Date.now,
+    });
     const claimableCache = new RealmClaimableCacheStore(realm);
     const claimables = createClaimableProduct({
       networkId: network.id,
@@ -650,6 +662,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
       securitySettings,
       themeImageSelection,
       xlmQuotes,
+      contractAssets,
       networkProfile,
       networkSettings,
       assetCatalog,
@@ -680,6 +693,7 @@ export async function createAppServices(options: CreateAppServicesOptions = {}):
         output: session.bind(reactNativeRequestOutput),
       },
       accountManagement: {
+        contractAssets: contractAssetStore,
         repository,
         pendingSubmissions,
         cacheNetworkIds: Object.keys(NETWORKS),

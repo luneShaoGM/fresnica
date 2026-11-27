@@ -1,4 +1,5 @@
 import type { BalanceCacheRepository } from '../balance/BalanceCacheRepository';
+import type { ContractAssetStore } from '../assets/contractAssets';
 import type { ClaimableCacheStore } from '../claimable/createClaimableProduct';
 import type { DappPermissionStore } from '../dapp-interaction/dappPermissionStore';
 import type { HistoryCacheRepository } from '../history/HistoryCacheRepository';
@@ -11,6 +12,7 @@ export type DeleteLocalAccountDependencies = Readonly<{
   historyCache: Pick<HistoryCacheRepository, 'clearPartition'>;
   balanceCache: Pick<BalanceCacheRepository, 'clearPartition'>;
   claimableCache: Pick<ClaimableCacheStore, 'clearPartition'>;
+  contractAssets: Pick<ContractAssetStore, 'clearPartition'>;
   dappPermissions: Pick<DappPermissionStore, 'revokeAccount'>;
   cacheNetworkIds?: readonly string[];
   onDeleted?: () => void;
@@ -42,6 +44,7 @@ export function deleteLocalAccount(dependencies: DeleteLocalAccountDependencies,
       dependencies.balanceCache.clearPartition({ networkId, accountAddress: account.address });
       dependencies.historyCache.clearPartition({ networkId, accountAddress: account.address });
       dependencies.claimableCache.clearPartition(networkId, account.address);
+      dependencies.contractAssets.clearPartition(networkId, account.address);
     }
   }
   dependencies.dappPermissions.revokeAccount(accountId);

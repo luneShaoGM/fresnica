@@ -27,6 +27,19 @@ const react = jest.requireActual<typeof import('react')>('react');
 jest
   .spyOn(react, 'useSyncExternalStore')
   .mockImplementation(((_subscribe: unknown, get: () => unknown) => get()) as typeof react.useSyncExternalStore);
+jest.spyOn(react, 'useCallback').mockImplementation(((callback: unknown) => callback) as typeof react.useCallback);
+let routeState: unknown[] = [];
+let stateIndex = 0;
+jest.spyOn(react, 'useState').mockImplementation(((initial: unknown) => {
+  const i = stateIndex++;
+  if (!(i in routeState)) routeState[i] = initial;
+  return [
+    routeState[i],
+    (next: unknown) => {
+      routeState[i] = typeof next === 'function' ? (next as (old: unknown) => unknown)(routeState[i]) : next;
+    },
+  ];
+}) as typeof react.useState);
 jest.spyOn(react, 'useRef').mockImplementation(((initial: unknown) => ({ current: initial })) as typeof react.useRef);
 
 const { DAppsStackNavigator } = require('../DAppsStackNavigator') as typeof import('../DAppsStackNavigator');
@@ -51,7 +64,9 @@ function catalogRoute(
   verified: boolean,
   getSelection: () => DappPublicSelection | undefined = () => selectedWallet,
   recentHistory?: DappRecentHistory,
+  chooseBrowserAccount?: (id: string) => Promise<void>,
 ) {
+  routeState = [];
   const catalog: DappCatalogPort = {
     load: async () => ({ kind: 'ready', entries: [liveEntry] }),
     isTrustedLiveEntry: () => verified,
@@ -59,6 +74,7 @@ function catalogRoute(
   const stack = DAppsStackNavigator({
     catalog,
     recentHistory,
+    chooseBrowserAccount,
     openExternalUrl: async () => undefined,
     runtime: {
       subscribe: () => () => undefined,
@@ -96,14 +112,24 @@ function catalogRoute(
     route: { params: { url: liveEntry.websiteUrl } },
     navigation: { goBack: jest.fn() },
   });
-  const browserSurface = () =>
-    (
+  type BrowserProps = {
+    trustedCatalogOrigin?: string;
+    requireFreshConnection?: boolean;
+    onVisit?: (url: string) => void;
+    onSwitchAccount?: (id: string, origin: string) => Promise<void>;
+    url: string;
+  };
+  const browserSurface = () => {
+    stateIndex = 0;
+    const fragment = (
       browserRoute.type as (props: Record<string, unknown>) => React.ReactElement<{
-        trustedCatalogOrigin?: string;
-        onVisit?: (url: string) => void;
-        url: string;
+        children: React.ReactNode;
       }>
     )(browserRoute.props as Record<string, unknown>);
+    const child = React.Children.toArray(fragment.props.children).find(React.isValidElement<BrowserProps>);
+    if (!child) throw new Error('browser-surface-unavailable');
+    return child;
+  };
   return { listingSurface, browserSurface };
 }
 
@@ -231,4 +257,22 @@ it('wires one shared history to directory and real browser visits without confer
   expect(browser.props.trustedCatalogOrigin).toBeUndefined();
   browser.props.onVisit?.(liveEntry.websiteUrl);
   expect(history.getSnapshot().origins).toEqual(['https://dex.example.org']);
+});
+
+it('opens a new browser instance with no carried consent after an account change', async () => {
+  Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
+  const choose = jest.fn(async (_id: string) => undefined);
+  const { listingSurface, browserSurface } = catalogRoute(true, () => selectedWallet, undefined, choose);
+  listingSurface.props.openCatalogInApp?.(liveEntry, true);
+  const original = browserSurface();
+  expect(original.props.trustedCatalogOrigin).toBe('https://dex.example.org');
+  await original.props.onSwitchAccount?.('wallet-B', 'https://dex.example.org');
+  const restarted = browserSurface();
+  expect(choose).toHaveBeenCalledWith('wallet-B');
+  expect(restarted.key).not.toBe(original.key);
+  expect(restarted.props).toMatchObject({
+    url: 'https://dex.example.org',
+    requireFreshConnection: true,
+    trustedCatalogOrigin: undefined,
+  });
 });

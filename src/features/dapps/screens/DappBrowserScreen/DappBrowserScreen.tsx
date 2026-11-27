@@ -1,3 +1,4 @@
+import type { DappContractTracking } from '@capabilities/dapp-interaction/dappContractTracking';
 import React, { useCallback, useEffect, useRef, useState, type ComponentType, type RefAttributes } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
@@ -26,8 +27,9 @@ import type {
   DappGrantScope,
   DappPermissionStore,
 } from '../../../../capabilities/dapp-interaction/dappPermissionStore';
+import type { AccountRecord } from '@capabilities/account/types';
 import { useLocalization } from '../../../../locale';
-import { Screen } from '../../../../ui/components';
+import { BottomSheet, Screen } from '../../../../ui/components';
 import { NativeButton } from '../../../../ui/components/NativeButton';
 import { useThemedStyles } from '../../../../ui/theme';
 
@@ -40,6 +42,9 @@ type Props = Readonly<{
   active: boolean;
   onClose: () => void;
   onVisit?: (url: string) => void;
+  accountChoices?: readonly AccountRecord[];
+  onSwitchAccount?: (id: string, origin: string) => Promise<void>;
+  onSwitchNetwork?: () => void;
   shareWebsite?: (origin: string) => Promise<unknown>;
   notificationNow?: () => number;
   showNotification?: (origin: string, title: string, body: string, expiresAt: number) => boolean;
@@ -49,8 +54,10 @@ type Props = Readonly<{
   signTransaction: DappTransactionSigner;
   signMessage?: DappMessageSigner;
   addAsset?: DappAssetRequest;
+  trackContract?: DappContractTracking;
   permissions: DappPermissionStore;
   // One-use proof consumed by App composition; not a route param or grant.
+  requireFreshConnection?: boolean;
   trustedCatalogOrigin?: string;
   BrowserSurface: ComponentType<DappBrowserSurfaceProps & RefAttributes<DappBrowserSurfaceHandle>>;
 }>;
@@ -65,6 +72,12 @@ type PendingSignature = Readonly<{
   generation: number;
   passphraseRequired: boolean;
 }>;
+
+type PendingContract = Extract<BridgeDecision, { kind: 'track-contract' }> & {
+  generation: number;
+  epoch: number;
+  target: DappMessageReplyTarget;
+};
 
 type PendingMessage = Extract<BridgeDecision, { kind: 'sign-message' }> & {
   generation: number;
@@ -84,6 +97,9 @@ export function DappBrowserScreen({
   onClose,
   onVisit,
   shareWebsite,
+  accountChoices,
+  onSwitchAccount,
+  onSwitchNetwork,
   showNotification,
   notificationNow,
   currentSelection,
@@ -92,8 +108,10 @@ export function DappBrowserScreen({
   signTransaction,
   signMessage,
   addAsset,
+  trackContract,
   permissions,
   trustedCatalogOrigin,
+  requireFreshConnection,
   BrowserSurface,
 }: Props) {
   const { t } = useLocalization();
@@ -117,6 +135,8 @@ export function DappBrowserScreen({
   const permissionDocumentActive = useRef(true);
   const permissionHistoryPending = useRef(false);
   const [showConnection, setShowConnection] = useState(false);
+  const [showAccounts, setShowAccounts] = useState(false);
+  const [switchFailed, setSwitchFailed] = useState(false);
   const [shareFailed, setShareFailed] = useState(false);
   const [, setConnectionRevision] = useState(0);
   const [page, setPage] = useState({ origin: '', canGoBack: false, canGoForward: false });
@@ -134,6 +154,16 @@ export function DappBrowserScreen({
     setPendingNotification(undefined);
   };
   const [pendingSign, setPendingSign] = useState<PendingSignature>();
+  const [pendingContract, setPendingContract] = useState<PendingContract>();
+  const contractAbort = useRef<AbortController | undefined>(undefined);
+  const clearContract = () => {
+    if (contractAbort.current) {
+      contractAbort.current.abort();
+      contractAbort.current = undefined;
+      setSigningNow(false);
+    }
+    setPendingContract(undefined);
+  };
   const [pendingMessage, setPendingMessage] = useState<PendingMessage>();
   const [messageExpired, setMessageExpired] = useState(false);
   const [signingNow, setSigningNow] = useState(false);
@@ -179,12 +209,12 @@ export function DappBrowserScreen({
             token,
             initial: selection,
             current: () => (live.current ? currentSelection() : undefined),
-            persistedAllowed: hasSavedGrant,
+            persistedAllowed: requireFreshConnection ? undefined : hasSavedGrant,
             catalogReadAllowed: () =>
               trustedInitialOrigin &&
               curatedDocument.current === 'confirmed' &&
               documentOrigin.current === target.origin,
-            persistedNotificationAllowed: hasSavedGrant,
+            persistedNotificationAllowed: requireFreshConnection ? undefined : hasSavedGrant,
             notificationNow,
           }),
         });
@@ -216,10 +246,12 @@ export function DappBrowserScreen({
       // The owner publishes monotonic revisions. Even A->B->A revokes the
       // original dApp connection and unmounts the WebView on first change.
       current.session.revoke();
+      contractAbort.current?.abort();
       setStale(true);
     });
     return () => {
       unsubscribe();
+      contractAbort.current?.abort();
       clearTimeout(notificationTimer.current);
       notificationRequest.current = undefined;
       current.session.revoke();
@@ -238,6 +270,7 @@ export function DappBrowserScreen({
           event.scope.networkId === current.selection.networkId)
       ) {
         current.session.revoke();
+        contractAbort.current?.abort();
         signGeneration.current += 1;
         settlePermission();
         setPendingSign(undefined);
@@ -250,6 +283,7 @@ export function DappBrowserScreen({
   useEffect(() => {
     if (!active && current) {
       current.session.revoke();
+      contractAbort.current?.abort();
       setStale(true);
     }
   }, [active, current]);
@@ -288,6 +322,7 @@ export function DappBrowserScreen({
   const expireTransaction = (target: DappMessageReplyTarget) => {
     if (!currentSession() || transactionTarget.current?.replyId !== target.replyId) return;
     transactionTarget.current = undefined;
+    clearContract();
     signGeneration.current += 1;
     setPendingSign(undefined);
     setSignError(false);
@@ -392,6 +427,21 @@ export function DappBrowserScreen({
       const request = { ...decision, generation: signGeneration.current, epoch: documentEpoch.current, target };
       if (target.expiresAt !== undefined && Date.now() >= target.expiresAt) expireMessage(request);
       else setPendingMessage(request);
+    }
+    if (decision.kind === 'track-contract') {
+      if (!target || !trackContract?.canReview(current.selection, decision.contractId)) {
+        const failed = current.session.finishSign({ status: 'failed', error: 'asset-failed' });
+        if (failed && target) reply(failed, target);
+        return;
+      }
+      transactionTarget.current = target;
+      transactionDeadline.current = performance.now() + 120_000;
+      if (transactionExpired(target)) {
+        expireTransaction(target);
+        return;
+      }
+      setPendingContract({ ...decision, generation: ++signGeneration.current, epoch: documentEpoch.current, target });
+      return;
     }
     if (decision.kind === 'add-asset') {
       const generation = ++signGeneration.current;
@@ -513,6 +563,7 @@ export function DappBrowserScreen({
   };
 
   const rejectSignature = () => {
+    clearContract();
     signGeneration.current += 1;
     setPendingSign(undefined);
     setPendingMessage(undefined);
@@ -524,6 +575,39 @@ export function DappBrowserScreen({
     messageReplyTarget.current = undefined;
     const declined = current.session.finishSign({ status: 'declined' });
     if (declined) reply(declined, target);
+  };
+
+  const confirmContract = async (request: PendingContract) => {
+    const isCurrent = () =>
+      currentSession() &&
+      !originChanging.current &&
+      request.generation === signGeneration.current &&
+      request.epoch === documentEpoch.current &&
+      request.origin === documentOrigin.current &&
+      request.target === transactionTarget.current &&
+      !transactionExpired(request.target);
+    if (!current || !trackContract || !isCurrent() || contractAbort.current) return;
+    const controller = new AbortController();
+    contractAbort.current = controller;
+    setSigningNow(true);
+    let ok = false;
+    try {
+      ok = await trackContract.track(current.selection, request.contractId, controller.signal, isCurrent);
+    } catch {
+      // Do not disclose account-store or RPC errors to the page.
+    } finally {
+      if (contractAbort.current === controller) {
+        contractAbort.current = undefined;
+        setSigningNow(false);
+      }
+    }
+    if (!isCurrent() || controller.signal.aborted) return;
+    setPendingContract(undefined);
+    transactionTarget.current = undefined;
+    const result = current.session.finishSign(
+      ok ? { status: 'asset-added', contractId: request.contractId } : { status: 'failed', error: 'asset-failed' },
+    );
+    if (result) reply(result, request.target);
   };
 
   const confirmSignature = async (appPassphrase: string) => {
@@ -723,6 +807,7 @@ export function DappBrowserScreen({
   };
 
   const retireInvalidNavigation = () => {
+    clearContract();
     // A navigation bypassing the normal URL gate must synchronously revoke
     // the bridge. Do not keep showing the previous, trusted address.
     current?.session.revoke();
@@ -764,6 +849,7 @@ export function DappBrowserScreen({
       curatedDocument.current = hasDocumentStarted.current || target.url !== current.url ? 'retired' : 'unconfirmed';
     }
     hasDocumentStarted.current = true;
+    clearContract();
     clearNotification();
     settlePermission();
     messageReplyTarget.current = undefined;
@@ -812,6 +898,7 @@ export function DappBrowserScreen({
   };
 
   const close = () => {
+    clearContract();
     current?.session.revoke();
     retirePermissionDocument();
     clearNotification();
@@ -823,13 +910,15 @@ export function DappBrowserScreen({
       <Screen>
         <NativeButton label={t('common.back')} onPress={close} variant="quiet" />
         <Text style={styles.error}>
-          {t(
-            permissionStorageError === 'revoke'
-              ? 'dapps.browser.revokeFailed'
-              : permissionStorageError === 'grant'
-                ? 'dapps.permission.storageFailed'
-                : 'dapps.browser.unavailable',
-          )}
+          {switchFailed
+            ? t('dapps.browser.switchFailed')
+            : t(
+                permissionStorageError === 'revoke'
+                  ? 'dapps.browser.revokeFailed'
+                  : permissionStorageError === 'grant'
+                    ? 'dapps.permission.storageFailed'
+                    : 'dapps.browser.unavailable',
+              )}
         </Text>
       </Screen>
     );
@@ -904,7 +993,10 @@ export function DappBrowserScreen({
           <ToolButton
             glyph="ⓘ"
             label={t('dapps.browser.connection')}
-            onPress={() => setShowConnection(visible => !visible)}
+            onPress={() => {
+              setShowAccounts(false);
+              setShowConnection(visible => !visible);
+            }}
             styles={styles}
           />
           <ToolButton glyph="×" label={t('dapps.browser.close')} onPress={close} styles={styles} />
@@ -927,6 +1019,47 @@ export function DappBrowserScreen({
                 </Text>
                 <NativeButton label={t('dapps.browser.disconnect')} onPress={disconnect} variant="quiet" />
               </>
+            ) : null}
+            {onSwitchAccount &&
+            accountChoices?.some(
+              account =>
+                account.id !== current.selection.accountId && account.networkId === current.selection.networkId,
+            ) ? (
+              <NativeButton
+                label={t('dapps.browser.switchAccount')}
+                onPress={() => setShowAccounts(value => !value)}
+                variant="quiet"
+              />
+            ) : null}
+            {showAccounts && onSwitchAccount
+              ? accountChoices
+                  ?.filter(
+                    account =>
+                      account.id !== current.selection.accountId && account.networkId === current.selection.networkId,
+                  )
+                  .map(account => (
+                    <NativeButton
+                      key={account.id}
+                      label={account.address}
+                      onPress={() => {
+                        if (!ownsPanel() || signing.current || contractAbort.current) return;
+                        retireInvalidNavigation();
+                        onSwitchAccount(account.id, shownOrigin).catch(() => setSwitchFailed(true));
+                      }}
+                      variant="quiet"
+                    />
+                  ))
+              : null}
+            {onSwitchNetwork ? (
+              <NativeButton
+                label={t('dapps.browser.switchNetwork')}
+                onPress={() => {
+                  if (!ownsPanel() || signing.current || contractAbort.current) return;
+                  retireInvalidNavigation();
+                  onSwitchNetwork();
+                }}
+                variant="quiet"
+              />
             ) : null}
             {shareWebsite ? (
               <NativeButton
@@ -1022,6 +1155,48 @@ export function DappBrowserScreen({
             passphraseRequired
             visible
           />
+        ) : null}
+        {pendingContract ? (
+          <BottomSheet
+            closeLabel={t('common.cancel')}
+            onClose={() => {
+              if (pendingContract.generation === signGeneration.current) rejectSignature();
+            }}
+            visible
+          >
+            <ScrollView contentContainerStyle={styles.permission}>
+              <Text accessibilityRole="header" style={styles.heading}>
+                {t('dapps.contract.title')}
+              </Text>
+              <Text selectable style={styles.recoveryValue}>
+                {pendingContract.origin}
+              </Text>
+              <Text style={styles.recoveryValue}>
+                {t('dapps.permission.network')}: {networkLabel(current.selection.networkId)}
+              </Text>
+              <Text selectable style={styles.recoveryValue}>
+                {current.selection.address}
+              </Text>
+              <Text selectable style={styles.recoveryValue}>
+                {pendingContract.contractId}
+              </Text>
+              <Text style={styles.notice}>{t('assets.contract.privacy')}</Text>
+              <NativeButton
+                label={t('dapps.contract.confirm')}
+                disabled={signingNow}
+                onPress={() => {
+                  void confirmContract(pendingContract);
+                }}
+              />
+              <NativeButton
+                label={t('common.cancel')}
+                variant="quiet"
+                onPress={() => {
+                  if (pendingContract.generation === signGeneration.current) rejectSignature();
+                }}
+              />
+            </ScrollView>
+          </BottomSheet>
         ) : null}
         {pendingSign ? (
           <DappSignSheet

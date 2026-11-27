@@ -1,6 +1,10 @@
+import type { DappContractTracking } from '@capabilities/dapp-interaction/dappContractTracking';
 import { readDappNotificationTime, showDappNotification } from '../../platform/dapp-browser/dappNotification';
-import React, { useRef, useSyncExternalStore } from 'react';
+import React, { useCallback, useRef, useState, useSyncExternalStore } from 'react';
 import { Share } from 'react-native';
+import type { AccountRecord } from '@capabilities/account/types';
+import type { NetworkSettings } from '@capabilities/network/createNetworkSettings';
+import { NetworkSwitchModal } from '@features/settings/NetworkSwitchModal';
 import { canMountDappWebView } from '../../platform/dapp-browser/browserAvailability';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useIsFocused } from '@react-navigation/native';
@@ -34,7 +38,11 @@ export function DAppsStackNavigator({
   signTransaction,
   signMessage,
   addAsset,
+  trackContract,
   permissions,
+  browserAccounts,
+  chooseBrowserAccount,
+  browserNetworks,
 }: Readonly<{
   catalog: DappCatalogPort;
   recentHistory?: DappRecentHistory;
@@ -45,7 +53,11 @@ export function DAppsStackNavigator({
   signTransaction: DappTransactionSigner;
   signMessage?: DappMessageSigner;
   addAsset?: DappAssetRequest;
+  trackContract?: DappContractTracking;
   permissions: DappPermissionStore;
+  browserAccounts?: readonly AccountRecord[];
+  chooseBrowserAccount?: (id: string) => Promise<void>;
+  browserNetworks?: NetworkSettings;
 }>) {
   const reads = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot, runtime.getSnapshot);
   const launchRef = useRef<ReturnType<typeof createCuratedSessionLaunch> | undefined>(undefined);
@@ -79,7 +91,11 @@ export function DAppsStackNavigator({
               signTransaction={signTransaction}
               signMessage={signMessage}
               addAsset={addAsset}
+              trackContract={trackContract}
               permissions={permissions}
+              browserAccounts={browserAccounts}
+              chooseBrowserAccount={chooseBrowserAccount}
+              browserNetworks={browserNetworks}
               foreground={reads.foreground}
               onClose={() => navigation.goBack()}
               trustedLaunch={trustedLaunch}
@@ -162,7 +178,11 @@ function DappBrowserRoute({
   signTransaction,
   signMessage,
   addAsset,
+  trackContract,
   permissions,
+  browserAccounts,
+  chooseBrowserAccount,
+  browserNetworks,
   foreground,
   onClose,
   trustedLaunch,
@@ -174,12 +194,24 @@ function DappBrowserRoute({
   signTransaction: DappTransactionSigner;
   signMessage?: DappMessageSigner;
   addAsset?: DappAssetRequest;
+  trackContract?: DappContractTracking;
   permissions: DappPermissionStore;
+  browserAccounts?: readonly AccountRecord[];
+  chooseBrowserAccount?: (id: string) => Promise<void>;
+  browserNetworks?: NetworkSettings;
   foreground: boolean;
   onClose: () => void;
   trustedLaunch: ReturnType<typeof createCuratedSessionLaunch>;
 }>) {
   const focused = useIsFocused();
+  const [reopened, setReopened] = useState<{ origin: string; revision: number }>();
+  const [networkPicker, setNetworkPicker] = useState(false);
+  const closeRoute = useRef(onClose);
+  closeRoute.current = onClose;
+  const closeNetworkPicker = useCallback(() => {
+    setNetworkPicker(false);
+    closeRoute.current();
+  }, []);
   const proofRef = useRef<{ url: string; revision: number; origin?: string } | undefined>(undefined);
   if (!proofRef.current || proofRef.current.url !== url || proofRef.current.revision !== trustedLaunch.revision()) {
     let selected: DappPublicSelection | undefined;
@@ -191,25 +223,43 @@ function DappBrowserRoute({
     const origin = trustedLaunch.consume(url, selected);
     proofRef.current = { url, revision: trustedLaunch.revision(), origin };
   }
+  const choices = browserAccounts?.filter(account => account.identityKind === 'classic' && !account.hidden);
   return (
-    <DappBrowserScreen
-      key={url + ':' + String(proofRef.current.revision)}
-      url={url}
-      active={focused && foreground}
-      onClose={onClose}
-      onVisit={onVisit}
-      shareWebsite={origin => Share.share({ message: origin })}
-      currentSelection={currentSelection}
-      subscribeSelection={subscribeSelection}
-      signTransaction={signTransaction}
-      signMessage={signMessage}
-      addAsset={addAsset}
-      permissions={permissions}
-      trustedCatalogOrigin={proofRef.current.origin}
-      createNonce={createDappBridgeNonce}
-      showNotification={showDappNotification}
-      notificationNow={readDappNotificationTime}
-      BrowserSurface={SecureDappWebView}
-    />
+    <>
+      <DappBrowserScreen
+        key={reopened ? 'switched:' + reopened.origin + ':' + reopened.revision : url + ':' + proofRef.current.revision}
+        url={reopened?.origin ?? url}
+        accountChoices={choices}
+        onSwitchAccount={
+          chooseBrowserAccount
+            ? async (id, origin) => {
+                await chooseBrowserAccount(id);
+                setReopened(previous => ({ origin, revision: (previous?.revision ?? 0) + 1 }));
+              }
+            : undefined
+        }
+        onSwitchNetwork={browserNetworks ? () => setNetworkPicker(true) : undefined}
+        active={focused && foreground}
+        onClose={onClose}
+        onVisit={onVisit}
+        shareWebsite={origin => Share.share({ message: origin })}
+        currentSelection={currentSelection}
+        subscribeSelection={subscribeSelection}
+        signTransaction={signTransaction}
+        signMessage={signMessage}
+        addAsset={addAsset}
+        trackContract={trackContract}
+        permissions={permissions}
+        requireFreshConnection={reopened !== undefined}
+        trustedCatalogOrigin={reopened ? undefined : proofRef.current.origin}
+        createNonce={createDappBridgeNonce}
+        showNotification={showDappNotification}
+        notificationNow={readDappNotificationTime}
+        BrowserSurface={SecureDappWebView}
+      />
+      {networkPicker && browserNetworks ? (
+        <NetworkSwitchModal settings={browserNetworks} onClose={closeNetworkPicker} />
+      ) : null}
+    </>
   );
 }
