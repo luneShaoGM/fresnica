@@ -26,8 +26,8 @@ export type NetworkPreferences = Readonly<{
   externalTokenImagesEnabled?: boolean;
   tokenIconCacheEpoch?: number;
   externalAccountAvatarsEnabled?: boolean;
-  externalAccountAvatarsConsentVersion?: 1;
-  onlineAccountAvatarIds?: readonly string[];
+  externalAccountAvatarsConsentVersion?: 1 | 2;
+  accountAvatarCacheEpoch?: number;
   networkId: NetworkId;
   endpoints: Readonly<Record<NetworkId, string>>;
   customNodes: Readonly<Record<NetworkId, readonly string[]>>;
@@ -62,17 +62,14 @@ export function validateNetworkPreferences(value: unknown): NetworkPreferences {
   if (!value || typeof value !== 'object') return fail();
   const v = value as Record<string, unknown>;
   const tokenIconCacheEpoch = v.tokenIconCacheEpoch;
-  const avatarIds = v.onlineAccountAvatarIds;
-  if (
-    avatarIds !== undefined &&
-    (!Array.isArray(avatarIds) ||
-      avatarIds.some(id => typeof id !== 'string' || !id || id.length > 256) ||
-      new Set(avatarIds).size !== avatarIds.length)
-  )
-    return fail();
+  const avatarCacheEpoch = v.accountAvatarCacheEpoch;
   if (
     (v.retainedTestnet !== undefined && typeof v.retainedTestnet !== 'boolean') ||
-    (v.externalAccountAvatarsConsentVersion !== undefined && v.externalAccountAvatarsConsentVersion !== 1) ||
+    (v.externalAccountAvatarsConsentVersion !== undefined &&
+      v.externalAccountAvatarsConsentVersion !== 1 &&
+      v.externalAccountAvatarsConsentVersion !== 2) ||
+    (avatarCacheEpoch !== undefined &&
+      (typeof avatarCacheEpoch !== 'number' || !Number.isSafeInteger(avatarCacheEpoch) || avatarCacheEpoch < 0)) ||
     (v.externalAccountAvatarsEnabled !== undefined && typeof v.externalAccountAvatarsEnabled !== 'boolean') ||
     (v.externalTokenImagesEnabled !== undefined && typeof v.externalTokenImagesEnabled !== 'boolean') ||
     (tokenIconCacheEpoch !== undefined &&
@@ -121,13 +118,9 @@ export function validateNetworkPreferences(value: unknown): NetworkPreferences {
     externalTokenImagesEnabled: v.externalTokenImagesEnabled !== false,
     ...(typeof tokenIconCacheEpoch === 'number' ? { tokenIconCacheEpoch } : {}),
     externalAccountAvatarsEnabled:
-      v.externalAccountAvatarsConsentVersion === 1 && v.externalAccountAvatarsEnabled === true,
-    ...(v.externalAccountAvatarsConsentVersion === 1 ? { externalAccountAvatarsConsentVersion: 1 as const } : {}),
-    ...(Array.isArray(avatarIds) &&
-    v.externalAccountAvatarsConsentVersion === 1 &&
-    v.externalAccountAvatarsEnabled === true
-      ? { onlineAccountAvatarIds: Object.freeze([...avatarIds] as string[]) }
-      : {}),
+      v.externalAccountAvatarsConsentVersion === 2 && v.externalAccountAvatarsEnabled === true,
+    ...(v.externalAccountAvatarsConsentVersion === 2 ? { externalAccountAvatarsConsentVersion: 2 as const } : {}),
+    ...(typeof avatarCacheEpoch === 'number' ? { accountAvatarCacheEpoch: avatarCacheEpoch } : {}),
     networkId: v.networkId,
     endpoints: Object.freeze(endpoints),
     customNodes: Object.freeze(customNodes),

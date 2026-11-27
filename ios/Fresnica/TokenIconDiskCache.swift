@@ -7,9 +7,7 @@ import CryptoKit
 final class TokenIconDiskCache {
   static let maximumBytes = 20 * 1024 * 1024
   static let maximumEntries = 500
-  private static let imageLimit = 65_536
   private static let headerLimit = 4_096
-  private static let entryLimit = 4 + headerLimit + imageLimit + 32
 
   struct Entry {
     let mimeType: String
@@ -33,6 +31,9 @@ final class TokenIconDiskCache {
 
   enum Failure: Error { case unavailable }
 
+  private let avatar: Bool
+  private let imageLimit: Int
+  private var entryLimit: Int { 4 + Self.headerLimit + imageLimit + 32 }
   private let directory: URL
   private let fileManager: FileManager
   private let now: () -> Date
@@ -45,12 +46,15 @@ final class TokenIconDiskCache {
   init(directory: URL, fileManager: FileManager = .default,
        now: @escaping () -> Date = Date.init,
        byteLimit: Int = TokenIconDiskCache.maximumBytes,
-       entryCountLimit: Int = TokenIconDiskCache.maximumEntries) {
+       entryCountLimit: Int = TokenIconDiskCache.maximumEntries,
+       avatar: Bool = false) {
+    self.avatar = avatar
+    self.imageLimit = avatar ? 262_144 : 65_536
     self.directory = directory
     self.fileManager = fileManager
     self.now = now
-    self.byteLimit = max(0, byteLimit)
-    self.entryCountLimit = max(0, entryCountLimit)
+    self.byteLimit = max(0, avatar ? min(byteLimit, 16 * 1024 * 1024) : byteLimit)
+    self.entryCountLimit = max(0, avatar ? min(entryCountLimit, 128) : entryCountLimit)
   }
 
   func open(owner: String, epoch: String = "0") throws -> String {
@@ -77,10 +81,10 @@ final class TokenIconDiskCache {
       let attributes = try fileManager.attributesOfItem(atPath: url.path)
       guard attributes[.type] as? FileAttributeType == .typeRegular,
         let size = attributes[.size] as? NSNumber,
-        size.intValue >= 37 && size.intValue <= Self.entryLimit
+        size.intValue >= 37 && size.intValue <= entryLimit
       else { throw Failure.unavailable }
       let stored = try Data(contentsOf: url)
-      guard stored.count >= 37 && stored.count <= Self.entryLimit else { throw Failure.unavailable }
+      guard stored.count >= 37 && stored.count <= entryLimit else { throw Failure.unavailable }
       let payload = Data(stored.dropLast(32))
       guard Data(SHA256.hash(data: payload)) == Data(stored.suffix(32)) else { throw Failure.unavailable }
       let headerLength = payload.prefix(4).reduce(0) { ($0 << 8) | Int($1) }
@@ -90,13 +94,13 @@ final class TokenIconDiskCache {
       let header = try JSONDecoder().decode(Header.self, from: payload.subdata(in: 4..<(4 + headerLength)))
       let bytes = Data(payload.dropFirst(4 + headerLength))
       guard header.version == 1, header.key == key,
-        header.savedAtUnixMs >= 0,
-        PublicAssetValidation.safeURL(header.sourceUrl) != nil,
-        bytes.count <= Self.imageLimit,
+        header.savedAtUnixMs >= 0, (!avatar || isFresh(Double(header.savedAtUnixMs) / 1000)),
+        validSource(key: key, source: header.sourceUrl),
+        bytes.count <= imageLimit,
         let mime = PublicAssetValidation.imageMime(bytes), mime == header.mimeType
       else { throw Failure.unavailable }
       // Freshness belongs to the immutable header; LRU access never extends it.
-      try? fileManager.setAttributes([.modificationDate: now()], ofItemAtPath: url.path)
+      if !avatar { try? fileManager.setAttributes([.modificationDate: now()], ofItemAtPath: url.path) }
       return Entry(mimeType: mime, bytes: bytes, sourceUrl: header.sourceUrl, savedAtUnixMs: header.savedAtUnixMs)
     } catch {
       // Corrupt, truncated or invalid entries are misses, never image inputs.
@@ -107,9 +111,9 @@ final class TokenIconDiskCache {
 
   func write(session: String, key: String, sourceUrl: String, base64: String) throws {
     guard !pendingClear, sessions[session] != nil, let url = entryURL(key),
-      PublicAssetValidation.safeURL(sourceUrl) != nil,
-      !base64.isEmpty && base64.utf8.count <= 87_384,
-      let bytes = Data(base64Encoded: base64), bytes.count <= Self.imageLimit,
+      validSource(key: key, source: sourceUrl),
+      !base64.isEmpty && base64.utf8.count <= ((imageLimit + 2) / 3) * 4,
+      let bytes = Data(base64Encoded: base64), bytes.count <= imageLimit,
       let mimeType = PublicAssetValidation.imageMime(bytes)
     else { throw Failure.unavailable }
     let timestamp = now().timeIntervalSince1970 * 1000
@@ -164,13 +168,28 @@ final class TokenIconDiskCache {
   private func entryURL(_ key: String) -> URL? {
     guard key.utf8.count <= 180,
       let data = key.data(using: .utf8),
-      let parts = try? JSONSerialization.jsonObject(with: data) as? [String], parts.count == 3,
+      let parts = try? JSONSerialization.jsonObject(with: data) as? [String], parts.count == (avatar ? 2 : 3),
       parts[0] == "stellar-mainnet" || parts[0] == "stellar-testnet",
-      parts[1].range(of: "^[a-zA-Z0-9]{1,12}$", options: .regularExpression) != nil,
-      parts[2].range(of: "^G[A-Z2-7]{55}$", options: .regularExpression) != nil,
+      (avatar
+        ? parts[1].range(of: "^(G[A-Z2-7]{55}|M[A-Z2-7]{68})\\z", options: .regularExpression) != nil
+        : parts[1].range(of: "^[a-zA-Z0-9]{1,12}$", options: .regularExpression) != nil &&
+          parts[2].range(of: "^G[A-Z2-7]{55}$", options: .regularExpression) != nil),
       let canonical = try? JSONSerialization.data(withJSONObject: parts), canonical == data
     else { return nil }
     return directory.appendingPathComponent(epoch + "-" + Self.digest(data) + ".fic", isDirectory: false)
+  }
+
+  private func validSource(key: String, source: String) -> Bool {
+    guard avatar else { return PublicAssetValidation.safeURL(source) != nil }
+    guard let parts = try? JSONDecoder().decode([String].self, from: Data(key.utf8)), parts.count == 2 else {
+      return false
+    }
+    return source == "https://horizon.stellarcn.org/avatar/v2/\(parts[1])?size=256"
+  }
+
+  private func isFresh(_ savedAt: TimeInterval) -> Bool {
+    let age = now().timeIntervalSince1970 - savedAt
+    return age >= 0 && age < 7 * 24 * 60 * 60
   }
 
   private func prepareDirectory() throws {
@@ -193,7 +212,8 @@ final class TokenIconDiskCache {
       let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey])
       guard url.lastPathComponent.range(of: entryPattern, options: .regularExpression) != nil,
         values.isRegularFile == true, values.isSymbolicLink != true,
-        let size = values.fileSize, size >= 37 && size <= Self.entryLimit
+        let size = values.fileSize, size >= 37 && size <= entryLimit,
+        (!avatar || isFresh(values.contentModificationDate?.timeIntervalSince1970 ?? 0))
       else {
         try fileManager.removeItem(at: url)
         continue

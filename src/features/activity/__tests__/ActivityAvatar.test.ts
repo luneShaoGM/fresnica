@@ -303,26 +303,3 @@ it('aborts an in-flight avatar on blur and retries on refocus without accepting 
   expect(render().props.uri).toBe(uri);
   expect(loadImage).toHaveBeenCalledTimes(2);
 });
-
-it('keeps a locally selected owned address offline on all shared avatar renders', async () => {
-  const loadImage = jest.fn(async () => uri);
-  const port = createAccountAvatarPort({
-    available: true,
-    initialEnabled: true,
-    loadImage,
-    resolveAccountId: key => (key === address ? 'own' : undefined),
-  });
-  port.setReadable(true);
-  mockRuntime.service = port;
-  expect(render().props).toMatchObject({ seed: address, uri: undefined });
-  await flush();
-  expect(loadImage).not.toHaveBeenCalled();
-  port.setOnlineAccountIds(['own']);
-  render();
-  await flush();
-  expect(render().props.uri).toBe(uri);
-  port.setOnlineAccountIds([]);
-  expect(render().props).toMatchObject({ seed: address, uri: undefined });
-  await flush();
-  expect(loadImage).toHaveBeenCalledTimes(1);
-});

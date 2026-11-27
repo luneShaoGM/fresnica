@@ -1,6 +1,4 @@
 import { AccountAvatar } from '../contacts/AccountAvatar';
-import { AccountAvatarPreference } from './AccountAvatarPreference';
-import type { NetworkSettings } from '@capabilities/network/createNetworkSettings';
 import React, {useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 
@@ -15,7 +13,6 @@ import { contrastText } from '@ui/theme/appearanceTheme';
 type Props = Readonly<{
   account: AccountRecord;
   canHide: boolean;
-  avatarSettings?: NetworkSettings;
   active?: boolean;
   onSend: () => void;
   onManageAssets: () => void;
@@ -32,7 +29,6 @@ type DeleteError = 'pending' | 'visible-required' | 'generic';
 export function AccountDetailsScreen({
   account,
   canHide,
-  avatarSettings,
   active = true,
   onSend,
   onManageAssets,
@@ -130,7 +126,6 @@ export function AccountDetailsScreen({
         <View style={styles.identityBlock}>
           <AccountAvatar address={account.address} active={active} size={68} />
           <Text style={styles.accountLabel}>{account.label || 'Stellar account'}</Text>
-          {avatarSettings && account.identityKind === 'classic' ? <AccountAvatarPreference key={account.id} accountId={account.id} settings={avatarSettings} active={active} /> : null}
           <Button label={t('accounts.rename.open')} onPress={openRename} variant="ghost" />
           <CopyAddressButton key={account.address} address={account.address} copyPublicText={copyPublicText} numberOfLines={0} addressStyle={styles.address} />
         </View>
