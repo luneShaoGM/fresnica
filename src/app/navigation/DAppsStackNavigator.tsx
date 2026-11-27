@@ -1,5 +1,6 @@
 import { readDappNotificationTime, showDappNotification } from '../../platform/dapp-browser/dappNotification';
 import React, { useRef, useSyncExternalStore } from 'react';
+import { Share } from 'react-native';
 import { canMountDappWebView } from '../../platform/dapp-browser/browserAvailability';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useIsFocused } from '@react-navigation/native';
@@ -197,6 +198,7 @@ function DappBrowserRoute({
       active={focused && foreground}
       onClose={onClose}
       onVisit={onVisit}
+      shareWebsite={origin => Share.share({ message: origin })}
       currentSelection={currentSelection}
       subscribeSelection={subscribeSelection}
       signTransaction={signTransaction}

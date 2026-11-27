@@ -40,6 +40,7 @@ type Props = Readonly<{
   active: boolean;
   onClose: () => void;
   onVisit?: (url: string) => void;
+  shareWebsite?: (origin: string) => Promise<unknown>;
   notificationNow?: () => number;
   showNotification?: (origin: string, title: string, body: string, expiresAt: number) => boolean;
   currentSelection: () => DappPublicSelection | undefined;
@@ -82,6 +83,7 @@ export function DappBrowserScreen({
   active,
   onClose,
   onVisit,
+  shareWebsite,
   showNotification,
   notificationNow,
   currentSelection,
@@ -114,6 +116,9 @@ export function DappBrowserScreen({
   const permissionRequest = useRef<PendingPermission | undefined>(undefined);
   const permissionDocumentActive = useRef(true);
   const permissionHistoryPending = useRef(false);
+  const [showConnection, setShowConnection] = useState(false);
+  const [shareFailed, setShareFailed] = useState(false);
+  const [, setConnectionRevision] = useState(0);
   const [page, setPage] = useState({ origin: '', canGoBack: false, canGoForward: false });
   type NotificationRequest = Extract<BridgeDecision, { kind: 'notification' }> & {
     origin: string;
@@ -142,7 +147,7 @@ export function DappBrowserScreen({
   const hasDocumentStarted = useRef(false);
   const [signError, setSignError] = useState(false);
   const [uncertainAssetHashes, setUncertainAssetHashes] = useState<string[]>([]);
-  const [permissionStorageError, setPermissionStorageError] = useState(false);
+  const [permissionStorageError, setPermissionStorageError] = useState<'grant' | 'revoke'>();
   const currentSession = () => live.current && !stale && current?.session.isLive() === true;
 
   if (!initial.current) {
@@ -176,7 +181,9 @@ export function DappBrowserScreen({
             current: () => (live.current ? currentSelection() : undefined),
             persistedAllowed: hasSavedGrant,
             catalogReadAllowed: () =>
-              trustedInitialOrigin && curatedDocument.current === 'confirmed' && documentOrigin.current === target.origin,
+              trustedInitialOrigin &&
+              curatedDocument.current === 'confirmed' &&
+              documentOrigin.current === target.origin,
             persistedNotificationAllowed: hasSavedGrant,
             notificationNow,
           }),
@@ -336,8 +343,11 @@ export function DappBrowserScreen({
     if (!current || !active || stale || originChanging.current) return;
     if (curatedDocument.current !== 'retired') {
       const verified = firstCommittedDocumentUrl && readPublicDappNavigation(firstCommittedDocumentUrl);
-      if (!verified) curatedDocument.current = 'unconfirmed';
-      else curatedDocument.current = verified.url === current.url ? 'confirmed' : 'retired';
+      const status = !verified ? 'unconfirmed' : verified.url === current.url ? 'confirmed' : 'retired';
+      if (status !== curatedDocument.current) {
+        curatedDocument.current = status;
+        if (trustedCatalogOrigin) setConnectionRevision(revision => revision + 1);
+      }
     }
     const decision = current.session.receive(raw, messageUrl);
     const target = replyId
@@ -653,6 +663,8 @@ export function DappBrowserScreen({
   };
 
   const navigateBrowser = (action: 'goBack' | 'goForward' | 'reload') => {
+    setShowConnection(false);
+    setShareFailed(false);
     curatedDocument.current = 'retired';
     const historyPending =
       action !== 'reload' && (permissionDocumentActive.current || permissionHistoryPending.current);
@@ -696,7 +708,7 @@ export function DappBrowserScreen({
           target,
         );
         current.session.revoke();
-        setPermissionStorageError(true);
+        setPermissionStorageError('grant');
         setStale(true);
         return;
       }
@@ -730,6 +742,8 @@ export function DappBrowserScreen({
     if (!current || !currentSession()) return;
     if (nextUrl === 'about:blank') {
       originChanging.current = true;
+      setShowConnection(false);
+      setShareFailed(false);
       retirePermissionDocument();
       if (hasDocumentStarted.current || curatedDocument.current === 'confirmed') curatedDocument.current = 'retired';
       if (current.session.hasPendingMessage() || transactionTarget.current || pendingSign) rejectSignature();
@@ -740,6 +754,8 @@ export function DappBrowserScreen({
       retireInvalidNavigation();
       return;
     }
+    setShowConnection(false);
+    setShareFailed(false);
     // A curated launch proves only its first exact main document. A reload,
     // a different path or a redirect drops implicit access forever, including
     // after navigating to another origin and back. SPA history is not a new
@@ -780,6 +796,8 @@ export function DappBrowserScreen({
     // Cross-origin navigation can arrive before the document-start event.
     if (target.origin !== documentOrigin.current) {
       originChanging.current = true;
+      setShowConnection(false);
+      setShareFailed(false);
       retirePermissionDocument();
       clearNotification();
       if (current.session.hasPendingMessage() || transactionTarget.current || pendingSign) rejectSignature();
@@ -805,13 +823,54 @@ export function DappBrowserScreen({
       <Screen>
         <NativeButton label={t('common.back')} onPress={close} variant="quiet" />
         <Text style={styles.error}>
-          {t(permissionStorageError ? 'dapps.permission.storageFailed' : 'dapps.browser.unavailable')}
+          {t(
+            permissionStorageError === 'revoke'
+              ? 'dapps.browser.revokeFailed'
+              : permissionStorageError === 'grant'
+                ? 'dapps.permission.storageFailed'
+                : 'dapps.browser.unavailable',
+          )}
         </Text>
       </Screen>
     );
   }
 
   const shownOrigin = page.origin || current.origin;
+
+  const panelEpoch = documentEpoch.current;
+  const ownsPanel = () =>
+    currentSession() &&
+    permissionDocumentActive.current &&
+    !originChanging.current &&
+    documentEpoch.current === panelEpoch &&
+    documentOrigin.current === shownOrigin;
+  const connected = ownsPanel() && current.session.isReadConnected();
+  const disconnect = () => {
+    if (!ownsPanel() || !current.session.isReadConnected()) return;
+    const scope = {
+      origin: shownOrigin,
+      accountId: current.selection.accountId,
+      networkId: current.selection.networkId,
+    };
+    // Stop the native session synchronously before changing durable consent.
+    retireInvalidNavigation();
+    try {
+      permissions.revoke(scope);
+    } catch {
+      setPermissionStorageError('revoke');
+      return;
+    }
+    onClose();
+  };
+  const shareOrigin = async () => {
+    if (!shareWebsite || !ownsPanel()) return;
+    setShareFailed(false);
+    try {
+      await shareWebsite(shownOrigin);
+    } catch {
+      if (ownsPanel()) setShareFailed(true);
+    }
+  };
 
   return (
     <Screen contentInset="none" scrollable={false}>
@@ -842,8 +901,49 @@ export function DappBrowserScreen({
           <Text selectable numberOfLines={1} style={styles.origin}>
             {shownOrigin}
           </Text>
+          <ToolButton
+            glyph="ⓘ"
+            label={t('dapps.browser.connection')}
+            onPress={() => setShowConnection(visible => !visible)}
+            styles={styles}
+          />
           <ToolButton glyph="×" label={t('dapps.browser.close')} onPress={close} styles={styles} />
         </View>
+        {showConnection && ownsPanel() ? (
+          <ScrollView style={styles.recovery} contentContainerStyle={styles.permission}>
+            <Text style={styles.heading}>
+              {t(connected ? 'dapps.browser.connectedRead' : 'dapps.browser.disconnected')}
+            </Text>
+            <Text selectable style={styles.recoveryValue}>
+              {shownOrigin}
+            </Text>
+            <Text style={styles.recoveryValue}>
+              {t('dapps.permission.network')}: {networkLabel(current.selection.networkId)}
+            </Text>
+            {connected ? (
+              <>
+                <Text selectable style={styles.recoveryValue}>
+                  {current.selection.address}
+                </Text>
+                <NativeButton label={t('dapps.browser.disconnect')} onPress={disconnect} variant="quiet" />
+              </>
+            ) : null}
+            {shareWebsite ? (
+              <NativeButton
+                label={t('dapps.browser.shareOrigin')}
+                onPress={() => {
+                  void shareOrigin();
+                }}
+                variant="quiet"
+              />
+            ) : null}
+            {shareFailed ? (
+              <Text accessibilityRole="alert" style={styles.error}>
+                {t('dapps.browser.shareFailed')}
+              </Text>
+            ) : null}
+          </ScrollView>
+        ) : null}
         {uncertainAssetHashes.length > 0 ? (
           <ScrollView style={styles.recovery} contentContainerStyle={styles.permission}>
             <Text accessibilityRole="alert" style={styles.heading}>

@@ -1092,3 +1092,5 @@ Owner-approved [avatar follow-up](behavior-specs/s13-avatar-alignment.md), Adapt
 DiceBear 9.4.3 MIT packages, CC0 1.0 Identicon design, no donor code. Local default,
 per-account online selection under existing global consent, shared presentation.
 No maturity promotion or native acceptance implied.
+
+S14 / S16 / S17 discovery and browser controls: [behavior and acceptance specification](behavior-specs/s14-s17-dapp-discovery-and-connection-controls.md). No Stage 9 promotion.

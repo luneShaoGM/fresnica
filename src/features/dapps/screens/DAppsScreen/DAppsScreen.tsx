@@ -23,7 +23,13 @@ type CatalogState =
   | Readonly<{ kind: 'offline' }>
   | Readonly<{ kind: 'unavailable' }>
   | Readonly<{ kind: 'error' }>
-  | Readonly<{ kind: 'ready'; entries: readonly DappCatalogEntry[]; refreshFailed?: boolean; stale?: boolean }>;
+  | Readonly<{
+      kind: 'ready';
+      entries: readonly DappCatalogEntry[];
+      featured?: readonly DappCatalogEntry[];
+      refreshFailed?: boolean;
+      stale?: boolean;
+    }>;
 
 type Section = 'home' | 'recent';
 
@@ -128,7 +134,7 @@ export function DAppsScreen({
       }
       setState(previous => {
         if (!changedCatalog && previous.kind === 'ready') return { ...previous, stale: true };
-        if (cached?.kind === 'ready') return { kind: 'ready', entries: cached.entries, stale: true };
+        if (cached?.kind === 'ready') return { ...cached, stale: true };
         if (!online) return { kind: 'offline' };
         return changedCatalog ? { kind: 'loading' } : previous;
       });
@@ -146,7 +152,7 @@ export function DAppsScreen({
         setState(
           result.kind === 'unavailable'
             ? { kind: 'unavailable' }
-            : { kind: 'ready', entries: result.entries, ...(result.stale ? { stale: true, refreshFailed: true } : {}) },
+            : { ...result, ...(result.stale ? { refreshFailed: true } : {}) },
         );
       })
       .catch(() => {
@@ -355,6 +361,41 @@ export function DAppsScreen({
     [state, selectedCategory, searchText],
   );
 
+  const featuredEntries = useMemo(() => {
+    if (state.kind !== 'ready' || !state.featured) return [];
+    const available = new Map(visibleEntries.map(entry => [entry.id, entry]));
+    const featured: DappCatalogEntry[] = [];
+    for (const item of state.featured) {
+      const entry = available.get(item.id);
+      if (entry?.websiteUrl === item.websiteUrl) {
+        available.delete(item.id);
+        featured.push(entry);
+      }
+    }
+    return featured;
+  }, [state, visibleEntries]);
+  const recentTitles = useMemo(() => {
+    const result = new Map<string, string>();
+    const ambiguous = new Set<string>();
+    if (state.kind === 'ready') {
+      for (const entry of state.entries) {
+        try {
+          const { origin } = normalizeUntrustedDappUrl(entry.websiteUrl);
+          if (result.has(origin)) ambiguous.add(origin);
+          result.set(origin, entry.title);
+        } catch {
+          // An invalid public listing cannot label a visited website.
+        }
+      }
+      for (const origin of ambiguous) result.delete(origin);
+    }
+    return result;
+  }, [state]);
+  const openDetails = (entry: DappCatalogEntry) => {
+    detailEpoch.current += 1;
+    setSelectedDetail(entry);
+  };
+
   return (
     <Screen scrollable={false} contentInset="none" safeAreaEdges={['top', 'right', 'left']}>
       <ScrollView
@@ -436,7 +477,7 @@ export function DAppsScreen({
                 recentOrigins.map(origin => (
                   <NativeButton
                     key={origin}
-                    label={origin}
+                    label={recentTitles.has(origin) ? `${recentTitles.get(origin)} · ${origin}` : origin}
                     disabled={opening}
                     onPress={() => prepareWebsite(origin)}
                     variant="quiet"
@@ -490,6 +531,26 @@ export function DAppsScreen({
                     </ScrollView>
                   ) : null}
                   <DappPublicIconToggle media={catalog.publicMedia} />
+                  {featuredEntries.length > 0 ? (
+                    <>
+                      <Text accessibilityRole="header" style={styles.appTitle}>
+                        {t('dapps.catalog.featured')}
+                      </Text>
+                      {featuredEntries.map(entry => (
+                        <AppRow
+                          key={entry.id}
+                          entry={entry}
+                          styles={styles}
+                          media={catalog.publicMedia}
+                          onSelect={() => openDetails(entry)}
+                          detailsLabel={t('dapps.details.open')}
+                        />
+                      ))}
+                      <Text accessibilityRole="header" style={styles.appTitle}>
+                        {t('dapps.catalog.allApps')}
+                      </Text>
+                    </>
+                  ) : null}
                   {visibleEntries.length > 0 ? (
                     visibleEntries.map(entry => (
                       <AppRow
@@ -497,10 +558,7 @@ export function DAppsScreen({
                         entry={entry}
                         styles={styles}
                         media={catalog.publicMedia}
-                        onSelect={() => {
-                          detailEpoch.current += 1;
-                          setSelectedDetail(entry);
-                        }}
+                        onSelect={() => openDetails(entry)}
                         detailsLabel={t('dapps.details.open')}
                       />
                     ))

@@ -644,6 +644,7 @@ export function createFreighterSession(
   return Object.freeze({
     receive,
     notificationAllowed,
+    isReadConnected: () => !closed && live() && connected(),
     resolvePermission,
     finishSign,
     reset,

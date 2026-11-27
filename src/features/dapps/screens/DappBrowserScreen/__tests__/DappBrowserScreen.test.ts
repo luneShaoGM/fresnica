@@ -125,6 +125,7 @@ const goForward = jest.fn();
 const reload = jest.fn();
 const navigateClose = jest.fn();
 const onVisit = jest.fn();
+const shareWebsite = jest.fn(async (_origin: string) => undefined);
 let subscriber: (() => void) | undefined;
 
 function render(
@@ -142,6 +143,7 @@ function render(
     active,
     onClose: navigateClose,
     onVisit,
+    shareWebsite,
     currentSelection: () => selection,
     subscribeSelection: callback => {
       subscriber = callback;
@@ -207,6 +209,7 @@ beforeEach(() => {
   reload.mockClear();
   navigateClose.mockClear();
   onVisit.mockClear();
+  shareWebsite.mockClear();
   subscriber = undefined;
   grantKeys.clear();
   permissionEvents.clear();
@@ -1745,5 +1748,68 @@ describe('Classic dApp transaction review', () => {
         { replyId: secondReplyId },
       ],
     ]);
+  });
+});
+
+describe('browser connection controls', () => {
+  const origin = 'https://demo.example.org';
+  const other = { origin, accountId: 'other-wallet', networkId: selection.networkId };
+  const scope = { origin, accountId: selection.accountId, networkId: selection.networkId };
+
+  const openControls = () => {
+    const tree = render();
+    find(tree, node => node.props.label === 'dapps.browser.connection')?.props.onPress?.();
+    return render();
+  };
+
+  it('shows the authorized public address and revokes only the active site/account/network', () => {
+    permissions.grant(scope);
+    permissions.grant(other);
+    const tree = openControls();
+    const web = find(tree, node => node.type === BrowserSurface);
+    expect(find(tree, node => node.props.children === 'dapps.browser.connectedRead')).toBeDefined();
+    expect(find(tree, node => node.props.children === selection.address)).toBeDefined();
+    find(tree, node => node.props.label === 'dapps.browser.disconnect')?.props.onPress?.();
+    expect(navigateClose).toHaveBeenCalledTimes(1);
+    expect(permissions.has(scope)).toBe(false);
+    expect(permissions.has(other)).toBe(true);
+    web?.props.onMessage?.(request('REQUEST_ACCESS', 91), origin);
+    expect(replies).not.toHaveBeenCalled();
+    expect(find(render(), node => node.type === BrowserSurface)).toBeUndefined();
+  });
+
+  it('stops the session but does not claim that a failed revocation was saved', () => {
+    permissions.grant(scope);
+    const revoke = jest.spyOn(permissions, 'revoke').mockImplementationOnce(() => {
+      throw new Error('realm-write-failed');
+    });
+    try {
+      const tree = openControls();
+      find(tree, node => node.props.label === 'dapps.browser.disconnect')?.props.onPress?.();
+      expect(navigateClose).not.toHaveBeenCalled();
+      expect(permissions.has(scope)).toBe(true);
+      const closed = render();
+      expect(find(closed, node => node.type === BrowserSurface)).toBeUndefined();
+      expect(find(closed, node => node.props.children === 'dapps.browser.revokeFailed')).toBeDefined();
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+
+  it('shares only the current site origin and ignores stale controls after navigation', () => {
+    const start = render();
+    const web = find(start, node => node.type === BrowserSurface);
+    const url = origin + '/review?private=fixture#fragment';
+    web?.props.onDocumentStart?.(url);
+    web?.props.onNavigation?.({ url, canGoBack: false, canGoForward: false });
+    const tree = openControls();
+    expect(find(tree, node => node.props.children === 'dapps.browser.disconnected')).toBeDefined();
+    expect(find(tree, node => node.props.children === selection.address)).toBeUndefined();
+    const share = find(tree, node => node.props.label === 'dapps.browser.shareOrigin');
+    share?.props.onPress?.();
+    expect(shareWebsite).toHaveBeenCalledWith(origin);
+    web?.props.onDocumentStart?.('https://other.example.org/path');
+    share?.props.onPress?.();
+    expect(shareWebsite).toHaveBeenCalledTimes(1);
   });
 });
