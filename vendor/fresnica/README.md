@@ -11,13 +11,15 @@ Native Binding API        3
 Universal SDK API         5
 Core Client API           5
 RN adapter source         0.3.0
-RN adapter source commit  c5eae08e84b197d534a05f02ae1a230a1e245f28
+RN adapter source commit  2750d3cb44f58f3c09198fbfe1585dfb7d9aad48
 React Native module       FresnicaCore
 ```
 
 The Native SDK and adapter are separate products. The Native SDK remains the published `native-sdk-v0.3.1` binary release. Adapter source 0.3.0 is built once inside this application's React Native/native toolchain and the generated binary is then linked by normal app builds.
 
 The pinned adapter revision includes upstream PR #121, which exports the Apple adapter as the shared `FresnicaCore` JavaScript module through `RCT_EXTERN_REMAP_MODULE`. Mobile must not patch the Apple module name locally.
+
+Both native gates use the canonical manifest verifier for the pinned adapter, including `fresnica-protected-software-transaction-signing-v1`. The contract covers final Classic and Soroban envelopes through `signWithPasscode` and leaves detached authorization to its separate signing API.
 
 The 0.3.0 bridge also exposes high-level SEP-53 message signing (`signMessageWithSystemAuth` / `signMessageWithPasscode`) while keeping unlock-key material native-only. Android RN 0.87 adapter generation still carries checkout-only compatibility patches tracked by Fresnica issues #128 and #129; do not promote those build patches into Mobile signing semantics.
 
@@ -101,10 +103,10 @@ vendor/fresnica/adapter/react-native/
 The adapter artifacts are generated once from the pinned canonical source revision:
 
 ```text
-c5eae08e84b197d534a05f02ae1a230a1e245f28
+2750d3cb44f58f3c09198fbfe1585dfb7d9aad48
 ```
 
-using this Mobile project's own React Native/native toolchain. The currently generated adapter manifest records Android SHA-256 `22b21406d108f23d65e7c2bd67d960c66561b77dbecf53ed5c28fb97bb190268` and Apple SHA-256 `ba13d945aa76e22e135bd603d0c83d5f619cd73d66749db207c58cf8b41692a2`. Regenerate and re-run the canonical manifest verifier whenever the pinned adapter revision or consumer toolchain changes; do not assume these hashes across a toolchain change.
+using this Mobile project's own React Native/native toolchain. The earlier adapter build at `c5eae08e84b197d534a05f02ae1a230a1e245f28` recorded Android SHA-256 `22b21406d108f23d65e7c2bd67d960c66561b77dbecf53ed5c28fb97bb190268` and Apple SHA-256 `ba13d945aa76e22e135bd603d0c83d5f619cd73d66749db207c58cf8b41692a2`. Regenerate and re-run the canonical manifest verifier whenever the pinned adapter revision or consumer toolchain changes; do not assume these hashes across a toolchain change.
 
 Follow the upstream canonical build commands in:
 

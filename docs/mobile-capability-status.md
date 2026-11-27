@@ -22,7 +22,7 @@ Native Binding API        3
 Universal SDK API         5
 Core Client API           5
 RN adapter source         0.3.0
-Adapter source revision   c5eae08e84b197d534a05f02ae1a230a1e245f28
+Adapter source revision   2750d3cb44f58f3c09198fbfe1585dfb7d9aad48
 React Native              0.87.0
 Realm                     20.2.0
 Network                   Stellar Testnet
