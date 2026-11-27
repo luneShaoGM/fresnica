@@ -324,6 +324,15 @@ function DappBrowserRoute({
               ? dappNetworkNavigation.select({ catalogId: networkPicker.catalogId, networkId }, select)
               : select();
           }}
+          onRemoveNode={(networkId, endpoint) => {
+            const remove = () => browserNetworks.removeNode(networkId, endpoint);
+            const { preferences } = browserNetworks.getSnapshot();
+            const removesActiveNode =
+              preferences.networkId === networkId && preferences.endpoints[networkId] === endpoint;
+            return removesActiveNode && networkPicker.catalogId && dappNetworkNavigation
+              ? dappNetworkNavigation.select({ catalogId: networkPicker.catalogId, networkId }, remove)
+              : remove();
+          }}
         />
       ) : null}
     </>

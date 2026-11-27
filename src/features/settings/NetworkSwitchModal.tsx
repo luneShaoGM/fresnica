@@ -24,11 +24,13 @@ export function NetworkSwitchModal({
   monitor,
   onClose,
   onSelectNode,
+  onRemoveNode,
 }: Readonly<{
   settings: NetworkSettings;
   monitor?: NodeHealthMonitor;
   onClose: () => void;
   onSelectNode?: NetworkSettings['selectNode'];
+  onRemoveNode?: NetworkSettings['removeNode'];
   onOpenDeveloperMode?: () => void;
 }>) {
   const { preferences, busy, interruption, tests } = useSyncExternalStore(settings.subscribe, settings.getSnapshot);
@@ -86,7 +88,7 @@ export function NetworkSwitchModal({
     const { id, endpoint, kind } = prompt;
     if (kind === 'remove') {
       await run(
-        () => settings.removeNode(id, endpoint),
+        () => (onRemoveNode ?? settings.removeNode)(id, endpoint),
         () => setPrompt(undefined),
       );
     } else {

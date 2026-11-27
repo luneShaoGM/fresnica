@@ -336,3 +336,48 @@ it('keeps the current browser when the network picker is dismissed and stages on
   expect(select).toHaveBeenCalledWith({ catalogId: liveEntry.id, networkId: 'stellar-mainnet' }, expect.any(Function));
   expect(selectNode).toHaveBeenCalledWith('stellar-mainnet', 'https://horizon.stellar.org');
 });
+
+it('stages the catalog ID before deleting the active node and leaves inactive removals alone', async () => {
+  Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
+  const active = 'https://active.example.org';
+  const other = 'https://other.example.org';
+  const inactiveNetwork = 'https://mainnet.example.org';
+  const getSnapshot = jest.fn(() => ({
+    preferences: {
+      networkId: 'stellar-testnet',
+      endpoints: { 'stellar-testnet': active, 'stellar-mainnet': inactiveNetwork },
+    },
+  }));
+  const removeNode = jest.fn(async () => undefined);
+  const select = jest.fn(
+    async (_request: Parameters<DappNetworkNavigation['select']>[0], action: () => Promise<void>) => action(),
+  );
+  const route = catalogRoute(true, () => selectedWallet, undefined, undefined, {
+    settings: { getSnapshot, removeNode } as unknown as NetworkSettings,
+    navigation: { select, consume: jest.fn() },
+  });
+  route.listingSurface.props.openCatalogInApp?.(liveEntry, true);
+  const remove = (catalogId?: string) => {
+    route.browserSurface().props.onSwitchNetwork?.(catalogId);
+    const picker = route.browserChildren()[1];
+    if (!React.isValidElement<{ onRemoveNode: NetworkSettings['removeNode'] }>(picker))
+      throw new Error('missing-picker');
+    return picker.props.onRemoveNode;
+  };
+
+  await remove(liveEntry.id)('stellar-testnet', other);
+  await remove(liveEntry.id)('stellar-mainnet', inactiveNetwork);
+  await remove()('stellar-testnet', active);
+  expect(select).not.toHaveBeenCalled();
+  expect(removeNode.mock.calls).toEqual([
+    ['stellar-testnet', other],
+    ['stellar-mainnet', inactiveNetwork],
+    ['stellar-testnet', active],
+  ]);
+
+  await remove(liveEntry.id)('stellar-testnet', active);
+  expect(select).toHaveBeenCalledTimes(1);
+  expect(select).toHaveBeenCalledWith({ catalogId: liveEntry.id, networkId: 'stellar-testnet' }, expect.any(Function));
+  expect(select.mock.invocationCallOrder[0]).toBeLessThan(removeNode.mock.invocationCallOrder[3]);
+  expect(removeNode).toHaveBeenLastCalledWith('stellar-testnet', active);
+});
