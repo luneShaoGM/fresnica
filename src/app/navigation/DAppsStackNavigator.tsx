@@ -4,6 +4,7 @@ import React, { useCallback, useRef, useState, useSyncExternalStore } from 'reac
 import { Share } from 'react-native';
 import type { AccountRecord } from '@capabilities/account/types';
 import type { NetworkSettings } from '@capabilities/network/createNetworkSettings';
+import type { NetworkId } from '@capabilities/network/networkPreferences';
 import { NetworkSwitchModal } from '@features/settings/NetworkSwitchModal';
 import { canMountDappWebView } from '../../platform/dapp-browser/browserAvailability';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
@@ -278,6 +279,10 @@ function DappBrowserRoute({
     proofRef.current = { url, revision: trustedLaunch.revision(), origin, entry };
   }
   const choices = browserAccounts?.filter(account => account.identityKind === 'classic' && !account.hidden);
+  const resumeAfterNodeChange = (networkId: NetworkId, change: () => Promise<void>) =>
+    networkPicker?.catalogId && dappNetworkNavigation
+      ? dappNetworkNavigation.select({ catalogId: networkPicker.catalogId, networkId }, change)
+      : change();
   return (
     <>
       <DappBrowserScreen
@@ -318,11 +323,17 @@ function DappBrowserRoute({
         <NetworkSwitchModal
           settings={browserNetworks}
           onClose={closeNetworkPicker}
-          onSelectNode={(networkId, endpoint) => {
-            const select = () => browserNetworks.selectNode(networkId, endpoint);
-            return networkPicker.catalogId && dappNetworkNavigation
-              ? dappNetworkNavigation.select({ catalogId: networkPicker.catalogId, networkId }, select)
-              : select();
+          onSelectNode={(networkId, endpoint) =>
+            resumeAfterNodeChange(networkId, () => browserNetworks.selectNode(networkId, endpoint))
+          }
+          onRemoveNode={(networkId, endpoint) => {
+            const { preferences } = browserNetworks.getSnapshot();
+            const remove = () => browserNetworks.removeNode(networkId, endpoint);
+            // Removing the active endpoint falls back to the built-in node
+            // and retires the session, even though the network ID stays the same.
+            return preferences.networkId === networkId && preferences.endpoints[networkId] === endpoint
+              ? resumeAfterNodeChange(networkId, remove)
+              : remove();
           }}
         />
       ) : null}

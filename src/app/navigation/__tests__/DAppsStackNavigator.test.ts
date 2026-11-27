@@ -336,3 +336,46 @@ it('keeps the current browser when the network picker is dismissed and stages on
   expect(select).toHaveBeenCalledWith({ catalogId: liveEntry.id, networkId: 'stellar-mainnet' }, expect.any(Function));
   expect(selectNode).toHaveBeenCalledWith('stellar-mainnet', 'https://horizon.stellar.org');
 });
+
+it.each([
+  { sameNetwork: true, selectedEndpoint: true, inCatalog: true, expectsResume: true },
+  { sameNetwork: true, selectedEndpoint: false, inCatalog: true, expectsResume: false },
+  { sameNetwork: false, selectedEndpoint: true, inCatalog: true, expectsResume: false },
+  { sameNetwork: true, selectedEndpoint: true, inCatalog: false, expectsResume: false },
+])(
+  'stages a catalog resume only if removing the node retires the current session (%o)',
+  async ({ sameNetwork, selectedEndpoint, inCatalog, expectsResume }) => {
+    Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
+    const id = 'stellar-testnet';
+    const endpoint = 'https://custom.example.org';
+    const removeNode = jest.fn(async () => undefined);
+    const select = jest.fn(
+      async (_request: Parameters<DappNetworkNavigation['select']>[0], action: () => Promise<void>) => action(),
+    );
+    const settings = {
+      removeNode,
+      getSnapshot: () => ({
+        preferences: {
+          networkId: sameNetwork ? id : 'stellar-mainnet',
+          endpoints: { [id]: selectedEndpoint ? endpoint : 'https://other.example.org' },
+        },
+      }),
+    } as unknown as NetworkSettings;
+    const route = catalogRoute(true, () => selectedWallet, undefined, undefined, {
+      settings,
+      navigation: { select, consume: jest.fn() },
+    });
+    if (inCatalog) route.listingSurface.props.openCatalogInApp?.(liveEntry, true);
+    route.browserSurface().props.onSwitchNetwork?.(inCatalog ? liveEntry.id : undefined);
+    const child = route.browserChildren()[1];
+    if (!React.isValidElement<{ onRemoveNode: NetworkSettings['removeNode'] }>(child))
+      throw new Error('missing-picker');
+    expect(removeNode).not.toHaveBeenCalled();
+    await child.props.onRemoveNode(id, endpoint);
+    expect(removeNode).toHaveBeenCalledWith(id, endpoint);
+    expect(select).toHaveBeenCalledTimes(expectsResume ? 1 : 0);
+    if (expectsResume) {
+      expect(select).toHaveBeenCalledWith({ catalogId: liveEntry.id, networkId: id }, expect.any(Function));
+    }
+  },
+);
