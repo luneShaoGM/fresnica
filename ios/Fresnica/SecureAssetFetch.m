@@ -36,4 +36,30 @@ RCT_EXTERN_METHOD(closeIconCache:(NSString *)session
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(openAvatarCache:(NSString *)epoch
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(readAvatarCache:(NSString *)session
+                  key:(NSString *)key
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(writeAvatarCache:(NSString *)session
+                  key:(NSString *)key
+                  sourceUrl:(NSString *)sourceUrl
+                  base64:(NSString *)base64
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(removeAvatarCache:(NSString *)session
+                  key:(NSString *)key
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(closeAvatarCache:(NSString *)session
+                  clearAll:(BOOL)clearAll
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 @end

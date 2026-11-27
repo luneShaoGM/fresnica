@@ -55,6 +55,7 @@ class SecureAssetFetchModule(context: ReactApplicationContext) : ReactContextBas
   // Android's private cache directory is excluded from Auto Backup and can
   // be reclaimed by the OS. Only validated public token icons live here.
   private val iconCache = TokenIconDiskCache(File(context.cacheDir, "token-icons-v1"))
+  private val avatarCache = TokenIconDiskCache(File(context.cacheDir, "account-avatars-v1"), avatar = true)
   @Volatile private var retired = false
 
   override fun getName(): String = "SecureAssetFetch"
@@ -147,29 +148,12 @@ class SecureAssetFetchModule(context: ReactApplicationContext) : ReactContextBas
   @ReactMethod
   fun readIconCache(sessionId: String, key: String, promise: Promise) = cacheTask(promise) {
     val entry = iconCache.read(sessionId, key)
-    if (entry == null) null else Arguments.createMap().apply {
-      putString("mimeType", entry.mimeType)
-      putString("base64", Base64.encodeToString(entry.bytes, Base64.NO_WRAP))
-      putString("sourceUrl", entry.sourceUrl)
-      putDouble("savedAtUnixMs", entry.savedAtUnixMs.toDouble())
-    }
+    cacheEntry(entry)
   }
 
   @ReactMethod
   fun writeIconCache(sessionId: String, key: String, sourceUrl: String, base64: String, promise: Promise) {
-    if (base64.length !in 4..MAX_ICON_BASE64) {
-      promise.reject(CACHE_FAIL, CACHE_FAIL)
-      return
-    }
-    cacheTask(promise) {
-      check(base64.length % 4 == 0 && base64.all {
-        it in 'A'..'Z' || it in 'a'..'z' || it in '0'..'9' || it == '+' || it == '/' || it == '='
-      })
-      val bytes = Base64.decode(base64, Base64.NO_WRAP)
-      check(Base64.encodeToString(bytes, Base64.NO_WRAP) == base64)
-      iconCache.write(sessionId, key, sourceUrl, bytes)
-      null
-    }
+    writeCache(iconCache, sessionId, key, sourceUrl, base64, MAX_ICON_BASE64, promise)
   }
 
   @ReactMethod
@@ -184,6 +168,69 @@ class SecureAssetFetchModule(context: ReactApplicationContext) : ReactContextBas
     // its rename lock, so a late response cannot repopulate an opted-out cache.
     iconCache.revoke(sessionId, clearAll)
     if (clearAll) cacheTask(promise) { iconCache.clear(); null } else promise.resolve(null)
+  }
+
+  @ReactMethod
+  fun openAvatarCache(epoch: String, promise: Promise) {
+    try {
+      check(!retired)
+      val generation = avatarCache.openGeneration()
+      cacheTask(promise) { avatarCache.open(generation, epoch) }
+    } catch (_: Exception) {
+      promise.reject(CACHE_FAIL, CACHE_FAIL)
+    }
+  }
+
+  @ReactMethod
+  fun readAvatarCache(sessionId: String, key: String, promise: Promise) = cacheTask(promise) {
+    val entry = avatarCache.read(sessionId, key)
+    cacheEntry(entry)
+  }
+
+  @ReactMethod
+  fun writeAvatarCache(sessionId: String, key: String, sourceUrl: String, base64: String, promise: Promise) {
+    writeCache(avatarCache, sessionId, key, sourceUrl, base64, MAX_AVATAR_BASE64, promise)
+  }
+
+  @ReactMethod
+  fun removeAvatarCache(sessionId: String, key: String, promise: Promise) = cacheTask(promise) {
+    avatarCache.remove(sessionId, key)
+    null
+  }
+
+  @ReactMethod
+  fun closeAvatarCache(sessionId: String, clearAll: Boolean, promise: Promise) {
+    // Revoke before queued IO can run. A writer checks this same lease under
+    // its rename lock, so a late response cannot repopulate an opted-out cache.
+    avatarCache.revoke(sessionId, clearAll)
+    if (clearAll) cacheTask(promise) { avatarCache.clear(); null } else promise.resolve(null)
+  }
+
+  private fun cacheEntry(entry: TokenIconDiskCache.Entry?) =
+    if (entry == null) null else Arguments.createMap().apply {
+      putString("mimeType", entry.mimeType)
+      putString("base64", Base64.encodeToString(entry.bytes, Base64.NO_WRAP))
+      putString("sourceUrl", entry.sourceUrl)
+      putDouble("savedAtUnixMs", entry.savedAtUnixMs.toDouble())
+    }
+
+  private fun writeCache(
+    cache: TokenIconDiskCache, sessionId: String, key: String, sourceUrl: String,
+    base64: String, maxBase64: Int, promise: Promise,
+  ) {
+    if (base64.length !in 4..maxBase64) {
+      promise.reject(CACHE_FAIL, CACHE_FAIL)
+      return
+    }
+    cacheTask(promise) {
+      check(base64.length % 4 == 0 && base64.all {
+        it in 'A'..'Z' || it in 'a'..'z' || it in '0'..'9' || it == '+' || it == '/' || it == '='
+      })
+      val bytes = Base64.decode(base64, Base64.NO_WRAP)
+      check(Base64.encodeToString(bytes, Base64.NO_WRAP) == base64)
+      cache.write(sessionId, key, sourceUrl, bytes)
+      null
+    }
   }
 
   private fun cacheTask(promise: Promise, operation: () -> Any?) {
@@ -204,6 +251,7 @@ class SecureAssetFetchModule(context: ReactApplicationContext) : ReactContextBas
   override fun invalidate() {
     retired = true
     iconCache.invalidate()
+    avatarCache.invalidate()
     requests.keys.toList().forEach(::cancel)
     executor.shutdownNow()
     watchdog.shutdownNow()
@@ -255,6 +303,7 @@ class SecureAssetFetchModule(context: ReactApplicationContext) : ReactContextBas
     const val INVALID = PublicAssetDownloadErrors.INVALID
     const val CANCELLED = PublicAssetDownloadErrors.CANCELLED
     const val CACHE_FAIL = "asset-cache-unavailable"
+    const val MAX_AVATAR_BASE64 = ((TokenIconDiskCache.MAX_AVATAR_IMAGE_BYTES + 2) / 3) * 4
     const val MAX_ICON_BASE64 = ((TokenIconDiskCache.MAX_IMAGE_BYTES + 2) / 3) * 4
   }
 }

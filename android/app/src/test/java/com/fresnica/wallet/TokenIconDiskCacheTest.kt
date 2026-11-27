@@ -72,6 +72,23 @@ class TokenIconDiskCacheTest {
     // available to it after native module restart, with no network request.
   }
 
+  @Test fun avatarCacheRestartsWithNetworkScopeAndHardExpiry() {
+    val directory = temporary.newFolder("avatars")
+    val key = "[\"stellar-mainnet\",\"$issuer\"]"
+    val avatarSource = "https://horizon.stellarcn.org/avatar/v2/$issuer?size=256"
+    val first = TokenIconDiskCache(directory, { clock }, ::fixtureMime, avatar = true)
+    val session = first.open()
+    first.write(session, key, avatarSource, png)
+    rejected { first.write(session, key, source, png) }
+    first.invalidate()
+    val restarted = TokenIconDiskCache(directory, { clock }, ::fixtureMime, avatar = true)
+    val renewed = restarted.open()
+    assertArrayEquals(png, restarted.read(renewed, key)?.bytes)
+    assertNull(restarted.read(renewed, key.replace("mainnet", "testnet")))
+    clock += TimeUnit.DAYS.toMillis(7)
+    assertNull(restarted.read(renewed, key))
+  }
+
   @Test fun usesCaseSensitiveNetworkCodeAndFullIssuerIdentity() {
     val directory = temporary.newFolder("cache")
     val store = cache(directory)

@@ -216,38 +216,57 @@ it('automatic refresh only reloads a retained expired entry, never a capacity mi
   port.close();
 });
 
-it('defaults each owned account to local despite legacy global consent, and fences a revoked in-flight request', async () => {
-  const second = 'G' + 'B'.repeat(55);
-  const pending = deferred<string>();
-  const loadImage = jest.fn(() => pending.promise);
-  const port = createAccountAvatarPort({
-    available: true,
-    initialEnabled: true,
-    loadImage,
-    resolveAccountId: raw => (raw === address ? 'first' : raw === second ? 'second' : undefined),
-  });
-  port.setReadable(true);
-  const signal = new AbortController().signal;
-  expect(port.allowsOnline(address)).toBe(false);
-  expect(port.allowsOnline(muxed)).toBe(true);
-  expect(await port.load(address, signal)).toBeUndefined();
-  expect(loadImage).not.toHaveBeenCalled();
-  port.setOnlineAccountIds(['first']);
-  expect(port.allowsOnline(address)).toBe(true);
-  expect(port.allowsOnline(second)).toBe(false);
-  const inFlight = port.load(address, signal);
+it('shares one pending download between consumers of the same public address', async () => {
+  const image = deferred<string>();
+  const loader = jest.fn((_url: string, _signal: AbortSignal) => image.promise);
+  const { port } = create(true, loader);
+  const list = new AbortController();
+  const detail = new AbortController();
+  const first = port.load(address, list.signal);
+  const second = port.load(address, detail.signal);
   await Promise.resolve();
-  expect(loadImage).toHaveBeenCalledTimes(1);
-  port.setOnlineAccountIds(['second']);
-  expect(await inFlight).toBeUndefined();
-  pending.resolve(uri);
-  await Promise.resolve();
-  expect(port.read(address)).toBeUndefined();
-  expect(await port.load(address, signal)).toBeUndefined();
-  expect(loadImage).toHaveBeenCalledTimes(1);
-  expect(await port.load(second, signal)).toBe(uri);
-  port.setEnabled(false);
-  expect(port.read(second)).toBeUndefined();
-  expect(port.allowsOnline(second)).toBe(false);
+  list.abort();
+  expect(await first).toBeUndefined();
+  expect(loader).toHaveBeenCalledTimes(1);
+  expect(loader.mock.calls[0][1].aborted).toBe(false);
+  image.resolve(uri);
+  expect(await second).toBe(uri);
+  expect(port.read(address)).toBe(uri);
   port.close();
+});
+
+it('loads a saved avatar after an offline restart and cannot read it past expiry or after opt-out', async () => {
+  let time = 1_000_000;
+  const entries = new Map<string, { uri: string; savedAtUnixMs: number }>();
+  const diskCache = {
+    setEnabled: jest.fn((enabled: boolean) => {
+      if (!enabled) entries.clear();
+    }),
+    read: jest.fn(async (key: string) => entries.get(key)),
+    write: jest.fn(async (key: string, value: string) => {
+      entries.set(key, { uri: value, savedAtUnixMs: time });
+    }),
+    remove: jest.fn(async (key: string) => {
+      entries.delete(key);
+    }),
+    close: jest.fn(),
+  };
+  const loadImage = jest.fn(async () => uri);
+  const start = () =>
+    createAccountAvatarPort({ available: true, initialEnabled: true, diskCache, loadImage, now: () => time });
+  const signal = new AbortController().signal;
+  const first = start();
+  first.setReadable(true);
+  expect(await first.load(address, signal)).toBe(uri);
+  first.close();
+  const offline = start();
+  offline.setReadable(false, true);
+  expect(await offline.load(address, signal)).toBe(uri);
+  expect(loadImage).toHaveBeenCalledTimes(1);
+  time += 7 * 24 * 60 * 60 * 1000;
+  expect(await offline.load(address, signal)).toBeUndefined();
+  offline.setEnabled(false);
+  expect(entries.size).toBe(0);
+  expect(await offline.load(address, signal)).toBeUndefined();
+  offline.close();
 });
