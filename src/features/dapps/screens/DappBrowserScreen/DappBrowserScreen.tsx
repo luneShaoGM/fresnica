@@ -541,12 +541,13 @@ export function DappBrowserScreen({
       if (request.asset) {
         if (!appPassphrase) return;
         const result = await request.asset.submit(appPassphrase, isCurrent);
+        // A broadcast can outlive the website's reply, but still needs wallet recovery.
+        if (result === 'submission-uncertain') setAssetSubmissionUncertain(true);
         if (!isCurrent()) return;
         if (result === 'passphrase-required') {
           setSignError(true);
           return;
         }
-        if (result === 'submission-uncertain') setAssetSubmissionUncertain(true);
         transactionTarget.current = undefined;
         const completed = current.session.finishSign(
           result === 'added'
@@ -912,7 +913,7 @@ export function DappBrowserScreen({
           <DappSignSheet
             intent={pendingSign.intent}
             submitsAsset={pendingSign.asset !== undefined}
-            network={current.selection.networkId}
+            network={networkLabel(current.selection.networkId)}
             expiresAt={pendingSign.target?.expiresAt}
             onExpired={() => {
               if (pendingSign.target) expireTransaction(pendingSign.target);

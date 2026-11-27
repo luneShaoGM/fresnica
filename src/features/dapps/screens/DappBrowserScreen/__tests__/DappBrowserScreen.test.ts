@@ -711,6 +711,7 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     const sheet = find(render(true, signed), node => node.type === DappSignSheet);
     expect(sheet?.props).toMatchObject({
       intent: { source: 'GSOURCE', fee: '100', operations: [{ destination: 'GDEST' }] },
+      network: 'Testnet',
     });
     sheet?.props.onConfirm?.('secret');
     await Promise.resolve();
@@ -1635,5 +1636,79 @@ describe('native SEP-53 reply deadline', () => {
     expect(replies).toHaveBeenCalledWith(expect.objectContaining({ messagedId: 74, contractId: 'USD:GISSUER' }), {
       replyId: 'asset-document-2',
     });
+  });
+});
+
+describe('Classic dApp transaction review', () => {
+  it.each([
+    ['Mainnet', false],
+    ['Testnet', true],
+  ])('shows %s on the transaction confirmation sheet (submitsAsset=%s)', (network, submitsAsset) => {
+    const tree = DappSignSheet({
+      intent: { hash: 'hash', source: 'GSOURCE', sequence: '7', fee: '100', memo: null, operations: [] },
+      origin: 'https://demo.example.org',
+      network,
+      submitsAsset,
+      visible: true,
+      passphraseRequired: true,
+      failed: false,
+      onConfirm: jest.fn(),
+      onReject: jest.fn(),
+    });
+
+    expect(find(tree, node => node.props.children === network)).toBeDefined();
+  });
+
+  it('keeps the wallet warning when asset submission becomes uncertain after native reply expiry', async () => {
+    const origin = 'https://demo.example.org';
+    const replyId = 'asset-document';
+    let finishSubmission!: (result: 'submission-uncertain') => void;
+    const submission = new Promise<'submission-uncertain'>(resolve => {
+      finishSubmission = resolve;
+    });
+    const submit = jest.fn((_passphrase: string, _isCurrent: () => boolean) => submission);
+    const addAsset: DappAssetRequest = async () => ({
+      intent: { hash: 'hash', source: 'GSOURCE', sequence: '7', fee: '100', memo: null, operations: [] },
+      contractId: 'USD:GISSUER',
+      submit,
+    });
+    const show = () => render(true, undefined, undefined, undefined, undefined, addAsset);
+    const browser = find(show(), node => node.type === BrowserSurface);
+    refs[1].current = { reply: replies };
+    browser?.props.onMessage?.(request('REQUEST_ACCESS', 75), origin);
+    find(show(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
+    replies.mockClear();
+    browser?.props.onMessage?.(
+      JSON.stringify({
+        source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
+        token,
+        type: 'SUBMIT_TOKEN',
+        issuer: 'GISSUER',
+        assetCode: 'USD',
+        messageId: 76,
+      }),
+      origin,
+      replyId,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    find(show(), node => node.type === DappSignSheet)?.props.onConfirm?.('test passphrase');
+    expect(submit).toHaveBeenCalledTimes(1);
+    const [, isCurrent] = submit.mock.calls[0];
+    expect(isCurrent()).toBe(true);
+
+    browser?.props.onReplyExpired?.(replyId, origin);
+    expect(isCurrent()).toBe(false);
+    expect(find(show(), node => node.type === DappSignSheet)).toBeUndefined();
+    expect(replies.mock.calls).toEqual([
+      [expect.objectContaining({ messagedId: 76, error: 'request-expired' }), { replyId }],
+    ]);
+
+    finishSubmission('submission-uncertain');
+    await submission;
+
+    expect(find(show(), node => node.props.children === 'dapps.sign.assetUncertain')).toBeDefined();
+    expect(replies).toHaveBeenCalledTimes(1);
   });
 });

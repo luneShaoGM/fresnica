@@ -16,7 +16,7 @@ type Props = Readonly<{
   failed: boolean;
   busy?: boolean;
   submitsAsset?: boolean;
-  network?: string;
+  network: string;
   expiresAt?: number;
   onExpired?: () => void;
   onConfirm: (appPassphrase: string) => void;
@@ -24,7 +24,7 @@ type Props = Readonly<{
 }> &
   (
     | Readonly<{ intent: DappTransactionIntent; message?: never }>
-    | Readonly<{ intent?: never; message: string; address: string; network: string }>
+    | Readonly<{ intent?: never; message: string; address: string }>
   );
 
 export function DappSignSheet(props: Props) {
@@ -71,6 +71,10 @@ export function DappSignSheet(props: Props) {
             <Text style={styles.message}>
               {t(props.submitsAsset ? 'dapps.sign.addAssetNotice' : 'dapps.sign.message')}
             </Text>
+            <View style={styles.card}>
+              <Text style={styles.cardLabel}>{t('dapps.permission.network')}</Text>
+              <Text style={styles.cardValue}>{props.network}</Text>
+            </View>
             <View style={styles.card}>
               <Text style={styles.cardLabel}>{t('dapps.sign.source')}</Text>
               <Text selectable style={styles.cardValue}>
