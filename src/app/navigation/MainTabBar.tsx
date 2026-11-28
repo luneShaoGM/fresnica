@@ -35,7 +35,6 @@ const ROOT_ROUTE_BY_TAB: Readonly<Record<MainTab, string>> = {
 };
 
 const ACTIONS_OVERLAY_ID = 'actions';
-const FEX_WEBSITE = 'https://fex.fresnica.com';
 
 export type MainTabBarProps = BottomTabBarProps &
   Readonly<{
@@ -130,7 +129,7 @@ export function MainTabBar({
               current.routeKey !== activeRoute.key
             )
               return;
-            navigation.navigate('dapps', { screen: 'dapps', params: { scannedUrl: FEX_WEBSITE } });
+            navigation.navigate('dapps', { screen: 'dapps', params: { openFex: true } });
           }}
           style={({ pressed }) => [styles.tab, pressed ? styles.pressed : undefined]}
         >

@@ -28,7 +28,7 @@ export type ActivityStackParamList = {
 };
 
 export type DAppsStackParamList = {
-  dapps: { scannedUrl?: string } | undefined;
+  dapps: { scannedUrl?: string; openFex?: true } | undefined;
   'dapp-browser': { url: string };
 };
 
