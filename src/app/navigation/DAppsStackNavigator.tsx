@@ -1,5 +1,11 @@
+import type { DappContractTracking } from '@capabilities/dapp-interaction/dappContractTracking';
 import { readDappNotificationTime, showDappNotification } from '../../platform/dapp-browser/dappNotification';
-import React, { useRef, useSyncExternalStore } from 'react';
+import React, { useCallback, useRef, useState, useSyncExternalStore } from 'react';
+import { Share } from 'react-native';
+import type { AccountRecord } from '@capabilities/account/types';
+import type { NetworkSettings } from '@capabilities/network/createNetworkSettings';
+import type { NetworkId } from '@capabilities/network/networkPreferences';
+import { NetworkSwitchModal } from '@features/settings/NetworkSwitchModal';
 import { canMountDappWebView } from '../../platform/dapp-browser/browserAvailability';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useIsFocused } from '@react-navigation/native';
@@ -19,7 +25,11 @@ import type { DappCatalogEntry, DappCatalogPort } from '@capabilities/dapp-catal
 import { createCuratedSessionLaunch } from '../../capabilities/dapp-interaction/curatedSessionLaunch';
 import { DAppsScreen } from '@features/dapps/screens/DAppsScreen';
 
+import type { DappNetworkNavigation } from './dappNetworkResume';
 import type { DAppsStackParamList } from './navigationTypes';
+
+type CatalogDisplayLaunch = { revision: number; entry: DappCatalogEntry };
+type CatalogDisplayRef = React.RefObject<CatalogDisplayLaunch | undefined>;
 
 const Stack = createNativeStackNavigator<DAppsStackParamList>();
 
@@ -33,7 +43,12 @@ export function DAppsStackNavigator({
   signTransaction,
   signMessage,
   addAsset,
+  trackContract,
   permissions,
+  browserAccounts,
+  chooseBrowserAccount,
+  browserNetworks,
+  dappNetworkNavigation,
 }: Readonly<{
   catalog: DappCatalogPort;
   recentHistory?: DappRecentHistory;
@@ -44,12 +59,18 @@ export function DAppsStackNavigator({
   signTransaction: DappTransactionSigner;
   signMessage?: DappMessageSigner;
   addAsset?: DappAssetRequest;
+  trackContract?: DappContractTracking;
   permissions: DappPermissionStore;
+  browserAccounts?: readonly AccountRecord[];
+  chooseBrowserAccount?: (id: string) => Promise<void>;
+  browserNetworks?: NetworkSettings;
+  dappNetworkNavigation?: DappNetworkNavigation;
 }>) {
   const reads = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot, runtime.getSnapshot);
   const launchRef = useRef<ReturnType<typeof createCuratedSessionLaunch> | undefined>(undefined);
   if (!launchRef.current) launchRef.current = createCuratedSessionLaunch();
   const trustedLaunch = launchRef.current;
+  const catalogDisplay = useRef<CatalogDisplayLaunch | undefined>(undefined);
   return (
     <Stack.Navigator initialRouteName="dapps" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="dapps">
@@ -57,13 +78,16 @@ export function DAppsStackNavigator({
           <DAppsRoute
             scannedUrl={route?.params?.scannedUrl}
             clearScannedUrl={() => navigation?.setParams?.({ scannedUrl: undefined })}
+            dappNetworkNavigation={dappNetworkNavigation}
             catalog={catalog}
             recentHistory={recentHistory}
             openExternalUrl={openExternalUrl}
             foreground={reads.foreground}
             online={reads.connectivity !== 'offline'}
             currentSelection={currentSelection}
+            subscribeSelection={subscribeSelection}
             trustedLaunch={trustedLaunch}
+            catalogDisplay={catalogDisplay}
           />
         )}
       </Stack.Screen>
@@ -78,10 +102,18 @@ export function DAppsStackNavigator({
               signTransaction={signTransaction}
               signMessage={signMessage}
               addAsset={addAsset}
+              trackContract={trackContract}
               permissions={permissions}
+              browserAccounts={browserAccounts}
+              chooseBrowserAccount={chooseBrowserAccount}
+              browserNetworks={browserNetworks}
+              dappNetworkNavigation={dappNetworkNavigation}
               foreground={reads.foreground}
               onClose={() => navigation.goBack()}
               trustedLaunch={trustedLaunch}
+              catalogDisplay={catalogDisplay}
+              catalogMedia={catalog.publicMedia}
+              online={reads.connectivity !== 'offline'}
             />
           )}
         </Stack.Screen>
@@ -91,6 +123,7 @@ export function DAppsStackNavigator({
 }
 
 function DAppsRoute({
+  dappNetworkNavigation,
   scannedUrl,
   clearScannedUrl,
   catalog,
@@ -99,8 +132,11 @@ function DAppsRoute({
   foreground,
   online,
   currentSelection,
+  subscribeSelection,
   trustedLaunch,
+  catalogDisplay,
 }: Readonly<{
+  dappNetworkNavigation?: DappNetworkNavigation;
   scannedUrl?: string;
   clearScannedUrl: () => void;
   catalog: DappCatalogPort;
@@ -109,22 +145,41 @@ function DAppsRoute({
   foreground: boolean;
   online: boolean;
   currentSelection: () => DappPublicSelection | undefined;
+  subscribeSelection: (listener: () => void) => () => void;
   trustedLaunch: ReturnType<typeof createCuratedSessionLaunch>;
+  catalogDisplay: CatalogDisplayRef;
 }>) {
   const focused = useIsFocused();
   const navigation = useNavigation<NavigationProp<DAppsStackParamList>>();
+  const hasClassicSelection = useCallback(() => {
+    try {
+      return currentSelection() !== undefined;
+    } catch {
+      return false;
+    }
+  }, [currentSelection]);
+  const resume = dappNetworkNavigation?.resume;
+  const consumeResume = dappNetworkNavigation?.consume;
+  const finishResume = useCallback(() => {
+    if (resume) consumeResume?.(resume);
+  }, [resume, consumeResume]);
+  const canOpenInApp = useSyncExternalStore(subscribeSelection, hasClassicSelection) && canMountDappWebView();
   return (
     <DAppsScreen
+      resumeCatalogId={resume?.catalogId}
+      onResumeHandled={finishResume}
       scannedUrl={scannedUrl}
       clearScannedUrl={clearScannedUrl}
       catalog={catalog}
       recentHistory={recentHistory}
       openExternalUrl={openExternalUrl}
       openInApp={
-        canMountDappWebView()
+        canOpenInApp
           ? url => {
+              if (!hasClassicSelection()) return false;
               // Even a manual URL identical to a curated entry has no proof.
               trustedLaunch.clear();
+              catalogDisplay.current = undefined;
               navigation.navigate('dapp-browser', { url });
             }
           : undefined
@@ -140,7 +195,13 @@ function DAppsRoute({
               } catch {
                 // A closed/throwing selection/catalog adapter never mints trust.
               }
+              if (!selected) {
+                trustedLaunch.clear();
+                catalogDisplay.current = undefined;
+                return false;
+              }
               trustedLaunch.prepare(entry.websiteUrl, selected, verified);
+              catalogDisplay.current = { entry, revision: trustedLaunch.revision() };
               navigation.navigate('dapp-browser', { url: entry.websiteUrl });
             }
           : undefined
@@ -161,10 +222,18 @@ function DappBrowserRoute({
   signTransaction,
   signMessage,
   addAsset,
+  trackContract,
   permissions,
+  browserAccounts,
+  chooseBrowserAccount,
+  browserNetworks,
+  dappNetworkNavigation,
   foreground,
   onClose,
   trustedLaunch,
+  catalogDisplay,
+  catalogMedia,
+  online,
 }: Readonly<{
   url: string;
   onVisit?: (url: string) => void;
@@ -173,13 +242,28 @@ function DappBrowserRoute({
   signTransaction: DappTransactionSigner;
   signMessage?: DappMessageSigner;
   addAsset?: DappAssetRequest;
+  trackContract?: DappContractTracking;
   permissions: DappPermissionStore;
+  browserAccounts?: readonly AccountRecord[];
+  chooseBrowserAccount?: (id: string) => Promise<void>;
+  browserNetworks?: NetworkSettings;
+  dappNetworkNavigation?: DappNetworkNavigation;
   foreground: boolean;
   onClose: () => void;
   trustedLaunch: ReturnType<typeof createCuratedSessionLaunch>;
+  catalogDisplay: CatalogDisplayRef;
+  catalogMedia?: DappCatalogPort['publicMedia'];
+  online: boolean;
 }>) {
   const focused = useIsFocused();
-  const proofRef = useRef<{ url: string; revision: number; origin?: string } | undefined>(undefined);
+  const [reopened, setReopened] = useState<{ origin: string; revision: number }>();
+  const [networkPicker, setNetworkPicker] = useState<{ catalogId?: string }>();
+  const closeNetworkPicker = useCallback(() => {
+    setNetworkPicker(undefined);
+  }, []);
+  const proofRef = useRef<{ url: string; revision: number; origin?: string; entry?: DappCatalogEntry } | undefined>(
+    undefined,
+  );
   if (!proofRef.current || proofRef.current.url !== url || proofRef.current.revision !== trustedLaunch.revision()) {
     let selected: DappPublicSelection | undefined;
     try {
@@ -187,27 +271,72 @@ function DappBrowserRoute({
     } catch {
       // A missing account fails closed, including before first route render.
     }
+    const display = catalogDisplay.current;
+    const entry =
+      display?.revision === trustedLaunch.revision() && display.entry.websiteUrl === url ? display.entry : undefined;
+    catalogDisplay.current = undefined;
     const origin = trustedLaunch.consume(url, selected);
-    proofRef.current = { url, revision: trustedLaunch.revision(), origin };
+    proofRef.current = { url, revision: trustedLaunch.revision(), origin, entry };
   }
+  const choices = browserAccounts?.filter(account => account.identityKind === 'classic' && !account.hidden);
+  const resumeAfterNodeChange = (networkId: NetworkId, change: () => Promise<void>) =>
+    networkPicker?.catalogId && dappNetworkNavigation
+      ? dappNetworkNavigation.select({ catalogId: networkPicker.catalogId, networkId }, change)
+      : change();
   return (
-    <DappBrowserScreen
-      key={url + ':' + String(proofRef.current.revision)}
-      url={url}
-      active={focused && foreground}
-      onClose={onClose}
-      onVisit={onVisit}
-      currentSelection={currentSelection}
-      subscribeSelection={subscribeSelection}
-      signTransaction={signTransaction}
-      signMessage={signMessage}
-      addAsset={addAsset}
-      permissions={permissions}
-      trustedCatalogOrigin={proofRef.current.origin}
-      createNonce={createDappBridgeNonce}
-      showNotification={showDappNotification}
-      notificationNow={readDappNotificationTime}
-      BrowserSurface={SecureDappWebView}
-    />
+    <>
+      <DappBrowserScreen
+        key={reopened ? 'switched:' + reopened.origin + ':' + reopened.revision : url + ':' + proofRef.current.revision}
+        url={reopened?.origin ?? url}
+        catalogEntry={proofRef.current.entry}
+        catalogMedia={catalogMedia}
+        online={online}
+        accountChoices={choices}
+        onSwitchAccount={
+          chooseBrowserAccount
+            ? async (id, origin) => {
+                await chooseBrowserAccount(id);
+                setReopened(previous => ({ origin, revision: (previous?.revision ?? 0) + 1 }));
+              }
+            : undefined
+        }
+        onSwitchNetwork={browserNetworks ? catalogId => setNetworkPicker({ catalogId }) : undefined}
+        active={focused && foreground}
+        onClose={onClose}
+        onVisit={onVisit}
+        shareWebsite={origin => Share.share({ message: origin })}
+        currentSelection={currentSelection}
+        subscribeSelection={subscribeSelection}
+        signTransaction={signTransaction}
+        signMessage={signMessage}
+        addAsset={addAsset}
+        trackContract={trackContract}
+        permissions={permissions}
+        requireFreshConnection={reopened !== undefined}
+        trustedCatalogOrigin={reopened ? undefined : proofRef.current.origin}
+        createNonce={createDappBridgeNonce}
+        showNotification={showDappNotification}
+        notificationNow={readDappNotificationTime}
+        BrowserSurface={SecureDappWebView}
+      />
+      {networkPicker && browserNetworks ? (
+        <NetworkSwitchModal
+          settings={browserNetworks}
+          onClose={closeNetworkPicker}
+          onSelectNode={(networkId, endpoint) =>
+            resumeAfterNodeChange(networkId, () => browserNetworks.selectNode(networkId, endpoint))
+          }
+          onRemoveNode={(networkId, endpoint) => {
+            const { preferences } = browserNetworks.getSnapshot();
+            const remove = () => browserNetworks.removeNode(networkId, endpoint);
+            // Removing the active endpoint falls back to the built-in node
+            // and retires the session, even though the network ID stays the same.
+            return preferences.networkId === networkId && preferences.endpoints[networkId] === endpoint
+              ? resumeAfterNodeChange(networkId, remove)
+              : remove();
+          }}
+        />
+      ) : null}
+    </>
   );
 }

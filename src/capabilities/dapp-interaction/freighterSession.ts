@@ -75,6 +75,7 @@ export type BridgeDecision =
       networkPassphrase: string;
       accountAddress: string;
     }>
+  | Readonly<{ kind: 'track-contract'; origin: string; contractId: string }>
   | Readonly<{ kind: 'add-asset'; origin: string; contractId?: string; code: string; issuer: string }>
   | Readonly<{ kind: 'sign-message'; origin: string; message: string; encoding: 'base64' | 'hex' }>
   | Readonly<{ kind: 'respond'; response: BridgeResponse }>;
@@ -433,8 +434,13 @@ export function createFreighterSession(
           details.network === 'PUBLIC' ? 'https://horizon.stellar.org' : 'https://horizon-testnet.stellar.org';
         return response(json, { networkDetails: { ...details, networkUrl } });
       }
-      case 'SUBMIT_TOKEN':
-        if (json.assetType === 'soroban' || !json.issuer || !json.assetCode) {
+      case 'SUBMIT_TOKEN': {
+        const contractOnly = json.assetType !== 'classic' && json.issuer === undefined && json.assetCode === undefined;
+        if (
+          contractOnly
+            ? !/^C[A-Z2-7]{55}$/.test(json.contractId ?? '')
+            : json.assetType === 'soroban' || !json.issuer || !json.assetCode
+        ) {
           return response(json, { error: 'unsupported' });
         }
         if (!connected()) return response(json, { error: 'not-authorized' });
@@ -445,6 +451,13 @@ export function createFreighterSession(
         if ([json.address, json.accountToSign].some(address => address !== undefined && address !== initial.address)) {
           return response(json, { error: 'wrong-account' });
         }
+        if (contractOnly) {
+          const id = json.contractId;
+          if (!id || !/^C[A-Z2-7]{55}$/.test(id)) return response(json, { error: 'asset-failed' });
+          pendingSign = { asset: true, messageId: json.messageId };
+          return { kind: 'track-contract', origin: documentOrigin, contractId: id };
+        }
+        if (!json.issuer || !json.assetCode) return response(json, { error: 'unsupported' });
         pendingSign = { asset: true, messageId: json.messageId };
         return {
           kind: 'add-asset',
@@ -453,6 +466,7 @@ export function createFreighterSession(
           issuer: json.issuer,
           ...(json.contractId ? { contractId: json.contractId } : {}),
         };
+      }
       case 'SUBMIT_TRANSACTION':
         return reviewTransaction(json);
       case 'SUBMIT_BLOB':
@@ -644,6 +658,7 @@ export function createFreighterSession(
   return Object.freeze({
     receive,
     notificationAllowed,
+    isReadConnected: () => !closed && live() && connected(),
     resolvePermission,
     finishSign,
     reset,

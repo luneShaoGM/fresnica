@@ -17,6 +17,7 @@ import type {AppRuntimeState} from '../runtimeState';
 import type {RequestDeepLinkResolved} from '../requestDeepLinkRouting';
 import {createStyles} from './AppNavigator.styles';
 import {NetworkSettingsScreen} from '@features/settings/NetworkSettingsScreen';
+import type { DappNetworkNavigation } from './dappNetworkResume';
 import {MainTabsNavigator} from './MainTabsNavigator';
 import {selectPersistedAccountAndDefault} from './accountSelection';
 import type {RootStackParamList} from './navigationTypes';
@@ -27,10 +28,11 @@ type Props = Readonly<{
   runtime: AppRuntimeState;
   onRefreshBootstrap: () => void;
   deepLink?: RequestDeepLinkResolved;
+  dappNetworkNavigation?: DappNetworkNavigation;
   onDismissDeepLink: () => void;
 }>;
 
-export function AppNavigator({runtime, onRefreshBootstrap, deepLink, onDismissDeepLink}: Props) {
+export function AppNavigator({runtime, onRefreshBootstrap, deepLink, onDismissDeepLink, dappNetworkNavigation}: Props) {
   const appTheme = useAppTheme();
   const navigationTheme = useMemo(() => createNavigationTheme(appTheme), [appTheme]);
   const [continuedDeepLink, setContinuedDeepLink] = useState<RequestDeepLinkResolved>();
@@ -55,6 +57,7 @@ export function AppNavigator({runtime, onRefreshBootstrap, deepLink, onDismissDe
               if (deepLink?.kind === 'ready') setContinuedDeepLink(deepLink);
             },
             continuedDeepLink === deepLink,
+            dappNetworkNavigation,
           )}
           <RootStack.Screen name="locked" component={LockedPlaceholderScreen} />
         </RootStack.Navigator>
@@ -85,6 +88,7 @@ function renderRootScreen(
   onDismissDeepLink: () => void,
   onContinueDeepLink: () => void,
   isContinuing: boolean,
+  dappNetworkNavigation?: DappNetworkNavigation,
 ) {
   if (runtime.kind !== 'ready') {
     return (
@@ -196,6 +200,7 @@ function renderRootScreen(
       {() => (
         <MainTabsNavigator
           accounts={bootstrap.accounts}
+          dappNetworkNavigation={dappNetworkNavigation}
           services={runtime.services}
           onAccountsChanged={onRefreshBootstrap}
         />

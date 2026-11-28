@@ -35,6 +35,8 @@ const strictPresentationScopes = [
   'src/features/swap/',
   'src/features/markets/',
   'src/features/assets/AssetPicker',
+  'src/features/assets/ContractAssetsPanel',
+  'src/features/assets/contractAssetStyles',
   'src/features/assets/assetPickerStyles',
   'src/features/assets/assetSelection',
   'src/features/assets/TokenAssetIcon',

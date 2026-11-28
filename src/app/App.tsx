@@ -21,6 +21,7 @@ import type { LedgerReadRuntimeSnapshot } from './readModels/LedgerReadRuntime';
 import { startLedgerReadLifecycle } from './readModels/startLedgerReadLifecycle';
 import { subscribeToInternetConnectivity } from '../platform/system/networkConnectivity';
 import { reactNativeRequestDeepLink } from '../platform/system/requestDeepLink';
+import type { DappNetworkResume } from './navigation/dappNetworkResume';
 import { AppNavigator } from './navigation/AppNavigator';
 import { OverlayHost } from './OverlayHost';
 import { UiNativeProvider } from './UiNativeProvider';
@@ -43,6 +44,19 @@ export function App() {
   const [locale, setLocale] = useState<SupportedLocale>(() => getDeviceLocale());
   const networkAccess = useRef<NetworkAccessContinuation | undefined>(undefined);
   const servicesRef = useRef<AppServices | undefined>(undefined);
+  const pendingDappResume = useRef<DappNetworkResume | undefined>(undefined);
+  const [dappResume, setDappResume] = useState<DappNetworkResume>();
+  const selectNodeForDapp = useCallback(async (request: DappNetworkResume, action: () => Promise<void>) => {
+    pendingDappResume.current = request;
+    try {
+      await action();
+    } finally {
+      if (pendingDappResume.current === request) pendingDappResume.current = undefined;
+    }
+  }, []);
+  const consumeDappResume = useCallback((request: DappNetworkResume) => {
+    setDappResume(current => (current === request ? undefined : current));
+  }, []);
   const intake = useRef<ReturnType<typeof startRequestDeepLinkIntake> | undefined>(undefined);
   const linkGeneration = useRef(0);
   const resolvedFor = useRef<Readonly<{ parsed: RequestDeepLinkParsed; runtime: AppRuntimeState }> | undefined>(
@@ -71,6 +85,8 @@ export function App() {
       if (state === 'background') {
         networkAccess.current?.cancel();
         networkAccess.current = undefined;
+        pendingDappResume.current = undefined;
+        setDappResume(undefined);
       }
     });
     return () => {
@@ -81,6 +97,8 @@ export function App() {
 
   useEffect(() => {
     if (!accessSnapshot?.locked) return;
+    pendingDappResume.current = undefined;
+    setDappResume(undefined);
     linkGeneration.current += 1;
     intake.current?.dismiss();
     resolvedFor.current = undefined;
@@ -138,6 +156,15 @@ export function App() {
           nextAccess?.cancel();
           networkAccess.current = undefined;
         }
+        const resume = pendingDappResume.current;
+        pendingDappResume.current = undefined;
+        setDappResume(
+          nextAccess?.isValid() &&
+            AppState.currentState === 'active' &&
+            resume?.networkId === ownedServices?.networkSettings?.getSnapshot().preferences.networkId
+            ? resume
+            : undefined,
+        );
         stopLedgerReadLifecycle?.();
         servicesRef.current = undefined;
         intake.current?.setReady(false);
@@ -318,6 +345,7 @@ export function App() {
                 <AppNavigator
                   runtime={runtime}
                   onRefreshBootstrap={refreshBootstrap}
+                  dappNetworkNavigation={{ resume: dappResume, consume: consumeDappResume, select: selectNodeForDapp }}
                   deepLink={resolvedDeepLink}
                   onDismissDeepLink={() => {
                     linkGeneration.current += 1;

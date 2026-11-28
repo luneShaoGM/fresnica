@@ -1,3 +1,4 @@
+import { createDappContractTracking } from './createDappContractTracking';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createBottomTabNavigator, type BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
@@ -20,6 +21,7 @@ import {
 } from './accountSelection';
 import { ActivityStackNavigator } from './ActivityStackNavigator';
 import { TokenIconContext } from '../../features/assets/tokenIconContext';
+import type { DappNetworkNavigation } from './dappNetworkResume';
 import { DAppsStackNavigator } from './DAppsStackNavigator';
 import { createDappMessageSigner } from '../../capabilities/dapp-interaction/dappMessageSigner';
 import { createDappAssetRequest } from './createDappAssetRequest';
@@ -39,6 +41,7 @@ type Props = Readonly<{
   accounts: readonly AccountRecord[];
   services: AppServices;
   onAccountsChanged: () => void;
+  dappNetworkNavigation?: DappNetworkNavigation;
 }>;
 
 export function getActionAccountState(
@@ -53,7 +56,7 @@ export function getActionAccountState(
   return balanceState.snapshot.status === 'active' ? undefined : 'unavailable';
 }
 
-export function MainTabsNavigator({ accounts, services, onAccountsChanged }: Props) {
+export function MainTabsNavigator({ accounts, services, onAccountsChanged, dappNetworkNavigation }: Props) {
   const networkId = services.onboarding.networkId;
   const networkAccounts = useMemo(
     () => accounts.filter(account => account.networkId === networkId),
@@ -62,13 +65,21 @@ export function MainTabsNavigator({ accounts, services, onAccountsChanged }: Pro
   const selectableAccounts = useMemo(() => selectableAccountsForNetwork(accounts, networkId), [accounts, networkId]);
 
   if (selectableAccounts.length === 0) {
-    return <EmptyNetworkTabs accounts={networkAccounts} services={services} onAccountsChanged={onAccountsChanged} />;
+    return (
+      <EmptyNetworkTabs
+        accounts={networkAccounts}
+        services={services}
+        onAccountsChanged={onAccountsChanged}
+        dappNetworkNavigation={dappNetworkNavigation}
+      />
+    );
   }
 
   return (
     <TokenIconContext.Provider value={services.tokenIcons}>
       <MainTabsWithSelection
         accounts={accounts}
+        dappNetworkNavigation={dappNetworkNavigation}
         networkId={networkId}
         onAccountsChanged={onAccountsChanged}
         selectableAccounts={selectableAccounts}
@@ -82,7 +93,7 @@ function renderEmptyTabBar(props: BottomTabBarProps) {
   return <MainTabBar {...props} actionAvailability={{ send: false, swap: false, request: false }} />;
 }
 
-function EmptyNetworkTabs({ accounts, services, onAccountsChanged }: Props) {
+function EmptyNetworkTabs({ accounts, services, onAccountsChanged, dappNetworkNavigation }: Props) {
   const { t } = useLocalization();
   const networkId = services.onboarding.networkId;
   const accountCreated = async (accountId: string) => {
@@ -101,7 +112,7 @@ function EmptyNetworkTabs({ accounts, services, onAccountsChanged }: Props) {
   };
   return (
     <Tab.Navigator
-      initialRouteName="settings"
+      initialRouteName={dappNetworkNavigation?.resume ? 'dapps' : 'settings'}
       backBehavior="history"
       screenOptions={{ headerShown: false }}
       tabBar={renderEmptyTabBar}
@@ -132,6 +143,7 @@ function EmptyNetworkTabs({ accounts, services, onAccountsChanged }: Props) {
       <Tab.Screen name="dapps">
         {() => (
           <DAppsStackNavigator
+            dappNetworkNavigation={dappNetworkNavigation}
             currentSelection={() => undefined}
             subscribeSelection={() => () => undefined}
             signTransaction={createDappTransactionSigner({
@@ -169,6 +181,7 @@ type MainTabsWithSelectionProps = Props &
   }>;
 
 function MainTabsWithSelection({
+  dappNetworkNavigation,
   accounts,
   networkId,
   onAccountsChanged,
@@ -311,9 +324,15 @@ function MainTabsWithSelection({
   }, [swapSelectionStore, services.networkProfile.horizonUrl]);
 
   const addDappAsset = useMemo(() => createDappAssetRequest(services.trustline), [services.trustline]);
+  const trackDappContract = useMemo(
+    () =>
+      services.contractAssets && createDappContractTracking(services.contractAssets, services.onboarding.repository),
+    [services.contractAssets, services.onboarding.repository],
+  );
   const renderDApps = useCallback(
     () => (
       <DAppsStackNavigator
+        dappNetworkNavigation={dappNetworkNavigation}
         catalog={services.dappCatalog}
         recentHistory={services.dappRecent}
         openExternalUrl={services.externalUrl.open}
@@ -323,7 +342,11 @@ function MainTabsWithSelection({
         signTransaction={dappSigner}
         signMessage={dappMessageSigner}
         addAsset={addDappAsset}
+        trackContract={trackDappContract}
         permissions={services.dappPermissions}
+        browserAccounts={selectableAccounts}
+        chooseBrowserAccount={selectAccount}
+        browserNetworks={services.networkSettings}
       />
     ),
     [
@@ -332,11 +355,16 @@ function MainTabsWithSelection({
       services.externalUrl,
       services.ledgerReadRuntime,
       currentDappSelection,
+      dappNetworkNavigation,
       swapSelectionStore,
       dappSigner,
       dappMessageSigner,
       addDappAsset,
+      trackDappContract,
       services.dappPermissions,
+      selectableAccounts,
+      selectAccount,
+      services.networkSettings,
     ],
   );
 
@@ -398,7 +426,7 @@ function MainTabsWithSelection({
   return (
     <Tab.Navigator
       backBehavior="history"
-      initialRouteName="home"
+      initialRouteName={dappNetworkNavigation?.resume ? 'dapps' : 'home'}
       screenOptions={{ headerShown: false }}
       tabBar={props => (
         <MainTabBar

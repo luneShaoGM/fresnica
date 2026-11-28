@@ -53,6 +53,7 @@ let effectCursor = 0;
 
 const react = jest.requireActual<typeof import('react')>('react');
 jest.spyOn(react, 'useContext').mockReturnValue(undefined);
+jest.spyOn(react, 'useCallback').mockImplementation(((callback: unknown) => callback) as typeof react.useCallback);
 
 jest.spyOn(react, 'useState').mockImplementation(((initial: unknown) => {
   const index = stateCursor;
@@ -175,6 +176,7 @@ type NodeProps = Readonly<{
   autoCorrect?: boolean;
   secureTextEntry?: boolean;
   onPress?: () => void;
+  refreshControl?: React.ReactElement<{ refreshing: boolean; onRefresh: () => void }>;
   onChangeText?: (value: string) => void;
   onSubmitEditing?: () => void;
   disabled?: boolean;
@@ -214,6 +216,122 @@ function openUrlSheetFrom(nodes: ReturnType<typeof elements>) {
 }
 
 afterAll(() => jest.restoreAllMocks());
+
+describe('catalog presentation parity', () => {
+  beforeEach(() => {
+    resetHarness();
+    openExternalUrl.mockClear();
+  });
+
+  it('uses the catalog recommendation order without promoting conflicting or duplicate entries', async () => {
+    const alpha = { ...entry, id: 'a', title: 'Alpha', websiteUrl: 'https://alpha.example.org' };
+    const beta = { ...entry, id: 'b', title: 'Beta', websiteUrl: 'https://beta.example.org' };
+    const listing: DappCatalogPort = {
+      load: async () => ({
+        kind: 'ready',
+        entries: [alpha, beta],
+        featured: [{ ...alpha, websiteUrl: beta.websiteUrl }, beta, beta],
+      }),
+    };
+    const nodes = elements(await renderCatalog(listing));
+    const headingAt = (name: string) => nodes.findIndex(node => node.props.children === name);
+    const recommended = headingAt('dapps.catalog.featured');
+    const all = headingAt('dapps.catalog.allApps');
+    expect(recommended).toBeGreaterThanOrEqual(0);
+    expect(all).toBeGreaterThan(recommended);
+    expect(
+      nodes.slice(recommended, all).filter(node => node.props.accessibilityLabel === 'dapps.website.openInApp: Beta'),
+    ).toHaveLength(1);
+    expect(
+      nodes.slice(recommended, all).some(node => node.props.accessibilityLabel === 'dapps.website.openInApp: Alpha'),
+    ).toBe(false);
+  });
+
+  it('labels known Recent sites without granting them the catalog launch path', async () => {
+    const named = { ...entry, websiteUrl: 'https://named.example.org/catalog' };
+    history.record('https://named.example.org/private?q=secret');
+    const listing: DappCatalogPort = {
+      load: async () => ({ kind: 'ready', entries: [named] }),
+      isTrustedLiveEntry: () => true,
+    };
+    const home = elements(await renderCatalog(listing));
+    home.filter(node => node.props.accessibilityState?.selected !== undefined)[1]?.props.onPress?.();
+    const recent = elements(await renderCatalog(listing));
+    const row = recent.find(node => node.props.label === 'Demo Exchange · https://named.example.org');
+    expect(row).toBeDefined();
+    row?.props.onPress?.();
+    const confirmation = elements(await renderCatalog(listing));
+    expect(confirmation.some(node => node.props.children === 'dapps.website.unreviewed')).toBe(true);
+    expect(openExternalUrl).not.toHaveBeenCalled();
+  });
+});
+
+describe('dApp catalog pull to refresh', () => {
+  beforeEach(resetHarness);
+
+  it('keeps existing entries during a pull, coalesces repeated pulls, and displays fresh results', async () => {
+    let resolveRefresh: ((value: Awaited<ReturnType<DappCatalogPort['load']>>) => void) | undefined;
+    const load = jest
+      .fn()
+      .mockResolvedValueOnce({ kind: 'ready', entries: [entry] })
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            resolveRefresh = resolve;
+          }),
+      );
+    const catalog: DappCatalogPort = { load };
+    const selectRefresh = (tree: React.ReactNode) =>
+      elements(tree).find(node => node.props.refreshControl)?.props.refreshControl;
+    const first = selectRefresh(await renderCatalog(catalog));
+    expect(first?.props.refreshing).toBe(false);
+    first?.props.onRefresh();
+    first?.props.onRefresh();
+    const waiting = await renderCatalog(catalog);
+    expect(selectRefresh(waiting)?.props.refreshing).toBe(true);
+    expect(
+      elements(waiting).some(node => node.props.accessibilityLabel === 'dapps.website.openInApp: Demo Exchange'),
+    ).toBe(true);
+    expect(load).toHaveBeenCalledTimes(2);
+    resolveRefresh?.({ kind: 'ready', entries: [{ ...entry, title: 'Updated directory entry' }] });
+    const done = await renderCatalog(catalog);
+    expect(selectRefresh(done)?.props.refreshing).toBe(false);
+    expect(
+      elements(done).some(node => node.props.accessibilityLabel === 'dapps.website.openInApp: Updated directory entry'),
+    ).toBe(true);
+  });
+
+  it('ends the spinner and retains the catalog as stale when a refresh fails', async () => {
+    const load = jest
+      .fn()
+      .mockResolvedValueOnce({ kind: 'ready', entries: [entry] })
+      .mockRejectedValueOnce(new Error('network unavailable'));
+    const catalog: DappCatalogPort = { load };
+    const control = (tree: React.ReactNode) =>
+      elements(tree).find(node => node.props.refreshControl)?.props.refreshControl;
+    control(await renderCatalog(catalog))?.props.onRefresh();
+    const done = await renderCatalog(catalog);
+    expect(control(done)?.props.refreshing).toBe(false);
+    const nodes = elements(done);
+    expect(nodes.some(node => node.props.children === 'dapps.catalog.stale')).toBe(true);
+    expect(nodes.some(node => node.props.accessibilityLabel === 'dapps.website.openInApp: Demo Exchange')).toBe(true);
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not expose pull to refresh on Recent or while offline', async () => {
+    const load = jest.fn().mockResolvedValue({ kind: 'ready', entries: [entry] });
+    const catalog: DappCatalogPort = { load };
+    const initial = elements(await renderCatalog(catalog));
+    initial.filter(node => node.props.accessibilityState?.selected !== undefined)[1]?.props.onPress?.();
+    const recentNodes = elements(await renderCatalog(catalog));
+    expect(recentNodes.some(node => node.props.title === 'dapps.website.recentEmpty')).toBe(true);
+    expect(recentNodes.some(node => node.props.refreshControl)).toBe(false);
+    resetHarness();
+    const offlineNodes = elements(await renderCatalog(catalog, false, true, false));
+    expect(offlineNodes.some(node => node.props.refreshControl)).toBe(false);
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('DAppsScreen native field and retry', () => {
   it('uses the Tab Bar bottom inset and a compact catalog scroll ending', async () => {
@@ -310,8 +428,12 @@ describe('DAppsScreen native field and retry', () => {
     expect(filtered.find(node => node.type === SelectableChip && node.props.label === 'Exchange')?.props.selected).toBe(
       true,
     );
-    expect(filtered.some(node => node.props.accessibilityLabel === 'dapps.details.open: Demo Exchange')).toBe(true);
-    expect(filtered.some(node => node.props.accessibilityLabel === 'dapps.details.open: Utility dApp')).toBe(false);
+    expect(filtered.some(node => node.props.accessibilityLabel === 'dapps.website.openInApp: Demo Exchange')).toBe(
+      true,
+    );
+    expect(filtered.some(node => node.props.accessibilityLabel === 'dapps.website.openInApp: Utility dApp')).toBe(
+      false,
+    );
   });
 
   it('keeps search as a public text field and reports no match', async () => {
@@ -394,227 +516,63 @@ describe('DAppsScreen native field and retry', () => {
     expect(elements(retried).some(node => node.props.title === 'dapps.catalog.unavailable')).toBe(true);
   });
 
-  it('opens read-only cached public details without launching or authorizing the listed dApp', async () => {
-    openExternalUrl.mockClear();
-    const iconState = { enabled: false, revision: 0 };
-    const loadDetail = jest.fn(async () => ({
-      detail: {
-        ...entry,
-        longDescription: 'Public operator description',
-        developerName: 'Public developer',
-      },
-      fromCache: false,
-      stale: false,
-      refreshFailed: false,
-    }));
-    const media = {
-      available: true,
-      getIconState: () => iconState,
-      subscribeIcons: jest.fn(() => () => undefined),
-      setIconsEnabled: jest.fn(),
-      readIcon: jest.fn(),
-      loadIcon: jest.fn(async () => undefined),
-      readCachedDetail: jest.fn(() => undefined),
-      loadDetail,
-      close: jest.fn(),
-    };
-    const catalog: DappCatalogPort = {
-      load: jest.fn(async () => ({ kind: 'ready' as const, entries: [entry] })),
-      publicMedia: media,
-    };
-    const first = elements(await renderCatalog(catalog));
-    expect(first.some(node => node.props.label === 'dapps.icons.enable')).toBe(true);
-    expect(media.loadIcon).not.toHaveBeenCalled();
-    const row = first.find(node => node.props.accessibilityLabel === 'dapps.details.open: Demo Exchange');
-    expect(row?.props.accessibilityRole).toBe('button');
-    row?.props.onPress?.();
-    beginRender();
-    const opened = DAppsScreen({ catalog, openExternalUrl });
-    const nodes = elements(opened);
-    expect(nodes.some(node => node.props.closeLabel === 'common.close' && node.props.visible === true)).toBe(true);
-    expect(openExternalUrl).not.toHaveBeenCalled();
-    expect(media.setIconsEnabled).not.toHaveBeenCalled();
-    await settle();
-    expect(loadDetail).toHaveBeenCalledWith(entry.id, expect.any(AbortSignal), false);
-  });
-
-  it.each([false, true])('opens %s-stale catalog detail in app with accurate freshness evidence', async stale => {
-    const openCatalogInApp = jest.fn();
-    const media = {
-      available: true,
-      getIconState: () => ({ enabled: false, revision: 0 }),
-      subscribeIcons: jest.fn(() => () => undefined),
-      setIconsEnabled: jest.fn(),
-      readIcon: jest.fn(),
-      loadIcon: jest.fn(async () => undefined),
-      readCachedDetail: jest.fn(() => undefined),
-      loadDetail: jest.fn(async () => ({
-        detail: {
-          ...entry,
-          longDescription: 'Untrusted public description',
-          developerName: 'Public operator',
+  it.each([false, true])(
+    'opens a stale=%s directory row directly without querying detail or showing a risk sheet',
+    async stale => {
+      const openCatalogInApp = jest.fn();
+      const loadDetail = jest.fn().mockRejectedValue(new Error('detail-unavailable'));
+      const catalog: DappCatalogPort = {
+        load: jest.fn(async () => ({ kind: 'ready' as const, entries: [entry], stale })),
+        publicMedia: {
+          available: true,
+          getIconState: () => ({ enabled: false, revision: 0 }),
+          subscribeIcons: () => () => {},
+          setIconsEnabled: jest.fn(),
+          readIcon: jest.fn(),
+          loadIcon: jest.fn(),
+          readCachedDetail: jest.fn(),
+          loadDetail,
+          close: jest.fn(),
         },
-        fromCache: false,
-        stale: false,
-        refreshFailed: false,
-      })),
-      close: jest.fn(),
-    };
-    const catalog: DappCatalogPort = {
-      load: jest.fn(async () => ({ kind: 'ready' as const, entries: [entry], ...(stale ? { stale: true } : {}) })),
-      publicMedia: media,
-      isTrustedLiveEntry: () => true,
-    };
-    const first = elements(await renderCatalog(catalog));
-    const row = first.find(node => node.props.accessibilityLabel === 'dapps.details.open: Demo Exchange');
-    row?.props.onPress?.();
-    // Let the independent detail provider resolve before asserting the
-    // directory URL and its alignment with that detail.
-    beginRender();
-    elements(DAppsScreen({ catalog, openExternalUrl, openCatalogInApp }));
-    await settle();
-    beginRender();
-    const opened = elements(DAppsScreen({ catalog, openExternalUrl, openCatalogInApp }));
-    const launch = opened.find(node => node.props.label === 'dapps.website.openInApp');
-    expect(opened.some(node => node.props.children === 'dapps.details.launchDestination')).toBe(true);
-    expect(opened.some(node => node.props.children === entry.websiteUrl)).toBe(true);
-    expect(opened.some(node => node.props.children === 'dapps.details.autoConnectionNotice')).toBe(!stale);
-    expect(launch?.props.disabled).not.toBe(true);
-    launch?.props.onPress?.();
-    launch?.props.onPress?.(); // The same queued callback cannot relaunch.
-    expect(openCatalogInApp).toHaveBeenCalledTimes(1);
-    expect(openCatalogInApp).toHaveBeenCalledWith(entry, !stale);
-    expect(openExternalUrl).not.toHaveBeenCalled();
-  });
+        isTrustedLiveEntry: () => !stale,
+      };
+      await renderCatalog(catalog);
+      beginRender();
+      const tree = elements(DAppsScreen({ catalog, openExternalUrl, openCatalogInApp }));
+      const launch = tree.find(node => node.props.accessibilityLabel === 'dapps.website.openInApp: Demo Exchange');
+      expect(launch?.props.accessibilityRole).toBe('button');
+      launch?.props.onPress?.();
+      launch?.props.onPress?.();
+      beginRender();
+      const after = elements(DAppsScreen({ catalog, openExternalUrl, openCatalogInApp }));
+      expect(openCatalogInApp).toHaveBeenCalledTimes(1);
+      expect(openCatalogInApp).toHaveBeenCalledWith(entry, !stale);
+      expect(loadDetail).not.toHaveBeenCalled();
+      expect(after.some(node => node.props.children === 'dapps.website.unreviewed')).toBe(false);
+      expect(openExternalUrl).not.toHaveBeenCalled();
+    },
+  );
 
-  it('shows the live directory URL rather than a 24-hour cached detail URL and removes implicit permission', async () => {
+  it('blocks an old row after switching the directory provider', async () => {
     const openCatalogInApp = jest.fn();
-    const publicEntry = { ...entry, websiteUrl: 'https://new.example.org/live' };
-    const oldUrl = 'https://old.example.org/details';
-    const detail = { ...publicEntry, websiteUrl: oldUrl, longDescription: 'Old detail', developerName: 'Operator' };
-    const media = {
-      available: true,
-      getIconState: () => ({ enabled: false, revision: 0 }),
-      subscribeIcons: jest.fn(() => () => undefined),
-      setIconsEnabled: jest.fn(),
-      readIcon: jest.fn(),
-      loadIcon: jest.fn(async () => undefined),
-      readCachedDetail: jest.fn(() => ({
-        detail,
-        fromCache: true,
-        stale: true,
-        refreshFailed: false,
-      })),
-      // Even a cache result marked "fresh" (under its 24h TTL) may have a
-      // URL that differs from the newer live directory listing.
-      loadDetail: jest.fn(async () => ({
-        detail,
-        fromCache: true,
-        stale: false,
-        refreshFailed: false,
-      })),
-      close: jest.fn(),
-    };
-    const catalog: DappCatalogPort = {
-      load: jest.fn(async () => ({ kind: 'ready' as const, entries: [publicEntry] })),
-      publicMedia: media,
-      isTrustedLiveEntry: () => true, // Isolate the URL-alignment gate from the reviewer policy.
-    };
-    const row = elements(await renderCatalog(catalog)).find(
-      node => node.props.accessibilityLabel === 'dapps.details.open: Demo Exchange',
-    );
-    row?.props.onPress?.();
+    const one: DappCatalogPort = { load: async () => ({ kind: 'ready', entries: [entry] }) };
+    const two: DappCatalogPort = { load: async () => ({ kind: 'ready', entries: [] }) };
+    await renderCatalog(one);
     beginRender();
-    elements(DAppsScreen({ catalog, openExternalUrl, openCatalogInApp }));
-    await settle();
-    beginRender();
-    const opened = elements(DAppsScreen({ catalog, openExternalUrl, openCatalogInApp }));
-    expect(opened.some(node => node.props.children === publicEntry.websiteUrl)).toBe(true);
-    expect(opened.some(node => node.props.children === oldUrl)).toBe(false);
-    expect(opened.some(node => node.props.children === 'dapps.details.launchUrlChanged')).toBe(true);
-    expect(opened.some(node => node.props.children === 'dapps.details.autoConnectionNotice')).toBe(false);
-    opened.find(node => node.props.label === 'dapps.website.openInApp')?.props.onPress?.();
-    expect(openCatalogInApp).toHaveBeenCalledWith(publicEntry, false);
-    expect(openExternalUrl).not.toHaveBeenCalled();
-  });
-
-  it('shows the actual launch URL and denies implicit read when detail metadata is unavailable', async () => {
-    const publicEntry = { ...entry, websiteUrl: 'https://new.example.org/live' };
-    const openCatalogInApp = jest.fn();
-    const catalog: DappCatalogPort = {
-      load: jest.fn(async () => ({ kind: 'ready' as const, entries: [publicEntry] })),
-      isTrustedLiveEntry: () => true,
-      // No native media adapter at all: Open must still display its destination.
-    };
-    const row = elements(await renderCatalog(catalog)).find(
-      node => node.props.accessibilityLabel === 'dapps.details.open: Demo Exchange',
-    );
-    row?.props.onPress?.();
-    beginRender();
-    const opened = elements(DAppsScreen({ catalog, openExternalUrl, openCatalogInApp }));
-    expect(opened.some(node => node.props.children === publicEntry.websiteUrl)).toBe(true);
-    expect(opened.some(node => node.props.children === 'dapps.details.autoConnectionNotice')).toBe(false);
-    opened.find(node => node.props.label === 'dapps.website.openInApp')?.props.onPress?.();
-    expect(openCatalogInApp).toHaveBeenCalledWith(publicEntry, false);
-  });
-
-  it('drops a stale detail Open callback after cancel and after reopening that same entry', async () => {
-    const openCatalogInApp = jest.fn();
-    const media = {
-      available: true,
-      getIconState: () => ({ enabled: false, revision: 0 }),
-      subscribeIcons: jest.fn(() => () => undefined),
-      setIconsEnabled: jest.fn(),
-      readIcon: jest.fn(),
-      loadIcon: jest.fn(async () => undefined),
-      readCachedDetail: jest.fn(() => undefined),
-      loadDetail: jest.fn(async () => ({
-        detail: { ...entry, longDescription: 'Description', developerName: 'Developer' },
-        fromCache: false,
-        stale: false,
-        refreshFailed: false,
-      })),
-      close: jest.fn(),
-    };
-    const catalog: DappCatalogPort = {
-      load: jest.fn(async () => ({ kind: 'ready' as const, entries: [entry] })),
-      publicMedia: media,
-    };
-    const first = elements(await renderCatalog(catalog));
-    const row = first.find(node => node.props.accessibilityLabel === 'dapps.details.open: Demo Exchange');
-    row?.props.onPress?.();
-
-    beginRender();
-    const opened = elements(DAppsScreen({ catalog, openExternalUrl, openCatalogInApp }));
-    const lateOpen = opened.find(node => node.props.label === 'dapps.website.openInApp')?.props.onPress;
-    opened.find(node => node.props.closeLabel === 'common.close')?.props.onClose?.();
-    lateOpen?.();
+    const tree = elements(DAppsScreen({ catalog: one, openExternalUrl, openCatalogInApp }));
+    const old = tree.find(node => node.props.accessibilityLabel === 'dapps.website.openInApp: Demo Exchange');
+    await renderCatalog(two);
+    old?.props.onPress?.();
     expect(openCatalogInApp).not.toHaveBeenCalled();
-
-    beginRender();
-    const closed = elements(DAppsScreen({ catalog, openExternalUrl, openCatalogInApp }));
-    closed.find(node => node.props.accessibilityLabel === 'dapps.details.open: Demo Exchange')?.props.onPress?.();
-    lateOpen?.(); // Old sheet's callback must not cross a session boundary.
-    expect(openCatalogInApp).not.toHaveBeenCalled();
-    beginRender();
-    const reopened = elements(DAppsScreen({ catalog, openExternalUrl, openCatalogInApp }));
-    reopened.find(node => node.props.label === 'dapps.website.openInApp')?.props.onPress?.();
-    expect(openCatalogInApp).toHaveBeenCalledTimes(1);
   });
 
-  it('degrades a directory row without a media/browser provider to untrusted public URL review', async () => {
+  it('keeps system browser confirmation when the embedded browser is unavailable', async () => {
     const publicEntry = { ...entry, websiteUrl: 'https://dex.example.org/app' };
     const catalog: DappCatalogPort = {
       load: jest.fn(async () => ({ kind: 'ready' as const, entries: [publicEntry] })),
     };
     const nodes = elements(await renderCatalog(catalog));
-    const row = nodes.find(node => node.props.accessibilityLabel === 'dapps.details.open: Demo Exchange');
-    row?.props.onPress?.();
-    beginRender();
-    const details = elements(DAppsScreen({ catalog, openExternalUrl }));
-    expect(details.some(node => node.props.children === 'dapps.details.unavailable')).toBe(true);
-    expect(details.some(node => node.props.children === 'dapps.website.unreviewed')).toBe(false);
-    details.find(node => node.props.label === 'dapps.website.preview')?.props.onPress?.();
+    nodes.find(node => node.props.accessibilityLabel === 'dapps.website.openInApp: Demo Exchange')?.props.onPress?.();
     beginRender();
     const reviewed = elements(DAppsScreen({ catalog, openExternalUrl }));
     expect(reviewed.some(node => node.props.children === 'dapps.website.unreviewed')).toBe(true);
@@ -1099,4 +1057,59 @@ describe('catalog and browser lifecycle', () => {
       ?.props.onPress?.();
     expect(elements(await renderCatalog(catalog)).some(node => node.props.label === 'https://example.org')).toBe(true);
   });
+});
+
+it.each(['destination', 'missing', 'stale'] as const)(
+  'resumes by app ID using only the new catalog (%s)',
+  async mode => {
+    resetHarness();
+    const destination = { ...entry, websiteUrl: 'https://testnet.example.org/new-path' };
+    const openCatalogInApp = jest.fn();
+    const handled = jest.fn();
+    const catalog: DappCatalogPort = {
+      load: async () => ({ kind: 'ready', entries: mode === 'missing' ? [] : [destination], stale: mode === 'stale' }),
+    };
+    const props = { catalog, openExternalUrl, openCatalogInApp, resumeCatalogId: entry.id, onResumeHandled: handled };
+    beginRender();
+    DAppsScreen(props);
+    await settle();
+    beginRender();
+    DAppsScreen(props);
+    await settle();
+    beginRender();
+    const tree = DAppsScreen(props);
+    await settle();
+    expect(handled).toHaveBeenCalledTimes(1);
+    if (mode === 'destination') expect(openCatalogInApp.mock.calls).toEqual([[destination, true]]);
+    else {
+      expect(openCatalogInApp).not.toHaveBeenCalled();
+      const notice = mode === 'missing' ? 'dapps.browser.resumeNotListed' : 'dapps.browser.resumeUnavailable';
+      let shown = false;
+      walk(tree, element => {
+        if (element.props.children === notice) shown = true;
+      });
+      expect(shown).toBe(true);
+    }
+  },
+);
+
+it('uses the explicit system browser handoff when a directory row cannot start an embedded wallet session', async () => {
+  resetHarness();
+  openExternalUrl.mockClear();
+  const publicEntry = { ...entry, websiteUrl: 'https://demo.example.org/app' };
+  const catalog: DappCatalogPort = { load: async () => ({ kind: 'ready', entries: [publicEntry] }) };
+  const openCatalogInApp = jest.fn(() => false);
+  const props = { catalog, openExternalUrl, openCatalogInApp };
+  await renderCatalog(catalog);
+  beginRender();
+  const before = elements(DAppsScreen(props));
+  before.find(node => node.props.accessibilityLabel === 'dapps.website.openInApp: Demo Exchange')?.props.onPress?.();
+  beginRender();
+  const after = elements(DAppsScreen(props));
+  expect(openCatalogInApp).toHaveBeenCalledWith(publicEntry, true);
+  expect(after.some(node => node.props.children === 'dapps.website.unreviewed')).toBe(true);
+  expect(openExternalUrl).not.toHaveBeenCalled();
+  after.find(node => node.props.label === 'dapps.website.confirm')?.props.onPress?.();
+  await settle();
+  expect(openExternalUrl).toHaveBeenCalledWith(publicEntry.websiteUrl);
 });

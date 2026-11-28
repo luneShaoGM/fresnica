@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import type { DappRecentHistory } from '@capabilities/dapp-interaction/dappRecentHistory';
 import { useDappRecent } from '../../useDappRecent';
@@ -10,25 +10,31 @@ import { BottomSheet, Screen } from '@ui/components';
 import { SelectableChip } from '@ui/components/SelectableChip';
 import { NativeButton } from '@ui/components/NativeButton';
 import { NativeField } from '@ui/components/NativeField';
-import { NativeScreen } from '@ui/components/NativeScreen';
 import { NativeStateView } from '@ui/components/NativeStateView';
 import { useThemedStyles } from '@ui/theme';
 
 import { useLocalization } from '../../../../locale';
 import { createStyles } from './styles';
 import { DappCatalogIcon, DappPublicIconToggle } from '../../DappCatalogIcon';
-import { DappDetailSheet } from '../../DappDetailSheet';
 
 type CatalogState =
   | Readonly<{ kind: 'loading' }>
   | Readonly<{ kind: 'offline' }>
   | Readonly<{ kind: 'unavailable' }>
   | Readonly<{ kind: 'error' }>
-  | Readonly<{ kind: 'ready'; entries: readonly DappCatalogEntry[]; refreshFailed?: boolean; stale?: boolean }>;
+  | Readonly<{
+      kind: 'ready';
+      entries: readonly DappCatalogEntry[];
+      featured?: readonly DappCatalogEntry[];
+      refreshFailed?: boolean;
+      stale?: boolean;
+    }>;
 
 type Section = 'home' | 'recent';
 
 export function DAppsScreen({
+  resumeCatalogId,
+  onResumeHandled,
   scannedUrl,
   clearScannedUrl,
   catalog,
@@ -42,6 +48,8 @@ export function DAppsScreen({
   online = true,
   focused = active,
 }: Readonly<{
+  resumeCatalogId?: string;
+  onResumeHandled?: () => void;
   scannedUrl?: string;
   clearScannedUrl?: () => void;
   catalog: DappCatalogPort;
@@ -51,8 +59,8 @@ export function DAppsScreen({
   focused?: boolean;
   showInterfaceSample?: boolean;
   openExternalUrl: (url: string) => Promise<void>;
-  openInApp?: (url: string) => void;
-  openCatalogInApp?: (entry: DappCatalogEntry, fresh: boolean) => void;
+  openInApp?: (url: string) => boolean | void;
+  openCatalogInApp?: (entry: DappCatalogEntry, fresh: boolean) => boolean | void;
   inAppUnavailable?: boolean;
 }>) {
   const { t } = useLocalization();
@@ -63,7 +71,11 @@ export function DAppsScreen({
   const [sampleQuery, setSampleQuery] = useState('');
   const [sampleCategory, setSampleCategory] = useState<string>();
   const [retryCount, setRetryCount] = useState(0);
+  const [refreshingCatalog, setRefreshingCatalog] = useState(false);
+  const catalogLoadPending = useRef(false);
   const [state, setState] = useState<CatalogState>({ kind: online ? 'loading' : 'offline' });
+  const [resumeNotice, setResumeNotice] = useState<'notListed' | 'unavailable'>();
+  const handledResume = useRef<string | undefined>(undefined);
   const [websiteInput, setWebsiteInput] = useState('');
   const [urlSheetOpen, setUrlSheetOpen] = useState(false);
   const [preparedWebsite, setPreparedWebsite] = useState<UntrustedDappUrl>();
@@ -71,10 +83,7 @@ export function DAppsScreen({
   const recentOrigins = recent.origins;
   const [websiteError, setWebsiteError] = useState<'invalid' | 'openFailed'>();
   const [opening, setOpening] = useState(false);
-  const [selectedDetail, setSelectedDetail] = useState<DappCatalogEntry>();
-  // Retire late Open callbacks when the detail sheet closes or another
-  // catalog/route/focus session replaces it.
-  const detailEpoch = useRef(0);
+  const launchedCatalogRow = useRef<DappCatalogEntry | undefined>(undefined);
   const openingRef = useRef(false);
   const activeRef = useRef(active);
   activeRef.current = active;
@@ -87,6 +96,8 @@ export function DAppsScreen({
   const proposalRef = useRef<Readonly<{ value: UntrustedDappUrl; epoch: number }> | undefined>(undefined);
   const mountedRef = useRef(false);
   const previousCatalog = useRef(catalog);
+  const liveCatalogRows = useRef({ catalog, state, section, online });
+  liveCatalogRows.current = { catalog, state, section, online };
   const interfaceSamples = useMemo<readonly DappCatalogEntry[]>(
     () => [
       {
@@ -110,11 +121,9 @@ export function DAppsScreen({
   useEffect(() => {
     const changedCatalog = previousCatalog.current !== catalog;
     previousCatalog.current = catalog;
-    if (changedCatalog) {
-      detailEpoch.current += 1;
-      setSelectedDetail(undefined);
-    }
     if (!active || !online) {
+      catalogLoadPending.current = false;
+      setRefreshingCatalog(false);
       let cached: DappCatalogLoadResult | undefined;
       if (!online) {
         try {
@@ -125,13 +134,14 @@ export function DAppsScreen({
       }
       setState(previous => {
         if (!changedCatalog && previous.kind === 'ready') return { ...previous, stale: true };
-        if (cached?.kind === 'ready') return { kind: 'ready', entries: cached.entries, stale: true };
+        if (cached?.kind === 'ready') return { ...cached, stale: true };
         if (!online) return { kind: 'offline' };
         return changedCatalog ? { kind: 'loading' } : previous;
       });
       return;
     }
     let current = true;
+    catalogLoadPending.current = true;
     setState(previous =>
       !changedCatalog && previous.kind === 'ready' ? { ...previous, stale: true } : { kind: 'loading' },
     );
@@ -142,7 +152,7 @@ export function DAppsScreen({
         setState(
           result.kind === 'unavailable'
             ? { kind: 'unavailable' }
-            : { kind: 'ready', entries: result.entries, ...(result.stale ? { stale: true, refreshFailed: true } : {}) },
+            : { ...result, ...(result.stale ? { refreshFailed: true } : {}) },
         );
       })
       .catch(() => {
@@ -150,6 +160,12 @@ export function DAppsScreen({
           setState(previous =>
             previous.kind === 'ready' ? { ...previous, refreshFailed: true, stale: true } : { kind: 'error' },
           );
+      })
+      .finally(() => {
+        if (current) {
+          catalogLoadPending.current = false;
+          setRefreshingCatalog(false);
+        }
       });
     return () => {
       current = false;
@@ -182,28 +198,15 @@ export function DAppsScreen({
 
   useEffect(
     () => () => {
+      launchedCatalogRow.current = undefined;
       handoffEpoch.current += 1;
     },
     [focused],
   );
 
-  useEffect(() => {
-    if (!active || !focused) {
-      detailEpoch.current += 1;
-      setSelectedDetail(undefined);
-    }
-  }, [active, focused]);
-
-  useEffect(() => {
-    if (!scannedUrl || !active || !focused || !mountedRef.current || openingRef.current) return;
-    // A QR is never a trusted catalog item. Reuse the custom URL confirmation.
-    prepareWebsite(scannedUrl);
-    clearScannedUrl?.();
-  }, [scannedUrl, active, focused, clearScannedUrl]);
-
   const urlSheetSession = urlSheetSessionRef.current;
 
-  const prepareWebsite = (value: string) => {
+  const prepareWebsite = useCallback((value: string) => {
     if (!mountedRef.current || !activeRef.current || openingRef.current) return;
     try {
       const verified = normalizeUntrustedDappUrl(value);
@@ -214,7 +217,14 @@ export function DAppsScreen({
       setPreparedWebsite(undefined);
       setWebsiteError('invalid');
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!scannedUrl || !active || !focused || !mountedRef.current || openingRef.current) return;
+    // A QR is never a trusted catalog item. Reuse the custom URL confirmation.
+    prepareWebsite(scannedUrl);
+    clearScannedUrl?.();
+  }, [scannedUrl, active, focused, clearScannedUrl, prepareWebsite]);
 
   const closeUrlSheet = () => {
     if (!urlSheetActiveRef.current || urlSheetSessionRef.current !== urlSheetSession || openingRef.current) return;
@@ -252,8 +262,6 @@ export function DAppsScreen({
   };
 
   const changeSection = (next: Section) => {
-    detailEpoch.current += 1;
-    setSelectedDetail(undefined);
     // A browser handoff cannot be reversed, but its late completion must
     // not attach a Recent origin to an unrelated screen after navigation.
     websiteEpoch.current += 1;
@@ -303,41 +311,52 @@ export function DAppsScreen({
     }
   };
 
-  const openCatalogEntry = (entry: DappCatalogEntry, detailAligned: boolean) => {
-    if (
-      !mountedRef.current ||
-      !activeRef.current ||
-      !focusedRef.current ||
-      openingRef.current ||
-      state.kind !== 'ready' ||
-      !state.entries.includes(entry)
-    )
-      return;
-    if (openCatalogInApp) {
-      openCatalogInApp(entry, detailAligned && !state.stale && online);
-    } else {
-      // Unsupported in-app platforms retain the deliberate untrusted URL
-      // review before handing public site URLs to the system browser.
+  const openCatalogEntry = useCallback(
+    (entry: DappCatalogEntry) => {
+      const current = liveCatalogRows.current;
+      if (
+        !mountedRef.current ||
+        !activeRef.current ||
+        !focusedRef.current ||
+        openingRef.current ||
+        current.catalog !== catalog ||
+        current.section !== 'home' ||
+        current.state.kind !== 'ready' ||
+        !current.state.entries.includes(entry)
+      )
+        return;
+      if (openCatalogInApp) {
+        if (launchedCatalogRow.current === entry) return;
+        if (openCatalogInApp(entry, !current.state.stale && current.online) !== false) {
+          launchedCatalogRow.current = entry;
+          return;
+        }
+      }
+      // Without a usable embedded wallet session, keep the deliberate public URL handoff.
       prepareWebsite(entry.websiteUrl);
-    }
-  };
+    },
+    [catalog, openCatalogInApp, prepareWebsite],
+  );
 
-  const detailSession = detailEpoch.current;
-  let implicitReadOnly = false;
-  try {
-    implicitReadOnly =
-      selectedDetail !== undefined &&
-      openCatalogInApp !== undefined &&
-      active &&
-      focused &&
-      online &&
-      state.kind === 'ready' &&
-      !state.stale &&
-      state.entries.includes(selectedDetail) &&
-      catalog.isTrustedLiveEntry?.(selectedDetail) === true;
-  } catch {
-    // A faulty/closed provider cannot assert read-only automatic connection.
-  }
+  useEffect(() => {
+    if (!resumeCatalogId) {
+      handledResume.current = undefined;
+      return;
+    }
+    if (!active || !focused || state.kind === 'loading' || handledResume.current === resumeCatalogId) return;
+    handledResume.current = resumeCatalogId;
+    onResumeHandled?.();
+    // A destination cache can still be browsed normally, but is not proof
+    // that this app is currently listed on the new network.
+    if (!online || state.kind !== 'ready' || state.stale) {
+      setResumeNotice('unavailable');
+      return;
+    }
+    const entry = state.entries.find(item => item.id === resumeCatalogId);
+    if (entry) openCatalogEntry(entry);
+    else setResumeNotice('notListed');
+  }, [active, focused, online, openCatalogEntry, resumeCatalogId, onResumeHandled, state]);
+
   const categories = useMemo(() => (state.kind === 'ready' ? catalogCategories(state.entries) : []), [state]);
   const selectedCategory = category !== undefined && categories.includes(category) ? category : undefined;
   const visibleEntries = useMemo(
@@ -345,9 +364,56 @@ export function DAppsScreen({
     [state, selectedCategory, searchText],
   );
 
+  const featuredEntries = useMemo(() => {
+    if (state.kind !== 'ready' || !state.featured) return [];
+    const available = new Map(visibleEntries.map(entry => [entry.id, entry]));
+    const featured: DappCatalogEntry[] = [];
+    for (const item of state.featured) {
+      const entry = available.get(item.id);
+      if (entry?.websiteUrl === item.websiteUrl) {
+        available.delete(item.id);
+        featured.push(entry);
+      }
+    }
+    return featured;
+  }, [state, visibleEntries]);
+  const recentTitles = useMemo(() => {
+    const result = new Map<string, string>();
+    const ambiguous = new Set<string>();
+    if (state.kind === 'ready') {
+      for (const entry of state.entries) {
+        try {
+          const { origin } = normalizeUntrustedDappUrl(entry.websiteUrl);
+          if (result.has(origin)) ambiguous.add(origin);
+          result.set(origin, entry.title);
+        } catch {
+          // An invalid public listing cannot label a visited website.
+        }
+      }
+      for (const origin of ambiguous) result.delete(origin);
+    }
+    return result;
+  }, [state]);
   return (
     <Screen scrollable={false} contentInset="none" safeAreaEdges={['top', 'right', 'left']}>
-      <NativeScreen padded={false} scroll>
+      <ScrollView
+        style={styles.safeArea}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          section === 'home' && active && focused && online ? (
+            <RefreshControl
+              refreshing={refreshingCatalog}
+              onRefresh={() => {
+                if (catalogLoadPending.current) return;
+                catalogLoadPending.current = true;
+                setRefreshingCatalog(true);
+                setRetryCount(value => value + 1);
+              }}
+            />
+          ) : undefined
+        }
+      >
         <View style={styles.content}>
           <View style={styles.header}>
             <Text style={styles.title}>{t('nav.dapps')}</Text>
@@ -372,6 +438,11 @@ export function DAppsScreen({
             </Pressable>
           </View>
 
+          {resumeNotice ? (
+            <Text accessibilityRole="alert" style={styles.websiteDetail}>
+              {t(resumeNotice === 'notListed' ? 'dapps.browser.resumeNotListed' : 'dapps.browser.resumeUnavailable')}
+            </Text>
+          ) : null}
           {recent.unavailable && recentHistory && section !== 'recent' ? (
             <Text accessibilityLiveRegion="polite" style={styles.websiteDetail}>
               {t('dapps.website.recentUnavailable')}
@@ -409,7 +480,7 @@ export function DAppsScreen({
                 recentOrigins.map(origin => (
                   <NativeButton
                     key={origin}
-                    label={origin}
+                    label={recentTitles.has(origin) ? `${recentTitles.get(origin)} · ${origin}` : origin}
                     disabled={opening}
                     onPress={() => prepareWebsite(origin)}
                     variant="quiet"
@@ -463,6 +534,26 @@ export function DAppsScreen({
                     </ScrollView>
                   ) : null}
                   <DappPublicIconToggle media={catalog.publicMedia} />
+                  {featuredEntries.length > 0 ? (
+                    <>
+                      <Text accessibilityRole="header" style={styles.appTitle}>
+                        {t('dapps.catalog.featured')}
+                      </Text>
+                      {featuredEntries.map(entry => (
+                        <AppRow
+                          key={entry.id}
+                          entry={entry}
+                          styles={styles}
+                          media={catalog.publicMedia}
+                          onSelect={() => openCatalogEntry(entry)}
+                          openLabel={t('dapps.website.openInApp')}
+                        />
+                      ))}
+                      <Text accessibilityRole="header" style={styles.appTitle}>
+                        {t('dapps.catalog.allApps')}
+                      </Text>
+                    </>
+                  ) : null}
                   {visibleEntries.length > 0 ? (
                     visibleEntries.map(entry => (
                       <AppRow
@@ -470,11 +561,8 @@ export function DAppsScreen({
                         entry={entry}
                         styles={styles}
                         media={catalog.publicMedia}
-                        onSelect={() => {
-                          detailEpoch.current += 1;
-                          setSelectedDetail(entry);
-                        }}
-                        detailsLabel={t('dapps.details.open')}
+                        onSelect={() => openCatalogEntry(entry)}
+                        openLabel={t('dapps.website.openInApp')}
                       />
                     ))
                   ) : (
@@ -523,30 +611,6 @@ export function DAppsScreen({
               )}
             </>
           )}
-          <DappDetailSheet
-            entry={selectedDetail}
-            media={catalog.publicMedia}
-            styles={styles}
-            active={active && focused}
-            online={online}
-            onClose={() => {
-              detailEpoch.current += 1;
-              setSelectedDetail(undefined);
-            }}
-            inAppAvailable={openCatalogInApp !== undefined}
-            implicitReadOnly={implicitReadOnly}
-            onOpen={
-              selectedDetail
-                ? (detailAligned: boolean) => {
-                    if (detailEpoch.current !== detailSession) return;
-                    detailEpoch.current += 1;
-                    const entry = selectedDetail;
-                    setSelectedDetail(undefined);
-                    openCatalogEntry(entry, detailAligned);
-                  }
-                : undefined
-            }
-          />
           <BottomSheet
             avoidAndroidKeyboard
             closeLabel={t('dapps.website.cancel')}
@@ -631,10 +695,10 @@ export function DAppsScreen({
                       proposalRef.current.epoch !== websiteEpoch.current
                     )
                       return;
+                    if (openInApp(preparedWebsite.url) === false) return;
                     websiteEpoch.current += 1;
                     handoffEpoch.current += 1;
                     setPreparedWebsite(undefined);
-                    openInApp(preparedWebsite.url);
                   }}
                   variant="secondary"
                 />
@@ -658,7 +722,7 @@ export function DAppsScreen({
             </Text>
           ) : null}
         </View>
-      </NativeScreen>
+      </ScrollView>
     </Screen>
   );
 }
@@ -688,13 +752,13 @@ function AppRow({
   styles,
   media,
   onSelect,
-  detailsLabel,
+  openLabel,
 }: Readonly<{
   entry: DappCatalogEntry;
   styles: Styles;
   media?: DappCatalogPort['publicMedia'];
   onSelect?: () => void;
-  detailsLabel?: string;
+  openLabel?: string;
 }>) {
   const content = (
     <>
@@ -710,7 +774,7 @@ function AppRow({
   return onSelect ? (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${detailsLabel ?? 'Details'}: ${entry.title}`}
+      accessibilityLabel={`${openLabel ?? 'Open'}: ${entry.title}`}
       onPress={onSelect}
       style={styles.appRow}
     >

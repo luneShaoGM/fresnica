@@ -54,6 +54,20 @@ function detailFromFchain(value: unknown, networkId: string, appId: string): Pub
       websiteUrl,
       longDescription: row.description,
       developerName: developer.name,
+      developerWebsite: developer.websiteUrl,
+      termsUrl: developer.termsUrl,
+      privacyUrl: developer.privacyUrl,
+      supportUrl: developer.supportUrl,
+      supportedNetworks: (['mainnet', 'testnet'] as const).flatMap(key => {
+        const destination = urls[key];
+        if (typeof destination !== 'string') return [];
+        try {
+          normalizeUntrustedDappUrl(destination);
+          return [`stellar-${key}`];
+        } catch {
+          return [];
+        }
+      }),
       ...(candidate ? { iconUrl: candidate } : {}),
     },
     networkId,

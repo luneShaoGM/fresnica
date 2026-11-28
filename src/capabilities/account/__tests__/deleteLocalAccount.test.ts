@@ -61,6 +61,7 @@ function dependencies() {
     historyCache: new InMemoryHistoryCacheRepository(),
     balanceCache: new InMemoryBalanceCacheRepository(),
     claimableCache: { clearPartition: jest.fn() },
+    contractAssets: { clearPartition: jest.fn() },
     dappPermissions: { revokeAccount: jest.fn() },
     onDeleted: jest.fn(),
   };

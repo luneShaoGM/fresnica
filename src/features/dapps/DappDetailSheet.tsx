@@ -6,7 +6,7 @@ import type { PublicDappDetailResult, DappPublicMediaPort } from '@capabilities/
 import { BottomSheet } from '@ui/components';
 import { NativeButton } from '@ui/components/NativeButton';
 import { useLocalization } from '../../locale';
-import { useDappIconState } from './DappCatalogIcon';
+import { DappCatalogIcon, useDappIconState } from './DappCatalogIcon';
 
 import type { createStyles } from './screens/DAppsScreen/styles';
 
@@ -23,9 +23,9 @@ export function DappDetailSheet({
   active,
   online,
   onClose,
-  onOpen,
-  inAppAvailable,
-  implicitReadOnly = false,
+  onShare,
+  networkLabel,
+  siteOrigin,
 }: Readonly<{
   entry?: DappCatalogEntry;
   media?: DappPublicMediaPort;
@@ -33,9 +33,9 @@ export function DappDetailSheet({
   active: boolean;
   online: boolean;
   onClose: () => void;
-  onOpen?: (detailAligned: boolean) => void;
-  inAppAvailable?: boolean;
-  implicitReadOnly?: boolean;
+  onShare?: () => void;
+  networkLabel: string;
+  siteOrigin: string;
 }>) {
   const { t } = useLocalization();
   const [state, setState] = useState<DetailState>({ kind: 'loading' });
@@ -87,21 +87,22 @@ export function DappDetailSheet({
   }, [entry, media, active, online, iconState.enabled, iconUrl]);
 
   const detail = currentState?.kind === 'ready' ? currentState.value.detail : undefined;
-  // The detail endpoint may serve a 24-hour-old URL for the same app ID.
-  // A missing/stale/mismatched detail cannot authorize automatic read access.
-  const detailAligned =
-    !!entry && currentState?.kind === 'ready' && !currentState.value.stale && detail?.websiteUrl === entry.websiteUrl;
   return (
     <BottomSheet closeLabel={t('common.close')} onClose={onClose} visible={!!entry}>
       <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.urlSheet}>
         <View style={styles.urlSheetHeader}>
+          {entry ? <DappCatalogIcon entry={entry} media={media} styles={styles} /> : null}
           <Text style={[styles.sectionTitle, styles.sheetHeaderTitle]}>{entry?.title ?? t('dapps.details.title')}</Text>
           <NativeButton label={t('common.close')} onPress={onClose} variant="quiet" />
         </View>
         <Text style={styles.websiteDetail}>{t('dapps.details.untrusted')}</Text>
-        {inAppAvailable && implicitReadOnly && detailAligned ? (
-          <Text style={styles.websiteDetail}>{t('dapps.details.autoConnectionNotice')}</Text>
-        ) : null}
+        <Text selectable style={styles.websiteOrigin}>
+          {siteOrigin}
+        </Text>
+        <Text style={styles.websiteDetail}>
+          {t('dapps.permission.network')}: {networkLabel}
+        </Text>
+        {!detail && entry ? <Text style={styles.websiteDetail}>{entry.description}</Text> : null}
         {!media ? (
           <Text style={styles.websiteDetail}>{t('dapps.details.unavailable')}</Text>
         ) : !currentState || currentState.kind === 'loading' ? (
@@ -115,6 +116,29 @@ export function DappDetailSheet({
             <Text style={styles.websiteDetail}>
               {t('dapps.details.developer')}: {detail.developerName}
             </Text>
+            {(
+              [
+                ['dapps.details.website', detail.developerWebsite],
+                ['dapps.details.terms', detail.termsUrl],
+                ['dapps.details.privacy', detail.privacyUrl],
+                ['dapps.details.support', detail.supportUrl],
+              ] as const
+            ).map(([label, link]) =>
+              link ? (
+                <View key={label}>
+                  <Text style={styles.sectionTitle}>{t(label)}</Text>
+                  <Text selectable style={styles.websiteOrigin}>
+                    {link}
+                  </Text>
+                </View>
+              ) : null,
+            )}
+            {detail.supportedNetworks?.length ? (
+              <Text style={styles.websiteDetail}>
+                {t('dapps.details.networks')}:{' '}
+                {detail.supportedNetworks.map(id => t(`networkManage.name.${id}`)).join(' / ')}
+              </Text>
+            ) : null}
             {entry && detail.websiteUrl !== entry.websiteUrl ? (
               <Text style={styles.previewNotice}>{t('dapps.details.launchUrlChanged')}</Text>
             ) : null}
@@ -124,19 +148,7 @@ export function DappDetailSheet({
             {t('dapps.details.unavailable')}
           </Text>
         )}
-        {entry && onOpen && active ? (
-          <>
-            <Text style={styles.websiteDetail}>{t('dapps.details.launchDestination')}</Text>
-            <Text selectable style={styles.websiteOrigin}>
-              {entry.websiteUrl}
-            </Text>
-            <NativeButton
-              label={t(inAppAvailable ? 'dapps.website.openInApp' : 'dapps.website.preview')}
-              onPress={() => onOpen(detailAligned)}
-              variant="primary"
-            />
-          </>
-        ) : null}
+        {onShare ? <NativeButton label={t('dapps.browser.shareOrigin')} onPress={onShare} variant="primary" /> : null}
         {active && online && currentState?.kind !== 'loading' ? (
           <NativeButton
             label={t('dapps.details.retry')}

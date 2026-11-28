@@ -35,6 +35,7 @@ describe('account delete bootstrap', () => {
         historyCache: new InMemoryHistoryCacheRepository(),
         balanceCache: new InMemoryBalanceCacheRepository(),
         claimableCache: { clearPartition: () => undefined },
+        contractAssets: { clearPartition: () => undefined },
         dappPermissions: { revokeAccount: () => undefined },
       },
       'account-a',

@@ -24,6 +24,7 @@ import { startLedgerReadLifecycle } from '../../../../../app/readModels/startLed
 import { RealmAccountSignerRepository } from '../../RealmAccountSignerRepository';
 import { RealmBalanceCacheRepository } from '../../RealmBalanceCacheRepository';
 import { RealmClaimableCacheStore } from '../../RealmClaimableCacheStore';
+import { RealmContractAssetStore } from '../../RealmContractAssetStore';
 import { RealmDappPermissionStore } from '../../RealmDappPermissionStore';
 import { RealmHistoryCacheRepository } from '../../RealmHistoryCacheRepository';
 import { RealmPendingSubmissionRepository } from '../../RealmPendingSubmissionRepository';
@@ -234,6 +235,7 @@ it('clears both deleted-account caches while retaining the other account across 
         balanceCache: new RealmBalanceCacheRepository(realm),
         historyCache: new RealmHistoryCacheRepository(realm),
         claimableCache: new RealmClaimableCacheStore(realm),
+        contractAssets: new RealmContractAssetStore(realm),
         dappPermissions: new RealmDappPermissionStore(realm),
       },
       a.id,
