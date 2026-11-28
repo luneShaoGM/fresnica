@@ -32,6 +32,7 @@ type CatalogDisplayLaunch = { revision: number; entry: DappCatalogEntry };
 type CatalogDisplayRef = React.RefObject<CatalogDisplayLaunch | undefined>;
 
 const Stack = createNativeStackNavigator<DAppsStackParamList>();
+const FEX_WEBSITE = 'https://fex.fresnica.com';
 
 export function DAppsStackNavigator({
   catalog,
@@ -77,6 +78,8 @@ export function DAppsStackNavigator({
         {({ route, navigation }) => (
           <DAppsRoute
             scannedUrl={route?.params?.scannedUrl}
+            shortcutUrl={route?.params?.openFex === true ? FEX_WEBSITE : undefined}
+            clearShortcut={() => navigation?.setParams?.({ openFex: undefined })}
             clearScannedUrl={() => navigation?.setParams?.({ scannedUrl: undefined })}
             dappNetworkNavigation={dappNetworkNavigation}
             catalog={catalog}
@@ -126,6 +129,8 @@ function DAppsRoute({
   dappNetworkNavigation,
   scannedUrl,
   clearScannedUrl,
+  shortcutUrl,
+  clearShortcut,
   catalog,
   recentHistory,
   openExternalUrl,
@@ -139,6 +144,8 @@ function DAppsRoute({
   dappNetworkNavigation?: DappNetworkNavigation;
   scannedUrl?: string;
   clearScannedUrl: () => void;
+  shortcutUrl?: string;
+  clearShortcut: () => void;
   catalog: DappCatalogPort;
   recentHistory?: DappRecentHistory;
   openExternalUrl: (url: string) => Promise<void>;
@@ -170,6 +177,8 @@ function DAppsRoute({
       onResumeHandled={finishResume}
       scannedUrl={scannedUrl}
       clearScannedUrl={clearScannedUrl}
+      shortcutUrl={shortcutUrl}
+      clearShortcut={clearShortcut}
       catalog={catalog}
       recentHistory={recentHistory}
       openExternalUrl={openExternalUrl}

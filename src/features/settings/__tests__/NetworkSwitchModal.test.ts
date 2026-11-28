@@ -168,6 +168,20 @@ describe('Home network panel', () => {
       endpoints: { 'stellar-testnet': testPrompt.endpoint },
     });
   });
+  it('invokes the browser removal handler only after confirmation', async () => {
+    const endpoint = 'https://custom.example.org';
+    const deps = { ...setup(), onRemoveNode: jest.fn(async () => undefined) };
+    const prompt: Prompt = { kind: 'remove', id: 'stellar-mainnet', endpoint };
+    const dismissed = render(deps, prompt);
+    button(dismissed.all, 'Cancel').onPress?.();
+    expect(deps.onRemoveNode).not.toHaveBeenCalled();
+
+    const confirmed = render(deps, prompt);
+    await button(confirmed.all, 'Confirm').onPress?.();
+    expect(deps.onRemoveNode).toHaveBeenCalledWith('stellar-mainnet', endpoint);
+    expect(confirmed.setPrompt).toHaveBeenCalledWith(undefined);
+    expect(deps.onClose).not.toHaveBeenCalled();
+  });
   it('cancels confirmation back to the panel without changing preferences or closing the chooser', () => {
     const deps = setup();
     const { all, setPrompt } = render(deps, testPrompt);

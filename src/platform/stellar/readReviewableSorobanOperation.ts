@@ -1,9 +1,8 @@
-import { Address, Asset, Networks, xdr } from '@stellar/stellar-sdk';
+import { Address, Asset, StrKey, xdr } from '@stellar/stellar-sdk';
 
 import type { DappSorobanIntent } from '../../capabilities/dapp-interaction/dappTransactionIntent';
 
 const BLEND_TESTNET_V21_POOL = 'CB3447A446DY3USGWPIDXTNQHF5EX24XDQA2EN6TAZP62JTPBTNOA52Q';
-const NATIVE_TOKEN = Asset.native().contractId(Networks.TESTNET);
 
 function address(value: xdr.ScVal | undefined): string | undefined {
   return value?.type === 'scvAddress' ? Address.fromScAddress(value.address).toString() : undefined;
@@ -15,7 +14,7 @@ function amount(value: xdr.ScVal | undefined): bigint | undefined {
   return units > 0n && units <= 0x7fff_ffff_ffff_ffffn ? units : undefined;
 }
 
-function formatXlm(units: bigint): string {
+function formatAmount(units: bigint): string {
   const digits = units.toString().padStart(8, '0');
   return digits.slice(0, -7) + '.' + digits.slice(-7);
 }
@@ -24,12 +23,7 @@ function transfer(
   call: xdr.InvokeContractArgs,
   source: string,
 ): Readonly<{ destination: string; units: bigint }> | undefined {
-  if (
-    Address.fromScAddress(call.contractAddress).toString() !== NATIVE_TOKEN ||
-    call.functionName.toString() !== 'transfer' ||
-    call.args.length !== 3 ||
-    address(call.args[0]) !== source
-  ) {
+  if (call.functionName.toString() !== 'transfer' || call.args.length !== 3 || address(call.args[0]) !== source) {
     return undefined;
   }
   const destination = address(call.args[1]);
@@ -38,9 +32,40 @@ function transfer(
   return { destination, units };
 }
 
+function readAsset(
+  contract: string,
+  networkPassphrase: string,
+  writeKeys: readonly xdr.LedgerKey[],
+  source: string,
+  destination: string,
+): Pick<DappSorobanIntent, 'assetCode' | 'assetIssuer'> | undefined {
+  if (contract === Asset.native().contractId(networkPassphrase)) return { assetCode: 'XLM' };
+
+  // Footprint entries are hints. Only the canonical network-specific contract ID establishes identity.
+  for (const key of writeKeys) {
+    if (key.type !== 'trustline') continue;
+    const { accountId, asset: trustlineAsset } = key.trustLine;
+    const holder = StrKey.encodeEd25519PublicKey(accountId.ed25519.value);
+    if (holder !== source && holder !== destination) continue;
+    if (trustlineAsset.type !== 'assetTypeCreditAlphanum4' && trustlineAsset.type !== 'assetTypeCreditAlphanum12') {
+      continue;
+    }
+    const asset = Asset.fromOperation(trustlineAsset);
+    if (
+      asset.toTrustLineXdrObject().toXdr('base64') === trustlineAsset.toXdr('base64') &&
+      asset.contractId(networkPassphrase) === contract
+    ) {
+      return { assetCode: asset.getCode(), assetIssuer: asset.getIssuer() };
+    }
+  }
+  return undefined;
+}
+
 export function readReviewableSorobanOperation(
   operation: xdr.Operation,
   source: string,
+  networkPassphrase: string,
+  writeKeys: readonly xdr.LedgerKey[],
 ): DappSorobanIntent | undefined {
   if (operation.body.type !== 'invokeHostFunction') return undefined;
   const { hostFunction, auth } = operation.body.invokeHostFunctionOp;
@@ -59,15 +84,17 @@ export function readReviewableSorobanOperation(
 
   const contract = Address.fromScAddress(call.contractAddress).toString();
   const method = call.functionName.toString();
-  if (contract === NATIVE_TOKEN && root.subInvocations.length === 0) {
+  if (root.subInvocations.length === 0) {
     const movement = transfer(call, source);
     if (!movement) return undefined;
+    const asset = readAsset(contract, networkPassphrase, writeKeys, source, movement.destination);
+    if (!asset) return undefined;
     return Object.freeze({
       type: 'soroban-transfer',
       contract,
       destination: movement.destination,
-      amount: formatXlm(movement.units),
-      assetCode: 'XLM',
+      amount: formatAmount(movement.units),
+      ...asset,
     });
   }
 
@@ -83,13 +110,14 @@ export function readReviewableSorobanOperation(
   ) {
     return undefined;
   }
+  const nativeToken = Asset.native().contractId(networkPassphrase);
   const request = requests.vec[0];
   if (request.type !== 'scvMap' || request.map?.length !== 3) return undefined;
   const [requestedAddress, requestedAmount, requestedType] = request.map;
   if (
     requestedAddress.key.type !== 'scvSymbol' ||
     requestedAddress.key.sym.toString() !== 'address' ||
-    address(requestedAddress.val) !== NATIVE_TOKEN ||
+    address(requestedAddress.val) !== nativeToken ||
     requestedAmount.key.type !== 'scvSymbol' ||
     requestedAmount.key.sym.toString() !== 'amount' ||
     requestedType.key.type !== 'scvSymbol' ||
@@ -100,7 +128,11 @@ export function readReviewableSorobanOperation(
     return undefined;
   }
   const nested = root.subInvocations[0];
-  if (nested.function.type !== 'sorobanAuthorizedFunctionTypeContractFn' || nested.subInvocations.length !== 0) {
+  if (
+    nested.function.type !== 'sorobanAuthorizedFunctionTypeContractFn' ||
+    nested.subInvocations.length !== 0 ||
+    Address.fromScAddress(nested.function.contractFn.contractAddress).toString() !== nativeToken
+  ) {
     return undefined;
   }
   const movement = transfer(nested.function.contractFn, source);
@@ -111,7 +143,7 @@ export function readReviewableSorobanOperation(
     type: 'soroban-supply-collateral',
     contract,
     destination: movement.destination,
-    amount: formatXlm(movement.units),
+    amount: formatAmount(movement.units),
     assetCode: 'XLM',
   });
 }

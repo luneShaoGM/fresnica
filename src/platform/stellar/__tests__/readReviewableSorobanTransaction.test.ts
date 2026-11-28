@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Address, Asset, Networks, nativeToScVal, xdr } from '@stellar/stellar-sdk';
+import { Address, Asset, Networks, nativeToScVal, StrKey, xdr } from '@stellar/stellar-sdk';
 
 import { readReviewableDappTransaction } from '../readReviewableDappTransaction';
 
@@ -16,6 +16,41 @@ function fixture() {
   if (operation.body.type !== 'invokeHostFunction') throw new Error('Expected a contract invocation');
   const invocation = operation.body.invokeHostFunctionOp;
   return { envelope, invocation };
+}
+
+const issuer = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(2));
+const recipient = StrKey.encodeEd25519PublicKey(new Uint8Array(32).fill(3));
+
+function transferFixture(contract: string, destination: string) {
+  const { envelope, invocation } = fixture();
+  const ext = envelope.v1.tx.ext;
+  if (ext.type !== 'sorobanData') throw new Error('Expected a Soroban footprint');
+  const call = new xdr.InvokeContractArgs({
+    contractAddress: Address.fromString(contract).toScAddress(),
+    functionName: 'transfer',
+    args: [
+      Address.fromString(source).toScVal(),
+      Address.fromString(destination).toScVal(),
+      nativeToScVal(2500000n, { type: 'i128' }),
+    ],
+  });
+  Object.assign(invocation, { hostFunction: xdr.HostFunction.hostFunctionTypeInvokeContract(call) });
+  Object.assign(invocation.auth[0], {
+    rootInvocation: new xdr.SorobanAuthorizedInvocation({
+      function: xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(call),
+      subInvocations: [],
+    }),
+  });
+  return { envelope, footprint: ext.sorobanData.resources.footprint };
+}
+
+function trustline(asset: Asset, holder: string) {
+  return xdr.LedgerKey.trustline(
+    new xdr.LedgerKeyTrustLine({
+      accountId: xdr.PublicKey.publicKeyTypeEd25519(StrKey.decodeEd25519PublicKey(holder)),
+      asset: asset.toTrustLineXdrObject(),
+    }),
+  );
 }
 
 describe('reviewed Soroban DApp transaction envelopes', () => {
@@ -37,27 +72,45 @@ describe('reviewed Soroban DApp transaction envelopes', () => {
   });
 
   it('reviews a standard token transfer independently of any Blend pool or page', () => {
-    const { envelope, invocation } = fixture();
-    const args = [
-      Address.fromString(source).toScVal(),
-      Address.fromString(pool).toScVal(),
-      nativeToScVal(2500000n, { type: 'i128' }),
-    ];
-    const call = new xdr.InvokeContractArgs({
-      contractAddress: Address.fromString(token).toScAddress(),
-      functionName: 'transfer',
-      args,
-    });
-    Object.assign(invocation, { hostFunction: xdr.HostFunction.hostFunctionTypeInvokeContract(call) });
-    Object.assign(invocation.auth[0], {
-      rootInvocation: new xdr.SorobanAuthorizedInvocation({
-        function: xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(call),
-        subInvocations: [],
-      }),
-    });
+    const { envelope } = transferFixture(token, pool);
     expect(readReviewableDappTransaction(envelope.toXdr('base64'), Networks.TESTNET, source)?.operations).toEqual([
       { type: 'soroban-transfer', contract: token, destination: pool, amount: '0.2500000', assetCode: 'XLM' },
     ]);
+  });
+
+  it.each([
+    ['USD', source],
+    ['LONGTOKEN12', recipient],
+  ])('reviews issued %s with a matching participant trustline', (code, holder) => {
+    const asset = new Asset(code, issuer);
+    const contract = asset.contractId(Networks.TESTNET);
+    const { envelope, footprint } = transferFixture(contract, recipient);
+    footprint.readWrite.push(trustline(asset, holder));
+    expect(readReviewableDappTransaction(envelope.toXdr('base64'), Networks.TESTNET, source)?.operations).toEqual([
+      {
+        type: 'soroban-transfer',
+        contract,
+        destination: recipient,
+        amount: '0.2500000',
+        assetCode: code,
+        assetIssuer: issuer,
+      },
+    ]);
+  });
+
+  it('fails closed when a footprint cannot bind an issued asset to this transfer', () => {
+    const asset = new Asset('USD', issuer);
+    const { envelope, footprint } = transferFixture(asset.contractId(Networks.TESTNET), recipient);
+    const inspect = () => readReviewableDappTransaction(envelope.toXdr('base64'), Networks.TESTNET, source);
+    footprint.readOnly.push(trustline(asset, source));
+    footprint.readWrite.push(trustline(asset, issuer), trustline(new Asset('USD', recipient), source));
+    expect(inspect()).toBeUndefined();
+
+    const wrongNetwork = transferFixture(asset.contractId(Networks.PUBLIC), recipient);
+    wrongNetwork.footprint.readWrite.push(trustline(asset, source));
+    expect(
+      readReviewableDappTransaction(wrongNetwork.envelope.toXdr('base64'), Networks.TESTNET, source),
+    ).toBeUndefined();
   });
 
   it('rejects extra authorization entries and a nested transfer of a different amount', () => {

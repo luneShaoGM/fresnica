@@ -37,6 +37,8 @@ export function DAppsScreen({
   onResumeHandled,
   scannedUrl,
   clearScannedUrl,
+  shortcutUrl,
+  clearShortcut,
   catalog,
   recentHistory,
   showInterfaceSample = __DEV__,
@@ -52,6 +54,8 @@ export function DAppsScreen({
   onResumeHandled?: () => void;
   scannedUrl?: string;
   clearScannedUrl?: () => void;
+  shortcutUrl?: string;
+  clearShortcut?: () => void;
   catalog: DappCatalogPort;
   recentHistory?: DappRecentHistory;
   active?: boolean;
@@ -76,6 +80,7 @@ export function DAppsScreen({
   const [state, setState] = useState<CatalogState>({ kind: online ? 'loading' : 'offline' });
   const [resumeNotice, setResumeNotice] = useState<'notListed' | 'unavailable'>();
   const handledResume = useRef<string | undefined>(undefined);
+  const handledShortcut = useRef<string | undefined>(undefined);
   const [websiteInput, setWebsiteInput] = useState('');
   const [urlSheetOpen, setUrlSheetOpen] = useState(false);
   const [preparedWebsite, setPreparedWebsite] = useState<UntrustedDappUrl>();
@@ -220,11 +225,33 @@ export function DAppsScreen({
   }, []);
 
   useEffect(() => {
-    if (!scannedUrl || !active || !focused || !mountedRef.current || openingRef.current) return;
-    // A QR is never a trusted catalog item. Reuse the custom URL confirmation.
-    prepareWebsite(scannedUrl);
-    clearScannedUrl?.();
-  }, [scannedUrl, active, focused, clearScannedUrl, prepareWebsite]);
+    if (!shortcutUrl) handledShortcut.current = undefined;
+    if (!active || !focused || !mountedRef.current || openingRef.current) return;
+    if (scannedUrl) {
+      // A QR or another custom website still needs website confirmation.
+      prepareWebsite(scannedUrl);
+      clearScannedUrl?.();
+      if (shortcutUrl) {
+        handledShortcut.current = shortcutUrl;
+        clearShortcut?.();
+      }
+      return;
+    }
+    if (!shortcutUrl || handledShortcut.current === shortcutUrl) return;
+    handledShortcut.current = shortcutUrl;
+    clearShortcut?.();
+    if (openInApp) {
+      let normalized: UntrustedDappUrl | undefined;
+      try {
+        normalized = normalizeUntrustedDappUrl(shortcutUrl);
+      } catch {
+        // Use the existing invalid URL handling below.
+      }
+      // The fixed shortcut uses the manual browser, never directory permission.
+      if (normalized && openInApp(normalized.url) !== false) return;
+    }
+    prepareWebsite(shortcutUrl);
+  }, [scannedUrl, shortcutUrl, active, focused, opening, clearScannedUrl, clearShortcut, openInApp, prepareWebsite]);
 
   const closeUrlSheet = () => {
     if (!urlSheetActiveRef.current || urlSheetSessionRef.current !== urlSheetSession || openingRef.current) return;

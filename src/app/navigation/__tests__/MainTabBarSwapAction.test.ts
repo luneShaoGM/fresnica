@@ -489,7 +489,7 @@ describe('Chinese FEX shortcut', () => {
     expect(navigate).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith('dapps', {
       screen: 'dapps',
-      params: { scannedUrl: 'https://fex.fresnica.com' },
+      params: { openFex: true },
     });
   });
   it('provides Activity even when Swap is unavailable, and retires the overlay callback on dismissal', () => {

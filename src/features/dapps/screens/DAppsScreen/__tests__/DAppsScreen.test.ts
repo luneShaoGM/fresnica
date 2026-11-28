@@ -354,6 +354,7 @@ describe('DAppsScreen native field and retry', () => {
       showInterfaceSample: false,
       openExternalUrl,
       scannedUrl: 'https://wallet.example.org/page',
+      openInApp: jest.fn(),
       clearScannedUrl,
     };
     beginRender();
@@ -365,9 +366,73 @@ describe('DAppsScreen native field and retry', () => {
     expect(nodes.some(node => node.props.label === 'dapps.website.confirm')).toBe(true);
     expect(nodes.some(node => node.props.children === 'https://wallet.example.org/page')).toBe(true);
     expect(openExternalUrl).not.toHaveBeenCalled();
+    expect(props.openInApp).not.toHaveBeenCalled();
     nodes.find(node => node.props.label === 'dapps.website.cancel')?.props.onPress?.();
     expect(openExternalUrl).not.toHaveBeenCalled();
   });
+
+  it('opens the fixed shortcut directly in the manual browser, only while active and focused', async () => {
+    const openInApp = jest.fn();
+    const openCatalogInApp = jest.fn();
+    const clearShortcut = jest.fn();
+    const props = {
+      catalog: { load: jest.fn().mockResolvedValue({ kind: 'unavailable' }) },
+      showInterfaceSample: false,
+      openExternalUrl: jest.fn(),
+      shortcutUrl: 'https://fex.fresnica.com',
+      clearShortcut,
+      openInApp,
+      openCatalogInApp,
+    };
+    beginRender();
+    DAppsScreen({ ...props, active: false, focused: true });
+    await settle();
+    expect(openInApp).not.toHaveBeenCalled();
+    expect(clearShortcut).not.toHaveBeenCalled();
+
+    beginRender();
+    DAppsScreen(props);
+    await settle();
+    expect(openInApp).toHaveBeenCalledTimes(1);
+    expect(openInApp).toHaveBeenCalledWith('https://fex.fresnica.com/');
+    expect(clearShortcut).toHaveBeenCalledTimes(1);
+    expect(openCatalogInApp).not.toHaveBeenCalled();
+    expect(props.openExternalUrl).not.toHaveBeenCalled();
+
+    // A re-render before navigation commits its parameter removal cannot reopen it.
+    const nextOpener = jest.fn();
+    beginRender();
+    DAppsScreen({ ...props, openInApp: nextOpener });
+    await settle();
+    expect(nextOpener).not.toHaveBeenCalled();
+
+    beginRender();
+    const nodes = elements(DAppsScreen({ ...props, shortcutUrl: undefined }));
+    expect(nodes.some(node => node.props.label === 'dapps.website.confirm')).toBe(false);
+  });
+
+  it.each([undefined, () => false])(
+    'keeps website confirmation when the shortcut cannot start the manual browser (%p)',
+    async openInApp => {
+      const props = {
+        catalog: { load: jest.fn().mockResolvedValue({ kind: 'unavailable' }) },
+        showInterfaceSample: false,
+        openExternalUrl: jest.fn(),
+        shortcutUrl: 'https://fex.fresnica.com',
+        clearShortcut: jest.fn(),
+        openInApp,
+      };
+      beginRender();
+      DAppsScreen(props);
+      await settle();
+
+      beginRender();
+      const nodes = elements(DAppsScreen({ ...props, shortcutUrl: undefined }));
+      expect(props.clearShortcut).toHaveBeenCalledTimes(1);
+      expect(nodes.some(node => node.props.label === 'dapps.website.confirm')).toBe(true);
+      expect(props.openExternalUrl).not.toHaveBeenCalled();
+    },
+  );
 
   it('shows the unconfigured catalog without a search field', async () => {
     const catalog: DappCatalogPort = { load: jest.fn().mockResolvedValue({ kind: 'unavailable' }) };

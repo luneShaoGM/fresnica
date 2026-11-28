@@ -50,7 +50,12 @@ export function readReviewableDappTransaction(
         ) {
           return undefined;
         }
-        const review = readReviewableSorobanOperation(envelope.v1.tx.operations[0], expectedSource);
+        const review = readReviewableSorobanOperation(
+          envelope.v1.tx.operations[0],
+          expectedSource,
+          networkPassphrase,
+          envelope.v1.tx.ext.sorobanData.resources.footprint.readWrite,
+        );
         if (!review) return undefined;
         operations.push(review);
         continue;

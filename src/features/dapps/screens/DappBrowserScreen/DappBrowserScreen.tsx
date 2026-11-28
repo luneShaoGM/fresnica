@@ -74,6 +74,7 @@ type PendingSignature = Readonly<{
   origin: string;
   intent: DappTransactionIntent;
   target?: DappMessageReplyTarget;
+  reviewExpiresAt?: number;
   asset?: ReviewedDappAsset;
   documentEpoch: number;
   generation: number;
@@ -331,9 +332,9 @@ export function DappBrowserScreen({
 
   const transactionTarget = useRef<DappMessageReplyTarget | undefined>(undefined);
   const transactionDeadline = useRef(0);
-  const transactionExpired = (target: DappMessageReplyTarget) =>
+  const transactionExpired = (target: DappMessageReplyTarget, reviewExpiresAt = target.expiresAt) =>
     performance.now() >= transactionDeadline.current ||
-    (target.expiresAt !== undefined && Date.now() >= target.expiresAt);
+    (reviewExpiresAt !== undefined && Date.now() >= reviewExpiresAt);
 
   const expireTransaction = (target: DappMessageReplyTarget) => {
     if (!currentSession() || transactionTarget.current?.replyId !== target.replyId) return;
@@ -376,9 +377,10 @@ export function DappBrowserScreen({
   useEffect(() => {
     const target = pendingSign?.target;
     if (!target) return;
+    const expiresAt = pendingSign.reviewExpiresAt ?? target.expiresAt;
     const remaining = Math.min(
       transactionDeadline.current - performance.now(),
-      target.expiresAt === undefined ? Infinity : target.expiresAt - Date.now(),
+      expiresAt === undefined ? Infinity : expiresAt - Date.now(),
     );
     const timer = setTimeout(() => expireTransaction(target), Math.max(0, remaining));
     return () => clearTimeout(timer);
@@ -571,7 +573,30 @@ export function DappBrowserScreen({
       if (failed) reply(failed, target);
       return;
     }
+    let reviewExpiresAt = target?.expiresAt;
+    if (
+      target &&
+      inspected.intent.operations.some(
+        operation => operation.type === 'soroban-transfer' || operation.type === 'soroban-supply-collateral',
+      )
+    ) {
+      const envelopeExpiry = Number(inspected.intent.timeBounds?.maxTime) * 1000;
+      if (Number.isSafeInteger(envelopeExpiry)) {
+        reviewExpiresAt = Math.min(envelopeExpiry, reviewExpiresAt ?? Infinity);
+        // The original native reply handle stays unchanged. Keep the shorter
+        // review budget even if the device wall clock moves backward.
+        transactionDeadline.current = Math.min(
+          transactionDeadline.current,
+          performance.now() + (reviewExpiresAt - Date.now()),
+        );
+        if (transactionExpired(target, reviewExpiresAt)) {
+          expireTransaction(target);
+          return;
+        }
+      }
+    }
     setPendingSign({
+      reviewExpiresAt,
       transactionXdrBase64: decision.transactionXdrBase64,
       origin: decision.origin,
       intent: inspected.intent,
@@ -635,7 +660,7 @@ export function DappBrowserScreen({
     if (!current || !pendingSign || signing.current || !currentSession()) return;
     const request = pendingSign;
     if (request.documentEpoch !== documentEpoch.current) return;
-    if (request.target && transactionExpired(request.target)) {
+    if (request.target && transactionExpired(request.target, request.reviewExpiresAt)) {
       expireTransaction(request.target);
       return;
     }
@@ -647,7 +672,7 @@ export function DappBrowserScreen({
       generation === signGeneration.current &&
       request.documentEpoch === documentEpoch.current &&
       request.target !== undefined &&
-      !transactionExpired(request.target);
+      !transactionExpired(request.target, request.reviewExpiresAt);
     signing.current = true;
     setSigningNow(true);
     setSignError(false);
@@ -1281,7 +1306,7 @@ export function DappBrowserScreen({
             intent={pendingSign.intent}
             submitsAsset={pendingSign.asset !== undefined}
             network={networkLabel(current.selection.networkId)}
-            expiresAt={pendingSign.target?.expiresAt}
+            expiresAt={pendingSign.reviewExpiresAt ?? pendingSign.target?.expiresAt}
             onExpired={() => {
               if (pendingSign.target) expireTransaction(pendingSign.target);
             }}

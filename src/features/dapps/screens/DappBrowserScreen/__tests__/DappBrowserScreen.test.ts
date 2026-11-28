@@ -750,6 +750,66 @@ describe('S15 browser product bridge is real but explicitly consent-gated', () =
     );
   });
 
+  it.each([1000, 5000])('closes Soroban review at the earlier deadline (native lifetime %i ms)', async lifetime => {
+    const now = 1_800_000_000_000;
+    jest.useFakeTimers({ now });
+    try {
+      const signer = jest.fn<ReturnType<DappTransactionSigner>, Parameters<DappTransactionSigner>>(async () => ({
+        status: 'ready',
+        intent: {
+          hash: 'mockhash',
+          source: 'GSOURCE',
+          sequence: '7',
+          fee: '100',
+          memo: null,
+          timeBounds: { minTime: '0', maxTime: String(now / 1000 + 2) },
+          operations: [
+            { type: 'soroban-transfer', contract: 'CDEMO', destination: 'GDEST', amount: '2', assetCode: 'XLM' },
+          ],
+        },
+      }));
+      const origin = 'https://demo.example.org';
+      const draw = () => render(true, signer);
+      draw();
+      refs[1].current = { reply: replies };
+      const webview = find(draw(), node => node.type === BrowserSurface);
+      webview?.props.onMessage?.(request('REQUEST_ACCESS', 2), origin);
+      find(draw(), node => node.type === DappConnectSheet)?.props.onAllowOnce?.();
+      replies.mockClear();
+      const target = { replyId: '74f3db5b-10b8-4abd-8198-cfc869980742', expiresAt: now + lifetime };
+      webview?.props.onMessage?.(
+        JSON.stringify({
+          source: 'FREIGHTER_EXTERNAL_MSG_REQUEST',
+          token,
+          messageId: 4,
+          type: 'SUBMIT_TRANSACTION',
+          transactionXdr: 'AAAA',
+        }),
+        origin,
+        target.replyId,
+        target.expiresAt,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+      const sheet = find(draw(), node => node.type === DappSignSheet);
+      const remaining = Math.min(lifetime, 2000);
+      expect(sheet?.props.expiresAt).toBe(now + remaining);
+      for (const effect of effects.splice(0)) effect();
+      jest.advanceTimersByTime(remaining - 1);
+      expect(replies).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(1);
+      expect(find(draw(), node => node.type === DappSignSheet)).toBeUndefined();
+      sheet?.props.onConfirm?.('late entry');
+      expect(signer).toHaveBeenCalledTimes(1);
+      expect(replies).toHaveBeenCalledWith(
+        expect.objectContaining({ messagedId: 4, error: 'request-expired' }),
+        target,
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('keeps pending permission across History API changes until a real document starts', () => {
     render();
     refs[1].current = { reply: replies };

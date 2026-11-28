@@ -12,8 +12,8 @@ export type DappSorobanIntent = Readonly<{
   contract: string;
   destination: string;
   amount: string;
-  assetCode: 'XLM';
-  assetIssuer?: never;
+  assetCode: string;
+  assetIssuer?: string;
 }>;
 
 export type DappOperationIntent =
