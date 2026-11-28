@@ -16,7 +16,7 @@ export function readReviewableDappTransaction(
     // summary does not describe the fee source or the entire signed envelope.
     const envelope = xdr.TransactionEnvelope.fromXDR(transactionXdrBase64, 'base64');
     if (envelope.type !== 'envelopeTypeTx' && envelope.type !== 'envelopeTypeTxV0') return undefined;
-
+    const soroban = envelope.type === 'envelopeTypeTx' && envelope.v1.tx.ext.type === 'sorobanData';
     const transaction = new Transaction(envelope, networkPassphrase);
     if (
       transaction.source !== expectedSource ||
@@ -38,7 +38,7 @@ export function readReviewableDappTransaction(
     if (memo.type !== 'none' && memo.type !== 'text') return undefined;
     const operations: DappOperationIntent[] = [];
     for (const operation of transaction.operations) {
-      if (envelope.type === 'envelopeTypeTx' && envelope.v1.tx.ext.type === 'sorobanData') {
+      if (soroban) {
         const expires = Number(transaction.timeBounds?.maxTime);
         if (
           networkPassphrase !== Networks.TESTNET ||
